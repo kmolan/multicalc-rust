@@ -107,12 +107,12 @@ impl LinearApproximationResult
 ///
 pub fn get(function: &dyn Fn(&Vec<f64>) -> f64, point: &Vec<f64>) -> LinearApproximationResult
 {
-    return get_custom(function, point, 0.00001, &mode::DiffMode::CentralFixedStep);
+    return get_custom(function, point, 0.00001, mode::DiffMode::CentralFixedStep);
 }
 
 
 ///same as [`get`], but for advanced users who want to control the differentiation parameters
-pub fn get_custom(function: &dyn Fn(&Vec<f64>) -> f64, point: &Vec<f64>, step_size: f64, mode: &mode::DiffMode) -> LinearApproximationResult
+pub fn get_custom(function: &dyn Fn(&Vec<f64>) -> f64, point: &Vec<f64>, step_size: f64, mode: mode::DiffMode) -> LinearApproximationResult
 {
     let mut slopes_ = vec![0.0; point.len()];
 

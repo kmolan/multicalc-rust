@@ -1,5 +1,3 @@
-use crate::math::mean as mean;
-
 pub struct FitResult
 {
     //slope and intercept are the regression results
@@ -48,8 +46,8 @@ pub fn fit(x: &Vec<f64>, y: &Vec<f64>)-> FitResult
     let num_points = x.len() as f64;
     let mut numerator = 0.0;
     let mut denominator = 0.0;
-    let x_mean = mean::get(&x);
-    let y_mean = mean::get(&y);
+    let x_mean = get_mean(&x);
+    let y_mean = get_mean(&y);
 
     for iter in 0..num_points as usize
     {
@@ -106,4 +104,17 @@ pub fn fit(x: &Vec<f64>, y: &Vec<f64>)-> FitResult
     };
 
     return result;
+}
+
+
+fn get_mean(points: &Vec<f64>) -> f64
+{
+    let mut ans = 0.0;
+
+    for iter in 0..points.len()
+    {
+        ans += points[iter];
+    }
+
+    return ans/(points.len() as f64);
 }

@@ -52,7 +52,7 @@ pub fn solve(cost_function: &dyn Fn(&Vec<f64>) -> f64,
              max_iterations: usize, 
              tolerance: &Vec<f64>) -> GdResults
 {
-    return solve_custom(cost_function, initial_state, learning_rate, max_iterations, tolerance, 0.00001, &mode::DiffMode::CentralFixedStep);
+    return solve_custom(cost_function, initial_state, learning_rate, max_iterations, tolerance, 0.00001, mode::DiffMode::CentralFixedStep);
 }
 
 
@@ -63,7 +63,7 @@ pub fn solve_custom(cost_function: &dyn Fn(&Vec<f64>) -> f64,
               max_iterations: usize, 
               tolerance: &Vec<f64>,
               step_size: f64,
-              diff_mode: &mode::DiffMode) -> GdResults
+              diff_mode: mode::DiffMode) -> GdResults
 {
     assert!(step_size != 0.0, "step size cannot be zero");
 
@@ -119,7 +119,7 @@ pub fn solve_custom(cost_function: &dyn Fn(&Vec<f64>) -> f64,
     return result;
 }
 
-fn get_gradient(cost_function: &dyn Fn(&Vec<f64>) -> f64, state: &Vec<f64>, step_size: f64, learning_rate: f64, diff_mode: &mode::DiffMode) -> Vec<f64>
+fn get_gradient(cost_function: &dyn Fn(&Vec<f64>) -> f64, state: &Vec<f64>, step_size: f64, learning_rate: f64, diff_mode: mode::DiffMode) -> Vec<f64>
 {
     let num_points = state.len();
     

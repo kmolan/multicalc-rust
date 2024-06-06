@@ -3,10 +3,10 @@ use crate::numerical_derivative::mode as mode;
 
 pub fn get(function: &dyn Fn(&Vec<f64>) -> f64, vector_of_points: &Vec<f64>) -> Vec<Vec<f64>>
 {
-    return get_custom(function, vector_of_points, 0.00001, &mode::DiffMode::CentralFixedStep);
+    return get_custom(function, vector_of_points, 0.00001, mode::DiffMode::CentralFixedStep);
 }
 
-pub fn get_custom(function: &dyn Fn(&Vec<f64>) -> f64, vector_of_points: &Vec<f64>, step_size: f64, mode: &mode::DiffMode) -> Vec<Vec<f64>>
+pub fn get_custom(function: &dyn Fn(&Vec<f64>) -> f64, vector_of_points: &Vec<f64>, step_size: f64, mode: mode::DiffMode) -> Vec<Vec<f64>>
 {
     assert!(vector_of_points.len() > 0, "points cannot be empty");
 

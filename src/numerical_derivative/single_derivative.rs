@@ -1,7 +1,7 @@
 use crate::numerical_derivative::mode as mode;
 
 
-/// Returns the single simple derivative value for a given function
+/// Returns the single total derivative value for a given function
 /// Only ideal for single variable functions
 /// 
 /// assume we want to differentiate 2*x*x the function would be:
@@ -17,23 +17,22 @@ use crate::numerical_derivative::mode as mode;
 //// if we then want to differentiate this function over x with a step size of 0.001, we would use:
 /// 
 /// use multicalc::numerical_derivative::single_derivative;
-/// use multicalc::numerical_derivative::mode::DiffMode;
 ///
-/// let val = single_derivative::get_simple(&my_func,   //<- our closure                                          
+/// let val = single_derivative::get_total(&my_func,    //<- our closure                                          
 ///                                         1.0,        //<- point around which we want to differentiate
 ///                                         0.001);     //<- required step size
 /// 
 /// assert!(f64::abs(val - 4.0) < 0.00001);
 ///```
 ///
-pub fn get_simple(func: &dyn Fn(&Vec<f64>) -> f64, point: f64, step: f64) -> f64
+pub fn get_total(func: &dyn Fn(&Vec<f64>) -> f64, point: f64, step: f64) -> f64
 {
-    return get_simple_custom(func, point, step, &mode::DiffMode::CentralFixedStep);
+    return get_total_custom(func, point, step, mode::DiffMode::CentralFixedStep);
 }
 
 
-///same as [get_simple()] but with the option to change the differentiation mode used
-pub fn get_simple_custom(func: &dyn Fn(&Vec<f64>) -> f64, point: f64, step: f64, mode: &mode::DiffMode) -> f64
+///same as [get_total()] but with the option to change the differentiation mode used, reserved for more advanced users
+pub fn get_total_custom(func: &dyn Fn(&Vec<f64>) -> f64, point: f64, step: f64, mode: mode::DiffMode) -> f64
 {
     assert!(step != 0.0, "step size cannot be zero");
 
@@ -67,7 +66,6 @@ pub fn get_simple_custom(func: &dyn Fn(&Vec<f64>) -> f64, point: f64, step: f64,
 //// if we then want to differentiate this function over x with a step size of 0.001, we would use:
 /// 
 /// use multicalc::numerical_derivative::single_derivative;
-/// use multicalc::numerical_derivative::mode::DiffMode;
 ///
 /// let val = single_derivative::get_partial(&my_func,    //<- our closure                 
 ///                                          0,           //<- index of variable we want to differentiate, in this case "x", which is 0                           
@@ -80,12 +78,12 @@ pub fn get_simple_custom(func: &dyn Fn(&Vec<f64>) -> f64, point: f64, step: f64,
 /// 
 pub fn get_partial(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_derivate: usize, point: &Vec<f64>, step: f64) -> f64
 {
-    return get_partial_custom(func, idx_to_derivate, point, step, &mode::DiffMode::CentralFixedStep);
+    return get_partial_custom(func, idx_to_derivate, point, step, mode::DiffMode::CentralFixedStep);
 }
 
 
-///same as [get_partial()] but with the option to change the differentiation mode used
-pub fn get_partial_custom(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_derivate: usize, point: &Vec<f64>, step: f64, mode: &mode::DiffMode) -> f64
+///same as [get_partial()] but with the option to change the differentiation mode used, reserved for more advanced users
+pub fn get_partial_custom(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_derivate: usize, point: &Vec<f64>, step: f64, mode: mode::DiffMode) -> f64
 {
     assert!(step != 0.0, "step size cannot be zero");
 

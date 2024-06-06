@@ -123,12 +123,12 @@ impl QuadraticApproximationResult
 ///
 pub fn get(function: &dyn Fn(&Vec<f64>) -> f64, point: &Vec<f64>) -> QuadraticApproximationResult
 {
-    return get_custom(function, point, 0.0001, &mode::DiffMode::CentralFixedStep);
+    return get_custom(function, point, 0.0001, mode::DiffMode::CentralFixedStep);
 }
 
 
 ///same as [`get`], but for advanced users who want to control the differentiation parameters
-pub fn get_custom(function: &dyn Fn(&Vec<f64>) -> f64, point: &Vec<f64>, step_size: f64, mode: &mode::DiffMode) -> QuadraticApproximationResult
+pub fn get_custom(function: &dyn Fn(&Vec<f64>) -> f64, point: &Vec<f64>, step_size: f64, mode: mode::DiffMode) -> QuadraticApproximationResult
 {
     let mut intercept_ = function(point);
 

@@ -1,9 +1,8 @@
-use crate::utils::error_checks;
 use crate::numerical_integration::mode::IntegrationMethod;
 use crate::utils::gl_table as gl_table;
 
 
-/// Returns the simple single integration value for a given function
+/// Returns the total single integration value for a given function
 /// Only ideal for single variable functions
 /// 
 /// assume we want to integrate 2*x . the function would be:
@@ -20,7 +19,7 @@ use crate::utils::gl_table as gl_table;
 /// use multicalc::numerical_integration::mode::IntegrationMethod;
 /// use multicalc::numerical_integration::single_integration;
 ///
-/// let val = single_integration::get_simple(IntegrationMethod::Trapezoidal, //<- The method for integration we want to use
+/// let val = single_integration::get_total(IntegrationMethod::Trapezoidal,  //<- The method for integration we want to use
 ///                                          &my_func,                       //<- our closure                 
 ///                                          &integration_interval,          //<- The integration interval needed                          
 ///                                          10);                            //<- number of steps
@@ -30,7 +29,7 @@ use crate::utils::gl_table as gl_table;
 /// 
 /// Note: The argument 'n' denotes the number of steps to be used. However, for [`IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
 /// 
-pub fn get_simple(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<f64>) -> f64, integration_interval: &[f64; 2], n: u64) -> f64
+pub fn get_total(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<f64>) -> f64, integration_interval: &[f64; 2], n: u64) -> f64
 {
     let point = vec![integration_interval[1]];
 
@@ -96,7 +95,7 @@ pub fn get_partial(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<f64
 
 fn get_booles(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: usize, integration_interval: &[f64; 2], point: &Vec<f64>, steps: u64) -> f64
 {
-    error_checks::check_for_integration(integration_interval, steps);
+    check_for_errors(integration_interval, steps);
 
     let mut current_vec = point.clone();
     current_vec[idx_to_integrate] = integration_interval[0];
@@ -141,7 +140,7 @@ fn get_gauss_legendre(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: usize, 
 {
     assert!(order < gl_table::MAX_GL_ORDER, "Legendre quadrature is limited up to n = {}", gl_table::MAX_GL_ORDER);
     
-    error_checks::check_for_integration(integration_interval, 100); //no 'steps' argument for this method
+    check_for_errors(integration_interval, 100); //no 'steps' argument for this method
 
     let mut ans = 0.0;
     let abcsissa_coeff = (integration_interval[1] - integration_interval[0])/2.0;
@@ -165,7 +164,7 @@ fn get_gauss_legendre(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: usize, 
 //the 3/8 rule, better than the 1/3 rule
 fn get_simpsons(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: usize, integration_interval: &[f64; 2], point: &Vec<f64>, steps: u64) -> f64
 {
-    error_checks::check_for_integration(integration_interval, steps);
+    check_for_errors(integration_interval, steps);
 
     let mut current_vec = point.clone();
     current_vec[idx_to_integrate] = integration_interval[0];
@@ -199,7 +198,7 @@ fn get_simpsons(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: usize, integr
 
 fn get_trapezoidal(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: usize, integration_interval: &[f64; 2], point: &Vec<f64>, steps: u64) -> f64
 {
-    error_checks::check_for_integration(integration_interval, steps);
+    check_for_errors(integration_interval, steps);
 
     let mut current_vec = point.clone();
     current_vec[idx_to_integrate] = integration_interval[0];
@@ -218,4 +217,10 @@ fn get_trapezoidal(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: usize, int
     ans += func(&current_vec);
 
     return 0.5*delta*ans;
+}
+
+fn check_for_errors(integration_interval: &[f64; 2], steps: u64)
+{
+    assert!(integration_interval[0] < integration_interval[1], "lower end of integration interval value must be lower than the higher value");
+    assert!(steps != 0, "number of steps cannot be zero");
 }

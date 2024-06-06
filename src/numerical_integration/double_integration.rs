@@ -2,7 +2,7 @@ use crate::numerical_integration::mode::IntegrationMethod;
 use crate::numerical_integration::single_integration;
 use crate::utils::gl_table as gl_table;
 
-/// Returns the simple double integration value for a given function
+/// Returns the total double integration value for a given function
 /// Only ideal for single variable functions
 /// 
 /// assume we want to integrate 6*x. The function would be:
@@ -20,7 +20,7 @@ use crate::utils::gl_table as gl_table;
 /// use multicalc::numerical_integration::mode::IntegrationMethod;
 /// use multicalc::numerical_integration::double_integration;
 ///
-/// let val = double_integration::get_simple(IntegrationMethod::Trapezoidal,  //<- The method for integration we want to use
+/// let val = double_integration::get_total(IntegrationMethod::Trapezoidal,   //<- The method for integration we want to use
 ///                                          &my_func,                        //<- our closure                 
 ///                                          &integration_intervals,          //<- The integration interval needed                          
 ///                                          10);                             //<- number of steps
@@ -30,7 +30,7 @@ use crate::utils::gl_table as gl_table;
 /// 
 /// Note: The argument 'n' denotes the number of steps to be used. However, for [`IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
 /// 
-pub fn get_simple(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<f64>) -> f64, integration_intervals: &[[f64; 2]; 2], n: u64) -> f64 
+pub fn get_total(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<f64>) -> f64, integration_intervals: &[[f64; 2]; 2], n: u64) -> f64 
 {
     let point = vec![integration_intervals[0][1], integration_intervals[1][1]];
 

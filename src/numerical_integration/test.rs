@@ -14,7 +14,7 @@ fn test_booles_integration_1()
     let integration_interval = [0.0, 2.0];
 
     //simple integration for x, known to be x*x, expect a value of ~4.00
-    let val = single_integration::get_simple(IntegrationMethod::Booles, &func, &integration_interval, 100);
+    let val = single_integration::get_total(IntegrationMethod::Booles, &func, &integration_interval, 100);
     assert!(f64::abs(val - 4.0) < 0.00001);
 }
 
@@ -61,7 +61,7 @@ fn test_booles_integration_3()
     let integration_intervals = [[0.0, 2.0], [0.0, 2.0]];
 
     //simple double integration for 6*x, expect a value of ~24.00
-    let val = double_integration::get_simple(IntegrationMethod::Booles, &func, &integration_intervals, 20);
+    let val = double_integration::get_total(IntegrationMethod::Booles, &func, &integration_intervals, 20);
     assert!(f64::abs(val - 24.0) < 0.00001);
 }
 
@@ -94,7 +94,7 @@ fn test_gauss_legendre_quadrature_integration_1()
     let integration_interval = [0.0, 2.0];
 
     //simple integration for x, known to be x^4 - x^3, expect a value of ~8.00
-    let val = single_integration::get_simple(IntegrationMethod::GaussLegendre, &func, &integration_interval, 2);
+    let val = single_integration::get_total(IntegrationMethod::GaussLegendre, &func, &integration_interval, 2);
     assert!(f64::abs(val - 8.0) < 0.00001);
 }
 
@@ -141,7 +141,7 @@ fn test_gauss_legendre_quadrature_integration_3()
     let integration_intervals = [[0.0, 2.0], [0.0, 2.0]];
 
     //simple double integration for 6*x, expect a value of ~24.00
-    let val = double_integration::get_simple(IntegrationMethod::GaussLegendre, &func, &integration_intervals, 2);
+    let val = double_integration::get_total(IntegrationMethod::GaussLegendre, &func, &integration_intervals, 2);
     assert!(f64::abs(val - 24.0) < 0.00001);
 }
 
@@ -157,7 +157,7 @@ fn test_simpsons_integration_1()
     let integration_interval = [0.0, 2.0];
 
     //simple integration for x, known to be x*x, expect a value of ~4.00
-    let val = single_integration::get_simple(IntegrationMethod::Simpsons, &func, &integration_interval, 200);
+    let val = single_integration::get_total(IntegrationMethod::Simpsons, &func, &integration_interval, 200);
     assert!(f64::abs(val - 4.0) < 0.05);
 }
 
@@ -204,7 +204,7 @@ fn test_simpsons_integration_3()
     let integration_intervals = [[0.0, 2.0], [0.0, 2.0]];
 
     //simple double integration for 6*x, expect a value of ~24.00
-    let val = double_integration::get_simple(IntegrationMethod::Simpsons, &func, &integration_intervals, 200);
+    let val = double_integration::get_total(IntegrationMethod::Simpsons, &func, &integration_intervals, 200);
     assert!(f64::abs(val - 24.0) < 0.05);
 }
 
@@ -237,7 +237,7 @@ fn test_trapezoidal_integration_1()
     let integration_interval = [0.0, 2.0];
 
     //simple integration for x, known to be x*x, expect a value of ~4.00
-    let val = single_integration::get_simple(IntegrationMethod::Trapezoidal, &func, &integration_interval, 10);
+    let val = single_integration::get_total(IntegrationMethod::Trapezoidal, &func, &integration_interval, 10);
     assert!(f64::abs(val - 4.0) < 0.00001);
 }
 
@@ -284,7 +284,7 @@ fn test_trapezoidal_integration_3()
     let integration_intervals = [[0.0, 2.0], [0.0, 2.0]];
 
     //simple double integration for 6*x, expect a value of ~24.00
-    let val = double_integration::get_simple(IntegrationMethod::Trapezoidal, &func, &integration_intervals, 10);
+    let val = double_integration::get_total(IntegrationMethod::Trapezoidal, &func, &integration_intervals, 10);
     assert!(f64::abs(val - 24.0) < 0.00001);
 }
 
@@ -317,7 +317,7 @@ fn test_error_checking_1()
     let integration_interval = [10.0, 1.0];
 
     //expect failure because integration interval is ill-defined (lower limit is higher than the upper limit)
-    let result = std::panic::catch_unwind(||single_integration::get_simple(IntegrationMethod::Trapezoidal, &func, &integration_interval, 10));
+    let result = std::panic::catch_unwind(||single_integration::get_total(IntegrationMethod::Trapezoidal, &func, &integration_interval, 10));
     assert!(result.is_err());
 }
 
@@ -333,7 +333,7 @@ fn test_error_checking_2()
     let integration_interval = [0.0, 1.0];
 
     //expect failure because number of steps is 0
-    let result = std::panic::catch_unwind(||single_integration::get_simple(IntegrationMethod::Trapezoidal, &func, &integration_interval, 0));
+    let result = std::panic::catch_unwind(||single_integration::get_total(IntegrationMethod::Trapezoidal, &func, &integration_interval, 0));
     assert!(result.is_err());
 }
 
@@ -349,7 +349,7 @@ fn test_error_checking_3()
     let integration_interval = [0.0, 2.0];
 
     //Gauss Legendre not valid for n < 2
-    let result = std::panic::catch_unwind(||single_integration::get_simple(IntegrationMethod::GaussLegendre, &func, &integration_interval, 1));
+    let result = std::panic::catch_unwind(||single_integration::get_total(IntegrationMethod::GaussLegendre, &func, &integration_interval, 1));
     assert!(result.is_err());
 }
 
@@ -365,6 +365,6 @@ fn test_error_checking_4()
     let integration_interval = [0.0, 2.0];
 
     //Gauss Legendre not valid for n > 20
-    let result = std::panic::catch_unwind(||single_integration::get_simple(IntegrationMethod::GaussLegendre, &func, &integration_interval, 21));
+    let result = std::panic::catch_unwind(||single_integration::get_total(IntegrationMethod::GaussLegendre, &func, &integration_interval, 21));
     assert!(result.is_err());
 }

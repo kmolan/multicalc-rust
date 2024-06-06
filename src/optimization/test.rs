@@ -103,7 +103,7 @@ fn test_gd_4()
     let max_iterations = 10000;
 
     //the passed cost_function has a known minima, expect a result of [0, 0, 0] +/- tolerance
-    let val = gd::solve_custom(&cost_function, &initial_state, learning_rate, max_iterations, &tolerance, 0.001, &mode::DiffMode::CentralFixedStep);
+    let val = gd::solve_custom(&cost_function, &initial_state, learning_rate, max_iterations, &tolerance, 0.001, mode::DiffMode::CentralFixedStep);
     
     assert!(val.final_state.len() == initial_state.len());
 
@@ -174,6 +174,6 @@ fn test_gd_7()
     let max_iterations = 0;
 
     //expect failure because step_size is 0
-    let result = std::panic::catch_unwind(||gd::solve_custom(&cost_function, &initial_state, learning_rate, max_iterations, &tolerance, step_size, &mode::DiffMode::CentralFixedStep));
+    let result = std::panic::catch_unwind(||gd::solve_custom(&cost_function, &initial_state, learning_rate, max_iterations, &tolerance, step_size, mode::DiffMode::CentralFixedStep));
     assert!(result.is_err());
 }
