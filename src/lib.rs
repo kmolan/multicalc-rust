@@ -1,0 +1,9 @@
+pub mod utils;
+pub mod math;
+pub mod numerical_integration;
+pub mod numerical_derivative;
+pub mod ode;
+pub mod interpolation;
+pub mod regression;
+pub mod optimization;
+pub mod approximation;

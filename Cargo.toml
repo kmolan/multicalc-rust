@@ -1,0 +1,20 @@
+[package]
+name = "multicalc"
+version = "1.0.0"
+authors = ["akathail <anmolkathail@gmail.com>"]
+edition = "2021"
+description = "Rust scientific computing for single and multi-variable calculus"
+repository = "https://github.com/kmolan/multicalc-rust"
+license = "MIT"
+readme = "README.md"
+#documentation = TODO
+keywords = ["Numeric", "Science", "LinearAlgebra"]
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[dependencies]
+rand = "0.8"
+nalgebra = "0.32.5"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
