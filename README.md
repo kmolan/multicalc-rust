@@ -39,7 +39,7 @@ let func = | args: &Vec<f64> | -> f64
 
 //total derivative around x = 2.0, expect a value of 2.00
 let val = single_derivative::get(&func, 2.0, 0.001);
-assert!(f64::abs(val - 2.0) < 0.05);
+assert!(f64::abs(val - 2.0) < 0.000001); //numerical error less than 1e-6
 ```
 
 ## 2. Single partial derivatives
@@ -55,17 +55,17 @@ let point = vec![1.0, 2.0, 3.0];
 //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial derivative for x is known to be y*cos(x) + cos(y) + y*e^z
 let val = single_derivative::get_partial(&func, 0, &point, 0.001);
 let expected_value = 2.0*f64::cos(1.0) + f64::cos(2.0) + 2.0*f64::exp(3.0);
-assert!(f64::abs(val - expected_value) < 0.01);
+assert!(f64::abs(val - expected_value) < 0.000001); //numerical error less than 1e-6
 
 //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial derivative for y is known to be sin(x) - x*sin(y) + x*e^z
 let val2 = single_derivative::get_partial(&func, 1, &point, 0.001);
 let expected_value_2 = f64::sin(1.0) - 1.0*f64::sin(2.0) + 1.0*f64::exp(3.0);
-assert!(f64::abs(val2 - expected_value_2) < 0.01);
+assert!(f64::abs(val2 - expected_value_2) < 0.000001); //numerical error less than 1e-6
 
 //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial derivative for z is known to be x*y*e^z
 let val2 = single_derivative::get_partial(&func, 2, &point, 0.001);
 let expected_value_3 = 1.0*2.0*f64::exp(3.0);
-assert!(f64::abs(val2 - expected_value_3) < 0.01);
+assert!(f64::abs(val2 - expected_value_3) < 0.000001); //numerical error less than 1e-6
 ```
 
 ## 3. Double total derivatives
@@ -79,7 +79,7 @@ let func = | args: &Vec<f64> | -> f64
 //double derivative at x = 1.0
 let val = double_derivative::get_simple(&func, 1.0, 0.001);
 let expected_val = 2.0*f64::cos(1.0) - 1.0*f64::sin(1.0);
-assert!(f64::abs(val - expected_val) < 0.05);
+assert!(f64::abs(val - expected_val) < 0.000001); //numerical error less than 1e-6
 ```
 
 ## 4. Double partial derivatives
@@ -96,19 +96,19 @@ let idx: [usize; 2] = [0, 0];
 //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial double derivative for x is known to be -y*sin(x)
 let val = double_derivative::get_partial(&func, &idx, &point, 0.001);
 let expected_value = -2.0*f64::sin(1.0);
-assert!(f64::abs(val - expected_value) < 0.01);
+assert!(f64::abs(val - expected_value) < 0.000001); //numerical error less than 1e-6
 
 let idx2: [usize; 2] = [1, 1];
 //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial double derivative for y is known to be -x*cos(y)
 let val2 = double_derivative::get_partial(&func, &idx2, &point, 0.001);
 let expected_value_2 = -1.0*f64::cos(2.0);
-assert!(f64::abs(val2 - expected_value_2) < 0.01);
+assert!(f64::abs(val2 - expected_value_2) < 0.000001); //numerical error less than 1e-6
 
 let idx3: [usize; 2] = [2, 2];
 //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial double derivative for z is known to be x*y*e^z
 let val2 = double_derivative::get_partial(&func, &idx3, &point, 0.001);
 let expected_value_3 = 1.0*2.0*f64::exp(3.0);
-assert!(f64::abs(val2 - expected_value_3) < 0.01);
+assert!(f64::abs(val2 - expected_value_3) < 0.000001); //numerical error less than 1e-6
 ```
 
 ## 5. Single partial integrals
@@ -124,21 +124,21 @@ let point = vec![1.0, 2.0, 3.0];
 
 //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
 let val = single_integration::get_partial(IntegrationMethod::Booles, &func, 0, &integration_interval, &point, 100);
-assert!(f64::abs(val - 7.0) < 0.00001);
+assert!(f64::abs(val - 7.0) < 0.00001); //numerical error less than 1e-5
 
 
 let integration_interval = [0.0, 2.0];
 
 //partial integration for y, known to be 2.0*x*y + y*y*z/2.0, expect a value of ~10.00 
 let val = single_integration::get_partial(IntegrationMethod::Booles, &func, 1, &integration_interval, &point, 100);
-assert!(f64::abs(val - 10.0) < 0.00001);
+assert!(f64::abs(val - 10.0) < 0.00001); //numerical error less than 1e-5
 
 
 let integration_interval = [0.0, 3.0];
 
 //partial integration for z, known to be 2.0*x*z + y*z*z/2.0, expect a value of ~15.0 
 let val = single_integration::get_partial(IntegrationMethod::Booles, &func, 2, &integration_interval, &point, 100);
-assert!(f64::abs(val - 15.0) < 0.00001);
+assert!(f64::abs(val - 15.0) < 0.00001); //numerical error less than 1e-5
 ```
 
 ## 6. Double partial integrals
@@ -154,7 +154,7 @@ let point = vec![1.0, 1.0, 1.0];
 
 //double partial integration for first x then y, expect a value of ~1.50
 let val = double_integration::get_partial(IntegrationMethod::Booles, &func, [0, 1], &integration_intervals, &point, 20);
-assert!(f64::abs(val - 1.50) < 0.00001);
+assert!(f64::abs(val - 1.50) < 0.00001);  //numerical error less than 1e-5
 ```
 
 ## 7. Jacobians
@@ -186,7 +186,7 @@ for i in 0..function_matrix.len()
 {
     for j in 0..points.len()
     {
-        assert!(f64::abs(result[i][j] - expected_result[i][j]) < 0.01);
+        assert!(f64::abs(result[i][j] - expected_result[i][j]) < 0.000001); //numerical error less than 1e-6
     }
 }
 ```
@@ -212,7 +212,7 @@ for i in 0..points.len()
 {
     for j in 0..points.len()
     {
-        assert!(f64::abs(result[i][j] - expected_result[i][j]) < 0.01);
+        assert!(f64::abs(result[i][j] - expected_result[i][j]) < 0.0001); //numerical error less than 1e-4
     }
 }
 ```
@@ -229,7 +229,7 @@ let point = vec![1.0, 2.0, 3.0]; //the point we want to linearize around
 
 let result = linear_approximation::get(&function_to_approximate, &point);
 
-assert!(f64::abs(function_to_approximate(&point) - result.get_prediction_value(&point)) < 1e-9);
+assert!(f64::abs(function_to_approximate(&point) - result.get_prediction_value(&point)) < 1e-9); //numerical error less than 1e-9
 
 //now test the prediction metrics. For prediction, generate a list of 1000 points, all centered around the original point
 //with random noise between [-0.1, +0.1) 
@@ -263,7 +263,7 @@ let point = vec![0.0, 3.14/2.0, 10.0]; //the point we want to approximate around
 
 let result = quadratic_approximation::get(&function_to_approximate, &point);
 
-assert!(f64::abs(function_to_approximate(&point) - result.get_prediction_value(&point)) < 1e-9);
+assert!(f64::abs(function_to_approximate(&point) - result.get_prediction_value(&point)) < 1e-9); //numerical error less than 1e-9
 
 //now test the prediction metrics. For prediction, generate a list of 1000 points, all centered around the original point
 //with random noise between [-0.1, +0.1) 
