@@ -8,13 +8,12 @@ repository = "https://github.com/kmolan/multicalc-rust"
 license = "MIT"
 readme = "README.md"
 #documentation = TODO
-keywords = ["Numeric", "Science", "LinearAlgebra"]
+keywords = ["Math", "Numeric", "Calculus", "Numeric Differentiation", "Numeric Integration", "Multivariable", "Science"]
 
 [badges]
 maintenance = { status = "actively-developed" }
 
 [dependencies]
 rand = "0.8"
-nalgebra = "0.32.5"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
