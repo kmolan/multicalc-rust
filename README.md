@@ -8,7 +8,7 @@ Rust scientific computing for single and multi-variable calculus
 
 - Written in pure, safe rust
 - Fully documented with code examples
-- Over 100 tests for a comprehensive full code coverage, including all possible error conditions
+- Comprehensive suite of tests for full code coverage, including all possible error conditions
 - Supports linear, polynomial, trigonometric, exponential, and any complex equation you can throw at it, of any number of variables!
   - Single, double and triple differentiation - total and partial
   - Single and double integration - total and partial
