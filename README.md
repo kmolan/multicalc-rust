@@ -222,7 +222,7 @@ let integration_limit = [0.0, 6.28];
 let val = line_integral::get2D(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
 assert!(f64::abs(val + 6.28) < 0.01);
 
-//flux integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of -2.0*pi
+//flux integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of 0.0
 let val = flux_integral::get2D(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
 assert!(f64::abs(val - 0.0) < 0.01);
 ```
