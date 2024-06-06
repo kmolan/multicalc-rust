@@ -1,6 +1,6 @@
 # multicalc-rust
 ![maintenance](https://img.shields.io/badge/maintenance-actively--developed-brightgreen.svg)
-![github](https://github.com/kmolan/multicalc-rust/actions/workflows/rust/badge.svg)
+![github](https://github.com/kmolan/multicalc-rust/actions/workflows/rust.yml/badge.svg)
 
 Rust scientific computing for single and multi-variable calculus
 
