@@ -244,3 +244,4 @@ anmolkathail@gmail.com
 - cleanup unnecessary modules
 - rework integration functions
 - add closed curve integrals 3D and more
+- Full documentation
