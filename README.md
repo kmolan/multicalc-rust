@@ -4,12 +4,6 @@
 
 Rust scientific computing for single and multi-variable calculus
 
-## TODO
-- Make all functions generic datatypes
-- cleanup unnecessary modules
-- rework integration functions
-- add closed curve integrals and more
-
 ## Salient Features
 
 - Written in pure, safe rust
@@ -290,3 +284,9 @@ assert!(prediction_metrics.mean_squared_error < 1e-5);
 assert!(prediction_metrics.r_squared > 0.99999);
 assert!(prediction_metrics.adjusted_r_squared > 0.99999);
 ```
+
+## TODO
+- Make all functions generic datatypes
+- cleanup unnecessary modules
+- rework integration functions
+- add closed curve integrals and more
