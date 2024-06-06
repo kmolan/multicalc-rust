@@ -4,27 +4,6 @@
 
 Rust scientific computing for single and multi-variable calculus
 
-## Table of Contents
-
-- [Why Peroxide?](#why-peroxide)
-  - [1. Customize features](#1-customize-features)
-  - [2. Easy to optimize](#2-easy-to-optimize)
-  - [3. Friendly syntax](#3-friendly-syntax)
-  - [4. Can choose two different coding styles](#4-can-choose-two-different-coding-styles)
-  - [5. Batteries included](#5-batteries-included)
-  - [6. Compatible with Mathematics](#6-compatible-with-mathematics)
-  - [7. Written in Rust](#7-written-in-rust)
-- [Latest README version](#latest-readme-version)
-- [Pre-requisite](#pre-requisite)
-- [Install](#install)
-- [Useful tips for features](#useful-tips-for-features)
-- [Module Structure](#module-structure)
-- [Documentation](#documentation)
-- [Examples](#examples)
-- [Release Info](#release-info)
-- [Contributes Guide](#contributes-guide)
-- [LICENSE](#license)
-
 ### 1. Single simple derivatives
 ```rust
 //function is x*x/2.0, derivative is known to be x
