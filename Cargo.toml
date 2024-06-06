@@ -1,6 +1,6 @@
 [package]
 name = "multicalc"
-version = "1.0.0"
+version = "0.1.0"
 authors = ["akathail <anmolkathail@gmail.com>"]
 edition = "2021"
 description = "Rust scientific computing for single and multi-variable calculus"
