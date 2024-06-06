@@ -204,6 +204,18 @@ let point = vec![0.0, 3.14/2.0, 10.0]; //the point we want to approximate around
 let result = quadratic_approximation::get(&function_to_approximate, &point);
 ```
 
+## Full documentation
+TODO
+
+## Contributions Guide
+See [CONTRIBUTIONS.md](./CONTRIBUTIONS.md)
+
+## LICENSE
+multicalc is licensed under the MIT license.
+
+## Contact
+For contact email refer to `authors` at [Cargo.toml](./Cargo.toml)
+
 ## TODO
 - Make all functions generic datatypes
 - cleanup unnecessary modules
