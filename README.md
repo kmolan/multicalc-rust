@@ -214,7 +214,7 @@ See [CONTRIBUTIONS.md](./CONTRIBUTIONS.md)
 multicalc is licensed under the MIT license.
 
 ## Contact
-For contact email refer to `authors` at [Cargo.toml](./Cargo.toml)
+anmolkathail@gmail.com
 
 ## TODO
 - Make all functions generic datatypes
