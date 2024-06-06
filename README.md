@@ -1,4 +1,4 @@
-# multicalc-rust
+# multicalc
 ![maintenance](https://img.shields.io/badge/maintenance-actively--developed-brightgreen.svg)
 ![github](https://github.com/kmolan/multicalc-rust/actions/workflows/rust.yml/badge.svg)
 
