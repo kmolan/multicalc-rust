@@ -4,21 +4,38 @@
 
 Rust scientific computing for single and multi-variable calculus
 
+## TODO
+- Make all functions generic datatypes
+- cleanup unnecessary modules
+- rework integration functions
+- add closed curve integrals and more
+
+## Salient Features
+
+- Written in pure, safe rust
+- Fully documented with code examples
+- Over 100 tests for a comprehensive full code coverage, including all possible error conditions
+- Supports linear, polynomial, trigonometric, exponential, and any complex equation you can throw at it, of any number of variables!
+  - Single, double and triple differentiation - total and partial
+  - Single and double integration - total and partial
+  - Jacobians and Hessians
+  - Approximation of any given equation to a linear or quadratic model
+
 ## Table of Contents
 
 
-- [1. Single simple derivatives](#1-single-simple-derivatives)
+- [1. Single total derivatives](#1-single-total-derivatives)
 - [2. Single partial derivatives](#2-single-partial-derivatives)
-- [3. Double simple derivatives](#3-double=-simple-derivatives)
+- [3. Double total derivatives](#3-double=-total-derivatives)
 - [4. Double partial derivatives](#4-double=-partial-derivative)
-- [5. Single integrals](#5-single-integrals)
-- [6. CDouble integrals](#6-double-integrals)
+- [5. Single partial integrals](#5-single-partial-integrals)
+- [6. Double partial integrals](#6-double-partial-integrals)
 - [7. Jacobians](#7-jacobians)
 - [8. Hessians](#8-hessians)
 - [9. Linear approximation](#9-linear-approximation)
 - [10. Quadratic approximation](#10-quadratic-approximation)
 
-## 1. Single simple derivatives
+## 1. Single total derivatives
 ```rust
 //function is x*x/2.0, derivative is known to be x
 let func = | args: &Vec<f64> | -> f64 
@@ -26,7 +43,7 @@ let func = | args: &Vec<f64> | -> f64
     return args[0]*args[0]/2.0;
 };
 
-//simple derivative around x = 2.0, expect a value of 2.00
+//total derivative around x = 2.0, expect a value of 2.00
 let val = single_derivative::get(&func, 2.0, 0.001);
 assert!(f64::abs(val - 2.0) < 0.05);
 ```
@@ -57,7 +74,7 @@ let expected_value_3 = 1.0*2.0*f64::exp(3.0);
 assert!(f64::abs(val2 - expected_value_3) < 0.01);
 ```
 
-## 3. Double simple derivatives
+## 3. Double total derivatives
 ```rust
 //function is x*Sin(x)
 let func = | args: &Vec<f64> | -> f64 
@@ -100,7 +117,7 @@ let expected_value_3 = 1.0*2.0*f64::exp(3.0);
 assert!(f64::abs(val2 - expected_value_3) < 0.01);
 ```
 
-## 5. Single integrals
+## 5. Single partial integrals
 ```rust
 //equation is 2.0*x + y*z
 let func = | args: &Vec<f64> | -> f64 
@@ -130,7 +147,7 @@ let val = single_integration::get_partial(IntegrationMethod::Booles, &func, 2, &
 assert!(f64::abs(val - 15.0) < 0.00001);
 ```
 
-## 6. Double integrals
+## 6. Double partial integrals
 ```rust
 //equation is 2.0*x + y*z
 let func = | args: &Vec<f64> | -> f64 
