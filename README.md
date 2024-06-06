@@ -4,7 +4,21 @@
 
 Rust scientific computing for single and multi-variable calculus
 
-### 1. Single simple derivatives
+## Table of Contents
+
+
+- [1. Single simple derivatives](#1-single-simple-derivatives)
+- [2. Single partial derivatives](#2-single-partial-derivatives)
+- [3. Double simple derivatives](#3-double=-simple-derivatives)
+- [4. Double partial derivatives](#4-double=-partial-derivative)
+- [5. Single integrals](#5-single-integrals)
+- [6. CDouble integrals](#6-double-integrals)
+- [7. Jacobians](#7-jacobians)
+- [8. Hessians](#8-hessians)
+- [9. Linear approximation](#9-linear-approximation)
+- [10. Quadratic approximation](#10-quadratic-approximation)
+
+## 1. Single simple derivatives
 ```rust
 //function is x*x/2.0, derivative is known to be x
 let func = | args: &Vec<f64> | -> f64 
@@ -17,7 +31,7 @@ let val = single_derivative::get(&func, 2.0, 0.001);
 assert!(f64::abs(val - 2.0) < 0.05);
 ```
 
-### 2. Single partial derivatives
+## 2. Single partial derivatives
 ```rust
 //function is y*sin(x) + x*cos(y) + x*y*e^z
 let func = | args: &Vec<f64> | -> f64 
@@ -43,7 +57,7 @@ let expected_value_3 = 1.0*2.0*f64::exp(3.0);
 assert!(f64::abs(val2 - expected_value_3) < 0.01);
 ```
 
-### 3. Double simple derivatives
+## 3. Double simple derivatives
 ```rust
 //function is x*Sin(x)
 let func = | args: &Vec<f64> | -> f64 
@@ -57,7 +71,7 @@ let expected_val = 2.0*f64::cos(1.0) - 1.0*f64::sin(1.0);
 assert!(f64::abs(val - expected_val) < 0.05);
 ```
 
-### 4. Double partial derivatives
+## 4. Double partial derivatives
 ```rust
 //function is y*sin(x) + x*cos(y) + x*y*e^z
 let func = | args: &Vec<f64> | -> f64 
@@ -86,7 +100,7 @@ let expected_value_3 = 1.0*2.0*f64::exp(3.0);
 assert!(f64::abs(val2 - expected_value_3) < 0.01);
 ```
 
-### 5. Single integrals
+## 5. Single integrals
 ```rust
 //equation is 2.0*x + y*z
 let func = | args: &Vec<f64> | -> f64 
@@ -116,7 +130,7 @@ let val = single_integration::get_partial(IntegrationMethod::Booles, &func, 2, &
 assert!(f64::abs(val - 15.0) < 0.00001);
 ```
 
-### 6. Double integrals
+## 6. Double integrals
 ```rust
 //equation is 2.0*x + y*z
 let func = | args: &Vec<f64> | -> f64 
@@ -132,7 +146,7 @@ let val = double_integration::get_partial(IntegrationMethod::Booles, &func, [0, 
 assert!(f64::abs(val - 1.50) < 0.00001);
 ```
 
-### 7. Jacobians
+## 7. Jacobians
 ```rust
 //function is x*y*z
 let func1 = | args: &Vec<f64> | -> f64 
@@ -166,7 +180,7 @@ for i in 0..function_matrix.len()
 }
 ```
 
-### 8. Hessians
+## 8. Hessians
 ```rust
 //function is y*sin(x) + 2*x*e^y
 let func = | args: &Vec<f64> | -> f64 
@@ -192,7 +206,7 @@ for i in 0..points.len()
 }
 ```
 
-### 9. Linear approximation
+## 9. Linear approximation
 ```rust
 //function is x + y^2 + z^3, which we want to linearize
 let function_to_approximate = | args: &Vec<f64> | -> f64 
@@ -226,7 +240,7 @@ assert!(prediction_metrics.r_squared > 0.9999);
 assert!(prediction_metrics.adjusted_r_squared > 0.9999);
 ```
 
-### 10. Quadratic approximation
+## 10. Quadratic approximation
 ```rust
 //function is e^(x/2) + sin(y) + 2.0*z
 let function_to_approximate = | args: &Vec<f64> | -> f64 
