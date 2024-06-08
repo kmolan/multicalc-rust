@@ -1,9 +1,9 @@
 
 
-///solves for the line integral for parametrized curves in a vector field
+///solves for the line integral for parametrized curves in a 2D vector field
 /// 
 /// assume a vector field, V, and a curve, C
-/// V is characterized in 2 dimensions
+/// V is characterized in 2 dimensions, Vx and Vy
 /// C is parameterized by a single variable, say, "t".
 /// We also need a transformation to go t->x and t->y
 /// The line integral limits are also based on this parameter t
@@ -58,7 +58,7 @@ pub fn get_partial_2d(vector_field: &[Box<dyn Fn(&f64, &f64) -> f64>; 2], transf
 }
 
 
-///same as [`get_2d`] but for 3 dimensional vector fields with a parameterized curve
+///same as [`get_2d`] but for parametrized curves in a 3D vector field
 pub fn get_3d(vector_field: &[Box<dyn Fn(&f64, &f64, &f64) -> f64>; 3], transformations: &[Box<dyn Fn(&f64) -> f64>; 3], integration_limit: &[f64; 2], steps: u64) -> f64
 {
     return get_partial_3d(vector_field, transformations, integration_limit, steps, 0)
