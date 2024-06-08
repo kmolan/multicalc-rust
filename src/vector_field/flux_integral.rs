@@ -25,12 +25,11 @@ use crate::vector_field::line_integral;
 /// let integration_limit = [0.0, 6.28];
 ///
 /// //flux integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of 0.0
-/// let val = flux_integral::get2D(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
+/// let val = flux_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
 /// assert!(f64::abs(val + 0.0) < 0.01);
 /// ```
-#[allow(non_snake_case)]
-pub fn get2D(vector_field: &[Box<dyn Fn(&f64, &f64) -> f64>; 2], transformations: &[Box<dyn Fn(&f64) -> f64>; 2], integration_limit: &[f64; 2], steps: u64) -> f64
+pub fn get_2d(vector_field: &[Box<dyn Fn(&f64, &f64) -> f64>; 2], transformations: &[Box<dyn Fn(&f64) -> f64>; 2], integration_limit: &[f64; 2], steps: u64) -> f64
 {
-    return line_integral::get_partial_2D(vector_field, transformations, integration_limit, steps, 0)
-         - line_integral::get_partial_2D(vector_field, transformations, integration_limit, steps, 1);
+    return line_integral::get_partial_2d(vector_field, transformations, integration_limit, steps, 0)
+         - line_integral::get_partial_2d(vector_field, transformations, integration_limit, steps, 1);
 }

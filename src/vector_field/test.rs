@@ -17,7 +17,7 @@ fn test_line_integral_1()
     let integration_limit = [0.0, 6.28];
 
     //line integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of -2.0*pi
-    let val = line_integral::get2D(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
+    let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
     println!("{}", val);
     assert!(f64::abs(val + 6.28) < 0.01);
 }
@@ -37,7 +37,7 @@ fn test_flux_integral_1()
     let integration_limit = [0.0, 6.28];
 
     //flux integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of 0.0
-    let val = flux_integral::get2D(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
+    let val = flux_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
     assert!(f64::abs(val + 0.0) < 0.01);
 }
 
@@ -55,6 +55,21 @@ fn test_curl_2d_1()
 }
 
 #[test]
+fn test_curl_3d_1()
+{
+    //vector field is (y, -x, 2*z)
+    let vector_field_matrix: [Box<dyn Fn(&Vec<f64>) -> f64>; 3] = [Box::new(|args: &Vec<f64>|-> f64 { args[1] }), Box::new(|args: &Vec<f64>|-> f64 { -args[0]}), Box::new(|args: &Vec<f64>|-> f64 { 2.0*args[2]})];
+    let point = vec![1.0, 2.0, 3.0];
+
+    //curl is known to be (0.0, 0.0, -2.0)
+    let val = curl::get_3d(&vector_field_matrix, &point);
+    //numerical error less than 1e-6
+    assert!(f64::abs(val[0] - 0.0) < 0.000001);
+    assert!(f64::abs(val[1] - 0.0) < 0.000001);
+    assert!(f64::abs(val[2] + 2.0) < 0.000001);
+}
+
+#[test]
 fn test_divergence_2d_1()
 {
     //vector field is (2*x*y, 3*cos(y))
@@ -66,3 +81,17 @@ fn test_divergence_2d_1()
     let val = divergence::get_2d(&vector_field_matrix, &point);
     assert!(f64::abs(val - 6.27) < 0.01);
 }
+
+#[test]
+fn test_divergence_3d_1()
+{
+    //vector field is (y, -x, 2*z)
+    let vector_field_matrix: [Box<dyn Fn(&Vec<f64>) -> f64>; 3] = [Box::new(|args: &Vec<f64>|-> f64 { args[1] }), Box::new(|args: &Vec<f64>|-> f64 { -args[0]}), Box::new(|args: &Vec<f64>|-> f64 { 2.0*args[2]})];
+
+    let point = vec![0.0, 1.0, 3.0]; //the point of interest
+
+    //diverge known to be 2.0 
+    let val = divergence::get_3d(&vector_field_matrix, &point);
+    assert!(f64::abs(val - 2.00) < 0.00001);
+}
+

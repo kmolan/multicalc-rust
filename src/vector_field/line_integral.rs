@@ -25,19 +25,17 @@
 /// let integration_limit = [0.0, 6.28];
 ///
 /// //line integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of -2.0*pi
-/// let val = line_integral::get2D(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
-/// println!("{}", val);
+/// let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
 /// assert!(f64::abs(val + 6.28) < 0.01);
 /// ```
-#[allow(non_snake_case)]
-pub fn get2D(vector_field: &[Box<dyn Fn(&f64, &f64) -> f64>; 2], transformations: &[Box<dyn Fn(&f64) -> f64>; 2], integration_limit: &[f64; 2], steps: u64) -> f64
+pub fn get_2d(vector_field: &[Box<dyn Fn(&f64, &f64) -> f64>; 2], transformations: &[Box<dyn Fn(&f64) -> f64>; 2], integration_limit: &[f64; 2], steps: u64) -> f64
 {
-    return get_partial_2D(vector_field, transformations, integration_limit, steps, 0)
-         + get_partial_2D(vector_field, transformations, integration_limit, steps, 1);
+    return get_partial_2d(vector_field, transformations, integration_limit, steps, 0)
+         + get_partial_2d(vector_field, transformations, integration_limit, steps, 1);
 }
 
-#[allow(non_snake_case)]
-pub fn get_partial_2D(vector_field: &[Box<dyn Fn(&f64, &f64) -> f64>; 2], transformations: &[Box<dyn Fn(&f64) -> f64>; 2], integration_limit: &[f64; 2], steps: u64, idx: usize) -> f64
+
+pub fn get_partial_2d(vector_field: &[Box<dyn Fn(&f64, &f64) -> f64>; 2], transformations: &[Box<dyn Fn(&f64) -> f64>; 2], integration_limit: &[f64; 2], steps: u64, idx: usize) -> f64
 {
     let mut ans = 0.0;
 
@@ -49,7 +47,7 @@ pub fn get_partial_2D(vector_field: &[Box<dyn Fn(&f64, &f64) -> f64>; 2], transf
     //https://ocw.mit.edu/ans7870/18/18.013a/textbook/HTML/chapter25/section04.html
     for _ in 0..steps
     {
-        let coords = get_transformed_coordinates_2D(transformations, &cur_point, &delta);
+        let coords = get_transformed_coordinates_2d(transformations, &cur_point, &delta);
 
         ans += (coords[idx + 2] - coords[idx])*(vector_field[idx](&coords[2], &coords[3]) + vector_field[idx](&coords[0], &coords[1]))/2.0;
 
@@ -60,17 +58,16 @@ pub fn get_partial_2D(vector_field: &[Box<dyn Fn(&f64, &f64) -> f64>; 2], transf
 }
 
 
-///same as [`get2D`] but for 3 dimensional vector fields with a parameterized curve
-#[allow(non_snake_case)]
-pub fn get3D(vector_field: &[Box<dyn Fn(&f64, &f64, &f64) -> f64>; 3], transformations: &[Box<dyn Fn(&f64) -> f64>; 3], integration_limit: &[f64; 2], steps: u64) -> f64
+///same as [`get_2d`] but for 3 dimensional vector fields with a parameterized curve
+pub fn get_3d(vector_field: &[Box<dyn Fn(&f64, &f64, &f64) -> f64>; 3], transformations: &[Box<dyn Fn(&f64) -> f64>; 3], integration_limit: &[f64; 2], steps: u64) -> f64
 {
-    return get_partial_3D(vector_field, transformations, integration_limit, steps, 0)
-         + get_partial_3D(vector_field, transformations, integration_limit, steps, 1)
-         + get_partial_3D(vector_field, transformations, integration_limit, steps, 2);
+    return get_partial_3d(vector_field, transformations, integration_limit, steps, 0)
+         + get_partial_3d(vector_field, transformations, integration_limit, steps, 1)
+         + get_partial_3d(vector_field, transformations, integration_limit, steps, 2);
 }
 
-#[allow(non_snake_case)]
-pub fn get_partial_3D(vector_field: &[Box<dyn Fn(&f64, &f64, &f64) -> f64>; 3], transformations: &[Box<dyn Fn(&f64) -> f64>; 3], integration_limit: &[f64; 2], steps: u64, idx: usize) -> f64
+
+pub fn get_partial_3d(vector_field: &[Box<dyn Fn(&f64, &f64, &f64) -> f64>; 3], transformations: &[Box<dyn Fn(&f64) -> f64>; 3], integration_limit: &[f64; 2], steps: u64, idx: usize) -> f64
 {
     let mut ans = 0.0;
 
@@ -82,7 +79,7 @@ pub fn get_partial_3D(vector_field: &[Box<dyn Fn(&f64, &f64, &f64) -> f64>; 3], 
     //https://ocw.mit.edu/ans7870/18/18.013a/textbook/HTML/chapter25/section04.html
     for _ in 0..steps
     {
-        let coords = get_transformed_coordinates_3D(transformations, &cur_point, &delta);
+        let coords = get_transformed_coordinates_3d(transformations, &cur_point, &delta);
 
         ans += (coords[idx + 3] - coords[idx])*(vector_field[idx](&coords[3], &coords[4], &coords[5]) + vector_field[idx](&coords[0], &coords[1], &coords[2]))/2.0;
 
@@ -94,8 +91,8 @@ pub fn get_partial_3D(vector_field: &[Box<dyn Fn(&f64, &f64, &f64) -> f64>; 3], 
 
 
 
-#[allow(non_snake_case)]
-fn get_transformed_coordinates_2D(transformations: &[Box<dyn Fn(&f64) -> f64>; 2], cur_point: &f64, time_delta: &f64) -> Vec<f64>
+
+fn get_transformed_coordinates_2d(transformations: &[Box<dyn Fn(&f64) -> f64>; 2], cur_point: &f64, time_delta: &f64) -> Vec<f64>
 {
     let mut ans = vec![0.0; 4];
 
@@ -108,8 +105,8 @@ fn get_transformed_coordinates_2D(transformations: &[Box<dyn Fn(&f64) -> f64>; 2
     return ans;
 }
 
-#[allow(non_snake_case)]
-fn get_transformed_coordinates_3D(transformations: &[Box<dyn Fn(&f64) -> f64>; 3], cur_point: &f64, time_delta: &f64) -> Vec<f64>
+
+fn get_transformed_coordinates_3d(transformations: &[Box<dyn Fn(&f64) -> f64>; 3], cur_point: &f64, time_delta: &f64) -> Vec<f64>
 {
     let mut ans = vec![0.0; 6];
 
