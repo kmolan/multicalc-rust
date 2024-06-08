@@ -1,5 +1,7 @@
+use crate::vector_field::divergence;
 use crate::vector_field::line_integral;
 use crate::vector_field::flux_integral;
+use crate::vector_field::curl;
 
 #[test]
 fn test_line_integral_1()
@@ -37,4 +39,30 @@ fn test_flux_integral_1()
     //flux integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of 0.0
     let val = flux_integral::get2D(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
     assert!(f64::abs(val + 0.0) < 0.01);
+}
+
+#[test]
+fn test_curl_2d_1()
+{
+    //vector field is (2*x*y, 3*cos(y))
+    let vector_field_matrix: [Box<dyn Fn(&Vec<f64>) -> f64>; 2] = [Box::new(|args: &Vec<f64>|-> f64 { 2.0*args[0]*args[1] }), Box::new(|args: &Vec<f64>|-> f64 { 3.0*args[1].cos() })];
+
+    let point = vec![1.0, 3.14];
+
+    //curl is known to be -2*x, expect and answer of -2.0
+    let val = curl::get_2d(&vector_field_matrix, &point);
+    assert!(f64::abs(val + 2.0) < 0.000001); //numerical error less than 1e-6
+}
+
+#[test]
+fn test_divergence_2d_1()
+{
+    //vector field is (2*x*y, 3*cos(y))
+    let vector_field_matrix: [Box<dyn Fn(&Vec<f64>) -> f64>; 2] = [Box::new(|args: &Vec<f64>|-> f64 { 2.0*args[0]*args[1] }), Box::new(|args: &Vec<f64>|-> f64 { 3.0*args[1].cos() })];
+
+    let point = vec![1.0, 3.14];
+
+    //divergence is known to be 2*y - 3*sin(y), expect and answer of 6.27
+    let val = divergence::get_2d(&vector_field_matrix, &point);
+    assert!(f64::abs(val - 6.27) < 0.01);
 }
