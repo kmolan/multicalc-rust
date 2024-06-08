@@ -13,7 +13,7 @@ Rust scientific computing for single and multi-variable calculus
   - Single, double and triple differentiation - total and partial
   - Single and double integration - total and partial
   - Jacobians and Hessians
-  - Line and flux integrals
+  - Vector Field Calculus: Line and flux integrals, curl and divergence
   - Approximation of any given equation to a linear or quadratic model
 
 ## Table of Contents

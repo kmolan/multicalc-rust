@@ -17,7 +17,7 @@
 /// Assume we have a vector field (y, -x)
 /// The curve is a unit circle, parameterized by (Cos(t), Sin(t)), such that t goes from 0->2*pi
 /// ```
-/// use multicalc::numerical_integration::line_integral;
+/// use multicalc::vector_field::line_integral;
 /// let vector_field_matrix: [Box<dyn Fn(&f64, &f64) -> f64>; 2] = [Box::new(|_:&f64, y:&f64|-> f64 { *y }), Box::new(|x:&f64, _:&f64|-> f64 { -x })];
 ///
 /// let transformation_matrix: [Box<dyn Fn(&f64) -> f64>; 2] = [Box::new(|t:&f64|->f64 { t.cos() }), Box::new(|t:&f64|->f64 { t.sin() })];
