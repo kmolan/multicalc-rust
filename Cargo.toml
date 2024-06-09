@@ -8,7 +8,7 @@ repository = "https://github.com/kmolan/multicalc-rust"
 license = "MIT"
 readme = "README.md"
 #documentation = TODO
-keywords = ["Math", "Calculus", "Differentiation", "Integration", "Vector Field"]
+keywords = ["Math", "Science", "Calculus", "Differentiation", "Integration"]
 
 [badges]
 maintenance = { status = "actively-developed" }
