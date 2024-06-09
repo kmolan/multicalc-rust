@@ -1,5 +1,4 @@
 # multicalc
-![maintenance](https://img.shields.io/badge/maintenance-actively--developed-brightgreen.svg)
 [![On crates.io](https://img.shields.io/crates/v/multicalc.svg)](https://crates.io/crates/multicalc)
 ![Downloads](https://img.shields.io/crates/d/multicalc?style=flat-square)
 ![github](https://github.com/kmolan/multicalc-rust/actions/workflows/build-tests.yml/badge.svg)
