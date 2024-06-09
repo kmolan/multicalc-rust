@@ -245,9 +245,6 @@ let val = divergence::get_2d(&vector_field_matrix, &point);
 assert!(f64::abs(val - 6.27) < 0.01);
 ```
 
-## Full documentation
-TODO
-
 ## Contributions Guide
 See [CONTRIBUTIONS.md](./CONTRIBUTIONS.md)
 
@@ -256,10 +253,3 @@ multicalc is licensed under the MIT license.
 
 ## Contact
 anmolkathail@gmail.com
-
-## TODO
-- Make all functions generic datatypes
-- cleanup unnecessary modules
-- rework integration functions
-- add closed curve integrals 3D and more
-- Full documentation
