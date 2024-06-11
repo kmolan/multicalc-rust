@@ -44,7 +44,7 @@ let func = | args: &Vec<f64> | -> f64
 };
 
 //total derivative around x = 2.0, expect a value of 2.00
-let val = single_derivative::get(&func, 2.0, 0.001);
+let val = single_derivative::get_total(&func, 2.0, 0.001);
 assert!(f64::abs(val - 2.0) < 0.000001); //numerical error less than 1e-6
 ```
 
@@ -74,7 +74,7 @@ let func = | args: &Vec<f64> | -> f64
 };
 
 //double derivative at x = 1.0
-let val = double_derivative::get_simple(&func, 1.0, 0.001);
+let val = double_derivative::get_total(&func, 1.0, 0.001);
 let expected_val = 2.0*f64::cos(1.0) - 1.0*f64::sin(1.0);
 assert!(f64::abs(val - expected_val) < 0.000001); //numerical error less than 1e-6
 ```
@@ -82,18 +82,19 @@ assert!(f64::abs(val - expected_val) < 0.000001); //numerical error less than 1e
 ## 4. Double partial derivatives
 ```rust
 //function is y*sin(x) + x*cos(y) + x*y*e^z
-let func = | args: &Vec<f64> | -> f64 
+let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
 { 
     return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
 };
 
-let point = vec![1.0, 2.0, 3.0];
+let point = vec![num_complex::c64(1.0, 3.5), num_complex::c64(2.0, 2.0), num_complex::c64(3.0, 0.0)];
 
 let idx: [usize; 2] = [0, 1]; //mixed partial double derivate d(df/dx)/dy
-//partial derivate for (x, y, z) = (1.0, 2.0, 3.0), mixed partial double derivative is known to be cos(x) - sin(y) + e^z
-let val = double_derivative::get_partial_custom(&func, &idx, &point, 0.001, &mode::DiffMode::CentralFixedStep);
-let expected_value = f64::cos(1.0) - f64::sin(2.0) + f64::exp(3.0);
-assert!(f64::abs(val - expected_value) < 0.00001); //numerical error less than 1e-6
+//partial derivate for (x, y, z) = (1.0 + 3.5i, 2.0 + 2.0i, 3.0 + 0.0i), known to be cos(x) - sin(y) + e^z
+let val = double_derivative::get_partial(&func, &idx, &point, 0.001);
+let expected_value = point[0].cos() - point[1].sin() + point[2].exp();
+assert!(num_complex::ComplexFloat::abs(val.re - expected_value.re) < 0.0001); //numerical error less than 1e-4
+assert!(num_complex::ComplexFloat::abs(val.im - expected_value.im) < 0.0001); //numerical error less than 1e-4
 ```
 
 ## 5. Single partial integrals
@@ -260,6 +261,8 @@ multicalc uses [num-complex](https://crates.io/crates/num-complex) to provide a 
 anmolkathail@gmail.com
 
 ## TODO
+- complex integration
 - Approximation crate generics
 - Complex number examples
+- &vec<T> -> &[T]
 - Gauss-Kronrod Quadrature integration

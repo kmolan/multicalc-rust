@@ -26,6 +26,29 @@ use num_complex::ComplexFloat;
 /// assert!(f64::abs(val - 24.0) < 0.00001);
 /// ```
 /// 
+/// the above example can also be extended to complex numbers
+///```
+///    let my_func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+///    { 
+///        return args[0].powf(4.0);
+///    };
+///
+//// where args[0] = x
+/// 
+/// //point of interest is x = 1.0 + 4.0i
+/// let point = num_complex::c64(1.0, 4.0);
+/// 
+/// use multicalc::numerical_derivative::triple_derivative;
+///
+/// let val = triple_derivative::get_total(&my_func,  //<- our closure                                          
+///                                        point,     //<- point around which we want to differentiate
+///                                        0.001);    //<- required step size
+/// 
+/// let expected_val = 24.0*point;
+/// assert!(num_complex::ComplexFloat::abs(val.re - expected_val.re) < 0.0001);
+/// assert!(num_complex::ComplexFloat::abs(val.im - expected_val.im) < 0.0001);
+///``` 
+/// 
 pub fn get_total<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, step: f64) -> T
 {
     return get_total_custom(func, point, step, mode::DiffMode::CentralFixedStep);
@@ -76,6 +99,29 @@ pub fn get_total_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, 
 /// 
 /// assert!(f64::abs(val - 972.0) < 0.001);
 /// ```
+/// the above example can also be extended to complex numbers
+///```
+///    let my_func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+///    { 
+///        return args[0].powf(3.0)*args[1].powf(3.0)*args[2].powf(3.0);
+///    };
+///
+//// where args[0] = x
+/// 
+/// //point of interest is (x, y, z) = (1.0 + 4.0i, 2.0 + 2.5i, 3.0 + 0.0i)
+/// let point = vec![num_complex::c64(1.0, 4.0), num_complex::c64(2.0, 2.5), num_complex::c64(3.0, 0.0)];
+/// 
+/// use multicalc::numerical_derivative::triple_derivative;
+///
+/// let val = triple_derivative::get_partial(&my_func,    //<- our closure                
+///                                          &[0, 1, 1],  //<- idx, index of variables we want to differentiate                            
+///                                          &point,      //<- point around which we want to differentiate
+///                                          0.001);      //<- required step size
+/// 
+/// let expected_val = 18.0*point[0].powf(2.0)*point[1]*point[2].powf(3.0);
+/// assert!(num_complex::ComplexFloat::abs(val.re - expected_val.re) < 0.01);
+/// assert!(num_complex::ComplexFloat::abs(val.im - expected_val.im) < 0.01);
+///``` 
 /// 
 pub fn get_partial<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: &[usize; 3], point: &Vec<T>, step: f64) -> T
 {

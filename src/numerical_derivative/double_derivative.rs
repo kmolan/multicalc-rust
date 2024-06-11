@@ -27,6 +27,29 @@ use num_complex::ComplexFloat;
 /// assert!(f64::abs(val - expected_val) < 0.00001);
 /// ```
 /// 
+/// the above example can also be extended to complex numbers:
+///```
+///    let my_func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+///    { 
+///        return args[0]*args[0].sin();
+///    };
+///
+//// where args[0] = x
+/// 
+/// //point of interest is x = (5.0 + 2.5i)
+/// let point = num_complex::c64(5.0, 2.5);
+/// 
+/// use multicalc::numerical_derivative::double_derivative;
+///
+/// let val = double_derivative::get_total(&my_func,   //<- our closure                                          
+///                                        point,      //<- point around which we want to differentiate
+///                                        0.001);     //<- required step size
+/// 
+/// let expected_val = 2.0*point.cos() - point*point.sin();
+/// assert!(num_complex::ComplexFloat::abs(val.re - expected_val.re) < 0.0001);
+/// assert!(num_complex::ComplexFloat::abs(val.im - expected_val.im) < 0.0001);
+///``` 
+/// 
 pub fn get_total<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, step: f64) -> T
 {
     return get_total_custom(func, point, step, mode::DiffMode::CentralFixedStep);
@@ -79,6 +102,30 @@ pub fn get_total_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, 
 /// let expected_value = f64::cos(1.0) - f64::sin(2.0) + f64::exp(3.0);
 /// assert!(f64::abs(val - expected_value) < 0.001);
 /// ```
+/// 
+/// the above example can also be extended to complex numbers:
+///```
+///    let my_func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+///    { 
+///        return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
+///    };
+///
+//// where args[0] = x, args[1] = y and args[2] = z
+/// 
+/// //point of interest is (x, y, z) = (1.0 + 4.0i, 2.0 + 2.5i, 3.0 + 0.0i)
+/// let point = vec![num_complex::c64(1.0, 4.0), num_complex::c64(2.0, 2.5), num_complex::c64(3.0, 0.0)];
+/// 
+/// use multicalc::numerical_derivative::double_derivative;
+///
+/// let val = double_derivative::get_partial(&my_func,   //<- our closure                
+///                                          &[0, 1],    //<- idx, index of variables we want to differentiate                            
+///                                          &point,     //<- point around which we want to differentiate
+///                                          0.001);     //<- required step size
+/// 
+/// let expected_val = point[0].cos() - point[1].sin() + point[2].exp();
+/// assert!(num_complex::ComplexFloat::abs(val.re - expected_val.re) < 0.0001);
+/// assert!(num_complex::ComplexFloat::abs(val.im - expected_val.im) < 0.0001);
+///``` 
 /// 
 pub fn get_partial<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: &[usize; 2], point: &Vec<T>, step: f64) -> T
 {
