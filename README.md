@@ -6,17 +6,6 @@
 
 Rust scientific computing for single and multi-variable calculus
 
-## Installation
-Run the following Cargo command in your project directory:
-```rust
-cargo add multicalc
-```
-
-Or add the following line to your Cargo.toml:
-```rust
-multicalc = "0.1.0"
-```
-
 ## Salient Features
 
 - Written in pure, safe rust
