@@ -1,6 +1,7 @@
 use crate::numerical_integration::mode::IntegrationMethod;
 use crate::numerical_integration::single_integration;
 use crate::utils::gl_table as gl_table;
+use num_complex::ComplexFloat;
 
 /// Returns the total double integration value for a given function
 /// Only ideal for single variable functions
@@ -30,7 +31,7 @@ use crate::utils::gl_table as gl_table;
 /// 
 /// Note: The argument 'n' denotes the number of steps to be used. However, for [`IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
 /// 
-pub fn get_total(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<f64>) -> f64, integration_limits: &[[f64; 2]; 2], n: u64) -> f64 
+pub fn get_total<T: ComplexFloat>(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<T>) -> T, integration_limits: &[[T; 2]; 2], n: u64) -> T 
 {
     let point = vec![integration_limits[0][1], integration_limits[1][1]];
 
@@ -83,7 +84,7 @@ pub fn get_total(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<f64>)
 /// 
 /// Note: The argument 'n' denotes the number of steps to be used. However, for [`IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
 /// 
-pub fn get_partial(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: [usize; 2], integration_limits: &[[f64; 2]; 2], point: &Vec<f64>, n: u64) -> f64 
+pub fn get_partial<T: ComplexFloat>(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &Vec<T>, n: u64) -> T 
 {
     match integration_method
     {
@@ -94,50 +95,50 @@ pub fn get_partial(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<f64
     }
 }
 
-fn get_booles(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: [usize; 2], integration_limits: &[[f64; 2]; 2], point: &Vec<f64>, steps: u64) -> f64
+fn get_booles<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &Vec<T>, steps: u64) -> T
 {
     let mut current_vec = point.clone();
     current_vec[idx_to_integrate[0]] = integration_limits[0][0];
 
-    let mut ans = 7.0*single_integration::get_partial(IntegrationMethod::Booles, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
+    let mut ans = T::from(7.0).unwrap()*single_integration::get_partial(IntegrationMethod::Booles, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
 
-    let delta = (integration_limits[0][1] - integration_limits[0][0])/(steps as f64);
-    let mut multiplier: f64 = 32.0;
+    let delta = (integration_limits[0][1] - integration_limits[0][0])/(T::from(steps).unwrap());
+    let mut multiplier = T::from(32.0).unwrap();
 
     for iter in 0..steps-1
     {
-        current_vec[idx_to_integrate[0]] += delta;
-        ans += multiplier*single_integration::get_partial(IntegrationMethod::Booles, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
+        current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
+        ans = ans + multiplier*single_integration::get_partial(IntegrationMethod::Booles, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
         
         if (iter + 2) % 2 != 0
         {
-            multiplier = 32.0;
+            multiplier = T::from(32.0).unwrap();
         }
         else
         {
             if (iter + 2) % 4 == 0
             {
-                multiplier = 14.0;
+                multiplier = T::from(14.0).unwrap();
             }
             else
             {
-                multiplier = 12.0;
+                multiplier = T::from(12.0).unwrap();
             }
         }
     }
 
     current_vec[idx_to_integrate[0]] = integration_limits[0][1];
 
-    ans += 7.0*single_integration::get_partial(IntegrationMethod::Booles, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
+    ans = ans + T::from(7.0).unwrap()*single_integration::get_partial(IntegrationMethod::Booles, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
 
-    return 2.0*delta*ans/45.0;
+    return T::from(2.0).unwrap()*delta*ans/T::from(45.0).unwrap();
 }
 
-fn get_gauss_legendre(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: [usize; 2], integration_limits: &[[f64; 2]; 2], point: &Vec<f64>, order: usize) -> f64
+fn get_gauss_legendre<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &Vec<T>, order: usize) -> T
 {
-    let mut ans = 0.0;
-    let abcsissa_coeff = (integration_limits[0][1] - integration_limits[0][0])/2.0;
-    let intercept = (integration_limits[0][1] + integration_limits[0][0])/2.0;
+    let mut ans = T::zero();
+    let abcsissa_coeff = (integration_limits[0][1] - integration_limits[0][0])/T::from(2.0).unwrap();
+    let intercept = (integration_limits[0][1] + integration_limits[0][0])/T::from(2.0).unwrap();
 
     let (weight, abcsissa) = gl_table::get_gl_weights_and_abscissae(order);
 
@@ -145,64 +146,64 @@ fn get_gauss_legendre(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: [usize;
 
     for iter in 0..order
     {
-        args[idx_to_integrate[0]] = abcsissa_coeff*abcsissa[iter] + intercept;
+        args[idx_to_integrate[0]] = abcsissa_coeff*T::from(abcsissa[iter]).unwrap() + intercept;
 
-        ans += weight[iter]*single_integration::get_partial(IntegrationMethod::GaussLegendre, func, idx_to_integrate[1], &integration_limits[1], point, order as u64)
+        ans = ans + T::from(weight[iter]).unwrap()*single_integration::get_partial(IntegrationMethod::GaussLegendre, func, idx_to_integrate[1], &integration_limits[1], point, order as u64)
     }
 
     return abcsissa_coeff*ans;
 }
 
-fn get_simpsons(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: [usize; 2], integration_limits: &[[f64; 2]; 2], point: &Vec<f64>, steps: u64) -> f64
+fn get_simpsons<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &Vec<T>, steps: u64) -> T
 {
     let mut current_vec = point.clone();
     current_vec[idx_to_integrate[0]] = integration_limits[0][0];
 
     let mut ans = single_integration::get_partial(IntegrationMethod::Simpsons, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
-    let delta = (integration_limits[0][1] - integration_limits[0][0])/(steps as f64);
+    let delta = (integration_limits[0][1] - integration_limits[0][0])/(T::from(steps).unwrap());
 
-    let mut multiplier = 3.0;
+    let mut multiplier = T::from(3.0).unwrap();
 
     for iter in 0..steps-1
     {
-        current_vec[idx_to_integrate[0]] += delta;
-        ans += multiplier*single_integration::get_partial(IntegrationMethod::Simpsons, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);        
+        current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
+        ans = ans + multiplier*single_integration::get_partial(IntegrationMethod::Simpsons, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);        
 
         if (iter + 2) % 3 == 0
         {
-            multiplier = 2.0;
+            multiplier = T::from(2.0).unwrap();
         }
         else
         {
-            multiplier = 3.0;
+            multiplier = T::from(3.0).unwrap();
         }
     }
 
     current_vec[idx_to_integrate[0]] = integration_limits[0][1];
 
-    ans += single_integration::get_partial(IntegrationMethod::Simpsons, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
+    ans = ans + single_integration::get_partial(IntegrationMethod::Simpsons, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
 
-    return 3.0*delta*ans/8.0;
+    return T::from(3.0).unwrap()*delta*ans/T::from(8.0).unwrap();
 }
 
-fn get_trapezoidal(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: [usize; 2], integration_limits: &[[f64; 2]; 2], point: &Vec<f64>, steps: u64) -> f64
+fn get_trapezoidal<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &Vec<T>, steps: u64) -> T
 {
     let mut current_vec = point.clone();
     current_vec[idx_to_integrate[0]] = integration_limits[0][0];
 
     let mut ans = single_integration::get_partial(IntegrationMethod::Trapezoidal, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
 
-    let delta = (integration_limits[0][1] - integration_limits[0][0])/(steps as f64);
+    let delta = (integration_limits[0][1] - integration_limits[0][0])/(T::from(steps).unwrap());
 
     for _ in 0..steps-1
     {
-        current_vec[idx_to_integrate[0]] += delta;
-        ans += 2.0*single_integration::get_partial(IntegrationMethod::Trapezoidal, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);  
+        current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
+        ans = ans + T::from(2.0).unwrap()*single_integration::get_partial(IntegrationMethod::Trapezoidal, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);  
     }
 
     current_vec[idx_to_integrate[0]] = integration_limits[0][1];
 
-    ans += single_integration::get_partial(IntegrationMethod::Trapezoidal, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
+    ans = ans + single_integration::get_partial(IntegrationMethod::Trapezoidal, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
 
-    return 0.5*delta*ans;
+    return T::from(0.5).unwrap()*delta*ans;
 }

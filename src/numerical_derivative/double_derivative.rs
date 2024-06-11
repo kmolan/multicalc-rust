@@ -1,5 +1,6 @@
 use crate::numerical_derivative::single_derivative;
 use crate::numerical_derivative::mode as mode;
+use num_complex::ComplexFloat;
 
 /// Returns the double total derivative value for a given function
 /// Only ideal for single variable functions
@@ -26,14 +27,14 @@ use crate::numerical_derivative::mode as mode;
 /// assert!(f64::abs(val - expected_val) < 0.00001);
 /// ```
 /// 
-pub fn get_total(func: &dyn Fn(&Vec<f64>) -> f64, point: f64, step: f64) -> f64
+pub fn get_total<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, step: f64) -> T
 {
     return get_total_custom(func, point, step, mode::DiffMode::CentralFixedStep);
 }
 
 
 ///same as [get_total()] but with the option to change the differentiation mode used, reserved for more advanced users
-pub fn get_total_custom(func: &dyn Fn(&Vec<f64>) -> f64, point: f64, step: f64, mode: mode::DiffMode) -> f64
+pub fn get_total_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, step: f64, mode: mode::DiffMode) -> T
 {
     let vec_point = vec![point];
 
@@ -79,13 +80,13 @@ pub fn get_total_custom(func: &dyn Fn(&Vec<f64>) -> f64, point: f64, step: f64, 
 /// assert!(f64::abs(val - expected_value) < 0.001);
 /// ```
 /// 
-pub fn get_partial(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_derivate: &[usize; 2], point: &Vec<f64>, step: f64) -> f64
+pub fn get_partial<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: &[usize; 2], point: &Vec<T>, step: f64) -> T
 {
     return get_partial_custom(func, idx_to_derivate, point, step, mode::DiffMode::CentralFixedStep);
 }
 
 ///same as [get_partial()] but with the option to change the differentiation mode used, reserved for more advanced users
-pub fn get_partial_custom(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_derivate: &[usize; 2], point: &Vec<f64>, step: f64, mode: mode::DiffMode) -> f64
+pub fn get_partial_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: &[usize; 2], point: &Vec<T>, step: f64, mode: mode::DiffMode) -> T
 {
     match mode
     {
@@ -97,38 +98,38 @@ pub fn get_partial_custom(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_derivate: &[us
 
 
 
-pub fn get_forward_difference(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_derivate: &[usize; 2], point: &Vec<f64>, step: f64) -> f64
+pub fn get_forward_difference<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: &[usize; 2], point: &Vec<T>, step: f64) -> T
 {
     let f0 = single_derivative::get_partial_custom(func, idx_to_derivate[1], point, step, mode::DiffMode::ForwardFixedStep);
 
     let mut f1_point = point.clone();
-    f1_point[idx_to_derivate[0]] += step;
+    f1_point[idx_to_derivate[0]] = f1_point[idx_to_derivate[0]] + T::from(step).unwrap();
     let f1 = single_derivative::get_partial_custom(func, idx_to_derivate[1], &f1_point, step, mode::DiffMode::ForwardFixedStep);
 
-    return (f1 - f0)/step;
+    return (f1 - f0)/T::from(step).unwrap();
 }
 
-pub fn get_backward_difference(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_derivate: &[usize; 2], point: &Vec<f64>, step: f64) -> f64
+pub fn get_backward_difference<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: &[usize; 2], point: &Vec<T>, step: f64) -> T
 {
     let mut f0_point = point.clone();
-    f0_point[idx_to_derivate[0]] -= step;
+    f0_point[idx_to_derivate[0]] = f0_point[idx_to_derivate[0]] - T::from(step).unwrap();
     let f0 = single_derivative::get_partial_custom(func, idx_to_derivate[1], &f0_point, step, mode::DiffMode::BackwardFixedStep);
 
     let f1 = single_derivative::get_partial_custom(func, idx_to_derivate[1], point, step, mode::DiffMode::BackwardFixedStep);
 
-    return (f1 - f0)/step;
+    return (f1 - f0)/T::from(step).unwrap();
 }
 
-pub fn get_central_difference(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_derivate: &[usize; 2], point: &Vec<f64>, step: f64) -> f64
+pub fn get_central_difference<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: &[usize; 2], point: &Vec<T>, step: f64) -> T
 {
     let mut f0_point = point.clone();
-    f0_point[idx_to_derivate[0]] -= step;
+    f0_point[idx_to_derivate[0]] = f0_point[idx_to_derivate[0]] - T::from(step).unwrap();
     let f0 = single_derivative::get_partial_custom(func, idx_to_derivate[1], &f0_point, step, mode::DiffMode::CentralFixedStep);
 
     let mut f1_point = point.clone();
-    f1_point[idx_to_derivate[0]] += step;
+    f1_point[idx_to_derivate[0]] = f1_point[idx_to_derivate[0]] + T::from(step).unwrap();
     let f1 = single_derivative::get_partial_custom(func, idx_to_derivate[1], &f1_point, step, mode::DiffMode::CentralFixedStep);
 
-    return (f1 - f0)/(2.0*step);
+    return (f1 - f0)/(T::from(2.0*step).unwrap());
 }
 

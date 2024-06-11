@@ -1,5 +1,6 @@
 use crate::numerical_integration::mode::IntegrationMethod;
 use crate::utils::gl_table as gl_table;
+use num_complex::ComplexFloat;
 
 
 /// Returns the total single integration value for a given function
@@ -29,7 +30,7 @@ use crate::utils::gl_table as gl_table;
 /// 
 /// Note: The argument 'n' denotes the number of steps to be used. However, for [`IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
 /// 
-pub fn get_total(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<f64>) -> f64, integration_limit: &[f64; 2], n: u64) -> f64
+pub fn get_total<T: ComplexFloat>(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<T>) -> T, integration_limit: &[T; 2], n: u64) -> T
 {
     let point = vec![integration_limit[1]];
 
@@ -82,7 +83,7 @@ pub fn get_total(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<f64>)
 /// 
 /// Note: The argument 'n' denotes the number of steps to be used. However, for [`IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
 /// 
-pub fn get_partial(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: usize, integration_limit: &[f64; 2], point: &Vec<f64>, n: u64) -> f64
+pub fn get_partial<T: ComplexFloat>(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &Vec<T>, n: u64) -> T
 {
     match integration_method
     {
@@ -93,58 +94,58 @@ pub fn get_partial(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<f64
     }
 }
 
-fn get_booles(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: usize, integration_limit: &[f64; 2], point: &Vec<f64>, steps: u64) -> f64
+fn get_booles<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &Vec<T>, steps: u64) -> T
 {
     check_for_errors(integration_limit, steps);
 
     let mut current_vec = point.clone();
     current_vec[idx_to_integrate] = integration_limit[0];
 
-    let mut ans = 7.0*func(&current_vec);
-    let delta = (integration_limit[1] - integration_limit[0])/(steps as f64);
+    let mut ans = T::from(7.0).unwrap()*func(&current_vec);
+    let delta = (integration_limit[1] - integration_limit[0])/(T::from(steps).unwrap());
 
-    let mut multiplier: f64 = 32.0;
+    let mut multiplier = T::from(32.0).unwrap();
 
     for iter in 0..steps-1
     {
-        current_vec[idx_to_integrate] += delta;
-        ans += multiplier*func(&current_vec);
+        current_vec[idx_to_integrate] = current_vec[idx_to_integrate] + delta;
+        ans = ans + multiplier*func(&current_vec);
         
         if (iter + 2) % 2 != 0
         {
-            multiplier = 32.0;
+            multiplier = T::from(32.0).unwrap();
         }
         else
         {
             if (iter + 2) % 4 == 0
             {
-                multiplier = 14.0;
+                multiplier = T::from(14.0).unwrap();
             }
             else
             {
-                multiplier = 12.0;
+                multiplier = T::from(12.0).unwrap();
             }
         }
     }
 
     current_vec[idx_to_integrate] = integration_limit[1];
 
-    ans += 7.0*func(&current_vec);
+    ans = ans + T::from(7.0).unwrap()*func(&current_vec);
 
-    return 2.0*delta*ans/45.0;
+    return T::from(2.0).unwrap()*delta*ans/T::from(45.0).unwrap();
 }
 
 
 //must know the highest order of the equation
-fn get_gauss_legendre(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: usize, integration_limit: &[f64; 2], point: &Vec<f64>, order: usize) -> f64
+fn get_gauss_legendre<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &Vec<T>, order: usize) -> T
 {
     assert!(order < gl_table::MAX_GL_ORDER, "Legendre quadrature is limited up to n = {}", gl_table::MAX_GL_ORDER);
     
     check_for_errors(integration_limit, 100); //no 'steps' argument for this method
 
-    let mut ans = 0.0;
-    let abcsissa_coeff = (integration_limit[1] - integration_limit[0])/2.0;
-    let intercept = (integration_limit[1] + integration_limit[0])/2.0;
+    let mut ans = T::zero();
+    let abcsissa_coeff = (integration_limit[1] - integration_limit[0])/T::from(2.0).unwrap();
+    let intercept = (integration_limit[1] + integration_limit[0])/T::from(2.0).unwrap();
 
     let (weight, abcsissa) = gl_table::get_gl_weights_and_abscissae(order);
 
@@ -152,9 +153,9 @@ fn get_gauss_legendre(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: usize, 
 
     for iter in 0..order
     {
-        args[idx_to_integrate] = abcsissa_coeff*abcsissa[iter] + intercept;
+        args[idx_to_integrate] = abcsissa_coeff*T::from(abcsissa[iter]).unwrap() + intercept;
 
-        ans += weight[iter]*func(&args);
+        ans = ans + T::from(weight[iter]).unwrap()*func(&args);
     }
 
     return abcsissa_coeff*ans;
@@ -162,7 +163,7 @@ fn get_gauss_legendre(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: usize, 
 
 //TODO: add the 1/3 rule also
 //the 3/8 rule, better than the 1/3 rule
-fn get_simpsons(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: usize, integration_limit: &[f64; 2], point: &Vec<f64>, steps: u64) -> f64
+fn get_simpsons<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &Vec<T>, steps: u64) -> T
 {
     check_for_errors(integration_limit, steps);
 
@@ -170,33 +171,33 @@ fn get_simpsons(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: usize, integr
     current_vec[idx_to_integrate] = integration_limit[0];
 
     let mut ans = func(&current_vec);
-    let delta = (integration_limit[1] - integration_limit[0])/(steps as f64);
+    let delta = (integration_limit[1] - integration_limit[0])/(T::from(steps).unwrap());
 
-    let mut multiplier = 3.0;
+    let mut multiplier = T::from(3.0).unwrap();
 
     for iter in 0..steps-1
     {
-        current_vec[idx_to_integrate] += delta;
-        ans += multiplier*func(&current_vec);        
+        current_vec[idx_to_integrate] = current_vec[idx_to_integrate] + delta;
+        ans = ans + multiplier*func(&current_vec);        
 
         if (iter + 2) % 3 == 0
         {
-            multiplier = 2.0;
+            multiplier = T::from(2.0).unwrap();
         }
         else
         {
-            multiplier = 3.0;
+            multiplier = T::from(3.0).unwrap();
         }
     }
 
     current_vec[idx_to_integrate] = integration_limit[1];
 
-    ans += func(&current_vec);
+    ans = ans + func(&current_vec);
 
-    return 3.0*delta*ans/8.0;
+    return T::from(3.0).unwrap()*delta*ans/T::from(8.0).unwrap();
 }
 
-fn get_trapezoidal(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: usize, integration_limit: &[f64; 2], point: &Vec<f64>, steps: u64) -> f64
+fn get_trapezoidal<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &Vec<T>, steps: u64) -> T
 {
     check_for_errors(integration_limit, steps);
 
@@ -204,23 +205,23 @@ fn get_trapezoidal(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_integrate: usize, int
     current_vec[idx_to_integrate] = integration_limit[0];
 
     let mut ans = func(&current_vec);
-    let delta = (integration_limit[1] - integration_limit[0])/(steps as f64);
+    let delta = (integration_limit[1] - integration_limit[0])/(T::from(steps).unwrap());
 
     for _ in 0..steps-1
     {
-        current_vec[idx_to_integrate] += delta;
-        ans += 2.0*func(&current_vec);        
+        current_vec[idx_to_integrate] = current_vec[idx_to_integrate] + delta;
+        ans = ans + T::from(2.0).unwrap()*func(&current_vec);        
     }
     
     current_vec[idx_to_integrate] = integration_limit[1];
 
-    ans += func(&current_vec);
+    ans = ans + func(&current_vec);
 
-    return 0.5*delta*ans;
+    return T::from(0.5).unwrap()*delta*ans;
 }
 
-fn check_for_errors(integration_limit: &[f64; 2], steps: u64)
+fn check_for_errors<T: ComplexFloat>(integration_limit: &[T; 2], steps: u64)
 {
-    assert!(integration_limit[0] < integration_limit[1], "lower end of integration interval value must be lower than the higher value");
+    assert!(integration_limit[0].abs() < integration_limit[1].abs(), "lower end of integration interval value must be lower than the higher value");
     assert!(steps != 0, "number of steps cannot be zero");
 }

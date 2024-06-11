@@ -1,4 +1,6 @@
 use crate::vector_field::line_integral;
+use num_complex::ComplexFloat;
+
 
 ///solves for the flux integral for parametrized curves in a vector field
 /// 
@@ -28,7 +30,7 @@ use crate::vector_field::line_integral;
 /// let val = flux_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
 /// assert!(f64::abs(val + 0.0) < 0.01);
 /// ```
-pub fn get_2d(vector_field: &[Box<dyn Fn(&f64, &f64) -> f64>; 2], transformations: &[Box<dyn Fn(&f64) -> f64>; 2], integration_limit: &[f64; 2], steps: u64) -> f64
+pub fn get_2d<T: ComplexFloat>(vector_field: &[Box<dyn Fn(&T, &T) -> T>; 2], transformations: &[Box<dyn Fn(&T) -> T>; 2], integration_limit: &[T; 2], steps: u64) -> T
 {
     return line_integral::get_partial_2d(vector_field, transformations, integration_limit, steps, 0)
          - line_integral::get_partial_2d(vector_field, transformations, integration_limit, steps, 1);

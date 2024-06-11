@@ -1,4 +1,4 @@
-
+use num_complex::ComplexFloat;
 
 ///solves for the line integral for parametrized curves in a 2D vector field
 /// 
@@ -28,20 +28,20 @@
 /// let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
 /// assert!(f64::abs(val + 6.28) < 0.01);
 /// ```
-pub fn get_2d(vector_field: &[Box<dyn Fn(&f64, &f64) -> f64>; 2], transformations: &[Box<dyn Fn(&f64) -> f64>; 2], integration_limit: &[f64; 2], steps: u64) -> f64
+pub fn get_2d<T: ComplexFloat>(vector_field: &[Box<dyn Fn(&T, &T) -> T>; 2], transformations: &[Box<dyn Fn(&T) -> T>; 2], integration_limit: &[T; 2], steps: u64) -> T
 {
     return get_partial_2d(vector_field, transformations, integration_limit, steps, 0)
          + get_partial_2d(vector_field, transformations, integration_limit, steps, 1);
 }
 
 
-pub fn get_partial_2d(vector_field: &[Box<dyn Fn(&f64, &f64) -> f64>; 2], transformations: &[Box<dyn Fn(&f64) -> f64>; 2], integration_limit: &[f64; 2], steps: u64, idx: usize) -> f64
+pub fn get_partial_2d<T: ComplexFloat>(vector_field: &[Box<dyn Fn(&T, &T) -> T>; 2], transformations: &[Box<dyn Fn(&T) -> T>; 2], integration_limit: &[T; 2], steps: u64, idx: usize) -> T
 {
-    let mut ans = 0.0;
+    let mut ans = T::zero();
 
     let mut cur_point = integration_limit[0];
 
-    let delta = (integration_limit[1] - integration_limit[0])/(steps as f64);
+    let delta = (integration_limit[1] - integration_limit[0])/(T::from(steps).unwrap());
 
     //use the trapezoidal rule for line integrals
     //https://ocw.mit.edu/ans7870/18/18.013a/textbook/HTML/chapter25/section04.html
@@ -49,9 +49,9 @@ pub fn get_partial_2d(vector_field: &[Box<dyn Fn(&f64, &f64) -> f64>; 2], transf
     {
         let coords = get_transformed_coordinates_2d(transformations, &cur_point, &delta);
 
-        ans += (coords[idx + 2] - coords[idx])*(vector_field[idx](&coords[2], &coords[3]) + vector_field[idx](&coords[0], &coords[1]))/2.0;
+        ans = ans + (coords[idx + 2] - coords[idx])*(vector_field[idx](&coords[2], &coords[3]) + vector_field[idx](&coords[0], &coords[1]))/(T::from(2.0).unwrap());
 
-        cur_point += delta;
+        cur_point = cur_point + delta;
     }
 
     return ans;
@@ -59,7 +59,7 @@ pub fn get_partial_2d(vector_field: &[Box<dyn Fn(&f64, &f64) -> f64>; 2], transf
 
 
 ///same as [`get_2d`] but for parametrized curves in a 3D vector field
-pub fn get_3d(vector_field: &[Box<dyn Fn(&f64, &f64, &f64) -> f64>; 3], transformations: &[Box<dyn Fn(&f64) -> f64>; 3], integration_limit: &[f64; 2], steps: u64) -> f64
+pub fn get_3d<T: ComplexFloat>(vector_field: &[Box<dyn Fn(&T, &T, &T) -> T>; 3], transformations: &[Box<dyn Fn(&T) -> T>; 3], integration_limit: &[T; 2], steps: u64) -> T
 {
     return get_partial_3d(vector_field, transformations, integration_limit, steps, 0)
          + get_partial_3d(vector_field, transformations, integration_limit, steps, 1)
@@ -67,13 +67,13 @@ pub fn get_3d(vector_field: &[Box<dyn Fn(&f64, &f64, &f64) -> f64>; 3], transfor
 }
 
 
-pub fn get_partial_3d(vector_field: &[Box<dyn Fn(&f64, &f64, &f64) -> f64>; 3], transformations: &[Box<dyn Fn(&f64) -> f64>; 3], integration_limit: &[f64; 2], steps: u64, idx: usize) -> f64
+pub fn get_partial_3d<T: ComplexFloat>(vector_field: &[Box<dyn Fn(&T, &T, &T) -> T>; 3], transformations: &[Box<dyn Fn(&T) -> T>; 3], integration_limit: &[T; 2], steps: u64, idx: usize) -> T
 {
-    let mut ans = 0.0;
+    let mut ans = T::zero();
 
     let mut cur_point = integration_limit[0];
 
-    let delta = (integration_limit[1] - integration_limit[0])/(steps as f64);
+    let delta = (integration_limit[1] - integration_limit[0])/(T::from(steps).unwrap());
 
     //use the trapezoidal rule for line integrals
     //https://ocw.mit.edu/ans7870/18/18.013a/textbook/HTML/chapter25/section04.html
@@ -81,9 +81,9 @@ pub fn get_partial_3d(vector_field: &[Box<dyn Fn(&f64, &f64, &f64) -> f64>; 3], 
     {
         let coords = get_transformed_coordinates_3d(transformations, &cur_point, &delta);
 
-        ans += (coords[idx + 3] - coords[idx])*(vector_field[idx](&coords[3], &coords[4], &coords[5]) + vector_field[idx](&coords[0], &coords[1], &coords[2]))/2.0;
+        ans = ans + (coords[idx + 3] - coords[idx])*(vector_field[idx](&coords[3], &coords[4], &coords[5]) + vector_field[idx](&coords[0], &coords[1], &coords[2]))/(T::from(2.0).unwrap());
 
-        cur_point += delta;
+        cur_point = cur_point + delta;
     }
 
     return ans;
@@ -92,31 +92,31 @@ pub fn get_partial_3d(vector_field: &[Box<dyn Fn(&f64, &f64, &f64) -> f64>; 3], 
 
 
 
-fn get_transformed_coordinates_2d(transformations: &[Box<dyn Fn(&f64) -> f64>; 2], cur_point: &f64, time_delta: &f64) -> Vec<f64>
+fn get_transformed_coordinates_2d<T: ComplexFloat>(transformations: &[Box<dyn Fn(&T) -> T>; 2], cur_point: &T, delta: &T) -> Vec<T>
 {
-    let mut ans = vec![0.0; 4];
+    let mut ans = vec![T::zero(); 4];
 
     ans[0] = transformations[0](cur_point); //x at t
     ans[1] = transformations[1](cur_point); //y at t
 
-    ans[2] = transformations[0](&(cur_point + time_delta)); //x at t + delta
-    ans[3] = transformations[1](&(cur_point + time_delta)); //y at t + delta
+    ans[2] = transformations[0](&(*cur_point + *delta)); //x at t + delta
+    ans[3] = transformations[1](&(*cur_point + *delta)); //y at t + delta
 
     return ans;
 }
 
 
-fn get_transformed_coordinates_3d(transformations: &[Box<dyn Fn(&f64) -> f64>; 3], cur_point: &f64, time_delta: &f64) -> Vec<f64>
+fn get_transformed_coordinates_3d<T: ComplexFloat>(transformations: &[Box<dyn Fn(&T) -> T>; 3], cur_point: &T, delta: &T) -> Vec<T>
 {
-    let mut ans = vec![0.0; 6];
+    let mut ans = vec![T::zero(); 6];
 
     ans[0] = transformations[0](cur_point); //x at t
     ans[1] = transformations[1](cur_point); //y at t
     ans[2] = transformations[1](cur_point); //z at t
 
-    ans[3] = transformations[0](&(cur_point + time_delta)); //x at t + delta
-    ans[4] = transformations[1](&(cur_point + time_delta)); //y at t + delta
-    ans[5] = transformations[1](&(cur_point + time_delta)); //z at t + delta
+    ans[3] = transformations[0](&(*cur_point + *delta)); //x at t + delta
+    ans[4] = transformations[1](&(*cur_point + *delta)); //y at t + delta
+    ans[5] = transformations[1](&(*cur_point + *delta)); //z at t + delta
 
     return ans;
 }

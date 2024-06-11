@@ -22,6 +22,7 @@ multicalc = "0.1.0"
 - Written in pure, safe rust
 - Fully documented with code examples
 - Comprehensive suite of tests for full code coverage, including all possible error conditions
+- Trait-based generic functions to support floating point and complex numbers
 - Supports linear, polynomial, trigonometric, exponential, and any complex equation you can throw at it, of any number of variables!
   - Single, double and triple differentiation - total and partial
   - Single and double integration - total and partial
@@ -263,5 +264,13 @@ See [CONTRIBUTIONS.md](./CONTRIBUTIONS.md)
 ## LICENSE
 multicalc is licensed under the MIT license.
 
+## Acknowledgements
+multicalc uses [num-complex](https://crates.io/crates/num-complex) to provide a generic functionality for all floating type and complex numbers
+
 ## Contact
 anmolkathail@gmail.com
+
+## TODO
+- Approximation crate generics
+- Complex number examples
+- Gauss-Kronrod Quadrature integration

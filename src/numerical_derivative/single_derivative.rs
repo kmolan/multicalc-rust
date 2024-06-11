@@ -1,5 +1,5 @@
 use crate::numerical_derivative::mode as mode;
-
+use num_complex::ComplexFloat;
 
 /// Returns the single total derivative value for a given function
 /// Only ideal for single variable functions
@@ -25,14 +25,14 @@ use crate::numerical_derivative::mode as mode;
 /// assert!(f64::abs(val - 4.0) < 0.00001);
 ///```
 ///
-pub fn get_total(func: &dyn Fn(&Vec<f64>) -> f64, point: f64, step: f64) -> f64
+pub fn get_total<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, step: f64) -> T
 {
     return get_total_custom(func, point, step, mode::DiffMode::CentralFixedStep);
 }
 
 
 ///same as [get_total()] but with the option to change the differentiation mode used, reserved for more advanced users
-pub fn get_total_custom(func: &dyn Fn(&Vec<f64>) -> f64, point: f64, step: f64, mode: mode::DiffMode) -> f64
+pub fn get_total_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, step: f64, mode: mode::DiffMode) -> T
 {
     assert!(step != 0.0, "step size cannot be zero");
 
@@ -76,14 +76,14 @@ pub fn get_total_custom(func: &dyn Fn(&Vec<f64>) -> f64, point: f64, step: f64, 
 /// assert!(f64::abs(val - expected_value) < 0.00001);
 ///```
 /// 
-pub fn get_partial(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_derivate: usize, point: &Vec<f64>, step: f64) -> f64
+pub fn get_partial<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: usize, point: &Vec<T>, step: f64) -> T
 {
     return get_partial_custom(func, idx_to_derivate, point, step, mode::DiffMode::CentralFixedStep);
 }
 
 
 ///same as [get_partial()] but with the option to change the differentiation mode used, reserved for more advanced users
-pub fn get_partial_custom(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_derivate: usize, point: &Vec<f64>, step: f64, mode: mode::DiffMode) -> f64
+pub fn get_partial_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: usize, point: &Vec<T>, step: f64, mode: mode::DiffMode) -> T
 {
     assert!(step != 0.0, "step size cannot be zero");
 
@@ -100,42 +100,42 @@ pub fn get_partial_custom(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_derivate: usiz
     }
 }
 
-fn get_forward_difference(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_derivate: usize, point: &Vec<f64>, step: f64) -> f64
+fn get_forward_difference<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: usize, point: &Vec<T>, step: f64) -> T
 {
     let f0_args = point;
 
     let mut f1_args = point.clone();
-    f1_args[idx_to_derivate] += step; 
+    f1_args[idx_to_derivate] = f1_args[idx_to_derivate] + T::from(step).unwrap(); 
 
-    let f0: f64 = func(&f0_args);
-    let f1: f64 = func(&f1_args);
+    let f0 = func(&f0_args);
+    let f1 = func(&f1_args);
 
-    return (f1 - f0)/step;
+    return (f1 - f0)/T::from(step).unwrap();
 }
 
-fn get_backward_difference(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_derivate: usize, point: &Vec<f64>, step: f64) -> f64
+fn get_backward_difference<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: usize, point: &Vec<T>, step: f64) -> T
 {
     let mut f0_args = point.clone();
-    f0_args[idx_to_derivate] -= step; 
+    f0_args[idx_to_derivate] = f0_args[idx_to_derivate] - T::from(step).unwrap(); 
 
     let f1_args = point;
 
-    let f0: f64 = func(&f0_args);
-    let f1: f64 = func(&f1_args);
+    let f0 = func(&f0_args);
+    let f1 = func(&f1_args);
 
-    return (f1 - f0)/step;
+    return (f1 - f0)/T::from(step).unwrap();
 }
 
-fn get_central_difference(func: &dyn Fn(&Vec<f64>) -> f64, idx_to_derivate: usize, point: &Vec<f64>, step: f64) -> f64
+fn get_central_difference<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: usize, point: &Vec<T>, step: f64) -> T
 {
     let mut f0_args = point.clone();
-    f0_args[idx_to_derivate] -= step;
+    f0_args[idx_to_derivate] = f0_args[idx_to_derivate] - T::from(step).unwrap();
 
     let mut f1_args = point.clone();
-    f1_args[idx_to_derivate] += step; 
+    f1_args[idx_to_derivate] = f1_args[idx_to_derivate] + T::from(step).unwrap(); 
 
-    let f0: f64 = func(&f0_args);
-    let f1: f64 = func(&f1_args);
+    let f0 = func(&f0_args);
+    let f1 = func(&f1_args);
 
-    return (f1 - f0)/(2.0*step);
+    return (f1 - f0)/(T::from(2.0*step).unwrap());
 }

@@ -1,16 +1,17 @@
 use crate::numerical_derivative::double_derivative as double_derivative;
 use crate::numerical_derivative::mode as mode;
+use num_complex::ComplexFloat;
 
-pub fn get(function: &dyn Fn(&Vec<f64>) -> f64, vector_of_points: &Vec<f64>) -> Vec<Vec<f64>>
+pub fn get<T: ComplexFloat>(function: &dyn Fn(&Vec<T>) -> T, vector_of_points: &Vec<T>) -> Vec<Vec<T>>
 {
     return get_custom(function, vector_of_points, 0.00001, mode::DiffMode::CentralFixedStep);
 }
 
-pub fn get_custom(function: &dyn Fn(&Vec<f64>) -> f64, vector_of_points: &Vec<f64>, step_size: f64, mode: mode::DiffMode) -> Vec<Vec<f64>>
+pub fn get_custom<T: ComplexFloat>(function: &dyn Fn(&Vec<T>) -> T, vector_of_points: &Vec<T>, step_size: f64, mode: mode::DiffMode) -> Vec<Vec<T>>
 {
     assert!(vector_of_points.len() > 0, "points cannot be empty");
 
-    let mut result = vec![vec![f64::NAN; vector_of_points.len()]; vector_of_points.len()];
+    let mut result = vec![vec![T::from(f64::NAN).unwrap(); vector_of_points.len()]; vector_of_points.len()];
 
     for row_index in 0..vector_of_points.len()
     {
