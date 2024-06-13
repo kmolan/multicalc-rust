@@ -29,6 +29,27 @@ use num_complex::ComplexFloat;
 /// assert!(f64::abs(val - 27.0) < 0.00001);
 ///```
 /// 
+/// the above method example can also be extended to complex numbers:
+/// ```
+///    let my_func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+///    { 
+///        return 6.0*args[0];
+///    };
+///
+//// where args[0] = x. Assuming we first we want to integrate over (0.0 + 0.0i) to (2.0 + 1.0i) twice
+/// let integration_limits = [[num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 1.0)], [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 1.0)]];
+/// 
+/// use multicalc::numerical_integration::mode::IntegrationMethod;
+/// use multicalc::numerical_integration::double_integration;
+///
+/// let val = double_integration::get_total(IntegrationMethod::Trapezoidal,   //<- The method for integration we want to use
+///                                          &my_func,                        //<- our closure                 
+///                                          &integration_limits,             //<- The integration interval needed                          
+///                                          10);                             //<- number of steps
+/// 
+/// assert!(num_complex::ComplexFloat::abs(val.re - 6.0) < 0.00001);
+/// assert!(num_complex::ComplexFloat::abs(val.im - 33.0) < 0.00001);
+///```
 /// Note: The argument 'n' denotes the number of steps to be used. However, for [`IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
 /// 
 pub fn get_total<T: ComplexFloat>(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<T>) -> T, integration_limits: &[[T; 2]; 2], n: u64) -> T 
@@ -82,6 +103,37 @@ pub fn get_total<T: ComplexFloat>(integration_method: IntegrationMethod, func: &
 /// assert!(f64::abs(val - 2.50) < 0.00001);
 ///```
 /// 
+/// the above method example can also be extended to complex numbers:
+/// ```
+///    let my_func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+///    { 
+///        return 2.0*args[0] + args[1]*args[2];
+///    };
+///
+//// where args[0] = x, args[1] = y and args[2] = z. Assuming we first we want to integrate over (0.0 + 0.0i) to (2.0 + 1.0i) twice
+/// let integration_limits = [[num_complex::c64(0.0, 0.0), num_complex::c64(1.0, 1.0)], [num_complex::c64(0.0, 0.0), num_complex::c64(1.0, 1.0)]];
+/// 
+//// For partial integration to work, we also need to define the static values for the remaining variables. 
+//// Assuming z = 3.0 + 0.5i: 
+/// let point = vec![num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
+/// 
+//// Note above that the point vector has the same number of elements as the number of elements my_func expects. 
+//// Note above that in the point vector, the indexes of the variables to integrate, 0 and 1, 
+//// MUST have same value as those variables' integration interval's upper limit, which is 1.0 + 1.0i and 2.0 + 0.0i respectively 
+/// 
+/// use multicalc::numerical_integration::mode::IntegrationMethod;
+/// use multicalc::numerical_integration::double_integration;
+///
+/// let val = double_integration::get_partial(IntegrationMethod::Trapezoidal,  //<- The method for integration we want to use
+///                                           &my_func,                        //<- our closure   
+///                                           [0, 1],                          //<- index of variables we want to differentiate, in this case x and y              
+///                                           &integration_limits,             //<- The integration interval needed
+///                                           &point,                          //<- The final point with all x,y,z values                          
+///                                           10);                             //<- number of steps
+/// 
+/// assert!(num_complex::ComplexFloat::abs(val.re + 5.5) < 0.00001);
+/// assert!(num_complex::ComplexFloat::abs(val.im - 4.5) < 0.00001);
+///```
 /// Note: The argument 'n' denotes the number of steps to be used. However, for [`IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
 /// 
 pub fn get_partial<T: ComplexFloat>(integration_method: IntegrationMethod, func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &Vec<T>, n: u64) -> T 

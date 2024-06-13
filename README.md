@@ -10,8 +10,8 @@ Rust scientific computing for single and multi-variable calculus
 
 - Written in pure, safe rust
 - Fully documented with code examples
-- Comprehensive suite of tests for full code coverage, including all possible error conditions
-- Trait-based generic functions to support floating point and complex numbers
+- Over 100 comprehensive suite of tests for full code coverage, including all possible error conditions
+- Trait-based generic implementation to support floating point and complex numbers
 - Supports linear, polynomial, trigonometric, exponential, and any complex equation you can throw at it, of any number of variables!
   - Single, double and triple differentiation - total and partial
   - Single and double integration - total and partial
@@ -24,16 +24,18 @@ Rust scientific computing for single and multi-variable calculus
 
 - [1. Single total derivatives](#1-single-total-derivatives)
 - [2. Single partial derivatives](#2-single-partial-derivatives)
-- [3. Double total derivatives](#3-double=-total-derivatives)
-- [4. Double partial derivatives](#4-double=-partial-derivative)
-- [5. Single partial integrals](#5-single-partial-integrals)
-- [6. Double partial integrals](#6-double-partial-integrals)
-- [7. Jacobians](#7-jacobians)
-- [8. Hessians](#8-hessians)
-- [9. Linear approximation](#9-linear-approximation)
-- [10. Quadratic approximation](#10-quadratic-approximation)
-- [11. Line and Flux integrals](#11-line-and-flux-integrals)
-- [12. Curl and Divergence](#11-curl-and-divergence)
+- [3. Double total derivatives](#3-double-total-derivatives)
+- [4. Double partial derivatives](#4-double-partial-derivative)
+- [5. Single total integrals](#4-single-total-integrals)
+- [6. Single partial integrals](#5-single-partial-integrals)
+- [7. Double total integrals](#6-double-total-integrals)
+- [8. Double partial integrals](#6-double-partial-integrals)
+- [9. Jacobians](#7-jacobians)
+- [10. Hessians](#8-hessians)
+- [11. Linear approximation](#9-linear-approximation)
+- [12. Quadratic approximation](#10-quadratic-approximation)
+- [13. Line and Flux integrals](#11-line-and-flux-integrals)
+- [14. Curl and Divergence](#11-curl-and-divergence)
 
 ## 1. Single total derivatives
 ```rust
@@ -97,7 +99,24 @@ assert!(num_complex::ComplexFloat::abs(val.re - expected_value.re) < 0.0001); //
 assert!(num_complex::ComplexFloat::abs(val.im - expected_value.im) < 0.0001); //numerical error less than 1e-4
 ```
 
-## 5. Single partial integrals
+## 5. Single total integrals
+```rust
+//equation is 2.0*x
+let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+{ 
+    return 2.0*args[0];
+};
+
+//integrate from (0.0 + 0.0i) to (2.0 + 2.0i)
+let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 2.0)];
+
+//simple integration for x, known to be x*x, expect a value of 0.00 + 8.0i
+let val = single_integration::get_total(IntegrationMethod::Booles, &func, &integration_limit, 100);
+assert!(num_complex::ComplexFloat::abs(val.re - 0.0) < 0.00001);
+assert!(num_complex::ComplexFloat::abs(val.im - 8.0) < 0.00001);
+```
+
+## 6. Single partial integrals
 ```rust
 //equation is 2.0*x + y*z
 let func = | args: &Vec<f64> | -> f64 
@@ -113,7 +132,24 @@ let val = single_integration::get_partial(IntegrationMethod::Booles, &func, 0, &
 assert!(f64::abs(val - 7.0) < 0.00001); //numerical error less than 1e-5
 ```
 
-## 6. Double partial integrals
+## 7. Double total integrals
+```rust
+//equation is 6.0*x
+let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+{ 
+    return 6.0*args[0];
+};
+
+//integrate over (0.0 + 0.0i) to (2.0 + 1.0i) twice
+let integration_limits = [[num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 1.0)], [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 1.0)]];
+
+//simple double integration for 6*x, expect a value of 6.0 + 33.0i
+let val = double_integration::get_total(IntegrationMethod::Booles, &func, &integration_limits, 20);
+assert!(num_complex::ComplexFloat::abs(val.re - 6.0) < 0.00001);
+assert!(num_complex::ComplexFloat::abs(val.im - 33.0) < 0.00001);
+```
+
+## 8. Double partial integrals
 ```rust
 //equation is 2.0*x + y*z
 let func = | args: &Vec<f64> | -> f64 
@@ -130,7 +166,7 @@ let val = double_integration::get_partial(IntegrationMethod::Booles, &func, idx_
 assert!(f64::abs(val - 1.50) < 0.00001);  //numerical error less than 1e-5
 ```
 
-## 7. Jacobians
+## 9. Jacobians
 ```rust
 //function is x*y*z
 let func1 = | args: &Vec<f64> | -> f64 
@@ -161,7 +197,7 @@ for i in 0..function_vector.len()
 }
 ```
 
-## 8. Hessians
+## 10. Hessians
 ```rust
 //function is y*sin(x) + 2*x*e^y
 let func = | args: &Vec<f64> | -> f64 
@@ -185,7 +221,7 @@ for i in 0..points.len()
 }
 ```
 
-## 9. Linear approximation
+## 11. Linear approximation
 ```rust
 //function is x + y^2 + z^3, which we want to linearize
 let function_to_approximate = | args: &Vec<f64> | -> f64 
@@ -198,7 +234,7 @@ let point = vec![1.0, 2.0, 3.0]; //the point we want to linearize around
 let result = linear_approximation::get(&function_to_approximate, &point);
 ```
 
-## 10. Quadratic approximation
+## 12. Quadratic approximation
 ```rust
 //function is e^(x/2) + sin(y) + 2.0*z
 let function_to_approximate = | args: &Vec<f64> | -> f64 
@@ -211,7 +247,7 @@ let point = vec![0.0, 3.14/2.0, 10.0]; //the point we want to approximate around
 let result = quadratic_approximation::get(&function_to_approximate, &point);
 ```
 
-## 11. Line and Flux integrals
+## 13. Line and Flux integrals
 ```rust
 //vector field is (y, -x). On a 2D plane this would like a tornado rotating counter-clockwise
 //curve is a unit circle, defined by (Cos(t), Sin(t))
@@ -232,7 +268,7 @@ let val = flux_integral::get_2d(&vector_field_matrix, &transformation_matrix, &i
 assert!(f64::abs(val - 0.0) < 0.01);
 ```
 
-## 12. Curl and Divergence
+## 14. Curl and Divergence
 ```rust
 //vector field is (2*x*y, 3*cos(y))
 let vector_field_matrix: [Box<dyn Fn(&Vec<f64>) -> f64>; 2] = [Box::new(|args: &Vec<f64>|-> f64 { 2.0*args[0]*args[1] }), Box::new(|args: &Vec<f64>|-> f64 { 3.0*args[1].cos() })];
@@ -261,8 +297,5 @@ multicalc uses [num-complex](https://crates.io/crates/num-complex) to provide a 
 anmolkathail@gmail.com
 
 ## TODO
-- complex integration
-- Approximation crate generics
-- Complex number examples
 - &vec<T> -> &[T]
 - Gauss-Kronrod Quadrature integration

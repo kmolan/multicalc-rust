@@ -1,79 +1,81 @@
 use crate::numerical_derivative::single_derivative as single_derivative;
 use crate::numerical_derivative::mode as mode;
+use num_complex::ComplexFloat;
 
 #[derive(Debug)]
-pub struct LinearApproximationResult
+pub struct LinearApproximationResult<T: ComplexFloat>
 {
-    pub intercept: f64,
-    pub coefficients: Vec<f64>
+    pub intercept: T,
+    pub coefficients: Vec<T>
 }
 
 #[derive(Debug)]
-pub struct LinearApproximationPredictionMetrics
+pub struct LinearApproximationPredictionMetrics<T: ComplexFloat>
 {
-    pub mean_absolute_error: f64,
-    pub mean_squared_error: f64,
-    pub root_mean_squared_error: f64,
-    pub r_squared: f64,
-    pub adjusted_r_squared: f64
+    pub mean_absolute_error: T::Real,
+    pub mean_squared_error: T::Real,
+    pub root_mean_squared_error: T::Real,
+    pub r_squared: T::Real,
+    pub adjusted_r_squared: T::Real
 }
 
-impl LinearApproximationResult
+impl<T: ComplexFloat> LinearApproximationResult<T>
 {
     ///Helper function if you don't care about the details and just want the predictor directly
-    pub fn get_prediction_value(&self, args: &Vec<f64>) -> f64
+    pub fn get_prediction_value(&self, args: &Vec<T>) -> T
     {
         let mut result = self.intercept;
         for iter in 0..args.len()
         {
-            result += self.coefficients[iter]*args[iter];    
+            result = result + self.coefficients[iter]*args[iter];    
         }
         
         return result;
     }
 
     //get prediction metrics by feeding a list of points and the original function
-    pub fn get_prediction_metrics(&self, points: &Vec<Vec<f64>>, original_function: &dyn Fn(&Vec<f64>) -> f64) -> LinearApproximationPredictionMetrics
+
+    pub fn get_prediction_metrics(&self, points: &Vec<Vec<T>>, original_function: &dyn Fn(&Vec<T>) -> T) -> LinearApproximationPredictionMetrics<T>
     {
         let num_points = points.len() as f64;
-        let mut mae = 0.0;
-        let mut mse = 0.0;
+        let mut mae = T::zero();
+        let mut mse = T::zero();
         
         for iter in 0..num_points as usize
         {
             let predicted_y = self.get_prediction_value(&points[iter]);
             
-            mae += f64::abs(predicted_y - original_function(&points[iter]));
-            mse += f64::powf(predicted_y - original_function(&points[iter]), 2.0);
+            mae = mae + (predicted_y - original_function(&points[iter]));
+            mse = mse + num_complex::ComplexFloat::powi(predicted_y - original_function(&points[iter]), 2);
         }
 
-        mae = mae/num_points;
-        mse = mse/num_points;
+        mae = mae/T::from(num_points).unwrap();
+        mse = mse/T::from(num_points).unwrap();
 
-        let rmse = mse.sqrt();
+        let rmse = mse.sqrt().abs();
 
-        let mut r2_numerator = 0.0;
-        let mut r2_denominator = 0.0;
+        let mut r2_numerator = T::zero();
+        let mut r2_denominator = T::zero();
 
         for iter in 0..num_points as usize
         {
             let predicted_y = self.get_prediction_value(&points[iter]);
 
-            r2_numerator += f64::powf(predicted_y - original_function(&points[iter]), 2.0);
-            r2_denominator += f64::powf(mae - original_function(&points[iter]), 2.0);
+            r2_numerator = r2_numerator + num_complex::ComplexFloat::powi(predicted_y - original_function(&points[iter]), 2);
+            r2_denominator = r2_numerator + num_complex::ComplexFloat::powi(mae - original_function(&points[iter]), 2);
         }
 
-        let r2 = 1.0 - r2_numerator/r2_denominator;
+        let r2 = T::one() - (r2_numerator/r2_denominator);
 
-        let r2_adj = 1.0 - (1.0 - r2)*(num_points)/(num_points-2.0);
+        let r2_adj = T::one() - (T::one() - r2)*(T::from(num_points).unwrap())/(T::from(num_points).unwrap() - T::from(2.0).unwrap());
 
         return LinearApproximationPredictionMetrics
         {
-            mean_absolute_error: mae,
-            mean_squared_error: mse,
+            mean_absolute_error: mae.abs(),
+            mean_squared_error: mse.abs(),
             root_mean_squared_error: rmse,
-            r_squared: r2,
-            adjusted_r_squared: r2_adj
+            r_squared: r2.abs(),
+            adjusted_r_squared: r2_adj.abs()
         };
     }
 }
@@ -105,23 +107,23 @@ impl LinearApproximationResult
 /// if you don't care about the results and want the predictor directly, use [`LinearApproximationResult::get_prediction_value()`]
 /// you can also inspect the prediction metrics by providing list of points, use [`LinearApproximationResult::get_prediction_metrics()`]
 ///
-pub fn get(function: &dyn Fn(&Vec<f64>) -> f64, point: &Vec<f64>) -> LinearApproximationResult
+pub fn get<T: ComplexFloat>(function: &dyn Fn(&Vec<T>) -> T, point: &Vec<T>) -> LinearApproximationResult<T>
 {
     return get_custom(function, point, 0.00001, mode::DiffMode::CentralFixedStep);
 }
 
 
 ///same as [`get`], but for advanced users who want to control the differentiation parameters
-pub fn get_custom(function: &dyn Fn(&Vec<f64>) -> f64, point: &Vec<f64>, step_size: f64, mode: mode::DiffMode) -> LinearApproximationResult
+pub fn get_custom<T: ComplexFloat>(function: &dyn Fn(&Vec<T>) -> T, point: &Vec<T>, step_size: f64, mode: mode::DiffMode) -> LinearApproximationResult<T>
 {
-    let mut slopes_ = vec![0.0; point.len()];
+    let mut slopes_ = vec![T::zero(); point.len()];
 
     let mut intercept_ = function(point);
 
     for iter in 0..point.len()
     {
         slopes_[iter] = single_derivative::get_partial_custom(function, iter, point, step_size, mode);
-        intercept_ -= slopes_[iter]*point[iter];
+        intercept_ = intercept_ - slopes_[iter]*point[iter];
     }
 
     return LinearApproximationResult
