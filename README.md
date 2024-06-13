@@ -10,7 +10,7 @@ Rust scientific computing for single and multi-variable calculus
 
 - Written in pure, safe rust
 - Fully documented with code examples
-- Over 100 comprehensive suite of tests for full code coverage, including all possible error conditions
+- Comprehensive suite of tests for full code coverage, including all possible error conditions
 - Trait-based generic implementation to support floating point and complex numbers
 - Supports linear, polynomial, trigonometric, exponential, and any complex equation you can throw at it, of any number of variables!
   - Single, double and triple differentiation - total and partial
@@ -25,17 +25,17 @@ Rust scientific computing for single and multi-variable calculus
 - [1. Single total derivatives](#1-single-total-derivatives)
 - [2. Single partial derivatives](#2-single-partial-derivatives)
 - [3. Double total derivatives](#3-double-total-derivatives)
-- [4. Double partial derivatives](#4-double-partial-derivative)
-- [5. Single total integrals](#4-single-total-integrals)
-- [6. Single partial integrals](#5-single-partial-integrals)
-- [7. Double total integrals](#6-double-total-integrals)
-- [8. Double partial integrals](#6-double-partial-integrals)
-- [9. Jacobians](#7-jacobians)
-- [10. Hessians](#8-hessians)
-- [11. Linear approximation](#9-linear-approximation)
-- [12. Quadratic approximation](#10-quadratic-approximation)
-- [13. Line and Flux integrals](#11-line-and-flux-integrals)
-- [14. Curl and Divergence](#11-curl-and-divergence)
+- [4. Double partial derivatives](#4-double-partial-derivatives)
+- [5. Single total integrals](#5-single-total-integrals)
+- [6. Single partial integrals](#6-single-partial-integrals)
+- [7. Double total integrals](#7-double-total-integrals)
+- [8. Double partial integrals](#8-double-partial-integrals)
+- [9. Jacobians](#9-jacobians)
+- [10. Hessians](#10-hessians)
+- [11. Linear approximation](#11-linear-approximation)
+- [12. Quadratic approximation](#12-quadratic-approximation)
+- [13. Line and Flux integrals](#13-line-and-flux-integrals)
+- [14. Curl and Divergence](#14-curl-and-divergence)
 
 ## 1. Single total derivatives
 ```rust
