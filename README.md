@@ -299,3 +299,4 @@ anmolkathail@gmail.com
 ## TODO
 - &vec<T> -> &[T]
 - Gauss-Kronrod Quadrature integration
+- change diff
