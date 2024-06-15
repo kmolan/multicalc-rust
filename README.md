@@ -15,6 +15,10 @@ Rust scientific computing for single and multi-variable calculus
 - Supports linear, polynomial, trigonometric, exponential, and any complex equation you can throw at it, of any number of variables!
   - Single, double and triple differentiation - total and partial
   - Single and double integration - total and partial
+      - Booles
+      - Gauss Legendre (upto order = 20)
+      - Simpsons
+      - Trapezoidal
   - Jacobians and Hessians
   - Vector Field Calculus: Line and flux integrals, curl and divergence
   - Approximation of any given equation to a linear or quadratic model
