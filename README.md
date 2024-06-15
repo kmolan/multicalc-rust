@@ -9,6 +9,7 @@ Rust scientific computing for single and multi-variable calculus
 ## Salient Features
 
 - Written in pure, safe rust
+- Designed to work on both embedded and non-embedded targets (no-std friendly with zero heap allocations)
 - Fully documented with code examples
 - Comprehensive suite of tests for full code coverage, including all possible error conditions
 - Trait-based generic implementation to support floating point and complex numbers
