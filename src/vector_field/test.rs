@@ -45,9 +45,9 @@ fn test_flux_integral_1()
 fn test_curl_2d_1()
 {
     //vector field is (2*x*y, 3*cos(y))
-    let vector_field_matrix: [Box<dyn Fn(&Vec<f64>) -> f64>; 2] = [Box::new(|args: &Vec<f64>|-> f64 { 2.0*args[0]*args[1] }), Box::new(|args: &Vec<f64>|-> f64 { 3.0*args[1].cos() })];
+    let vector_field_matrix: [Box<dyn Fn(&[f64; 2]) -> f64>; 2] = [Box::new(|args: &[f64; 2]|-> f64 { 2.0*args[0]*args[1] }), Box::new(|args: &[f64; 2]|-> f64 { 3.0*args[1].cos() })];
 
-    let point = vec![1.0, 3.14];
+    let point = [1.0, 3.14];
 
     //curl is known to be -2*x, expect and answer of -2.0
     let val = curl::get_2d(&vector_field_matrix, &point);
@@ -58,8 +58,8 @@ fn test_curl_2d_1()
 fn test_curl_3d_1()
 {
     //vector field is (y, -x, 2*z)
-    let vector_field_matrix: [Box<dyn Fn(&Vec<f64>) -> f64>; 3] = [Box::new(|args: &Vec<f64>|-> f64 { args[1] }), Box::new(|args: &Vec<f64>|-> f64 { -args[0]}), Box::new(|args: &Vec<f64>|-> f64 { 2.0*args[2]})];
-    let point = vec![1.0, 2.0, 3.0];
+    let vector_field_matrix: [Box<dyn Fn(&[f64; 3]) -> f64>; 3] = [Box::new(|args: &[f64; 3]|-> f64 { args[1] }), Box::new(|args: &[f64; 3]|-> f64 { -args[0]}), Box::new(|args: &[f64; 3]|-> f64 { 2.0*args[2]})];
+    let point = [1.0, 2.0, 3.0];
 
     //curl is known to be (0.0, 0.0, -2.0)
     let val = curl::get_3d(&vector_field_matrix, &point);
@@ -73,9 +73,9 @@ fn test_curl_3d_1()
 fn test_divergence_2d_1()
 {
     //vector field is (2*x*y, 3*cos(y))
-    let vector_field_matrix: [Box<dyn Fn(&Vec<f64>) -> f64>; 2] = [Box::new(|args: &Vec<f64>|-> f64 { 2.0*args[0]*args[1] }), Box::new(|args: &Vec<f64>|-> f64 { 3.0*args[1].cos() })];
+    let vector_field_matrix: [Box<dyn Fn(&[f64; 2]) -> f64>; 2] = [Box::new(|args: &[f64; 2]|-> f64 { 2.0*args[0]*args[1] }), Box::new(|args: &[f64; 2]|-> f64 { 3.0*args[1].cos() })];
 
-    let point = vec![1.0, 3.14];
+    let point = [1.0, 3.14];
 
     //divergence is known to be 2*y - 3*sin(y), expect and answer of 6.27
     let val = divergence::get_2d(&vector_field_matrix, &point);
@@ -86,9 +86,9 @@ fn test_divergence_2d_1()
 fn test_divergence_3d_1()
 {
     //vector field is (y, -x, 2*z)
-    let vector_field_matrix: [Box<dyn Fn(&Vec<f64>) -> f64>; 3] = [Box::new(|args: &Vec<f64>|-> f64 { args[1] }), Box::new(|args: &Vec<f64>|-> f64 { -args[0]}), Box::new(|args: &Vec<f64>|-> f64 { 2.0*args[2]})];
+    let vector_field_matrix: [Box<dyn Fn(&[f64; 3]) -> f64>; 3] = [Box::new(|args: &[f64; 3]|-> f64 { args[1] }), Box::new(|args: &[f64; 3]|-> f64 { -args[0]}), Box::new(|args: &[f64; 3]|-> f64 { 2.0*args[2]})];
 
-    let point = vec![0.0, 1.0, 3.0]; //the point of interest
+    let point = [0.0, 1.0, 3.0]; //the point of interest
 
     //diverge known to be 2.0 
     let val = divergence::get_3d(&vector_field_matrix, &point);

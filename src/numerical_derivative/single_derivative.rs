@@ -6,7 +6,7 @@ use num_complex::ComplexFloat;
 /// 
 /// assume we want to differentiate 2*x*x the function would be:
 /// ```
-///    let my_func = | args: &Vec<f64> | -> f64 
+///    let my_func = | args: &[f64; 1] | -> f64 
 ///    { 
 ///        return 2.0*args[0]*args[0];
 ///    };
@@ -27,7 +27,7 @@ use num_complex::ComplexFloat;
 /// 
 /// the above example can also be extended to complex numbers:
 ///```
-///    let my_func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+///    let my_func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
 ///    { 
 ///        return 2.0*args[0]*args[0];
 ///    };
@@ -48,18 +48,18 @@ use num_complex::ComplexFloat;
 /// assert!(num_complex::ComplexFloat::abs(val.im - expected_val.im) < 0.00001);
 ///``` 
 ///
-pub fn get_total<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, step: f64) -> T
+pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, point: T, step: f64) -> T
 {
     return get_total_custom(func, point, step, mode::DiffMode::CentralFixedStep);
 }
 
 
 ///same as [get_total()] but with the option to change the differentiation mode used, reserved for more advanced users
-pub fn get_total_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, step: f64, mode: mode::DiffMode) -> T
+pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, point: T, step: f64, mode: mode::DiffMode) -> T
 {
     assert!(step != 0.0, "step size cannot be zero");
 
-    let vec_point = vec![point];
+    let vec_point = [point; NUM_VARS];
 
     match mode
     {
@@ -75,7 +75,7 @@ pub fn get_total_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, 
 /// 
 /// assume we want to differentiate y*sin(x) + x*cos(y) + x*y*e^z. the function would be:
 /// ```
-///    let my_func = | args: &Vec<f64> | -> f64 
+///    let my_func = | args: &[f64; 3] | -> f64 
 ///    { 
 ///        return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
 ///    };
@@ -84,7 +84,7 @@ pub fn get_total_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, 
 ///
 //// We also need to define the point at which we want to differentiate. Assuming our point is (1.0, 2.0, 3.0)
 ///
-/// let point = vec![1.0, 2.0, 3.0];
+/// let point = [1.0, 2.0, 3.0];
 ///
 //// if we then want to differentiate this function over x with a step size of 0.001, we would use:
 /// 
@@ -101,7 +101,7 @@ pub fn get_total_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, 
 /// 
 /// the above example can also be extended to complex numbers:
 /// ```
-///    let my_func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+///    let my_func = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
 ///    { 
 ///        return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
 ///    };
@@ -109,7 +109,7 @@ pub fn get_total_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, 
 //// where args[0] = x, args[1] = y and args[2] = z.
 ///
 //// Assuming our point is (1.0 + 2.5i, 2.0 + 2.0i, 3.0 + 0.0i)
-/// let point = vec![num_complex::c64(1.0, 2.5), num_complex::c64(2.0, 2.0), num_complex::c64(3.0, 0.0)];
+/// let point = [num_complex::c64(1.0, 2.5), num_complex::c64(2.0, 2.0), num_complex::c64(3.0, 0.0)];
 /// 
 /// use multicalc::numerical_derivative::single_derivative;
 ///
@@ -123,14 +123,14 @@ pub fn get_total_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, 
 /// assert!(num_complex::ComplexFloat::abs(val.im - expected_value.im) < 0.00001);
 ///```
 /// 
-pub fn get_partial<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: usize, point: &Vec<T>, step: f64) -> T
+pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64) -> T
 {
     return get_partial_custom(func, idx_to_derivate, point, step, mode::DiffMode::CentralFixedStep);
 }
 
 
 ///same as [get_partial()] but with the option to change the differentiation mode used, reserved for more advanced users
-pub fn get_partial_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: usize, point: &Vec<T>, step: f64, mode: mode::DiffMode) -> T
+pub fn get_partial_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64, mode: mode::DiffMode) -> T
 {
     assert!(step != 0.0, "step size cannot be zero");
 
@@ -147,7 +147,7 @@ pub fn get_partial_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_d
     }
 }
 
-fn get_forward_difference<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: usize, point: &Vec<T>, step: f64) -> T
+fn get_forward_difference<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64) -> T
 {
     let f0_args = point;
 
@@ -160,7 +160,7 @@ fn get_forward_difference<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_d
     return (f1 - f0)/T::from(step).unwrap();
 }
 
-fn get_backward_difference<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: usize, point: &Vec<T>, step: f64) -> T
+fn get_backward_difference<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64) -> T
 {
     let mut f0_args = point.clone();
     f0_args[idx_to_derivate] = f0_args[idx_to_derivate] - T::from(step).unwrap(); 
@@ -173,7 +173,7 @@ fn get_backward_difference<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_
     return (f1 - f0)/T::from(step).unwrap();
 }
 
-fn get_central_difference<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: usize, point: &Vec<T>, step: f64) -> T
+fn get_central_difference<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64) -> T
 {
     let mut f0_args = point.clone();
     f0_args[idx_to_derivate] = f0_args[idx_to_derivate] - T::from(step).unwrap();

@@ -92,9 +92,9 @@ pub fn get_partial_3d<T: ComplexFloat>(vector_field: &[Box<dyn Fn(&T, &T, &T) ->
 
 
 
-fn get_transformed_coordinates_2d<T: ComplexFloat>(transformations: &[Box<dyn Fn(&T) -> T>; 2], cur_point: &T, delta: &T) -> Vec<T>
+fn get_transformed_coordinates_2d<T: ComplexFloat>(transformations: &[Box<dyn Fn(&T) -> T>; 2], cur_point: &T, delta: &T) -> [T; 4]
 {
-    let mut ans = vec![T::zero(); 4];
+    let mut ans = [T::zero(); 4];
 
     ans[0] = transformations[0](cur_point); //x at t
     ans[1] = transformations[1](cur_point); //y at t
@@ -106,9 +106,9 @@ fn get_transformed_coordinates_2d<T: ComplexFloat>(transformations: &[Box<dyn Fn
 }
 
 
-fn get_transformed_coordinates_3d<T: ComplexFloat>(transformations: &[Box<dyn Fn(&T) -> T>; 3], cur_point: &T, delta: &T) -> Vec<T>
+fn get_transformed_coordinates_3d<T: ComplexFloat>(transformations: &[Box<dyn Fn(&T) -> T>; 3], cur_point: &T, delta: &T) -> [T; 6]
 {
-    let mut ans = vec![T::zero(); 6];
+    let mut ans = [T::zero(); 6];
 
     ans[0] = transformations[0](cur_point); //x at t
     ans[1] = transformations[1](cur_point); //y at t

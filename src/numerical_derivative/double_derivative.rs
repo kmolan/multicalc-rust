@@ -7,7 +7,7 @@ use num_complex::ComplexFloat;
 /// 
 /// assume we want to differentiate x*Sin(x) . the function would be:
 /// ```
-///    let my_func = | args: &Vec<f64> | -> f64 
+///    let my_func = | args: &[f64; 1] | -> f64 
 ///    { 
 ///        return args[0]*args[0].sin();
 ///    };
@@ -29,7 +29,7 @@ use num_complex::ComplexFloat;
 /// 
 /// the above example can also be extended to complex numbers:
 ///```
-///    let my_func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+///    let my_func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
 ///    { 
 ///        return args[0]*args[0].sin();
 ///    };
@@ -50,16 +50,16 @@ use num_complex::ComplexFloat;
 /// assert!(num_complex::ComplexFloat::abs(val.im - expected_val.im) < 0.0001);
 ///``` 
 /// 
-pub fn get_total<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, step: f64) -> T
+pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, point: T, step: f64) -> T
 {
     return get_total_custom(func, point, step, mode::DiffMode::CentralFixedStep);
 }
 
 
 ///same as [get_total()] but with the option to change the differentiation mode used, reserved for more advanced users
-pub fn get_total_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, step: f64, mode: mode::DiffMode) -> T
+pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, point: T, step: f64, mode: mode::DiffMode) -> T
 {
-    let vec_point = vec![point];
+    let vec_point = [point; NUM_VARS];
 
     match mode
     {
@@ -75,7 +75,7 @@ pub fn get_total_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, 
 /// 
 /// assume we want to differentiate y*sin(x) + x*cos(y) + x*y*e^z . the function would be:
 /// ```
-///    let my_func = | args: &Vec<f64> | -> f64 
+///    let my_func = | args: &[f64; 3] | -> f64 
 ///    { 
 ///        return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
 ///    };
@@ -84,7 +84,7 @@ pub fn get_total_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, 
 ///
 //// We also need to define the point at which we want to differentiate. Assuming our point is (1.0, 2.0, 3.0)
 ///
-/// let point = vec![1.0, 2.0, 3.0];
+/// let point = [1.0, 2.0, 3.0];
 ///
 //// For double differentiation, we can choose which variables we want to differentiate over
 //// For a total double differentiation over x, idx = [0, 0]  (this is same as calling get_total() )
@@ -105,7 +105,7 @@ pub fn get_total_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, 
 /// 
 /// the above example can also be extended to complex numbers:
 ///```
-///    let my_func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+///    let my_func = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
 ///    { 
 ///        return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
 ///    };
@@ -113,7 +113,7 @@ pub fn get_total_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, 
 //// where args[0] = x, args[1] = y and args[2] = z
 /// 
 /// //point of interest is (x, y, z) = (1.0 + 4.0i, 2.0 + 2.5i, 3.0 + 0.0i)
-/// let point = vec![num_complex::c64(1.0, 4.0), num_complex::c64(2.0, 2.5), num_complex::c64(3.0, 0.0)];
+/// let point = [num_complex::c64(1.0, 4.0), num_complex::c64(2.0, 2.5), num_complex::c64(3.0, 0.0)];
 /// 
 /// use multicalc::numerical_derivative::double_derivative;
 ///
@@ -127,13 +127,13 @@ pub fn get_total_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, point: T, 
 /// assert!(num_complex::ComplexFloat::abs(val.im - expected_val.im) < 0.0001);
 ///``` 
 /// 
-pub fn get_partial<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: &[usize; 2], point: &Vec<T>, step: f64) -> T
+pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: &[usize; 2], point: &[T; NUM_VARS], step: f64) -> T
 {
     return get_partial_custom(func, idx_to_derivate, point, step, mode::DiffMode::CentralFixedStep);
 }
 
 ///same as [get_partial()] but with the option to change the differentiation mode used, reserved for more advanced users
-pub fn get_partial_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: &[usize; 2], point: &Vec<T>, step: f64, mode: mode::DiffMode) -> T
+pub fn get_partial_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: &[usize; 2], point: &[T; NUM_VARS], step: f64, mode: mode::DiffMode) -> T
 {
     match mode
     {
@@ -145,7 +145,7 @@ pub fn get_partial_custom<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_d
 
 
 
-pub fn get_forward_difference<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: &[usize; 2], point: &Vec<T>, step: f64) -> T
+pub fn get_forward_difference<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: &[usize; 2], point: &[T; NUM_VARS], step: f64) -> T
 {
     let f0 = single_derivative::get_partial_custom(func, idx_to_derivate[1], point, step, mode::DiffMode::ForwardFixedStep);
 
@@ -156,7 +156,7 @@ pub fn get_forward_difference<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_
     return (f1 - f0)/T::from(step).unwrap();
 }
 
-pub fn get_backward_difference<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: &[usize; 2], point: &Vec<T>, step: f64) -> T
+pub fn get_backward_difference<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: &[usize; 2], point: &[T; NUM_VARS], step: f64) -> T
 {
     let mut f0_point = point.clone();
     f0_point[idx_to_derivate[0]] = f0_point[idx_to_derivate[0]] - T::from(step).unwrap();
@@ -167,7 +167,7 @@ pub fn get_backward_difference<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx
     return (f1 - f0)/T::from(step).unwrap();
 }
 
-pub fn get_central_difference<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_derivate: &[usize; 2], point: &Vec<T>, step: f64) -> T
+pub fn get_central_difference<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: &[usize; 2], point: &[T; NUM_VARS], step: f64) -> T
 {
     let mut f0_point = point.clone();
     f0_point[idx_to_derivate[0]] = f0_point[idx_to_derivate[0]] - T::from(step).unwrap();

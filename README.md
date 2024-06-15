@@ -40,7 +40,7 @@ Rust scientific computing for single and multi-variable calculus
 ## 1. Single total derivatives
 ```rust
 //function is x*x/2.0, derivative is known to be x
-let func = | args: &Vec<f64> | -> f64 
+let func = | args: &[f64; 1] | -> f64 
 { 
     return args[0]*args[0]/2.0;
 };
@@ -53,12 +53,12 @@ assert!(f64::abs(val - 2.0) < 0.000001); //numerical error less than 1e-6
 ## 2. Single partial derivatives
 ```rust
 //function is y*sin(x) + x*cos(y) + x*y*e^z
-let func = | args: &Vec<f64> | -> f64 
+let func = | args: &[f64; 3] | -> f64 
 { 
     return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
 };
 
-let point = vec![1.0, 2.0, 3.0];
+let point = [1.0, 2.0, 3.0];
 let idx_to_derivate = 0;
 
 //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial derivative for x is known to be y*cos(x) + cos(y) + y*e^z
@@ -70,7 +70,7 @@ assert!(f64::abs(val - expected_value) < 0.000001); //numerical error less than 
 ## 3. Double total derivatives
 ```rust
 //function is x*Sin(x)
-let func = | args: &Vec<f64> | -> f64 
+let func = | args: &[f64; 1] | -> f64 
 { 
     return args[0]*args[0].sin();
 };
@@ -84,12 +84,12 @@ assert!(f64::abs(val - expected_val) < 0.000001); //numerical error less than 1e
 ## 4. Double partial derivatives
 ```rust
 //function is y*sin(x) + x*cos(y) + x*y*e^z
-let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+let func = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
 { 
     return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
 };
 
-let point = vec![num_complex::c64(1.0, 3.5), num_complex::c64(2.0, 2.0), num_complex::c64(3.0, 0.0)];
+let point = [num_complex::c64(1.0, 3.5), num_complex::c64(2.0, 2.0), num_complex::c64(3.0, 0.0)];
 
 let idx: [usize; 2] = [0, 1]; //mixed partial double derivate d(df/dx)/dy
 //partial derivate for (x, y, z) = (1.0 + 3.5i, 2.0 + 2.0i, 3.0 + 0.0i), known to be cos(x) - sin(y) + e^z
@@ -102,7 +102,7 @@ assert!(num_complex::ComplexFloat::abs(val.im - expected_value.im) < 0.0001); //
 ## 5. Single total integrals
 ```rust
 //equation is 2.0*x
-let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
 { 
     return 2.0*args[0];
 };
@@ -119,13 +119,13 @@ assert!(num_complex::ComplexFloat::abs(val.im - 8.0) < 0.00001);
 ## 6. Single partial integrals
 ```rust
 //equation is 2.0*x + y*z
-let func = | args: &Vec<f64> | -> f64 
+let func = | args: [f64; 3] | -> f64 
 { 
     return 2.0*args[0] + args[1]*args[2];
 };
 
 let integration_interval = [0.0, 1.0];
-let point = vec![1.0, 2.0, 3.0];
+let point = [1.0, 2.0, 3.0];
 
 //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
 let val = single_integration::get_partial(IntegrationMethod::Booles, &func, 0, &integration_interval, &point, 100);
@@ -135,7 +135,7 @@ assert!(f64::abs(val - 7.0) < 0.00001); //numerical error less than 1e-5
 ## 7. Double total integrals
 ```rust
 //equation is 6.0*x
-let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
 { 
     return 6.0*args[0];
 };
@@ -152,13 +152,13 @@ assert!(num_complex::ComplexFloat::abs(val.im - 33.0) < 0.00001);
 ## 8. Double partial integrals
 ```rust
 //equation is 2.0*x + y*z
-let func = | args: &Vec<f64> | -> f64 
+let func = | args: &[f64; 3] | -> f64 
 { 
     return 2.0*args[0] + args[1]*args[2];
 };
 
 let integration_intervals = [[0.0, 1.0], [0.0, 1.0]];
-let point = vec![1.0, 1.0, 1.0];
+let point = [1.0, 1.0, 1.0];
 let idx_to_integrate = [0, 1];
 
 //double partial integration for first x then y, expect a value of ~1.50
@@ -169,24 +169,24 @@ assert!(f64::abs(val - 1.50) < 0.00001);  //numerical error less than 1e-5
 ## 9. Jacobians
 ```rust
 //function is x*y*z
-let func1 = | args: &Vec<f64> | -> f64 
+let func1 = | args: &[f64; 3] | -> f64 
 { 
     return args[0]*args[1]*args[2];
 };
 
 //function is x^2 + y^2
-let func2 = | args: &Vec<f64> | -> f64 
+let func2 = | args: &[f64; 3] | -> f64 
 { 
     return args[0].powf(2.0) + args[1].powf(2.0);
 };
 
-let function_vector: Vec<Box<dyn Fn(&Vec<f64>) -> f64>> = vec![Box::new(func1), Box::new(func2)];
+let function_vector: [Box<dyn Fn(&[f64; 3]) -> f64>; 2] = [Box::new(func1), Box::new(func2)];
 
-let points = vec![1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
+let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
 
 let jacobian_matrix = jacobian::get(&function_vector, &points);
 
-let expected_result = vec![vec![6.0, 3.0, 2.0], vec![2.0, 4.0, 0.0]];
+let expected_result = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
 for i in 0..function_vector.len()
 {
     for j in 0..points.len()
@@ -200,16 +200,16 @@ for i in 0..function_vector.len()
 ## 10. Hessians
 ```rust
 //function is y*sin(x) + 2*x*e^y
-let func = | args: &Vec<f64> | -> f64 
+let func = | args: &[f64; 2] | -> f64 
 { 
     return args[1]*args[0].sin() + 2.0*args[0]*args[1].exp();
 };
 
-let points = vec![1.0, 2.0]; //the point around which we want the hessian matrix
+let points = [1.0, 2.0]; //the point around which we want the hessian matrix
 
 let hessian_matrix = hessian::get(&func, &points);
 
-let expected_result = vec![vec![-2.0*f64::sin(1.0), f64::cos(1.0) + 2.0*f64::exp(2.0)], vec![f64::cos(1.0) + 2.0*f64::exp(2.0), 2.0*f64::exp(2.0)]];
+let expected_result = [[-2.0*f64::sin(1.0), f64::cos(1.0) + 2.0*f64::exp(2.0)], [f64::cos(1.0) + 2.0*f64::exp(2.0), 2.0*f64::exp(2.0)]];
 
 for i in 0..points.len()
 {
@@ -224,12 +224,12 @@ for i in 0..points.len()
 ## 11. Linear approximation
 ```rust
 //function is x + y^2 + z^3, which we want to linearize
-let function_to_approximate = | args: &Vec<f64> | -> f64 
+let function_to_approximate = | args: &[f64; 3] | -> f64 
 { 
     return args[0] + args[1].powf(2.0) + args[2].powf(3.0);
 };
 
-let point = vec![1.0, 2.0, 3.0]; //the point we want to linearize around
+let point = [1.0, 2.0, 3.0]; //the point we want to linearize around
 
 let result = linear_approximation::get(&function_to_approximate, &point);
 ```
@@ -237,12 +237,12 @@ let result = linear_approximation::get(&function_to_approximate, &point);
 ## 12. Quadratic approximation
 ```rust
 //function is e^(x/2) + sin(y) + 2.0*z
-let function_to_approximate = | args: &Vec<f64> | -> f64 
+let function_to_approximate = | args: &[f64; 3] | -> f64 
 { 
     return f64::exp(args[0]/2.0) + f64::sin(args[1]) + 2.0*args[2];
 };
 
-let point = vec![0.0, 3.14/2.0, 10.0]; //the point we want to approximate around
+let point = [0.0, 3.14/2.0, 10.0]; //the point we want to approximate around
 
 let result = quadratic_approximation::get(&function_to_approximate, &point);
 ```
@@ -271,9 +271,9 @@ assert!(f64::abs(val - 0.0) < 0.01);
 ## 14. Curl and Divergence
 ```rust
 //vector field is (2*x*y, 3*cos(y))
-let vector_field_matrix: [Box<dyn Fn(&Vec<f64>) -> f64>; 2] = [Box::new(|args: &Vec<f64>|-> f64 { 2.0*args[0]*args[1] }), Box::new(|args: &Vec<f64>|-> f64 { 3.0*args[1].cos() })];
+let vector_field_matrix: [Box<dyn Fn(&[f64; 3]) -> f64>; 2] = [Box::new(|args:&[f64; 3]|-> f64 { 2.0*args[0]*args[1] }), Box::new(|args: &[f64; 3]|-> f64 { 3.0*args[1].cos() })];
 
-let point = vec![1.0, 3.14]; //the point of interest
+let point = [1.0, 3.14]; //the point of interest
 
 //curl is known to be -2*x, expect and answer of -2.0
 let val = curl::get_2d(&vector_field_matrix, &point);
@@ -297,5 +297,4 @@ multicalc uses [num-complex](https://crates.io/crates/num-complex) to provide a 
 anmolkathail@gmail.com
 
 ## TODO
-- &vec<T> -> &[T]
 - Gauss-Kronrod Quadrature integration

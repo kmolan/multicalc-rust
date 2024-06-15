@@ -6,7 +6,7 @@ use crate::numerical_integration::double_integration;
 fn test_booles_integration_1()
 {
     //equation is 2.0*x
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 1] | -> f64 
     { 
         return 2.0*args[0];
     };
@@ -22,13 +22,13 @@ fn test_booles_integration_1()
 fn test_booles_integration_2()
 { 
     //equation is 2.0*x + y*z
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 3] | -> f64 
     { 
         return 2.0*args[0] + args[1]*args[2];
     };
 
     let integration_limit = [0.0, 1.0];
-    let point = vec![1.0, 2.0, 3.0];
+    let point = [1.0, 2.0, 3.0];
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
     let val = single_integration::get_partial(IntegrationMethod::Booles, &func, 0, &integration_limit, &point, 100);
@@ -53,7 +53,7 @@ fn test_booles_integration_2()
 fn test_booles_integration_3()
 {
     //equation is 6.0*x
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 1] | -> f64 
     { 
         return 6.0*args[0];
     };
@@ -69,13 +69,13 @@ fn test_booles_integration_3()
 fn test_booles_integration_4()
 {
     //equation is 2.0*x + y*z
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 3] | -> f64 
     { 
         return 2.0*args[0] + args[1]*args[2];
     };
 
     let integration_limits = [[0.0, 1.0], [0.0, 1.0]];
-    let point = vec![1.0, 1.0, 1.0];
+    let point = [1.0, 1.0, 1.0];
 
     //double partial integration for first x then y, expect a value of ~1.50
     let val = double_integration::get_partial(IntegrationMethod::Booles, &func, [0, 1], &integration_limits, &point, 20);
@@ -86,7 +86,7 @@ fn test_booles_integration_4()
 fn test_booles_integration_5()
 {
     //equation is 2.0*x
-    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
     { 
         return 2.0*args[0];
     };
@@ -104,14 +104,14 @@ fn test_booles_integration_5()
 fn test_booles_integration_6()
 { 
     //equation is 2.0*x + y*z
-    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+    let func = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
     { 
         return 2.0*args[0] + args[1]*args[2];
     };
 
     //integrate from (0.0 + 0.0i) to (1.0 + 1.0i)
     let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(1.0, 1.0)];
-    let point = vec![num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
+    let point = [num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of 5.0 + 9.0i
     let val = single_integration::get_partial(IntegrationMethod::Booles, &func, 0, &integration_limit, &point, 100);
@@ -139,7 +139,7 @@ fn test_booles_integration_6()
 fn test_booles_integration_7()
 {
     //equation is 6.0*x
-    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
     { 
         return 6.0*args[0];
     };
@@ -157,14 +157,14 @@ fn test_booles_integration_7()
 fn test_booles_integration_8()
 {
     //equation is 2.0*x + y*z
-    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+    let func = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
     { 
         return 2.0*args[0] + args[1]*args[2];
     };
 
     //integrate over (0.0 + 0.0i) to (1.0 + 1.0i) twice
     let integration_limits = [[num_complex::c64(0.0, 0.0), num_complex::c64(1.0, 1.0)], [num_complex::c64(0.0, 0.0), num_complex::c64(1.0, 1.0)]];
-    let point = vec![num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
+    let point = [num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
 
     //double partial integration for first x then y, expect a value of -5.5 + 4.5i
     let val = double_integration::get_partial(IntegrationMethod::Booles, &func, [0, 1], &integration_limits, &point, 20);
@@ -176,7 +176,7 @@ fn test_booles_integration_8()
 fn test_gauss_legendre_quadrature_integration_1()
 {
     //equation is 4.0*x*x*x - 3.0*x*x
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 2] | -> f64 
     { 
         return 4.0*args[0]*args[0]*args[0] - 3.0*args[0]*args[0];
     };
@@ -192,13 +192,13 @@ fn test_gauss_legendre_quadrature_integration_1()
 fn test_gauss_legendre_quadrature_integration_2()
 {
     //equation is 2.0*x + y*z
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 3] | -> f64 
     { 
         return 2.0*args[0] + args[1]*args[2];
     };
 
     let integration_limit = [0.0, 1.0];
-    let point = vec![1.0, 2.0, 3.0];
+    let point = [1.0, 2.0, 3.0];
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
     let val = single_integration::get_partial(IntegrationMethod::GaussLegendre, &func, 0, &integration_limit, &point, 2);
@@ -223,7 +223,7 @@ fn test_gauss_legendre_quadrature_integration_2()
 fn test_gauss_legendre_quadrature_integration_3()
 {
     //equation is 6.0*x
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 1] | -> f64 
     { 
         return 6.0*args[0];
     };
@@ -239,7 +239,7 @@ fn test_gauss_legendre_quadrature_integration_3()
 fn test_gauss_legendre_quadrature_integration_4()
 {
     //equation is 4.0*x*x*x - 3.0*x*x
-    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
     { 
         return 4.0*args[0]*args[0]*args[0] - 3.0*args[0]*args[0];
     };
@@ -257,7 +257,7 @@ fn test_gauss_legendre_quadrature_integration_4()
 fn test_gauss_legendre_quadrature_integration_5()
 {
     //equation is 2.0*x + y*z
-    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+    let func = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
     { 
         return 2.0*args[0] + args[1]*args[2];
     };
@@ -265,7 +265,7 @@ fn test_gauss_legendre_quadrature_integration_5()
     //integration limit is (0.0 + 0.0i) to (1.0 + 0.5i)
     let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(1.0, 0.5)];
     //the final point
-    let point = vec![num_complex::c64(1.0, 0.5), num_complex::c64(2.0, 2.0), num_complex::c64(3.0, 0.0)];
+    let point = [num_complex::c64(1.0, 0.5), num_complex::c64(2.0, 2.0), num_complex::c64(3.0, 0.0)];
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of 3.75 + 10.0i
     let val = single_integration::get_partial(IntegrationMethod::GaussLegendre, &func, 0, &integration_limit, &point, 2);
@@ -295,7 +295,7 @@ fn test_gauss_legendre_quadrature_integration_5()
 fn test_gauss_legendre_quadrature_integration_6()
 {
     //equation is 6.0*x
-    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
     { 
         return 6.0*args[0];
     };
@@ -312,7 +312,7 @@ fn test_gauss_legendre_quadrature_integration_6()
 fn test_simpsons_integration_1()
 {
     //equation is 2.0*x
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 1] | -> f64 
     { 
         return 2.0*args[0];
     };
@@ -328,13 +328,13 @@ fn test_simpsons_integration_1()
 fn test_simpsons_integration_2()
 {
     //equation is 2.0*x + y*z
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 3] | -> f64 
     { 
         return 2.0*args[0] + args[1]*args[2];
     };
 
     let integration_limit = [0.0, 1.0];
-    let point = vec![1.0, 2.0, 3.0];
+    let point = [1.0, 2.0, 3.0];
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
     let val = single_integration::get_partial(IntegrationMethod::Simpsons, &func, 0, &integration_limit, &point, 200);
@@ -359,7 +359,7 @@ fn test_simpsons_integration_2()
 fn test_simpsons_integration_3()
 {
     //equation is 6.0*x
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 1] | -> f64 
     { 
         return 6.0*args[0];
     };
@@ -375,13 +375,13 @@ fn test_simpsons_integration_3()
 fn test_simpsons_integration_4()
 {
     //equation is 2.0*x + y*z
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 3] | -> f64 
     { 
         return 2.0*args[0] + args[1]*args[2];
     };
 
     let integration_limits = [[0.0, 1.0], [0.0, 1.0]];
-    let point = vec![1.0, 1.0, 1.0];
+    let point = [1.0, 1.0, 1.0];
 
     //double partial integration for first x then y, expect a value of ~1.50
     let val = double_integration::get_partial(IntegrationMethod::Simpsons, &func, [0, 1], &integration_limits, &point, 200);
@@ -392,7 +392,7 @@ fn test_simpsons_integration_4()
 fn test_simpsons_integration_5()
 {
     //equation is 2.0*x
-    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
     { 
         return 2.0*args[0];
     };
@@ -410,14 +410,14 @@ fn test_simpsons_integration_5()
 fn test_simpsons_integration_6()
 { 
     //equation is 2.0*x + y*z
-    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+    let func = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
     { 
         return 2.0*args[0] + args[1]*args[2];
     };
 
     //integrate from (0.0 + 0.0i) to (1.0 + 1.0i)
     let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(1.0, 1.0)];
-    let point = vec![num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
+    let point = [num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of 5.0 + 9.0i
     let val = single_integration::get_partial(IntegrationMethod::Simpsons, &func, 0, &integration_limit, &point, 100);
@@ -445,7 +445,7 @@ fn test_simpsons_integration_6()
 fn test_simpsons_integration_7()
 {
     //equation is 6.0*x
-    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
     { 
         return 6.0*args[0];
     };
@@ -463,14 +463,14 @@ fn test_simpsons_integration_7()
 fn test_simpsons_integration_8()
 {
     //equation is 2.0*x + y*z
-    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+    let func = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
     { 
         return 2.0*args[0] + args[1]*args[2];
     };
 
     //integrate over (0.0 + 0.0i) to (1.0 + 1.0i) twice
     let integration_limits = [[num_complex::c64(0.0, 0.0), num_complex::c64(1.0, 1.0)], [num_complex::c64(0.0, 0.0), num_complex::c64(1.0, 1.0)]];
-    let point = vec![num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
+    let point = [num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
 
     //double partial integration for first x then y, expect a value of -5.5 + 4.5i
     let val = double_integration::get_partial(IntegrationMethod::Simpsons, &func, [0, 1], &integration_limits, &point, 20);
@@ -482,7 +482,7 @@ fn test_simpsons_integration_8()
 fn test_trapezoidal_integration_1()
 {
     //equation is 2.0*x
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 1] | -> f64 
     { 
         return 2.0*args[0];
     };
@@ -498,13 +498,13 @@ fn test_trapezoidal_integration_1()
 fn test_trapezoidal_integration_2()
 {
     //equation is 2.0*x + y*z
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 3] | -> f64 
     { 
         return 2.0*args[0] + args[1]*args[2];
     };
 
     let integration_limit = [0.0, 1.0];
-    let point = vec![1.0, 2.0, 3.0];
+    let point = [1.0, 2.0, 3.0];
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
     let val = single_integration::get_partial(IntegrationMethod::Trapezoidal, &func, 0, &integration_limit, &point, 10);
@@ -529,7 +529,7 @@ fn test_trapezoidal_integration_2()
 fn test_trapezoidal_integration_3()
 {
     //equation is 6.0*x
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 1] | -> f64 
     { 
         return 6.0*args[0];
     };
@@ -545,13 +545,13 @@ fn test_trapezoidal_integration_3()
 fn test_trapezoidal_integration_4()
 {
     //equation is 2.0*x + y*z
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 3] | -> f64 
     { 
         return 2.0*args[0] + args[1]*args[2];
     };
 
     let integration_limits = [[0.0, 1.0], [0.0, 1.0]];
-    let point = vec![1.0, 2.0, 3.0];
+    let point = [1.0, 2.0, 3.0];
 
     //double partial integration for first x then y, expect a value of ~2.50
     let val = double_integration::get_partial(IntegrationMethod::Trapezoidal, &func, [0, 1], &integration_limits, &point, 10);
@@ -562,7 +562,7 @@ fn test_trapezoidal_integration_4()
 fn test_trapezoidal_integration_5()
 {
     //equation is 2.0*x
-    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
     { 
         return 2.0*args[0];
     };
@@ -580,14 +580,14 @@ fn test_trapezoidal_integration_5()
 fn test_trapezoidal_integration_6()
 { 
     //equation is 2.0*x + y*z
-    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+    let func = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
     { 
         return 2.0*args[0] + args[1]*args[2];
     };
 
     //integrate from (0.0 + 0.0i) to (1.0 + 1.0i)
     let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(1.0, 1.0)];
-    let point = vec![num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
+    let point = [num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of 5.0 + 9.0i
     let val = single_integration::get_partial(IntegrationMethod::Trapezoidal, &func, 0, &integration_limit, &point, 100);
@@ -615,7 +615,7 @@ fn test_trapezoidal_integration_6()
 fn test_trapezoidal_integration_7()
 {
     //equation is 6.0*x
-    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
     { 
         return 6.0*args[0];
     };
@@ -633,14 +633,14 @@ fn test_trapezoidal_integration_7()
 fn test_trapezoidal_integration_8()
 {
     //equation is 2.0*x + y*z
-    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+    let func = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
     { 
         return 2.0*args[0] + args[1]*args[2];
     };
 
     //integrate over (0.0 + 0.0i) to (1.0 + 1.0i) twice
     let integration_limits = [[num_complex::c64(0.0, 0.0), num_complex::c64(1.0, 1.0)], [num_complex::c64(0.0, 0.0), num_complex::c64(1.0, 1.0)]];
-    let point = vec![num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
+    let point = [num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
 
     //double partial integration for first x then y, expect a value of -5.5 + 4.5i
     let val = double_integration::get_partial(IntegrationMethod::Trapezoidal, &func, [0, 1], &integration_limits, &point, 20);
@@ -653,7 +653,7 @@ fn test_trapezoidal_integration_8()
 fn test_error_checking_1()
 {
     //equation is 2.0*x + y*z
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 3] | -> f64 
     { 
         return 2.0*args[0] + args[1]*args[2];
     };
@@ -669,7 +669,7 @@ fn test_error_checking_1()
 fn test_error_checking_2()
 {
     //equation is 2.0*x + y*z
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 3] | -> f64 
     { 
         return 2.0*args[0] + args[1]*args[2];
     };
@@ -685,7 +685,7 @@ fn test_error_checking_2()
 fn test_error_checking_3()
 {
     //equation is 4.0*x*x*x - 3.0*x*x
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 1] | -> f64 
     { 
         return 4.0*args[0]*args[0]*args[0] - 3.0*args[0]*args[0];
     };
@@ -701,7 +701,7 @@ fn test_error_checking_3()
 fn test_error_checking_4()
 {
     //equation is 4.0*x*x*x - 3.0*x*x
-    let func = | args: &Vec<f64> | -> f64 
+    let func = | args: &[f64; 1] | -> f64 
     { 
         return 4.0*args[0]*args[0]*args[0] - 3.0*args[0]*args[0];
     };
