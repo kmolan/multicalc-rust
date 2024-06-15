@@ -321,3 +321,4 @@ anmolkathail@gmail.com
 
 ## TODO
 - Gauss-Kronrod Quadrature integration
+- Bring current std-only features to no-std
