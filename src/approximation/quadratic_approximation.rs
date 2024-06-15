@@ -28,9 +28,9 @@ impl<T: ComplexFloat, const NUM_VARS: usize> QuadraticApproximationResult<T, NUM
     {
         let mut result = self.intercept;
 
-        for i in 0..NUM_VARS
+        for (i, arg) in args.iter().enumerate().take(NUM_VARS)
         {
-            result = result + self.linear_coefficients[i]*args[i];
+            result = result + self.linear_coefficients[i]**arg;
         }
         for i in 0..NUM_VARS
         {
@@ -50,12 +50,12 @@ impl<T: ComplexFloat, const NUM_VARS: usize> QuadraticApproximationResult<T, NUM
         let mut mae = T::zero();
         let mut mse = T::zero();
         
-        for iter in 0..NUM_POINTS
+        for point in points.iter().take(NUM_POINTS)
         {
-            let predicted_y = self.get_prediction_value(&points[iter]);
+            let predicted_y = self.get_prediction_value(point);
             
-            mae = mae + (predicted_y - original_function(&points[iter]));
-            mse = mse + num_complex::ComplexFloat::powi(predicted_y - original_function(&points[iter]), 2);
+            mae = mae + (predicted_y - original_function(point));
+            mse = mse + num_complex::ComplexFloat::powi(predicted_y - original_function(point), 2);
         }
 
         mae = mae/T::from(NUM_POINTS).unwrap();
@@ -66,12 +66,12 @@ impl<T: ComplexFloat, const NUM_VARS: usize> QuadraticApproximationResult<T, NUM
         let mut r2_numerator = T::zero();
         let mut r2_denominator = T::zero();
 
-        for iter in 0..NUM_POINTS
+        for point in points.iter().take(NUM_POINTS)
         {
-            let predicted_y = self.get_prediction_value(&points[iter]);
+            let predicted_y = self.get_prediction_value(point);
 
-            r2_numerator = r2_numerator + num_complex::ComplexFloat::powi(predicted_y - original_function(&points[iter]), 2);
-            r2_denominator = r2_numerator + num_complex::ComplexFloat::powi(mae - original_function(&points[iter]), 2);
+            r2_numerator = r2_numerator + num_complex::ComplexFloat::powi(predicted_y - original_function(point), 2);
+            r2_denominator = r2_numerator + num_complex::ComplexFloat::powi(mae - original_function(point), 2);
         }
 
         let r2 = T::one() - (r2_numerator/r2_denominator);

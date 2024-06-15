@@ -56,8 +56,8 @@ pub fn get<T: ComplexFloat, const NUM_FUNCS: usize, const NUM_VARS: usize>(funct
 ///same as [get()] but with the option to change the differentiation mode used, reserved for more advanced users
 pub fn get_custom<T: ComplexFloat, const NUM_FUNCS: usize, const NUM_VARS: usize>(function_matrix: &[Box<dyn Fn(&[T; NUM_VARS]) -> T>; NUM_FUNCS], vector_of_points: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> [[T; NUM_VARS]; NUM_FUNCS]
 {
-    assert!(function_matrix.len() > 0, "function matrix cannot be empty");
-    assert!(vector_of_points.len() > 0, "points cannot be empty");
+    assert!(!function_matrix.is_empty(), "function matrix cannot be empty");
+    assert!(!vector_of_points.is_empty(), "points cannot be empty");
 
     let mut result = [[T::zero(); NUM_VARS]; NUM_FUNCS];
 
@@ -65,7 +65,7 @@ pub fn get_custom<T: ComplexFloat, const NUM_FUNCS: usize, const NUM_VARS: usize
     {
         for col_index in 0..NUM_VARS
         {
-            result[row_index][col_index] = single_derivative::get_partial_custom(&function_matrix[row_index], col_index, &vector_of_points, step_size, mode);
+            result[row_index][col_index] = single_derivative::get_partial_custom(&function_matrix[row_index], col_index, vector_of_points, step_size, mode);
         }
     }
     

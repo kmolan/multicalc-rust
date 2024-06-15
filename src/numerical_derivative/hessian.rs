@@ -41,7 +41,7 @@ pub fn get<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VA
 ///same as [get()] but with the option to change the differentiation mode used, reserved for more advanced users
 pub fn get_custom<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, vector_of_points: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> [[T; NUM_VARS]; NUM_VARS]
 {
-    assert!(vector_of_points.len() > 0, "points cannot be empty");
+    assert!(!vector_of_points.is_empty(), "points cannot be empty");
 
     let mut result = [[T::from(f64::NAN).unwrap(); NUM_VARS]; NUM_VARS];
 
@@ -51,7 +51,7 @@ pub fn get_custom<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T;
         {
             if result[row_index][col_index].is_nan()
             {
-                result[row_index][col_index] = double_derivative::get_partial_custom(function, &[row_index, col_index], &vector_of_points, step_size, mode);
+                result[row_index][col_index] = double_derivative::get_partial_custom(function, &[row_index, col_index], vector_of_points, step_size, mode);
 
                 result[col_index][row_index] = result[row_index][col_index]; //exploit the fact that a hessian is a symmetric matrix
             }

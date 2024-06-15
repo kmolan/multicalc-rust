@@ -13,7 +13,7 @@ use num_complex::ComplexFloat;
 ///        return 2.0*args[0];
 ///    };
 ///
-////where args[0] = x. We also need to define the integration limit around which we want to integrate. Assuming our limit is [0.0, 2.0]
+/////where args[0] = x. We also need to define the integration limit around which we want to integrate. Assuming our limit is [0.0, 2.0]
 ///
 /// let integration_limit = [0.0, 2.0];
 /// 
@@ -35,7 +35,7 @@ use num_complex::ComplexFloat;
 ///        return 2.0*args[0];
 ///    };
 ///
-////where args[0] = x. Assuming our integration limit is (0.0 + 0.0i) to (2.0 + 2.0i)
+/////where args[0] = x. Assuming our integration limit is (0.0 + 0.0i) to (2.0 + 2.0i)
 ///
 /// let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 2.0)];
 /// 
@@ -77,19 +77,19 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: Int
 ///        return 2.0*args[0] + args[1]*args[2];
 ///    };
 ///
-////where args[0] = x, args[1] = y and args[2] = z. We also need to define the integration limit around which we want to integrate. Assuming our limit is [0.0, 2.0]
+/////where args[0] = x, args[1] = y and args[2] = z. We also need to define the integration limit around which we want to integrate. Assuming our limit is [0.0, 2.0]
 ///
 /// let integration_limit = [0.0, 2.0];
 /// 
-//// For partial integration to work, we also need to define the static values for the remaining variables. 
-//// Assuming x = 1.0, z = 3.0 and we want to integrate over y:
+///// For partial integration to work, we also need to define the static values for the remaining variables. 
+///// Assuming x = 1.0, z = 3.0 and we want to integrate over y:
 /// 
 /// let point = [1.0, 2.0, 3.0];
 ///
-//// Note above that the point vector has the same number of elements as the number of elements my_func expects. 
-//// The element to integrate, y, has index = 1. We MUST therefore make the point vector's 1st element the same as the integration intervals's upper limit which is 2.0
+///// Note above that the point vector has the same number of elements as the number of elements my_func expects. 
+///// The element to integrate, y, has index = 1. We MUST therefore make the point vector's 1st element the same as the integration intervals's upper limit which is 2.0
 /// 
-//// if we then want to integrate this function over y with 100 steps, we would use:
+///// if we then want to integrate this function over y with 100 steps, we would use:
 /// 
 /// use multicalc::numerical_integration::mode::IntegrationMethod;
 /// use multicalc::numerical_integration::single_integration;
@@ -111,19 +111,19 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: Int
 ///        return 2.0*args[0] + args[1]*args[2];
 ///    };
 ///
-////where args[0] = x, args[1] = y and args[2] = z. Assuming our integration limit is (0.0 + 0.0i) to (2.0 + 0.0i)
+/////where args[0] = x, args[1] = y and args[2] = z. Assuming our integration limit is (0.0 + 0.0i) to (2.0 + 0.0i)
 ///
 /// let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 0.0)];
 /// 
-//// For partial integration to work, we also need to define the static values for the remaining variables. 
-//// Assuming x = 1.0 + 1.0i, z = 3.0 + 0.5i and we want to integrate over y:
+///// For partial integration to work, we also need to define the static values for the remaining variables. 
+///// Assuming x = 1.0 + 1.0i, z = 3.0 + 0.5i and we want to integrate over y:
 /// 
 /// let point = [num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
 ///
-//// Note above that the point vector has the same number of elements as the number of elements my_func expects. 
-//// The element to integrate, y, has index = 1. We MUST therefore make the point vector's 1st element the same as the integration intervals's upper limit which is 2.0 + 0.0i
+///// Note above that the point vector has the same number of elements as the number of elements my_func expects. 
+///// The element to integrate, y, has index = 1. We MUST therefore make the point vector's 1st element the same as the integration intervals's upper limit which is 2.0 + 0.0i
 /// 
-//// if we then want to integrate this function over y with 100 steps], we would use:
+///// if we then want to integrate this function over y with 100 steps], we would use:
 /// 
 /// use multicalc::numerical_integration::mode::IntegrationMethod;
 /// use multicalc::numerical_integration::single_integration;
@@ -155,7 +155,7 @@ fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VAR
 {
     check_for_errors(integration_limit, steps);
 
-    let mut current_vec = point.clone();
+    let mut current_vec = *point;
     current_vec[idx_to_integrate] = integration_limit[0];
 
     let mut ans = T::from(7.0).unwrap()*func(&current_vec);
@@ -172,16 +172,13 @@ fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VAR
         {
             multiplier = T::from(32.0).unwrap();
         }
+        else if (iter + 2) % 4 == 0
+        {
+            multiplier = T::from(14.0).unwrap();
+        }
         else
         {
-            if (iter + 2) % 4 == 0
-            {
-                multiplier = T::from(14.0).unwrap();
-            }
-            else
-            {
-                multiplier = T::from(12.0).unwrap();
-            }
+            multiplier = T::from(12.0).unwrap();
         }
     }
 
@@ -206,7 +203,7 @@ fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T;
 
     let (weight, abcsissa) = gl_table::get_gl_weights_and_abscissae(order);
 
-    let mut args = point.clone();
+    let mut args = *point;
 
     for iter in 0..order
     {
@@ -224,7 +221,7 @@ fn get_simpsons<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_V
 {
     check_for_errors(integration_limit, steps);
 
-    let mut current_vec = point.clone();
+    let mut current_vec = *point;
     current_vec[idx_to_integrate] = integration_limit[0];
 
     let mut ans = func(&current_vec);
@@ -258,7 +255,7 @@ fn get_trapezoidal<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NU
 {
     check_for_errors(integration_limit, steps);
 
-    let mut current_vec = point.clone();
+    let mut current_vec = *point;
     current_vec[idx_to_integrate] = integration_limit[0];
 
     let mut ans = func(&current_vec);

@@ -11,10 +11,10 @@ use num_complex::ComplexFloat;
 ///        return 2.0*args[0]*args[0];
 ///    };
 ///
-//// where args[0] = x
+///// where args[0] = x
 ///
-//// We also need to define the point at which we want to differentiate. Assuming our point is x = 1.0
-//// if we then want to differentiate this function over x with a step size of 0.001, we would use:
+///// We also need to define the point at which we want to differentiate. Assuming our point is x = 1.0
+///// if we then want to differentiate this function over x with a step size of 0.001, we would use:
 /// 
 /// use multicalc::numerical_derivative::single_derivative;
 ///
@@ -32,7 +32,7 @@ use num_complex::ComplexFloat;
 ///        return 2.0*args[0]*args[0];
 ///    };
 ///
-//// where args[0] = x
+///// where args[0] = x
 /// 
 /// //point of interest is x = (1.0 + 2.5i)
 /// let point = num_complex::c64(1.0, 2.5);
@@ -80,13 +80,13 @@ pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[
 ///        return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
 ///    };
 ///
-//// where args[0] = x, args[1] = y and args[2] = z. Also, we know our function must accept 3 arguments.
+///// where args[0] = x, args[1] = y and args[2] = z. Also, we know our function must accept 3 arguments.
 ///
-//// We also need to define the point at which we want to differentiate. Assuming our point is (1.0, 2.0, 3.0)
+///// We also need to define the point at which we want to differentiate. Assuming our point is (1.0, 2.0, 3.0)
 ///
 /// let point = [1.0, 2.0, 3.0];
 ///
-//// if we then want to differentiate this function over x with a step size of 0.001, we would use:
+///// if we then want to differentiate this function over x with a step size of 0.001, we would use:
 /// 
 /// use multicalc::numerical_derivative::single_derivative;
 ///
@@ -106,9 +106,9 @@ pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[
 ///        return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
 ///    };
 ///
-//// where args[0] = x, args[1] = y and args[2] = z.
+///// where args[0] = x, args[1] = y and args[2] = z.
 ///
-//// Assuming our point is (1.0 + 2.5i, 2.0 + 2.0i, 3.0 + 0.0i)
+///// Assuming our point is (1.0 + 2.5i, 2.0 + 2.0i, 3.0 + 0.0i)
 /// let point = [num_complex::c64(1.0, 2.5), num_complex::c64(2.0, 2.0), num_complex::c64(3.0, 0.0)];
 /// 
 /// use multicalc::numerical_derivative::single_derivative;
@@ -151,10 +151,10 @@ fn get_forward_difference<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(
 {
     let f0_args = point;
 
-    let mut f1_args = point.clone();
+    let mut f1_args = *point;
     f1_args[idx_to_derivate] = f1_args[idx_to_derivate] + T::from(step).unwrap(); 
 
-    let f0 = func(&f0_args);
+    let f0 = func(f0_args);
     let f1 = func(&f1_args);
 
     return (f1 - f0)/T::from(step).unwrap();
@@ -162,23 +162,23 @@ fn get_forward_difference<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(
 
 fn get_backward_difference<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64) -> T
 {
-    let mut f0_args = point.clone();
+    let mut f0_args = *point;
     f0_args[idx_to_derivate] = f0_args[idx_to_derivate] - T::from(step).unwrap(); 
 
     let f1_args = point;
 
     let f0 = func(&f0_args);
-    let f1 = func(&f1_args);
+    let f1 = func(f1_args);
 
     return (f1 - f0)/T::from(step).unwrap();
 }
 
 fn get_central_difference<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64) -> T
 {
-    let mut f0_args = point.clone();
+    let mut f0_args = *point;
     f0_args[idx_to_derivate] = f0_args[idx_to_derivate] - T::from(step).unwrap();
 
-    let mut f1_args = point.clone();
+    let mut f1_args = *point;
     f1_args[idx_to_derivate] = f1_args[idx_to_derivate] + T::from(step).unwrap(); 
 
     let f0 = func(&f0_args);
