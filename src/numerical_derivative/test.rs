@@ -2,7 +2,10 @@ use crate::numerical_derivative::mode as mode;
 use crate::numerical_derivative::single_derivative as single_derivative;
 use crate::numerical_derivative::double_derivative as double_derivative;
 use crate::numerical_derivative::triple_derivative as triple_derivative;
+
+#[cfg(feature = "std")]
 use crate::numerical_derivative::jacobian as jacobian;
+
 use crate::numerical_derivative::hessian as hessian;
 
 #[test]
@@ -193,6 +196,7 @@ fn test_single_derivative_partial_4()
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn test_single_derivative_error_2() 
 {
     //function is y*sin(x) + x*cos(y) + x*y*e^z
@@ -209,6 +213,7 @@ fn test_single_derivative_error_2()
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn test_single_derivative_error_3() 
 {
     //function is y*sin(x) + x*cos(y) + x*y*e^z
@@ -648,6 +653,7 @@ fn test_triple_derivative_partial_4()
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn test_jacobian_1() 
 {
     //function is x*y*z
@@ -683,6 +689,7 @@ fn test_jacobian_1()
 }
 
 #[test]
+#[cfg(feature = "std")]
 fn test_jacobian_1_complex() 
 {
     //function is x*y*z

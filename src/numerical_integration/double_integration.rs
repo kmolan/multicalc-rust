@@ -1,7 +1,9 @@
 use crate::numerical_integration::mode::IntegrationMethod;
 use crate::numerical_integration::single_integration;
-use crate::utils::gl_table as gl_table;
 use num_complex::ComplexFloat;
+
+#[cfg(feature = "std")]
+use crate::utils::gl_table as gl_table;
 
 /// Returns the total double integration value for a given function
 /// Only ideal for single variable functions
@@ -59,7 +61,14 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: Int
     match integration_method
     {
         IntegrationMethod::Booles        => return get_booles(func, [0, 0], integration_limits, &point, n),
-        IntegrationMethod::GaussLegendre => return get_gauss_legendre(func, [0, 0], integration_limits, &point, n as usize),
+        IntegrationMethod::GaussLegendre => 
+        {
+            #[cfg(feature = "std")]
+            return get_gauss_legendre(func, [0, 0], integration_limits, &point, n as usize);
+
+            #[cfg(not(feature = "std"))]
+            panic!("enable std context to use!");
+        }
         IntegrationMethod::Simpsons      => return get_simpsons(func, [0, 0], integration_limits, &point, n),
         IntegrationMethod::Trapezoidal   => return get_trapezoidal(func, [0, 0], integration_limits, &point, n)
     }
@@ -141,7 +150,14 @@ pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(integration_method: I
     match integration_method
     {
         IntegrationMethod::Booles        => return get_booles(func, idx_to_integrate, integration_limits, point, n),
-        IntegrationMethod::GaussLegendre => return get_gauss_legendre(func, idx_to_integrate, integration_limits, point, n as usize),
+        IntegrationMethod::GaussLegendre => 
+        {
+            #[cfg(feature = "std")]
+            return get_gauss_legendre(func, idx_to_integrate, integration_limits, point, n as usize);
+
+            #[cfg(not(feature = "std"))]
+            panic!("enable std context to use!");
+        }
         IntegrationMethod::Simpsons      => return get_simpsons(func, idx_to_integrate, integration_limits, point, n),
         IntegrationMethod::Trapezoidal   => return get_trapezoidal(func, idx_to_integrate, integration_limits, point, n)
     }
@@ -183,6 +199,8 @@ fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VAR
     return T::from(2.0).unwrap()*delta*ans/T::from(45.0).unwrap();
 }
 
+
+#[cfg(feature = "std")]
 fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], order: usize) -> T
 {
     let mut ans = T::zero();

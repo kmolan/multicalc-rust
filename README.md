@@ -23,6 +23,18 @@ Rust scientific computing for single and multi-variable calculus
   - Vector Field Calculus: Line and flux integrals, curl and divergence
   - Approximation of any given equation to a linear or quadratic model
 
+This crate can be used without the standard library (`#![no_std]`) by disabling
+the default `std` feature. Use this in `Cargo.toml`:
+
+```toml
+[dependencies.multicalc]
+version = "0.3.0"
+default-features = false
+```
+
+Features based on Vector Field calculus and Jacobians are only available when `std` is
+enabled. For integration methods, only the gauss-legendre method needs `std` enabled.
+
 ## Table of Contents
 
 
@@ -171,6 +183,8 @@ assert!(f64::abs(val - 1.50) < 0.00001);  //numerical error less than 1e-5
 ```
 
 ## 9. Jacobians
+_Need to enable the `std` flag to use_
+
 ```rust
 //function is x*y*z
 let func1 = | args: &[f64; 3] | -> f64 
@@ -252,6 +266,8 @@ let result = quadratic_approximation::get(&function_to_approximate, &point);
 ```
 
 ## 13. Line and Flux integrals
+_Need to enable the `std` flag to use_
+
 ```rust
 //vector field is (y, -x). On a 2D plane this would like a tornado rotating counter-clockwise
 //curve is a unit circle, defined by (Cos(t), Sin(t))
@@ -273,6 +289,8 @@ assert!(f64::abs(val - 0.0) < 0.01);
 ```
 
 ## 14. Curl and Divergence
+_Need to enable the `std` flag to use_
+
 ```rust
 //vector field is (2*x*y, 3*cos(y))
 let vector_field_matrix: [Box<dyn Fn(&[f64; 3]) -> f64>; 2] = [Box::new(|args:&[f64; 3]|-> f64 { 2.0*args[0]*args[1] }), Box::new(|args: &[f64; 3]|-> f64 { 3.0*args[1].cos() })];
