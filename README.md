@@ -33,8 +33,7 @@ version = "0.3.0"
 default-features = false
 ```
 
-Features based on Vector Field calculus and Jacobians are only available when `std` is
-enabled. For integration methods, only the gauss-legendre method needs `std` enabled.
+For integration methods, only the gauss-legendre method needs `std` enabled.
 
 ## Table of Contents
 
@@ -184,8 +183,6 @@ assert!(f64::abs(val - 1.50) < 0.00001);  //numerical error less than 1e-5
 ```
 
 ## 9. Jacobians
-_Need to enable the `std` flag to use_
-
 ```rust
 //function is x*y*z
 let func1 = | args: &[f64; 3] | -> f64 
@@ -267,16 +264,14 @@ let result = quadratic_approximation::get(&function_to_approximate, &point);
 ```
 
 ## 13. Line and Flux integrals
-_Need to enable the `std` flag to use_
-
 ```rust
 //vector field is (y, -x). On a 2D plane this would like a tornado rotating counter-clockwise
 //curve is a unit circle, defined by (Cos(t), Sin(t))
 //limit t goes from 0->2*pi
 
-let vector_field_matrix: [Box<dyn Fn(&f64, &f64) -> f64>; 2] = [Box::new(|_:&f64, y:&f64|-> f64 { *y }), Box::new(|x:&f64, _:&f64|-> f64 { -x })];
+let vector_field_matrix: [&dyn Fn(&f64, &f64) -> f64; 2] = [&(|_:&f64, y:&f64|-> f64 { *y }), &(|x:&f64, _:&f64|-> f64 { -x })];
 
-let transformation_matrix: [Box<dyn Fn(&f64) -> f64>; 2] = [Box::new(|t:&f64|->f64 { t.cos() }), Box::new(|t:&f64|->f64 { t.sin() })];
+let transformation_matrix: [&dyn Fn(&f64) -> f64; 2] = [&(|t:&f64|->f64 { t.cos() }), &(|t:&f64|->f64 { t.sin() })];
 
 let integration_limit = [0.0, 6.28];
 
@@ -290,11 +285,21 @@ assert!(f64::abs(val - 0.0) < 0.01);
 ```
 
 ## 14. Curl and Divergence
-_Need to enable the `std` flag to use_
-
 ```rust
 //vector field is (2*x*y, 3*cos(y))
-let vector_field_matrix: [Box<dyn Fn(&[f64; 3]) -> f64>; 2] = [Box::new(|args:&[f64; 3]|-> f64 { 2.0*args[0]*args[1] }), Box::new(|args: &[f64; 3]|-> f64 { 3.0*args[1].cos() })];
+//x-component
+let vf_x = | args: &[f64; 2] | -> f64 
+{ 
+    return 2.0*args[0]*args[1];
+};
+
+//y-component
+let vf_y = | args: &[f64; 2] | -> f64 
+{ 
+    return 3.0*args[1].cos()
+};
+
+let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [&vf_x, &vf_y];
 
 let point = [1.0, 3.14]; //the point of interest
 
@@ -322,3 +327,4 @@ anmolkathail@gmail.com
 ## TODO
 - Gauss-Kronrod Quadrature integration
 - Bring current std-only features to no-std
+- remove panics for better error handling

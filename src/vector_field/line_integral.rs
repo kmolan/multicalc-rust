@@ -18,9 +18,9 @@ use num_complex::ComplexFloat;
 /// The curve is a unit circle, parameterized by (Cos(t), Sin(t)), such that t goes from 0->2*pi
 /// ```
 /// use multicalc::vector_field::line_integral;
-/// let vector_field_matrix: [Box<dyn Fn(&f64, &f64) -> f64>; 2] = [Box::new(|_:&f64, y:&f64|-> f64 { *y }), Box::new(|x:&f64, _:&f64|-> f64 { -x })];
+/// let vector_field_matrix: [&dyn Fn(&f64, &f64) -> f64; 2] = [&(|_:&f64, y:&f64|-> f64 { *y }), &(|x:&f64, _:&f64|-> f64 { -x })];
 ///
-/// let transformation_matrix: [Box<dyn Fn(&f64) -> f64>; 2] = [Box::new(|t:&f64|->f64 { t.cos() }), Box::new(|t:&f64|->f64 { t.sin() })];
+/// let transformation_matrix: [&dyn Fn(&f64) -> f64; 2] = [&(|t:&f64|->f64 { t.cos() }), &(|t:&f64|->f64 { t.sin() })];
 ///
 /// let integration_limit = [0.0, 6.28];
 ///
@@ -28,14 +28,14 @@ use num_complex::ComplexFloat;
 /// let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
 /// assert!(f64::abs(val + 6.28) < 0.01);
 /// ```
-pub fn get_2d<T: ComplexFloat>(vector_field: &[Box<dyn Fn(&T, &T) -> T>; 2], transformations: &[Box<dyn Fn(&T) -> T>; 2], integration_limit: &[T; 2], steps: u64) -> T
+pub fn get_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2], steps: u64) -> T
 {
     return get_partial_2d(vector_field, transformations, integration_limit, steps, 0)
          + get_partial_2d(vector_field, transformations, integration_limit, steps, 1);
 }
 
 
-pub fn get_partial_2d<T: ComplexFloat>(vector_field: &[Box<dyn Fn(&T, &T) -> T>; 2], transformations: &[Box<dyn Fn(&T) -> T>; 2], integration_limit: &[T; 2], steps: u64, idx: usize) -> T
+pub fn get_partial_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2], steps: u64, idx: usize) -> T
 {
     let mut ans = T::zero();
 
@@ -59,7 +59,7 @@ pub fn get_partial_2d<T: ComplexFloat>(vector_field: &[Box<dyn Fn(&T, &T) -> T>;
 
 
 ///same as [`get_2d`] but for parametrized curves in a 3D vector field
-pub fn get_3d<T: ComplexFloat>(vector_field: &[Box<dyn Fn(&T, &T, &T) -> T>; 3], transformations: &[Box<dyn Fn(&T) -> T>; 3], integration_limit: &[T; 2], steps: u64) -> T
+pub fn get_3d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T, &T) -> T; 3], transformations: &[&dyn Fn(&T) -> T; 3], integration_limit: &[T; 2], steps: u64) -> T
 {
     return get_partial_3d(vector_field, transformations, integration_limit, steps, 0)
          + get_partial_3d(vector_field, transformations, integration_limit, steps, 1)
@@ -67,7 +67,7 @@ pub fn get_3d<T: ComplexFloat>(vector_field: &[Box<dyn Fn(&T, &T, &T) -> T>; 3],
 }
 
 
-pub fn get_partial_3d<T: ComplexFloat>(vector_field: &[Box<dyn Fn(&T, &T, &T) -> T>; 3], transformations: &[Box<dyn Fn(&T) -> T>; 3], integration_limit: &[T; 2], steps: u64, idx: usize) -> T
+pub fn get_partial_3d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T, &T) -> T; 3], transformations: &[&dyn Fn(&T) -> T; 3], integration_limit: &[T; 2], steps: u64, idx: usize) -> T
 {
     let mut ans = T::zero();
 
@@ -92,7 +92,7 @@ pub fn get_partial_3d<T: ComplexFloat>(vector_field: &[Box<dyn Fn(&T, &T, &T) ->
 
 
 
-fn get_transformed_coordinates_2d<T: ComplexFloat>(transformations: &[Box<dyn Fn(&T) -> T>; 2], cur_point: &T, delta: &T) -> [T; 4]
+fn get_transformed_coordinates_2d<T: ComplexFloat>(transformations: &[&dyn Fn(&T) -> T; 2], cur_point: &T, delta: &T) -> [T; 4]
 {
     let mut ans = [T::zero(); 4];
 
@@ -106,7 +106,7 @@ fn get_transformed_coordinates_2d<T: ComplexFloat>(transformations: &[Box<dyn Fn
 }
 
 
-fn get_transformed_coordinates_3d<T: ComplexFloat>(transformations: &[Box<dyn Fn(&T) -> T>; 3], cur_point: &T, delta: &T) -> [T; 6]
+fn get_transformed_coordinates_3d<T: ComplexFloat>(transformations: &[&dyn Fn(&T) -> T; 3], cur_point: &T, delta: &T) -> [T; 6]
 {
     let mut ans = [T::zero(); 6];
 

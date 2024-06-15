@@ -10,15 +10,14 @@ fn test_line_integral_1()
     //curve is a unit circle, defined by (Cos(t), Sin(t))
     //limit t goes from 0->2*pi
 
-    let vector_field_matrix: [Box<dyn Fn(&f64, &f64) -> f64>; 2] = [Box::new(|_:&f64, y:&f64|-> f64 { *y }), Box::new(|x:&f64, _:&f64|-> f64 { -x })];
+    let vector_field_matrix: [&dyn Fn(&f64, &f64) -> f64; 2] = [&(|_:&f64, y:&f64|-> f64 { *y }), &(|x:&f64, _:&f64|-> f64 { -x })];
 
-    let transformation_matrix: [Box<dyn Fn(&f64) -> f64>; 2] = [Box::new(|t:&f64|->f64 { t.cos() }), Box::new(|t:&f64|->f64 { t.sin() })];
+    let transformation_matrix: [&dyn Fn(&f64) -> f64; 2] = [&(|t:&f64|->f64 { t.cos() }), &(|t:&f64|->f64 { t.sin() })];
 
     let integration_limit = [0.0, 6.28];
 
     //line integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of -2.0*pi
     let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
-    println!("{}", val);
     assert!(f64::abs(val + 6.28) < 0.01);
 }
 
@@ -30,9 +29,9 @@ fn test_flux_integral_1()
     //curve is a unit circle, defined by (Cos(t), Sin(t))
     //limit t goes from 0->2*pi
 
-    let vector_field_matrix: [Box<dyn Fn(&f64, &f64) -> f64>; 2] = [Box::new(|_:&f64, y:&f64|-> f64 { *y }), Box::new(|x:&f64, _:&f64|-> f64 { -x })];
+    let vector_field_matrix: [&dyn Fn(&f64, &f64) -> f64; 2] = [&(|_:&f64, y:&f64|-> f64 { *y }), &(|x:&f64, _:&f64|-> f64 { -x })];
 
-    let transformation_matrix: [Box<dyn Fn(&f64) -> f64>; 2] = [Box::new(|t:&f64|->f64 { t.cos() }), Box::new(|t:&f64|->f64 { t.sin() })];
+    let transformation_matrix: [&dyn Fn(&f64) -> f64; 2] = [&(|t:&f64|->f64 { t.cos() }), &(|t:&f64|->f64 { t.sin() })];
 
     let integration_limit = [0.0, 6.28];
 
@@ -45,7 +44,20 @@ fn test_flux_integral_1()
 fn test_curl_2d_1()
 {
     //vector field is (2*x*y, 3*cos(y))
-    let vector_field_matrix: [Box<dyn Fn(&[f64; 2]) -> f64>; 2] = [Box::new(|args: &[f64; 2]|-> f64 { 2.0*args[0]*args[1] }), Box::new(|args: &[f64; 2]|-> f64 { 3.0*args[1].cos() })];
+
+    //x-component
+    let vf_x = | args: &[f64; 2] | -> f64 
+    { 
+        return 2.0*args[0]*args[1];
+    };
+
+    //y-component
+    let vf_y = | args: &[f64; 2] | -> f64 
+    { 
+        return 3.0*args[1].cos()
+    };
+    
+    let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [&vf_x, &vf_y];
 
     let point = [1.0, 3.14];
 
@@ -58,7 +70,25 @@ fn test_curl_2d_1()
 fn test_curl_3d_1()
 {
     //vector field is (y, -x, 2*z)
-    let vector_field_matrix: [Box<dyn Fn(&[f64; 3]) -> f64>; 3] = [Box::new(|args: &[f64; 3]|-> f64 { args[1] }), Box::new(|args: &[f64; 3]|-> f64 { -args[0]}), Box::new(|args: &[f64; 3]|-> f64 { 2.0*args[2]})];
+    //x-component
+    let vf_x = | args: &[f64; 3] | -> f64 
+    { 
+        return args[1];
+    };
+
+    //y-component
+    let vf_y = | args: &[f64; 3] | -> f64 
+    { 
+        return -args[0];
+    };
+
+    //z-component
+    let vf_z = | args: &[f64; 3] | -> f64 
+    { 
+        return 2.0*args[2];
+    };
+
+    let vector_field_matrix: [&dyn Fn(&[f64; 3]) -> f64; 3] = [&vf_x, &vf_y, &vf_z];
     let point = [1.0, 2.0, 3.0];
 
     //curl is known to be (0.0, 0.0, -2.0)
@@ -73,8 +103,19 @@ fn test_curl_3d_1()
 fn test_divergence_2d_1()
 {
     //vector field is (2*x*y, 3*cos(y))
-    let vector_field_matrix: [Box<dyn Fn(&[f64; 2]) -> f64>; 2] = [Box::new(|args: &[f64; 2]|-> f64 { 2.0*args[0]*args[1] }), Box::new(|args: &[f64; 2]|-> f64 { 3.0*args[1].cos() })];
+    //x-component
+    let vf_x = | args: &[f64; 2] | -> f64 
+    { 
+        return 2.0*args[0]*args[1];
+    };
 
+    //y-component
+    let vf_y = | args: &[f64; 2] | -> f64 
+    { 
+        return 3.0*args[1].cos()
+    };
+    
+    let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [&vf_x, &vf_y];
     let point = [1.0, 3.14];
 
     //divergence is known to be 2*y - 3*sin(y), expect and answer of 6.27
@@ -86,8 +127,25 @@ fn test_divergence_2d_1()
 fn test_divergence_3d_1()
 {
     //vector field is (y, -x, 2*z)
-    let vector_field_matrix: [Box<dyn Fn(&[f64; 3]) -> f64>; 3] = [Box::new(|args: &[f64; 3]|-> f64 { args[1] }), Box::new(|args: &[f64; 3]|-> f64 { -args[0]}), Box::new(|args: &[f64; 3]|-> f64 { 2.0*args[2]})];
+    //x-component
+    let vf_x = | args: &[f64; 3] | -> f64 
+    { 
+        return args[1];
+    };
 
+    //y-component
+    let vf_y = | args: &[f64; 3] | -> f64 
+    { 
+        return -args[0];
+    };
+
+    //z-component
+    let vf_z = | args: &[f64; 3] | -> f64 
+    { 
+        return 2.0*args[2];
+    };
+
+    let vector_field_matrix: [&dyn Fn(&[f64; 3]) -> f64; 3] = [&vf_x, &vf_y, &vf_z];
     let point = [0.0, 1.0, 3.0]; //the point of interest
 
     //diverge known to be 2.0 

@@ -8,6 +8,4 @@ pub mod utils;
 pub mod numerical_integration;
 pub mod numerical_derivative;
 pub mod approximation;
-
-#[cfg(feature = "std")]
 pub mod vector_field;

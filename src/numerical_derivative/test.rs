@@ -2,8 +2,6 @@ use crate::numerical_derivative::mode as mode;
 use crate::numerical_derivative::single_derivative as single_derivative;
 use crate::numerical_derivative::double_derivative as double_derivative;
 use crate::numerical_derivative::triple_derivative as triple_derivative;
-
-#[cfg(feature = "std")]
 use crate::numerical_derivative::jacobian as jacobian;
 
 use crate::numerical_derivative::hessian as hessian;
@@ -653,7 +651,6 @@ fn test_triple_derivative_partial_4()
 }
 
 #[test]
-#[cfg(feature = "std")]
 fn test_jacobian_1() 
 {
     //function is x*y*z
@@ -668,7 +665,7 @@ fn test_jacobian_1()
         return args[0].powf(2.0) + args[1].powf(2.0);
     };
 
-    let function_matrix: [Box<dyn Fn(&[f64; 3]) -> f64>; 2] = [Box::new(func1), Box::new(func2)];
+    let function_matrix: [&dyn Fn(&[f64; 3]) -> f64; 2] = [&func1, &func2];
 
     let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
 
@@ -689,7 +686,6 @@ fn test_jacobian_1()
 }
 
 #[test]
-#[cfg(feature = "std")]
 fn test_jacobian_1_complex() 
 {
     //function is x*y*z
@@ -704,7 +700,7 @@ fn test_jacobian_1_complex()
         return args[0].powf(2.0) + args[1].powf(2.0);
     };
 
-    let function_matrix: [Box<dyn Fn(&[num_complex::Complex64; 3]) -> num_complex::Complex64>; 2] = [Box::new(func1), Box::new(func2)];
+    let function_matrix: [&dyn Fn(&[num_complex::Complex64; 3]) -> num_complex::Complex64; 2] = [&func1, &func2];
 
     //the point around which we want the jacobian matrix
     let points = [num_complex::c64(1.0, 3.0), num_complex::c64(2.0, 3.5), num_complex::c64(3.0, 0.0)];

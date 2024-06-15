@@ -19,7 +19,7 @@ use num_complex::ComplexFloat;
 ///    };
 /// 
 /// //define the function vector
-/// let function_matrix: [Box<dyn Fn(&[f64; 3]) -> f64>; 2] = [Box::new(my_func1), Box::new(my_func2)];
+/// let function_matrix: [&dyn Fn(&[f64; 3]) -> f64; 2] = [&my_func1, &my_func2];
 /// let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
 /// 
 /// let result = jacobian::get(&function_matrix, &points);
@@ -39,7 +39,7 @@ use num_complex::ComplexFloat;
 ///    };
 /// 
 /// //define the function vector
-/// let function_matrix: [Box<dyn Fn(&[num_complex::Complex64; 3]) -> num_complex::Complex64>; 2] = [Box::new(my_func1), Box::new(my_func2)];
+/// let function_matrix: [&dyn Fn(&[num_complex::Complex64; 3]) -> num_complex::Complex64; 2] = [&my_func1, &my_func2];
 /// 
 /// //the point around which we want the jacobian matrix
 /// let points = [num_complex::c64(1.0, 3.0), num_complex::c64(2.0, 3.5), num_complex::c64(3.0, 0.0)];
@@ -47,14 +47,14 @@ use num_complex::ComplexFloat;
 /// let result = jacobian::get(&function_matrix, &points);
 ///``` 
 /// 
-pub fn get<T: ComplexFloat, const NUM_FUNCS: usize, const NUM_VARS: usize>(function_matrix: &[Box<dyn Fn(&[T; NUM_VARS]) -> T>; NUM_FUNCS], vector_of_points: &[T; NUM_VARS]) -> [[T; NUM_VARS]; NUM_FUNCS]
+pub fn get<T: ComplexFloat, const NUM_FUNCS: usize, const NUM_VARS: usize>(function_matrix: &[&dyn Fn(&[T; NUM_VARS]) -> T; NUM_FUNCS], vector_of_points: &[T; NUM_VARS]) -> [[T; NUM_VARS]; NUM_FUNCS]
 {    
     return get_custom(function_matrix, vector_of_points, 0.00001, mode::DiffMode::CentralFixedStep);
 }
 
 
 ///same as [get()] but with the option to change the differentiation mode used, reserved for more advanced users
-pub fn get_custom<T: ComplexFloat, const NUM_FUNCS: usize, const NUM_VARS: usize>(function_matrix: &[Box<dyn Fn(&[T; NUM_VARS]) -> T>; NUM_FUNCS], vector_of_points: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> [[T; NUM_VARS]; NUM_FUNCS]
+pub fn get_custom<T: ComplexFloat, const NUM_FUNCS: usize, const NUM_VARS: usize>(function_matrix: &[&dyn Fn(&[T; NUM_VARS]) -> T; NUM_FUNCS], vector_of_points: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> [[T; NUM_VARS]; NUM_FUNCS]
 {
     assert!(!function_matrix.is_empty(), "function matrix cannot be empty");
     assert!(!vector_of_points.is_empty(), "points cannot be empty");
