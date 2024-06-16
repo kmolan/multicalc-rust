@@ -1,6 +1,4 @@
-#[derive(Debug)]
-#[derive(Clone)]
-#[derive(Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum IntegrationMethod
 {
     Booles, //Highly accurate, but needs more iterations than the trapezoidal method. Good generalist method, but trapezoidal outperforms in most cases

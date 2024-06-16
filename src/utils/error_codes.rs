@@ -1,7 +1,4 @@
-#[derive(Debug)]
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ErrorCode
 {
     //Can be returned by every module in this crate
