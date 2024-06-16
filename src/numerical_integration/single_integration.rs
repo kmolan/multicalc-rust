@@ -222,7 +222,7 @@ fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VAR
 #[cfg(feature = "std")]
 fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], order: usize) -> Result<T, ErrorCode>
 {
-    if order < 2 || order > gl_table::MAX_GL_ORDER
+    if !(2..=gl_table::MAX_GL_ORDER).contains(&order)
     {
         return Err(ErrorCode::GaussLegendreOrderOutOfRange);
     }
