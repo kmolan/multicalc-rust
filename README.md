@@ -10,9 +10,9 @@ Rust scientific computing for single and multi-variable calculus
 
 - Written in pure, safe rust
 - no-std friendly with zero heap allocations and no panics
+- Trait-based generic implementation to support floating point and complex numbers
 - Fully documented with code examples
 - Comprehensive suite of tests for full code coverage, including all possible error conditions
-- Trait-based generic implementation to support floating point and complex numbers
 - Supports linear, polynomial, trigonometric, exponential, and any complex equation you can throw at it, of any number of variables!
   - Single, double and triple differentiation - total and partial
   - Single and double integration - total and partial
