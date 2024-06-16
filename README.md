@@ -197,7 +197,7 @@ let func2 = | args: &[f64; 3] | -> f64
     return args[0].powf(2.0) + args[1].powf(2.0);
 };
 
-let function_vector: [Box<dyn Fn(&[f64; 3]) -> f64>; 2] = [Box::new(func1), Box::new(func2)];
+let function_matrix: [&dyn Fn(&[f64; 3]) -> f64; 2] = [&func1, &func2];
 
 let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
 
