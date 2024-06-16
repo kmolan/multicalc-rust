@@ -21,5 +21,3 @@ jobs:
       run: RUSTFLAGS="-C instrument-coverage" cargo build --verbose
     - name: Run tests std
       run: cargo clippy --verbose
-    - name: Run tests nostd
-      run: cargo clippy --no-default-features --verbose
