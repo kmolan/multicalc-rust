@@ -174,7 +174,7 @@ fn test_booles_integration_8()
 }
 
 #[test]
-#[cfg(feature = "std")] 
+#[cfg(feature = "std")]
 fn test_gauss_legendre_quadrature_integration_1()
 {
     //equation is 4.0*x*x*x - 3.0*x*x

@@ -208,15 +208,15 @@ fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T;
     let abcsissa_coeff = (integration_limits[0][1] - integration_limits[0][0])/T::from(2.0).unwrap();
     let intercept = (integration_limits[0][1] + integration_limits[0][0])/T::from(2.0).unwrap();
 
-    let (weight, abcsissa) = gl_table::get_gl_weights_and_abscissae(order);
-
     let mut args = *point;
 
     for iter in 0..order
     {
-        args[idx_to_integrate[0]] = abcsissa_coeff*T::from(abcsissa[iter]).unwrap() + intercept;
+        let (abcsissa, weight) = gl_table::get_gl_weights_and_abscissae(order, iter)?;
 
-        ans = ans + T::from(weight[iter]).unwrap()*single_integration::get_partial(IntegrationMethod::GaussLegendre, func, idx_to_integrate[1], &integration_limits[1], point, order as u64)?;
+        args[idx_to_integrate[0]] = abcsissa_coeff*T::from(abcsissa).unwrap() + intercept;
+
+        ans = ans + T::from(weight).unwrap()*single_integration::get_partial(IntegrationMethod::GaussLegendre, func, idx_to_integrate[1], &integration_limits[1], point, order as u64)?;
     }
 
     return Ok(abcsissa_coeff*ans);
