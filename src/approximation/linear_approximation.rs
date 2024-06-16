@@ -1,5 +1,6 @@
 use crate::numerical_derivative::single_derivative as single_derivative;
 use crate::numerical_derivative::mode as mode;
+use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
 #[derive(Debug)]
@@ -34,7 +35,6 @@ impl<T: ComplexFloat, const NUM_VARS: usize> LinearApproximationResult<T, NUM_VA
     }
 
     //get prediction metrics by feeding a list of points and the original function
-
     pub fn get_prediction_metrics<const NUM_POINTS: usize>(&self, points: &[[T; NUM_VARS]; NUM_POINTS], original_function: &dyn Fn(&[T; NUM_VARS]) -> T) -> LinearApproximationPredictionMetrics<T>
     {
         //let num_points = NUM_POINTS as f64;
@@ -109,12 +109,15 @@ impl<T: ComplexFloat, const NUM_VARS: usize> LinearApproximationResult<T, NUM_VA
 ///
 pub fn get<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS]) -> LinearApproximationResult<T, NUM_VARS>
 {
-    return get_custom(function, point, 0.00001, mode::DiffMode::CentralFixedStep);
+    return get_custom(function, point, 0.00001, mode::DiffMode::CentralFixedStep).unwrap();
 }
 
 
 ///same as [`get`], but for advanced users who want to control the differentiation parameters
-pub fn get_custom<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> LinearApproximationResult<T, NUM_VARS>
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the derivative step size is zero
+pub fn get_custom<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> Result<LinearApproximationResult<T, NUM_VARS>, ErrorCode>
 {
     let mut slopes_ = [T::zero(); NUM_VARS];
 
@@ -122,13 +125,13 @@ pub fn get_custom<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T;
 
     for iter in 0..NUM_VARS
     {
-        slopes_[iter] = single_derivative::get_partial_custom(function, iter, point, step_size, mode);
+        slopes_[iter] = single_derivative::get_partial_custom(function, iter, point, step_size, mode)?;
         intercept_ = intercept_ - slopes_[iter]*point[iter];
     }
 
-    return LinearApproximationResult
+    return Ok(LinearApproximationResult
     {
         intercept: intercept_,
         coefficients: slopes_
-    };
+    });
 }

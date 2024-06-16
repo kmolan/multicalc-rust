@@ -1,3 +1,4 @@
+use crate::utils::error_codes::ErrorCode;
 use crate::vector_field::divergence;
 use crate::vector_field::line_integral;
 use crate::vector_field::flux_integral;
@@ -17,8 +18,46 @@ fn test_line_integral_1()
     let integration_limit = [0.0, 6.28];
 
     //line integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of -2.0*pi
-    let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
+    let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100).unwrap();
     assert!(f64::abs(val + 6.28) < 0.01);
+}
+
+#[test]
+fn test_line_integral_error_1()
+{
+    //vector field is (y, -x)
+    //curve is a unit circle, defined by (Cos(t), Sin(t))
+    //limit t goes from 0->2*pi
+
+    let vector_field_matrix: [&dyn Fn(&f64, &f64) -> f64; 2] = [&(|_:&f64, y:&f64|-> f64 { *y }), &(|x:&f64, _:&f64|-> f64 { -x })];
+
+    let transformation_matrix: [&dyn Fn(&f64) -> f64; 2] = [&(|t:&f64|->f64 { t.cos() }), &(|t:&f64|->f64 { t.sin() })];
+
+    let integration_limit = [0.0, 6.28];
+
+    //expect error because number of steps is zero
+    let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 0);
+    assert!(val.is_err());
+    assert!(val.unwrap_err() == ErrorCode::NumberOfStepsCannotBeZero);
+}
+
+#[test]
+fn test_line_integral_error_2()
+{
+    //vector field is (y, -x)
+    //curve is a unit circle, defined by (Cos(t), Sin(t))
+    //limit t goes from 0->2*pi
+
+    let vector_field_matrix: [&dyn Fn(&f64, &f64) -> f64; 2] = [&(|_:&f64, y:&f64|-> f64 { *y }), &(|x:&f64, _:&f64|-> f64 { -x })];
+
+    let transformation_matrix: [&dyn Fn(&f64) -> f64; 2] = [&(|t:&f64|->f64 { t.cos() }), &(|t:&f64|->f64 { t.sin() })];
+
+    let integration_limit = [10.0, 0.0];
+
+    //expect error because integration limits are ill-defined (lower limit higher than upper limit)
+    let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
+    assert!(val.is_err());
+    assert!(val.unwrap_err() == ErrorCode::IntegrationLimitsIllDefined);
 }
 
 
@@ -36,7 +75,7 @@ fn test_flux_integral_1()
     let integration_limit = [0.0, 6.28];
 
     //flux integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of 0.0
-    let val = flux_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
+    let val = flux_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100).unwrap();
     assert!(f64::abs(val + 0.0) < 0.01);
 }
 
@@ -152,4 +191,3 @@ fn test_divergence_3d_1()
     let val = divergence::get_3d(&vector_field_matrix, &point);
     assert!(f64::abs(val - 2.00) < 0.00001);
 }
-

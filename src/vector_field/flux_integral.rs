@@ -1,8 +1,14 @@
+use crate::utils::error_codes::ErrorCode;
 use crate::vector_field::line_integral;
 use num_complex::ComplexFloat;
 
 
 ///solves for the flux integral for parametrized curves in a vector field
+/// 
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the number of steps argument is zero
+/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
 /// 
 /// assume a vector field, V, and a curve, C
 /// V is characterized in 2 dimensions
@@ -27,11 +33,11 @@ use num_complex::ComplexFloat;
 /// let integration_limit = [0.0, 6.28];
 ///
 /// //flux integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of 0.0
-/// let val = flux_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
+/// let val = flux_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100).unwrap();
 /// assert!(f64::abs(val + 0.0) < 0.01);
 /// ```
-pub fn get_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2], steps: u64) -> T
+pub fn get_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2], steps: u64) -> Result<T, ErrorCode>
 {
-    return line_integral::get_partial_2d(vector_field, transformations, integration_limit, steps, 0)
-         - line_integral::get_partial_2d(vector_field, transformations, integration_limit, steps, 1);
+    return Ok(line_integral::get_partial_2d(vector_field, transformations, integration_limit, steps, 0)?
+            - line_integral::get_partial_2d(vector_field, transformations, integration_limit, steps, 1)?);
 }

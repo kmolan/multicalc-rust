@@ -1,5 +1,6 @@
 use crate::numerical_derivative::double_derivative as double_derivative;
 use crate::numerical_derivative::mode as mode;
+use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
 
@@ -35,14 +36,15 @@ use num_complex::ComplexFloat;
 /// 
 pub fn get<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, vector_of_points: &[T; NUM_VARS]) -> [[T; NUM_VARS]; NUM_VARS]
 {
-    return get_custom(function, vector_of_points, 0.00001, mode::DiffMode::CentralFixedStep);
+    return get_custom(function, vector_of_points, 0.00001, mode::DiffMode::CentralFixedStep).unwrap();
 }
 
 ///same as [get()] but with the option to change the differentiation mode used, reserved for more advanced users
-pub fn get_custom<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, vector_of_points: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> [[T; NUM_VARS]; NUM_VARS]
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the derivative step size is zero
+pub fn get_custom<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, vector_of_points: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> Result<[[T; NUM_VARS]; NUM_VARS], ErrorCode>
 {
-    assert!(!vector_of_points.is_empty(), "points cannot be empty");
-
     let mut result = [[T::from(f64::NAN).unwrap(); NUM_VARS]; NUM_VARS];
 
     for row_index in 0..NUM_VARS
@@ -51,12 +53,12 @@ pub fn get_custom<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T;
         {
             if result[row_index][col_index].is_nan()
             {
-                result[row_index][col_index] = double_derivative::get_partial_custom(function, &[row_index, col_index], vector_of_points, step_size, mode);
+                result[row_index][col_index] = double_derivative::get_partial_custom(function, &[row_index, col_index], vector_of_points, step_size, mode)?;
 
                 result[col_index][row_index] = result[row_index][col_index]; //exploit the fact that a hessian is a symmetric matrix
             }
         }
     }
 
-    return result;
+    return Ok(result);
 }

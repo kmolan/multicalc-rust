@@ -1,6 +1,12 @@
 use num_complex::ComplexFloat;
+use crate::utils::error_codes::ErrorCode;
 
 ///solves for the line integral for parametrized curves in a 2D vector field
+/// 
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the number of steps is zero
+/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
 /// 
 /// assume a vector field, V, and a curve, C
 /// V is characterized in 2 dimensions, Vx and Vy
@@ -25,18 +31,31 @@ use num_complex::ComplexFloat;
 /// let integration_limit = [0.0, 6.28];
 ///
 /// //line integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of -2.0*pi
-/// let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
+/// let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100).unwrap();
 /// assert!(f64::abs(val + 6.28) < 0.01);
 /// ```
-pub fn get_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2], steps: u64) -> T
+pub fn get_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2], steps: u64) -> Result<T, ErrorCode>
 {
-    return get_partial_2d(vector_field, transformations, integration_limit, steps, 0)
-         + get_partial_2d(vector_field, transformations, integration_limit, steps, 1);
+    return Ok(get_partial_2d(vector_field, transformations, integration_limit, steps, 0)?
+            + get_partial_2d(vector_field, transformations, integration_limit, steps, 1)?);
 }
 
 
-pub fn get_partial_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2], steps: u64, idx: usize) -> T
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the number of steps is zero
+/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
+pub fn get_partial_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2], steps: u64, idx: usize) -> Result<T, ErrorCode>
 {
+    if steps == 0
+    {
+        return Err(ErrorCode::NumberOfStepsCannotBeZero);
+    }
+    if integration_limit[0].abs() >= integration_limit[1].abs()
+    {
+        return Err(ErrorCode::IntegrationLimitsIllDefined);
+    }
+
     let mut ans = T::zero();
 
     let mut cur_point = integration_limit[0];
@@ -54,21 +73,38 @@ pub fn get_partial_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2],
         cur_point = cur_point + delta;
     }
 
-    return ans;
+    return Ok(ans);
 }
 
 
 ///same as [`get_2d`] but for parametrized curves in a 3D vector field
-pub fn get_3d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T, &T) -> T; 3], transformations: &[&dyn Fn(&T) -> T; 3], integration_limit: &[T; 2], steps: u64) -> T
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the number of steps is zero
+/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
+pub fn get_3d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T, &T) -> T; 3], transformations: &[&dyn Fn(&T) -> T; 3], integration_limit: &[T; 2], steps: u64) -> Result<T, ErrorCode>
 {
-    return get_partial_3d(vector_field, transformations, integration_limit, steps, 0)
-         + get_partial_3d(vector_field, transformations, integration_limit, steps, 1)
-         + get_partial_3d(vector_field, transformations, integration_limit, steps, 2);
+    return Ok(get_partial_3d(vector_field, transformations, integration_limit, steps, 0)?
+            + get_partial_3d(vector_field, transformations, integration_limit, steps, 1)?
+            + get_partial_3d(vector_field, transformations, integration_limit, steps, 2)?);
 }
 
 
-pub fn get_partial_3d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T, &T) -> T; 3], transformations: &[&dyn Fn(&T) -> T; 3], integration_limit: &[T; 2], steps: u64, idx: usize) -> T
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the number of steps is zero
+/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
+pub fn get_partial_3d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T, &T) -> T; 3], transformations: &[&dyn Fn(&T) -> T; 3], integration_limit: &[T; 2], steps: u64, idx: usize) -> Result<T, ErrorCode>
 {
+    if steps == 0
+    {
+        return Err(ErrorCode::NumberOfStepsCannotBeZero);
+    }
+    if integration_limit[0].abs() >= integration_limit[1].abs()
+    {
+        return Err(ErrorCode::IntegrationLimitsIllDefined);
+    }
+
     let mut ans = T::zero();
 
     let mut cur_point = integration_limit[0];
@@ -86,7 +122,7 @@ pub fn get_partial_3d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T, &T) -> T;
         cur_point = cur_point + delta;
     }
 
-    return ans;
+    return Ok(ans);
 }
 
 

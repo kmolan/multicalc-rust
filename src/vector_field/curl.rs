@@ -1,4 +1,5 @@
 use crate::numerical_derivative::mode as mode;
+use crate::utils::error_codes::ErrorCode;
 use crate::numerical_derivative::single_derivative;
 use num_complex::ComplexFloat;
 
@@ -46,19 +47,19 @@ use num_complex::ComplexFloat;
 /// ```
 pub fn get_3d<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 3], point: &[T; NUM_VARS]) -> [T; 3]
 {
-    return get_3d_custom(vector_field, point, 0.00001, mode::DiffMode::CentralFixedStep);
+    return get_3d_custom(vector_field, point, 0.00001, mode::DiffMode::CentralFixedStep).unwrap();
 }
 
 ///same as [get_3d()] but with the option to change the differentiation mode used, reserved for more advanced users
-pub fn get_3d_custom<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 3], point: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> [T; 3]
+pub fn get_3d_custom<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 3], point: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> Result<[T; 3], ErrorCode>
 {
     let mut ans = [T::zero(); 3];
 
-    ans[0] = single_derivative::get_partial_custom(vector_field[2], 1, point, step_size, mode) - single_derivative::get_partial_custom(vector_field[1], 2, point, step_size, mode);
-    ans[1] = single_derivative::get_partial_custom(vector_field[0], 2, point, step_size, mode) - single_derivative::get_partial_custom(vector_field[2], 0, point, step_size, mode);
-    ans[2] = single_derivative::get_partial_custom(vector_field[1], 0, point, step_size, mode) - single_derivative::get_partial_custom(vector_field[0], 1, point, step_size, mode);
+    ans[0] = single_derivative::get_partial_custom(vector_field[2], 1, point, step_size, mode)? - single_derivative::get_partial_custom(vector_field[1], 2, point, step_size, mode)?;
+    ans[1] = single_derivative::get_partial_custom(vector_field[0], 2, point, step_size, mode)? - single_derivative::get_partial_custom(vector_field[2], 0, point, step_size, mode)?;
+    ans[2] = single_derivative::get_partial_custom(vector_field[1], 0, point, step_size, mode)? - single_derivative::get_partial_custom(vector_field[0], 1, point, step_size, mode)?;
 
-    return ans;
+    return Ok(ans);
 }
 
 
@@ -94,12 +95,15 @@ pub fn get_3d_custom<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dy
 /// ```
 pub fn get_2d<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 2], point: &[T; NUM_VARS]) -> T
 {
-    return get_2d_custom(vector_field, point, 0.00001, mode::DiffMode::CentralFixedStep);
+    return get_2d_custom(vector_field, point, 0.00001, mode::DiffMode::CentralFixedStep).unwrap();
 }
 
 ///same as [get_2d()] but with the option to change the differentiation mode used, reserved for more advanced users
-pub fn get_2d_custom<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 2], point: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> T
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the derivative step size is zero
+pub fn get_2d_custom<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 2], point: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> Result<T, ErrorCode>
 {
-    return single_derivative::get_partial_custom(vector_field[1], 0, point, step_size, mode)
-         - single_derivative::get_partial_custom(vector_field[0], 1, point, step_size, mode);
+    return Ok(single_derivative::get_partial_custom(vector_field[1], 0, point, step_size, mode)?
+            - single_derivative::get_partial_custom(vector_field[0], 1, point, step_size, mode)?);
 }

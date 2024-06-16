@@ -1,4 +1,5 @@
 use crate::numerical_integration::mode::IntegrationMethod;
+use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
 #[cfg(feature = "std")]
@@ -6,6 +7,12 @@ use crate::utils::gl_table as gl_table;
 
 /// Returns the total single integration value for a given function
 /// Only ideal for single variable functions
+/// 
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the number of steps argument, "n" is zero
+/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
+/// GaussLegendreOrderOutOfRange-> if integration_method == IntegrationMethod::GaussLegendre, and if n < 2 or n > 20
 /// 
 /// assume we want to integrate 2*x . the function would be:
 /// ```
@@ -26,7 +33,7 @@ use crate::utils::gl_table as gl_table;
 ///                                          &integration_limit,             //<- The integration limit needed                          
 ///                                          10);                            //<- number of steps
 /// 
-/// assert!(f64::abs(val - 4.0) < 0.00001);
+/// assert!(f64::abs(val.unwrap() - 4.0) < 0.00001);
 ///```
 /// 
 /// the above method example can also be extended to complex numbers:
@@ -48,13 +55,13 @@ use crate::utils::gl_table as gl_table;
 ///                                          &integration_limit,             //<- The integration limit needed                          
 ///                                          10);                            //<- number of steps
 /// 
-/// assert!(num_complex::ComplexFloat::abs(val.re - 0.0) < 0.00001);
-/// assert!(num_complex::ComplexFloat::abs(val.im - 8.0) < 0.00001);
+/// assert!(num_complex::ComplexFloat::abs(val.unwrap().re - 0.0) < 0.00001);
+/// assert!(num_complex::ComplexFloat::abs(val.unwrap().im - 8.0) < 0.00001);
 ///```
 /// 
 /// Note: The argument 'n' denotes the number of steps to be used. However, for [`IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
 /// 
-pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limit: &[T; 2], n: u64) -> T
+pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limit: &[T; 2], n: u64) -> Result<T, ErrorCode>
 {
     let point = [integration_limit[1]; NUM_VARS];
 
@@ -77,6 +84,12 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: Int
 
 /// Returns the partial single integration value for a given function
 /// Can handle multivariable functions of any order or complexity
+/// 
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the number of steps argument, "n" is zero
+/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
+/// GaussLegendreOrderOutOfRange-> if integration_method == IntegrationMethod::GaussLegendre, and if n < 2 or n > 20
 /// 
 /// assume we want to partially integrate for y for the equation 2.0*x + y*z. The function would be:
 /// ```
@@ -109,7 +122,7 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: Int
 ///                                           &point,                          //<- The final point with all x,y,z values
 ///                                           10);                             //<- number of steps
 /// 
-/// assert!(f64::abs(val - 10.0) < 0.00001);
+/// assert!(f64::abs(val.unwrap() - 10.0) < 0.00001);
 ///```
 /// 
 /// the above method example can also be extended to complex numbers:
@@ -143,12 +156,12 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: Int
 ///                                           &point,                          //<- The final point with all x,y,z values
 ///                                           10);                             //<- number of steps
 /// 
-/// assert!(num_complex::ComplexFloat::abs(val.re - 10.0) < 0.00001);
-/// assert!(num_complex::ComplexFloat::abs(val.im - 5.0) < 0.00001);
+/// assert!(num_complex::ComplexFloat::abs(val.unwrap().re - 10.0) < 0.00001);
+/// assert!(num_complex::ComplexFloat::abs(val.unwrap().im - 5.0) < 0.00001);
 ///```
 /// Note: The argument 'n' denotes the number of steps to be used. However, for [`IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
 /// 
-pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(integration_method: IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], n: u64) -> T
+pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(integration_method: IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], n: u64) -> Result<T, ErrorCode>
 {
     match integration_method
     {
@@ -166,9 +179,9 @@ pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(integration_method: I
     }
 }
 
-fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], steps: u64) -> T
+fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, ErrorCode>
 {
-    check_for_errors(integration_limit, steps);
+    check_for_errors(integration_limit, steps)?;
 
     let mut current_vec = *point;
     current_vec[idx_to_integrate] = integration_limit[0];
@@ -201,17 +214,20 @@ fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VAR
 
     ans = ans + T::from(7.0).unwrap()*func(&current_vec);
 
-    return T::from(2.0).unwrap()*delta*ans/T::from(45.0).unwrap();
+    return Ok(T::from(2.0).unwrap()*delta*ans/T::from(45.0).unwrap());
 }
 
 
 //must know the highest order of the equation
 #[cfg(feature = "std")]
-fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], order: usize) -> T
+fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], order: usize) -> Result<T, ErrorCode>
 {
-    assert!(order < gl_table::MAX_GL_ORDER, "Legendre quadrature is limited up to n = {}", gl_table::MAX_GL_ORDER);
+    if order < 2 || order > gl_table::MAX_GL_ORDER
+    {
+        return Err(ErrorCode::GaussLegendreOrderOutOfRange);
+    }
     
-    check_for_errors(integration_limit, 100); //no 'steps' argument for this method
+    check_for_errors(integration_limit, 100)?; //no 'steps' argument for this method
 
     let mut ans = T::zero();
     let abcsissa_coeff = (integration_limit[1] - integration_limit[0])/T::from(2.0).unwrap();
@@ -228,14 +244,14 @@ fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T;
         ans = ans + T::from(weight[iter]).unwrap()*func(&args);
     }
 
-    return abcsissa_coeff*ans;
+    return Ok(abcsissa_coeff*ans);
 }
 
 //TODO: add the 1/3 rule also
 //the 3/8 rule, better than the 1/3 rule
-fn get_simpsons<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], steps: u64) -> T
+fn get_simpsons<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, ErrorCode>
 {
-    check_for_errors(integration_limit, steps);
+    check_for_errors(integration_limit, steps)?;
 
     let mut current_vec = *point;
     current_vec[idx_to_integrate] = integration_limit[0];
@@ -264,12 +280,12 @@ fn get_simpsons<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_V
 
     ans = ans + func(&current_vec);
 
-    return T::from(3.0).unwrap()*delta*ans/T::from(8.0).unwrap();
+    return Ok(T::from(3.0).unwrap()*delta*ans/T::from(8.0).unwrap());
 }
 
-fn get_trapezoidal<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], steps: u64) -> T
+fn get_trapezoidal<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, ErrorCode>
 {
-    check_for_errors(integration_limit, steps);
+    check_for_errors(integration_limit, steps)?;
 
     let mut current_vec = *point;
     current_vec[idx_to_integrate] = integration_limit[0];
@@ -287,11 +303,19 @@ fn get_trapezoidal<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NU
 
     ans = ans + func(&current_vec);
 
-    return T::from(0.5).unwrap()*delta*ans;
+    return Ok(T::from(0.5).unwrap()*delta*ans);
 }
 
-fn check_for_errors<T: ComplexFloat>(integration_limit: &[T; 2], steps: u64)
+fn check_for_errors<T: ComplexFloat>(integration_limit: &[T; 2], steps: u64) -> Result<(), ErrorCode>
 {
-    assert!(integration_limit[0].abs() < integration_limit[1].abs(), "lower end of integration interval value must be lower than the higher value");
-    assert!(steps != 0, "number of steps cannot be zero");
+    if integration_limit[0].abs() >= integration_limit[1].abs()
+    {
+        return Err(ErrorCode::IntegrationLimitsIllDefined);
+    }
+    if steps == 0
+    {
+        return Err(ErrorCode::NumberOfStepsCannotBeZero);
+    }
+
+    return Ok(());
 }

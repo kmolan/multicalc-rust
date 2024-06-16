@@ -1,8 +1,13 @@
 use crate::numerical_derivative::mode as mode;
+use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
 /// Returns the single total derivative value for a given function
 /// Only ideal for single variable functions
+/// 
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the derivative step size is zero
 /// 
 /// assume we want to differentiate 2*x*x the function would be:
 /// ```
@@ -22,7 +27,7 @@ use num_complex::ComplexFloat;
 ///                                         1.0,        //<- point around which we want to differentiate
 ///                                         0.001);     //<- required step size
 /// 
-/// assert!(f64::abs(val - 4.0) < 0.00001);
+/// assert!(f64::abs(val.unwrap() - 4.0) < 0.00001);
 ///```
 /// 
 /// the above example can also be extended to complex numbers:
@@ -44,34 +49,42 @@ use num_complex::ComplexFloat;
 ///                                        0.001);     //<- required step size
 /// 
 /// let expected_val = num_complex::c64(4.0, 10.0);
-/// assert!(num_complex::ComplexFloat::abs(val.re - expected_val.re) < 0.00001);
-/// assert!(num_complex::ComplexFloat::abs(val.im - expected_val.im) < 0.00001);
+/// assert!(num_complex::ComplexFloat::abs(val.unwrap().re - expected_val.re) < 0.00001);
+/// assert!(num_complex::ComplexFloat::abs(val.unwrap().im - expected_val.im) < 0.00001);
 ///``` 
 ///
-pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, point: T, step: f64) -> T
+pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, point: T, step: f64) -> Result<T, ErrorCode>
 {
     return get_total_custom(func, point, step, mode::DiffMode::CentralFixedStep);
 }
 
 
 ///same as [get_total()] but with the option to change the differentiation mode used, reserved for more advanced users
-pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, point: T, step: f64, mode: mode::DiffMode) -> T
+pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, point: T, step: f64, mode: mode::DiffMode) -> Result<T, ErrorCode>
 {
-    assert!(step != 0.0, "step size cannot be zero");
+    if step == 0.0
+    {
+        return Err(ErrorCode::NumberOfStepsCannotBeZero);
+    }
 
     let vec_point = [point; NUM_VARS];
 
     match mode
     {
-        mode::DiffMode::ForwardFixedStep => return get_forward_difference(func, 0, &vec_point, step),
-        mode::DiffMode::BackwardFixedStep => return get_backward_difference(func, 0, &vec_point, step),
-        mode::DiffMode::CentralFixedStep => return get_central_difference(func, 0, &vec_point, step),
+        mode::DiffMode::ForwardFixedStep => return Ok(get_forward_difference(func, 0, &vec_point, step)),
+        mode::DiffMode::BackwardFixedStep => return Ok(get_backward_difference(func, 0, &vec_point, step)),
+        mode::DiffMode::CentralFixedStep => return Ok(get_central_difference(func, 0, &vec_point, step)),
     }
 }
 
 
 /// Returns the single partial derivative value for a given function
 /// Can handle multivariable functions of any order or complexity
+/// 
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the derivative step size is zero
+/// IndexToDerivativeOutOfRange -> if the value of idx_to_derivate is greater than the number of variables
 /// 
 /// assume we want to differentiate y*sin(x) + x*cos(y) + x*y*e^z. the function would be:
 /// ```
@@ -96,7 +109,7 @@ pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[
 ///                                          0.001);      //<- required step size
 /// 
 /// let expected_value = 2.0*f64::cos(1.0) + f64::cos(2.0) + 2.0*f64::exp(3.0);
-/// assert!(f64::abs(val - expected_value) < 0.00001);
+/// assert!(f64::abs(val.unwrap() - expected_value) < 0.00001);
 ///```
 /// 
 /// the above example can also be extended to complex numbers:
@@ -119,31 +132,34 @@ pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[
 ///                                          0.001);      //<- required step size
 /// 
 /// let expected_value = point[1]*point[0].cos() + point[1].cos() + point[1]*point[2].exp();
-/// assert!(num_complex::ComplexFloat::abs(val.re - expected_value.re) < 0.00001);
-/// assert!(num_complex::ComplexFloat::abs(val.im - expected_value.im) < 0.00001);
+/// assert!(num_complex::ComplexFloat::abs(val.unwrap().re - expected_value.re) < 0.00001);
+/// assert!(num_complex::ComplexFloat::abs(val.unwrap().im - expected_value.im) < 0.00001);
 ///```
 /// 
-pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64) -> T
+pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64) -> Result<T, ErrorCode>
 {
     return get_partial_custom(func, idx_to_derivate, point, step, mode::DiffMode::CentralFixedStep);
 }
 
 
 ///same as [get_partial()] but with the option to change the differentiation mode used, reserved for more advanced users
-pub fn get_partial_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64, mode: mode::DiffMode) -> T
+pub fn get_partial_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64, mode: mode::DiffMode) -> Result<T, ErrorCode>
 {
-    assert!(step != 0.0, "step size cannot be zero");
+    if step == 0.0
+    {
+        return Err(ErrorCode::NumberOfStepsCannotBeZero);
+    }
 
-    let num_variables = point.len();
-
-    assert!(num_variables != 0, "list of points cannot be empty");
-    assert!(idx_to_derivate < num_variables, "idx value is greater than the points vector length");
+    if idx_to_derivate >= NUM_VARS
+    {
+        return Err(ErrorCode::IndexToDerivativeOutOfRange);
+    }
 
     match mode
     {
-        mode::DiffMode::ForwardFixedStep => return get_forward_difference(func, idx_to_derivate, point, step),
-        mode::DiffMode::BackwardFixedStep => return get_backward_difference(func, idx_to_derivate, point, step),
-        mode::DiffMode::CentralFixedStep => return get_central_difference(func, idx_to_derivate, point, step),
+        mode::DiffMode::ForwardFixedStep => return Ok(get_forward_difference(func, idx_to_derivate, point, step)),
+        mode::DiffMode::BackwardFixedStep => return Ok(get_backward_difference(func, idx_to_derivate, point, step)),
+        mode::DiffMode::CentralFixedStep => return Ok(get_central_difference(func, idx_to_derivate, point, step)),
     }
 }
 

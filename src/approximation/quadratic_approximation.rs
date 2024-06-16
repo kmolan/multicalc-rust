@@ -1,6 +1,7 @@
 use crate::numerical_derivative::mode as mode;
 use crate::numerical_derivative::single_derivative as single_derivative;
 use crate::numerical_derivative::hessian as hessian;
+use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
 #[derive(Debug)]
@@ -124,23 +125,26 @@ impl<T: ComplexFloat, const NUM_VARS: usize> QuadraticApproximationResult<T, NUM
 ///
 pub fn get<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS]) -> QuadraticApproximationResult<T, NUM_VARS>
 {
-    return get_custom(function, point, 0.0001, mode::DiffMode::CentralFixedStep);
+    return get_custom(function, point, 0.0001, mode::DiffMode::CentralFixedStep).unwrap();
 }
 
 
 ///same as [`get`], but for advanced users who want to control the differentiation parameters
-pub fn get_custom<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> QuadraticApproximationResult<T, NUM_VARS>
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the derivative step size is zero
+pub fn get_custom<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> Result<QuadraticApproximationResult<T, NUM_VARS>, ErrorCode>
 {
     let mut intercept_ = function(point);
 
     let mut linear_coeffs_ = [T::zero(); NUM_VARS];
 
-    let hessian_matrix = hessian::get_custom(function, point, step_size, mode);
+    let hessian_matrix = hessian::get_custom(function, point, step_size, mode)?;
 
     for iter in 0..NUM_VARS
     {
-        linear_coeffs_[iter] = single_derivative::get_partial_custom(function, iter, point, step_size, mode);
-        intercept_ = intercept_ - single_derivative::get_partial_custom(function, iter, point, step_size, mode)*point[iter];
+        linear_coeffs_[iter] = single_derivative::get_partial_custom(function, iter, point, step_size, mode)?;
+        intercept_ = intercept_ - single_derivative::get_partial_custom(function, iter, point, step_size, mode)?*point[iter];
     }
 
     let mut quad_coeff = [[T::zero(); NUM_VARS]; NUM_VARS];
@@ -165,10 +169,10 @@ pub fn get_custom<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T;
         }
     }
 
-    return QuadraticApproximationResult
+    return Ok(QuadraticApproximationResult
     {
         intercept: intercept_,
         linear_coefficients: linear_coeffs_,
         quadratic_coefficients: quad_coeff
-    };
+    });
 }

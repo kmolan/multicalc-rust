@@ -1,5 +1,6 @@
 use crate::numerical_integration::mode::IntegrationMethod;
 use crate::numerical_integration::single_integration;
+use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
 #[cfg(feature = "std")]
@@ -28,7 +29,7 @@ use crate::utils::gl_table as gl_table;
 ///                                          &integration_limits,             //<- The integration interval needed                          
 ///                                          10);                             //<- number of steps
 /// 
-/// assert!(f64::abs(val - 27.0) < 0.00001);
+/// assert!(f64::abs(val.unwrap() - 27.0) < 0.00001);
 ///```
 /// 
 /// the above method example can also be extended to complex numbers:
@@ -49,12 +50,12 @@ use crate::utils::gl_table as gl_table;
 ///                                          &integration_limits,             //<- The integration interval needed                          
 ///                                          10);                             //<- number of steps
 /// 
-/// assert!(num_complex::ComplexFloat::abs(val.re - 6.0) < 0.00001);
-/// assert!(num_complex::ComplexFloat::abs(val.im - 33.0) < 0.00001);
+/// assert!(num_complex::ComplexFloat::abs(val.unwrap().re - 6.0) < 0.00001);
+/// assert!(num_complex::ComplexFloat::abs(val.unwrap().im - 33.0) < 0.00001);
 ///```
 /// Note: The argument 'n' denotes the number of steps to be used. However, for [`IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
 /// 
-pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; 2], n: u64) -> T 
+pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; 2], n: u64) -> Result<T, ErrorCode> 
 {
     let point = [integration_limits[0][1]; NUM_VARS];
 
@@ -109,7 +110,7 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: Int
 ///                                           &point,                          //<- The final point with all x,y,z values                          
 ///                                           10);                             //<- number of steps
 /// 
-/// assert!(f64::abs(val - 2.50) < 0.00001);
+/// assert!(f64::abs(val.unwrap() - 2.50) < 0.00001);
 ///```
 /// 
 /// the above method example can also be extended to complex numbers:
@@ -140,12 +141,12 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: Int
 ///                                           &point,                          //<- The final point with all x,y,z values                          
 ///                                           10);                             //<- number of steps
 /// 
-/// assert!(num_complex::ComplexFloat::abs(val.re + 5.5) < 0.00001);
-/// assert!(num_complex::ComplexFloat::abs(val.im - 4.5) < 0.00001);
+/// assert!(num_complex::ComplexFloat::abs(val.unwrap().re + 5.5) < 0.00001);
+/// assert!(num_complex::ComplexFloat::abs(val.unwrap().im - 4.5) < 0.00001);
 ///```
 /// Note: The argument 'n' denotes the number of steps to be used. However, for [`IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
 /// 
-pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(integration_method: IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], n: u64) -> T 
+pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(integration_method: IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], n: u64) -> Result<T, ErrorCode> 
 {
     match integration_method
     {
@@ -163,12 +164,12 @@ pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(integration_method: I
     }
 }
 
-fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], steps: u64) -> T
+fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, ErrorCode>
 {
     let mut current_vec = *point;
     current_vec[idx_to_integrate[0]] = integration_limits[0][0];
 
-    let mut ans = T::from(7.0).unwrap()*single_integration::get_partial(IntegrationMethod::Booles, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
+    let mut ans = T::from(7.0).unwrap()*single_integration::get_partial(IntegrationMethod::Booles, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps)?;
 
     let delta = (integration_limits[0][1] - integration_limits[0][0])/(T::from(steps).unwrap());
     let mut multiplier = T::from(32.0).unwrap();
@@ -176,7 +177,7 @@ fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VAR
     for iter in 0..steps-1
     {
         current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
-        ans = ans + multiplier*single_integration::get_partial(IntegrationMethod::Booles, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
+        ans = ans + multiplier*single_integration::get_partial(IntegrationMethod::Booles, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps)?;
         
         if (iter + 2) % 2 != 0
         {
@@ -194,14 +195,14 @@ fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VAR
 
     current_vec[idx_to_integrate[0]] = integration_limits[0][1];
 
-    ans = ans + T::from(7.0).unwrap()*single_integration::get_partial(IntegrationMethod::Booles, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
+    ans = ans + T::from(7.0).unwrap()*single_integration::get_partial(IntegrationMethod::Booles, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps)?;
 
-    return T::from(2.0).unwrap()*delta*ans/T::from(45.0).unwrap();
+    return Ok(T::from(2.0).unwrap()*delta*ans/T::from(45.0).unwrap());
 }
 
 
 #[cfg(feature = "std")]
-fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], order: usize) -> T
+fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], order: usize) -> Result<T, ErrorCode>
 {
     let mut ans = T::zero();
     let abcsissa_coeff = (integration_limits[0][1] - integration_limits[0][0])/T::from(2.0).unwrap();
@@ -215,18 +216,18 @@ fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T;
     {
         args[idx_to_integrate[0]] = abcsissa_coeff*T::from(abcsissa[iter]).unwrap() + intercept;
 
-        ans = ans + T::from(weight[iter]).unwrap()*single_integration::get_partial(IntegrationMethod::GaussLegendre, func, idx_to_integrate[1], &integration_limits[1], point, order as u64)
+        ans = ans + T::from(weight[iter]).unwrap()*single_integration::get_partial(IntegrationMethod::GaussLegendre, func, idx_to_integrate[1], &integration_limits[1], point, order as u64)?;
     }
 
-    return abcsissa_coeff*ans;
+    return Ok(abcsissa_coeff*ans);
 }
 
-fn get_simpsons<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], steps: u64) -> T
+fn get_simpsons<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, ErrorCode>
 {
     let mut current_vec = *point;
     current_vec[idx_to_integrate[0]] = integration_limits[0][0];
 
-    let mut ans = single_integration::get_partial(IntegrationMethod::Simpsons, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
+    let mut ans = single_integration::get_partial(IntegrationMethod::Simpsons, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps)?;
     let delta = (integration_limits[0][1] - integration_limits[0][0])/(T::from(steps).unwrap());
 
     let mut multiplier = T::from(3.0).unwrap();
@@ -234,7 +235,7 @@ fn get_simpsons<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_V
     for iter in 0..steps-1
     {
         current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
-        ans = ans + multiplier*single_integration::get_partial(IntegrationMethod::Simpsons, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);        
+        ans = ans + multiplier*single_integration::get_partial(IntegrationMethod::Simpsons, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps)?;        
 
         if (iter + 2) % 3 == 0
         {
@@ -248,29 +249,29 @@ fn get_simpsons<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_V
 
     current_vec[idx_to_integrate[0]] = integration_limits[0][1];
 
-    ans = ans + single_integration::get_partial(IntegrationMethod::Simpsons, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
+    ans = ans + single_integration::get_partial(IntegrationMethod::Simpsons, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps)?;
 
-    return T::from(3.0).unwrap()*delta*ans/T::from(8.0).unwrap();
+    return Ok(T::from(3.0).unwrap()*delta*ans/T::from(8.0).unwrap());
 }
 
-fn get_trapezoidal<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], steps: u64) -> T
+fn get_trapezoidal<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, ErrorCode>
 {
     let mut current_vec = *point;
     current_vec[idx_to_integrate[0]] = integration_limits[0][0];
 
-    let mut ans = single_integration::get_partial(IntegrationMethod::Trapezoidal, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
+    let mut ans = single_integration::get_partial(IntegrationMethod::Trapezoidal, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps)?;
 
     let delta = (integration_limits[0][1] - integration_limits[0][0])/(T::from(steps).unwrap());
 
     for _ in 0..steps-1
     {
         current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
-        ans = ans + T::from(2.0).unwrap()*single_integration::get_partial(IntegrationMethod::Trapezoidal, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);  
+        ans = ans + T::from(2.0).unwrap()*single_integration::get_partial(IntegrationMethod::Trapezoidal, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps)?;  
     }
 
     current_vec[idx_to_integrate[0]] = integration_limits[0][1];
 
-    ans = ans + single_integration::get_partial(IntegrationMethod::Trapezoidal, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps);
+    ans = ans + single_integration::get_partial(IntegrationMethod::Trapezoidal, func, idx_to_integrate[1], &integration_limits[1], &current_vec, steps)?;
 
-    return T::from(0.5).unwrap()*delta*ans;
+    return Ok(T::from(0.5).unwrap()*delta*ans);
 }
