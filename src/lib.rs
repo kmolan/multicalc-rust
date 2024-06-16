@@ -1,8 +1,7 @@
 #![allow(clippy::needless_return)]
 #![allow(clippy::type_complexity)]
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
+#![no_std]
 
 pub mod utils;
 pub mod numerical_integration;

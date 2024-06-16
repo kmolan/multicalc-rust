@@ -1,8 +1,6 @@
 use crate::numerical_integration::mode::IntegrationMethod;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
-
-#[cfg(feature = "std")]
 use crate::utils::gl_table as gl_table;
 
 /// Returns the total single integration value for a given function
@@ -70,11 +68,7 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: Int
         IntegrationMethod::Booles        => return get_booles(func, 0, integration_limit, &point, n),
         IntegrationMethod::GaussLegendre => 
         {
-            #[cfg(feature = "std")]
             return get_gauss_legendre(func, 0, integration_limit, &point, n as usize);
-
-            #[cfg(not(feature = "std"))]
-            panic!("enable std context to use!");
         }
         IntegrationMethod::Simpsons      => return get_simpsons(func, 0, integration_limit, &point, n),
         IntegrationMethod::Trapezoidal   => return get_trapezoidal(func, 0, integration_limit, &point, n)
@@ -168,11 +162,7 @@ pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(integration_method: I
         IntegrationMethod::Booles        => return get_booles(func, idx_to_integrate, integration_limit, point, n),
         IntegrationMethod::GaussLegendre => 
         {
-            #[cfg(feature = "std")]
-            return get_gauss_legendre(func, idx_to_integrate, integration_limit, point, n as usize);
-
-            #[cfg(not(feature = "std"))]
-            panic!("enable std context to use!");            
+            return get_gauss_legendre(func, idx_to_integrate, integration_limit, point, n as usize);           
         }
         IntegrationMethod::Simpsons      => return get_simpsons(func, idx_to_integrate, integration_limit, point, n),
         IntegrationMethod::Trapezoidal   => return get_trapezoidal(func, idx_to_integrate, integration_limit, point, n)
@@ -219,7 +209,6 @@ fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VAR
 
 
 //must know the highest order of the equation
-#[cfg(feature = "std")]
 fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], order: usize) -> Result<T, ErrorCode>
 {
     if !(2..=gl_table::MAX_GL_ORDER).contains(&order)

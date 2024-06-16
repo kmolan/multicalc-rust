@@ -174,7 +174,6 @@ fn test_booles_integration_8()
 }
 
 #[test]
-#[cfg(feature = "std")]
 fn test_gauss_legendre_quadrature_integration_1()
 {
     //equation is 4.0*x*x*x - 3.0*x*x
@@ -191,7 +190,6 @@ fn test_gauss_legendre_quadrature_integration_1()
 }
 
 #[test] 
-#[cfg(feature = "std")]
 fn test_gauss_legendre_quadrature_integration_2()
 {
     //equation is 2.0*x + y*z
@@ -223,7 +221,6 @@ fn test_gauss_legendre_quadrature_integration_2()
 }
 
 #[test]
-#[cfg(feature = "std")]
 fn test_gauss_legendre_quadrature_integration_3()
 {
     //equation is 6.0*x
@@ -240,7 +237,6 @@ fn test_gauss_legendre_quadrature_integration_3()
 }
 
 #[test] 
-#[cfg(feature = "std")]
 fn test_gauss_legendre_quadrature_integration_4()
 {
     //equation is 4.0*x*x*x - 3.0*x*x
@@ -259,7 +255,6 @@ fn test_gauss_legendre_quadrature_integration_4()
 }
 
 #[test] 
-#[cfg(feature = "std")]
 fn test_gauss_legendre_quadrature_integration_5()
 {
     //equation is 2.0*x + y*z
@@ -298,7 +293,6 @@ fn test_gauss_legendre_quadrature_integration_5()
 }
 
 #[test]
-#[cfg(feature = "std")]
 fn test_gauss_legendre_quadrature_integration_6()
 {
     //equation is 6.0*x
@@ -692,7 +686,6 @@ fn test_error_checking_2()
 }
 
 #[test]
-#[cfg(feature = "std")]
 fn test_error_checking_3()
 {
     //equation is 4.0*x*x*x - 3.0*x*x
@@ -710,7 +703,6 @@ fn test_error_checking_3()
 }
 
 #[test]
-#[cfg(feature = "std")]
 fn test_error_checking_4()
 {
     //equation is 4.0*x*x*x - 3.0*x*x

@@ -9,7 +9,7 @@ Rust scientific computing for single and multi-variable calculus
 ## Salient Features
 
 - Written in pure, safe rust
-- no-std friendly with zero heap allocations and no panics
+- no-std with zero heap allocations and no panics
 - Trait-based generic implementation to support floating point and complex numbers
 - Fully documented with code examples
 - Comprehensive suite of tests for full code coverage, including all possible error conditions
@@ -22,18 +22,8 @@ Rust scientific computing for single and multi-variable calculus
       - Trapezoidal
   - Jacobians and Hessians
   - Vector Field Calculus: Line and flux integrals, curl and divergence
-  - Approximation of any given equation to a linear or quadratic model
+  - Approximation of any given equation to a linear or quadratic mode
 
-This crate can be used without the standard library (`#![no_std]`) by disabling
-the default `std` feature. Use this in `Cargo.toml`:
-
-```toml
-[dependencies.multicalc]
-version = "0.3.0"
-default-features = false
-```
-
-For integration methods, only the gauss-legendre method needs `std` enabled.
 
 ## Table of Contents
 
@@ -333,4 +323,4 @@ anmolkathail@gmail.com
 
 ## TODO
 - Gauss-Kronrod Quadrature integration
-- Bring current std-only features to no-std
+- infinity outputs
