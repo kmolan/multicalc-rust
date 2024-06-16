@@ -10,7 +10,7 @@ use crate::utils::gl_table as gl_table;
 /// Possible ErrorCode are:
 /// NumberOfStepsCannotBeZero -> if the number of steps argument, "n" is zero
 /// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
-/// GaussLegendreOrderOutOfRange-> if integration_method == IntegrationMethod::GaussLegendre, and if n < 2 or n > 20
+/// GaussLegendreOrderOutOfRange-> if integration_method == IntegrationMethod::GaussLegendre, and if n < 2 or n > 15
 /// 
 /// assume we want to integrate 2*x . the function would be:
 /// ```
@@ -66,10 +66,7 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: Int
     match integration_method
     {
         IntegrationMethod::Booles        => return get_booles(func, 0, integration_limit, &point, n),
-        IntegrationMethod::GaussLegendre => 
-        {
-            return get_gauss_legendre(func, 0, integration_limit, &point, n as usize);
-        }
+        IntegrationMethod::GaussLegendre => return get_gauss_legendre(func, 0, integration_limit, &point, n as usize),
         IntegrationMethod::Simpsons      => return get_simpsons(func, 0, integration_limit, &point, n),
         IntegrationMethod::Trapezoidal   => return get_trapezoidal(func, 0, integration_limit, &point, n)
     }
@@ -83,7 +80,7 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: Int
 /// Possible ErrorCode are:
 /// NumberOfStepsCannotBeZero -> if the number of steps argument, "n" is zero
 /// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
-/// GaussLegendreOrderOutOfRange-> if integration_method == IntegrationMethod::GaussLegendre, and if n < 2 or n > 20
+/// GaussLegendreOrderOutOfRange-> if integration_method == IntegrationMethod::GaussLegendre, and if n < 2 or n > 15
 /// 
 /// assume we want to partially integrate for y for the equation 2.0*x + y*z. The function would be:
 /// ```
@@ -160,10 +157,7 @@ pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(integration_method: I
     match integration_method
     {
         IntegrationMethod::Booles        => return get_booles(func, idx_to_integrate, integration_limit, point, n),
-        IntegrationMethod::GaussLegendre => 
-        {
-            return get_gauss_legendre(func, idx_to_integrate, integration_limit, point, n as usize);           
-        }
+        IntegrationMethod::GaussLegendre => return get_gauss_legendre(func, idx_to_integrate, integration_limit, point, n as usize),
         IntegrationMethod::Simpsons      => return get_simpsons(func, idx_to_integrate, integration_limit, point, n),
         IntegrationMethod::Trapezoidal   => return get_trapezoidal(func, idx_to_integrate, integration_limit, point, n)
     }

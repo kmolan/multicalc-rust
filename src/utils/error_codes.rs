@@ -21,6 +21,6 @@ pub enum ErrorCode
     IntegrationLimitsIllDefined,
 
     //Can be returned by single_integration and double_integration if using the Gauss Legendre integration method
-    //Returned if requested order of integration is < 2 or > 20
+    //Returned if requested order of integration is < 2 or > 15
     GaussLegendreOrderOutOfRange
 }

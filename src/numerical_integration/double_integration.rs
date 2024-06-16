@@ -7,6 +7,12 @@ use crate::utils::gl_table as gl_table;
 /// Returns the total double integration value for a given function
 /// Only ideal for single variable functions
 /// 
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the number of steps argument, "n" is zero
+/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
+/// GaussLegendreOrderOutOfRange-> if integration_method == IntegrationMethod::GaussLegendre, and if n < 2 or n > 15
+/// 
 /// assume we want to integrate 6*x. The function would be:
 /// ```
 ///    let my_func = | args: &[f64; 1] | -> f64 
@@ -60,10 +66,7 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: Int
     match integration_method
     {
         IntegrationMethod::Booles        => return get_booles(func, [0, 0], integration_limits, &point, n),
-        IntegrationMethod::GaussLegendre => 
-        {
-            return get_gauss_legendre(func, [0, 0], integration_limits, &point, n as usize);
-        }
+        IntegrationMethod::GaussLegendre => return get_gauss_legendre(func, [0, 0], integration_limits, &point, n as usize),
         IntegrationMethod::Simpsons      => return get_simpsons(func, [0, 0], integration_limits, &point, n),
         IntegrationMethod::Trapezoidal   => return get_trapezoidal(func, [0, 0], integration_limits, &point, n)
     }
@@ -72,6 +75,12 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: Int
 
 /// Returns the partial double integration value for a given function
 /// Can handle multivariable functions of any order or complexity
+/// 
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the number of steps argument, "n" is zero
+/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
+/// GaussLegendreOrderOutOfRange-> if integration_method == IntegrationMethod::GaussLegendre, and if n < 2 or n > 15
 /// 
 /// assume we want to partially integrate first for x then y for the equation 2.0*x + y*z. The function would be:
 /// ```
@@ -145,10 +154,7 @@ pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(integration_method: I
     match integration_method
     {
         IntegrationMethod::Booles        => return get_booles(func, idx_to_integrate, integration_limits, point, n),
-        IntegrationMethod::GaussLegendre => 
-        {
-            return get_gauss_legendre(func, idx_to_integrate, integration_limits, point, n as usize);
-        }
+        IntegrationMethod::GaussLegendre => return get_gauss_legendre(func, idx_to_integrate, integration_limits, point, n as usize),
         IntegrationMethod::Simpsons      => return get_simpsons(func, idx_to_integrate, integration_limits, point, n),
         IntegrationMethod::Trapezoidal   => return get_trapezoidal(func, idx_to_integrate, integration_limits, point, n)
     }

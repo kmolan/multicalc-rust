@@ -17,7 +17,7 @@ Rust scientific computing for single and multi-variable calculus
   - Single, double and triple differentiation - total and partial
   - Single and double integration - total and partial
       - Booles
-      - Gauss Legendre (upto order = 20)
+      - Gauss Legendre (upto order = 15)
       - Simpsons
       - Trapezoidal
   - Jacobians and Hessians
