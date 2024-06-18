@@ -1,6 +1,6 @@
 use num_complex::ComplexFloat;
 use crate::utils::error_codes::ErrorCode;
-use crate::numerical_integration::mode::DEFAULT_TOTAL_ITERATIONS;
+use crate::core::numerical_integration::mode::DEFAULT_TOTAL_ITERATIONS;
 
 ///solves for the line integral for parametrized curves in a 2D vector field
 /// 
@@ -23,7 +23,7 @@ use crate::numerical_integration::mode::DEFAULT_TOTAL_ITERATIONS;
 /// Assume we have a vector field (y, -x)
 /// The curve is a unit circle, parameterized by (Cos(t), Sin(t)), such that t goes from 0->2*pi
 /// ```
-/// use multicalc::vector_field::line_integral;
+/// use multicalc::core::vector_field::line_integral;
 /// let vector_field_matrix: [&dyn Fn(&f64, &f64) -> f64; 2] = [&(|_:&f64, y:&f64|-> f64 { *y }), &(|x:&f64, _:&f64|-> f64 { -x })];
 ///
 /// let transformation_matrix: [&dyn Fn(&f64) -> f64; 2] = [&(|t:&f64|->f64 { t.cos() }), &(|t:&f64|->f64 { t.sin() })];

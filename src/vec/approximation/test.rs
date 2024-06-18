@@ -1,30 +1,31 @@
-use crate::approximation::linear_approximation;
-use crate::approximation::quadratic_approximation;
+use std::vec::Vec;
+use crate::vec::approximation::linear_approximation;
+use crate::vec::approximation::quadratic_approximation;
 use rand::Rng;
 
 #[test]
 fn test_linear_approximation_1() 
 {
     //function is x + y^2 + z^3, which we want to linearize
-    let function_to_approximate = | args: &[f64; 3] | -> f64 
+    let function_to_approximate = | args: &Vec<f64> | -> f64 
     { 
         return args[0] + args[1].powf(2.0) + args[2].powf(3.0);
     };
 
-    let point = [1.0, 2.0, 3.0]; //the point we want to linearize around
+    let point = std::vec![1.0, 2.0, 3.0]; //the point we want to linearize around
 
     let result = linear_approximation::get(&function_to_approximate, &point);
     assert!(f64::abs(function_to_approximate(&point) - result.get_prediction_value(&point)) < 1e-9);
 
     //now test the prediction metrics. For prediction, generate a list of 1000 points, all centered around the original point
     //with random noise between [-0.1, +0.1) 
-    let mut prediction_points = [[0.0; 3]; 1000];
+    let mut prediction_points = std::vec![std::vec![0.0; 3]; 1000];
     let mut random_generator = rand::thread_rng();
 
     for iter in 0..1000
     {
         let noise = random_generator.gen_range(-0.1..0.1);
-        prediction_points[iter] = [point[0] + noise, point[1] + noise, point[2] + noise];
+        prediction_points[iter] = std::vec![point[0] + noise, point[1] + noise, point[2] + noise];
     }
     
     let prediction_metrics = result.get_prediction_metrics(&prediction_points, &function_to_approximate);
@@ -41,13 +42,13 @@ fn test_linear_approximation_1()
 fn test_linear_approximation_2() 
 {
     //function is x + y^2 + z^3, which we want to linearize
-    let function_to_approximate = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
+    let function_to_approximate = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[0] + args[1].powf(2.0) + args[2].powf(3.0);
     };
 
     //the point we want to linearize around
-    let point = [num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
+    let point = std::vec![num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
 
     let result = linear_approximation::get(&function_to_approximate, &point);
     assert!(num_complex::ComplexFloat::abs(function_to_approximate(&point).re - result.get_prediction_value(&point).re) < 1e-9);
@@ -55,13 +56,13 @@ fn test_linear_approximation_2()
 
     //now test the prediction metrics. For prediction, generate a list of 1000 points, all centered around the original point
     //with random noise between [-0.1, +0.1) 
-    let mut prediction_points = [[num_complex::c64(0.0, 1.0); 3]; 1000];
+    let mut prediction_points = std::vec![std::vec![num_complex::c64(0.0, 1.0); 3]; 1000];
     let mut random_generator = rand::thread_rng();
 
     for iter in 0..1000
     {
         let noise = random_generator.gen_range(-0.1..0.1);
-        prediction_points[iter] = [point[0] + noise, point[1] + noise, point[2] + noise];
+        prediction_points[iter] = std::vec![point[0] + noise, point[1] + noise, point[2] + noise];
     }
 
     let prediction_metrics = result.get_prediction_metrics(&prediction_points, &function_to_approximate);
@@ -79,12 +80,12 @@ fn test_linear_approximation_2()
 fn test_quadratic_approximation_1() 
 {
     //function is e^(x/2) + sin(y) + 2.0*z
-    let function_to_approximate = | args: &[f64; 3] | -> f64 
+    let function_to_approximate = | args: &Vec<f64> | -> f64 
     { 
         return f64::exp(args[0]/2.0) + f64::sin(args[1]) + 2.0*args[2];
     };
 
-    let point = [0.0, 3.14/2.0, 10.0]; //the point we want to approximate around
+    let point = std::vec![0.0, 3.14/2.0, 10.0]; //the point we want to approximate around
 
     let result = quadratic_approximation::get(&function_to_approximate, &point);
 
@@ -92,13 +93,13 @@ fn test_quadratic_approximation_1()
 
     //now test the prediction metrics. For prediction, generate a list of 1000 points, all centered around the original point
     //with random noise between [-0.1, +0.1) 
-    let mut prediction_points = [[0.0; 3]; 1000];
+    let mut prediction_points = std::vec![std::vec![0.0; 3]; 1000];
     let mut random_generator = rand::thread_rng();
 
     for iter in 0..1000
     {
         let noise = random_generator.gen_range(-0.1..0.1);
-        prediction_points[iter] = [0.0 + noise, (3.14/2.0) + noise, 10.0 + noise];
+        prediction_points[iter] = std::vec![0.0 + noise, (3.14/2.0) + noise, 10.0 + noise];
     }
 
     let prediction_metrics = result.get_prediction_metrics(&prediction_points, &function_to_approximate);
@@ -115,13 +116,13 @@ fn test_quadratic_approximation_1()
 fn test_quadratic_approximation_2() 
 {
     //function is e^(x/2) + sin(y) + 2.0*z
-    let function_to_approximate = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
+    let function_to_approximate = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return num_complex::ComplexFloat::exp(args[0]/2.0) + args[1].sin() + 2.0*args[2];
     };
 
     //the point we want to approximate around
-    let point = [num_complex::c64(0.0, 1.0), num_complex::c64(3.12, 0.0), num_complex::c64(10.0, 0.5)];
+    let point = std::vec![num_complex::c64(0.0, 1.0), num_complex::c64(3.12, 0.0), num_complex::c64(10.0, 0.5)];
 
     let result = quadratic_approximation::get(&function_to_approximate, &point);
     assert!(num_complex::ComplexFloat::abs(function_to_approximate(&point).re - result.get_prediction_value(&point).re) < 0.5);
@@ -129,13 +130,13 @@ fn test_quadratic_approximation_2()
 
     //now test the prediction metrics. For prediction, generate a list of 1000 points, all centered around the original point
     //with random noise between [-0.1, +0.1) 
-    let mut prediction_points = [[num_complex::c64(0.0, 0.0); 3]; 1000];
+    let mut prediction_points = std::vec![std::vec![num_complex::c64(0.0, 0.0); 3]; 1000];
     let mut random_generator = rand::thread_rng();
 
     for iter in 0..1000
     {
         let noise = random_generator.gen_range(-0.1..0.1);
-        prediction_points[iter] = [point[0] + noise, point[1] + noise, point[2] + noise];
+        prediction_points[iter] = std::vec![point[0] + noise, point[1] + noise, point[2] + noise];
     }
 
     let prediction_metrics = result.get_prediction_metrics(&prediction_points, &function_to_approximate);

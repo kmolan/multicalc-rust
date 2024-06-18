@@ -1,17 +1,19 @@
-use crate::numerical_derivative::mode as mode;
+use std::println;
+use std::vec::Vec;
+use crate::vec::numerical_derivative::mode as mode;
 use crate::utils::error_codes::ErrorCode;
-use crate::numerical_derivative::single_derivative as single_derivative;
-use crate::numerical_derivative::double_derivative as double_derivative;
-use crate::numerical_derivative::triple_derivative as triple_derivative;
-use crate::numerical_derivative::jacobian as jacobian;
+use crate::vec::numerical_derivative::single_derivative as single_derivative;
+use crate::vec::numerical_derivative::double_derivative as double_derivative;
+use crate::vec::numerical_derivative::triple_derivative as triple_derivative;
+use crate::vec::numerical_derivative::jacobian as jacobian;
+use crate::vec::numerical_derivative::hessian as hessian;
 
-use crate::numerical_derivative::hessian as hessian;
 
 #[test]
 fn test_single_derivative_forward_difference() 
 {
     //function is x*x/2.0, derivative is known to be x
-    let func = | args: &[f64; 1] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[0]*args[0]/2.0;
     };
@@ -25,7 +27,7 @@ fn test_single_derivative_forward_difference()
 fn test_single_derivative_forward_difference_complex() 
 {
     //function is x*x/2.0, derivative is known to be x
-    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
+    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[0]*args[0]/2.0;
     };
@@ -40,7 +42,7 @@ fn test_single_derivative_forward_difference_complex()
 fn test_single_derivative_backward_difference() 
 {
     //function is x*x/2.0, derivative is known to be x
-    let func = | args: &[f64; 1] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[0]*args[0]/2.0;
     };
@@ -54,7 +56,7 @@ fn test_single_derivative_backward_difference()
 fn test_single_derivative_backward_difference_complex() 
 {
     //function is x*x/2.0, derivative is known to be x
-    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
+    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[0]*args[0]/2.0;
     };
@@ -69,7 +71,7 @@ fn test_single_derivative_backward_difference_complex()
 fn test_single_derivative_central_difference() 
 {
     //function is x*x/2.0, derivative is known to be x
-    let func = | args: &[f64; 1] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[0]*args[0]/2.0;
     };
@@ -83,7 +85,7 @@ fn test_single_derivative_central_difference()
 fn test_single_derivative_central_difference_complex() 
 {
     //function is x*x/2.0, derivative is known to be x
-    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
+    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[0]*args[0]/2.0;
     };
@@ -99,12 +101,12 @@ fn test_single_derivative_central_difference_complex()
 fn test_single_derivative_partial_1() 
 {
     //function is 3*x*x + 2*x*y
-    let func = | args: &[f64; 2] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return 3.0*args[0]*args[0] + 2.0*args[0]*args[1];
     };
 
-    let point = [1.0, 3.0];
+    let point = std::vec![1.0, 3.0];
 
     //partial derivate for (x, y) = (1.0, 3.0), partial derivative for x is known to be 6*x + 2*y
     let val = single_derivative::get_partial_custom(&func, 0, &point, 0.001, mode::DiffMode::CentralFixedStep).unwrap();
@@ -119,12 +121,12 @@ fn test_single_derivative_partial_1()
 fn test_single_derivative_partial_2() 
 {
     //function is y*sin(x) + x*cos(y) + x*y*e^z
-    let func = | args: &[f64; 3] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
     };
 
-    let point = [1.0, 2.0, 3.0];
+    let point = std::vec![1.0, 2.0, 3.0];
 
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial derivative for x is known to be y*cos(x) + cos(y) + y*e^z
     let val = single_derivative::get_partial_custom(&func, 0, &point, 0.001, mode::DiffMode::CentralFixedStep).unwrap();
@@ -146,12 +148,12 @@ fn test_single_derivative_partial_2()
 fn test_single_derivative_partial_3() 
 {
     //function is 3*x*x + 2*x*y
-    let func = | args: &[num_complex::Complex64; 2] | -> num_complex::Complex64 
+    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return 3.0*args[0]*args[0] + 2.0*args[0]*args[1];
     };
 
-    let point = [num_complex::c64(1.0, 4.0), num_complex::c64(3.0, 6.5)];
+    let point = std::vec![num_complex::c64(1.0, 4.0), num_complex::c64(3.0, 6.5)];
 
     //partial derivate for (x, y) = (1.0 + 4.0i, 3.0 + 6.5i), partial derivative for x is known to be 6*x + 2*y
     let val = single_derivative::get_partial_custom(&func, 0, &point, 0.001, mode::DiffMode::CentralFixedStep).unwrap();
@@ -168,12 +170,12 @@ fn test_single_derivative_partial_3()
 fn test_single_derivative_partial_4() 
 {
     //function is y*sin(x) + x*cos(y) + x*y*e^z
-    let func = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
+    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
     };
 
-    let point = [num_complex::c64(1.0, 4.0), num_complex::c64(2.0, 6.5), num_complex::c64(3.0, 0.0)];
+    let point = std::vec![num_complex::c64(1.0, 4.0), num_complex::c64(2.0, 6.5), num_complex::c64(3.0, 0.0)];
 
     //partial derivate for (x, y, z) = (1.0 + 4.0i, 2.0 + 6.5i, 3.0 + 0.0i), partial derivative for x is known to be y*cos(x) + cos(y) + y*e^z
     let val = single_derivative::get_partial_custom(&func, 0, &point, 0.001, mode::DiffMode::CentralFixedStep).unwrap();
@@ -198,12 +200,12 @@ fn test_single_derivative_partial_4()
 fn test_single_derivative_error_1() 
 {
     //function is y*sin(x) + x*cos(y) + x*y*e^z
-    let func = | args: &[f64; 3] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
     };
 
-    let point = [1.0, 2.0, 3.0];
+    let point = std::vec![1.0, 2.0, 3.0];
     
     //expect failure because step size is zero
     let result = single_derivative::get_partial_custom(&func, 0, &point, 0.0, mode::DiffMode::CentralFixedStep);
@@ -215,12 +217,12 @@ fn test_single_derivative_error_1()
 fn test_single_derivative_error_2() 
 {
     //function is y*sin(x) + x*cos(y) + x*y*e^z
-    let func = | args: &[f64; 3] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
     };
 
-    let point = [1.0, 2.0, 3.0];
+    let point = std::vec![1.0, 2.0, 3.0];
     
     //expect failure because idx_to_derivate is greater than the number of points
     let result = single_derivative::get_partial_custom(&func, 3, &point, 0.001, mode::DiffMode::CentralFixedStep);
@@ -232,7 +234,7 @@ fn test_single_derivative_error_2()
 fn test_double_derivative_forward_difference() 
 {
     //function is x*Sin(x), double derivative known to be 2.0*Cos(x) - x*Sin(x)
-    let func = | args: &[f64; 1] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[0]*args[0].sin();
     };
@@ -247,7 +249,7 @@ fn test_double_derivative_forward_difference()
 fn test_double_derivative_forward_difference_complex() 
 {
     //function is x*Sin(x), double derivative known to be 2.0*Cos(x) - x*Sin(x)
-    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
+    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[0]*args[0].sin();
     };
@@ -265,7 +267,7 @@ fn test_double_derivative_forward_difference_complex()
 fn test_double_derivative_backward_difference() 
 {
     //function is x*Sin(x), double derivative known to be 2.0*Cos(x) - x*Sin(x)
-    let func = | args: &[f64; 1] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[0]*args[0].sin();
     };
@@ -280,7 +282,7 @@ fn test_double_derivative_backward_difference()
 fn test_double_derivative_backward_difference_complex() 
 {
     //function is x*Sin(x), double derivative known to be 2.0*Cos(x) - x*Sin(x)
-    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
+    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[0]*args[0].sin();
     };
@@ -298,7 +300,7 @@ fn test_double_derivative_backward_difference_complex()
 fn test_double_derivative_central_difference() 
 {
     //function is x*Sin(x), double derivative known to be 2.0*Cos(x) - x*Sin(x)
-    let func = | args: &[f64; 1] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[0]*args[0].sin();
     };
@@ -313,7 +315,7 @@ fn test_double_derivative_central_difference()
 fn test_double_derivative_central_difference_complex() 
 {
     //function is x*Sin(x), double derivative known to be 2.0*Cos(x) - x*Sin(x)
-    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
+    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[0]*args[0].sin();
     };
@@ -331,12 +333,12 @@ fn test_double_derivative_central_difference_complex()
 fn test_double_derivative_partial_1() 
 {
     //function is y*sin(x) + x*cos(y) + x*y*e^z
-    let func = | args: &[f64; 3] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
     };
 
-    let point = [1.0, 2.0, 3.0];
+    let point = std::vec![1.0, 2.0, 3.0];
 
     let idx: [usize; 2] = [0, 0]; 
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial double derivative for x is known to be -y*sin(x)
@@ -361,12 +363,12 @@ fn test_double_derivative_partial_1()
 fn test_double_derivative_partial_2() 
 {
     //function is y*sin(x) + x*cos(y) + x*y*e^z
-    let func = | args: &[f64; 3] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
     };
 
-    let point = [1.0, 2.0, 3.0];
+    let point = std::vec![1.0, 2.0, 3.0];
 
     let idx: [usize; 2] = [0, 1]; //mixed partial double derivate d(df/dx)/dy
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), mixed partial double derivative is known to be cos(x) - sin(y) + e^z
@@ -391,12 +393,12 @@ fn test_double_derivative_partial_2()
 fn test_double_derivative_partial_3() 
 {
     //function is y*sin(x) + x*cos(y) + x*y*e^z
-    let func = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
+    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
     };
 
-    let point = [num_complex::c64(1.0, 3.5), num_complex::c64(2.0, 2.0), num_complex::c64(3.0, 0.0)];
+    let point = std::vec![num_complex::c64(1.0, 3.5), num_complex::c64(2.0, 2.0), num_complex::c64(3.0, 0.0)];
 
     let idx: [usize; 2] = [0, 0]; 
     //partial derivate for (x, y, z) = (1.0 + 3.5i, 2.0 + 2.0i, 3.0 + 0.0i), partial double derivative for x is known to be -y*sin(x)
@@ -424,12 +426,12 @@ fn test_double_derivative_partial_3()
 fn test_double_derivative_partial_4() 
 {
     //function is y*sin(x) + x*cos(y) + x*y*e^z
-    let func = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
+    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[1]*args[0].sin() + args[0]*args[1].cos() + args[0]*args[1]*args[2].exp();
     };
 
-    let point = [num_complex::c64(1.0, 3.5), num_complex::c64(2.0, 2.0), num_complex::c64(3.0, 0.0)];
+    let point = std::vec![num_complex::c64(1.0, 3.5), num_complex::c64(2.0, 2.0), num_complex::c64(3.0, 0.0)];
 
     let idx: [usize; 2] = [0, 1]; //mixed partial double derivate d(df/dx)/dy
     //partial derivate for (x, y, z) = (1.0 + 3.5i, 2.0 + 2.0i, 3.0 + 0.0i), mixed partial double derivative is known to be cos(x) - sin(y) + e^z
@@ -458,7 +460,7 @@ fn test_double_derivative_partial_4()
 fn test_triple_derivative_forward_difference() 
 {
     //function is x^4, triple derivative is known to be 24.0*x
-    let func = | args: &[f64; 1] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[0].powf(4.0);
     };
@@ -472,7 +474,7 @@ fn test_triple_derivative_forward_difference()
 fn test_triple_derivative_forward_difference_complex() 
 {
     //function is x^4, triple derivative is known to be 24.0*x
-    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
+    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[0].powf(4.0);
     };
@@ -491,7 +493,7 @@ fn test_triple_derivative_forward_difference_complex()
 fn test_triple_derivative_backward_difference() 
 {
     //function is x^4, triple derivative is known to be 24.0*x
-    let func = | args: &[f64; 1] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[0].powf(4.0);
     };
@@ -505,7 +507,7 @@ fn test_triple_derivative_backward_difference()
 fn test_triple_derivative_backward_difference_complex() 
 {
     //function is x^4, triple derivative is known to be 24.0*x
-    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
+    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[0].powf(4.0);
     };
@@ -523,7 +525,7 @@ fn test_triple_derivative_backward_difference_complex()
 fn test_triple_derivative_central_difference() 
 {
     //function is x^4, triple derivative is known to be 24.0*x
-    let func = | args: &[f64; 1] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[0].powf(4.0);
     };
@@ -537,7 +539,7 @@ fn test_triple_derivative_central_difference()
 fn test_triple_derivative_central_difference_complex() 
 {
     //function is x^4, triple derivative is known to be 24.0*x
-    let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
+    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[0].powf(4.0);
     };
@@ -555,12 +557,12 @@ fn test_triple_derivative_central_difference_complex()
 fn test_triple_derivative_partial_1() 
 {
     //function is y*sin(x) + 2*x*e^y
-    let func = | args: &[f64; 2] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[1]*args[0].sin() + 2.0*args[0]*args[1].exp();
     };
 
-    let point = [1.0, 3.0];
+    let point = std::vec![1.0, 3.0];
 
     let idx = [0, 0, 0];
     //partial derivate for (x, y) = (1.0, 3.0), partial triple derivative for x is known to be -y*cos(x)
@@ -579,12 +581,12 @@ fn test_triple_derivative_partial_1()
 fn test_triple_derivative_partial_2() 
 {
     //function is x^3 * y^3 * z^3
-    let func = | args: &[f64; 3] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[0].powf(3.0)*args[1].powf(3.0)*args[2].powf(3.0);
     };
 
-    let point = [1.0, 2.0, 3.0];
+    let point = std::vec![1.0, 2.0, 3.0];
 
     let idx = [0, 1, 2]; //mixed partial double derivate d(d(df/dx)/dy)/dz
     //partial derivate for (x, y) = (1.0, 2.0, 3.0), mixed partial triple derivative is known to be 27.0*x^2*y^2*z^2
@@ -601,12 +603,12 @@ fn test_triple_derivative_partial_2()
 fn test_triple_derivative_partial_3() 
 {
     //function is y*sin(x) + 2*x*e^y
-    let func = | args: &[num_complex::Complex64; 2] | -> num_complex::Complex64 
+    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[1]*args[0].sin() + 2.0*args[0]*args[1].exp();
     };
 
-    let point = [num_complex::c64(1.0, 4.0), num_complex::c64(3.0, 1.5)];
+    let point = std::vec![num_complex::c64(1.0, 4.0), num_complex::c64(3.0, 1.5)];
 
     let idx = [0, 0, 0];
     //partial derivate for (x, y) = (1.0 + 4.0i, 3.0 + 1.5i), partial triple derivative for x is known to be -y*cos(x)
@@ -627,12 +629,12 @@ fn test_triple_derivative_partial_3()
 fn test_triple_derivative_partial_4() 
 {
     //function is x^3 * y^3 * z^3
-    let func = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
+    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[0].powf(3.0)*args[1].powf(3.0)*args[2].powf(3.0);
     };
 
-    let point = [num_complex::c64(1.0, 4.0), num_complex::c64(2.0, 1.5), num_complex::c64(3.0, 0.0)];
+    let point = std::vec![num_complex::c64(1.0, 4.0), num_complex::c64(2.0, 1.5), num_complex::c64(3.0, 0.0)];
 
     let idx = [0, 1, 2]; //mixed partial double derivate d(d(df/dx)/dy)/dz
     //partial derivate for (x, y, z) = (1.0 + 4.0i, 2.0 + 1.5i, 3.0 + 0.0i), mixed partial triple derivative is known to be 27.0*x^2*y^2*z^2
@@ -653,22 +655,24 @@ fn test_triple_derivative_partial_4()
 fn test_jacobian_1() 
 {
     //function is x*y*z
-    let func1 = | args: &[f64; 3] | -> f64 
+    let func1 = | args: &Vec<f64> | -> f64 
     { 
         return args[0]*args[1]*args[2];
     };
 
     //function is x^2 + y^2
-    let func2 = | args: &[f64; 3] | -> f64 
+    let func2 = | args: &Vec<f64> | -> f64 
     { 
         return args[0].powf(2.0) + args[1].powf(2.0);
     };
 
-    let function_matrix: [&dyn Fn(&[f64; 3]) -> f64; 2] = [&func1, &func2];
+    let function_matrix: [&dyn Fn(&Vec<f64>) -> f64; 2] = [&func1, &func2];
 
-    let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
+    let points = std::vec![1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
 
     let result = jacobian::get(&function_matrix, &points).unwrap();
+
+    println!("{:?}", result);
 
     assert!(result.len() == function_matrix.len()); //number of rows
     assert!(result[0].len() == points.len()); //number of columns
@@ -688,21 +692,21 @@ fn test_jacobian_1()
 fn test_jacobian_1_complex() 
 {
     //function is x*y*z
-    let func1 = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
+    let func1 = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[0]*args[1]*args[2];
     };
 
     //function is x^2 + y^2
-    let func2 = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
+    let func2 = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[0].powf(2.0) + args[1].powf(2.0);
     };
 
-    let function_matrix: [&dyn Fn(&[num_complex::Complex64; 3]) -> num_complex::Complex64; 2] = [&func1, &func2];
+    let function_matrix: [&dyn Fn(&Vec<num_complex::Complex64>) -> num_complex::Complex64; 2] = [&func1, &func2];
 
     //the point around which we want the jacobian matrix
-    let points = [num_complex::c64(1.0, 3.0), num_complex::c64(2.0, 3.5), num_complex::c64(3.0, 0.0)];
+    let points = std::vec![num_complex::c64(1.0, 3.0), num_complex::c64(2.0, 3.5), num_complex::c64(3.0, 0.0)];
 
     let result = jacobian::get(&function_matrix, &points).unwrap();
 
@@ -729,7 +733,7 @@ fn test_jacobian_1_error()
     let function_matrix = [];
 
     //the point around which we want the jacobian matrix
-    let points = [num_complex::c64(1.0, 3.0), num_complex::c64(2.0, 3.5), num_complex::c64(3.0, 0.0)];
+    let points = std::vec![num_complex::c64(1.0, 3.0), num_complex::c64(2.0, 3.5), num_complex::c64(3.0, 0.0)];
 
     //expect error because an empty list of function was passed in
     let result = jacobian::get(&function_matrix, &points);
@@ -742,12 +746,12 @@ fn test_jacobian_1_error()
 fn test_hessian_1() 
 {
     //function is y*sin(x) + 2*x*e^y
-    let func = | args: &[f64; 2] | -> f64 
+    let func = | args: &Vec<f64> | -> f64 
     { 
         return args[1]*args[0].sin() + 2.0*args[0]*args[1].exp();
     };
 
-    let points = [1.0, 2.0]; //the point around which we want the hessian matrix
+    let points = std::vec![1.0, 2.0]; //the point around which we want the hessian matrix
 
     let result = hessian::get(&func, &points);
 
@@ -770,12 +774,13 @@ fn test_hessian_1()
 fn test_hessian_1_complex() 
 {
     //function is y*sin(x) + 2*x*e^y
-    let func = | args: &[num_complex::Complex64; 2] | -> num_complex::Complex64 
+    let func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
     { 
         return args[1]*args[0].sin() + 2.0*args[0]*args[1].exp();
     };
 
-    let points = [num_complex::c64(1.0, 2.5), num_complex::c64(2.0, 5.0)]; //the point around which we want the hessian matrix
+    //the point around which we want the hessian matrix
+    let points = std::vec![num_complex::c64(1.0, 2.5), num_complex::c64(2.0, 5.0)];
 
     let result = hessian::get(&func, &points);
 

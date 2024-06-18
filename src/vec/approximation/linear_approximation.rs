@@ -1,13 +1,14 @@
-use crate::numerical_derivative::single_derivative as single_derivative;
-use crate::numerical_derivative::mode as mode;
+use std::vec::Vec;
+use crate::vec::numerical_derivative::single_derivative as single_derivative;
+use crate::vec::numerical_derivative::mode as mode;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
 #[derive(Debug)]
-pub struct LinearApproximationResult<T: ComplexFloat, const NUM_VARS: usize>
+pub struct LinearApproximationResult<T: ComplexFloat>
 {
     pub intercept: T,
-    pub coefficients: [T; NUM_VARS]
+    pub coefficients: Vec<T>
 }
 
 #[derive(Debug)]
@@ -20,13 +21,13 @@ pub struct LinearApproximationPredictionMetrics<T: ComplexFloat>
     pub adjusted_r_squared: T::Real
 }
 
-impl<T: ComplexFloat, const NUM_VARS: usize> LinearApproximationResult<T, NUM_VARS>
+impl<T: ComplexFloat> LinearApproximationResult<T>
 {
     ///Helper function if you don't care about the details and just want the predictor directly
-    pub fn get_prediction_value(&self, args: &[T; NUM_VARS]) -> T
+    pub fn get_prediction_value(&self, args: &Vec<T>) -> T
     {
         let mut result = self.intercept;
-        for (iter, arg) in args.iter().enumerate().take(NUM_VARS)
+        for (iter, arg) in args.iter().enumerate().take(args.len())
         {
             result = result + self.coefficients[iter]**arg;    
         }
@@ -35,13 +36,13 @@ impl<T: ComplexFloat, const NUM_VARS: usize> LinearApproximationResult<T, NUM_VA
     }
 
     //get prediction metrics by feeding a list of points and the original function
-    pub fn get_prediction_metrics<const NUM_POINTS: usize>(&self, points: &[[T; NUM_VARS]; NUM_POINTS], original_function: &dyn Fn(&[T; NUM_VARS]) -> T) -> LinearApproximationPredictionMetrics<T>
+    pub fn get_prediction_metrics(&self, points: &Vec<Vec<T>>, original_function: &dyn Fn(&Vec<T>) -> T) -> LinearApproximationPredictionMetrics<T>
     {
-        //let num_points = NUM_POINTS as f64;
+        let num_points = points.len();
         let mut mae = T::zero();
         let mut mse = T::zero();
         
-        for point in points.iter().take(NUM_POINTS)
+        for point in points.iter().take(num_points)
         {
             let predicted_y = self.get_prediction_value(point);
             
@@ -49,15 +50,15 @@ impl<T: ComplexFloat, const NUM_VARS: usize> LinearApproximationResult<T, NUM_VA
             mse = mse + num_complex::ComplexFloat::powi(predicted_y - original_function(point), 2);
         }
 
-        mae = mae/T::from(NUM_POINTS).unwrap();
-        mse = mse/T::from(NUM_POINTS).unwrap();
+        mae = mae/T::from(num_points).unwrap();
+        mse = mse/T::from(num_points).unwrap();
 
         let rmse = mse.sqrt().abs();
 
         let mut r2_numerator = T::zero();
         let mut r2_denominator = T::zero();
 
-        for point in points.iter().take(NUM_POINTS)
+        for point in points.iter().take(num_points)
         {
             let predicted_y = self.get_prediction_value(point);
 
@@ -67,7 +68,7 @@ impl<T: ComplexFloat, const NUM_VARS: usize> LinearApproximationResult<T, NUM_VA
 
         let r2 = T::one() - (r2_numerator/r2_denominator);
 
-        let r2_adj = T::one() - (T::one() - r2)*(T::from(NUM_POINTS).unwrap())/(T::from(NUM_POINTS).unwrap() - T::from(2.0).unwrap());
+        let r2_adj = T::one() - (T::one() - r2)*(T::from(num_points).unwrap())/(T::from(num_points).unwrap() - T::from(2.0).unwrap());
 
         return LinearApproximationPredictionMetrics
         {
@@ -86,14 +87,14 @@ impl<T: ComplexFloat, const NUM_VARS: usize> LinearApproximationResult<T, NUM_VA
 ///
 ///example function is x + y^2 + z^3, which we want to linearize. First define the function:
 ///```
-///use multicalc::approximation::linear_approximation;
+///use multicalc::vec::approximation::linear_approximation;
 /// 
-///let function_to_approximate = | args: &[f64; 3] | -> f64
+///let function_to_approximate = | args: &Vec<f64> | -> f64
 ///{ 
 ///    return args[0] + args[1].powf(2.0) + args[2].powf(3.0);
 ///};
 ///
-///let point = [1.0, 2.0, 3.0]; //the point we want to linearize around
+///let point = vec![1.0, 2.0, 3.0]; //the point we want to linearize around
 ///
 ///let result = linear_approximation::get(&function_to_approximate, &point);
 ///
@@ -107,7 +108,7 @@ impl<T: ComplexFloat, const NUM_VARS: usize> LinearApproximationResult<T, NUM_VA
 /// if you don't care about the results and want the predictor directly, use [`LinearApproximationResult::get_prediction_value()`]
 /// you can also inspect the prediction metrics by providing list of points, use [`LinearApproximationResult::get_prediction_metrics()`]
 ///
-pub fn get<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS]) -> LinearApproximationResult<T, NUM_VARS>
+pub fn get<T: ComplexFloat>(function: &dyn Fn(&Vec<T>) -> T, point: &Vec<T>) -> LinearApproximationResult<T>
 {
     return get_custom(function, point, 0.00001, mode::DiffMode::CentralFixedStep).unwrap();
 }
@@ -117,13 +118,13 @@ pub fn get<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VA
 /// NOTE: Returns a Result<T, ErrorCode>
 /// Possible ErrorCode are:
 /// NumberOfStepsCannotBeZero -> if the derivative step size is zero
-pub fn get_custom<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> Result<LinearApproximationResult<T, NUM_VARS>, ErrorCode>
+pub fn get_custom<T: ComplexFloat>(function: &dyn Fn(&Vec<T>) -> T, point: &Vec<T>, step_size: f64, mode: mode::DiffMode) -> Result<LinearApproximationResult<T>, ErrorCode>
 {
-    let mut slopes_ = [T::zero(); NUM_VARS];
+    let mut slopes_ = std::vec![T::zero(); point.len()];
 
     let mut intercept_ = function(point);
 
-    for iter in 0..NUM_VARS
+    for iter in 0..point.len()
     {
         slopes_[iter] = single_derivative::get_partial_custom(function, iter, point, step_size, mode)?;
         intercept_ = intercept_ - slopes_[iter]*point[iter];

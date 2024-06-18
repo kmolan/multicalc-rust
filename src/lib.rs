@@ -3,8 +3,11 @@
 
 #![no_std]
 
+#[cfg(feature = "vectors")]
+extern crate std;
+
+pub mod core;
 pub mod utils;
-pub mod numerical_integration;
-pub mod numerical_derivative;
-pub mod approximation;
-pub mod vector_field;
+
+#[cfg(feature = "vectors")]
+pub mod vec;

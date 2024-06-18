@@ -1,4 +1,4 @@
-use crate::numerical_derivative::mode as mode;
+use crate::core::numerical_derivative::mode as mode;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
@@ -18,7 +18,7 @@ use num_complex::ComplexFloat;
 ///// We also need to define the point at which we want to differentiate. Assuming our point is x = 1.0
 ///// if we then want to differentiate this function over x with a step size of 0.001, we would use:
 /// 
-/// use multicalc::numerical_derivative::single_derivative;
+/// use multicalc::core::numerical_derivative::single_derivative;
 ///
 /// let val = single_derivative::get_total(&my_func,    //<- our closure                                          
 ///                                         1.0);       //<- point around which we want to differentiate
@@ -38,7 +38,7 @@ use num_complex::ComplexFloat;
 /// //point of interest is x = (1.0 + 2.5i)
 /// let point = num_complex::c64(1.0, 2.5);
 /// 
-/// use multicalc::numerical_derivative::single_derivative;
+/// use multicalc::core::numerical_derivative::single_derivative;
 ///
 /// let val = single_derivative::get_total(&my_func,   //<- our closure                                          
 ///                                        point);     //<- point around which we want to differentiate
@@ -98,7 +98,7 @@ pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[
 ///
 ///// if we then want to differentiate this function over x with a step size of 0.001, we would use:
 /// 
-/// use multicalc::numerical_derivative::single_derivative;
+/// use multicalc::core::numerical_derivative::single_derivative;
 ///
 /// let val = single_derivative::get_partial(&my_func,    //<- our closure                 
 ///                                          0,           //<- index of variable we want to differentiate, in this case "x", which is 0                           
@@ -120,7 +120,7 @@ pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[
 ///// Assuming our point is (1.0 + 2.5i, 2.0 + 2.0i, 3.0 + 0.0i)
 /// let point = [num_complex::c64(1.0, 2.5), num_complex::c64(2.0, 2.0), num_complex::c64(3.0, 0.0)];
 /// 
-/// use multicalc::numerical_derivative::single_derivative;
+/// use multicalc::core::numerical_derivative::single_derivative;
 ///
 /// let val = single_derivative::get_partial(&my_func,    //<- our closure                 
 ///                                          0,           //<- index of variable we want to differentiate, in this case "x", which is 0                           

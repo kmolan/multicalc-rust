@@ -1,5 +1,5 @@
-use crate::numerical_derivative::single_derivative;
-use crate::numerical_derivative::mode as mode;
+use crate::core::numerical_derivative::single_derivative;
+use crate::core::numerical_derivative::mode as mode;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
@@ -19,7 +19,7 @@ use num_complex::ComplexFloat;
 ///// We also need to define the point at which we want to differentiate. Assuming our point x = 5.0
 ///// if we then want to differentiate this function over x with a step size of 0.001, we would use:
 ///
-/// use multicalc::numerical_derivative::double_derivative;
+/// use multicalc::core::numerical_derivative::double_derivative;
 /// 
 /// let val = double_derivative::get_total(&my_func,      //<- our closure                                           
 ///                                         5.0);         //<- point around which we want to differentiate
@@ -40,7 +40,7 @@ use num_complex::ComplexFloat;
 /// //point of interest is x = (5.0 + 2.5i)
 /// let point = num_complex::c64(5.0, 2.5);
 /// 
-/// use multicalc::numerical_derivative::double_derivative;
+/// use multicalc::core::numerical_derivative::double_derivative;
 ///
 /// let val = double_derivative::get_total(&my_func,   //<- our closure                                          
 ///                                        point);     //<- point around which we want to differentiate
@@ -99,7 +99,7 @@ pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[
 ///
 ///// if we then want to partially differentiate this function first over x then y, for (x, y, z) = (1.0, 2.0, 3.0) with a step size of 0.001, we would use:
 ///
-/// use multicalc::numerical_derivative::double_derivative;
+/// use multicalc::core::numerical_derivative::double_derivative;
 /// 
 /// let val = double_derivative::get_partial(&my_func,   //<- our closure                
 ///                                          &[0, 1],    //<- idx, index of variables we want to differentiate                            
@@ -121,7 +121,7 @@ pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[
 /// //point of interest is (x, y, z) = (1.0 + 4.0i, 2.0 + 2.5i, 3.0 + 0.0i)
 /// let point = [num_complex::c64(1.0, 4.0), num_complex::c64(2.0, 2.5), num_complex::c64(3.0, 0.0)];
 /// 
-/// use multicalc::numerical_derivative::double_derivative;
+/// use multicalc::core::numerical_derivative::double_derivative;
 ///
 /// let val = double_derivative::get_partial(&my_func,   //<- our closure                
 ///                                          &[0, 1],    //<- idx, index of variables we want to differentiate                            

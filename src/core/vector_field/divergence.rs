@@ -1,6 +1,6 @@
-use crate::numerical_derivative::mode as mode;
+use crate::core::numerical_derivative::mode as mode;
 use crate::utils::error_codes::ErrorCode;
-use crate::numerical_derivative::single_derivative;
+use crate::core::numerical_derivative::single_derivative;
 use num_complex::ComplexFloat;
 
 
@@ -13,7 +13,7 @@ use num_complex::ComplexFloat;
 /// Example:
 /// Assume we have a vector field (y, -x, 2*z)
 /// ```
-/// use multicalc::vector_field::divergence;
+/// use multicalc::core::vector_field::divergence;
 ///
 /// //x-component
 /// let vf_x = | args: &[f64; 3] | -> f64 
@@ -67,7 +67,7 @@ pub fn get_3d_custom<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dy
 /// Example:
 /// Assume we have a vector field (y, -x)
 /// ```
-/// use multicalc::vector_field::divergence;
+/// use multicalc::core::vector_field::divergence;
 /// //x-component
 /// let vf_x = | args: &[f64; 2] | -> f64 
 /// { 
