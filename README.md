@@ -43,6 +43,7 @@ Rust scientific computing for single and multi-variable calculus
 - [13. Line and Flux integrals](#13-line-and-flux-integrals)
 - [14. Curl and Divergence](#14-curl-and-divergence)
 - [15. Error Handling](#15-error-handling)
+- [16. Experimental](#16-experimental)
 
 ## 1. Single total derivatives
 ```rust
@@ -308,6 +309,40 @@ Wherever possible, "safe" versions of functions are provided that fill in the de
 However, that is not always possible either because no default argument can be assumed, or for functions that deliberately give users the freedom to tweak the parameters.
 In such cases, a `Result<T, ErrorCode>` object is returned instead, where all possible `ErrorCode`s can be viewed at [error_codes](./src/utils/error_codes.rs).
 
+##  16. Experimental
+Enable feature "heap" to access `std::Vec` based methods in certain modules. Currently this is only supported for the _Jacobian_ module via `get_on_heap()` and `get_on_heap_custom()` methods. The output is a dynamically allocated `Vec<Vec<T>>`. This is to support large datasets that might otherwise get a stack overflow with static arrays. Future plans might include adding such support for the approximation module.
+```rust
+//function is x*y*z
+let func1 = | args: &[f64; 3] | -> f64 
+{ 
+    return args[0]*args[1]*args[2];
+};
+
+//function is x^2 + y^2
+let func2 = | args: &[f64; 3] | -> f64 
+{ 
+    return args[0].powf(2.0) + args[1].powf(2.0);
+};
+
+let function_matrix: Vec<Box<dyn Fn(&[f64; 3]) -> f64>> = std::vec![Box::new(func1), Box::new(func2)];
+
+let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
+
+let result: Vec<Vec<f64>> = jacobian::get_on_heap(&function_matrix, &points).unwrap();
+
+assert!(result.len() == function_matrix.len()); //number of rows
+assert!(result[0].len() == points.len()); //number of columns
+
+let expected_result = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
+
+for i in 0..function_matrix.len()
+{
+    for j in 0..points.len()
+    {
+        assert!(f64::abs(result[i][j] - expected_result[i][j]) < 0.000001);
+    }
+}
+```
 
 ## Contributions Guide
 See [CONTRIBUTIONS.md](./CONTRIBUTIONS.md)

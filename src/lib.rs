@@ -3,6 +3,9 @@
 
 #![no_std]
 
+#[cfg(feature = "heap")]
+extern crate std;
+
 pub mod utils;
 pub mod numerical_integration;
 pub mod numerical_derivative;

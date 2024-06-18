@@ -19,4 +19,8 @@ num-complex = "0.4.6"
 [dev-dependencies]
 rand = "0.8"
 
+[features]
+default = []
+heap = []
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

@@ -4,8 +4,11 @@ use crate::numerical_derivative::single_derivative as single_derivative;
 use crate::numerical_derivative::double_derivative as double_derivative;
 use crate::numerical_derivative::triple_derivative as triple_derivative;
 use crate::numerical_derivative::jacobian as jacobian;
-
 use crate::numerical_derivative::hessian as hessian;
+
+#[cfg(feature = "heap")]
+use std::{boxed::Box, vec::Vec};
+
 
 #[test]
 fn test_single_derivative_forward_difference() 
@@ -705,6 +708,82 @@ fn test_jacobian_1_complex()
     let points = [num_complex::c64(1.0, 3.0), num_complex::c64(2.0, 3.5), num_complex::c64(3.0, 0.0)];
 
     let result = jacobian::get(&function_matrix, &points).unwrap();
+
+    assert!(result.len() == function_matrix.len()); //number of rows
+    assert!(result[0].len() == points.len()); //number of columns
+
+    let expected_result = [[points[1]*points[2], points[0]*points[2], points[0]*points[1]], 
+                                                   [2.0*points[0], 2.0*points[1], 0.0*points[2]]];
+
+
+    for i in 0..function_matrix.len()
+    {
+        for j in 0..points.len()
+        {
+            assert!(num_complex::ComplexFloat::abs(result[i][j].re - expected_result[i][j].re) < 0.000001);
+            assert!(num_complex::ComplexFloat::abs(result[i][j].im - expected_result[i][j].im) < 0.000001);
+        }
+    }
+}
+
+#[test]
+#[cfg(feature = "heap")]
+fn test_jacobian_2() 
+{
+    //function is x*y*z
+    let func1 = | args: &[f64; 3] | -> f64 
+    { 
+        return args[0]*args[1]*args[2];
+    };
+
+    //function is x^2 + y^2
+    let func2 = | args: &[f64; 3] | -> f64 
+    { 
+        return args[0].powf(2.0) + args[1].powf(2.0);
+    };
+
+    let function_matrix: Vec<Box<dyn Fn(&[f64; 3]) -> f64>> = std::vec![Box::new(func1), Box::new(func2)];
+
+    let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
+
+    let result: Vec<Vec<f64>> = jacobian::get_on_heap(&function_matrix, &points).unwrap();
+
+    assert!(result.len() == function_matrix.len()); //number of rows
+    assert!(result[0].len() == points.len()); //number of columns
+
+    let expected_result = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
+
+    for i in 0..function_matrix.len()
+    {
+        for j in 0..points.len()
+        {
+            assert!(f64::abs(result[i][j] - expected_result[i][j]) < 0.000001);
+        }
+    }
+}
+
+#[test]
+#[cfg(feature = "heap")]
+fn test_jacobian_2_complex() 
+{
+    //function is x*y*z
+    let func1 = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
+    { 
+        return args[0]*args[1]*args[2];
+    };
+
+    //function is x^2 + y^2
+    let func2 = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
+    { 
+        return args[0].powf(2.0) + args[1].powf(2.0);
+    };
+
+    let function_matrix: Vec<Box<dyn Fn(&[num_complex::Complex64; 3]) -> num_complex::Complex64>> = std::vec![Box::new(func1), Box::new(func2)];
+
+    //the point around which we want the jacobian matrix
+    let points = [num_complex::c64(1.0, 3.0), num_complex::c64(2.0, 3.5), num_complex::c64(3.0, 0.0)];
+
+    let result = jacobian::get_on_heap(&function_matrix, &points).unwrap();
 
     assert!(result.len() == function_matrix.len()); //number of rows
     assert!(result[0].len() == points.len()); //number of columns
