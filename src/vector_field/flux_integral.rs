@@ -1,3 +1,4 @@
+use crate::numerical_integration::mode::DEFAULT_TOTAL_ITERATIONS;
 use crate::utils::error_codes::ErrorCode;
 use crate::vector_field::line_integral;
 use num_complex::ComplexFloat;
@@ -33,11 +34,17 @@ use num_complex::ComplexFloat;
 /// let integration_limit = [0.0, 6.28];
 ///
 /// //flux integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of 0.0
-/// let val = flux_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100).unwrap();
+/// let val = flux_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit).unwrap();
 /// assert!(f64::abs(val + 0.0) < 0.01);
 /// ```
-pub fn get_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2], steps: u64) -> Result<T, ErrorCode>
+pub fn get_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2]) -> Result<T, ErrorCode>
 {
-    return Ok(line_integral::get_partial_2d(vector_field, transformations, integration_limit, steps, 0)?
-            - line_integral::get_partial_2d(vector_field, transformations, integration_limit, steps, 1)?);
+    return Ok(line_integral::get_partial_2d(vector_field, transformations, integration_limit, DEFAULT_TOTAL_ITERATIONS, 0)?
+            - line_integral::get_partial_2d(vector_field, transformations, integration_limit, DEFAULT_TOTAL_ITERATIONS, 1)?);
+}
+
+pub fn get_2d_custom<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2], total_iterations: u64) -> Result<T, ErrorCode>
+{
+    return Ok(line_integral::get_partial_2d(vector_field, transformations, integration_limit, total_iterations, 0)?
+            - line_integral::get_partial_2d(vector_field, transformations, integration_limit, total_iterations, 1)?);
 }

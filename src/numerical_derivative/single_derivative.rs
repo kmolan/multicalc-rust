@@ -5,9 +5,6 @@ use num_complex::ComplexFloat;
 /// Returns the single total derivative value for a given function
 /// Only ideal for single variable functions
 /// 
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
-/// NumberOfStepsCannotBeZero -> if the derivative step size is zero
 /// 
 /// assume we want to differentiate 2*x*x the function would be:
 /// ```
@@ -24,10 +21,9 @@ use num_complex::ComplexFloat;
 /// use multicalc::numerical_derivative::single_derivative;
 ///
 /// let val = single_derivative::get_total(&my_func,    //<- our closure                                          
-///                                         1.0,        //<- point around which we want to differentiate
-///                                         0.001);     //<- required step size
+///                                         1.0);       //<- point around which we want to differentiate
 /// 
-/// assert!(f64::abs(val.unwrap() - 4.0) < 0.00001);
+/// assert!(f64::abs(val - 4.0) < 0.00001);
 ///```
 /// 
 /// the above example can also be extended to complex numbers:
@@ -45,21 +41,23 @@ use num_complex::ComplexFloat;
 /// use multicalc::numerical_derivative::single_derivative;
 ///
 /// let val = single_derivative::get_total(&my_func,   //<- our closure                                          
-///                                        point,      //<- point around which we want to differentiate
-///                                        0.001);     //<- required step size
+///                                        point);     //<- point around which we want to differentiate
 /// 
 /// let expected_val = num_complex::c64(4.0, 10.0);
-/// assert!(num_complex::ComplexFloat::abs(val.unwrap().re - expected_val.re) < 0.00001);
-/// assert!(num_complex::ComplexFloat::abs(val.unwrap().im - expected_val.im) < 0.00001);
+/// assert!(num_complex::ComplexFloat::abs(val.re - expected_val.re) < 0.00001);
+/// assert!(num_complex::ComplexFloat::abs(val.im - expected_val.im) < 0.00001);
 ///``` 
 ///
-pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, point: T, step: f64) -> Result<T, ErrorCode>
+pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, point: T) -> T
 {
-    return get_total_custom(func, point, step, mode::DiffMode::CentralFixedStep);
+    return get_total_custom(func, point, mode::DEFAULT_STEP_SIZE, mode::DiffMode::CentralFixedStep).unwrap();
 }
 
 
-///same as [get_total()] but with the option to change the differentiation mode used, reserved for more advanced users
+///same as [get_total()] but with the option to change the differentiation parameters used, reserved for more advanced users
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the derivative step size is zero
 pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, point: T, step: f64, mode: mode::DiffMode) -> Result<T, ErrorCode>
 {
     if step == 0.0
@@ -83,7 +81,6 @@ pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[
 /// 
 /// NOTE: Returns a Result<T, ErrorCode>
 /// Possible ErrorCode are:
-/// NumberOfStepsCannotBeZero -> if the derivative step size is zero
 /// IndexToDerivativeOutOfRange -> if the value of idx_to_derivate is greater than the number of variables
 /// 
 /// assume we want to differentiate y*sin(x) + x*cos(y) + x*y*e^z. the function would be:
@@ -105,8 +102,7 @@ pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[
 ///
 /// let val = single_derivative::get_partial(&my_func,    //<- our closure                 
 ///                                          0,           //<- index of variable we want to differentiate, in this case "x", which is 0                           
-///                                          &point,      //<- point around which we want to differentiate
-///                                          0.001);      //<- required step size
+///                                          &point);     //<- point around which we want to differentiate
 /// 
 /// let expected_value = 2.0*f64::cos(1.0) + f64::cos(2.0) + 2.0*f64::exp(3.0);
 /// assert!(f64::abs(val.unwrap() - expected_value) < 0.00001);
@@ -128,21 +124,24 @@ pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[
 ///
 /// let val = single_derivative::get_partial(&my_func,    //<- our closure                 
 ///                                          0,           //<- index of variable we want to differentiate, in this case "x", which is 0                           
-///                                          &point,      //<- point around which we want to differentiate
-///                                          0.001);      //<- required step size
+///                                          &point);     //<- point around which we want to differentiate
 /// 
 /// let expected_value = point[1]*point[0].cos() + point[1].cos() + point[1]*point[2].exp();
 /// assert!(num_complex::ComplexFloat::abs(val.unwrap().re - expected_value.re) < 0.00001);
 /// assert!(num_complex::ComplexFloat::abs(val.unwrap().im - expected_value.im) < 0.00001);
 ///```
 /// 
-pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64) -> Result<T, ErrorCode>
+pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
 {
-    return get_partial_custom(func, idx_to_derivate, point, step, mode::DiffMode::CentralFixedStep);
+    return get_partial_custom(func, idx_to_derivate, point, mode::DEFAULT_STEP_SIZE, mode::DiffMode::CentralFixedStep);
 }
 
 
-///same as [get_partial()] but with the option to change the differentiation mode used, reserved for more advanced users
+///same as [get_partial()] but with the option to change the differentiation parameters used, reserved for more advanced users
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the derivative step size is zero
+/// IndexToDerivativeOutOfRange -> if the value of idx_to_derivate is greater than the number of variables
 pub fn get_partial_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64, mode: mode::DiffMode) -> Result<T, ErrorCode>
 {
     if step == 0.0

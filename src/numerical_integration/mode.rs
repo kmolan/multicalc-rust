@@ -6,3 +6,5 @@ pub enum IntegrationMethod
     Simpsons, //Least accurate. Needs a huge number of iterations to match other methods listed here
     Trapezoidal //Highly accuracate, do not need to do many iterations, best generalist out of all options
 }
+
+pub const DEFAULT_TOTAL_ITERATIONS: u64 = 500;

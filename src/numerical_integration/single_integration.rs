@@ -1,16 +1,15 @@
-use crate::numerical_integration::mode::IntegrationMethod;
+use crate::numerical_integration::mode;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 use crate::utils::gl_table as gl_table;
+
 
 /// Returns the total single integration value for a given function
 /// Only ideal for single variable functions
 /// 
 /// NOTE: Returns a Result<T, ErrorCode>
 /// Possible ErrorCode are:
-/// NumberOfStepsCannotBeZero -> if the number of steps argument, "n" is zero
 /// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
-/// GaussLegendreOrderOutOfRange-> if integration_method == IntegrationMethod::GaussLegendre, and if n < 2 or n > 15
 /// 
 /// assume we want to integrate 2*x . the function would be:
 /// ```
@@ -23,13 +22,10 @@ use crate::utils::gl_table as gl_table;
 ///
 /// let integration_limit = [0.0, 2.0];
 /// 
-/// use multicalc::numerical_integration::mode::IntegrationMethod;
 /// use multicalc::numerical_integration::single_integration;
 ///
-/// let val = single_integration::get_total(IntegrationMethod::Trapezoidal,  //<- The method for integration we want to use
-///                                          &my_func,                       //<- our closure                 
-///                                          &integration_limit,             //<- The integration limit needed                          
-///                                          10);                            //<- number of steps
+/// let val = single_integration::get_total(&my_func,              //<- our closure                 
+///                                         &integration_limit);   //<- The integration limit needed   
 /// 
 /// assert!(f64::abs(val.unwrap() - 4.0) < 0.00001);
 ///```
@@ -45,30 +41,38 @@ use crate::utils::gl_table as gl_table;
 ///
 /// let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 2.0)];
 /// 
-/// use multicalc::numerical_integration::mode::IntegrationMethod;
 /// use multicalc::numerical_integration::single_integration;
 ///
-/// let val = single_integration::get_total(IntegrationMethod::Trapezoidal,  //<- The method for integration we want to use
-///                                          &my_func,                       //<- our closure                 
-///                                          &integration_limit,             //<- The integration limit needed                          
-///                                          10);                            //<- number of steps
+/// let val = single_integration::get_total(&my_func,              //<- our closure                 
+///                                         &integration_limit);   //<- The integration limit needed   
 /// 
 /// assert!(num_complex::ComplexFloat::abs(val.unwrap().re - 0.0) < 0.00001);
 /// assert!(num_complex::ComplexFloat::abs(val.unwrap().im - 8.0) < 0.00001);
 ///```
 /// 
-/// Note: The argument 'n' denotes the number of steps to be used. However, for [`IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
-/// 
-pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limit: &[T; 2], n: u64) -> Result<T, ErrorCode>
+pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limit: &[T; 2]) -> Result<T, ErrorCode>
+{
+    return get_total_custom(mode::IntegrationMethod::Trapezoidal, func, integration_limit, mode::DEFAULT_TOTAL_ITERATIONS);
+}
+
+
+///same as [get_total()] but with the option to change the integration parameters used, reserved for more advanced users
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the number of steps argument, "n" is zero
+/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
+/// GaussLegendreOrderOutOfRange-> if integration_method == mode::IntegrationMethod::GaussLegendre, and if n < 2 or n > 15
+/// The argument 'n' denotes the number of steps to be used. However, for [`mode::IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
+pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(integration_method: mode::IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limit: &[T; 2], n: u64) -> Result<T, ErrorCode>
 {
     let point = [integration_limit[1]; NUM_VARS];
 
     match integration_method
     {
-        IntegrationMethod::Booles        => return get_booles(func, 0, integration_limit, &point, n),
-        IntegrationMethod::GaussLegendre => return get_gauss_legendre(func, 0, integration_limit, &point, n as usize),
-        IntegrationMethod::Simpsons      => return get_simpsons(func, 0, integration_limit, &point, n),
-        IntegrationMethod::Trapezoidal   => return get_trapezoidal(func, 0, integration_limit, &point, n)
+        mode::IntegrationMethod::Booles        => return get_booles(func, 0, integration_limit, &point, n),
+        mode::IntegrationMethod::GaussLegendre => return get_gauss_legendre(func, 0, integration_limit, &point, n as usize),
+        mode::IntegrationMethod::Simpsons      => return get_simpsons(func, 0, integration_limit, &point, n),
+        mode::IntegrationMethod::Trapezoidal   => return get_trapezoidal(func, 0, integration_limit, &point, n)
     }
 }
 
@@ -78,9 +82,7 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: Int
 /// 
 /// NOTE: Returns a Result<T, ErrorCode>
 /// Possible ErrorCode are:
-/// NumberOfStepsCannotBeZero -> if the number of steps argument, "n" is zero
 /// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
-/// GaussLegendreOrderOutOfRange-> if integration_method == IntegrationMethod::GaussLegendre, and if n < 2 or n > 15
 /// 
 /// assume we want to partially integrate for y for the equation 2.0*x + y*z. The function would be:
 /// ```
@@ -103,15 +105,12 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: Int
 /// 
 ///// if we then want to integrate this function over y with 100 steps, we would use:
 /// 
-/// use multicalc::numerical_integration::mode::IntegrationMethod;
 /// use multicalc::numerical_integration::single_integration;
 ///
-/// let val = single_integration::get_partial(IntegrationMethod::Trapezoidal,  //<- The method for integration we want to use
-///                                           &my_func,                        //<- our closure   
+/// let val = single_integration::get_partial(&my_func,                        //<- our closure   
 ///                                           1,                               //<- index of variable we want to integrate, in this case "y", which is 1 
 ///                                           &integration_limit,              //<- The integration limit needed 
-///                                           &point,                          //<- The final point with all x,y,z values
-///                                           10);                             //<- number of steps
+///                                           &point);                         //<- The final point with all x,y,z values
 /// 
 /// assert!(f64::abs(val.unwrap() - 10.0) < 0.00001);
 ///```
@@ -135,33 +134,44 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(integration_method: Int
 ///// Note above that the point vector has the same number of elements as the number of elements my_func expects. 
 ///// The element to integrate, y, has index = 1. We MUST therefore make the point vector's 1st element the same as the integration intervals's upper limit which is 2.0 + 0.0i
 /// 
-///// if we then want to integrate this function over y with 100 steps], we would use:
+///// if we then want to integrate this function over y, we would use:
 /// 
-/// use multicalc::numerical_integration::mode::IntegrationMethod;
 /// use multicalc::numerical_integration::single_integration;
 ///
-/// let val = single_integration::get_partial(IntegrationMethod::Trapezoidal,  //<- The method for integration we want to use
-///                                           &my_func,                        //<- our closure   
+/// let val = single_integration::get_partial(&my_func,                        //<- our closure   
 ///                                           1,                               //<- index of variable we want to integrate, in this case "y", which is 1 
 ///                                           &integration_limit,              //<- The integration limit needed 
-///                                           &point,                          //<- The final point with all x,y,z values
-///                                           10);                             //<- number of steps
+///                                           &point);                         //<- The final point with all x,y,z values
 /// 
 /// assert!(num_complex::ComplexFloat::abs(val.unwrap().re - 10.0) < 0.00001);
 /// assert!(num_complex::ComplexFloat::abs(val.unwrap().im - 5.0) < 0.00001);
 ///```
-/// Note: The argument 'n' denotes the number of steps to be used. However, for [`IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
 /// 
-pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(integration_method: IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], n: u64) -> Result<T, ErrorCode>
+pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+{
+    return get_partial_custom(mode::IntegrationMethod::Trapezoidal, func, idx_to_integrate, integration_limit, point, mode::DEFAULT_TOTAL_ITERATIONS);
+}
+
+
+///same as [get_partial()] but with the option to change the integration parameters used, reserved for more advanced user
+/// The argument 'n' denotes the number of steps to be used. However, for [`mode::IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
+/// NOTE: Returns a Result<T, ErrorCode>
+/// Possible ErrorCode are:
+/// NumberOfStepsCannotBeZero -> if the number of steps argument, "n" is zero
+/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
+/// GaussLegendreOrderOutOfRange-> if integration_method == mode::IntegrationMethod::GaussLegendre, and if n < 2 or n > 15
+pub fn get_partial_custom<T: ComplexFloat, const NUM_VARS: usize>(integration_method: mode::IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], n: u64) -> Result<T, ErrorCode>
 {
     match integration_method
     {
-        IntegrationMethod::Booles        => return get_booles(func, idx_to_integrate, integration_limit, point, n),
-        IntegrationMethod::GaussLegendre => return get_gauss_legendre(func, idx_to_integrate, integration_limit, point, n as usize),
-        IntegrationMethod::Simpsons      => return get_simpsons(func, idx_to_integrate, integration_limit, point, n),
-        IntegrationMethod::Trapezoidal   => return get_trapezoidal(func, idx_to_integrate, integration_limit, point, n)
+        mode::IntegrationMethod::Booles        => return get_booles(func, idx_to_integrate, integration_limit, point, n),
+        mode::IntegrationMethod::GaussLegendre => return get_gauss_legendre(func, idx_to_integrate, integration_limit, point, n as usize),
+        mode::IntegrationMethod::Simpsons      => return get_simpsons(func, idx_to_integrate, integration_limit, point, n),
+        mode::IntegrationMethod::Trapezoidal   => return get_trapezoidal(func, idx_to_integrate, integration_limit, point, n)
     }
 }
+
+
 
 fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, ErrorCode>
 {

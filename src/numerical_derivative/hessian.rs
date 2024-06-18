@@ -36,7 +36,7 @@ use num_complex::ComplexFloat;
 /// 
 pub fn get<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, vector_of_points: &[T; NUM_VARS]) -> [[T; NUM_VARS]; NUM_VARS]
 {
-    return get_custom(function, vector_of_points, 0.00001, mode::DiffMode::CentralFixedStep).unwrap();
+    return get_custom(function, vector_of_points, mode::DEFAULT_STEP_SIZE, mode::DiffMode::CentralFixedStep).unwrap();
 }
 
 ///same as [get()] but with the option to change the differentiation mode used, reserved for more advanced users

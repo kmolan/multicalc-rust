@@ -15,7 +15,7 @@ fn test_booles_integration_1()
     let integration_limit = [0.0, 2.0];
 
     //simple integration for x, known to be x*x, expect a value of ~4.00
-    let val = single_integration::get_total(IntegrationMethod::Booles, &func, &integration_limit, 100).unwrap();
+    let val = single_integration::get_total_custom(IntegrationMethod::Booles, &func, &integration_limit, 100).unwrap();
     assert!(f64::abs(val - 4.0) < 0.00001);
 }
 
@@ -32,21 +32,21 @@ fn test_booles_integration_2()
     let point = [1.0, 2.0, 3.0];
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
-    let val = single_integration::get_partial(IntegrationMethod::Booles, &func, 0, &integration_limit, &point, 100).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Booles, &func, 0, &integration_limit, &point, 100).unwrap();
     assert!(f64::abs(val - 7.0) < 0.00001);
 
 
     let integration_limit = [0.0, 2.0];
 
     //partial integration for y, known to be 2.0*x*y + y*y*z/2.0, expect a value of ~10.00 
-    let val = single_integration::get_partial(IntegrationMethod::Booles, &func, 1, &integration_limit, &point, 100).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Booles, &func, 1, &integration_limit, &point, 100).unwrap();
     assert!(f64::abs(val - 10.0) < 0.00001);
 
 
     let integration_limit = [0.0, 3.0];
 
     //partial integration for z, known to be 2.0*x*z + y*z*z/2.0, expect a value of ~15.0 
-    let val = single_integration::get_partial(IntegrationMethod::Booles, &func, 2, &integration_limit, &point, 100).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Booles, &func, 2, &integration_limit, &point, 100).unwrap();
     assert!(f64::abs(val - 15.0) < 0.00001);
 }
 
@@ -62,7 +62,7 @@ fn test_booles_integration_3()
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
 
     //simple double integration for 6*x, expect a value of ~24.00
-    let val = double_integration::get_total(IntegrationMethod::Booles, &func, &integration_limits, 20).unwrap();
+    let val = double_integration::get_total_custom(IntegrationMethod::Booles, &func, &integration_limits, 20).unwrap();
     assert!(f64::abs(val - 24.0) < 0.00001);
 }
 
@@ -79,7 +79,7 @@ fn test_booles_integration_4()
     let point = [1.0, 1.0, 1.0];
 
     //double partial integration for first x then y, expect a value of ~1.50
-    let val = double_integration::get_partial(IntegrationMethod::Booles, &func, [0, 1], &integration_limits, &point, 20).unwrap();
+    let val = double_integration::get_partial_custom(IntegrationMethod::Booles, &func, [0, 1], &integration_limits, &point, 20).unwrap();
     assert!(f64::abs(val - 1.50) < 0.00001);
 }
 
@@ -96,7 +96,7 @@ fn test_booles_integration_5()
     let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 2.0)];
 
     //simple integration for x, known to be x*x, expect a value of 0.00 + 8.0i
-    let val = single_integration::get_total(IntegrationMethod::Booles, &func, &integration_limit, 100).unwrap();
+    let val = single_integration::get_total_custom(IntegrationMethod::Booles, &func, &integration_limit, 100).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 0.0) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im - 8.0) < 0.00001);
 }
@@ -115,7 +115,7 @@ fn test_booles_integration_6()
     let point = [num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of 5.0 + 9.0i
-    let val = single_integration::get_partial(IntegrationMethod::Booles, &func, 0, &integration_limit, &point, 100).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Booles, &func, 0, &integration_limit, &point, 100).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 5.0) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im - 9.0) < 0.00001);
 
@@ -123,7 +123,7 @@ fn test_booles_integration_6()
     let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 0.0)];
 
     //partial integration for y, known to be 2.0*x*y + y*y*z/2.0, expect a value of 10.0 + 5.0i
-    let val = single_integration::get_partial(IntegrationMethod::Booles, &func, 1, &integration_limit, &point, 100).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Booles, &func, 1, &integration_limit, &point, 100).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 10.0) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im - 5.0) < 0.00001);
 
@@ -131,7 +131,7 @@ fn test_booles_integration_6()
     let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(3.0, 0.5)];
 
     //partial integration for z, known to be 2.0*x*z + y*z*z/2.0, expect a value of 13.75 + 10.0i
-    let val = single_integration::get_partial(IntegrationMethod::Booles, &func, 2, &integration_limit, &point, 100).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Booles, &func, 2, &integration_limit, &point, 100).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 13.75) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im - 10.0) < 0.00001);
 }
@@ -149,7 +149,7 @@ fn test_booles_integration_7()
     let integration_limits = [[num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 1.0)], [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 1.0)]];
 
     //simple double integration for 6*x, expect a value of 6.0 + 33.0i
-    let val = double_integration::get_total(IntegrationMethod::Booles, &func, &integration_limits, 20).unwrap();
+    let val = double_integration::get_total_custom(IntegrationMethod::Booles, &func, &integration_limits, 20).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 6.0) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im - 33.0) < 0.00001);
 }
@@ -168,7 +168,7 @@ fn test_booles_integration_8()
     let point = [num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
 
     //double partial integration for first x then y, expect a value of -5.5 + 4.5i
-    let val = double_integration::get_partial(IntegrationMethod::Booles, &func, [0, 1], &integration_limits, &point, 20).unwrap();
+    let val = double_integration::get_partial_custom(IntegrationMethod::Booles, &func, [0, 1], &integration_limits, &point, 20).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re + 5.5) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im - 4.5) < 0.00001);
 }
@@ -185,7 +185,7 @@ fn test_gauss_legendre_quadrature_integration_1()
     let integration_limit = [0.0, 2.0];
 
     //simple integration for x, known to be x^4 - x^3, expect a value of ~8.00
-    let val = single_integration::get_total(IntegrationMethod::GaussLegendre, &func, &integration_limit, 2).unwrap();
+    let val = single_integration::get_total_custom(IntegrationMethod::GaussLegendre, &func, &integration_limit, 2).unwrap();
     assert!(f64::abs(val - 8.0) < 0.00001);
 }
 
@@ -202,21 +202,21 @@ fn test_gauss_legendre_quadrature_integration_2()
     let point = [1.0, 2.0, 3.0];
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
-    let val = single_integration::get_partial(IntegrationMethod::GaussLegendre, &func, 0, &integration_limit, &point, 2).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::GaussLegendre, &func, 0, &integration_limit, &point, 2).unwrap();
     assert!(f64::abs(val - 7.0) < 0.00001);
 
 
     let integration_limit = [0.0, 2.0];
 
     //partial integration for y, known to be 2.0*x*y + y*y*z/2.0, expect a value of ~10.00 
-    let val = single_integration::get_partial(IntegrationMethod::GaussLegendre, &func, 1, &integration_limit, &point, 2).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::GaussLegendre, &func, 1, &integration_limit, &point, 2).unwrap();
     assert!(f64::abs(val - 10.0) < 0.00001);
 
 
     let integration_limit = [0.0, 3.0];
 
     //partial integration for z, known to be 2.0*x*z + y*z*z/2.0, expect a value of ~15.0 
-    let val = single_integration::get_partial(IntegrationMethod::GaussLegendre, &func, 2, &integration_limit, &point, 2).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::GaussLegendre, &func, 2, &integration_limit, &point, 2).unwrap();
     assert!(f64::abs(val - 15.0) < 0.00001);
 }
 
@@ -232,7 +232,7 @@ fn test_gauss_legendre_quadrature_integration_3()
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
 
     //simple double integration for 6*x, expect a value of ~24.00
-    let val = double_integration::get_total(IntegrationMethod::GaussLegendre, &func, &integration_limits, 2).unwrap();
+    let val = double_integration::get_total_custom(IntegrationMethod::GaussLegendre, &func, &integration_limits, 2).unwrap();
     assert!(f64::abs(val - 24.0) < 0.00001);
 }
 
@@ -249,7 +249,7 @@ fn test_gauss_legendre_quadrature_integration_4()
     let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 2.0)];
 
     //simple integration for x, known to be known to be x^4 - x^3, expect a value of -48.0 - 16.0i
-    let val = single_integration::get_total(IntegrationMethod::GaussLegendre, &func, &integration_limit, 2).unwrap();
+    let val = single_integration::get_total_custom(IntegrationMethod::GaussLegendre, &func, &integration_limit, 2).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re + 48.0) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im + 16.0) < 0.00001);
 }
@@ -269,7 +269,7 @@ fn test_gauss_legendre_quadrature_integration_5()
     let point = [num_complex::c64(1.0, 0.5), num_complex::c64(2.0, 2.0), num_complex::c64(3.0, 0.0)];
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of 3.75 + 10.0i
-    let val = single_integration::get_partial(IntegrationMethod::GaussLegendre, &func, 0, &integration_limit, &point, 2).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::GaussLegendre, &func, 0, &integration_limit, &point, 2).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 3.75) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im - 10.0) < 0.00001);
 
@@ -278,7 +278,7 @@ fn test_gauss_legendre_quadrature_integration_5()
     let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 2.0)];
 
     //partial integration for y, known to be 2.0*x*y + y*y*z/2.0, expect a value of 2.0 + 18.0i
-    let val = single_integration::get_partial(IntegrationMethod::GaussLegendre, &func, 1, &integration_limit, &point, 2).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::GaussLegendre, &func, 1, &integration_limit, &point, 2).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 2.0) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im - 18.0) < 0.00001);
 
@@ -287,7 +287,7 @@ fn test_gauss_legendre_quadrature_integration_5()
     let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(3.0, 0.0)];
 
     //partial integration for z, known to be 2.0*x*z + y*z*z/2.0, expect a value of 15.0 + 12.0i
-    let val = single_integration::get_partial(IntegrationMethod::GaussLegendre, &func, 2, &integration_limit, &point, 2).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::GaussLegendre, &func, 2, &integration_limit, &point, 2).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 15.0) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im - 12.0) < 0.00001);
 }
@@ -304,7 +304,7 @@ fn test_gauss_legendre_quadrature_integration_6()
     let integration_limits = [[num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 2.0)], [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 2.0)]];
 
     //simple double integration for 6*x, expect a value of -48.0 + 48.0i
-    let val = double_integration::get_total(IntegrationMethod::GaussLegendre, &func, &integration_limits, 2).unwrap();
+    let val = double_integration::get_total_custom(IntegrationMethod::GaussLegendre, &func, &integration_limits, 2).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re + 48.0) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im - 48.0) < 0.00001);
 }
@@ -321,7 +321,7 @@ fn test_simpsons_integration_1()
     let integration_limit = [0.0, 2.0];
 
     //simple integration for x, known to be x*x, expect a value of ~4.00
-    let val = single_integration::get_total(IntegrationMethod::Simpsons, &func, &integration_limit, 200).unwrap();
+    let val = single_integration::get_total_custom(IntegrationMethod::Simpsons, &func, &integration_limit, 200).unwrap();
     assert!(f64::abs(val - 4.0) < 0.05);
 }
 
@@ -338,21 +338,21 @@ fn test_simpsons_integration_2()
     let point = [1.0, 2.0, 3.0];
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
-    let val = single_integration::get_partial(IntegrationMethod::Simpsons, &func, 0, &integration_limit, &point, 200).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Simpsons, &func, 0, &integration_limit, &point, 200).unwrap();
     assert!(f64::abs(val - 7.0) < 0.05);
 
 
     let integration_limit = [0.0, 2.0];
 
     //partial integration for y, known to be 2.0*x*y + y*y*z/2.0, expect a value of ~10.00 
-    let val = single_integration::get_partial(IntegrationMethod::Simpsons, &func, 1, &integration_limit, &point, 200).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Simpsons, &func, 1, &integration_limit, &point, 200).unwrap();
     assert!(f64::abs(val - 10.0) < 0.05);
 
 
     let integration_limit = [0.0, 3.0];
 
     //partial integration for z, known to be 2.0*x*z + y*z*z/2.0, expect a value of ~15.0 
-    let val = single_integration::get_partial(IntegrationMethod::Simpsons, &func, 2, &integration_limit, &point, 200).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Simpsons, &func, 2, &integration_limit, &point, 200).unwrap();
     assert!(f64::abs(val - 15.0) < 0.05);
 }
 
@@ -368,7 +368,7 @@ fn test_simpsons_integration_3()
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
 
     //simple double integration for 6*x, expect a value of ~24.00
-    let val = double_integration::get_total(IntegrationMethod::Simpsons, &func, &integration_limits, 200).unwrap();
+    let val = double_integration::get_total_custom(IntegrationMethod::Simpsons, &func, &integration_limits, 200).unwrap();
     assert!(f64::abs(val - 24.0) < 0.05);
 }
 
@@ -385,7 +385,7 @@ fn test_simpsons_integration_4()
     let point = [1.0, 1.0, 1.0];
 
     //double partial integration for first x then y, expect a value of ~1.50
-    let val = double_integration::get_partial(IntegrationMethod::Simpsons, &func, [0, 1], &integration_limits, &point, 200).unwrap();
+    let val = double_integration::get_partial_custom(IntegrationMethod::Simpsons, &func, [0, 1], &integration_limits, &point, 200).unwrap();
     assert!(f64::abs(val - 1.50) < 0.05);
 }
 
@@ -402,7 +402,7 @@ fn test_simpsons_integration_5()
     let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 2.0)];
 
     //simple integration for x, known to be x*x, expect a value of 0.00 + 8.0i
-    let val = single_integration::get_total(IntegrationMethod::Simpsons, &func, &integration_limit, 100).unwrap();
+    let val = single_integration::get_total_custom(IntegrationMethod::Simpsons, &func, &integration_limit, 100).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 0.0) < 0.05);
     assert!(num_complex::ComplexFloat::abs(val.im - 8.0) < 0.05);
 }
@@ -421,7 +421,7 @@ fn test_simpsons_integration_6()
     let point = [num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of 5.0 + 9.0i
-    let val = single_integration::get_partial(IntegrationMethod::Simpsons, &func, 0, &integration_limit, &point, 100).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Simpsons, &func, 0, &integration_limit, &point, 100).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 5.0) < 0.05);
     assert!(num_complex::ComplexFloat::abs(val.im - 9.0) < 0.05);
 
@@ -429,7 +429,7 @@ fn test_simpsons_integration_6()
     let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 0.0)];
 
     //partial integration for y, known to be 2.0*x*y + y*y*z/2.0, expect a value of 10.0 + 5.0i
-    let val = single_integration::get_partial(IntegrationMethod::Simpsons, &func, 1, &integration_limit, &point, 100).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Simpsons, &func, 1, &integration_limit, &point, 100).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 10.0) < 0.05);
     assert!(num_complex::ComplexFloat::abs(val.im - 5.0) < 0.05);
 
@@ -437,7 +437,7 @@ fn test_simpsons_integration_6()
     let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(3.0, 0.5)];
 
     //partial integration for z, known to be 2.0*x*z + y*z*z/2.0, expect a value of 13.75 + 10.0i
-    let val = single_integration::get_partial(IntegrationMethod::Simpsons, &func, 2, &integration_limit, &point, 100).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Simpsons, &func, 2, &integration_limit, &point, 100).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 13.75) < 0.1);
     assert!(num_complex::ComplexFloat::abs(val.im - 10.0) < 0.1);
 }
@@ -455,7 +455,7 @@ fn test_simpsons_integration_7()
     let integration_limits = [[num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 1.0)], [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 1.0)]];
 
     //simple double integration for 6*x, expect a value of 6.0 + 33.0i
-    let val = double_integration::get_total(IntegrationMethod::Simpsons, &func, &integration_limits, 20).unwrap();
+    let val = double_integration::get_total_custom(IntegrationMethod::Simpsons, &func, &integration_limits, 20).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 6.0) < 0.7);
     assert!(num_complex::ComplexFloat::abs(val.im - 33.0) < 0.7);
 }
@@ -474,7 +474,7 @@ fn test_simpsons_integration_8()
     let point = [num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
 
     //double partial integration for first x then y, expect a value of -5.5 + 4.5i
-    let val = double_integration::get_partial(IntegrationMethod::Simpsons, &func, [0, 1], &integration_limits, &point, 20).unwrap();
+    let val = double_integration::get_partial_custom(IntegrationMethod::Simpsons, &func, [0, 1], &integration_limits, &point, 20).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re + 5.5) < 0.1);
     assert!(num_complex::ComplexFloat::abs(val.im - 4.5) < 0.1);
 }
@@ -491,7 +491,7 @@ fn test_trapezoidal_integration_1()
     let integration_limit = [0.0, 2.0];
 
     //simple integration for x, known to be x*x, expect a value of ~4.00
-    let val = single_integration::get_total(IntegrationMethod::Trapezoidal, &func, &integration_limit, 10).unwrap();
+    let val = single_integration::get_total_custom(IntegrationMethod::Trapezoidal, &func, &integration_limit, 10).unwrap();
     assert!(f64::abs(val - 4.0) < 0.00001);
 }
 
@@ -508,21 +508,21 @@ fn test_trapezoidal_integration_2()
     let point = [1.0, 2.0, 3.0];
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
-    let val = single_integration::get_partial(IntegrationMethod::Trapezoidal, &func, 0, &integration_limit, &point, 10).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Trapezoidal, &func, 0, &integration_limit, &point, 10).unwrap();
     assert!(f64::abs(val - 7.0) < 0.00001);
 
     
     let integration_limit = [0.0, 2.0];
 
     //partial integration for y, known to be 2.0*x*y + y*y*z/2.0, expect a value of ~10.00 
-    let val = single_integration::get_partial(IntegrationMethod::Trapezoidal, &func, 1, &integration_limit, &point, 10).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Trapezoidal, &func, 1, &integration_limit, &point, 10).unwrap();
     assert!(f64::abs(val - 10.0) < 0.00001);
 
 
     let integration_limit = [0.0, 3.0];
 
     //partial integration for z, known to be 2.0*x*z + y*z*z/2.0, expect a value of ~15.0 
-    let val = single_integration::get_partial(IntegrationMethod::Trapezoidal, &func, 2, &integration_limit, &point, 10).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Trapezoidal, &func, 2, &integration_limit, &point, 10).unwrap();
     assert!(f64::abs(val - 15.0) < 0.00001);
 }
 
@@ -538,7 +538,7 @@ fn test_trapezoidal_integration_3()
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
 
     //simple double integration for 6*x, expect a value of ~24.00
-    let val = double_integration::get_total(IntegrationMethod::Trapezoidal, &func, &integration_limits, 10).unwrap();
+    let val = double_integration::get_total_custom(IntegrationMethod::Trapezoidal, &func, &integration_limits, 10).unwrap();
     assert!(f64::abs(val - 24.0) < 0.00001);
 }
 
@@ -555,7 +555,7 @@ fn test_trapezoidal_integration_4()
     let point = [1.0, 2.0, 3.0];
 
     //double partial integration for first x then y, expect a value of ~2.50
-    let val = double_integration::get_partial(IntegrationMethod::Trapezoidal, &func, [0, 1], &integration_limits, &point, 10).unwrap();
+    let val = double_integration::get_partial_custom(IntegrationMethod::Trapezoidal, &func, [0, 1], &integration_limits, &point, 10).unwrap();
     assert!(f64::abs(val - 2.50) < 0.00001);
 }
 
@@ -572,7 +572,7 @@ fn test_trapezoidal_integration_5()
     let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 2.0)];
 
     //simple integration for x, known to be x*x, expect a value of 0.00 + 8.0i
-    let val = single_integration::get_total(IntegrationMethod::Trapezoidal, &func, &integration_limit, 100).unwrap();
+    let val = single_integration::get_total_custom(IntegrationMethod::Trapezoidal, &func, &integration_limit, 100).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 0.0) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im - 8.0) < 0.00001);
 }
@@ -591,7 +591,7 @@ fn test_trapezoidal_integration_6()
     let point = [num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of 5.0 + 9.0i
-    let val = single_integration::get_partial(IntegrationMethod::Trapezoidal, &func, 0, &integration_limit, &point, 100).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Trapezoidal, &func, 0, &integration_limit, &point, 100).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 5.0) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im - 9.0) < 0.00001);
 
@@ -599,7 +599,7 @@ fn test_trapezoidal_integration_6()
     let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 0.0)];
 
     //partial integration for y, known to be 2.0*x*y + y*y*z/2.0, expect a value of 10.0 + 5.0i
-    let val = single_integration::get_partial(IntegrationMethod::Trapezoidal, &func, 1, &integration_limit, &point, 100).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Trapezoidal, &func, 1, &integration_limit, &point, 100).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 10.0) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im - 5.0) < 0.00001);
 
@@ -607,7 +607,7 @@ fn test_trapezoidal_integration_6()
     let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(3.0, 0.5)];
 
     //partial integration for z, known to be 2.0*x*z + y*z*z/2.0, expect a value of 13.75 + 10.0i
-    let val = single_integration::get_partial(IntegrationMethod::Trapezoidal, &func, 2, &integration_limit, &point, 100).unwrap();
+    let val = single_integration::get_partial_custom(IntegrationMethod::Trapezoidal, &func, 2, &integration_limit, &point, 100).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 13.75) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im - 10.0) < 0.00001);
 }
@@ -625,7 +625,7 @@ fn test_trapezoidal_integration_7()
     let integration_limits = [[num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 1.0)], [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 1.0)]];
 
     //simple double integration for 6*x, expect a value of 6.0 + 33.0i
-    let val = double_integration::get_total(IntegrationMethod::Trapezoidal, &func, &integration_limits, 20).unwrap();
+    let val = double_integration::get_total_custom(IntegrationMethod::Trapezoidal, &func, &integration_limits, 20).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re - 6.0) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im - 33.0) < 0.00001);
 }
@@ -644,7 +644,7 @@ fn test_trapezoidal_integration_8()
     let point = [num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
 
     //double partial integration for first x then y, expect a value of -5.5 + 4.5i
-    let val = double_integration::get_partial(IntegrationMethod::Trapezoidal, &func, [0, 1], &integration_limits, &point, 20).unwrap();
+    let val = double_integration::get_partial_custom(IntegrationMethod::Trapezoidal, &func, [0, 1], &integration_limits, &point, 20).unwrap();
     assert!(num_complex::ComplexFloat::abs(val.re + 5.5) < 0.00001);
     assert!(num_complex::ComplexFloat::abs(val.im - 4.5) < 0.00001);
 }
@@ -663,7 +663,7 @@ fn test_error_checking_1()
     let integration_limit = [10.0, 1.0];
 
     //expect failure because integration interval is ill-defined (lower limit is higher than the upper limit)
-    let result = single_integration::get_total(IntegrationMethod::Trapezoidal, &func, &integration_limit, 10);
+    let result = single_integration::get_total_custom(IntegrationMethod::Trapezoidal, &func, &integration_limit, 10);
     assert!(result.is_err());
     assert!(result.unwrap_err() == ErrorCode::IntegrationLimitsIllDefined);
 }
@@ -680,7 +680,7 @@ fn test_error_checking_2()
     let integration_limit = [0.0, 1.0];
 
     //expect failure because number of steps is 0
-    let result = single_integration::get_total(IntegrationMethod::Trapezoidal, &func, &integration_limit, 0);
+    let result = single_integration::get_total_custom(IntegrationMethod::Trapezoidal, &func, &integration_limit, 0);
     assert!(result.is_err());
     assert!(result.unwrap_err() == ErrorCode::NumberOfStepsCannotBeZero);
 }
@@ -697,7 +697,7 @@ fn test_error_checking_3()
     let integration_limit = [0.0, 2.0];
 
     //Gauss Legendre not valid for n < 2
-    let result = single_integration::get_total(IntegrationMethod::GaussLegendre, &func, &integration_limit, 1);
+    let result = single_integration::get_total_custom(IntegrationMethod::GaussLegendre, &func, &integration_limit, 1);
     assert!(result.is_err());
     assert!(result.unwrap_err() == ErrorCode::GaussLegendreOrderOutOfRange);
 }
@@ -714,7 +714,7 @@ fn test_error_checking_4()
     let integration_limit = [0.0, 2.0];
 
     //Gauss Legendre not valid for n > 20
-    let result = single_integration::get_total(IntegrationMethod::GaussLegendre, &func, &integration_limit, 21);
+    let result = single_integration::get_total_custom(IntegrationMethod::GaussLegendre, &func, &integration_limit, 21);
     assert!(result.is_err());
     assert!(result.unwrap_err() == ErrorCode::GaussLegendreOrderOutOfRange);
 }

@@ -53,7 +53,7 @@ let func = | args: &[f64; 1] | -> f64
 };
 
 //total derivative around x = 2.0, expect a value of 2.00
-let val = single_derivative::get_total(&func, 2.0, 0.001).unwrap();
+let val = single_derivative::get_total(&func, 2.0);
 assert!(f64::abs(val - 2.0) < 0.000001); //numerical error less than 1e-6
 ```
 
@@ -66,10 +66,10 @@ let func = | args: &[f64; 3] | -> f64
 };
 
 let point = [1.0, 2.0, 3.0];
-let idx_to_derivate = 0;
+let idx_to_derivate = 0; //partial derivative for x
 
 //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial derivative for x is known to be y*cos(x) + cos(y) + y*e^z
-let val = single_derivative::get_partial(&func, idx_to_derivate, &point, 0.001).unwrap();
+let val = single_derivative::get_partial(&func, idx_to_derivate, &point).unwrap();
 let expected_value = 2.0*f64::cos(1.0) + f64::cos(2.0) + 2.0*f64::exp(3.0);
 assert!(f64::abs(val - expected_value) < 0.000001); //numerical error less than 1e-6
 ```
@@ -83,7 +83,7 @@ let func = | args: &[f64; 1] | -> f64
 };
 
 //double derivative at x = 1.0
-let val = double_derivative::get_total(&func, 1.0, 0.001).unwrap();
+let val = double_derivative::get_total(&func, 1.0);
 let expected_val = 2.0*f64::cos(1.0) - 1.0*f64::sin(1.0);
 assert!(f64::abs(val - expected_val) < 0.000001); //numerical error less than 1e-6
 ```
@@ -100,7 +100,7 @@ let point = [num_complex::c64(1.0, 3.5), num_complex::c64(2.0, 2.0), num_complex
 
 let idx: [usize; 2] = [0, 1]; //mixed partial double derivate d(df/dx)/dy
 //partial derivate for (x, y, z) = (1.0 + 3.5i, 2.0 + 2.0i, 3.0 + 0.0i), known to be cos(x) - sin(y) + e^z
-let val = double_derivative::get_partial(&func, &idx, &point, 0.001).unwrap();
+let val = double_derivative::get_partial(&func, &idx, &point).unwrap();
 let expected_value = point[0].cos() - point[1].sin() + point[2].exp();
 assert!(num_complex::ComplexFloat::abs(val.re - expected_value.re) < 0.0001); //numerical error less than 1e-4
 assert!(num_complex::ComplexFloat::abs(val.im - expected_value.im) < 0.0001); //numerical error less than 1e-4
@@ -118,7 +118,7 @@ let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64
 let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 2.0)];
 
 //simple integration for x, known to be x*x, expect a value of 0.00 + 8.0i
-let val = single_integration::get_total(IntegrationMethod::Booles, &func, &integration_limit, 100).unwrap();
+let val = single_integration::get_total(&func, &integration_limit).unwrap();
 assert!(num_complex::ComplexFloat::abs(val.re - 0.0) < 0.00001);
 assert!(num_complex::ComplexFloat::abs(val.im - 8.0) < 0.00001);
 ```
@@ -135,7 +135,7 @@ let integration_interval = [0.0, 1.0];
 let point = [1.0, 2.0, 3.0];
 
 //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
-let val = single_integration::get_partial(IntegrationMethod::Booles, &func, 0, &integration_interval, &point, 100).unwrap();
+let val = single_integration::get_partial(&func, 0, &integration_interval, &point).unwrap();
 assert!(f64::abs(val - 7.0) < 0.00001); //numerical error less than 1e-5
 ```
 
@@ -151,7 +151,7 @@ let func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64
 let integration_limits = [[num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 1.0)], [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 1.0)]];
 
 //simple double integration for 6*x, expect a value of 6.0 + 33.0i
-let val = double_integration::get_total(IntegrationMethod::Booles, &func, &integration_limits, 20).unwrap();
+let val = double_integration::get_total(&func, &integration_limits).unwrap();
 assert!(num_complex::ComplexFloat::abs(val.re - 6.0) < 0.00001);
 assert!(num_complex::ComplexFloat::abs(val.im - 33.0) < 0.00001);
 ```
@@ -169,7 +169,7 @@ let point = [1.0, 1.0, 1.0];
 let idx_to_integrate = [0, 1];
 
 //double partial integration for first x then y, expect a value of ~1.50
-let val = double_integration::get_partial(IntegrationMethod::Booles, &func, idx_to_integrate, &integration_intervals, &point, 20).unwrap();
+let val = double_integration::get_partial(&func, idx_to_integrate, &integration_intervals, &point).unwrap();
 assert!(f64::abs(val - 1.50) < 0.00001);  //numerical error less than 1e-5
 ```
 
@@ -267,11 +267,11 @@ let transformation_matrix: [&dyn Fn(&f64) -> f64; 2] = [&(|t:&f64|->f64 { t.cos(
 let integration_limit = [0.0, 6.28];
 
 //line integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of -2.0*pi
-let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100).unwrap();
+let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit).unwrap();
 assert!(f64::abs(val + 6.28) < 0.01);
 
 //flux integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of 0.0
-let val = flux_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100).unwrap();
+let val = flux_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit).unwrap();
 assert!(f64::abs(val - 0.0) < 0.01);
 ```
 

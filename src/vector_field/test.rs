@@ -18,7 +18,7 @@ fn test_line_integral_1()
     let integration_limit = [0.0, 6.28];
 
     //line integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of -2.0*pi
-    let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100).unwrap();
+    let val = line_integral::get_2d_custom(&vector_field_matrix, &transformation_matrix, &integration_limit, 100).unwrap();
     assert!(f64::abs(val + 6.28) < 0.01);
 }
 
@@ -36,7 +36,7 @@ fn test_line_integral_error_1()
     let integration_limit = [0.0, 6.28];
 
     //expect error because number of steps is zero
-    let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 0);
+    let val = line_integral::get_2d_custom(&vector_field_matrix, &transformation_matrix, &integration_limit, 0);
     assert!(val.is_err());
     assert!(val.unwrap_err() == ErrorCode::NumberOfStepsCannotBeZero);
 }
@@ -55,7 +55,7 @@ fn test_line_integral_error_2()
     let integration_limit = [10.0, 0.0];
 
     //expect error because integration limits are ill-defined (lower limit higher than upper limit)
-    let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
+    let val = line_integral::get_2d_custom(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
     assert!(val.is_err());
     assert!(val.unwrap_err() == ErrorCode::IntegrationLimitsIllDefined);
 }
@@ -75,7 +75,7 @@ fn test_flux_integral_1()
     let integration_limit = [0.0, 6.28];
 
     //flux integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of 0.0
-    let val = flux_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit, 100).unwrap();
+    let val = flux_integral::get_2d_custom(&vector_field_matrix, &transformation_matrix, &integration_limit, 100).unwrap();
     assert!(f64::abs(val + 0.0) < 0.01);
 }
 

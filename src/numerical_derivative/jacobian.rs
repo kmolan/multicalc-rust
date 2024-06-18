@@ -54,7 +54,7 @@ use num_complex::ComplexFloat;
 /// 
 pub fn get<T: ComplexFloat, const NUM_FUNCS: usize, const NUM_VARS: usize>(function_matrix: &[&dyn Fn(&[T; NUM_VARS]) -> T; NUM_FUNCS], vector_of_points: &[T; NUM_VARS]) -> Result<[[T; NUM_VARS]; NUM_FUNCS], ErrorCode>
 {    
-    return get_custom(function_matrix, vector_of_points, 0.00001, mode::DiffMode::CentralFixedStep);
+    return get_custom(function_matrix, vector_of_points, mode::DEFAULT_STEP_SIZE, mode::DiffMode::CentralFixedStep);
 }
 
 

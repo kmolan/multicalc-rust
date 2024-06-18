@@ -43,7 +43,7 @@ use num_complex::ComplexFloat;
 /// ```
 pub fn get_3d<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 3], point: &[T; NUM_VARS]) -> T
 {
-    return get_3d_custom(vector_field, point, 0.00001, mode::DiffMode::CentralFixedStep).unwrap();
+    return get_3d_custom(vector_field, point, mode::DEFAULT_STEP_SIZE, mode::DiffMode::CentralFixedStep).unwrap();
 }
 
 ///same as [get_3d()] but with the option to change the differentiation mode used, reserved for more advanced users
@@ -90,7 +90,7 @@ pub fn get_3d_custom<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dy
 /// ```
 pub fn get_2d<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 2], point: &[T; NUM_VARS]) -> T
 {
-    return get_2d_custom(vector_field, point, 0.00001, mode::DiffMode::CentralFixedStep).unwrap();
+    return get_2d_custom(vector_field, point, mode::DEFAULT_STEP_SIZE, mode::DiffMode::CentralFixedStep).unwrap();
 }
 
 ///same as [get_2d()] but with the option to change the differentiation mode used, reserved for more advanced users

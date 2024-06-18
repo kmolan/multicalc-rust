@@ -9,3 +9,5 @@ pub enum DiffMode
     BackwardFixedStep,
     CentralFixedStep
 }
+
+pub const DEFAULT_STEP_SIZE: f64 = 0.00001;
