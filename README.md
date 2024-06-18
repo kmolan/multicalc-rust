@@ -9,7 +9,7 @@ Rust scientific computing for single and multi-variable calculus
 ## Salient Features
 
 - Written in pure, safe rust
-- no-std friendly with zero heap allocations and no panics
+- no-std with zero heap allocations and no panics
 - Trait-based generic implementation to support floating point and complex numbers
 - Fully documented with code examples
 - Comprehensive suite of tests for full code coverage, including all possible error conditions
@@ -25,15 +25,8 @@ Rust scientific computing for single and multi-variable calculus
   - Approximation of any given equation to a linear or quadratic mode
 
 
-_Note: As of version 0.5.0, the crate structure has changed. In order to accomodate std::Vec, the crate has been partitioned to "core" and "vec". By default, no-std is enabled with zero heap allocations. These modules live in "core". An optional feature "vectors" can be enabled to access modules in "vec" that use std::Vec instead of rust static arrays. For the difference in usage, consult the test examples. To use the vectors feature, paste this in your Cargo.toml:_
-
-```toml
-[dependencies]
-multicalc = {version = "*", features = ["vectors"] }  #Replace "*" with version number
-```
-
-
 ## Table of Contents
+
 
 - [1. Single total derivatives](#1-single-total-derivatives)
 - [2. Single partial derivatives](#2-single-partial-derivatives)

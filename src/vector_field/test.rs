@@ -1,8 +1,8 @@
 use crate::utils::error_codes::ErrorCode;
-use crate::core::vector_field::divergence;
-use crate::core::vector_field::line_integral;
-use crate::core::vector_field::flux_integral;
-use crate::core::vector_field::curl;
+use crate::vector_field::divergence;
+use crate::vector_field::line_integral;
+use crate::vector_field::flux_integral;
+use crate::vector_field::curl;
 
 #[test]
 fn test_line_integral_1()

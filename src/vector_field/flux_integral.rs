@@ -1,6 +1,6 @@
-use crate::core::numerical_integration::mode::DEFAULT_TOTAL_ITERATIONS;
+use crate::numerical_integration::mode::DEFAULT_TOTAL_ITERATIONS;
 use crate::utils::error_codes::ErrorCode;
-use crate::core::vector_field::line_integral;
+use crate::vector_field::line_integral;
 use num_complex::ComplexFloat;
 
 
@@ -26,7 +26,7 @@ use num_complex::ComplexFloat;
 /// Assume we have a vector field (y, -x)
 /// The curve is a unit circle, parameterized by (Cos(t), Sin(t)), such that t goes from 0->2*pi
 /// ```
-/// use multicalc::core::vector_field::flux_integral;
+/// use multicalc::vector_field::flux_integral;
 /// let vector_field_matrix: [&dyn Fn(&f64, &f64) -> f64; 2] = [&(|_:&f64, y:&f64|-> f64 { *y }), &(|x:&f64, _:&f64|-> f64 { -x })];
 ///
 /// let transformation_matrix: [&dyn Fn(&f64) -> f64; 2] = [&(|t:&f64|->f64 { t.cos() }), &(|t:&f64|->f64 { t.sin() })];

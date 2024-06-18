@@ -1,6 +1,4 @@
-use std::vec::Vec;
-
-use crate::vec::numerical_integration::mode;
+use crate::numerical_integration::mode;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 use crate::utils::gl_table as gl_table;
@@ -15,7 +13,7 @@ use crate::utils::gl_table as gl_table;
 /// 
 /// assume we want to integrate 2*x . the function would be:
 /// ```
-///    let my_func = | args: &Vec<f64> | -> f64 
+///    let my_func = | args: &[f64; 1] | -> f64 
 ///    { 
 ///        return 2.0*args[0];
 ///    };
@@ -24,7 +22,7 @@ use crate::utils::gl_table as gl_table;
 ///
 /// let integration_limit = [0.0, 2.0];
 /// 
-/// use multicalc::vec::numerical_integration::single_integration;
+/// use multicalc::numerical_integration::single_integration;
 ///
 /// let val = single_integration::get_total(&my_func,              //<- our closure                 
 ///                                         &integration_limit);   //<- The integration limit needed   
@@ -34,7 +32,7 @@ use crate::utils::gl_table as gl_table;
 /// 
 /// the above method example can also be extended to complex numbers:
 /// ```
-///    let my_func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+///    let my_func = | args: &[num_complex::Complex64; 1] | -> num_complex::Complex64 
 ///    { 
 ///        return 2.0*args[0];
 ///    };
@@ -43,7 +41,7 @@ use crate::utils::gl_table as gl_table;
 ///
 /// let integration_limit = [num_complex::c64(0.0, 0.0), num_complex::c64(2.0, 2.0)];
 /// 
-/// use multicalc::vec::numerical_integration::single_integration;
+/// use multicalc::numerical_integration::single_integration;
 ///
 /// let val = single_integration::get_total(&my_func,              //<- our closure                 
 ///                                         &integration_limit);   //<- The integration limit needed   
@@ -52,7 +50,7 @@ use crate::utils::gl_table as gl_table;
 /// assert!(num_complex::ComplexFloat::abs(val.unwrap().im - 8.0) < 0.00001);
 ///```
 /// 
-pub fn get_total<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, integration_limit: &[T; 2]) -> Result<T, ErrorCode>
+pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limit: &[T; 2]) -> Result<T, ErrorCode>
 {
     return get_total_custom(mode::IntegrationMethod::Trapezoidal, func, integration_limit, mode::DEFAULT_TOTAL_ITERATIONS);
 }
@@ -65,9 +63,9 @@ pub fn get_total<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, integration_limit
 /// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
 /// GaussLegendreOrderOutOfRange-> if integration_method == mode::IntegrationMethod::GaussLegendre, and if n < 2 or n > 15
 /// The argument 'n' denotes the number of steps to be used. However, for [`mode::IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
-pub fn get_total_custom<T: ComplexFloat>(integration_method: mode::IntegrationMethod, func: &dyn Fn(&Vec<T>) -> T, integration_limit: &[T; 2], n: u64) -> Result<T, ErrorCode>
+pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(integration_method: mode::IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limit: &[T; 2], n: u64) -> Result<T, ErrorCode>
 {
-    let point = std::vec![integration_limit[1]];
+    let point = [integration_limit[1]; NUM_VARS];
 
     match integration_method
     {
@@ -88,7 +86,7 @@ pub fn get_total_custom<T: ComplexFloat>(integration_method: mode::IntegrationMe
 /// 
 /// assume we want to partially integrate for y for the equation 2.0*x + y*z. The function would be:
 /// ```
-///    let my_func = | args: &Vec<f64> | -> f64 
+///    let my_func = | args: &[f64; 3] | -> f64 
 ///    { 
 ///        return 2.0*args[0] + args[1]*args[2];
 ///    };
@@ -100,14 +98,14 @@ pub fn get_total_custom<T: ComplexFloat>(integration_method: mode::IntegrationMe
 ///// For partial integration to work, we also need to define the static values for the remaining variables. 
 ///// Assuming x = 1.0, z = 3.0 and we want to integrate over y:
 /// 
-/// let point = vec![1.0, 2.0, 3.0];
+/// let point = [1.0, 2.0, 3.0];
 ///
 ///// Note above that the point vector has the same number of elements as the number of elements my_func expects. 
 ///// The element to integrate, y, has index = 1. We MUST therefore make the point vector's 1st element the same as the integration intervals's upper limit which is 2.0
 /// 
 ///// if we then want to integrate this function over y with 100 steps, we would use:
 /// 
-/// use multicalc::vec::numerical_integration::single_integration;
+/// use multicalc::numerical_integration::single_integration;
 ///
 /// let val = single_integration::get_partial(&my_func,                        //<- our closure   
 ///                                           1,                               //<- index of variable we want to integrate, in this case "y", which is 1 
@@ -119,7 +117,7 @@ pub fn get_total_custom<T: ComplexFloat>(integration_method: mode::IntegrationMe
 /// 
 /// the above method example can also be extended to complex numbers:
 /// ```
-///    let my_func = | args: &Vec<num_complex::Complex64> | -> num_complex::Complex64 
+///    let my_func = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
 ///    { 
 ///        return 2.0*args[0] + args[1]*args[2];
 ///    };
@@ -131,14 +129,14 @@ pub fn get_total_custom<T: ComplexFloat>(integration_method: mode::IntegrationMe
 ///// For partial integration to work, we also need to define the static values for the remaining variables. 
 ///// Assuming x = 1.0 + 1.0i, z = 3.0 + 0.5i and we want to integrate over y:
 /// 
-/// let point = vec![num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
+/// let point = [num_complex::c64(1.0, 1.0), num_complex::c64(2.0, 0.0), num_complex::c64(3.0, 0.5)];
 ///
 ///// Note above that the point vector has the same number of elements as the number of elements my_func expects. 
 ///// The element to integrate, y, has index = 1. We MUST therefore make the point vector's 1st element the same as the integration intervals's upper limit which is 2.0 + 0.0i
 /// 
 ///// if we then want to integrate this function over y, we would use:
 /// 
-/// use multicalc::vec::numerical_integration::single_integration;
+/// use multicalc::numerical_integration::single_integration;
 ///
 /// let val = single_integration::get_partial(&my_func,                        //<- our closure   
 ///                                           1,                               //<- index of variable we want to integrate, in this case "y", which is 1 
@@ -149,7 +147,7 @@ pub fn get_total_custom<T: ComplexFloat>(integration_method: mode::IntegrationMe
 /// assert!(num_complex::ComplexFloat::abs(val.unwrap().im - 5.0) < 0.00001);
 ///```
 /// 
-pub fn get_partial<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &Vec<T>) -> Result<T, ErrorCode>
+pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
 {
     return get_partial_custom(mode::IntegrationMethod::Trapezoidal, func, idx_to_integrate, integration_limit, point, mode::DEFAULT_TOTAL_ITERATIONS);
 }
@@ -162,7 +160,7 @@ pub fn get_partial<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integrat
 /// NumberOfStepsCannotBeZero -> if the number of steps argument, "n" is zero
 /// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
 /// GaussLegendreOrderOutOfRange-> if integration_method == mode::IntegrationMethod::GaussLegendre, and if n < 2 or n > 15
-pub fn get_partial_custom<T: ComplexFloat>(integration_method: mode::IntegrationMethod, func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &Vec<T>, n: u64) -> Result<T, ErrorCode>
+pub fn get_partial_custom<T: ComplexFloat, const NUM_VARS: usize>(integration_method: mode::IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], n: u64) -> Result<T, ErrorCode>
 {
     match integration_method
     {
@@ -175,11 +173,11 @@ pub fn get_partial_custom<T: ComplexFloat>(integration_method: mode::Integration
 
 
 
-fn get_booles<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &Vec<T>, steps: u64) -> Result<T, ErrorCode>
+fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, ErrorCode>
 {
     check_for_errors(integration_limit, steps)?;
 
-    let mut current_vec = point.clone();
+    let mut current_vec = *point;
     current_vec[idx_to_integrate] = integration_limit[0];
 
     let mut ans = T::from(7.0).unwrap()*func(&current_vec);
@@ -215,7 +213,7 @@ fn get_booles<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: us
 
 
 //must know the highest order of the equation
-fn get_gauss_legendre<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &Vec<T>, order: usize) -> Result<T, ErrorCode>
+fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], order: usize) -> Result<T, ErrorCode>
 {
     if !(2..=gl_table::MAX_GL_ORDER).contains(&order)
     {
@@ -228,7 +226,7 @@ fn get_gauss_legendre<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integ
     let abcsissa_coeff = (integration_limit[1] - integration_limit[0])/T::from(2.0).unwrap();
     let intercept = (integration_limit[1] + integration_limit[0])/T::from(2.0).unwrap();
 
-    let mut args = point.clone();
+    let mut args = *point;
 
     for iter in 0..order
     {
@@ -244,11 +242,11 @@ fn get_gauss_legendre<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integ
 
 //TODO: add the 1/3 rule also
 //the 3/8 rule, better than the 1/3 rule
-fn get_simpsons<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &Vec<T>, steps: u64) -> Result<T, ErrorCode>
+fn get_simpsons<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, ErrorCode>
 {
     check_for_errors(integration_limit, steps)?;
 
-    let mut current_vec = point.clone();
+    let mut current_vec = *point;
     current_vec[idx_to_integrate] = integration_limit[0];
 
     let mut ans = func(&current_vec);
@@ -278,11 +276,11 @@ fn get_simpsons<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: 
     return Ok(T::from(3.0).unwrap()*delta*ans/T::from(8.0).unwrap());
 }
 
-fn get_trapezoidal<T: ComplexFloat>(func: &dyn Fn(&Vec<T>) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &Vec<T>, steps: u64) -> Result<T, ErrorCode>
+fn get_trapezoidal<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, ErrorCode>
 {
     check_for_errors(integration_limit, steps)?;
 
-    let mut current_vec = point.clone();
+    let mut current_vec = *point;
     current_vec[idx_to_integrate] = integration_limit[0];
 
     let mut ans = func(&current_vec);

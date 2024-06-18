@@ -1,5 +1,5 @@
-use crate::core::numerical_derivative::double_derivative as double_derivative;
-use crate::core::numerical_derivative::mode as mode;
+use crate::numerical_derivative::double_derivative as double_derivative;
+use crate::numerical_derivative::mode as mode;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
@@ -14,7 +14,7 @@ use num_complex::ComplexFloat;
 /// 
 /// assume our function is y*sin(x) + 2*x*e^y. First define the function
 /// ```
-/// use multicalc::core::numerical_derivative::hessian;
+/// use multicalc::numerical_derivative::hessian;
 ///    let my_func = | args: &[f64; 2] | -> f64 
 ///    { 
 ///        return args[1]*args[0].sin() + 2.0*args[0]*args[1].exp();
@@ -27,7 +27,7 @@ use num_complex::ComplexFloat;
 /// 
 /// the above example can also be extended to complex numbers:
 ///```
-/// use multicalc::core::numerical_derivative::hessian;
+/// use multicalc::numerical_derivative::hessian;
 ///    let my_func = | args: &[num_complex::Complex64; 2] | -> num_complex::Complex64 
 ///    { 
 ///        return args[1]*args[0].sin() + 2.0*args[0]*args[1].exp();

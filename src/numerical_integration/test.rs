@@ -1,6 +1,6 @@
-use crate::core::numerical_integration::mode::IntegrationMethod;
-use crate::core::numerical_integration::single_integration;
-use crate::core::numerical_integration::double_integration;
+use crate::numerical_integration::mode::IntegrationMethod;
+use crate::numerical_integration::single_integration;
+use crate::numerical_integration::double_integration;
 use crate::utils::error_codes::ErrorCode;
  
 #[test]

@@ -1,5 +1,5 @@
-use crate::core::numerical_derivative::single_derivative;
-use crate::core::numerical_derivative::mode as mode;
+use crate::numerical_derivative::single_derivative;
+use crate::numerical_derivative::mode as mode;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
@@ -20,7 +20,7 @@ use num_complex::ComplexFloat;
 /// 
 /// assume our function vector is (x*y*z ,  x^2 + y^2). First define both the functions
 /// ```
-/// use multicalc::core::numerical_derivative::jacobian;
+/// use multicalc::numerical_derivative::jacobian;
 ///    let my_func1 = | args: &[f64; 3] | -> f64 
 ///    { 
 ///        return args[0]*args[1]*args[2]; //x*y*z
@@ -40,7 +40,7 @@ use num_complex::ComplexFloat;
 /// 
 /// the above example can also be extended to complex numbers:
 ///```
-/// use multicalc::core::numerical_derivative::jacobian;
+/// use multicalc::numerical_derivative::jacobian;
 ///    let my_func1 = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
 ///    { 
 ///        return args[0]*args[1]*args[2]; //x*y*z
