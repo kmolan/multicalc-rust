@@ -7,6 +7,11 @@ use num_complex::ComplexFloat;
 /// Returns the hessian matrix for a given function
 /// Can handle multivariable functions of any order or complexity
 /// 
+/// The 2-D matrix returned has the structure [[d2f/d2var1, d2f/dvar1*dvar2, ... , d2f/dvar1*dvarN], 
+///                                            [                   ...                            ], 
+///                                            [d2f/dvar1*dvarN, d2f/dvar2*dvarN, ... , dfM/d2varN]]
+/// where 'N' is the total number of variables
+/// 
 /// assume our function is y*sin(x) + 2*x*e^y. First define the function
 /// ```
 /// use multicalc::numerical_derivative::hessian;

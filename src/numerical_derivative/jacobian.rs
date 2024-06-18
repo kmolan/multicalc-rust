@@ -6,6 +6,14 @@ use num_complex::ComplexFloat;
 /// Returns the jacobian matrix for a given vector of functions
 /// Can handle multivariable functions of any order or complexity
 /// 
+/// The 2-D matrix returned has the structure [[df1/dvar1, df1/dvar2, ... , df1/dvarN],
+///                                            [         ...              ], 
+///                                            [dfM/dvar1, dfM/dvar2, ... , dfM/dvarN]]
+/// 
+/// where 'N' is the total number of variables, and 'M' is the total number of functions
+/// 
+/// consult the helper utility [`multicalc::utils::helper::transpose`] to transpose the matrix shape if required
+/// 
 /// NOTE: Returns a Result<T, ErrorCode>
 /// Possible ErrorCode are:
 /// VectorOfFunctionsCannotBeEmpty -> if function_matrix argument is an empty array
