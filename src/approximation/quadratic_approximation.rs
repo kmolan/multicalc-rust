@@ -1,6 +1,7 @@
-use crate::numerical_derivative::mode as mode;
-use crate::numerical_derivative::single_derivative as single_derivative;
-use crate::numerical_derivative::hessian as hessian;
+use crate::numerical_derivative::mode::*;
+use crate::numerical_derivative::derivator::Derivator;
+use crate::numerical_derivative::fixed_step::FixedStep;
+use crate::numerical_derivative::hessian::Hessian;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
@@ -22,7 +23,7 @@ pub struct QuadraticApproximationPredictionMetrics<T: ComplexFloat>
     pub adjusted_r_squared: T::Real
 }
 
-///Helper function if you don't care about the details and just want the predictor directly
+///Helper functions if you don't care about the details and just want the predictor directly
 impl<T: ComplexFloat, const NUM_VARS: usize> QuadraticApproximationResult<T, NUM_VARS>
 {
     pub fn get_prediction_value(&self, args: &[T; NUM_VARS]) -> T
@@ -90,89 +91,128 @@ impl<T: ComplexFloat, const NUM_VARS: usize> QuadraticApproximationResult<T, NUM
     }
 }
 
-
-/// For an n-dimensional approximation, the equation is approximated as I + L + Q, where:
-/// I = intercept 
-/// L = linear_coefficients[0]*var_1 + linear_coefficients[1]*var_2 + ... + linear_coefficients[n-1]*var_n
-/// Q = quadratic_coefficients[0][0]*var_1*var_1 + quadratic_coefficients[0][1]*var_1*var_2 + ... + quadratic_coefficients[n-1][n-1]*var_n*var_n
-///
-///example function is e^(x/2) + sin(y) + 2.0*z, which we want to approximate. First define the function:
-///```
-///use multicalc::approximation::quadratic_approximation;
-/// 
-///let function_to_approximate = | args: &[f64; 3] | -> f64
-///{ 
-///    return f64::exp(args[0]/2.0) + f64::sin(args[1]) + 2.0*args[2];
-///};
-///
-///let point = [0.0, 1.57, 10.0]; //the point we want to approximate around
-///
-///let result = quadratic_approximation::get(&function_to_approximate, &point);
-///
-///assert!(f64::abs(function_to_approximate(&point) - result.get_prediction_value(&point)) < 1e-9);
-/// ```
-/// you can also inspect the results of the approximation. For an n-dimensional approximation, the equation is linearized as
-/// 
-/// [`QuadraticApproximationResult::intercept`] gives you the required intercept
-/// [`QuadraticApproximationResult::linear_coefficients`] gives you the required linear coefficients in order
-/// [`QuadraticApproximationResult::quadratic_coefficients`] gives you the required quadratic coefficients as a matrix
-/// 
-/// if you don't care about the results and want the predictor directly, use [`QuadraticApproximationResult::get_prediction_value()`]
-/// you can also inspect the prediction metrics by providing list of points, use [`QuadraticApproximationResult::get_prediction_metrics()`]
-/// 
-/// to see how the [QuadraticApproximationResult::quadratic_coefficients] matrix should be used, refer to [`QuadraticApproximationResult::get_prediction_metrics()`]
-/// or refer to its tests.
-///
-pub fn get<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS]) -> QuadraticApproximationResult<T, NUM_VARS>
+pub struct QuadraticApproximator
 {
-    return get_custom(function, point, 0.0001, mode::DiffMode::CentralFixedStep).unwrap();
+    derivator: FixedStep
 }
 
-
-///same as [`get`], but for advanced users who want to control the differentiation parameters
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
-/// NumberOfStepsCannotBeZero -> if the derivative step size is zero
-pub fn get_custom<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> Result<QuadraticApproximationResult<T, NUM_VARS>, ErrorCode>
+impl Default for QuadraticApproximator
 {
-    let mut intercept_ = function(point);
-
-    let mut linear_coeffs_ = [T::zero(); NUM_VARS];
-
-    let hessian_matrix = hessian::get_custom(function, point, step_size, mode)?;
-
-    for iter in 0..NUM_VARS
+    fn default() -> Self 
     {
-        linear_coeffs_[iter] = single_derivative::get_partial_custom(function, iter, point, step_size, mode)?;
-        intercept_ = intercept_ - single_derivative::get_partial_custom(function, iter, point, step_size, mode)?*point[iter];
+        return QuadraticApproximator { derivator: FixedStep::default() };    
+    }
+}
+
+impl QuadraticApproximator
+{
+    pub fn set_step_size(&mut self, step_size: f64)
+    {
+        self.derivator.set_step_size(step_size);
     }
 
-    let mut quad_coeff = [[T::zero(); NUM_VARS]; NUM_VARS];
-
-    for row in 0..NUM_VARS
+    pub fn get_step_size(&self) -> f64
     {
-        for col in row..NUM_VARS
+        return self.derivator.get_step_size();
+    }
+
+    pub fn set_derivative_method(&mut self, method: FixedStepMode)
+    {
+        self.derivator.set_method(method);
+    }
+
+    pub fn get_derivative_method(&self) -> FixedStepMode
+    {
+        return self.derivator.get_method();
+    }
+
+    pub fn from_parameters(step_size: f64, method: FixedStepMode) -> Self
+    {
+        return QuadraticApproximator { derivator: FixedStep::from_parameters(step_size, method) };
+    }
+
+    pub fn from_derivator(derivator: FixedStep) -> Self
+    {
+        return QuadraticApproximator {derivator: derivator}
+    }
+
+    /// For an n-dimensional approximation, the equation is approximated as I + L + Q, where:
+    /// I = intercept 
+    /// L = linear_coefficients[0]*var_1 + linear_coefficients[1]*var_2 + ... + linear_coefficients[n-1]*var_n
+    /// Q = quadratic_coefficients[0][0]*var_1*var_1 + quadratic_coefficients[0][1]*var_1*var_2 + ... + quadratic_coefficients[n-1][n-1]*var_n*var_n
+    ///
+    /// NOTE: Returns a Result<T, ErrorCode>
+    /// Possible ErrorCode are:
+    /// NumberOfStepsCannotBeZero -> if the derivative step size is zero
+    /// 
+    ///example function is e^(x/2) + sin(y) + 2.0*z, which we want to approximate. First define the function:
+    ///```
+    ///use multicalc::approximation::quadratic_approximation;
+    /// 
+    ///let function_to_approximate = | args: &[f64; 3] | -> f64
+    ///{ 
+    ///    return f64::exp(args[0]/2.0) + f64::sin(args[1]) + 2.0*args[2];
+    ///};
+    ///
+    ///let point = [0.0, 1.57, 10.0]; //the point we want to approximate around
+    ///
+    ///let result = quadratic_approximation::get(&function_to_approximate, &point);
+    ///
+    ///assert!(f64::abs(function_to_approximate(&point) - result.get_prediction_value(&point)) < 1e-9);
+    /// ```
+    /// you can also inspect the results of the approximation. For an n-dimensional approximation, the equation is linearized as
+    /// 
+    /// [`QuadraticApproximationResult::intercept`] gives you the required intercept
+    /// [`QuadraticApproximationResult::linear_coefficients`] gives you the required linear coefficients in order
+    /// [`QuadraticApproximationResult::quadratic_coefficients`] gives you the required quadratic coefficients as a matrix
+    /// 
+    /// if you don't care about the results and want the predictor directly, use [`QuadraticApproximationResult::get_prediction_value()`]
+    /// you can also inspect the prediction metrics by providing list of points, use [`QuadraticApproximationResult::get_prediction_metrics()`]
+    /// 
+    /// to see how the [QuadraticApproximationResult::quadratic_coefficients] matrix should be used, refer to [`QuadraticApproximationResult::get_prediction_metrics()`]
+    /// or refer to its tests.
+    ///
+    pub fn get<T: ComplexFloat, const NUM_VARS: usize>(&self, function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS]) -> Result<QuadraticApproximationResult<T, NUM_VARS>, ErrorCode>
+    {
+        let mut intercept_ = function(point);
+
+        let mut linear_coeffs_ = [T::zero(); NUM_VARS];
+
+        let hessian_matrix = Hessian::from_derivator(self.derivator).get(function, point)?;
+
+        for iter in 0..NUM_VARS
         {
-            quad_coeff[row][col] = hessian_matrix[row][col];
+            linear_coeffs_[iter] = self.derivator.get_single_partial(function, iter, point)?;
+            intercept_ = intercept_ - self.derivator.get_single_partial(function, iter, point)?*point[iter];
+        }
 
-            intercept_ = intercept_ + hessian_matrix[row][col]*point[row]*point[row];
+        let mut quad_coeff = [[T::zero(); NUM_VARS]; NUM_VARS];
 
-            if row == col
+        for row in 0..NUM_VARS
+        {
+            for col in row..NUM_VARS
             {
-                linear_coeffs_[row] = linear_coeffs_[row] - T::from(2.0).unwrap()*hessian_matrix[row][col]*point[row]
-            }
-            else 
-            {
-                linear_coeffs_[row] = linear_coeffs_[row] - hessian_matrix[row][col]*point[col];
-                linear_coeffs_[col] = linear_coeffs_[col] - hessian_matrix[row][col]*point[row];
+                quad_coeff[row][col] = hessian_matrix[row][col];
+
+                intercept_ = intercept_ + hessian_matrix[row][col]*point[row]*point[row];
+
+                if row == col
+                {
+                    linear_coeffs_[row] = linear_coeffs_[row] - T::from(2.0).unwrap()*hessian_matrix[row][col]*point[row]
+                }
+                else 
+                {
+                    linear_coeffs_[row] = linear_coeffs_[row] - hessian_matrix[row][col]*point[col];
+                    linear_coeffs_[col] = linear_coeffs_[col] - hessian_matrix[row][col]*point[row];
+                }
             }
         }
-    }
 
-    return Ok(QuadraticApproximationResult
-    {
-        intercept: intercept_,
-        linear_coefficients: linear_coeffs_,
-        quadratic_coefficients: quad_coeff
-    });
+        return Ok(QuadraticApproximationResult
+        {
+            intercept: intercept_,
+            linear_coefficients: linear_coeffs_,
+            quadratic_coefficients: quad_coeff
+        });
+    }
 }

@@ -1,3 +1,4 @@
+use crate::numerical_derivative::fixed_step::FixedStep;
 use crate::utils::error_codes::ErrorCode;
 use crate::vector_field::divergence;
 use crate::vector_field::line_integral;
@@ -100,8 +101,10 @@ fn test_curl_2d_1()
 
     let point = [1.0, 3.14];
 
+    let derivator = FixedStep::default();
+
     //curl is known to be -2*x, expect and answer of -2.0
-    let val = curl::get_2d(&vector_field_matrix, &point);
+    let val = curl::get_2d(derivator, &vector_field_matrix, &point).unwrap();
     assert!(f64::abs(val + 2.0) < 0.000001); //numerical error less than 1e-6
 }
 
@@ -130,8 +133,10 @@ fn test_curl_3d_1()
     let vector_field_matrix: [&dyn Fn(&[f64; 3]) -> f64; 3] = [&vf_x, &vf_y, &vf_z];
     let point = [1.0, 2.0, 3.0];
 
+    let derivator = FixedStep::default();
+
     //curl is known to be (0.0, 0.0, -2.0)
-    let val = curl::get_3d(&vector_field_matrix, &point);
+    let val = curl::get_3d(derivator, &vector_field_matrix, &point).unwrap();
     //numerical error less than 1e-6
     assert!(f64::abs(val[0] - 0.0) < 0.000001);
     assert!(f64::abs(val[1] - 0.0) < 0.000001);
@@ -157,8 +162,10 @@ fn test_divergence_2d_1()
     let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [&vf_x, &vf_y];
     let point = [1.0, 3.14];
 
+    let derivator = FixedStep::default();
+
     //divergence is known to be 2*y - 3*sin(y), expect and answer of 6.27
-    let val = divergence::get_2d(&vector_field_matrix, &point);
+    let val = divergence::get_2d(derivator, &vector_field_matrix, &point).unwrap();
     assert!(f64::abs(val - 6.27) < 0.01);
 }
 
@@ -187,7 +194,9 @@ fn test_divergence_3d_1()
     let vector_field_matrix: [&dyn Fn(&[f64; 3]) -> f64; 3] = [&vf_x, &vf_y, &vf_z];
     let point = [0.0, 1.0, 3.0]; //the point of interest
 
+    let derivator = FixedStep::default();
+
     //diverge known to be 2.0 
-    let val = divergence::get_3d(&vector_field_matrix, &point);
+    let val = divergence::get_3d(derivator, &vector_field_matrix, &point).unwrap();
     assert!(f64::abs(val - 2.00) < 0.00001);
 }

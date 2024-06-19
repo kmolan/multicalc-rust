@@ -1,6 +1,9 @@
 use crate::numerical_derivative::mode as mode;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
+use crate::numerical_derivative::derivator::Derivator;
+
+
 
 /// Returns the single total derivative value for a given function
 /// Only ideal for single variable functions
@@ -60,11 +63,6 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_
 /// NumberOfStepsCannotBeZero -> if the derivative step size is zero
 pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, point: T, step: f64, mode: mode::DiffMode) -> Result<T, ErrorCode>
 {
-    if step == 0.0
-    {
-        return Err(ErrorCode::NumberOfStepsCannotBeZero);
-    }
-
     let vec_point = [point; NUM_VARS];
 
     match mode
@@ -144,60 +142,50 @@ pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NU
 /// IndexToDerivativeOutOfRange -> if the value of idx_to_derivate is greater than the number of variables
 pub fn get_partial_custom<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64, mode: mode::DiffMode) -> Result<T, ErrorCode>
 {
-    if step == 0.0
-    {
-        return Err(ErrorCode::NumberOfStepsCannotBeZero);
-    }
-
-    if idx_to_derivate >= NUM_VARS
-    {
-        return Err(ErrorCode::IndexToDerivativeOutOfRange);
-    }
-
     match mode
     {
-        mode::DiffMode::ForwardFixedStep => return Ok(get_forward_difference(func, idx_to_derivate, point, step)),
-        mode::DiffMode::BackwardFixedStep => return Ok(get_backward_difference(func, idx_to_derivate, point, step)),
-        mode::DiffMode::CentralFixedStep => return Ok(get_central_difference(func, idx_to_derivate, point, step)),
+        mode::DiffMode::ForwardFixedStep => return Ok(get_forward_difference(func, idx_to_derivate, &point, step)),
+        mode::DiffMode::BackwardFixedStep => return Ok(get_backward_difference(func, idx_to_derivate, &point, step)),
+        mode::DiffMode::CentralFixedStep => return Ok(get_central_difference(func, idx_to_derivate, &point, step)),
     }
 }
 
-fn get_forward_difference<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64) -> T
-{
-    let f0_args = point;
+fn get_forward_difference<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step_size:f64) -> T
+    {
+        let f0_args = point;
 
-    let mut f1_args = *point;
-    f1_args[idx_to_derivate] = f1_args[idx_to_derivate] + T::from(step).unwrap(); 
+        let mut f1_args = *point;
+        f1_args[idx_to_derivate] = f1_args[idx_to_derivate] + T::from(step_size).unwrap(); 
 
-    let f0 = func(f0_args);
-    let f1 = func(&f1_args);
+        let f0 = func(f0_args);
+        let f1 = func(&f1_args);
 
-    return (f1 - f0)/T::from(step).unwrap();
-}
+        return (f1 - f0)/T::from(step_size).unwrap();
+    }
 
-fn get_backward_difference<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64) -> T
-{
-    let mut f0_args = *point;
-    f0_args[idx_to_derivate] = f0_args[idx_to_derivate] - T::from(step).unwrap(); 
+    fn get_backward_difference<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step_size: f64) -> T
+    {
+        let mut f0_args = *point;
+        f0_args[idx_to_derivate] = f0_args[idx_to_derivate] - T::from(step_size).unwrap(); 
 
-    let f1_args = point;
+        let f1_args = point;
 
-    let f0 = func(&f0_args);
-    let f1 = func(f1_args);
+        let f0 = func(&f0_args);
+        let f1 = func(f1_args);
 
-    return (f1 - f0)/T::from(step).unwrap();
-}
+        return (f1 - f0)/T::from(step_size).unwrap();
+    }
 
-fn get_central_difference<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step: f64) -> T
-{
-    let mut f0_args = *point;
-    f0_args[idx_to_derivate] = f0_args[idx_to_derivate] - T::from(step).unwrap();
+    fn get_central_difference<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS], step_size: f64) -> T
+    {
+        let mut f0_args = *point;
+        f0_args[idx_to_derivate] = f0_args[idx_to_derivate] - T::from(step_size).unwrap();
 
-    let mut f1_args = *point;
-    f1_args[idx_to_derivate] = f1_args[idx_to_derivate] + T::from(step).unwrap(); 
+        let mut f1_args = *point;
+        f1_args[idx_to_derivate] = f1_args[idx_to_derivate] + T::from(step_size).unwrap(); 
 
-    let f0 = func(&f0_args);
-    let f1 = func(&f1_args);
+        let f0 = func(&f0_args);
+        let f1 = func(&f1_args);
 
-    return (f1 - f0)/(T::from(2.0*step).unwrap());
-}
+        return (f1 - f0)/(T::from(2.0*step_size).unwrap());
+    }
