@@ -1,6 +1,6 @@
 pub mod mode;
 pub mod derivator;
-pub mod fixed_step;
+pub mod finite_difference;
 pub mod jacobian;
 pub mod hessian;
 

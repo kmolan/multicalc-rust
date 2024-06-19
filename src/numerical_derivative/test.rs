@@ -3,7 +3,7 @@ use crate::numerical_derivative::jacobian::Jacobian;
 use crate::numerical_derivative::mode::*;
 use crate::utils::error_codes::ErrorCode;
 use crate::numerical_derivative::derivator::*;
-use crate::numerical_derivative::fixed_step::FixedStep;
+use crate::numerical_derivative::finite_difference::FiniteDifference;
 
 #[cfg(feature = "heap")]
 use std::{boxed::Box, vec::Vec};
@@ -20,8 +20,8 @@ fn test_single_derivative_forward_difference()
 
     //simple derivative around x = 2.0, expect a value of 2.00
 
-    let mut derivator = FixedStep::default();
-    derivator.set_method(FixedStepMode::Forward);
+    let mut derivator = FiniteDifference::default();
+    derivator.set_method(FiniteDifferenceMode::Forward);
 
     let val = derivator.get_single_total(&func, 2.0).unwrap();
     assert!(f64::abs(val - 2.0) < 0.001);
@@ -36,8 +36,8 @@ fn test_single_derivative_backward_difference()
         return args[0]*args[0]/2.0;
     };
 
-    let mut derivator = FixedStep::default();
-    derivator.set_method(FixedStepMode::Backward);
+    let mut derivator = FiniteDifference::default();
+    derivator.set_method(FiniteDifferenceMode::Backward);
 
     let val = derivator.get_single_total(&func, 2.0).unwrap();
     assert!(f64::abs(val - 2.0) < 0.001);
@@ -52,8 +52,8 @@ fn test_single_derivative_central_difference()
         return args[0]*args[0]/2.0;
     };
 
-    let mut derivator = FixedStep::default();
-    derivator.set_method(FixedStepMode::Central);
+    let mut derivator = FiniteDifference::default();
+    derivator.set_method(FiniteDifferenceMode::Central);
 
     //simple derivative around x = 2.0, expect a value of 2.00
     let val = derivator.get_single_total(&func, 2.0).unwrap();
@@ -71,8 +71,8 @@ fn test_single_derivative_partial_1()
 
     let point = [1.0, 3.0];
 
-    let mut derivator = FixedStep::default();
-    derivator.set_method(FixedStepMode::Central);
+    let mut derivator = FiniteDifference::default();
+    derivator.set_method(FiniteDifferenceMode::Central);
 
     //partial derivate for (x, y) = (1.0, 3.0), partial derivative for x is known to be 6*x + 2*y
     let val = derivator.get_single_partial(&func, 0, &point).unwrap();
@@ -94,8 +94,8 @@ fn test_single_derivative_partial_2()
 
     let point = [1.0, 2.0, 3.0];
 
-    let mut derivator = FixedStep::default();
-    derivator.set_method(FixedStepMode::Central);
+    let mut derivator = FiniteDifference::default();
+    derivator.set_method(FiniteDifferenceMode::Central);
 
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial derivative for x is known to be y*cos(x) + cos(y) + y*e^z
     let val = derivator.get_single_partial(&func, 0, &point).unwrap();
@@ -124,7 +124,7 @@ fn test_single_derivative_error_1()
 
     let point = [1.0, 2.0, 3.0];
 
-    let derivator = FixedStep::from_parameters(0.0, FixedStepMode::Central);
+    let derivator = FiniteDifference::from_parameters(0.0, FiniteDifferenceMode::Central);
     
     //expect failure because step size is zero
     let result = derivator.get_single_partial(&func, 0, &point);
@@ -143,7 +143,7 @@ fn test_single_derivative_error_2()
 
     let point = [1.0, 2.0, 3.0];
 
-    let derivator = FixedStep::default();
+    let derivator = FiniteDifference::default();
     
     //expect failure because idx_to_derivate is greater than the number of points
     let result = derivator.get_single_partial(&func, 3, &point);
@@ -160,8 +160,8 @@ fn test_double_derivative_forward_difference()
         return args[0]*args[0].sin();
     };
 
-    let mut derivator = FixedStep::default();
-    derivator.set_method(FixedStepMode::Forward);
+    let mut derivator = FiniteDifference::default();
+    derivator.set_method(FiniteDifferenceMode::Forward);
 
     //double derivative at x = 1.0
     let val = derivator.get_double_total(&func, 1.0).unwrap();
@@ -178,8 +178,8 @@ fn test_double_derivative_backward_difference()
         return args[0]*args[0].sin();
     };
 
-    let mut derivator = FixedStep::default();
-    derivator.set_method(FixedStepMode::Backward);
+    let mut derivator = FiniteDifference::default();
+    derivator.set_method(FiniteDifferenceMode::Backward);
 
     //double derivative at x = 1.0
     let val = derivator.get_double_total(&func, 1.0).unwrap();
@@ -196,8 +196,8 @@ fn test_double_derivative_central_difference()
         return args[0]*args[0].sin();
     };
 
-    let mut derivator = FixedStep::default();
-    derivator.set_method(FixedStepMode::Central);
+    let mut derivator = FiniteDifference::default();
+    derivator.set_method(FiniteDifferenceMode::Central);
 
     //double derivative at x = 1.0
     let val = derivator.get_double_total(&func, 1.0).unwrap();
@@ -216,7 +216,7 @@ fn test_double_derivative_partial_1()
 
     let point = [1.0, 2.0, 3.0];
 
-    let derivator = FixedStep::default();
+    let derivator = FiniteDifference::default();
 
     let idx: [usize; 2] = [0, 0]; 
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial double derivative for x is known to be -y*sin(x)
@@ -248,7 +248,7 @@ fn test_double_derivative_partial_2()
 
     let point = [1.0, 2.0, 3.0];
 
-    let derivator = FixedStep::default();
+    let derivator = FiniteDifference::default();
 
     let idx: [usize; 2] = [0, 1]; //mixed partial double derivate d(df/dx)/dy
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), mixed partial double derivative is known to be cos(x) - sin(y) + e^z
@@ -280,7 +280,7 @@ fn test_triple_derivative_forward_difference()
     };
 
     //expect a value of 24.00
-    let val = triple_derivative::get_total_custom(&func,1.0, 0.001, mode::DiffMode::ForwardFixedStep).unwrap();
+    let val = triple_derivative::get_total_custom(&func,1.0, 0.001, mode::DiffMode::ForwardFiniteDifference).unwrap();
     assert!(f64::abs(val - 24.0) < 0.05);
 }
 
@@ -294,7 +294,7 @@ fn test_triple_derivative_backward_difference()
     };
 
     //expect a value of 24.00
-    let val = triple_derivative::get_total_custom(&func,1.0, 0.001, mode::DiffMode::BackwardFixedStep).unwrap();
+    let val = triple_derivative::get_total_custom(&func,1.0, 0.001, mode::DiffMode::BackwardFiniteDifference).unwrap();
     assert!(f64::abs(val - 24.0) < 0.05);
 }
 
@@ -308,7 +308,7 @@ fn test_triple_derivative_central_difference()
     };
 
     //expect a value of 24.00
-    let val = triple_derivative::get_total_custom(&func,1.0, 0.001, mode::DiffMode::CentralFixedStep).unwrap();
+    let val = triple_derivative::get_total_custom(&func,1.0, 0.001, mode::DiffMode::CentralFiniteDifference).unwrap();
     assert!(f64::abs(val - 24.0) < 0.00001);
 }
 
@@ -325,13 +325,13 @@ fn test_triple_derivative_partial_1()
 
     let idx = [0, 0, 0];
     //partial derivate for (x, y) = (1.0, 3.0), partial triple derivative for x is known to be -y*cos(x)
-    let val = triple_derivative::get_partial_custom(&func, &idx, &point, 0.001, mode::DiffMode::CentralFixedStep).unwrap();
+    let val = triple_derivative::get_partial_custom(&func, &idx, &point, 0.001, mode::DiffMode::CentralFiniteDifference).unwrap();
     let expected_val = -3.0*f64::cos(1.0);
     assert!(f64::abs(val - expected_val) < 0.0001);
 
     let idx = [1, 1, 1];
     //partial derivate for (x, y) = (1.0, 3.0), partial triple derivative for y is known to be 2*x*e^y
-    let val = triple_derivative::get_partial_custom(&func, &idx, &point, 0.001, mode::DiffMode::CentralFixedStep).unwrap();
+    let val = triple_derivative::get_partial_custom(&func, &idx, &point, 0.001, mode::DiffMode::CentralFiniteDifference).unwrap();
     let expected_val = 2.0*1.0*f64::exp(3.0);
     assert!(f64::abs(val - expected_val) < 0.0001);
 }
@@ -349,12 +349,12 @@ fn test_triple_derivative_partial_2()
 
     let idx = [0, 1, 2]; //mixed partial double derivate d(d(df/dx)/dy)/dz
     //partial derivate for (x, y) = (1.0, 2.0, 3.0), mixed partial triple derivative is known to be 27.0*x^2*y^2*z^2
-    let val = triple_derivative::get_partial_custom(&func, &idx, &point, 0.001, mode::DiffMode::CentralFixedStep).unwrap();
+    let val = triple_derivative::get_partial_custom(&func, &idx, &point, 0.001, mode::DiffMode::CentralFiniteDifference).unwrap();
     assert!(f64::abs(val - 972.0) < 0.001);
 
     let idx = [0, 1, 1]; //mixed partial double derivate d(d(df/dx)/dy)/dy
     //partial derivate for (x, y) = (1.0, 2.0, 3.0), mixed partial triple derivative for y is known to be 18*x^2*y*z^3
-    let val = triple_derivative::get_partial_custom(&func, &idx, &point, 0.001, mode::DiffMode::CentralFixedStep).unwrap();
+    let val = triple_derivative::get_partial_custom(&func, &idx, &point, 0.001, mode::DiffMode::CentralFiniteDifference).unwrap();
     assert!(f64::abs(val - 972.0) < 0.001);
 }
 */
@@ -378,7 +378,7 @@ fn test_jacobian_1()
 
     let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
 
-    let jacobian = Jacobian::<FixedStep>::default();
+    let jacobian = Jacobian::<FiniteDifference>::default();
 
     let result = jacobian.get(&function_matrix, &points).unwrap();
 
@@ -417,7 +417,7 @@ fn test_jacobian_2()
 
     let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
 
-    let jacobian = Jacobian::<FixedStep>::default();
+    let jacobian = Jacobian::<FiniteDifference>::default();
 
     let result: Vec<Vec<f64>> = jacobian.get_on_heap(&function_matrix, &points).unwrap();
 
@@ -443,7 +443,7 @@ fn test_jacobian_1_error()
     //the point around which we want the jacobian matrix
     let points = [1.0, 2.0, 3.0];
 
-    let jacobian = Jacobian::<FixedStep>::default();
+    let jacobian = Jacobian::<FiniteDifference>::default();
 
     //expect error because an empty list of function was passed in
     let result = jacobian.get(&function_matrix, &points);
@@ -463,7 +463,7 @@ fn test_hessian_1()
 
     let points = [1.0, 2.0]; //the point around which we want the hessian matrix
 
-    let hessian = Hessian::<FixedStep>::default();
+    let hessian = Hessian::<FiniteDifference>::default();
 
     let result = hessian.get(&func, &points).unwrap();
 
