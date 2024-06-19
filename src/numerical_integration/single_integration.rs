@@ -4,6 +4,294 @@ use num_complex::ComplexFloat;
 use crate::utils::gl_table as gl_table;
 
 
+pub trait SingleIntegrator
+{
+    fn get_total<T: ComplexFloat>(&self, func: &dyn Fn(&[T; 1]) -> T, integration_limit: &[T; 2]) -> Result<T, ErrorCode>;
+    fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>;
+}
+
+pub struct Iterative
+{
+    total_iterations: u64,
+    method_type: mode::IterativeMethod
+}
+
+impl Default for Iterative
+{
+    fn default() -> Self 
+    {
+        return Iterative { total_iterations: mode::DEFAULT_TOTAL_ITERATIONS, method_type: mode::IterativeMethod::Trapezoidal };
+    }
+}
+
+impl Iterative
+{
+    pub fn get_total_iterations(&self) -> u64
+    {
+        return self.total_iterations;
+    }
+
+    pub fn set_total_iterations(&mut self, total_iterations: u64) 
+    {
+        self.total_iterations = total_iterations;
+    }
+
+    pub fn get_type(&self) -> mode::IterativeMethod
+    {
+        return self.method_type;
+    }
+
+    pub fn set_integration_method(&mut self, integration_method: mode::IterativeMethod)
+    {
+        self.method_type = integration_method;
+    }
+
+    pub fn with_parameters(total_iterations: u64, integration_method: mode::IterativeMethod) -> Self 
+    {
+        Iterative
+        {
+            total_iterations: total_iterations,
+            method_type: integration_method
+        }    
+    }
+
+    fn check_for_errors<T: ComplexFloat>(&self, integration_limit: &[T; 2]) -> Result<(), ErrorCode> 
+    {
+        if integration_limit[0].abs() >= integration_limit[1].abs()
+        {
+            return Err(ErrorCode::IntegrationLimitsIllDefined);
+        }
+        if self.total_iterations == 0
+        {
+            return Err(ErrorCode::NumberOfStepsCannotBeZero);
+        }
+
+        return Ok(());        
+    }
+
+    fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    {
+        let mut current_vec = *point;
+        current_vec[idx_to_integrate] = integration_limit[0];
+
+        let mut ans = T::from(7.0).unwrap()*func(&current_vec);
+        let delta = (integration_limit[1] - integration_limit[0])/(T::from(self.total_iterations).unwrap());
+
+        let mut multiplier = T::from(32.0).unwrap();
+
+        for iter in 0..self.total_iterations-1
+        {
+            current_vec[idx_to_integrate] = current_vec[idx_to_integrate] + delta;
+            ans = ans + multiplier*func(&current_vec);
+            
+            if (iter + 2) % 2 != 0
+            {
+                multiplier = T::from(32.0).unwrap();
+            }
+            else if (iter + 2) % 4 == 0
+            {
+                multiplier = T::from(14.0).unwrap();
+            }
+            else
+            {
+                multiplier = T::from(12.0).unwrap();
+            }
+        }
+
+        current_vec[idx_to_integrate] = integration_limit[1];
+
+        ans = ans + T::from(7.0).unwrap()*func(&current_vec);
+
+        return Ok(T::from(2.0).unwrap()*delta*ans/T::from(45.0).unwrap());
+    }
+
+
+    //TODO: add the 1/3 rule also
+    //the 3/8 rule, better than the 1/3 rule
+    fn get_simpsons<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    {
+        let mut current_vec = *point;
+        current_vec[idx_to_integrate] = integration_limit[0];
+
+        let mut ans = func(&current_vec);
+        let delta = (integration_limit[1] - integration_limit[0])/(T::from(self.total_iterations).unwrap());
+
+        let mut multiplier = T::from(3.0).unwrap();
+
+        for iter in 0..self.total_iterations-1
+        {
+            current_vec[idx_to_integrate] = current_vec[idx_to_integrate] + delta;
+            ans = ans + multiplier*func(&current_vec);        
+
+            if (iter + 2) % 3 == 0
+            {
+                multiplier = T::from(2.0).unwrap();
+            }
+            else
+            {
+                multiplier = T::from(3.0).unwrap();
+            }
+        }
+
+        current_vec[idx_to_integrate] = integration_limit[1];
+
+        ans = ans + func(&current_vec);
+
+        return Ok(T::from(3.0).unwrap()*delta*ans/T::from(8.0).unwrap());
+    }
+
+    fn get_trapezoidal<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    {
+        let mut current_vec = *point;
+        current_vec[idx_to_integrate] = integration_limit[0];
+
+        let mut ans = func(&current_vec);
+        let delta = (integration_limit[1] - integration_limit[0])/(T::from(self.total_iterations).unwrap());
+
+        for _ in 0..self.total_iterations-1
+        {
+            current_vec[idx_to_integrate] = current_vec[idx_to_integrate] + delta;
+            ans = ans + T::from(2.0).unwrap()*func(&current_vec);        
+        }
+        
+        current_vec[idx_to_integrate] = integration_limit[1];
+
+        ans = ans + func(&current_vec);
+
+        return Ok(T::from(0.5).unwrap()*delta*ans);
+    }
+}
+
+impl SingleIntegrator for Iterative
+{
+    fn get_total<T: ComplexFloat>(&self, func: &dyn Fn(&[T; 1]) -> T, integration_limit: &[T; 2]) -> Result<T, ErrorCode>
+    {
+        self.check_for_errors(integration_limit)?;
+
+        let point = [integration_limit[1]; 1];
+
+        match self.method_type
+        {
+            mode::IterativeMethod::Booles        => return self.get_booles(func, 0, integration_limit, &point),
+            mode::IterativeMethod::Simpsons      => return self.get_simpsons(func, 0, integration_limit, &point),
+            mode::IterativeMethod::Trapezoidal   => return self.get_trapezoidal(func, 0, integration_limit, &point)
+        }
+    }
+
+    fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    {
+        self.check_for_errors(integration_limit)?;
+
+        match self.method_type
+        {
+            mode::IterativeMethod::Booles        => return self.get_booles(func, idx_to_integrate, integration_limit, &point),
+            mode::IterativeMethod::Simpsons      => return self.get_simpsons(func, idx_to_integrate, integration_limit, &point),
+            mode::IterativeMethod::Trapezoidal   => return self.get_trapezoidal(func, idx_to_integrate, integration_limit, &point)
+        }
+    }
+}
+
+pub struct Gaussian
+{
+    order: usize,
+    method_type: mode::GaussianMethod
+}
+
+impl Gaussian
+{
+    pub fn get_order(&self) -> usize
+    {
+        return self.order;
+    }
+
+    pub fn set_orer(&mut self, order: usize) 
+    {
+        self.order = order;
+    }
+
+    pub fn get_type(&self) -> mode::GaussianMethod
+    {
+        return self.method_type;
+    }
+
+    pub fn set_integration_method(&mut self, integration_method: mode::GaussianMethod)
+    {
+        self.method_type = integration_method;
+    }
+
+    pub fn with_parameters(order: usize, integration_method: mode::GaussianMethod) -> Self 
+    {
+        Gaussian
+        {
+            order: order,
+            method_type: integration_method
+        }    
+    }
+
+    fn check_for_errors<T: ComplexFloat>(&self, integration_limit: &[T; 2]) -> Result<(), ErrorCode> 
+    {
+        if integration_limit[0].abs() >= integration_limit[1].abs()
+        {
+            return Err(ErrorCode::IntegrationLimitsIllDefined);
+        }
+
+        return Ok(());        
+    }
+
+    //must know the highest order of the equation
+    fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    {
+        if !(2..=gl_table::MAX_GL_ORDER).contains(&self.order)
+        {
+            return Err(ErrorCode::GaussLegendreOrderOutOfRange);
+        }
+        
+        //check_for_errors(integration_limit, 100)?; //no 'steps' argument for this method
+
+        let mut ans = T::zero();
+        let abcsissa_coeff = (integration_limit[1] - integration_limit[0])/T::from(2.0).unwrap();
+        let intercept = (integration_limit[1] + integration_limit[0])/T::from(2.0).unwrap();
+
+        let mut args = *point;
+
+        for iter in 0..self.order
+        {
+            let (abcsissa, weight) = gl_table::get_gl_weights_and_abscissae(self.order, iter)?;
+
+            args[idx_to_integrate] = abcsissa_coeff*T::from(abcsissa).unwrap() + intercept;
+
+            ans = ans + T::from(weight).unwrap()*func(&args);
+        }
+
+        return Ok(abcsissa_coeff*ans);
+    }
+}
+
+impl SingleIntegrator for Gaussian
+{
+    fn get_total<T: ComplexFloat>(&self, func: &dyn Fn(&[T; 1]) -> T, integration_limit: &[T; 2]) -> Result<T, ErrorCode>
+    {
+        self.check_for_errors(integration_limit)?;
+
+        let point = [integration_limit[1]; 1];
+
+        match self.method_type
+        {
+            mode::GaussianMethod::GaussLegendre  => return self.get_gauss_legendre(func, 0, integration_limit, &point)
+        }
+    }
+
+    fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    {
+        self.check_for_errors(integration_limit)?;
+
+        match self.method_type
+        {
+            mode::GaussianMethod::GaussLegendre  => return self.get_gauss_legendre(func, idx_to_integrate, integration_limit, &point)
+        }
+    }
+}
+
 /// Returns the total single integration value for a given function
 /// Only ideal for single variable functions
 /// 
@@ -67,13 +355,7 @@ pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(integration_meth
 {
     let point = [integration_limit[1]; NUM_VARS];
 
-    match integration_method
-    {
-        mode::IntegrationMethod::Booles        => return get_booles(func, 0, integration_limit, &point, n),
-        mode::IntegrationMethod::GaussLegendre => return get_gauss_legendre(func, 0, integration_limit, &point, n as usize),
-        mode::IntegrationMethod::Simpsons      => return get_simpsons(func, 0, integration_limit, &point, n),
-        mode::IntegrationMethod::Trapezoidal   => return get_trapezoidal(func, 0, integration_limit, &point, n)
-    }
+    return Ok(T::zero());
 }
 
 
@@ -162,153 +444,6 @@ pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NU
 /// GaussLegendreOrderOutOfRange-> if integration_method == mode::IntegrationMethod::GaussLegendre, and if n < 2 or n > 15
 pub fn get_partial_custom<T: ComplexFloat, const NUM_VARS: usize>(integration_method: mode::IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], n: u64) -> Result<T, ErrorCode>
 {
-    match integration_method
-    {
-        mode::IntegrationMethod::Booles        => return get_booles(func, idx_to_integrate, integration_limit, point, n),
-        mode::IntegrationMethod::GaussLegendre => return get_gauss_legendre(func, idx_to_integrate, integration_limit, point, n as usize),
-        mode::IntegrationMethod::Simpsons      => return get_simpsons(func, idx_to_integrate, integration_limit, point, n),
-        mode::IntegrationMethod::Trapezoidal   => return get_trapezoidal(func, idx_to_integrate, integration_limit, point, n)
-    }
+    return Ok(T::zero());
 }
 
-
-
-fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, ErrorCode>
-{
-    check_for_errors(integration_limit, steps)?;
-
-    let mut current_vec = *point;
-    current_vec[idx_to_integrate] = integration_limit[0];
-
-    let mut ans = T::from(7.0).unwrap()*func(&current_vec);
-    let delta = (integration_limit[1] - integration_limit[0])/(T::from(steps).unwrap());
-
-    let mut multiplier = T::from(32.0).unwrap();
-
-    for iter in 0..steps-1
-    {
-        current_vec[idx_to_integrate] = current_vec[idx_to_integrate] + delta;
-        ans = ans + multiplier*func(&current_vec);
-        
-        if (iter + 2) % 2 != 0
-        {
-            multiplier = T::from(32.0).unwrap();
-        }
-        else if (iter + 2) % 4 == 0
-        {
-            multiplier = T::from(14.0).unwrap();
-        }
-        else
-        {
-            multiplier = T::from(12.0).unwrap();
-        }
-    }
-
-    current_vec[idx_to_integrate] = integration_limit[1];
-
-    ans = ans + T::from(7.0).unwrap()*func(&current_vec);
-
-    return Ok(T::from(2.0).unwrap()*delta*ans/T::from(45.0).unwrap());
-}
-
-
-//must know the highest order of the equation
-fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], order: usize) -> Result<T, ErrorCode>
-{
-    if !(2..=gl_table::MAX_GL_ORDER).contains(&order)
-    {
-        return Err(ErrorCode::GaussLegendreOrderOutOfRange);
-    }
-    
-    check_for_errors(integration_limit, 100)?; //no 'steps' argument for this method
-
-    let mut ans = T::zero();
-    let abcsissa_coeff = (integration_limit[1] - integration_limit[0])/T::from(2.0).unwrap();
-    let intercept = (integration_limit[1] + integration_limit[0])/T::from(2.0).unwrap();
-
-    let mut args = *point;
-
-    for iter in 0..order
-    {
-        let (abcsissa, weight) = gl_table::get_gl_weights_and_abscissae(order, iter)?;
-
-        args[idx_to_integrate] = abcsissa_coeff*T::from(abcsissa).unwrap() + intercept;
-
-        ans = ans + T::from(weight).unwrap()*func(&args);
-    }
-
-    return Ok(abcsissa_coeff*ans);
-}
-
-//TODO: add the 1/3 rule also
-//the 3/8 rule, better than the 1/3 rule
-fn get_simpsons<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, ErrorCode>
-{
-    check_for_errors(integration_limit, steps)?;
-
-    let mut current_vec = *point;
-    current_vec[idx_to_integrate] = integration_limit[0];
-
-    let mut ans = func(&current_vec);
-    let delta = (integration_limit[1] - integration_limit[0])/(T::from(steps).unwrap());
-
-    let mut multiplier = T::from(3.0).unwrap();
-
-    for iter in 0..steps-1
-    {
-        current_vec[idx_to_integrate] = current_vec[idx_to_integrate] + delta;
-        ans = ans + multiplier*func(&current_vec);        
-
-        if (iter + 2) % 3 == 0
-        {
-            multiplier = T::from(2.0).unwrap();
-        }
-        else
-        {
-            multiplier = T::from(3.0).unwrap();
-        }
-    }
-
-    current_vec[idx_to_integrate] = integration_limit[1];
-
-    ans = ans + func(&current_vec);
-
-    return Ok(T::from(3.0).unwrap()*delta*ans/T::from(8.0).unwrap());
-}
-
-fn get_trapezoidal<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, ErrorCode>
-{
-    check_for_errors(integration_limit, steps)?;
-
-    let mut current_vec = *point;
-    current_vec[idx_to_integrate] = integration_limit[0];
-
-    let mut ans = func(&current_vec);
-    let delta = (integration_limit[1] - integration_limit[0])/(T::from(steps).unwrap());
-
-    for _ in 0..steps-1
-    {
-        current_vec[idx_to_integrate] = current_vec[idx_to_integrate] + delta;
-        ans = ans + T::from(2.0).unwrap()*func(&current_vec);        
-    }
-    
-    current_vec[idx_to_integrate] = integration_limit[1];
-
-    ans = ans + func(&current_vec);
-
-    return Ok(T::from(0.5).unwrap()*delta*ans);
-}
-
-fn check_for_errors<T: ComplexFloat>(integration_limit: &[T; 2], steps: u64) -> Result<(), ErrorCode>
-{
-    if integration_limit[0].abs() >= integration_limit[1].abs()
-    {
-        return Err(ErrorCode::IntegrationLimitsIllDefined);
-    }
-    if steps == 0
-    {
-        return Err(ErrorCode::NumberOfStepsCannotBeZero);
-    }
-
-    return Ok(());
-}

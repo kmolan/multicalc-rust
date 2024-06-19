@@ -4,6 +4,179 @@ use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 use crate::utils::gl_table as gl_table;
 
+use super::single_integration::SingleIntegrator;
+
+pub trait DoubleIntegrator
+{
+    fn get_total<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; 2]) -> Result<T, ErrorCode>;
+    fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>;
+}
+
+pub struct Iterative
+{
+    single_integrator: single_integration::Iterative
+}
+
+impl Default for Iterative
+{
+    fn default() -> Self 
+    {
+        return Iterative { single_integrator: single_integration::Iterative::default() };
+    }
+}
+
+impl Iterative
+{
+    pub fn get_total_iterations(&self) -> u64
+    {
+        return self.single_integrator.get_total_iterations();
+    }
+
+    pub fn set_total_iterations(&mut self, total_iterations: u64) 
+    {
+        self.single_integrator.set_total_iterations(total_iterations);
+    }
+
+    pub fn get_type(&self) -> mode::IterativeMethod
+    {
+        return self.single_integrator.get_type();
+    }
+
+    pub fn set_integration_method(&mut self, integration_method: mode::IterativeMethod)
+    {
+        self.single_integrator.set_integration_method(integration_method);
+    }
+
+    pub fn with_parameters(total_iterations: u64, integration_method: mode::IterativeMethod) -> Self 
+    {
+        Iterative
+        {
+            single_integrator: single_integration::Iterative::with_parameters(total_iterations, integration_method)
+        }    
+    }
+
+    fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    {
+        let total_iterations = self.single_integrator.get_total_iterations();
+
+        let mut current_vec = *point;
+        current_vec[idx_to_integrate[0]] = integration_limits[0][0];
+
+        let mut ans = T::from(7.0).unwrap()*self.single_integrator.get_partial(func, idx_to_integrate[1], &integration_limits[1], &current_vec)?;
+
+        let delta = (integration_limits[0][1] - integration_limits[0][0])/(T::from(total_iterations).unwrap());
+        let mut multiplier = T::from(32.0).unwrap();
+
+        for iter in 0..total_iterations-1
+        {
+            current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
+            ans = ans + multiplier*self.single_integrator.get_partial(func, idx_to_integrate[1], &integration_limits[1], &current_vec)?;
+            
+            if (iter + 2) % 2 != 0
+            {
+                multiplier = T::from(32.0).unwrap();
+            }
+            else if (iter + 2) % 4 == 0
+            {
+                multiplier = T::from(14.0).unwrap();
+            }
+            else
+            {
+                multiplier = T::from(12.0).unwrap();
+            }
+        }
+
+        current_vec[idx_to_integrate[0]] = integration_limits[0][1];
+
+        ans = ans + T::from(7.0).unwrap()*self.single_integrator.get_partial(func, idx_to_integrate[1], &integration_limits[1], &current_vec)?;
+
+        return Ok(T::from(2.0).unwrap()*delta*ans/T::from(45.0).unwrap());
+    }
+
+    fn get_simpsons<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    {
+        let total_iterations = self.single_integrator.get_total_iterations();
+
+        let mut current_vec = *point;
+        current_vec[idx_to_integrate[0]] = integration_limits[0][0];
+
+        let mut ans = self.single_integrator.get_partial(func, idx_to_integrate[1], &integration_limits[1], &current_vec)?;
+        let delta = (integration_limits[0][1] - integration_limits[0][0])/(T::from(total_iterations).unwrap());
+
+        let mut multiplier = T::from(3.0).unwrap();
+
+        for iter in 0..total_iterations-1
+        {
+            current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
+            ans = ans + multiplier*self.single_integrator.get_partial(func, idx_to_integrate[1], &integration_limits[1], &current_vec)?;        
+
+            if (iter + 2) % 3 == 0
+            {
+                multiplier = T::from(2.0).unwrap();
+            }
+            else
+            {
+                multiplier = T::from(3.0).unwrap();
+            }
+        }
+
+        current_vec[idx_to_integrate[0]] = integration_limits[0][1];
+
+        ans = ans + self.single_integrator.get_partial(func, idx_to_integrate[1], &integration_limits[1], &current_vec)?;
+
+        return Ok(T::from(3.0).unwrap()*delta*ans/T::from(8.0).unwrap());
+    }
+
+    fn get_trapezoidal<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    {
+        let total_iterations = self.single_integrator.get_total_iterations();
+
+        let mut current_vec = *point;
+        current_vec[idx_to_integrate[0]] = integration_limits[0][0];
+
+        let mut ans = self.single_integrator.get_partial(func, idx_to_integrate[1], &integration_limits[1], &current_vec)?;
+
+        let delta = (integration_limits[0][1] - integration_limits[0][0])/(T::from(total_iterations).unwrap());
+
+        for _ in 0..total_iterations-1
+        {
+            current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
+            ans = ans + T::from(2.0).unwrap()*self.single_integrator.get_partial(func, idx_to_integrate[1], &integration_limits[1], &current_vec)?;  
+        }
+
+        current_vec[idx_to_integrate[0]] = integration_limits[0][1];
+
+        ans = ans + self.single_integrator.get_partial(func, idx_to_integrate[1], &integration_limits[1], &current_vec)?;
+
+        return Ok(T::from(0.5).unwrap()*delta*ans);
+    }
+}
+
+impl DoubleIntegrator for Iterative
+{
+    fn get_total<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; 2]) -> Result<T, ErrorCode> 
+    {
+        let point = [integration_limits[0][1]; NUM_VARS];
+
+        match self.single_integrator.get_type()
+        {
+            mode::IterativeMethod::Booles        => return self.get_booles(func, [0, 0], integration_limits, &point),
+            mode::IterativeMethod::Simpsons      => return self.get_simpsons(func, [0, 0], integration_limits, &point),
+            mode::IterativeMethod::Trapezoidal   => return self.get_trapezoidal(func, [0, 0], integration_limits, &point)
+        }
+    }
+
+    fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode> 
+    {
+        match self.single_integrator.get_type()
+        {
+            mode::IterativeMethod::Booles        => return self.get_booles(func, idx_to_integrate, integration_limits, point),
+            mode::IterativeMethod::Simpsons      => return self.get_simpsons(func, idx_to_integrate, integration_limits, point),
+            mode::IterativeMethod::Trapezoidal   => return self.get_trapezoidal(func, idx_to_integrate, integration_limits, point)
+        }
+    }
+}
+
 /// Returns the total double integration value for a given function
 /// Only ideal for single variable functions
 /// 
