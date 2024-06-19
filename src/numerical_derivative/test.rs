@@ -166,7 +166,6 @@ fn test_double_derivative_forward_difference()
     //double derivative at x = 1.0
     let val = derivator.get_double_total(&func, 1.0).unwrap();
     let expected_val = 2.0*f64::cos(1.0) - 1.0*f64::sin(1.0);
-    std::println!("{} {}", val, expected_val);
     assert!(f64::abs(val - expected_val) < 0.05);
 }
 
@@ -261,7 +260,6 @@ fn test_double_derivative_partial_2()
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), mixed partial double derivative is known to be x*e^z
     let val = derivator.get_double_partial(&func, &idx, &point).unwrap();
     let expected_value = 1.0*f64::exp(3.0);
-    std::println!("{}", val - expected_value);
     assert!(f64::abs(val - expected_value) < 0.0001);
 
     let idx: [usize; 2] = [0, 2]; //mixed partial double derivate d(df/dx)/dz
@@ -474,9 +472,6 @@ fn test_hessian_1()
 
     let expected_result = [[-2.0*f64::sin(1.0), f64::cos(1.0) + 2.0*f64::exp(2.0)], 
                                           [f64::cos(1.0) + 2.0*f64::exp(2.0), 2.0*f64::exp(2.0)]];
-
-    std::println!("{:?}", result);
-    std::println!("{:?}", expected_result);
 
     for i in 0..points.len()
     {
