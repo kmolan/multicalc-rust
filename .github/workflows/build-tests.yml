@@ -19,5 +19,7 @@ jobs:
     - uses: actions/checkout@v4
     - name: Build
       run: cargo build --verbose
-    - name: Run tests
+    - name: Run tests default
       run: cargo test --verbose
+    - name: Run tests heap
+      run: cargo test --features heap --verbose
