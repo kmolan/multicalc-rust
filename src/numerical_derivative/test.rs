@@ -2,7 +2,7 @@ use crate::numerical_derivative::hessian::Hessian;
 use crate::numerical_derivative::jacobian::Jacobian;
 use crate::numerical_derivative::mode::*;
 use crate::utils::error_codes::ErrorCode;
-use crate::numerical_derivative::derivator::Derivator;
+use crate::numerical_derivative::derivator::*;
 use crate::numerical_derivative::fixed_step::FixedStep;
 
 #[cfg(feature = "heap")]
@@ -378,7 +378,7 @@ fn test_jacobian_1()
 
     let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
 
-    let jacobian = Jacobian::default();
+    let jacobian = Jacobian::<FixedStep>::default();
 
     let result = jacobian.get(&function_matrix, &points).unwrap();
 
@@ -417,7 +417,7 @@ fn test_jacobian_2()
 
     let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
 
-    let jacobian = Jacobian::default();
+    let jacobian = Jacobian::<FixedStep>::default();
 
     let result: Vec<Vec<f64>> = jacobian.get_on_heap(&function_matrix, &points).unwrap();
 
@@ -443,7 +443,7 @@ fn test_jacobian_1_error()
     //the point around which we want the jacobian matrix
     let points = [1.0, 2.0, 3.0];
 
-    let jacobian = Jacobian::default();
+    let jacobian = Jacobian::<FixedStep>::default();
 
     //expect error because an empty list of function was passed in
     let result = jacobian.get(&function_matrix, &points);
@@ -463,7 +463,7 @@ fn test_hessian_1()
 
     let points = [1.0, 2.0]; //the point around which we want the hessian matrix
 
-    let hessian = Hessian::default();
+    let hessian = Hessian::<FixedStep>::default();
 
     let result = hessian.get(&func, &points).unwrap();
 

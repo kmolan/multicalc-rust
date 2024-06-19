@@ -1,7 +1,7 @@
 use crate::numerical_derivative::mode as mode;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
-use crate::numerical_derivative::derivator::Derivator;
+use crate::numerical_derivative::derivator::*;
 
 #[derive(Clone, Copy)]
 pub struct FixedStep
@@ -129,7 +129,7 @@ impl FixedStep
     }
 }
 
-impl Derivator for FixedStep
+impl SingleTotalDerivator for FixedStep
 {
     fn get_single_total<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, point: T) -> Result<T, ErrorCode> 
     {
@@ -147,6 +147,10 @@ impl Derivator for FixedStep
             mode::FixedStepMode::Central => return Ok(self.get_central_difference_1(func, 0, &vec_point)),
         }
     }
+}
+
+impl SinglePartialDerivator for FixedStep
+{
 
     fn get_single_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS]) -> Result<T, ErrorCode> 
     {
@@ -166,7 +170,10 @@ impl Derivator for FixedStep
             mode::FixedStepMode::Central => return Ok(self.get_central_difference_1(func, idx_to_derivate, &point)),
         }
     }
+}
 
+impl DoubleTotalDerivator for FixedStep
+{
     fn get_double_total<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, point: T) -> Result<T, ErrorCode> 
     {
         if self.step_size == 0.0
@@ -183,7 +190,10 @@ impl Derivator for FixedStep
             mode::FixedStepMode::Central => return self.get_central_difference_2(func, &[0, 0], &vec_point) 
         }
     }
+}
 
+impl DoublePartialDerivator for FixedStep
+{
     fn get_double_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: &[usize; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode> 
     {
         if self.step_size == 0.0

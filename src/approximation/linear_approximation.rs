@@ -1,6 +1,4 @@
-use crate::numerical_derivative::mode::*;
-use crate::numerical_derivative::derivator::Derivator;
-use crate::numerical_derivative::fixed_step::FixedStep;
+use crate::numerical_derivative::derivator::SinglePartialDerivator;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
@@ -81,47 +79,22 @@ impl<T: ComplexFloat, const NUM_VARS: usize> LinearApproximationResult<T, NUM_VA
     }
 }
 
-pub struct LinearApproximator
+pub struct LinearApproximator<D: SinglePartialDerivator>
 {
-    derivator: FixedStep
+    derivator: D
 }
 
-impl Default for LinearApproximator
+impl<D: SinglePartialDerivator> Default for LinearApproximator<D>
 {
     fn default() -> Self 
     {
-        return LinearApproximator { derivator: FixedStep::default() };    
+        return LinearApproximator { derivator: D::default() };    
     }
 }
 
-impl LinearApproximator
+impl<D: SinglePartialDerivator> LinearApproximator<D>
 {
-    pub fn set_step_size(&mut self, step_size: f64)
-    {
-        self.derivator.set_step_size(step_size);
-    }
-
-    pub fn get_step_size(&self) -> f64
-    {
-        return self.derivator.get_step_size();
-    }
-
-    pub fn set_derivative_method(&mut self, method: FixedStepMode)
-    {
-        self.derivator.set_method(method);
-    }
-
-    pub fn get_derivative_method(&self) -> FixedStepMode
-    {
-        return self.derivator.get_method();
-    }
-
-    pub fn from_parameters(step_size: f64, method: FixedStepMode) -> Self
-    {
-        return LinearApproximator { derivator: FixedStep::from_parameters(step_size, method) };
-    }
-
-    pub fn from_derivator(derivator: FixedStep) -> Self
+    pub fn from_derivator(derivator: D) -> Self
     {
         return LinearApproximator {derivator: derivator}
     }

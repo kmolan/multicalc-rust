@@ -1,6 +1,4 @@
-use crate::numerical_derivative::mode::*;
-use crate::numerical_derivative::derivator::Derivator;
-use crate::numerical_derivative::fixed_step::FixedStep;
+use crate::numerical_derivative::derivator::{DoublePartialDerivator, SinglePartialDerivator};
 use crate::numerical_derivative::hessian::Hessian;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
@@ -91,49 +89,25 @@ impl<T: ComplexFloat, const NUM_VARS: usize> QuadraticApproximationResult<T, NUM
     }
 }
 
-pub struct QuadraticApproximator
+pub struct QuadraticApproximator<SPD: SinglePartialDerivator, DPD: DoublePartialDerivator>
 {
-    derivator: FixedStep
+    single_partial_derivator: SPD,
+    double_partial_derivator: DPD
 }
 
-impl Default for QuadraticApproximator
+impl<SPD: SinglePartialDerivator, DPD: DoublePartialDerivator> Default for QuadraticApproximator<SPD, DPD>
 {
     fn default() -> Self 
     {
-        return QuadraticApproximator { derivator: FixedStep::default() };    
+        return QuadraticApproximator { single_partial_derivator: SPD::default(), double_partial_derivator: DPD::default() };    
     }
 }
 
-impl QuadraticApproximator
+impl<SPD: SinglePartialDerivator, DPD: DoublePartialDerivator> QuadraticApproximator<SPD, DPD>
 {
-    pub fn set_step_size(&mut self, step_size: f64)
+    pub fn from_derivators(single_partial_derivator: SPD, double_partial_derivator: DPD) -> Self
     {
-        self.derivator.set_step_size(step_size);
-    }
-
-    pub fn get_step_size(&self) -> f64
-    {
-        return self.derivator.get_step_size();
-    }
-
-    pub fn set_derivative_method(&mut self, method: FixedStepMode)
-    {
-        self.derivator.set_method(method);
-    }
-
-    pub fn get_derivative_method(&self) -> FixedStepMode
-    {
-        return self.derivator.get_method();
-    }
-
-    pub fn from_parameters(step_size: f64, method: FixedStepMode) -> Self
-    {
-        return QuadraticApproximator { derivator: FixedStep::from_parameters(step_size, method) };
-    }
-
-    pub fn from_derivator(derivator: FixedStep) -> Self
-    {
-        return QuadraticApproximator {derivator: derivator}
+        return QuadraticApproximator {single_partial_derivator: single_partial_derivator, double_partial_derivator: double_partial_derivator};
     }
 
     /// For an n-dimensional approximation, the equation is approximated as I + L + Q, where:
@@ -178,12 +152,12 @@ impl QuadraticApproximator
 
         let mut linear_coeffs_ = [T::zero(); NUM_VARS];
 
-        let hessian_matrix = Hessian::from_derivator(self.derivator).get(function, point)?;
+        let hessian_matrix = Hessian::from_derivator(self.double_partial_derivator).get(function, point)?;
 
         for iter in 0..NUM_VARS
         {
-            linear_coeffs_[iter] = self.derivator.get_single_partial(function, iter, point)?;
-            intercept_ = intercept_ - self.derivator.get_single_partial(function, iter, point)?*point[iter];
+            linear_coeffs_[iter] = self.single_partial_derivator.get_single_partial(function, iter, point)?;
+            intercept_ = intercept_ - self.single_partial_derivator.get_single_partial(function, iter, point)?*point[iter];
         }
 
         let mut quad_coeff = [[T::zero(); NUM_VARS]; NUM_VARS];

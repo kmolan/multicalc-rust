@@ -1,6 +1,5 @@
 use crate::utils::error_codes::ErrorCode;
-use crate::numerical_derivative::derivator::Derivator;
-use crate::numerical_derivative::fixed_step::FixedStep;
+use crate::numerical_derivative::derivator::SinglePartialDerivator;
 use num_complex::ComplexFloat;
 
 
@@ -45,7 +44,8 @@ use num_complex::ComplexFloat;
 /// let val = divergence::get_3d(&vector_field_matrix, &point);
 /// assert!(f64::abs(val - 2.00) < 0.00001);
 /// ```
-pub fn get_3d<T: ComplexFloat, const NUM_VARS: usize>(derivator: FixedStep, vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 3], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+pub fn get_3d<T, SPD, const NUM_VARS: usize>(derivator: SPD, vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 3], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+where T: ComplexFloat, SPD: SinglePartialDerivator
 {
     return Ok(derivator.get_single_partial(vector_field[0], 0, point)?
             + derivator.get_single_partial(vector_field[1], 1, point)?
@@ -87,7 +87,8 @@ pub fn get_3d<T: ComplexFloat, const NUM_VARS: usize>(derivator: FixedStep, vect
 /// let val = divergence::get_2d(&vector_field_matrix, &point);
 /// assert!(f64::abs(val - 0.00) < 0.00001);
 /// ```
-pub fn get_2d<T: ComplexFloat, const NUM_VARS: usize>(derivator: FixedStep, vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+pub fn get_2d<T, SPD, const NUM_VARS: usize>(derivator: SPD, vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+where T: ComplexFloat, SPD: SinglePartialDerivator
 {
     return Ok(derivator.get_single_partial(vector_field[0], 0, point)? + derivator.get_single_partial(vector_field[1], 1, point)?);
 }

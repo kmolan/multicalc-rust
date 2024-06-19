@@ -1,53 +1,26 @@
-use crate::numerical_derivative::derivator::Derivator;
-use crate::numerical_derivative::fixed_step::FixedStep;
-use crate::numerical_derivative::mode as mode;
+use crate::numerical_derivative::derivator::SinglePartialDerivator;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
 #[cfg(feature = "heap")]
 use std::{boxed::Box, vec::Vec};
 
-pub struct Jacobian
+pub struct Jacobian<D: SinglePartialDerivator>
 {
-    derivator: FixedStep
+    derivator: D
 }
 
-impl Default for Jacobian
+impl<D: SinglePartialDerivator> Default for Jacobian<D>
 {
     fn default() -> Self 
     {
-        return Jacobian { derivator: FixedStep::default() };    
+        return Jacobian { derivator: D::default() };    
     }
 }
 
-impl Jacobian
+impl<D: SinglePartialDerivator> Jacobian<D>
 {
-    pub fn set_step_size(&mut self, step_size: f64)
-    {
-        self.derivator.set_step_size(step_size);
-    }
-
-    pub fn get_step_size(&self) -> f64
-    {
-        return self.derivator.get_step_size();
-    }
-
-    pub fn set_derivative_method(&mut self, method: mode::FixedStepMode)
-    {
-        self.derivator.set_method(method);
-    }
-
-    pub fn get_derivative_method(&self) -> mode::FixedStepMode
-    {
-        return self.derivator.get_method();
-    }
-
-    pub fn from_parameters(step_size: f64, method: mode::FixedStepMode) -> Self
-    {
-        return Jacobian { derivator: FixedStep::from_parameters(step_size, method) };
-    }
-
-    pub fn from_derivator(derivator: FixedStep) -> Self
+    pub fn from_derivator(derivator: D) -> Self
     {
         return Jacobian {derivator: derivator}
     }
