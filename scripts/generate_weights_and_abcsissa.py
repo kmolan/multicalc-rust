@@ -19,11 +19,11 @@ for i in range(1, MAX_LENGTH):
     f_weights_laguerre.write("const LAGUERRE_WEIGHT_"+idx+": [f64; "+idx+"] = [")
     
     for j in range(len(cur_laguerre_abs)-1):
-        f_abcissa_laguerre.write(str(cur_laguerre_abs[j])+", ")
-        f_weights_laguerre.write(str(cur_laguerre_weights[j])+", ")
+        f_abcissa_laguerre.write("\n" + str(cur_laguerre_abs[j])+", ")
+        f_weights_laguerre.write("\n" + str(cur_laguerre_weights[j])+", ")
         
-    f_abcissa_laguerre.write(str(cur_laguerre_abs[len(cur_laguerre_abs) - 1]) + "];\n")
-    f_weights_laguerre.write(str(cur_laguerre_weights[len(cur_laguerre_weights) - 1]) + "];\n")
+    f_abcissa_laguerre.write("\n" + str(cur_laguerre_abs[len(cur_laguerre_abs) - 1]) + "];\n")
+    f_weights_laguerre.write("\n" + str(cur_laguerre_weights[len(cur_laguerre_weights) - 1]) + "];\n")
 
 f_abcissa_laguerre.close()
 f_weights_laguerre.close()
@@ -42,11 +42,11 @@ for i in range(1, MAX_LENGTH):
     f_weights_hermite.write("const HERMITE_WEIGHT_"+idx+": [f64; "+idx+"] = [")
 
     for j in range(len(cur_hermite_abs)-1):
-        f_abcissa_hermite.write(str(cur_hermite_abs[j])+", ")
-        f_weights_hermite.write(str(cur_hermite_weights[j])+", ")
+        f_abcissa_hermite.write("\n"+ str(cur_hermite_abs[j])+", ")
+        f_weights_hermite.write("\n" + str(cur_hermite_weights[j])+", ")
 
-    f_abcissa_hermite.write(str(cur_hermite_abs[len(cur_hermite_abs) - 1]) + "];\n")
-    f_weights_hermite.write(str(cur_hermite_weights[len(cur_hermite_weights) - 1]) + "];\n")
+    f_abcissa_hermite.write("\n" + str(cur_hermite_abs[len(cur_hermite_abs) - 1]) + "];\n")
+    f_weights_hermite.write("\n" + str(cur_hermite_weights[len(cur_hermite_weights) - 1]) + "];\n")
 
 f_abcissa_hermite.close()
 f_weights_hermite.close()
@@ -65,11 +65,11 @@ for i in range(1, MAX_LENGTH):
     f_weights_legendre.write("const LEGENDRE_WEIGHT_"+idx+": [f64; "+idx+"] = [")
 
     for j in range(len(cur_legendre_abs)-1):
-        f_abcissa_legendre.write(str(cur_legendre_abs[j])+", ")
-        f_weights_legendre.write(str(cur_legendre_weights[j])+", ")
+        f_abcissa_legendre.write("\n" + str(cur_legendre_abs[j])+", ")
+        f_weights_legendre.write("\n" + str(cur_legendre_weights[j])+", ")
 
-    f_abcissa_legendre.write(str(cur_legendre_abs[len(cur_legendre_abs) - 1]) + "];\n")
-    f_weights_legendre.write(str(cur_legendre_weights[len(cur_legendre_weights) - 1]) + "];\n")
+    f_abcissa_legendre.write("\n" + str(cur_legendre_abs[len(cur_legendre_abs) - 1]) + "];\n")
+    f_weights_legendre.write("\n" + str(cur_legendre_weights[len(cur_legendre_weights) - 1]) + "];\n")
 
 f_abcissa_legendre.close()
 f_weights_legendre.close()
