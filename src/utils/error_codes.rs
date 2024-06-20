@@ -6,6 +6,10 @@ pub enum ErrorCode
     //For methods utilizing integration, it means that number of iterations is zero
     NumberOfStepsCannotBeZero,
 
+    DerivateOrderCannotBeZero,
+
+    DerivateOrderOutOfrange,
+
     //Can be returned by single_derivative, double_derivative, and triple_derivate modules.
     //When trying to get a partial derivative, the variable's index has to be provided by the user
     //Returned if the value of index is greater than the number of variables

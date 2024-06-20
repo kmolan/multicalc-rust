@@ -1,4 +1,4 @@
-use crate::numerical_derivative::derivator::{DoublePartialDerivator, SinglePartialDerivator};
+use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::numerical_derivative::hessian::Hessian;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
@@ -89,25 +89,24 @@ impl<T: ComplexFloat, const NUM_VARS: usize> QuadraticApproximationResult<T, NUM
     }
 }
 
-pub struct QuadraticApproximator<SPD: SinglePartialDerivator, DPD: DoublePartialDerivator>
+pub struct QuadraticApproximator<D: DerivatorMultiVariable>
 {
-    single_partial_derivator: SPD,
-    double_partial_derivator: DPD
+    derivator: D,
 }
 
-impl<SPD: SinglePartialDerivator, DPD: DoublePartialDerivator> Default for QuadraticApproximator<SPD, DPD>
+impl<D: DerivatorMultiVariable> Default for QuadraticApproximator<D>
 {
     fn default() -> Self 
     {
-        return QuadraticApproximator { single_partial_derivator: SPD::default(), double_partial_derivator: DPD::default() };    
+        return QuadraticApproximator { derivator: D::default()};    
     }
 }
 
-impl<SPD: SinglePartialDerivator, DPD: DoublePartialDerivator> QuadraticApproximator<SPD, DPD>
+impl<D: DerivatorMultiVariable> QuadraticApproximator<D>
 {
-    pub fn from_derivators(single_partial_derivator: SPD, double_partial_derivator: DPD) -> Self
+    pub fn from_derivator(derivator: D) -> Self
     {
-        return QuadraticApproximator {single_partial_derivator: single_partial_derivator, double_partial_derivator: double_partial_derivator};
+        return QuadraticApproximator {derivator: derivator};
     }
 
     /// For an n-dimensional approximation, the equation is approximated as I + L + Q, where:
@@ -152,12 +151,12 @@ impl<SPD: SinglePartialDerivator, DPD: DoublePartialDerivator> QuadraticApproxim
 
         let mut linear_coeffs_ = [T::zero(); NUM_VARS];
 
-        let hessian_matrix = Hessian::from_derivator(self.double_partial_derivator).get(function, point)?;
+        let hessian_matrix = Hessian::from_derivator(self.derivator).get(function, point)?;
 
         for iter in 0..NUM_VARS
         {
-            linear_coeffs_[iter] = self.single_partial_derivator.get_single_partial(function, iter, point)?;
-            intercept_ = intercept_ - self.single_partial_derivator.get_single_partial(function, iter, point)?*point[iter];
+            linear_coeffs_[iter] = self.derivator.get(1, function, &[iter], point)?;
+            intercept_ = intercept_ - self.derivator.get(1, function, &[iter], point)?*point[iter];
         }
 
         let mut quad_coeff = [[T::zero(); NUM_VARS]; NUM_VARS];

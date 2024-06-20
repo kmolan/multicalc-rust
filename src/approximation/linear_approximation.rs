@@ -1,4 +1,4 @@
-use crate::numerical_derivative::derivator::SinglePartialDerivator;
+use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
@@ -79,12 +79,12 @@ impl<T: ComplexFloat, const NUM_VARS: usize> LinearApproximationResult<T, NUM_VA
     }
 }
 
-pub struct LinearApproximator<D: SinglePartialDerivator>
+pub struct LinearApproximator<D: DerivatorMultiVariable>
 {
     derivator: D
 }
 
-impl<D: SinglePartialDerivator> Default for LinearApproximator<D>
+impl<D: DerivatorMultiVariable> Default for LinearApproximator<D>
 {
     fn default() -> Self 
     {
@@ -92,7 +92,7 @@ impl<D: SinglePartialDerivator> Default for LinearApproximator<D>
     }
 }
 
-impl<D: SinglePartialDerivator> LinearApproximator<D>
+impl<D: DerivatorMultiVariable> LinearApproximator<D>
 {
     pub fn from_derivator(derivator: D) -> Self
     {
@@ -137,7 +137,7 @@ impl<D: SinglePartialDerivator> LinearApproximator<D>
 
         for iter in 0..NUM_VARS
         {
-            slopes_[iter] = self.derivator.get_single_partial(function, iter, point)?;
+            slopes_[iter] = self.derivator.get(1, function, &[iter], point)?;
             intercept_ = intercept_ - slopes_[iter]*point[iter];
         }
 

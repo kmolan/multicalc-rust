@@ -1,6 +1,6 @@
 use crate::approximation::linear_approximation::*;
 use crate::approximation::quadratic_approximation::*;
-use crate::numerical_derivative::finite_difference::FiniteDifference;
+use crate::numerical_derivative::finite_difference::MultiVariableSolver;
 use rand::Rng;
 
 #[test]
@@ -14,7 +14,7 @@ fn test_linear_approximation_1()
 
     let point = [1.0, 2.0, 3.0]; //the point we want to linearize around
 
-    let approximator = LinearApproximator::<FiniteDifference>::default();
+    let approximator = LinearApproximator::<MultiVariableSolver>::default();
 
     let result = approximator.get(&function_to_approximate, &point).unwrap();
     assert!(f64::abs(function_to_approximate(&point) - result.get_prediction_value(&point)) < 1e-9);
@@ -51,7 +51,7 @@ fn test_quadratic_approximation_1()
 
     let point = [0.0, 3.14/2.0, 10.0]; //the point we want to approximate around
 
-    let approximator = QuadraticApproximator::<FiniteDifference, FiniteDifference>::default();
+    let approximator = QuadraticApproximator::<MultiVariableSolver>::default();
 
     let result = approximator.get(&function_to_approximate, &point).unwrap();
 

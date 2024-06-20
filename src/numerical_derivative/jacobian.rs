@@ -1,16 +1,16 @@
-use crate::numerical_derivative::derivator::SinglePartialDerivator;
+use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
 #[cfg(feature = "heap")]
 use std::{boxed::Box, vec::Vec};
 
-pub struct Jacobian<D: SinglePartialDerivator>
+pub struct Jacobian<D: DerivatorMultiVariable>
 {
     derivator: D
 }
 
-impl<D: SinglePartialDerivator> Default for Jacobian<D>
+impl<D: DerivatorMultiVariable> Default for Jacobian<D>
 {
     fn default() -> Self 
     {
@@ -18,7 +18,7 @@ impl<D: SinglePartialDerivator> Default for Jacobian<D>
     }
 }
 
-impl<D: SinglePartialDerivator> Jacobian<D>
+impl<D: DerivatorMultiVariable> Jacobian<D>
 {
     pub fn from_derivator(derivator: D) -> Self
     {
@@ -94,7 +94,7 @@ impl<D: SinglePartialDerivator> Jacobian<D>
         {
             for col_index in 0..NUM_VARS
             {
-                result[row_index][col_index] = self.derivator.get_single_partial(&function_matrix[row_index], col_index, vector_of_points)?;
+                result[row_index][col_index] = self.derivator.get(1, &function_matrix[row_index], &[col_index], vector_of_points)?;
             }
         }
         
@@ -132,7 +132,7 @@ impl<D: SinglePartialDerivator> Jacobian<D>
             let mut cur_row: Vec<T> = Vec::new();
             for col_index in 0..NUM_VARS
             {
-                cur_row.push(self.derivator.get_single_partial(&function_matrix[row_index], col_index, vector_of_points)?);
+                cur_row.push(self.derivator.get(1,&function_matrix[row_index], &[col_index], vector_of_points)?);
             }
 
             result.push(cur_row);

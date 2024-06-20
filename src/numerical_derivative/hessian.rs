@@ -1,13 +1,13 @@
-use crate::numerical_derivative::derivator::DoublePartialDerivator;
+use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 
-pub struct Hessian<D: DoublePartialDerivator>
+pub struct Hessian<D: DerivatorMultiVariable>
 {
     derivator: D
 }
 
-impl<D: DoublePartialDerivator> Default for Hessian<D>
+impl<D: DerivatorMultiVariable> Default for Hessian<D>
 {
     fn default() -> Self 
     {
@@ -15,7 +15,7 @@ impl<D: DoublePartialDerivator> Default for Hessian<D>
     }
 }
 
-impl<D: DoublePartialDerivator> Hessian<D>
+impl<D: DerivatorMultiVariable> Hessian<D>
 {
     pub fn from_derivator(derivator: D) -> Self
     {
@@ -71,7 +71,7 @@ impl<D: DoublePartialDerivator> Hessian<D>
             {
                 if result[row_index][col_index].is_nan()
                 {
-                    result[row_index][col_index] = self.derivator.get_double_partial(function, &[row_index, col_index], vector_of_points)?;
+                    result[row_index][col_index] = self.derivator.get(2, function, &[row_index, col_index], vector_of_points)?;
 
                     result[col_index][row_index] = result[row_index][col_index]; //exploit the fact that a hessian is a symmetric matrix
                 }

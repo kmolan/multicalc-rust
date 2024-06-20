@@ -1,23 +1,12 @@
-use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
+use crate::utils::error_codes::ErrorCode;
 
-
-pub trait SingleTotalDerivator: Default + Clone + Copy
+pub trait DerivatorSingleVariable: Default + Clone + Copy
 {
-    fn get_single_total<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, point: T) -> Result<T, ErrorCode>;
+    fn get<T: ComplexFloat>(&self, order: usize, func: &dyn Fn(T) -> T, point: T) -> Result<T, ErrorCode>;
 }
 
-pub trait SinglePartialDerivator: Default + Clone + Copy
+pub trait DerivatorMultiVariable: Default + Clone + Copy
 {
-    fn get_single_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS]) -> Result<T, ErrorCode>;
-}
-
-pub trait DoubleTotalDerivator: Default + Clone + Copy
-{
-    fn get_double_total<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, point: T) -> Result<T, ErrorCode>;
-}
-
-pub trait DoublePartialDerivator: Default + Clone + Copy
-{
-    fn get_double_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: &[usize; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>;
+    fn get<T: ComplexFloat, const NUM_VARS: usize, const NUM_ORDER: usize>(&self, order: usize, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: &[usize; NUM_ORDER], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>;
 }
