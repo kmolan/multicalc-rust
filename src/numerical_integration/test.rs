@@ -1,5 +1,3 @@
-use std::println;
-
 use crate::numerical_integration::mode::*;
 use crate::utils::error_codes::ErrorCode;
 use crate::numerical_integration::integrator::Integrator;
@@ -404,8 +402,8 @@ fn test_error_checking_4()
 
     let integration_limit = [0.0, 2.0];
 
-    //Gauss Legendre not valid for n > 20
-    let integrator = GaussianQuadrature::with_parameters(21, GaussianMethod::GaussLegendre);
+    //Gauss Legendre not valid for n > 30
+    let integrator = GaussianQuadrature::with_parameters(31, GaussianMethod::GaussLegendre);
     let result = integrator.get_single_total(&func, &integration_limit);
     assert!(result.is_err());
     assert!(result.unwrap_err() == ErrorCode::GaussianQuadratureOrderOutOfRange);

@@ -510,9 +510,6 @@ fn test_hessian_1()
 
     let expected_result = [[-2.0*f64::sin(1.0), f64::cos(1.0) + 2.0*f64::exp(2.0)], 
                                           [f64::cos(1.0) + 2.0*f64::exp(2.0), 2.0*f64::exp(2.0)]];
-    
-    std::println!("{:?}", result);
-    std::println!("{:?}", expected_result);
 
     for i in 0..points.len()
     {
