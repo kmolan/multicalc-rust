@@ -287,4 +287,34 @@ impl DerivatorMultiVariable for MultiVariableSolver
             mode::FiniteDifferenceMode::Central => return Ok(self.get_central_difference_multi_variable(order, func, idx_to_derivate, point)) 
         }    
     }
+
+    fn get_single_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS]) -> Result<T, ErrorCode> 
+    {
+        if self.step_size == 0.0
+        {
+            return Err(ErrorCode::NumberOfStepsCannotBeZero);
+        }
+
+        match self.method
+        {
+            mode::FiniteDifferenceMode::Forward => return Ok(self.get_forward_difference_multi_variable(1, func, &[idx_to_derivate], point)),
+            mode::FiniteDifferenceMode::Backward => return Ok(self.get_backward_difference_multi_variable(1, func, &[idx_to_derivate], point)),
+            mode::FiniteDifferenceMode::Central => return Ok(self.get_central_difference_multi_variable(1, func, &[idx_to_derivate], point)) 
+        }    
+    }
+
+    fn get_double_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: &[usize; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode> 
+    {
+        if self.step_size == 0.0
+        {
+            return Err(ErrorCode::NumberOfStepsCannotBeZero);
+        }
+
+        match self.method
+        {
+            mode::FiniteDifferenceMode::Forward => return Ok(self.get_forward_difference_multi_variable(2, func, idx_to_derivate, point)),
+            mode::FiniteDifferenceMode::Backward => return Ok(self.get_backward_difference_multi_variable(2, func, idx_to_derivate, point)),
+            mode::FiniteDifferenceMode::Central => return Ok(self.get_central_difference_multi_variable(2, func, idx_to_derivate, point)) 
+        }  
+    }
 }

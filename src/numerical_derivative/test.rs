@@ -75,7 +75,7 @@ fn test_single_derivative_partial_1()
     derivator.set_method(FiniteDifferenceMode::Central);
 
     //partial derivate for (x, y) = (1.0, 3.0), partial derivative for x is known to be 6*x + 2*y
-    let val = derivator.get(1, &func, &[0], &point).unwrap();
+    let val = derivator.get_single_partial(&func, 0, &point).unwrap();
     assert!(f64::abs(val - 12.0) < 0.000001);
 
     //partial derivate for (x, y) = (1.0, 3.0), partial derivative for y is known to be 2.0*x

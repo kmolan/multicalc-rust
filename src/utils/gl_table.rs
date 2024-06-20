@@ -6,6 +6,7 @@ pub fn get_gl_weights_and_abscissae(order: usize, index: usize) -> Result<(f64, 
 {
     let ref_abs: f64 = match order 
     {
+        1 => LEGENDRE_ABSCISSA_1[index],
         2 => LEGENDRE_ABSCISSA_2[index],
         3 => LEGENDRE_ABSCISSA_3[index],
         4 => LEGENDRE_ABSCISSA_4[index],
@@ -20,11 +21,12 @@ pub fn get_gl_weights_and_abscissae(order: usize, index: usize) -> Result<(f64, 
         13 => LEGENDRE_ABSCISSA_13[index],
         14 => LEGENDRE_ABSCISSA_14[index],
         15 => LEGENDRE_ABSCISSA_15[index],
-        _ => return Err(ErrorCode::GaussLegendreOrderOutOfRange),
+        _ => return Err(ErrorCode::GaussianQuadratureOrderOutOfRange),
     };
 
     let ref_weight: f64 = match order 
     {
+        1 => LEGENDRE_WEIGHT_1[index],
         2 => LEGENDRE_WEIGHT_2[index],
         3 => LEGENDRE_WEIGHT_3[index],
         4 => LEGENDRE_WEIGHT_4[index],
@@ -39,7 +41,7 @@ pub fn get_gl_weights_and_abscissae(order: usize, index: usize) -> Result<(f64, 
         13 => LEGENDRE_WEIGHT_13[index],
         14 => LEGENDRE_WEIGHT_14[index],
         15 => LEGENDRE_WEIGHT_15[index],
-        _ => return Err(ErrorCode::GaussLegendreOrderOutOfRange),
+        _ => return Err(ErrorCode::GaussianQuadratureOrderOutOfRange),
     };
 
     return Ok((ref_abs, ref_weight));
@@ -49,6 +51,7 @@ pub fn get_gl_weights_and_abscissae(order: usize, index: usize) -> Result<(f64, 
 // =============================================================================
 // Table taken from https://pomax.github.io/bezierinfo/legendre-gauss.html
 // =============================================================================
+const LEGENDRE_ABSCISSA_1: [f64; 1] = [0.0];
 const LEGENDRE_ABSCISSA_2: [f64; 2] = [-0.577_350_269_189_626, 0.577_350_269_189_626];
 const LEGENDRE_ABSCISSA_3: [f64; 3] = [0.0, -0.774_596_669_241_483, 0.774_596_669_241_483];
 const LEGENDRE_ABSCISSA_4: [f64; 4] = [-0.339_981_043_584_856, 0.339_981_043_584_856, -0.861_136_311_594_053, 0.861_136_311_594_053];
@@ -197,6 +200,7 @@ const LEGENDRE_ABSCISSA_15: [f64; 15] =
 ];
 
 
+const LEGENDRE_WEIGHT_1: [f64; 1] = [2.0];
 const LEGENDRE_WEIGHT_2: [f64; 2] = [1.0, 1.0];
 const LEGENDRE_WEIGHT_3: [f64; 3] = [0.888_888_888_888_889, 0.555_555_555_555_555_6, 0.555_555_555_555_555_6];
 const LEGENDRE_WEIGHT_4: [f64; 4] = 

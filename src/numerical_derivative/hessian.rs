@@ -71,7 +71,7 @@ impl<D: DerivatorMultiVariable> Hessian<D>
             {
                 if result[row_index][col_index].is_nan()
                 {
-                    result[row_index][col_index] = self.derivator.get(2, function, &[row_index, col_index], vector_of_points)?;
+                    result[row_index][col_index] = self.derivator.get_double_partial(function, &[row_index, col_index], vector_of_points)?;
 
                     result[col_index][row_index] = result[row_index][col_index]; //exploit the fact that a hessian is a symmetric matrix
                 }

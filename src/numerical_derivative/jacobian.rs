@@ -94,7 +94,7 @@ impl<D: DerivatorMultiVariable> Jacobian<D>
         {
             for col_index in 0..NUM_VARS
             {
-                result[row_index][col_index] = self.derivator.get(1, &function_matrix[row_index], &[col_index], vector_of_points)?;
+                result[row_index][col_index] = self.derivator.get_single_partial(&function_matrix[row_index], col_index, vector_of_points)?;
             }
         }
         
@@ -132,7 +132,7 @@ impl<D: DerivatorMultiVariable> Jacobian<D>
             let mut cur_row: Vec<T> = Vec::new();
             for col_index in 0..NUM_VARS
             {
-                cur_row.push(self.derivator.get(1,&function_matrix[row_index], &[col_index], vector_of_points)?);
+                cur_row.push(self.derivator.get_single_partial(&function_matrix[row_index], col_index, vector_of_points)?);
             }
 
             result.push(cur_row);

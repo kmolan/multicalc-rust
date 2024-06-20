@@ -4,13 +4,13 @@ use num_complex::ComplexFloat;
 use crate::utils::gl_table as gl_table;
 use crate::numerical_integration::integrator::Integrator;
 
-pub struct Gaussian
+pub struct GaussianQuadrature
 {
     order: usize,
     method_type: mode::GaussianMethod
 }
 
-impl Gaussian
+impl GaussianQuadrature
 {
     pub fn get_order(&self) -> usize
     {
@@ -34,7 +34,7 @@ impl Gaussian
 
     pub fn with_parameters(order: usize, integration_method: mode::GaussianMethod) -> Self 
     {
-        Gaussian
+        GaussianQuadrature
         {
             order: order,
             method_type: integration_method
@@ -43,9 +43,9 @@ impl Gaussian
 
     fn check_for_errors<T: ComplexFloat>(&self, integration_limit: &[T; 2]) -> Result<(), ErrorCode> 
     {
-        if !(2..=gl_table::MAX_GL_ORDER).contains(&self.order)
+        if !(1..=gl_table::MAX_GL_ORDER).contains(&self.order)
         {
-            return Err(ErrorCode::GaussLegendreOrderOutOfRange);
+            return Err(ErrorCode::GaussianQuadratureOrderOutOfRange);
         }
 
         if integration_limit[0].abs() >= integration_limit[1].abs()
@@ -100,7 +100,7 @@ impl Gaussian
     }
 }
 
-impl Integrator for Gaussian
+impl Integrator for GaussianQuadrature
 {
     fn get_single_total<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limit: &[T; 2]) -> Result<T, ErrorCode>
     {

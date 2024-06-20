@@ -1,8 +1,10 @@
+use std::println;
+
 use crate::numerical_integration::mode::*;
 use crate::utils::error_codes::ErrorCode;
 use crate::numerical_integration::integrator::Integrator;
 use crate::numerical_integration::iterative_integration::Iterative;
-use crate::numerical_integration::gaussian_integration::Gaussian;
+use crate::numerical_integration::gaussian_integration::GaussianQuadrature;
  
 #[test]
 fn test_booles_integration_1()
@@ -103,11 +105,11 @@ fn test_gauss_legendre_quadrature_integration_1()
 
     let integration_limit = [0.0, 2.0];
 
-    let integrator = Gaussian::with_parameters(2, GaussianMethod::GaussLegendre);
+    let integrator = GaussianQuadrature::with_parameters(4, GaussianMethod::GaussLegendre);
 
     //simple integration for x, known to be x^4 - x^3, expect a value of ~8.00
     let val = integrator.get_single_total(&func, &integration_limit).unwrap();
-    assert!(f64::abs(val - 8.0) < 0.00001);
+    assert!(f64::abs(val - 8.0) < 1e-14);
 }
 
 #[test] 
@@ -122,25 +124,25 @@ fn test_gauss_legendre_quadrature_integration_2()
     let integration_limit = [0.0, 1.0];
     let point = [1.0, 2.0, 3.0];
 
-    let integrator = Gaussian::with_parameters(2, GaussianMethod::GaussLegendre);
+    let integrator = GaussianQuadrature::with_parameters(2, GaussianMethod::GaussLegendre);
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
     let val = integrator.get_single_partial(&func, 0, &integration_limit, &point).unwrap();
-    assert!(f64::abs(val - 7.0) < 0.00001);
+    assert!(f64::abs(val - 7.0) < 1e-14);
 
 
     let integration_limit = [0.0, 2.0];
 
     //partial integration for y, known to be 2.0*x*y + y*y*z/2.0, expect a value of ~10.00 
     let val = integrator.get_single_partial(&func, 1, &integration_limit, &point).unwrap();
-    assert!(f64::abs(val - 10.0) < 0.00001);
+    assert!(f64::abs(val - 10.0) < 1e-14);
 
 
     let integration_limit = [0.0, 3.0];
 
     //partial integration for z, known to be 2.0*x*z + y*z*z/2.0, expect a value of ~15.0 
     let val = integrator.get_single_partial(&func, 2, &integration_limit, &point).unwrap();
-    assert!(f64::abs(val - 15.0) < 0.00001);
+    assert!(f64::abs(val - 15.0) < 1e-14);
 }
 
 #[test]
@@ -153,11 +155,11 @@ fn test_gauss_legendre_quadrature_integration_3()
     };
 
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
-    let integrator = Gaussian::with_parameters(2, GaussianMethod::GaussLegendre);
+    let integrator = GaussianQuadrature::with_parameters(2, GaussianMethod::GaussLegendre);
 
     //simple double integration for 6*x, expect a value of ~24.00
     let val = integrator.get_double_total(&func, &integration_limits).unwrap();
-    assert!(f64::abs(val - 24.0) < 0.00001);
+    assert!(f64::abs(val - 24.0) < 1e-14);
 }
 
 #[test]
@@ -384,11 +386,11 @@ fn test_error_checking_3()
 
     let integration_limit = [0.0, 2.0];
 
-    //Gauss Legendre not valid for n < 2
-    let integrator = Gaussian::with_parameters(1, GaussianMethod::GaussLegendre);
+    //Gauss Legendre not valid for n < 1
+    let integrator = GaussianQuadrature::with_parameters(0, GaussianMethod::GaussLegendre);
     let result = integrator.get_single_total(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == ErrorCode::GaussLegendreOrderOutOfRange);
+    assert!(result.unwrap_err() == ErrorCode::GaussianQuadratureOrderOutOfRange);
 }
 
 #[test]
@@ -403,8 +405,8 @@ fn test_error_checking_4()
     let integration_limit = [0.0, 2.0];
 
     //Gauss Legendre not valid for n > 20
-    let integrator = Gaussian::with_parameters(21, GaussianMethod::GaussLegendre);
+    let integrator = GaussianQuadrature::with_parameters(21, GaussianMethod::GaussLegendre);
     let result = integrator.get_single_total(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == ErrorCode::GaussLegendreOrderOutOfRange);
+    assert!(result.unwrap_err() == ErrorCode::GaussianQuadratureOrderOutOfRange);
 }
