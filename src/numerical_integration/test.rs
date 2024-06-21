@@ -103,11 +103,10 @@ fn test_gauss_legendre_quadrature_integration_1()
 
     let integration_limit = [0.0, 2.0];
 
-    let integrator = gaussian_integration::SingleVariableSolver::from_parameters(4, GaussianQuadratureMethod::GaussLaguerre);
+    let integrator = gaussian_integration::SingleVariableSolver::from_parameters(4, GaussianQuadratureMethod::GaussLegendre);
 
     //simple integration for x, known to be x^4 - x^3, expect a value of ~8.00
     let val = integrator.get_single(&func, &integration_limit).unwrap();
-    std::println!("{}", val);
     assert!(f64::abs(val - 8.0) < 1e-14);
 }
 

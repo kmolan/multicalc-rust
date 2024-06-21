@@ -180,7 +180,7 @@ impl SingleVariableSolver
 
         for iter in 0..self.order
         {
-            let (abcsissa, weight) = gauss_laguerre_table::get_gauss_laguerre_weights_and_abscissae(self.order, iter).unwrap();
+            let (_, weight) = gauss_laguerre_table::get_gauss_laguerre_weights_and_abscissae(self.order, iter).unwrap();
 
             //let args = (integration_limit[0][0] - integration_limit[0][1])*T::log(T::from(abcsissa).unwrap() - integration_limit[0][1], T::abs(T::exp(T::one()))) - T::from(abcsissa).unwrap();
 

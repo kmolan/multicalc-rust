@@ -11,3 +11,4 @@ pub enum FiniteDifferenceMode
 }
 
 pub const DEFAULT_STEP_SIZE: f64 = 1.0e-5;
+pub const DEFAULT_STEP_SIZE_MULTIPLIER: f64 = 10.0;

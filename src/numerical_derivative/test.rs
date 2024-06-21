@@ -124,7 +124,7 @@ fn test_single_derivative_error_1()
 
     let point = [1.0, 2.0, 3.0];
 
-    let derivator = MultiVariableSolver::from_parameters(0.0, FiniteDifferenceMode::Central);
+    let derivator = MultiVariableSolver::from_parameters(0.0, FiniteDifferenceMode::Central, 1.0);
     
     //expect failure because step size is zero
     let result = derivator.get(1, &func, &[0], &point);
