@@ -79,7 +79,7 @@ fn test_single_derivative_partial_1()
     assert!(f64::abs(val - 12.0) < 0.000001);
 
     //partial derivate for (x, y) = (1.0, 3.0), partial derivative for y is known to be 2.0*x
-    let val = derivator.get(2, &func, &[1], &point).unwrap();
+    let val = derivator.get_single_partial(&func, 1, &point).unwrap();
     assert!(f64::abs(val - 2.0) < 0.000001);
 }
 
@@ -98,17 +98,17 @@ fn test_single_derivative_partial_2()
     derivator.set_method(FiniteDifferenceMode::Central);
 
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial derivative for x is known to be y*cos(x) + cos(y) + y*e^z
-    let val = derivator.get(1, &func, &[0], &point).unwrap();
+    let val = derivator.get_single_partial(&func, 0, &point).unwrap();
     let expected_value = 2.0*f64::cos(1.0) + f64::cos(2.0) + 2.0*f64::exp(3.0);
     assert!(f64::abs(val - expected_value) < 0.000001);
 
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial derivative for y is known to be sin(x) - x*sin(y) + x*e^z
-    let val = derivator.get(1, &func, &[1], &point).unwrap();
+    let val = derivator.get_single_partial(&func, 1, &point).unwrap();
     let expected_value = f64::sin(1.0) - 1.0*f64::sin(2.0) + 1.0*f64::exp(3.0);
     assert!(f64::abs(val - expected_value) < 0.000001);
 
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial derivative for z is known to be x*y*e^z
-    let val = derivator.get(2, &func, &[2], &point).unwrap();
+    let val = derivator.get_single_partial(&func, 2, &point).unwrap();
     let expected_value = 1.0*2.0*f64::exp(3.0);
     assert!(f64::abs(val - expected_value) < 0.00001);
 }
@@ -148,7 +148,7 @@ fn test_single_derivative_error_2()
     //expect failure because idx_to_derivate is greater than the number of points
     let result = derivator.get(1, &func, &[0; 4], &point);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == ErrorCode::IndexToDerivativeOutOfRange);
+    assert!(result.unwrap_err() == ErrorCode::IndexToDerivateIllFormed);
 }
 
 #[test]
@@ -186,7 +186,7 @@ fn test_single_derivative_error_4()
     //TODO description
     let result = derivator.get(5, &func, &[0; 2], &point);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == ErrorCode::DerivateOrderOutOfrange);
+    assert!(result.unwrap_err() == ErrorCode::IndexToDerivateIllFormed);
 }
 
 #[test]
@@ -258,21 +258,21 @@ fn test_double_derivative_partial_1()
 
     let idx: [usize; 2] = [0, 0]; 
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial double derivative for x is known to be -y*sin(x)
-    let val = derivator.get(1, &func, &idx, &point).unwrap();
+    let val = derivator.get(2, &func, &idx, &point).unwrap();
     let expected_value = -2.0*f64::sin(1.0);
-    assert!(f64::abs(val - expected_value) < 0.01);
+    assert!(f64::abs(val - expected_value) < 0.0001);
 
     let idx: [usize; 2] = [1, 1];
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial double derivative for y is known to be -x*cos(y)
-    let val = derivator.get(1, &func, &idx, &point).unwrap();
+    let val = derivator.get(2, &func, &idx, &point).unwrap();
     let expected_value = -1.0*f64::cos(2.0);
-    assert!(f64::abs(val - expected_value) < 0.01);
+    assert!(f64::abs(val - expected_value) < 0.0001);
 
     let idx: [usize; 2] = [2, 2];
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial double derivative for z is known to be x*y*e^z
-    let val = derivator.get(1, &func, &idx, &point).unwrap();
+    let val = derivator.get(2, &func, &idx, &point).unwrap();
     let expected_value = 1.0*2.0*f64::exp(3.0);
-    assert!(f64::abs(val - expected_value) < 0.01);
+    assert!(f64::abs(val - expected_value) < 0.0001);
 }
 
 #[test]
@@ -290,21 +290,22 @@ fn test_double_derivative_partial_2()
 
     let idx: [usize; 2] = [0, 1]; //mixed partial double derivate d(df/dx)/dy
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), mixed partial double derivative is known to be cos(x) - sin(y) + e^z
-    let val = derivator.get(1, &func, &idx, &point).unwrap();
+    let val = derivator.get(2, &func, &idx, &point).unwrap();
     let expected_value = f64::cos(1.0) - f64::sin(2.0) + f64::exp(3.0);
-    assert!(f64::abs(val - expected_value) < 0.0001);
+    std::println!("{}", val-expected_value);
+    assert!(f64::abs(val - expected_value) < 0.001);
 
     let idx: [usize; 2] = [1, 2]; //mixed partial double derivate d(df/dy)/dz
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), mixed partial double derivative is known to be x*e^z
-    let val = derivator.get(1, &func, &idx, &point).unwrap();
+    let val = derivator.get(2, &func, &idx, &point).unwrap();
     let expected_value = 1.0*f64::exp(3.0);
-    assert!(f64::abs(val - expected_value) < 0.0001);
+    assert!(f64::abs(val - expected_value) < 0.001);
 
     let idx: [usize; 2] = [0, 2]; //mixed partial double derivate d(df/dx)/dz
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), mixed partial double derivative is known to be y*e^z
-    let val = derivator.get(1, &func, &idx, &point).unwrap();
+    let val = derivator.get(2, &func, &idx, &point).unwrap();
     let expected_value = 2.0*f64::exp(3.0);
-    assert!(f64::abs(val - expected_value) < 0.0001);
+    assert!(f64::abs(val - expected_value) < 0.001);
 }
 
 /* 

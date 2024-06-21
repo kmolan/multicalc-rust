@@ -195,7 +195,7 @@ impl MultiVariableSolver
         let f0_args = point;
 
         let mut f1_args = *point;
-        f1_args[idx_to_derivate[order - 2]] = f1_args[idx_to_derivate[order - 2]] + T::from(self.step_size).unwrap(); 
+        f1_args[idx_to_derivate[order - 1]] = f1_args[idx_to_derivate[order - 1]] + T::from(self.step_size).unwrap(); 
 
         let f0 = self.get_forward_difference_multi_variable(order - 1, func, idx_to_derivate, f0_args);
         let f1 = self.get_forward_difference_multi_variable(order - 1, func, idx_to_derivate, &f1_args);
@@ -219,7 +219,7 @@ impl MultiVariableSolver
         }
 
         let mut f0_args = *point;
-        f0_args[idx_to_derivate[order - 2]] = f0_args[idx_to_derivate[order - 2]] - T::from(self.step_size).unwrap(); 
+        f0_args[idx_to_derivate[order - 1]] = f0_args[idx_to_derivate[order - 1]] - T::from(self.step_size).unwrap(); 
 
         let f1_args = point;
 
@@ -246,12 +246,12 @@ impl MultiVariableSolver
         }
 
         let mut f0_point = *point;
-        f0_point[idx_to_derivate[order - 2]] = f0_point[idx_to_derivate[order - 2]] - T::from(self.step_size).unwrap();
+        f0_point[idx_to_derivate[order - 1]] = f0_point[idx_to_derivate[order - 1]] - T::from(self.step_size).unwrap();
 
         let f0 = self.get_central_difference_multi_variable(order - 1, func, idx_to_derivate, &f0_point);
 
         let mut f1_point = *point;
-        f1_point[idx_to_derivate[order - 2]] = f1_point[idx_to_derivate[order - 2]] + T::from(self.step_size).unwrap();
+        f1_point[idx_to_derivate[order - 1]] = f1_point[idx_to_derivate[order - 1]] + T::from(self.step_size).unwrap();
 
         let f1 = self.get_central_difference_multi_variable(order - 1, func, idx_to_derivate, &f1_point);
 
@@ -271,13 +271,18 @@ impl DerivatorMultiVariable for MultiVariableSolver
         {
             return Err(ErrorCode::DerivateOrderCannotBeZero);
         }
-        if order >= NUM_ORDER
+        if order != NUM_ORDER
         {
-            return Err(ErrorCode::DerivateOrderOutOfrange);
+            std::println!("this one!");
+            return Err(ErrorCode::IndexToDerivateIllFormed);
         }
-        if NUM_ORDER > NUM_VARS
+        
+        for iter in 0..idx_to_derivate.len()
         {
-            return Err(ErrorCode::IndexToDerivativeOutOfRange);
+            if idx_to_derivate[iter] >= point.len()
+            {
+                return Err(ErrorCode::IndexToDerivativeOutOfRange);
+            }
         }
 
         match self.method
@@ -286,35 +291,5 @@ impl DerivatorMultiVariable for MultiVariableSolver
             mode::FiniteDifferenceMode::Backward => return Ok(self.get_backward_difference_multi_variable(order, func, idx_to_derivate, point)),
             mode::FiniteDifferenceMode::Central => return Ok(self.get_central_difference_multi_variable(order, func, idx_to_derivate, point)) 
         }    
-    }
-
-    fn get_single_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: usize, point: &[T; NUM_VARS]) -> Result<T, ErrorCode> 
-    {
-        if self.step_size == 0.0
-        {
-            return Err(ErrorCode::NumberOfStepsCannotBeZero);
-        }
-
-        match self.method
-        {
-            mode::FiniteDifferenceMode::Forward => return Ok(self.get_forward_difference_multi_variable(1, func, &[idx_to_derivate], point)),
-            mode::FiniteDifferenceMode::Backward => return Ok(self.get_backward_difference_multi_variable(1, func, &[idx_to_derivate], point)),
-            mode::FiniteDifferenceMode::Central => return Ok(self.get_central_difference_multi_variable(1, func, &[idx_to_derivate], point)) 
-        }    
-    }
-
-    fn get_double_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: &[usize; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode> 
-    {
-        if self.step_size == 0.0
-        {
-            return Err(ErrorCode::NumberOfStepsCannotBeZero);
-        }
-
-        match self.method
-        {
-            mode::FiniteDifferenceMode::Forward => return Ok(self.get_forward_difference_multi_variable(2, func, idx_to_derivate, point)),
-            mode::FiniteDifferenceMode::Backward => return Ok(self.get_backward_difference_multi_variable(2, func, idx_to_derivate, point)),
-            mode::FiniteDifferenceMode::Central => return Ok(self.get_central_difference_multi_variable(2, func, idx_to_derivate, point)) 
-        }  
     }
 }

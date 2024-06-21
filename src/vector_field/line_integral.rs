@@ -1,6 +1,6 @@
 use num_complex::ComplexFloat;
 use crate::utils::error_codes::ErrorCode;
-use crate::numerical_integration::mode::DEFAULT_TOTAL_ITERATIONS;
+use crate::numerical_integration::iterative_integration::DEFAULT_TOTAL_ITERATIONS;
 
 ///solves for the line integral for parametrized curves in a 2D vector field
 /// 

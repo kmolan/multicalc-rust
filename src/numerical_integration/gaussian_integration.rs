@@ -2,12 +2,262 @@ use crate::numerical_integration::mode;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
 use crate::utils::gl_table as gl_table;
-use crate::numerical_integration::integrator::Integrator;
+use crate::numerical_integration::integrator::*;
 
+use super::mode::GaussianQuadratureMethod;
+
+pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;
+
+#[derive(Clone, Copy)]
+pub struct SingleVariableSolver
+{
+    order: usize,
+    integration_method: mode::GaussianQuadratureMethod
+}
+
+impl Default for SingleVariableSolver
+{
+    fn default() -> Self 
+    {
+        return SingleVariableSolver { order: DEFAULT_QUADRATURE_ORDERS, integration_method: mode::GaussianQuadratureMethod::GaussLegendre };
+    }
+}
+
+impl SingleVariableSolver
+{
+    pub fn get_order(&self) -> usize
+    {
+        return self.order;
+    }
+
+    pub fn set_order(&mut self, order: usize) 
+    {
+        self.order = order;
+    }
+
+    pub fn get_integration_method(&self) -> mode::GaussianQuadratureMethod
+    {
+        return self.integration_method;
+    }
+
+    pub fn set_integration_method(&mut self, integration_method: mode::GaussianQuadratureMethod)
+    {
+        self.integration_method = integration_method;
+    }
+
+    pub fn from_parameters(order: usize, integration_method: mode::GaussianQuadratureMethod) -> Self 
+    {
+        SingleVariableSolver
+        {
+            order: order,
+            integration_method: integration_method
+        }    
+    }
+
+    fn check_for_errors<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> Result<(), ErrorCode> 
+    {
+        //TODO
+        if !(1..=gl_table::MAX_GL_ORDER).contains(&self.order)
+        {
+            return Err(ErrorCode::GaussianQuadratureOrderOutOfRange);
+        }
+
+        for iter in 0..integration_limit.len()
+        {
+            if integration_limit[iter][0].abs() >= integration_limit[iter][1].abs()
+            {
+                return Err(ErrorCode::IntegrationLimitsIllDefined);
+            }
+        }
+
+        if NUM_INTEGRATIONS != number_of_integrations
+        {
+            return Err(ErrorCode::IncorrectNumberOfIntegrationLimits)
+        } 
+
+        return Ok(());        
+    }
+
+    fn get_gauss_legendre<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, func: &dyn Fn(T) -> T, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> T
+    {
+        if number_of_integrations == 1
+        {
+            let mut ans = T::zero();
+            let abcsissa_coeff = (integration_limit[0][1] - integration_limit[0][0])/T::from(2.0).unwrap();
+            let intercept = (integration_limit[0][1] + integration_limit[0][0])/T::from(2.0).unwrap();
+
+            for iter in 0..self.order
+            {
+                let (abcsissa, weight) = gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
+
+                let args = abcsissa_coeff*T::from(abcsissa).unwrap() + intercept;
+
+                ans = ans + T::from(weight).unwrap()*func(args);
+            }
+
+            return abcsissa_coeff*ans;
+        }
+
+        let mut ans = T::zero();
+        let abcsissa_coeff = (integration_limit[number_of_integrations-1][1] - integration_limit[number_of_integrations-1][0])/T::from(2.0).unwrap();
+        //let intercept = (integration_limit[number_of_integrations-1][1] + integration_limit[number_of_integrations-1][0])/T::from(2.0).unwrap();
+
+        for iter in 0..self.order
+        {
+            let (_, weight) = gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
+
+            //let args = abcsissa_coeff*T::from(abcsissa).unwrap() + intercept;
+
+            ans = ans + T::from(weight).unwrap()*self.get_gauss_legendre(number_of_integrations-1, func, integration_limit);
+        }
+
+        return abcsissa_coeff*ans;
+    }
+}
+
+impl IntegratorSingleVariable for SingleVariableSolver
+{
+    fn get<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, func: &dyn Fn(T) -> T, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> Result<T, ErrorCode> 
+    {
+        self.check_for_errors(number_of_integrations, integration_limit)?;
+
+        match self.integration_method
+        {
+            GaussianQuadratureMethod::GaussLegendre => return Ok(self.get_gauss_legendre(number_of_integrations, func, integration_limit))
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct MultiVariableSolver
+{
+    order: usize,
+    integration_method: mode::GaussianQuadratureMethod
+}
+
+impl Default for MultiVariableSolver
+{
+    fn default() -> Self 
+    {
+        return MultiVariableSolver { order: DEFAULT_QUADRATURE_ORDERS, integration_method: mode::GaussianQuadratureMethod::GaussLegendre };
+    }
+}
+
+impl MultiVariableSolver
+{
+    pub fn get_order(&self) -> usize
+    {
+        return self.order;
+    }
+
+    pub fn set_order(&mut self, order: usize) 
+    {
+        self.order = order;
+    }
+
+    pub fn get_integration_method(&self) -> mode::GaussianQuadratureMethod
+    {
+        return self.integration_method;
+    }
+
+    pub fn set_integration_method(&mut self, integration_method: mode::GaussianQuadratureMethod)
+    {
+        self.integration_method = integration_method;
+    }
+
+    pub fn from_parameters(order: usize, integration_method: mode::GaussianQuadratureMethod) -> Self 
+    {
+        MultiVariableSolver
+        {
+            order: order,
+            integration_method: integration_method
+        }    
+    }
+
+    fn check_for_errors<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> Result<(), ErrorCode> 
+    {
+        //TODO
+        if !(1..=gl_table::MAX_GL_ORDER).contains(&self.order)
+        {
+            return Err(ErrorCode::GaussianQuadratureOrderOutOfRange);
+        }
+
+        for iter in 0..integration_limit.len()
+        {
+            if integration_limit[iter][0].abs() >= integration_limit[iter][1].abs()
+            {
+                return Err(ErrorCode::IntegrationLimitsIllDefined);
+            }
+        }
+
+        if NUM_INTEGRATIONS != number_of_integrations
+        {
+            return Err(ErrorCode::IncorrectNumberOfIntegrationLimits)
+        } 
+
+        return Ok(());        
+    }
+
+    fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, idx_to_integrate: [usize; NUM_INTEGRATIONS], func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; NUM_INTEGRATIONS], point: &[T; NUM_VARS]) -> T
+    {
+        if number_of_integrations == 1
+        {
+            let mut ans = T::zero();
+            let abcsissa_coeff = (integration_limits[0][1] - integration_limits[0][0])/T::from(2.0).unwrap();
+            let intercept = (integration_limits[0][1] + integration_limits[0][0])/T::from(2.0).unwrap();
+
+            let mut args = *point;
+
+            for iter in 0..self.order
+            {
+                let (abcsissa, weight) = gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
+
+                args[idx_to_integrate[0]] = abcsissa_coeff*T::from(abcsissa).unwrap() + intercept;
+
+                ans = ans + T::from(weight).unwrap()*func(&args);
+            }
+
+            return abcsissa_coeff*ans;
+        }
+
+        let mut ans = T::zero();
+        let abcsissa_coeff = (integration_limits[number_of_integrations-1][1] - integration_limits[number_of_integrations-1][0])/T::from(2.0).unwrap();
+        let intercept = (integration_limits[number_of_integrations-1][1] + integration_limits[number_of_integrations-1][0])/T::from(2.0).unwrap();
+
+        let mut args = *point;
+
+        for iter in 0..self.order
+        {
+            let (abcsissa, weight) = gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
+
+            args[idx_to_integrate[number_of_integrations-1]] = abcsissa_coeff*T::from(abcsissa).unwrap() + intercept;
+
+            ans = ans + T::from(weight).unwrap()*self.get_gauss_legendre(number_of_integrations-1, idx_to_integrate, func, integration_limits, &args);
+        }
+
+        return abcsissa_coeff*ans;
+    }
+}
+
+impl IntegratorMultiVariable for MultiVariableSolver
+{
+    fn get<T: ComplexFloat, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, idx_to_integrate: [usize; NUM_INTEGRATIONS], func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; NUM_INTEGRATIONS], point: &[T; NUM_VARS]) -> Result<T, ErrorCode> 
+    {
+        self.check_for_errors(number_of_integrations, integration_limits)?;
+
+        match self.integration_method
+        {
+            GaussianQuadratureMethod::GaussLegendre => return Ok(self.get_gauss_legendre(number_of_integrations, idx_to_integrate, func, integration_limits, point))
+        }
+    }
+}
+
+
+/*
 pub struct GaussianQuadrature
 {
     order: usize,
-    method_type: mode::GaussianMethod
+    method_type: mode::GaussianQuadratureMethod
 }
 
 impl GaussianQuadrature
@@ -22,17 +272,17 @@ impl GaussianQuadrature
         self.order = order;
     }
 
-    pub fn get_integration_method(&self) -> mode::GaussianMethod
+    pub fn get_integration_method(&self) -> mode::GaussianQuadratureMethod
     {
         return self.method_type;
     }
 
-    pub fn set_integration_method(&mut self, integration_method: mode::GaussianMethod)
+    pub fn set_integration_method(&mut self, integration_method: mode::GaussianQuadratureMethod)
     {
         self.method_type = integration_method;
     }
 
-    pub fn with_parameters(order: usize, integration_method: mode::GaussianMethod) -> Self 
+    pub fn with_parameters(order: usize, integration_method: mode::GaussianQuadratureMethod) -> Self 
     {
         GaussianQuadrature
         {
@@ -110,7 +360,7 @@ impl Integrator for GaussianQuadrature
 
         match self.method_type
         {
-            mode::GaussianMethod::GaussLegendre  => return self.get_gauss_legendre_1(func, 0, integration_limit, &point)
+            mode::GaussianQuadratureMethod::GaussLegendre  => return self.get_gauss_legendre_1(func, 0, integration_limit, &point)
         }
     }
 
@@ -120,7 +370,7 @@ impl Integrator for GaussianQuadrature
 
         match self.method_type
         {
-            mode::GaussianMethod::GaussLegendre  => return self.get_gauss_legendre_1(func, idx_to_integrate, integration_limit, &point)
+            mode::GaussianQuadratureMethod::GaussLegendre  => return self.get_gauss_legendre_1(func, idx_to_integrate, integration_limit, &point)
         }
     }
 
@@ -130,7 +380,7 @@ impl Integrator for GaussianQuadrature
 
         match self.method_type
         {
-            mode::GaussianMethod::GaussLegendre  => return self.get_gauss_legendre_2(func, [0, 0], integration_limits, &point)
+            mode::GaussianQuadratureMethod::GaussLegendre  => return self.get_gauss_legendre_2(func, [0, 0], integration_limits, &point)
         }
     }
 
@@ -138,7 +388,8 @@ impl Integrator for GaussianQuadrature
     {
         match self.method_type
         {
-            mode::GaussianMethod::GaussLegendre => return self.get_gauss_legendre_2(func, idx_to_integrate, integration_limits, point)
+            mode::GaussianQuadratureMethod::GaussLegendre => return self.get_gauss_legendre_2(func, idx_to_integrate, integration_limits, point)
         }
     }
 }
+*/

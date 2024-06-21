@@ -8,12 +8,14 @@ pub enum ErrorCode
 
     DerivateOrderCannotBeZero,
 
-    DerivateOrderOutOfrange,
+    IndexToDerivateIllFormed,
 
     //Can be returned by single_derivative, double_derivative, and triple_derivate modules.
     //When trying to get a partial derivative, the variable's index has to be provided by the user
     //Returned if the value of index is greater than the number of variables
     IndexToDerivativeOutOfRange,
+
+    IncorrectNumberOfIntegrationLimits,
 
     //Can be returned by the jacobian module
     //To compute a jacobian, user must pass in a vector of functions

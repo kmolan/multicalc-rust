@@ -16,9 +16,7 @@ pub enum IterativeMethod
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum GaussianMethod
+pub enum GaussianQuadratureMethod
 {
-    GaussLegendre, //Highly accurate, but only recommended for polynomial equations whose highest order is known. A specialist method with narrow use case.
+    GaussLegendre, //Extremely accurate, but only recommended for polynomial equations. A specialist method with a narrow use case.
 }
-
-pub const DEFAULT_TOTAL_ITERATIONS: u64 = 500;
