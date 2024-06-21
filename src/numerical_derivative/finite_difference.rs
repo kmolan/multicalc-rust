@@ -161,7 +161,7 @@ impl Default for MultiVariableSolver
         { 
             step_size: mode::DEFAULT_STEP_SIZE,
             method: mode::FiniteDifferenceMode::Central,
-            step_size_multiplier: 1.0
+            step_size_multiplier: mode::DEFAULT_STEP_SIZE_MULTIPLIER
         };
     }
 }

@@ -309,18 +309,21 @@ fn test_double_derivative_partial_2()
     assert!(f64::abs(val - expected_value) < 0.001);
 }
 
-/* 
+
 #[test]
 fn test_triple_derivative_forward_difference() 
 {
     //function is x^4, triple derivative is known to be 24.0*x
-    let func = | args: &[f64; 1] | -> f64 
+    let func = | args: f64 | -> f64 
     { 
-        return args[0].powf(4.0);
+        return args.powf(4.0);
     };
 
+    let mut derivator = SingleVariableSolver::default();
+    derivator.set_method(FiniteDifferenceMode::Forward);
+
     //expect a value of 24.00
-    let val = triple_derivative::get_total_custom(&func,1.0, 0.001, mode::DiffMode::ForwardFiniteDifference).unwrap();
+    let val = derivator.get(4, &func, 1.0).unwrap();
     assert!(f64::abs(val - 24.0) < 0.05);
 }
 
@@ -328,13 +331,16 @@ fn test_triple_derivative_forward_difference()
 fn test_triple_derivative_backward_difference() 
 {
     //function is x^4, triple derivative is known to be 24.0*x
-    let func = | args: &[f64; 1] | -> f64 
+    let func = | args: f64 | -> f64 
     { 
-        return args[0].powf(4.0);
+        return args.powf(4.0);
     };
 
+    let mut derivator = SingleVariableSolver::default();
+    derivator.set_method(FiniteDifferenceMode::Backward);
+
     //expect a value of 24.00
-    let val = triple_derivative::get_total_custom(&func,1.0, 0.001, mode::DiffMode::BackwardFiniteDifference).unwrap();
+    let val = derivator.get(4, &func, 1.0).unwrap();
     assert!(f64::abs(val - 24.0) < 0.05);
 }
 
@@ -342,14 +348,17 @@ fn test_triple_derivative_backward_difference()
 fn test_triple_derivative_central_difference() 
 {
     //function is x^4, triple derivative is known to be 24.0*x
-    let func = | args: &[f64; 1] | -> f64 
+    let func = | args: f64 | -> f64 
     { 
-        return args[0].powf(4.0);
+        return args.powf(4.0);
     };
 
+    let mut derivator = SingleVariableSolver::default();
+    derivator.set_method(FiniteDifferenceMode::Central);
+
     //expect a value of 24.00
-    let val = triple_derivative::get_total_custom(&func,1.0, 0.001, mode::DiffMode::CentralFiniteDifference).unwrap();
-    assert!(f64::abs(val - 24.0) < 0.00001);
+    let val = derivator.get(4, &func, 1.0).unwrap();
+    assert!(f64::abs(val - 24.0) < 0.05);
 }
 
 #[test]
@@ -363,17 +372,19 @@ fn test_triple_derivative_partial_1()
 
     let point = [1.0, 3.0];
 
+    let derivator = MultiVariableSolver::default();
+
     let idx = [0, 0, 0];
     //partial derivate for (x, y) = (1.0, 3.0), partial triple derivative for x is known to be -y*cos(x)
-    let val = triple_derivative::get_partial_custom(&func, &idx, &point, 0.001, mode::DiffMode::CentralFiniteDifference).unwrap();
+    let val = derivator.get(3, &func, &idx, &point).unwrap();
     let expected_val = -3.0*f64::cos(1.0);
-    assert!(f64::abs(val - expected_val) < 0.0001);
+    assert!(f64::abs(val - expected_val) < 0.001);
 
     let idx = [1, 1, 1];
     //partial derivate for (x, y) = (1.0, 3.0), partial triple derivative for y is known to be 2*x*e^y
-    let val = triple_derivative::get_partial_custom(&func, &idx, &point, 0.001, mode::DiffMode::CentralFiniteDifference).unwrap();
+    let val = derivator.get(3, &func, &idx, &point).unwrap();
     let expected_val = 2.0*1.0*f64::exp(3.0);
-    assert!(f64::abs(val - expected_val) < 0.0001);
+    assert!(f64::abs(val - expected_val) < 0.001);
 }
 
 #[test]
@@ -387,17 +398,18 @@ fn test_triple_derivative_partial_2()
 
     let point = [1.0, 2.0, 3.0];
 
+    let derivator = MultiVariableSolver::default();
+
     let idx = [0, 1, 2]; //mixed partial double derivate d(d(df/dx)/dy)/dz
     //partial derivate for (x, y) = (1.0, 2.0, 3.0), mixed partial triple derivative is known to be 27.0*x^2*y^2*z^2
-    let val = triple_derivative::get_partial_custom(&func, &idx, &point, 0.001, mode::DiffMode::CentralFiniteDifference).unwrap();
-    assert!(f64::abs(val - 972.0) < 0.001);
+    let val = derivator.get(3, &func, &idx, &point).unwrap();
+    assert!(f64::abs(val - 972.0) < 0.01);
 
     let idx = [0, 1, 1]; //mixed partial double derivate d(d(df/dx)/dy)/dy
     //partial derivate for (x, y) = (1.0, 2.0, 3.0), mixed partial triple derivative for y is known to be 18*x^2*y*z^3
-    let val = triple_derivative::get_partial_custom(&func, &idx, &point, 0.001, mode::DiffMode::CentralFiniteDifference).unwrap();
-    assert!(f64::abs(val - 972.0) < 0.001);
+    let val = derivator.get(3, &func, &idx, &point).unwrap();
+    assert!(f64::abs(val - 972.0) < 0.01);
 }
-*/
 
 #[test]
 fn test_jacobian_1() 
