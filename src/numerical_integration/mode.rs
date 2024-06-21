@@ -23,4 +23,7 @@ pub enum GaussianQuadratureMethod
 
     //Extremely accurate, but only recommended for integrands of the form ∫exp(-X*X)*f(X), where f(X) is a polynomial equations.
     GaussHermite,
+
+    //Extremely accurate, but only recommended for integrands of the form ∫exp(-X)*f(X), where f(X) is a polynomial equations.
+    GaussLaguerre,
 }

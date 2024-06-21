@@ -1,7 +1,7 @@
 use crate::numerical_integration::mode;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
-use crate::utils::{gh_table, gl_table as gl_table};
+use crate::utils::{gh_table, gl_table, gauss_laguerre_table};
 use crate::numerical_integration::integrator::*;
 
 use super::mode::GaussianQuadratureMethod;
@@ -157,6 +157,38 @@ impl SingleVariableSolver
 
         return abcsissa_coeff*ans;
     }
+
+    fn get_gauss_laguerre<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, func: &dyn Fn(T) -> T, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> T
+    {
+        if number_of_integrations == 1
+        {
+            let mut ans = T::zero();
+
+            for iter in 0..self.order
+            {
+                let (abcsissa, weight) = gauss_laguerre_table::get_gauss_laguerre_weights_and_abscissae(self.order, iter).unwrap();
+
+                let args = (integration_limit[0][0] - integration_limit[0][1])*T::log(T::from(abcsissa).unwrap() - integration_limit[0][1], T::abs(T::exp(T::one()))) - T::from(abcsissa).unwrap();
+
+                ans = ans + T::from(weight).unwrap()*func(args);
+            }
+
+            return ans;
+        }
+
+        let mut ans = T::zero();
+
+        for iter in 0..self.order
+        {
+            let (abcsissa, weight) = gauss_laguerre_table::get_gauss_laguerre_weights_and_abscissae(self.order, iter).unwrap();
+
+            //let args = (integration_limit[0][0] - integration_limit[0][1])*T::log(T::from(abcsissa).unwrap() - integration_limit[0][1], T::abs(T::exp(T::one()))) - T::from(abcsissa).unwrap();
+
+            ans = ans + T::from(weight).unwrap()*self.get_gauss_laguerre(number_of_integrations, func, integration_limit);
+        }
+
+        return ans;
+    }
 }
 
 impl IntegratorSingleVariable for SingleVariableSolver
@@ -168,7 +200,8 @@ impl IntegratorSingleVariable for SingleVariableSolver
         match self.integration_method
         {
             GaussianQuadratureMethod::GaussLegendre => return Ok(self.get_gauss_legendre(number_of_integrations, func, integration_limit)),
-            GaussianQuadratureMethod::GaussHermite => return Ok(self.get_gauss_hermite(number_of_integrations, func, integration_limit))
+            GaussianQuadratureMethod::GaussHermite => return Ok(self.get_gauss_hermite(number_of_integrations, func, integration_limit)),
+            GaussianQuadratureMethod::GaussLaguerre => return Ok(self.get_gauss_laguerre(number_of_integrations, func, integration_limit))
         }
     }
 }
@@ -293,7 +326,8 @@ impl IntegratorMultiVariable for MultiVariableSolver
         match self.integration_method
         {
             GaussianQuadratureMethod::GaussLegendre => return Ok(self.get_gauss_legendre(number_of_integrations, idx_to_integrate, func, integration_limits, point)),
-            GaussianQuadratureMethod::GaussHermite => return Ok(T::zero())
+            GaussianQuadratureMethod::GaussHermite => return Ok(T::zero()),
+            GaussianQuadratureMethod::GaussLaguerre => return Ok(T::zero())
         }
     }
 }
