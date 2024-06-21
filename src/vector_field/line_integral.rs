@@ -1,11 +1,12 @@
 use num_complex::ComplexFloat;
-use crate::utils::error_codes::ErrorCode;
+
 use crate::numerical_integration::iterative_integration::DEFAULT_TOTAL_ITERATIONS;
+use crate::utils::error_codes::*;
 
 ///solves for the line integral for parametrized curves in a 2D vector field
 /// 
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
+/// NOTE: Returns a Result<T, &'static str>
+/// Possible &'static str are:
 /// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
 /// 
 /// assume a vector field, V, and a curve, C
@@ -34,7 +35,7 @@ use crate::numerical_integration::iterative_integration::DEFAULT_TOTAL_ITERATION
 /// let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit).unwrap();
 /// assert!(f64::abs(val + 6.28) < 0.01);
 /// ```
-pub fn get_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2]) -> Result<T, ErrorCode>
+pub fn get_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2]) -> Result<T, &'static str>
 {
     return get_2d_custom(vector_field, transformations, integration_limit, DEFAULT_TOTAL_ITERATIONS);
 }
@@ -42,30 +43,30 @@ pub fn get_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transfo
 
 ///same as [get_2d()] but with the option to change the total iterations used, reserved for more advanced user
 /// The argument 'n' denotes the number of steps to be used. However, for [`mode::IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
+/// NOTE: Returns a Result<T, &'static str>
+/// Possible &'static str are:
 /// NumberOfStepsCannotBeZero -> if the number of steps is zero
 /// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
-pub fn get_2d_custom<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2], total_iterations: u64) -> Result<T, ErrorCode>
+pub fn get_2d_custom<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2], total_iterations: u64) -> Result<T, &'static str>
 {
     return Ok(get_partial_2d(vector_field, transformations, integration_limit, total_iterations, 0)?
             + get_partial_2d(vector_field, transformations, integration_limit, total_iterations, 1)?);
 }
 
 
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
+/// NOTE: Returns a Result<T, &'static str>
+/// Possible &'static str are:
 /// NumberOfStepsCannotBeZero -> if the number of steps is zero
 /// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
-pub fn get_partial_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2], max_iterations: u64, idx: usize) -> Result<T, ErrorCode>
+pub fn get_partial_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2], transformations: &[&dyn Fn(&T) -> T; 2], integration_limit: &[T; 2], max_iterations: u64, idx: usize) -> Result<T, &'static str>
 {
     if max_iterations == 0
     {
-        return Err(ErrorCode::NumberOfStepsCannotBeZero);
+        return Err(INTEGRATION_CANNOT_HAVE_ZERO_ITERATIONS);
     }
     if integration_limit[0].abs() >= integration_limit[1].abs()
     {
-        return Err(ErrorCode::IntegrationLimitsIllDefined);
+        return Err(INTEGRATION_LIMITS_ILL_DEFINED);
     }
 
     let mut ans = T::zero();
@@ -90,11 +91,11 @@ pub fn get_partial_2d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T) -> T; 2],
 
 
 ///same as [`get_2d`] but for parametrized curves in a 3D vector field
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
+/// NOTE: Returns a Result<T, &'static str>
+/// Possible &'static str are:
 /// NumberOfStepsCannotBeZero -> if the number of steps is zero
 /// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
-pub fn get_3d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T, &T) -> T; 3], transformations: &[&dyn Fn(&T) -> T; 3], integration_limit: &[T; 2]) -> Result<T, ErrorCode>
+pub fn get_3d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T, &T) -> T; 3], transformations: &[&dyn Fn(&T) -> T; 3], integration_limit: &[T; 2]) -> Result<T, &'static str>
 {
     return get_3d_custom(vector_field, transformations, integration_limit, DEFAULT_TOTAL_ITERATIONS);
 }
@@ -102,30 +103,30 @@ pub fn get_3d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T, &T) -> T; 3], tra
 
 ///same as [get_3d()] but with the option to change the total iterations used, reserved for more advanced user
 /// The argument 'n' denotes the number of steps to be used. However, for [`mode::IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
+/// NOTE: Returns a Result<T, &'static str>
+/// Possible &'static str are:
 /// NumberOfStepsCannotBeZero -> if the number of steps is zero
 /// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
-pub fn get_3d_custom<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T, &T) -> T; 3], transformations: &[&dyn Fn(&T) -> T; 3], integration_limit: &[T; 2], total_iterations: u64) -> Result<T, ErrorCode>
+pub fn get_3d_custom<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T, &T) -> T; 3], transformations: &[&dyn Fn(&T) -> T; 3], integration_limit: &[T; 2], total_iterations: u64) -> Result<T, &'static str>
 {
     return Ok(get_partial_3d(vector_field, transformations, integration_limit, total_iterations, 0)?
             + get_partial_3d(vector_field, transformations, integration_limit, total_iterations, 1)?
             + get_partial_3d(vector_field, transformations, integration_limit, total_iterations, 2)?);
 }
 
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
+/// NOTE: Returns a Result<T, &'static str>
+/// Possible &'static str are:
 /// NumberOfStepsCannotBeZero -> if the number of steps is zero
 /// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
-pub fn get_partial_3d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T, &T) -> T; 3], transformations: &[&dyn Fn(&T) -> T; 3], integration_limit: &[T; 2], steps: u64, idx: usize) -> Result<T, ErrorCode>
+pub fn get_partial_3d<T: ComplexFloat>(vector_field: &[&dyn Fn(&T, &T, &T) -> T; 3], transformations: &[&dyn Fn(&T) -> T; 3], integration_limit: &[T; 2], steps: u64, idx: usize) -> Result<T, &'static str>
 {
     if steps == 0
     {
-        return Err(ErrorCode::NumberOfStepsCannotBeZero);
+        return Err(INTEGRATION_CANNOT_HAVE_ZERO_ITERATIONS);
     }
     if integration_limit[0].abs() >= integration_limit[1].abs()
     {
-        return Err(ErrorCode::IntegrationLimitsIllDefined);
+        return Err(INTEGRATION_LIMITS_ILL_DEFINED);
     }
 
     let mut ans = T::zero();

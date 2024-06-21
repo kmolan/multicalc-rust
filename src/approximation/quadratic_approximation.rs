@@ -1,6 +1,6 @@
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::numerical_derivative::hessian::Hessian;
-use crate::utils::error_codes::ErrorCode;
+
 use num_complex::ComplexFloat;
 
 #[derive(Debug)]
@@ -114,8 +114,8 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D>
     /// L = linear_coefficients[0]*var_1 + linear_coefficients[1]*var_2 + ... + linear_coefficients[n-1]*var_n
     /// Q = quadratic_coefficients[0][0]*var_1*var_1 + quadratic_coefficients[0][1]*var_1*var_2 + ... + quadratic_coefficients[n-1][n-1]*var_n*var_n
     ///
-    /// NOTE: Returns a Result<T, ErrorCode>
-    /// Possible ErrorCode are:
+    /// NOTE: Returns a Result<T, &'static str>
+    /// Possible &'static str are:
     /// NumberOfStepsCannotBeZero -> if the derivative step size is zero
     /// 
     ///example function is e^(x/2) + sin(y) + 2.0*z, which we want to approximate. First define the function:
@@ -145,7 +145,7 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D>
     /// to see how the [QuadraticApproximationResult::quadratic_coefficients] matrix should be used, refer to [`QuadraticApproximationResult::get_prediction_metrics()`]
     /// or refer to its tests.
     ///
-    pub fn get<T: ComplexFloat, const NUM_VARS: usize>(&self, function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS]) -> Result<QuadraticApproximationResult<T, NUM_VARS>, ErrorCode>
+    pub fn get<T: ComplexFloat, const NUM_VARS: usize>(&self, function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS]) -> Result<QuadraticApproximationResult<T, NUM_VARS>, &'static str>
     {
         let mut intercept_ = function(point);
 

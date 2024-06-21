@@ -1,7 +1,9 @@
-pub const MAX_GH_ORDER: usize = 30;
-use crate::utils::error_codes::ErrorCode;
+use crate::utils::error_codes::GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE;
 
-pub fn get_gauss_laguerre_weights_and_abscissae(order: usize, index: usize) -> Result<(f64, f64), ErrorCode>
+pub const MAX_GH_ORDER: usize = 30;
+
+
+pub fn get_gauss_laguerre_weights_and_abscissae(order: usize, index: usize) -> Result<(f64, f64), &'static str>
 {
     let ref_abs: f64 = match order 
     {
@@ -35,7 +37,7 @@ pub fn get_gauss_laguerre_weights_and_abscissae(order: usize, index: usize) -> R
         28 => LAGUERRE_ABSCISSA_28[index],
         29 => LAGUERRE_ABSCISSA_29[index],
         30 => LAGUERRE_ABSCISSA_30[index],
-        _ => return Err(ErrorCode::GaussianQuadratureOrderOutOfRange),
+        _ => return Err(GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE),
     };
 
     let ref_weight: f64 = match order 
@@ -70,7 +72,7 @@ pub fn get_gauss_laguerre_weights_and_abscissae(order: usize, index: usize) -> R
         28 => LAGUERRE_WEIGHT_28[index],
         29 => LAGUERRE_WEIGHT_29[index],
         30 => LAGUERRE_WEIGHT_30[index],
-        _ => return Err(ErrorCode::GaussianQuadratureOrderOutOfRange),
+        _ => return Err(GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE),
     };
 
     return Ok((ref_abs, ref_weight));

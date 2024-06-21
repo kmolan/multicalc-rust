@@ -1,5 +1,6 @@
-use crate::numerical_derivative::mode as mode;
-use crate::utils::error_codes::ErrorCode;
+use crate::numerical_derivative::mode; 
+use crate::utils::error_codes::*;
+
 use num_complex::ComplexFloat;
 use crate::numerical_derivative::derivator::*;
 
@@ -126,11 +127,11 @@ impl SingleVariableSolver
 
 impl DerivatorSingleVariable for SingleVariableSolver
 {
-    fn get<T: ComplexFloat>(&self, order: usize, func: &dyn Fn(T) -> T, point: T) -> Result<T, ErrorCode>
+    fn get<T: ComplexFloat>(&self, order: usize, func: &dyn Fn(T) -> T, point: T) -> Result<T, &'static str>
     {
         if self.step_size == 0.0
         {
-            return Err(ErrorCode::NumberOfStepsCannotBeZero);
+            return Err(NUMBER_OF_DERIVATIVE_STEPS_CANNOT_BE_ZERO);
         }
 
         match self.method
@@ -291,26 +292,26 @@ impl MultiVariableSolver
 
 impl DerivatorMultiVariable for MultiVariableSolver
 {
-    fn get<T: ComplexFloat, const NUM_VARS: usize, const NUM_ORDER: usize>(&self, order: usize, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: &[usize; NUM_ORDER], point: &[T; NUM_VARS]) -> Result<T, ErrorCode> 
+    fn get<T: ComplexFloat, const NUM_VARS: usize, const NUM_ORDER: usize>(&self, order: usize, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_derivate: &[usize; NUM_ORDER], point: &[T; NUM_VARS]) -> Result<T, &'static str> 
     {
         if self.step_size == 0.0
         {
-            return Err(ErrorCode::NumberOfStepsCannotBeZero);
+            return Err(NUMBER_OF_DERIVATIVE_STEPS_CANNOT_BE_ZERO);
         }
         if order == 0
         {
-            return Err(ErrorCode::DerivateOrderCannotBeZero);
+            return Err(DERIVATE_ORDER_CANNOT_BE_ZERO);
         }
         if order != NUM_ORDER
         {
-            return Err(ErrorCode::IndexToDerivateIllFormed);
+            return Err(INDEX_TO_DERIVATE_ILL_FORMED);
         }
         
         for iter in 0..idx_to_derivate.len()
         {
             if idx_to_derivate[iter] >= point.len()
             {
-                return Err(ErrorCode::IndexToDerivativeOutOfRange);
+                return Err(INDEX_TO_DERIVATIVE_OUT_OF_RANGE);
             }
         }
 

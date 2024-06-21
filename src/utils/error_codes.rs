@@ -1,32 +1,11 @@
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ErrorCode
-{
-    //Can be returned by every module in this crate
-    //For methods utilizing derivatives, it means that the derivative step size is zero
-    //For methods utilizing integration, it means that number of iterations is zero
-    NumberOfStepsCannotBeZero,
+pub const NUMBER_OF_DERIVATIVE_STEPS_CANNOT_BE_ZERO: &str = "Cannot specify the step size for differentiation as zero!";
+pub const DERIVATE_ORDER_CANNOT_BE_ZERO: &str = "The 'order' argument for computing the derivative cannot be zero!";
+pub const INDEX_TO_DERIVATE_ILL_FORMED: &str = "The 'idx_to_derivate' argument length must match exactly with the 'order' argument!";
+pub const INDEX_TO_DERIVATIVE_OUT_OF_RANGE: &str = "One of the values in 'idx_to_derivate' argument is greater than the length of 'point' argument!";
 
-    DerivateOrderCannotBeZero,
+pub const INTEGRATION_CANNOT_HAVE_ZERO_ITERATIONS: &str = "Total number of iterations cannot be zero!";
+pub const INCORRECT_NUMBER_OF_INTEGRATION_LIMITS: &str = "The 'number_of_integrations' argument value must match the length of 'integration_limit' exactly!";
+pub const INTEGRATION_LIMITS_ILL_DEFINED: &str = "Each lower integration limit must be strictly less than its upper limit!";
+pub const GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE: &str = "Gaussian Quadrature for this order is not supported!";
 
-    IndexToDerivateIllFormed,
-
-    //Can be returned by single_derivative, double_derivative, and triple_derivate modules.
-    //When trying to get a partial derivative, the variable's index has to be provided by the user
-    //Returned if the value of index is greater than the number of variables
-    IndexToDerivativeOutOfRange,
-
-    IncorrectNumberOfIntegrationLimits,
-
-    //Can be returned by the jacobian module
-    //To compute a jacobian, user must pass in a vector of functions
-    //Returned if that vector of functions is empty
-    VectorOfFunctionsCannotBeEmpty,
-
-    //Can be returned by single_integration, double_integration, line_integral and flux_integral modules
-    //Returned if the integration lower limit is not strictly lesser than the integration upper limit
-    IntegrationLimitsIllDefined,
-
-    //Can be returned by single_integration and double_integration if using the Gauss Legendre integration method
-    //Returned if requested order of integration is < 2 or > 15
-    GaussianQuadratureOrderOutOfRange
-}
+pub const VECTOR_OF_FUNCTIONS_CANNOT_BE_EMPTY: &str = "Cannot pass in an empty 'function_matrix' argument!";

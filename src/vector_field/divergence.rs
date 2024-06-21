@@ -1,4 +1,4 @@
-use crate::utils::error_codes::ErrorCode;
+
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use num_complex::ComplexFloat;
 
@@ -9,8 +9,8 @@ use num_complex::ComplexFloat;
 /// V is characterized in 3 dimensions: Vx, Vy and Vz
 /// The divergence is then defined as dVx/dx + dVy/dy + dVz/dz
 /// 
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
+/// NOTE: Returns a Result<T, &'static str>
+/// Possible &'static str are:
 /// NumberOfStepsCannotBeZero -> if the derivative step size is zero
 /// 
 /// Example:
@@ -44,7 +44,7 @@ use num_complex::ComplexFloat;
 /// let val = divergence::get_3d(&vector_field_matrix, &point);
 /// assert!(f64::abs(val - 2.00) < 0.00001);
 /// ```
-pub fn get_3d<T, D, const NUM_VARS: usize>(derivator: D, vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 3], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+pub fn get_3d<T, D, const NUM_VARS: usize>(derivator: D, vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 3], point: &[T; NUM_VARS]) -> Result<T, &'static str>
 where T: ComplexFloat, D: DerivatorMultiVariable
 {
     return Ok(derivator.get(1, vector_field[0], &[0], point)?
@@ -59,8 +59,8 @@ where T: ComplexFloat, D: DerivatorMultiVariable
 /// V is characterized in 3 dimensions: Vx and Vy
 /// The divergence is then defined as dVx/dx + dVy/dy
 /// 
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
+/// NOTE: Returns a Result<T, &'static str>
+/// Possible &'static str are:
 /// NumberOfStepsCannotBeZero -> if the derivative step size is zero
 /// 
 /// Example:
@@ -87,7 +87,7 @@ where T: ComplexFloat, D: DerivatorMultiVariable
 /// let val = divergence::get_2d(&vector_field_matrix, &point);
 /// assert!(f64::abs(val - 0.00) < 0.00001);
 /// ```
-pub fn get_2d<T, D, const NUM_VARS: usize>(derivator: D, vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+pub fn get_2d<T, D, const NUM_VARS: usize>(derivator: D, vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str>
 where T: ComplexFloat, D: DerivatorMultiVariable
 {
     return Ok(derivator.get(1, vector_field[0], &[0], point)? + derivator.get(1, vector_field[1], &[1], point)?);

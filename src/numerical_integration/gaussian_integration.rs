@@ -1,10 +1,9 @@
-use crate::numerical_integration::mode;
-use crate::utils::error_codes::ErrorCode;
+use crate::numerical_integration::mode::GaussianQuadratureMethod;
 use num_complex::ComplexFloat;
 use crate::utils::{gh_table, gl_table, gauss_laguerre_table};
 use crate::numerical_integration::integrator::*;
+use crate::utils::error_codes::*;
 
-use super::mode::GaussianQuadratureMethod;
 
 pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;
 
@@ -12,14 +11,14 @@ pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;
 pub struct SingleVariableSolver
 {
     order: usize,
-    integration_method: mode::GaussianQuadratureMethod
+    integration_method: GaussianQuadratureMethod
 }
 
 impl Default for SingleVariableSolver
 {
     fn default() -> Self 
     {
-        return SingleVariableSolver { order: DEFAULT_QUADRATURE_ORDERS, integration_method: mode::GaussianQuadratureMethod::GaussLegendre };
+        return SingleVariableSolver { order: DEFAULT_QUADRATURE_ORDERS, integration_method: GaussianQuadratureMethod::GaussLegendre };
     }
 }
 
@@ -35,17 +34,17 @@ impl SingleVariableSolver
         self.order = order;
     }
 
-    pub fn get_integration_method(&self) -> mode::GaussianQuadratureMethod
+    pub fn get_integration_method(&self) -> GaussianQuadratureMethod
     {
         return self.integration_method;
     }
 
-    pub fn set_integration_method(&mut self, integration_method: mode::GaussianQuadratureMethod)
+    pub fn set_integration_method(&mut self, integration_method: GaussianQuadratureMethod)
     {
         self.integration_method = integration_method;
     }
 
-    pub fn from_parameters(order: usize, integration_method: mode::GaussianQuadratureMethod) -> Self 
+    pub fn from_parameters(order: usize, integration_method: GaussianQuadratureMethod) -> Self 
     {
         SingleVariableSolver
         {
@@ -54,25 +53,25 @@ impl SingleVariableSolver
         }    
     }
 
-    fn check_for_errors<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> Result<(), ErrorCode> 
+    fn check_for_errors<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> Result<(), &'static str> 
     {
         //TODO
         if !(1..=gl_table::MAX_GL_ORDER).contains(&self.order)
         {
-            return Err(ErrorCode::GaussianQuadratureOrderOutOfRange);
+            return Err(GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE);
         }
 
         for iter in 0..integration_limit.len()
         {
             if integration_limit[iter][0].abs() >= integration_limit[iter][1].abs()
             {
-                return Err(ErrorCode::IntegrationLimitsIllDefined);
+                return Err(INTEGRATION_LIMITS_ILL_DEFINED);
             }
         }
 
         if NUM_INTEGRATIONS != number_of_integrations
         {
-            return Err(ErrorCode::IncorrectNumberOfIntegrationLimits)
+            return Err(INCORRECT_NUMBER_OF_INTEGRATION_LIMITS)
         } 
 
         return Ok(());        
@@ -193,7 +192,7 @@ impl SingleVariableSolver
 
 impl IntegratorSingleVariable for SingleVariableSolver
 {
-    fn get<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, func: &dyn Fn(T) -> T, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> Result<T, ErrorCode> 
+    fn get<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, func: &dyn Fn(T) -> T, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> Result<T, &'static str> 
     {
         self.check_for_errors(number_of_integrations, integration_limit)?;
 
@@ -210,14 +209,14 @@ impl IntegratorSingleVariable for SingleVariableSolver
 pub struct MultiVariableSolver
 {
     order: usize,
-    integration_method: mode::GaussianQuadratureMethod
+    integration_method: GaussianQuadratureMethod
 }
 
 impl Default for MultiVariableSolver
 {
     fn default() -> Self 
     {
-        return MultiVariableSolver { order: DEFAULT_QUADRATURE_ORDERS, integration_method: mode::GaussianQuadratureMethod::GaussLegendre };
+        return MultiVariableSolver { order: DEFAULT_QUADRATURE_ORDERS, integration_method: GaussianQuadratureMethod::GaussLegendre };
     }
 }
 
@@ -233,17 +232,17 @@ impl MultiVariableSolver
         self.order = order;
     }
 
-    pub fn get_integration_method(&self) -> mode::GaussianQuadratureMethod
+    pub fn get_integration_method(&self) -> GaussianQuadratureMethod
     {
         return self.integration_method;
     }
 
-    pub fn set_integration_method(&mut self, integration_method: mode::GaussianQuadratureMethod)
+    pub fn set_integration_method(&mut self, integration_method: GaussianQuadratureMethod)
     {
         self.integration_method = integration_method;
     }
 
-    pub fn from_parameters(order: usize, integration_method: mode::GaussianQuadratureMethod) -> Self 
+    pub fn from_parameters(order: usize, integration_method: GaussianQuadratureMethod) -> Self 
     {
         MultiVariableSolver
         {
@@ -252,25 +251,25 @@ impl MultiVariableSolver
         }    
     }
 
-    fn check_for_errors<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> Result<(), ErrorCode> 
+    fn check_for_errors<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> Result<(), &'static str> 
     {
         //TODO
         if !(1..=gl_table::MAX_GL_ORDER).contains(&self.order)
         {
-            return Err(ErrorCode::GaussianQuadratureOrderOutOfRange);
+            return Err(GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE);
         }
 
         for iter in 0..integration_limit.len()
         {
             if integration_limit[iter][0].abs() >= integration_limit[iter][1].abs()
             {
-                return Err(ErrorCode::IntegrationLimitsIllDefined);
+                return Err(INTEGRATION_LIMITS_ILL_DEFINED);
             }
         }
 
         if NUM_INTEGRATIONS != number_of_integrations
         {
-            return Err(ErrorCode::IncorrectNumberOfIntegrationLimits)
+            return Err(INCORRECT_NUMBER_OF_INTEGRATION_LIMITS)
         } 
 
         return Ok(());        
@@ -319,7 +318,7 @@ impl MultiVariableSolver
 
 impl IntegratorMultiVariable for MultiVariableSolver
 {
-    fn get<T: ComplexFloat, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, idx_to_integrate: [usize; NUM_INTEGRATIONS], func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; NUM_INTEGRATIONS], point: &[T; NUM_VARS]) -> Result<T, ErrorCode> 
+    fn get<T: ComplexFloat, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, idx_to_integrate: [usize; NUM_INTEGRATIONS], func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; NUM_INTEGRATIONS], point: &[T; NUM_VARS]) -> Result<T, &'static str> 
     {
         self.check_for_errors(number_of_integrations, integration_limits)?;
 
@@ -371,23 +370,23 @@ impl GaussianQuadrature
         }    
     }
 
-    fn check_for_errors<T: ComplexFloat>(&self, integration_limit: &[T; 2]) -> Result<(), ErrorCode> 
+    fn check_for_errors<T: ComplexFloat>(&self, integration_limit: &[T; 2]) -> Result<(), &'static str> 
     {
         if !(1..=gl_table::MAX_GL_ORDER).contains(&self.order)
         {
-            return Err(ErrorCode::GaussianQuadratureOrderOutOfRange);
+            return Err(&'static str::GaussianQuadratureOrderOutOfRange);
         }
 
         if integration_limit[0].abs() >= integration_limit[1].abs()
         {
-            return Err(ErrorCode::IntegrationLimitsIllDefined);
+            return Err(&'static str::IntegrationLimitsIllDefined);
         }
 
         return Ok(());        
     }
 
     //must know the highest order of the equation
-    fn get_gauss_legendre_1<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    fn get_gauss_legendre_1<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str>
     {
         self.check_for_errors(integration_limit)?;
 
@@ -409,7 +408,7 @@ impl GaussianQuadrature
         return Ok(abcsissa_coeff*ans);
     }
 
-    fn get_gauss_legendre_2<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    fn get_gauss_legendre_2<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str>
     {
         let mut ans = T::zero();
         let abcsissa_coeff = (integration_limits[0][1] - integration_limits[0][0])/T::from(2.0).unwrap();
@@ -432,7 +431,7 @@ impl GaussianQuadrature
 
 impl Integrator for GaussianQuadrature
 {
-    fn get_single_total<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limit: &[T; 2]) -> Result<T, ErrorCode>
+    fn get_single_total<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limit: &[T; 2]) -> Result<T, &'static str>
     {
         self.check_for_errors(integration_limit)?;
 
@@ -444,7 +443,7 @@ impl Integrator for GaussianQuadrature
         }
     }
 
-    fn get_single_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    fn get_single_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str>
     {
         self.check_for_errors(integration_limit)?;
 
@@ -454,7 +453,7 @@ impl Integrator for GaussianQuadrature
         }
     }
 
-    fn get_double_total<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; 2]) -> Result<T, ErrorCode> 
+    fn get_double_total<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; 2]) -> Result<T, &'static str> 
     {
         let point = [integration_limits[0][1]; NUM_VARS];
 
@@ -464,7 +463,7 @@ impl Integrator for GaussianQuadrature
         }
     }
 
-    fn get_double_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode> 
+    fn get_double_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str> 
     {
         match self.method_type
         {

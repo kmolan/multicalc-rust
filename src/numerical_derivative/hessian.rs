@@ -1,5 +1,5 @@
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-use crate::utils::error_codes::ErrorCode;
+
 use num_complex::ComplexFloat;
 
 pub struct Hessian<D: DerivatorMultiVariable>
@@ -30,8 +30,8 @@ impl<D: DerivatorMultiVariable> Hessian<D>
     ///                                            [d2f/dvar1*dvarN, d2f/dvar2*dvarN, ... , dfM/d2varN]]
     /// where 'N' is the total number of variables
     /// 
-    /// NOTE: Returns a Result<T, ErrorCode>
-    /// Possible ErrorCode are:
+    /// NOTE: Returns a Result<T, &'static str>
+    /// Possible &'static str are:
     /// NumberOfStepsCannotBeZero -> if the derivative step size is zero
     /// 
     /// assume our function is y*sin(x) + 2*x*e^y. First define the function
@@ -61,7 +61,7 @@ impl<D: DerivatorMultiVariable> Hessian<D>
     /// let result = hessian::get(&my_func, &points);
     ///``` 
     /// 
-    pub fn get<T: ComplexFloat, const NUM_VARS: usize>(&self, function: &dyn Fn(&[T; NUM_VARS]) -> T, vector_of_points: &[T; NUM_VARS]) -> Result<[[T; NUM_VARS]; NUM_VARS], ErrorCode>
+    pub fn get<T: ComplexFloat, const NUM_VARS: usize>(&self, function: &dyn Fn(&[T; NUM_VARS]) -> T, vector_of_points: &[T; NUM_VARS]) -> Result<[[T; NUM_VARS]; NUM_VARS], &'static str>
     {
         let mut result = [[T::from(f64::NAN).unwrap(); NUM_VARS]; NUM_VARS];
 

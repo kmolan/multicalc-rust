@@ -1,4 +1,4 @@
-use crate::utils::error_codes::ErrorCode;
+
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use num_complex::ComplexFloat;
 
@@ -12,8 +12,8 @@ use num_complex::ComplexFloat;
 /// Cy = dVx/dz - dVz/dVx
 /// Cz = dVy/dx - dVx/dVy
 /// 
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
+/// NOTE: Returns a Result<T, &'static str>
+/// Possible &'static str are:
 /// NumberOfStepsCannotBeZero -> if the derivative step size is zero
 /// 
 /// Example:
@@ -48,7 +48,7 @@ use num_complex::ComplexFloat;
 /// assert!(f64::abs(val[1] - 0.00) < 0.00001);
 /// assert!(f64::abs(val[2] + 2.00) < 0.00001);
 /// ```
-pub fn get_3d<T, D, const NUM_VARS: usize>(derivator: D, vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 3], point: &[T; NUM_VARS]) -> Result<[T; 3], ErrorCode>
+pub fn get_3d<T, D, const NUM_VARS: usize>(derivator: D, vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 3], point: &[T; NUM_VARS]) -> Result<[T; 3], &'static str>
 where T: ComplexFloat, D: DerivatorMultiVariable
 {
     let mut ans = [T::zero(); 3];
@@ -67,8 +67,8 @@ where T: ComplexFloat, D: DerivatorMultiVariable
 /// V is characterized in 3 dimensions: Vx and Vy
 /// The curl is then defined as dVy/dx - dVx/dVy
 /// 
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
+/// NOTE: Returns a Result<T, &'static str>
+/// Possible &'static str are:
 /// NumberOfStepsCannotBeZero -> if the derivative step size is zero
 /// 
 /// Example:
@@ -96,7 +96,7 @@ where T: ComplexFloat, D: DerivatorMultiVariable
 /// let val = curl::get_2d(&vector_field_matrix, &point);
 /// assert!(f64::abs(val + 2.0) < 0.00001);
 /// ```
-pub fn get_2d<T, D, const NUM_VARS: usize>(derivator: D, vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+pub fn get_2d<T, D, const NUM_VARS: usize>(derivator: D, vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str>
 where T: ComplexFloat, D: DerivatorMultiVariable
 {
     return Ok(derivator.get(1, vector_field[1], &[0], point)? - derivator.get(1, vector_field[0], &[1], point)?);

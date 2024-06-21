@@ -1,8 +1,9 @@
 use crate::numerical_integration::mode::*;
-use crate::utils::error_codes::ErrorCode;
+
 use crate::numerical_integration::iterative_integration;
 use crate::numerical_integration::gaussian_integration;
 use crate::numerical_integration::integrator::*;
+use crate::utils::error_codes::*;
  
 #[test]
 fn test_booles_integration_1()
@@ -351,7 +352,7 @@ fn test_error_checking_1()
     //expect failure because integration interval is ill-defined (lower limit is higher than the upper limit)
     let result = integrator.get_single(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == ErrorCode::IntegrationLimitsIllDefined);
+    assert!(result.unwrap_err() == INTEGRATION_LIMITS_ILL_DEFINED);
 }
 
 #[test]
@@ -370,7 +371,7 @@ fn test_error_checking_2()
     //expect failure because number of steps is 0
     let result = integrator.get_single(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == ErrorCode::NumberOfStepsCannotBeZero);
+    assert!(result.unwrap_err() == INTEGRATION_CANNOT_HAVE_ZERO_ITERATIONS);
 }
 
 //TODO: add more tests
@@ -390,7 +391,7 @@ fn test_error_checking_3()
     let integrator = gaussian_integration::SingleVariableSolver::from_parameters(0, GaussianQuadratureMethod::GaussLegendre);
     let result = integrator.get_single(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == ErrorCode::GaussianQuadratureOrderOutOfRange);
+    assert!(result.unwrap_err() == GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE);
 }
 
 #[test]
@@ -408,5 +409,5 @@ fn test_error_checking_4()
     let integrator = gaussian_integration::SingleVariableSolver::from_parameters(31, GaussianQuadratureMethod::GaussLegendre);
     let result = integrator.get_single(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == ErrorCode::GaussianQuadratureOrderOutOfRange);
+    assert!(result.unwrap_err() == GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE);
 }

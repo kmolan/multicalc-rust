@@ -1,9 +1,11 @@
 use crate::numerical_derivative::hessian::Hessian;
 use crate::numerical_derivative::jacobian::Jacobian;
 use crate::numerical_derivative::mode::*;
-use crate::utils::error_codes::ErrorCode;
+
 use crate::numerical_derivative::derivator::*;
 use crate::numerical_derivative::finite_difference::*;
+
+use crate::utils::error_codes::*;
 
 #[cfg(feature = "heap")]
 use std::{boxed::Box, vec::Vec};
@@ -129,7 +131,7 @@ fn test_single_derivative_error_1()
     //expect failure because step size is zero
     let result = derivator.get(1, &func, &[0], &point);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == ErrorCode::NumberOfStepsCannotBeZero);
+    assert!(result.unwrap_err() == NUMBER_OF_DERIVATIVE_STEPS_CANNOT_BE_ZERO);
 }
 
 #[test]
@@ -148,7 +150,7 @@ fn test_single_derivative_error_2()
     //expect failure because idx_to_derivate is greater than the number of points
     let result = derivator.get(1, &func, &[0; 4], &point);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == ErrorCode::IndexToDerivateIllFormed);
+    assert!(result.unwrap_err() == INDEX_TO_DERIVATE_ILL_FORMED);
 }
 
 #[test]
@@ -167,7 +169,7 @@ fn test_single_derivative_error_3()
     //expect failure because order is zero
     let result = derivator.get(0, &func, &[0; 2], &point);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == ErrorCode::DerivateOrderCannotBeZero);
+    assert!(result.unwrap_err() == DERIVATE_ORDER_CANNOT_BE_ZERO);
 }
 
 #[test]
@@ -186,7 +188,7 @@ fn test_single_derivative_error_4()
     //TODO description
     let result = derivator.get(5, &func, &[0; 2], &point);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == ErrorCode::IndexToDerivateIllFormed);
+    assert!(result.unwrap_err() == INDEX_TO_DERIVATE_ILL_FORMED);
 }
 
 #[test]
@@ -487,7 +489,7 @@ fn test_jacobian_1_error()
     let result = jacobian.get(&function_matrix, &points);
 
     assert!(result.is_err());
-    assert!(result.unwrap_err() == ErrorCode::VectorOfFunctionsCannotBeEmpty);
+    assert!(result.unwrap_err() == VECTOR_OF_FUNCTIONS_CANNOT_BE_EMPTY);
 }
 
 #[test]

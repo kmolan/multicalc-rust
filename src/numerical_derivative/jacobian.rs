@@ -1,5 +1,6 @@
-use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-use crate::utils::error_codes::ErrorCode;
+use crate::numerical_derivative::derivator::DerivatorMultiVariable; 
+use crate::utils::error_codes::*;
+
 use num_complex::ComplexFloat;
 
 #[cfg(feature = "heap")]
@@ -34,8 +35,8 @@ impl<D: DerivatorMultiVariable> Jacobian<D>
     /// 
     /// where 'N' is the total number of variables, and 'M' is the total number of functions
     /// 
-    /// NOTE: Returns a Result<T, ErrorCode>
-    /// Possible ErrorCode are:
+    /// NOTE: Returns a Result<T, &'static str>
+    /// Possible &'static str are:
     /// VectorOfFunctionsCannotBeEmpty -> if function_matrix argument is an empty array
     /// NumberOfStepsCannotBeZero -> if the derivative step size is zero
     /// 
@@ -81,11 +82,11 @@ impl<D: DerivatorMultiVariable> Jacobian<D>
     /// let result = jacobian::get(&function_matrix, &points).unwrap();
     ///``` 
     /// 
-    pub fn get<T: ComplexFloat, const NUM_FUNCS: usize, const NUM_VARS: usize>(&self, function_matrix: &[&dyn Fn(&[T; NUM_VARS]) -> T; NUM_FUNCS], vector_of_points: &[T; NUM_VARS]) -> Result<[[T; NUM_VARS]; NUM_FUNCS], ErrorCode>
+    pub fn get<T: ComplexFloat, const NUM_FUNCS: usize, const NUM_VARS: usize>(&self, function_matrix: &[&dyn Fn(&[T; NUM_VARS]) -> T; NUM_FUNCS], vector_of_points: &[T; NUM_VARS]) -> Result<[[T; NUM_VARS]; NUM_FUNCS], &'static str>
     {
         if function_matrix.is_empty()
         {
-            return Err(ErrorCode::VectorOfFunctionsCannotBeEmpty);
+            return Err(VECTOR_OF_FUNCTIONS_CANNOT_BE_EMPTY);
         }
 
         let mut result = [[T::zero(); NUM_VARS]; NUM_FUNCS];
@@ -111,16 +112,16 @@ impl<D: DerivatorMultiVariable> Jacobian<D>
     /// 
     /// where 'N' is the total number of variables, and 'M' is the total number of functions
     /// 
-    /// NOTE: Returns a Result<T, ErrorCode>
-    /// Possible ErrorCode are:
+    /// NOTE: Returns a Result<T, &'static str>
+    /// Possible &'static str are:
     /// VectorOfFunctionsCannotBeEmpty -> if function_matrix argument is an empty array
     /// NumberOfStepsCannotBeZero -> if the derivative step size is zero
     #[cfg(feature = "heap")]
-    pub fn get_on_heap<T: ComplexFloat, const NUM_VARS: usize>(&self, function_matrix: &Vec<Box<dyn Fn(&[T; NUM_VARS]) -> T>>, vector_of_points: &[T; NUM_VARS]) -> Result<Vec<Vec<T>>, ErrorCode>
+    pub fn get_on_heap<T: ComplexFloat, const NUM_VARS: usize>(&self, function_matrix: &Vec<Box<dyn Fn(&[T; NUM_VARS]) -> T>>, vector_of_points: &[T; NUM_VARS]) -> Result<Vec<Vec<T>>, &'static str>
     {    
         if function_matrix.is_empty()
         {
-            return Err(ErrorCode::VectorOfFunctionsCannotBeEmpty);
+            return Err(VECTOR_OF_FUNCTIONS_CANNOT_BE_EMPTY);
         }
 
         let num_funcs = function_matrix.len();

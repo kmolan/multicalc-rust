@@ -1,9 +1,11 @@
 use crate::numerical_derivative::finite_difference::MultiVariableSolver;
-use crate::utils::error_codes::ErrorCode;
+
 use crate::vector_field::divergence;
 use crate::vector_field::line_integral;
 use crate::vector_field::flux_integral;
 use crate::vector_field::curl;
+
+use crate::utils::error_codes::*;
 
 #[test]
 fn test_line_integral_1()
@@ -39,7 +41,7 @@ fn test_line_integral_error_1()
     //expect error because number of steps is zero
     let val = line_integral::get_2d_custom(&vector_field_matrix, &transformation_matrix, &integration_limit, 0);
     assert!(val.is_err());
-    assert!(val.unwrap_err() == ErrorCode::NumberOfStepsCannotBeZero);
+    assert!(val.unwrap_err() == INTEGRATION_CANNOT_HAVE_ZERO_ITERATIONS);
 }
 
 #[test]
@@ -58,7 +60,7 @@ fn test_line_integral_error_2()
     //expect error because integration limits are ill-defined (lower limit higher than upper limit)
     let val = line_integral::get_2d_custom(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
     assert!(val.is_err());
-    assert!(val.unwrap_err() == ErrorCode::IntegrationLimitsIllDefined);
+    assert!(val.unwrap_err() == INTEGRATION_LIMITS_ILL_DEFINED);
 }
 
 

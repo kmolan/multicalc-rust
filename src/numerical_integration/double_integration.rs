@@ -1,14 +1,14 @@
 use crate::numerical_integration::mode;
 use crate::numerical_integration::single_integration;
-use crate::utils::error_codes::ErrorCode;
+
 use num_complex::ComplexFloat;
 use crate::utils::gl_table as gl_table;
 
 /// Returns the total double integration value for a given function
 /// Only ideal for single variable functions
 /// 
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
+/// NOTE: Returns a Result<T, &'static str>
+/// Possible &'static str are:
 /// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
 /// 
 /// assume we want to integrate 6*x. The function would be:
@@ -51,7 +51,7 @@ use crate::utils::gl_table as gl_table;
 ///```
 /// Note: The argument 'n' denotes the number of steps to be used. However, for [`mode::IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
 /// 
-pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; 2]) -> Result<T, ErrorCode> 
+pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; 2]) -> Result<T, &'static str> 
 {
     return get_total_custom(mode::IntegrationMethod::Trapezoidal, func, integration_limits, mode::DEFAULT_TOTAL_ITERATIONS);
 }
@@ -59,12 +59,12 @@ pub fn get_total<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_
 
 ///same as [get_total()] but with the option to change the integration parameters used, reserved for more advanced user
 /// The argument 'n' denotes the number of steps to be used. However, for [`mode::IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
+/// NOTE: Returns a Result<T, &'static str>
+/// Possible &'static str are:
 /// NumberOfStepsCannotBeZero -> if the number of steps argument, "n" is zero
 /// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
 /// GaussLegendreOrderOutOfRange-> if integration_method == mode::IntegrationMethod::GaussLegendre, and if n < 2 or n > 15
-pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(integration_method: mode::IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; 2], n: u64) -> Result<T, ErrorCode> 
+pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(integration_method: mode::IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; 2], n: u64) -> Result<T, &'static str> 
 {
     let point = [integration_limits[0][1]; NUM_VARS];
 
@@ -81,8 +81,8 @@ pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(integration_meth
 /// Returns the partial double integration value for a given function
 /// Can handle multivariable functions of any order or complexity
 /// 
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
+/// NOTE: Returns a Result<T, &'static str>
+/// Possible &'static str are:
 /// NumberOfStepsCannotBeZero -> if the number of steps argument, "n" is zero
 /// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
 /// GaussLegendreOrderOutOfRange-> if integration_method == mode::IntegrationMethod::GaussLegendre, and if n < 2 or n > 15
@@ -148,7 +148,7 @@ pub fn get_total_custom<T: ComplexFloat, const NUM_VARS: usize>(integration_meth
 ///```
 /// Note: The argument 'n' denotes the number of steps to be used. However, for [`mode::IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
 /// 
-pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode> 
+pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str> 
 {
     return get_partial_custom(mode::IntegrationMethod::Trapezoidal, func, idx_to_integrate, integration_limits, point, mode::DEFAULT_TOTAL_ITERATIONS);
 }
@@ -156,12 +156,12 @@ pub fn get_partial<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NU
 
 ///same as [get_partial()] but with the option to change the integration parameters used, reserved for more advanced user
 /// The argument 'n' denotes the number of steps to be used. However, for [`mode::IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
+/// NOTE: Returns a Result<T, &'static str>
+/// Possible &'static str are:
 /// NumberOfStepsCannotBeZero -> if the number of steps argument, "n" is zero
 /// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
 /// GaussLegendreOrderOutOfRange-> if integration_method == mode::IntegrationMethod::GaussLegendre, and if n < 2 or n > 15
-pub fn get_partial_custom<T: ComplexFloat, const NUM_VARS: usize>(integration_method: mode::IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], n: u64) -> Result<T, ErrorCode> 
+pub fn get_partial_custom<T: ComplexFloat, const NUM_VARS: usize>(integration_method: mode::IntegrationMethod, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], n: u64) -> Result<T, &'static str> 
 {
     match integration_method
     {
@@ -174,7 +174,7 @@ pub fn get_partial_custom<T: ComplexFloat, const NUM_VARS: usize>(integration_me
 
 
 
-fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, ErrorCode>
+fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, &'static str>
 {
     let mut current_vec = *point;
     current_vec[idx_to_integrate[0]] = integration_limits[0][0];
@@ -211,7 +211,7 @@ fn get_booles<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VAR
 }
 
 
-fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], order: usize) -> Result<T, ErrorCode>
+fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], order: usize) -> Result<T, &'static str>
 {
     let mut ans = T::zero();
     let abcsissa_coeff = (integration_limits[0][1] - integration_limits[0][0])/T::from(2.0).unwrap();
@@ -231,7 +231,7 @@ fn get_gauss_legendre<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T;
     return Ok(abcsissa_coeff*ans);
 }
 
-fn get_simpsons<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, ErrorCode>
+fn get_simpsons<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, &'static str>
 {
     let mut current_vec = *point;
     current_vec[idx_to_integrate[0]] = integration_limits[0][0];
@@ -263,7 +263,7 @@ fn get_simpsons<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_V
     return Ok(T::from(3.0).unwrap()*delta*ans/T::from(8.0).unwrap());
 }
 
-fn get_trapezoidal<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, ErrorCode>
+fn get_trapezoidal<T: ComplexFloat, const NUM_VARS: usize>(func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS], steps: u64) -> Result<T, &'static str>
 {
     let mut current_vec = *point;
     current_vec[idx_to_integrate[0]] = integration_limits[0][0];

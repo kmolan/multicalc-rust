@@ -1,9 +1,8 @@
-use crate::utils::error_codes::ErrorCode;
+
 use num_complex::ComplexFloat;
 use crate::numerical_integration::integrator::*;
-use crate::numerical_integration::mode;
-
-use super::mode::IterativeMethod;
+use crate::numerical_integration::mode::IterativeMethod;
+use crate::utils::error_codes::*;
 
 pub const DEFAULT_TOTAL_ITERATIONS: u64 = 50;
 
@@ -11,14 +10,14 @@ pub const DEFAULT_TOTAL_ITERATIONS: u64 = 50;
 pub struct SingleVariableSolver
 {
     total_iterations: u64,
-    integration_method: mode::IterativeMethod
+    integration_method: IterativeMethod
 }
 
 impl Default for SingleVariableSolver
 {
     fn default() -> Self 
     {
-        return SingleVariableSolver { total_iterations: DEFAULT_TOTAL_ITERATIONS, integration_method: mode::IterativeMethod::Booles };
+        return SingleVariableSolver { total_iterations: DEFAULT_TOTAL_ITERATIONS, integration_method: IterativeMethod::Booles };
     }
 }
 
@@ -34,17 +33,17 @@ impl SingleVariableSolver
         self.total_iterations = total_iterations;
     }
 
-    pub fn get_integration_method(&self) -> mode::IterativeMethod
+    pub fn get_integration_method(&self) -> IterativeMethod
     {
         return self.integration_method;
     }
 
-    pub fn set_integration_method(&mut self, integration_method: mode::IterativeMethod)
+    pub fn set_integration_method(&mut self, integration_method: IterativeMethod)
     {
         self.integration_method = integration_method;
     }
 
-    pub fn from_parameters(total_iterations: u64, integration_method: mode::IterativeMethod) -> Self 
+    pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self 
     {
         SingleVariableSolver
         {
@@ -53,24 +52,24 @@ impl SingleVariableSolver
         }    
     }
 
-    fn check_for_errors<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> Result<(), ErrorCode> 
+    fn check_for_errors<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> Result<(), &'static str> 
     {
         if self.total_iterations == 0
         {
-            return Err(ErrorCode::NumberOfStepsCannotBeZero);
+            return Err(INTEGRATION_CANNOT_HAVE_ZERO_ITERATIONS);
         }
 
         for iter in 0..integration_limit.len()
         {
             if integration_limit[iter][0].abs() >= integration_limit[iter][1].abs()
             {
-                return Err(ErrorCode::IntegrationLimitsIllDefined);
+                return Err(INTEGRATION_LIMITS_ILL_DEFINED);
             }
         }
 
         if NUM_INTEGRATIONS != number_of_integrations
         {
-            return Err(ErrorCode::IncorrectNumberOfIntegrationLimits)
+            return Err(INCORRECT_NUMBER_OF_INTEGRATION_LIMITS)
         }        
 
         return Ok(());        
@@ -254,15 +253,15 @@ impl SingleVariableSolver
 
 impl IntegratorSingleVariable for SingleVariableSolver
 {
-    fn get<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, func: &dyn Fn(T) -> T, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> Result<T, ErrorCode> 
+    fn get<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, func: &dyn Fn(T) -> T, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> Result<T, &'static str> 
     {
         self.check_for_errors(number_of_integrations, integration_limit)?;
 
         match self.integration_method
         {
-            mode::IterativeMethod::Booles        => return Ok(self.get_booles(number_of_integrations, func, integration_limit)),
-            mode::IterativeMethod::Simpsons      => return Ok(self.get_simpsons(number_of_integrations, func, integration_limit)),
-            mode::IterativeMethod::Trapezoidal   => return Ok(self.get_trapezoidal(number_of_integrations, func, integration_limit))
+            IterativeMethod::Booles        => return Ok(self.get_booles(number_of_integrations, func, integration_limit)),
+            IterativeMethod::Simpsons      => return Ok(self.get_simpsons(number_of_integrations, func, integration_limit)),
+            IterativeMethod::Trapezoidal   => return Ok(self.get_trapezoidal(number_of_integrations, func, integration_limit))
         }        
     }
 }
@@ -271,14 +270,14 @@ impl IntegratorSingleVariable for SingleVariableSolver
 pub struct MultiVariableSolver
 {
     total_iterations: u64,
-    integration_method: mode::IterativeMethod
+    integration_method: IterativeMethod
 }
 
 impl Default for MultiVariableSolver
 {
     fn default() -> Self 
     {
-        return MultiVariableSolver { total_iterations: DEFAULT_TOTAL_ITERATIONS, integration_method: mode::IterativeMethod::Booles };
+        return MultiVariableSolver { total_iterations: DEFAULT_TOTAL_ITERATIONS, integration_method: IterativeMethod::Booles };
     }
 }
 
@@ -294,17 +293,17 @@ impl MultiVariableSolver
         self.total_iterations = total_iterations;
     }
 
-    pub fn get_integration_method(&self) -> mode::IterativeMethod
+    pub fn get_integration_method(&self) -> IterativeMethod
     {
         return self.integration_method;
     }
 
-    pub fn set_integration_method(&mut self, integration_method: mode::IterativeMethod)
+    pub fn set_integration_method(&mut self, integration_method: IterativeMethod)
     {
         self.integration_method = integration_method;
     }
 
-    pub fn from_parameters(total_iterations: u64, integration_method: mode::IterativeMethod) -> Self 
+    pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self 
     {
         MultiVariableSolver
         {
@@ -313,24 +312,24 @@ impl MultiVariableSolver
         }    
     }
 
-    fn check_for_errors<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> Result<(), ErrorCode> 
+    fn check_for_errors<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> Result<(), &'static str> 
     {
         if self.total_iterations == 0
         {
-            return Err(ErrorCode::NumberOfStepsCannotBeZero);
+            return Err(INTEGRATION_CANNOT_HAVE_ZERO_ITERATIONS);
         }
 
         for iter in 0..integration_limit.len()
         {
             if integration_limit[iter][0].abs() >= integration_limit[iter][1].abs()
             {
-                return Err(ErrorCode::IntegrationLimitsIllDefined);
+                return Err(INTEGRATION_LIMITS_ILL_DEFINED);
             }
         }
 
         if NUM_INTEGRATIONS != number_of_integrations
         {
-            return Err(ErrorCode::IncorrectNumberOfIntegrationLimits)
+            return Err(INCORRECT_NUMBER_OF_INTEGRATION_LIMITS)
         }        
 
         return Ok(());        
@@ -520,7 +519,7 @@ impl MultiVariableSolver
 
 impl IntegratorMultiVariable for MultiVariableSolver
 {
-    fn get<T: ComplexFloat, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, idx_to_integrate: [usize; NUM_INTEGRATIONS], func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; NUM_INTEGRATIONS], point: &[T; NUM_VARS]) -> Result<T, ErrorCode> 
+    fn get<T: ComplexFloat, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, idx_to_integrate: [usize; NUM_INTEGRATIONS], func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; NUM_INTEGRATIONS], point: &[T; NUM_VARS]) -> Result<T, &'static str> 
     {
         self.check_for_errors(number_of_integrations, integration_limits)?;
 
@@ -579,21 +578,21 @@ impl Iterative
         }    
     }
 
-    fn check_for_errors<T: ComplexFloat>(&self, integration_limit: &[T; 2]) -> Result<(), ErrorCode> 
+    fn check_for_errors<T: ComplexFloat>(&self, integration_limit: &[T; 2]) -> Result<(), &'static str> 
     {
         if integration_limit[0].abs() >= integration_limit[1].abs()
         {
-            return Err(ErrorCode::IntegrationLimitsIllDefined);
+            return Err(&'static str::IntegrationLimitsIllDefined);
         }
         if self.total_iterations == 0
         {
-            return Err(ErrorCode::NumberOfStepsCannotBeZero);
+            return Err(&'static str::NumberOfStepsCannotBeZero);
         }
 
         return Ok(());        
     }
 
-    fn get_booles_1<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    fn get_booles_1<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str>
     {
         let mut current_vec = *point;
         current_vec[idx_to_integrate] = integration_limit[0];
@@ -632,7 +631,7 @@ impl Iterative
 
     //TODO: add the 1/3 rule also
     //the 3/8 rule, better than the 1/3 rule
-    fn get_simpsons_1<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    fn get_simpsons_1<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str>
     {
         let mut current_vec = *point;
         current_vec[idx_to_integrate] = integration_limit[0];
@@ -664,7 +663,7 @@ impl Iterative
         return Ok(T::from(3.0).unwrap()*delta*ans/T::from(8.0).unwrap());
     }
 
-    fn get_trapezoidal_1<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    fn get_trapezoidal_1<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str>
     {
         let mut current_vec = *point;
         current_vec[idx_to_integrate] = integration_limit[0];
@@ -686,7 +685,7 @@ impl Iterative
     }
 
 
-    fn get_booles_2<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    fn get_booles_2<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str>
     {
         let total_iterations = self.get_total_iterations();
 
@@ -725,7 +724,7 @@ impl Iterative
     }
 
 
-    fn get_simpsons_2<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    fn get_simpsons_2<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str>
     {
         let total_iterations = self.get_total_iterations();
 
@@ -759,7 +758,7 @@ impl Iterative
         return Ok(T::from(3.0).unwrap()*delta*ans/T::from(8.0).unwrap());
     }
 
-    fn get_trapezoidal_2<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    fn get_trapezoidal_2<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str>
     {
         let total_iterations = self.get_total_iterations();
 
@@ -786,7 +785,7 @@ impl Iterative
 
 impl Integrator for Iterative
 {
-    fn get_single_total<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limit: &[T; 2]) -> Result<T, ErrorCode>
+    fn get_single_total<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limit: &[T; 2]) -> Result<T, &'static str>
     {
         self.check_for_errors(integration_limit)?;
 
@@ -800,7 +799,7 @@ impl Integrator for Iterative
         }
     }
 
-    fn get_single_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode>
+    fn get_single_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: usize, integration_limit: &[T; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str>
     {
         self.check_for_errors(integration_limit)?;
 
@@ -812,7 +811,7 @@ impl Integrator for Iterative
         }
     }
 
-    fn get_double_total<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; 2]) -> Result<T, ErrorCode> 
+    fn get_double_total<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, integration_limits: &[[T; 2]; 2]) -> Result<T, &'static str> 
     {
         let point = [integration_limits[0][1]; NUM_VARS];
 
@@ -824,7 +823,7 @@ impl Integrator for Iterative
         }
     }
 
-    fn get_double_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, ErrorCode> 
+    fn get_double_partial<T: ComplexFloat, const NUM_VARS: usize>(&self, func: &dyn Fn(&[T; NUM_VARS]) -> T, idx_to_integrate: [usize; 2], integration_limits: &[[T; 2]; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str> 
     {
         match self.integration_method
         {

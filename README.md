@@ -307,7 +307,7 @@ assert!(f64::abs(val - 6.27) < 0.01);
 ## 15. Error Handling
 Wherever possible, "safe" versions of functions are provided that fill in the default values and return the required solution directly.
 However, that is not always possible either because no default argument can be assumed, or for functions that deliberately give users the freedom to tweak the parameters.
-In such cases, a `Result<T, ErrorCode>` object is returned instead, where all possible `ErrorCode`s can be viewed at [error_codes](./src/utils/error_codes.rs).
+In such cases, a `Result<T, &'static str>` object is returned instead, where all possible `&'static str`s can be viewed at [error_codes](./src/utils/error_codes.rs).
 
 ##  16. Experimental
 Enable feature "heap" to access `std::Vec` based methods in certain modules. Currently this is only supported for the _Jacobian_ module via `get_on_heap()` and `get_on_heap_custom()` methods. The output is a dynamically allocated `Vec<Vec<T>>`. This is to support large datasets that might otherwise get a stack overflow with static arrays. Future plans might include adding such support for the approximation module.

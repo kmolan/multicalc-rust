@@ -1,5 +1,5 @@
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-use crate::utils::error_codes::ErrorCode;
+
 use num_complex::ComplexFloat;
 
 #[derive(Debug)]
@@ -102,8 +102,8 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D>
     /// For an n-dimensional approximation, the equation is linearized as:
     /// coefficient[0]*var_1 + coefficient[1]*var_2 + ... + coefficient[n-1]*var_n + intercept
     /// 
-    /// NOTE: Returns a Result<T, ErrorCode>
-    /// Possible ErrorCode are:
+    /// NOTE: Returns a Result<T, &'static str>
+    /// Possible &'static str are:
     /// NumberOfStepsCannotBeZero -> if the derivative step size is zero
     ///
     ///example function is x + y^2 + z^3, which we want to linearize. First define the function:
@@ -129,7 +129,7 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D>
     /// if you don't care about the results and want the predictor directly, use [`LinearApproximationResult::get_prediction_value()`]
     /// you can also inspect the prediction metrics by providing list of points, use [`LinearApproximationResult::get_prediction_metrics()`]
     ///
-    pub fn get<T: ComplexFloat, const NUM_VARS: usize>(&self, function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS]) -> Result<LinearApproximationResult<T, NUM_VARS>, ErrorCode>
+    pub fn get<T: ComplexFloat, const NUM_VARS: usize>(&self, function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS]) -> Result<LinearApproximationResult<T, NUM_VARS>, &'static str>
     {
         let mut slopes_ = [T::zero(); NUM_VARS];
 
