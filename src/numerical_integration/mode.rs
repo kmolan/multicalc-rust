@@ -18,5 +18,9 @@ pub enum IterativeMethod
 #[derive(Debug, Clone, Copy)]
 pub enum GaussianQuadratureMethod
 {
-    GaussLegendre, //Extremely accurate, but only recommended for polynomial equations. A specialist method with a narrow use case.
+    //Extremely accurate, but only recommended for polynomial equations. A specialist method with a narrow use case.
+    GaussLegendre,
+
+    //Extremely accurate, but only recommended for integrands of the form ∫exp(-X*X)*f(X), where f(X) is a polynomial equations.
+    GaussHermite,
 }

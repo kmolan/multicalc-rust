@@ -273,7 +273,6 @@ impl DerivatorMultiVariable for MultiVariableSolver
         }
         if order != NUM_ORDER
         {
-            std::println!("this one!");
             return Err(ErrorCode::IndexToDerivateIllFormed);
         }
         

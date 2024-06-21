@@ -1,7 +1,7 @@
 use crate::numerical_integration::mode;
 use crate::utils::error_codes::ErrorCode;
 use num_complex::ComplexFloat;
-use crate::utils::gl_table as gl_table;
+use crate::utils::{gh_table, gl_table as gl_table};
 use crate::numerical_integration::integrator::*;
 
 use super::mode::GaussianQuadratureMethod;
@@ -113,6 +113,50 @@ impl SingleVariableSolver
 
         return abcsissa_coeff*ans;
     }
+
+    fn get_gauss_hermite_transformation<T: ComplexFloat>(&self, func: &dyn Fn(T) -> T, args: T) -> T
+    {
+        //https://math.stackexchange.com/questions/180447/can-i-only-apply-the-gauss-hermite-routine-with-an-infinite-interval-or-can-i-tr
+        return func(args)*T::exp(args*args)/(T::cosh(args)*T::cosh(args));
+    }
+
+    fn get_gauss_hermite<T: ComplexFloat, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, func: &dyn Fn(T) -> T, integration_limit: &[[T; 2]; NUM_INTEGRATIONS]) -> T
+    {
+        if number_of_integrations == 1
+        {
+            let mut ans = T::zero();
+
+            //limits transformation logic from https://math.stackexchange.com/questions/180447/can-i-only-apply-the-gauss-hermite-routine-with-an-infinite-interval-or-can-i-tr
+            let abcsissa_coeff = (integration_limit[0][1] - integration_limit[0][0])/T::from(2.0).unwrap();
+            let intercept = (integration_limit[0][1] + integration_limit[0][0])/T::from(2.0).unwrap();
+
+            for iter in 0..self.order
+            {
+                let (abcsissa, weight) = gh_table::get_gh_weights_and_abscissae(self.order, iter).unwrap();
+
+                let args = abcsissa_coeff*T::tanh(T::from(abcsissa).unwrap()) + intercept;
+
+                ans = ans + T::from(weight).unwrap()*self.get_gauss_hermite_transformation(func, args);
+            }
+
+            return abcsissa_coeff*ans;
+        }
+
+        let mut ans = T::zero();
+        let abcsissa_coeff = (integration_limit[number_of_integrations-1][1] - integration_limit[number_of_integrations-1][0])/T::from(2.0).unwrap();
+        //let intercept = (integration_limit[number_of_integrations-1][1] + integration_limit[number_of_integrations-1][0])/T::from(2.0).unwrap();
+
+        for iter in 0..self.order
+        {
+            let (_, weight) = gh_table::get_gh_weights_and_abscissae(self.order, iter).unwrap();
+
+            //let args = abcsissa_coeff*T::tanh(T::from(abcsissa).unwrap()) + intercept;
+
+            ans = ans + T::from(weight).unwrap()*self.get_gauss_hermite(number_of_integrations-1, func, integration_limit);
+        }
+
+        return abcsissa_coeff*ans;
+    }
 }
 
 impl IntegratorSingleVariable for SingleVariableSolver
@@ -123,7 +167,8 @@ impl IntegratorSingleVariable for SingleVariableSolver
 
         match self.integration_method
         {
-            GaussianQuadratureMethod::GaussLegendre => return Ok(self.get_gauss_legendre(number_of_integrations, func, integration_limit))
+            GaussianQuadratureMethod::GaussLegendre => return Ok(self.get_gauss_legendre(number_of_integrations, func, integration_limit)),
+            GaussianQuadratureMethod::GaussHermite => return Ok(self.get_gauss_hermite(number_of_integrations, func, integration_limit))
         }
     }
 }
@@ -247,7 +292,8 @@ impl IntegratorMultiVariable for MultiVariableSolver
 
         match self.integration_method
         {
-            GaussianQuadratureMethod::GaussLegendre => return Ok(self.get_gauss_legendre(number_of_integrations, idx_to_integrate, func, integration_limits, point))
+            GaussianQuadratureMethod::GaussLegendre => return Ok(self.get_gauss_legendre(number_of_integrations, idx_to_integrate, func, integration_limits, point)),
+            GaussianQuadratureMethod::GaussHermite => return Ok(T::zero())
         }
     }
 }

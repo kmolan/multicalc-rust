@@ -292,7 +292,6 @@ fn test_double_derivative_partial_2()
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), mixed partial double derivative is known to be cos(x) - sin(y) + e^z
     let val = derivator.get(2, &func, &idx, &point).unwrap();
     let expected_value = f64::cos(1.0) - f64::sin(2.0) + f64::exp(3.0);
-    std::println!("{}", val-expected_value);
     assert!(f64::abs(val - expected_value) < 0.001);
 
     let idx: [usize; 2] = [1, 2]; //mixed partial double derivate d(df/dy)/dz
