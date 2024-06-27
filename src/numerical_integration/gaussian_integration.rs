@@ -112,48 +112,32 @@ impl SingleVariableSolver
         return abcsissa_coeff*ans;
     }
 
-    fn get_gauss_hermite_transformation(&self, func: &dyn Fn(f64) -> f64, args: f64) -> f64
-    {
-        //https://math.stackexchange.com/questions/180447/can-i-only-apply-the-gauss-hermite-routine-with-an-infinite-interval-or-can-i-tr
-        return func(args)*f64::exp(args*args)/(f64::cosh(args)*f64::cosh(args));
-    }
-
     fn get_gauss_hermite<const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, func: &dyn Fn(f64) -> f64, integration_limit: &[[f64; 2]; NUM_INTEGRATIONS]) -> f64
     {
         if number_of_integrations == 1
         {
             let mut ans = 0.0;
 
-            //limits transformation logic from https://math.stackexchange.com/questions/180447/can-i-only-apply-the-gauss-hermite-routine-with-an-infinite-interval-or-can-i-tr
-            let abcsissa_coeff = (integration_limit[0][1] - integration_limit[0][0])/2.0;
-            let intercept = (integration_limit[0][1] + integration_limit[0][0])/2.0;
-
             for iter in 0..self.order
             {
                 let (abcsissa, weight) = gh_table::get_gh_weights_and_abscissae(self.order, iter).unwrap();
 
-                let args = abcsissa_coeff*f64::tanh(abcsissa) + intercept;
-
-                ans = ans + weight*self.get_gauss_hermite_transformation(func, args);
+                ans = ans + weight*func(abcsissa)*f64::exp(abcsissa*abcsissa);
             }
 
-            return abcsissa_coeff*ans;
+            return ans;
         }
 
         let mut ans = 0.0;
-        let abcsissa_coeff = (integration_limit[number_of_integrations-1][1] - integration_limit[number_of_integrations-1][0])/2.0;
-        //let intercept = (integration_limit[number_of_integrations-1][1] + integration_limit[number_of_integrations-1][0])/2.0;
 
         for iter in 0..self.order
         {
             let (_, weight) = gh_table::get_gh_weights_and_abscissae(self.order, iter).unwrap();
 
-            //let args = abcsissa_coeff*T::tanh(abcsissa) + intercept;
-
             ans = ans + weight*self.get_gauss_hermite(number_of_integrations-1, func, integration_limit);
         }
 
-        return abcsissa_coeff*ans;
+        return ans;
     }
 
     fn get_gauss_laguerre<const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, func: &dyn Fn(f64) -> f64, integration_limit: &[[f64; 2]; NUM_INTEGRATIONS]) -> f64
@@ -165,10 +149,7 @@ impl SingleVariableSolver
             for iter in 0..self.order
             {
                 let (abcsissa, weight) = gauss_laguerre_table::get_gauss_laguerre_weights_and_abscissae(self.order, iter).unwrap();
-
-                let args = (integration_limit[0][0] - integration_limit[0][1])*f64::log(abcsissa - integration_limit[0][1], f64::exp(1.0)) - abcsissa;
-
-                ans = ans + weight*func(args);
+                ans = ans + (weight*func(abcsissa)*f64::exp(abcsissa));
             }
 
             return ans;
@@ -313,6 +294,78 @@ impl MultiVariableSolver
 
         return abcsissa_coeff*ans;
     }
+
+    fn get_gauss_hermite<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, idx_to_integrate: [usize; NUM_INTEGRATIONS], func: &dyn Fn(&[f64; NUM_VARS]) -> f64, integration_limits: &[[f64; 2]; NUM_INTEGRATIONS], point: &[f64; NUM_VARS]) -> f64
+    {
+        if number_of_integrations == 1
+        {
+            let mut ans = 0.0;
+
+            let mut args = *point;
+
+            for iter in 0..self.order
+            {
+                let (abcsissa, weight) = gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
+
+                args[idx_to_integrate[0]] = abcsissa;
+
+                ans = ans + weight*func(&args);
+            }
+
+            return ans;
+        }
+
+        let mut ans = 0.0;
+
+        let mut args = *point;
+
+        for iter in 0..self.order
+        {
+            let (abcsissa, weight) = gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
+
+            args[idx_to_integrate[number_of_integrations-1]] = abcsissa;
+
+            ans = ans + weight*self.get_gauss_legendre(number_of_integrations-1, idx_to_integrate, func, integration_limits, &args);
+        }
+
+        return ans;
+    }
+
+    fn get_gauss_laguerre<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(&self, number_of_integrations: usize, idx_to_integrate: [usize; NUM_INTEGRATIONS], func: &dyn Fn(&[f64; NUM_VARS]) -> f64, integration_limits: &[[f64; 2]; NUM_INTEGRATIONS], point: &[f64; NUM_VARS]) -> f64
+    {
+        if number_of_integrations == 1
+        {
+            let mut ans = 0.0;
+
+            let mut args = *point;
+
+            for iter in 0..self.order
+            {
+                let (abcsissa, weight) = gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
+
+                args[idx_to_integrate[0]] = abcsissa;
+
+                ans = ans + weight*func(&args);
+            }
+
+            return ans;
+        }
+
+        let mut ans = 0.0;
+
+        let mut args = *point;
+
+        for iter in 0..self.order
+        {
+            let (abcsissa, weight) = gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
+
+            args[idx_to_integrate[number_of_integrations-1]] = abcsissa;
+
+            ans = ans + weight*self.get_gauss_legendre(number_of_integrations-1, idx_to_integrate, func, integration_limits, &args);
+        }
+
+        return ans;
+    }
 }
 
 impl IntegratorMultiVariable for MultiVariableSolver
@@ -324,8 +377,8 @@ impl IntegratorMultiVariable for MultiVariableSolver
         match self.integration_method
         {
             GaussianQuadratureMethod::GaussLegendre => return Ok(self.get_gauss_legendre(number_of_integrations, idx_to_integrate, func, integration_limits, point)),
-            GaussianQuadratureMethod::GaussHermite => return Ok(0.0),
-            GaussianQuadratureMethod::GaussLaguerre => return Ok(0.0)
+            GaussianQuadratureMethod::GaussHermite => return Ok(self.get_gauss_hermite(number_of_integrations, idx_to_integrate, func, integration_limits, point)),
+            GaussianQuadratureMethod::GaussLaguerre => return Ok(self.get_gauss_laguerre(number_of_integrations, idx_to_integrate, func, integration_limits, point))
         }
     }
 }

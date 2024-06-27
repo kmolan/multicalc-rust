@@ -411,19 +411,3 @@ fn test_error_checking_4()
     assert!(result.is_err());
     assert!(result.unwrap_err() == GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE);
 }
-
-#[test]
-fn temp()
-{
-    let func = |args: f64| -> f64
-    {
-        return (1.0/(args*args))*f64::exp(-1.0/args);
-    };
-
-    std::println!("{}", func(0.5));
-    let integration_limit = [-0.9, -0.01];
-
-    let integrator = iterative_integration::SingleVariableSolver::default();
-    let result = integrator.get_single(&func, &integration_limit).unwrap();
-    std::println!("{}", result);
-}
