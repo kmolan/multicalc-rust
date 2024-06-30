@@ -529,7 +529,7 @@ fn test_hessian_1()
     {
         for j in 0..points.len()
         {
-            assert!(f64::abs(result[i][j] - expected_result[i][j]) < 0.01);
+            assert!(f64::abs(result[i][j] - expected_result[i][j]) < 1e-5);
         }
     }
 }
