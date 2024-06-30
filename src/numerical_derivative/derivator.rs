@@ -1,5 +1,7 @@
 use num_complex::ComplexFloat;
 
+
+///Base trait for single variable numerical differentiation
 pub trait DerivatorSingleVariable: Default + Clone + Copy
 {
     ///generic n-th derivative of a single variable function
@@ -18,6 +20,8 @@ pub trait DerivatorSingleVariable: Default + Clone + Copy
     }
 }
 
+
+///Base trait for multi-variable numerical differentiation
 pub trait DerivatorMultiVariable: Default + Clone + Copy
 {
     ///generic n-th derivative for a multivariable function of a multivariable function

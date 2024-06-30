@@ -106,7 +106,7 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D>
 {
     pub fn from_derivator(derivator: D) -> Self
     {
-        return QuadraticApproximator {derivator: derivator};
+        return QuadraticApproximator {derivator};
     }
 
     /// For an n-dimensional approximation, the equation is approximated as I + L + Q, where:
@@ -120,7 +120,8 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D>
     /// 
     ///example function is e^(x/2) + sin(y) + 2.0*z, which we want to approximate. First define the function:
     ///```
-    ///use multicalc::approximation::quadratic_approximation;
+    ///use multicalc::approximation::quadratic_approximation::*;
+    ///use multicalc::numerical_derivative::finite_difference::MultiVariableSolver;
     /// 
     ///let function_to_approximate = | args: &[f64; 3] | -> f64
     ///{ 
@@ -128,8 +129,9 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D>
     ///};
     ///
     ///let point = [0.0, 1.57, 10.0]; //the point we want to approximate around
-    ///
-    ///let result = quadratic_approximation::get(&function_to_approximate, &point);
+    /// 
+    ///let approximator = QuadraticApproximator::<MultiVariableSolver>::default();
+    ///let result = approximator.get(&function_to_approximate, &point).unwrap();
     ///
     ///assert!(f64::abs(function_to_approximate(&point) - result.get_prediction_value(&point)) < 1e-9);
     /// ```

@@ -96,7 +96,7 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D>
 {
     pub fn from_derivator(derivator: D) -> Self
     {
-        return LinearApproximator {derivator: derivator}
+        return LinearApproximator {derivator}
     }
 
     /// For an n-dimensional approximation, the equation is linearized as:
@@ -108,7 +108,8 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D>
     ///
     ///example function is x + y^2 + z^3, which we want to linearize. First define the function:
     ///```
-    ///use multicalc::approximation::linear_approximation;
+    ///use multicalc::approximation::linear_approximation::*;
+    ///use multicalc::numerical_derivative::finite_difference::MultiVariableSolver;
     /// 
     ///let function_to_approximate = | args: &[f64; 3] | -> f64
     ///{ 
@@ -116,8 +117,8 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D>
     ///};
     ///
     ///let point = [1.0, 2.0, 3.0]; //the point we want to linearize around
-    ///
-    ///let result = linear_approximation::get(&function_to_approximate, &point);
+    ///let approximator = LinearApproximator::<MultiVariableSolver>::default();
+    ///let result = approximator.get(&function_to_approximate, &point).unwrap();
     ///
     ///assert!(f64::abs(function_to_approximate(&point) - result.get_prediction_value(&point)) < 1e-9);
     /// ```

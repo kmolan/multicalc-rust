@@ -1,4 +1,5 @@
 
+///Base trait for single variable numerical integration
 pub trait IntegratorSingleVariable: Default + Clone + Copy
 {
     ///generic n-th integration of a single variable function
@@ -19,6 +20,7 @@ pub trait IntegratorSingleVariable: Default + Clone + Copy
     }
 }
 
+///Base trait for multi-variable numerical integration
 pub trait IntegratorMultiVariable : Default + Clone + Copy
 {
     ///generic n-th partial integration of a multi variable function

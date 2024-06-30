@@ -21,9 +21,12 @@ impl<D: DerivatorMultiVariable> Default for Jacobian<D>
 
 impl<D: DerivatorMultiVariable> Jacobian<D>
 {
+    ///custom constructor, optimal for fine tuning
+    /// You can create a custom multivariable derivator from this crate
+    /// or supply your own by implementing the base traits yourself
     pub fn from_derivator(derivator: D) -> Self
     {
-        return Jacobian {derivator: derivator}
+        return Jacobian {derivator}
     }
 
     /// Returns the jacobian matrix for a given vector of functions
@@ -37,12 +40,13 @@ impl<D: DerivatorMultiVariable> Jacobian<D>
     /// 
     /// NOTE: Returns a Result<T, &'static str>
     /// Possible &'static str are:
-    /// VectorOfFunctionsCannotBeEmpty -> if function_matrix argument is an empty array
-    /// NumberOfStepsCannotBeZero -> if the derivative step size is zero
+    /// VECTOR_OF_FUNCTIONS_CANNOT_BE_EMPTY -> if function_matrix argument is an empty array
+    /// NUMBER_OF_DERIVATIVE_STEPS_CANNOT_BE_ZERO -> if the derivative step size is zero
     /// 
     /// assume our function vector is (x*y*z ,  x^2 + y^2). First define both the functions
     /// ```
-    /// use multicalc::numerical_derivative::jacobian;
+    /// use multicalc::numerical_derivative::finite_difference::MultiVariableSolver;
+    /// use multicalc::numerical_derivative::jacobian::Jacobian;
     ///    let my_func1 = | args: &[f64; 3] | -> f64 
     ///    { 
     ///        return args[0]*args[1]*args[2]; //x*y*z
@@ -57,30 +61,9 @@ impl<D: DerivatorMultiVariable> Jacobian<D>
     /// let function_matrix: [&dyn Fn(&[f64; 3]) -> f64; 2] = [&my_func1, &my_func2];
     /// let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
     /// 
-    /// let result = jacobian::get(&function_matrix, &points).unwrap();
+    /// let jacobian = Jacobian::<MultiVariableSolver>::default();
+    /// let result = jacobian.get(&function_matrix, &points).unwrap();
     /// ```
-    /// 
-    /// the above example can also be extended to complex numbers:
-    ///```
-    /// use multicalc::numerical_derivative::jacobian;
-    ///    let my_func1 = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
-    ///    { 
-    ///        return args[0]*args[1]*args[2]; //x*y*z
-    ///    };
-    /// 
-    ///    let my_func2 = | args: &[num_complex::Complex64; 3] | -> num_complex::Complex64 
-    ///    { 
-    ///        return args[0].powf(2.0) + args[1].powf(2.0); //x^2 + y^2
-    ///    };
-    /// 
-    /// //define the function vector
-    /// let function_matrix: [&dyn Fn(&[num_complex::Complex64; 3]) -> num_complex::Complex64; 2] = [&my_func1, &my_func2];
-    /// 
-    /// //the point around which we want the jacobian matrix
-    /// let points = [num_complex::c64(1.0, 3.0), num_complex::c64(2.0, 3.5), num_complex::c64(3.0, 0.0)];
-    /// 
-    /// let result = jacobian::get(&function_matrix, &points).unwrap();
-    ///``` 
     /// 
     pub fn get<T: ComplexFloat, const NUM_FUNCS: usize, const NUM_VARS: usize>(&self, function_matrix: &[&dyn Fn(&[T; NUM_VARS]) -> T; NUM_FUNCS], vector_of_points: &[T; NUM_VARS]) -> Result<[[T; NUM_VARS]; NUM_FUNCS], &'static str>
     {

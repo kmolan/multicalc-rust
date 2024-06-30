@@ -17,6 +17,7 @@ use num_complex::ComplexFloat;
 /// Assume we have a vector field (y, -x, 2*z)
 /// ```
 /// use multicalc::vector_field::divergence;
+/// use multicalc::numerical_derivative::finite_difference::*;
 ///
 /// //x-component
 /// let vf_x = | args: &[f64; 3] | -> f64 
@@ -39,9 +40,10 @@ use num_complex::ComplexFloat;
 /// let vector_field_matrix: [&dyn Fn(&[f64; 3]) -> f64; 3] = [&vf_x, &vf_y, &vf_z];
 ///
 /// let point = [0.0, 1.0, 3.0]; //the point of interest
+/// let derivator = MultiVariableSolver::default();
 ///
 /// //divergence known to be 2.0 
-/// let val = divergence::get_3d(&vector_field_matrix, &point);
+/// let val = divergence::get_3d(derivator, &vector_field_matrix, &point).unwrap();
 /// assert!(f64::abs(val - 2.00) < 0.00001);
 /// ```
 pub fn get_3d<T, D, const NUM_VARS: usize>(derivator: D, vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 3], point: &[T; NUM_VARS]) -> Result<T, &'static str>
@@ -67,6 +69,8 @@ where T: ComplexFloat, D: DerivatorMultiVariable
 /// Assume we have a vector field (y, -x)
 /// ```
 /// use multicalc::vector_field::divergence;
+/// use multicalc::numerical_derivative::finite_difference::*;
+/// 
 /// //x-component
 /// let vf_x = | args: &[f64; 2] | -> f64 
 /// { 
@@ -82,9 +86,10 @@ where T: ComplexFloat, D: DerivatorMultiVariable
 /// let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [&vf_x, &vf_y];
 ///
 /// let point = [0.0, 1.0]; //the point of interest
+/// let derivator = MultiVariableSolver::default();
 ///
 /// //divergence known to be 0.0 
-/// let val = divergence::get_2d(&vector_field_matrix, &point);
+/// let val = divergence::get_2d(derivator, &vector_field_matrix, &point).unwrap();
 /// assert!(f64::abs(val - 0.00) < 0.00001);
 /// ```
 pub fn get_2d<T, D, const NUM_VARS: usize>(derivator: D, vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str>
