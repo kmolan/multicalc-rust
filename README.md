@@ -160,22 +160,26 @@ let func = | args: &[f64; 3] | -> f64
 let point = [1.0, 2.0, 3.0];
 
 let iterator = iterative_integration::MultiVariableSolver::default();
+//you can also create a custom integrator using MultiVariableSolver::from_parameters()
 
 //integration for x, known to be x*x + x*y*z, expect a value of ~7.00
 let integration_limit = [0.0, 1.0];
 let val = iterator.get_single_partial(&func, 0, &integration_limit, &point).unwrap();
+//alternative syntax: iterator.get(1, [0], &func, &[integration_limit; 1], &point);
 assert!(f64::abs(val - 7.0) < 1e-7);
 
 
 //integration for y, known to be 2.0*x*y + y*y*z/2.0, expect a value of ~10.00 
 let integration_limit = [0.0, 2.0];
 let val = iterator.get_single_partial(&func, 1, &integration_limit, &point).unwrap();
+//alternative syntax: iterator.get(1, [1], &func, &[integration_limit; 1], &point);
 assert!(f64::abs(val - 10.0) < 1e-7);
 
 
 //double integration for first x then y, expect a value of ~8.0
 let integration_limit = [[0.0, 1.0], [0.0, 2.0]];
 let val = integrator.get_double_partial(&func, [0, 1], &integration_limit, &point).unwrap();
+//alternative syntax: iterator.get(2, [0, 1], &func, &integration_limit, &point);
 assert!(f64::abs(val - 8.0) < 1e-7);
 
 //triple integration for x, expect a value of ~7.0
