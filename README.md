@@ -412,6 +412,13 @@ multicalc uses [num-complex](https://crates.io/crates/num-complex) to provide a 
 ## Contact
 anmolkathail@gmail.com
 
-## TODO
-- Gauss-Kronrod Quadrature integration
-- infinity outputs
+## Roadmap
+- [x] Add gauss-hermite
+- [x] Add gauss-laguerre
+- [] Add user-friendly macros for ease of use
+- [] Add infinite integration limits to iterative integration methods
+- [] Add finite integration limits to gauss-hermite
+- [] Add finite integration limits to gauss-laguerre
+- [] Add complex number support to integration modules
+- [] Add ODE solver modules
+- [] Rework vector calculus module
