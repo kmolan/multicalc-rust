@@ -113,6 +113,9 @@ use multicalc::numerical_integration::iterative_integration;
 let integrator = iterative_integration::SingleVariableSolver::default();  
 //alternatively, create a custom integrator using SingleVariableSolver::from_parameters()
 
+//instead of using iterative algorithms, you can also use gaussian quadratures instead:
+//let integrator = gaussian_integration::SingleVariableSolver::default();  
+
 let integration_limit = [[0.0, 2.0]; 1]; //desired integration limit 
 let val = integrator.get(1, &my_func, &integration_limit).unwrap(); //single integration
 assert!(f64::abs(val - 4.0) < 1e-6);
@@ -125,15 +128,6 @@ let integration_limit = [[0.0, 2.0], [0.0, 2.0], [0.0, 2.0]]; //desired integrat
 let val = integrator.get(3, &my_func, &integration_limit).unwrap(); //triple integration
 assert!(f64::abs(val - 16.0) < 1e-6);
 
-
-//instead of using iterative algorithms, use gaussian quadratures instead:
-use multicalc::numerical_integration::gaussian_integration;
-let integrator = gaussian_integration::SingleVariableSolver::default();  
-//alternatively, create a custom integrator using SingleVariableSolver::from_parameters()
-
-let integration_limit = [[0.0, 2.0]; 1]; //desired integration limit 
-let val = integrator.get(1, &my_func, &integration_limit).unwrap(); //single integration
-assert!(f64::abs(val - 4.0) < 1e-6);
 
 //you can also just use convenience wrappers for single and double integration
 let integration_limit = [0.0, 2.0];
@@ -162,6 +156,9 @@ let point = [1.0, 2.0, 3.0];
 let iterator = iterative_integration::MultiVariableSolver::default();
 //you can also create a custom integrator using MultiVariableSolver::from_parameters()
 
+//instead of using iterative algorithms, you can also use gaussian quadratures instead:
+//let integrator = gaussian_integration::MultiVariableSolver::default();  
+
 //integration for x, known to be x*x + x*y*z, expect a value of ~7.00
 let integration_limit = [0.0, 1.0];
 let val = iterator.get_single_partial(&func, 0, &integration_limit, &point).unwrap();
@@ -187,6 +184,15 @@ let integration_limit = [[0.0, 1.0], [0.0, 1.0], [0.0, 1.0]];
 let val = integrator.get(3, [0, 0, 0], &func, &integration_limit, &point).unwrap();
 assert!(f64::abs(val - 7.0) < 1e-7);
 ```
+
+| Integration Rule| Integral                                                   |
+| --------------- | ---------------------------------------------------------- |
+| Booles          | $$\int_a^b f(x) \mathrm{d}x$$                              |
+| Simpsons        | $$\int_a^b f(x) \mathrm{d}x$$                              |
+| Trapezoidal     | $$\int_a^b f(x) \mathrm{d}x$$                              |
+| GaussLegendre   | $$\int_a^b f(x) \mathrm{d}x$$                              |
+| GaussLaguerre   | $$\int_{0}^\infty f(x)x^\alpha e^{-x} \mathrm{d}x$$        |
+| GaussHermite    | $$\int_{-\infty}^\infty f(x) e^{-x^2} \mathrm{d}x$$        |
 
 ## 5. Jacobians
 ```rust
