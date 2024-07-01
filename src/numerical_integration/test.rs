@@ -326,14 +326,14 @@ fn test_trapezoidal_integration_4()
         return 2.0*args[0] + args[1]*args[2];
     };
 
-    let integration_limits = [[0.0, 1.0], [0.0, 1.0]];
+    let integration_limits = [[0.0, 1.0], [0.0, 2.0]];
     let point = [1.0, 2.0, 3.0];
 
     let integrator = iterative_integration::MultiVariableSolver::from_parameters(10, IterativeMethod::Trapezoidal);
 
     //double partial integration for first x then y, expect a value of ~2.50
     let val = integrator.get_double_partial(&func, [0, 1], &integration_limits, &point).unwrap();
-    assert!(f64::abs(val - 2.50) < 0.00001);
+    assert!(f64::abs(val - 8.0) < 0.00001);
 }
 
 #[test]

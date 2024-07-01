@@ -28,7 +28,7 @@ Rust scientific computing for single and multi-variable calculus
 
 
 - [1. Derivatives for single variable equations](#1-derivatives-for-single-variable-equations)
-- [2. Derivatives for multi variable equations](#2-derivatives-for-multi-variable-equuations)
+- [2. Derivatives for multi variable equations](#2-derivatives-for-multi-variable-equations)
 - [3. Integrals for single variable equations](#3-integrals-for-single-variable-equations)
 - [4. Integrals for multi variable equations](#4-integrals-for-multi-variable-equations)
 - [5. Jacobians](#5-jacobians)
@@ -45,7 +45,7 @@ Rust scientific computing for single and multi-variable calculus
 // assume we want to differentiate f(x) = x^3
 let func = | arg: f64 | -> f64 
 { 
-    return return arg*arg*arg;
+    return arg*arg*arg;
 };
 
 let point = 2.0; //the point at which we want to differentiate
@@ -62,6 +62,13 @@ let val = derivator.get(2, &my_func, point).unwrap(); //double derivative
 assert!(f64::abs(val - 12.0) < 1e-5);
 let val = derivator.get(3, &my_func, point).unwrap(); //triple derivative
 assert!(f64::abs(val - 6.0) < 1e-3);
+
+//for single and double derivatives, you can also just use the convenience wrappers
+let val = derivator.get_single(&my_func, point).unwrap(); //single derivative
+assert!(f64::abs(val - 12.0) < 1e-7);
+let val = derivator.get_double(&my_func, point).unwrap(); //double derivative
+assert!(f64::abs(val - 12.0) < 1e-5);
+
 ```
 
 ## 2. Derivatives for multi variable equations
@@ -127,11 +134,54 @@ let integrator = gaussian_integration::SingleVariableSolver::default();
 let integration_limit = [[0.0, 2.0]; 1]; //desired integration limit 
 let val = integrator.get(1, &my_func, &integration_limit).unwrap(); //single integration
 assert!(f64::abs(val - 4.0) < 1e-6);
+
+//you can also just use convenience wrappers for single and double integration
+let integration_limit = [0.0, 2.0];
+let val = integrator.get_single(&my_func, &integration_limit).unwrap(); //single integration
+assert!(f64::abs(val - 4.0) < 1e-6);
+
+let integration_limit = [[0.0, 2.0], [-1.0, 1.0]];
+let val = integrator.get_double(&my_func, &integration_limit).unwrap(); //double integration
+assert!(f64::abs(val - 8.0) < 1e-6);
 ```
 
 ## 4. Integrals for multi variable equations
 ```rust
-//TODO
+//equation is 2.0*x + y*z
+let func = | args: &[f64; 3] | -> f64 
+{ 
+    return 2.0*args[0] + args[1]*args[2];
+};
+
+//for multivariable integration to work, we must know the final value of all variables
+//for variables that are constant, they will have their constant values
+//for variables that are being integrated, their values will be the final upper limit of integration
+//in this example, we are keeping 'z' constant at 3.0, and integrating x and y to upper limits 1.0 and 2.0 respectively
+let point = [1.0, 2.0, 3.0];
+
+let iterator = iterative_integration::MultiVariableSolver::default();
+
+//integration for x, known to be x*x + x*y*z, expect a value of ~7.00
+let integration_limit = [0.0, 1.0];
+let val = iterator.get_single_partial(&func, 0, &integration_limit, &point).unwrap();
+assert!(f64::abs(val - 7.0) < 1e-7);
+
+
+//integration for y, known to be 2.0*x*y + y*y*z/2.0, expect a value of ~10.00 
+let integration_limit = [0.0, 2.0];
+let val = iterator.get_single_partial(&func, 1, &integration_limit, &point).unwrap();
+assert!(f64::abs(val - 10.0) < 1e-7);
+
+
+//double integration for first x then y, expect a value of ~8.0
+let integration_limit = [[0.0, 1.0], [0.0, 2.0]];
+let val = integrator.get_double_partial(&func, [0, 1], &integration_limit, &point).unwrap();
+assert!(f64::abs(val - 8.0) < 1e-7);
+
+//triple integration for x, expect a value of ~7.0
+let integration_limit = [[0.0, 1.0], [0.0, 1.0], [0.0, 1.0]];
+let val = integrator.get(3, [0, 0, 0], &func, &integration_limit, &point).unwrap();
+assert!(f64::abs(val - 7.0) < 1e-7);
 ```
 
 ## 5. Jacobians
