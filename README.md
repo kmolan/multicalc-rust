@@ -191,7 +191,7 @@ assert!(f64::abs(val - 7.0) < 1e-7);
 | Simpsons        | $$\int_a^b f(x) \mathrm{d}x$$                              |
 | Trapezoidal     | $$\int_a^b f(x) \mathrm{d}x$$                              |
 | GaussLegendre   | $$\int_a^b f(x) \mathrm{d}x$$                              |
-| GaussLaguerre   | $$\int_{0}^\infty f(x) e^{-x} \mathrm{d}x$$        |
+| GaussLaguerre   | $$\int_{0}^\infty f(x) e^{-x} \mathrm{d}x$$                |
 | GaussHermite    | $$\int_{-\infty}^\infty f(x) e^{-x^2} \mathrm{d}x$$        |
 
 ## 5. Jacobians
