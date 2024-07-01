@@ -69,6 +69,7 @@ Integrand                              | Approximation error |           Notes  
 $$\int_0^2 4x^3 - 3x^2  \mathrm{d}x$$  | 1e-14               |  Trivial Integration to showcase accuracy levels        |
 $$\int_0^1 (2x + yz) \mathrm{d}x$$     | 1e-30               |   High accuracy for simple multivariable integrals      |
 $$\int_0^1\int_0^1 (x^3 y + y^3 z) \mathrm{d}x\mathrm{d}y$$ | 1e-30 | Can handle integration by parts easily|
+$$\int_0^1\int_0^1\int_0^1 (x^3 y + y^3 z) \mathrm{d}x\mathrm{d}x\mathrm{d}y$$ | 1e-15 | High accuracy for higher order integrals|
 $$\int_{0}^1 (Sin(x) - \sqrt{x})e^{-x} \mathrm{d}x$$ | 1e-2 | Poor performance for non-polynomial integrands |
 
 
@@ -78,6 +79,7 @@ Integrand                              | Approximation error |           Notes  
 -------------------------------------- | ------------------- | ------------------------------------------------------- |
 $$\int_{0}^\infty x^2 e^{-x} \mathrm{d}x$$   | 1e-30              |  Trivial Integration to showcase accuracy levels        |
 $$\int_{0}^\infty (4x^3 - 3x^2)e^{-x} \mathrm{d}x$$  | 1e-12      |   High accuracy for more complicated integrands      |
+$$\int_{0}^\infty\int_{0}^\infty\int_{0}^\infty (x^3 y + y^3 z)e^{-x} \mathrm{d}x\mathrm{d}x\mathrm{d}y$$ | 1e-9 | High accuracy for higher order integrals|
 $$\int_{0}^\infty (Sin(x) - \sqrt{x})e^{-x} \mathrm{d}x$$ | 1e-2 | Poor performance for non-polynomial integrands |
 
 Gauss-Hermite
@@ -86,5 +88,6 @@ Integrand                              | Approximation error |           Notes  
 -------------------------------------- | ------------------- | ------------------------------------------------------- |
 $$\int_{-\infty}^\infty x^2 e^{-x^2} \mathrm{d}x$$   | 1e-30              |  Trivial Integration to showcase accuracy levels    |
 $$\int_{-\infty}^\infty (4x^3 - 3x^2)e^{-x^2} \mathrm{d}x$$  | 1e-12      |   High accuracy for more complicated integrands      |
+$$\int_{0}^\infty\int_{0}^\infty\int_{0}^\infty (x^3 y + y^3 z)e^{-x^2} \mathrm{d}x\mathrm{d}x\mathrm{d}y$$ | 1e-9 | High accuracy for higher order integrals|
 $$\int_{-\infty}^\infty (Sin(x) - \sqrt{x})e^{-x^2} \mathrm{d}x$$ | 1e-1 | Poor performance for non-polynomial integrands |
 
