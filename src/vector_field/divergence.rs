@@ -1,6 +1,5 @@
-use crate::numerical_derivative::mode as mode;
-use crate::utils::error_codes::ErrorCode;
-use crate::numerical_derivative::single_derivative;
+
+use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use num_complex::ComplexFloat;
 
 
@@ -10,10 +9,15 @@ use num_complex::ComplexFloat;
 /// V is characterized in 3 dimensions: Vx, Vy and Vz
 /// The divergence is then defined as dVx/dx + dVy/dy + dVz/dz
 /// 
+/// NOTE: Returns a Result<T, &'static str>
+/// Possible &'static str are:
+/// NumberOfStepsCannotBeZero -> if the derivative step size is zero
+/// 
 /// Example:
 /// Assume we have a vector field (y, -x, 2*z)
 /// ```
 /// use multicalc::vector_field::divergence;
+/// use multicalc::numerical_derivative::finite_difference::*;
 ///
 /// //x-component
 /// let vf_x = | args: &[f64; 3] | -> f64 
@@ -36,25 +40,18 @@ use num_complex::ComplexFloat;
 /// let vector_field_matrix: [&dyn Fn(&[f64; 3]) -> f64; 3] = [&vf_x, &vf_y, &vf_z];
 ///
 /// let point = [0.0, 1.0, 3.0]; //the point of interest
+/// let derivator = MultiVariableSolver::default();
 ///
 /// //divergence known to be 2.0 
-/// let val = divergence::get_3d(&vector_field_matrix, &point);
+/// let val = divergence::get_3d(derivator, &vector_field_matrix, &point).unwrap();
 /// assert!(f64::abs(val - 2.00) < 0.00001);
 /// ```
-pub fn get_3d<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 3], point: &[T; NUM_VARS]) -> T
+pub fn get_3d<T, D, const NUM_VARS: usize>(derivator: D, vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 3], point: &[T; NUM_VARS]) -> Result<T, &'static str>
+where T: ComplexFloat, D: DerivatorMultiVariable
 {
-    return get_3d_custom(vector_field, point, mode::DEFAULT_STEP_SIZE, mode::DiffMode::CentralFixedStep).unwrap();
-}
-
-///same as [get_3d()] but with the option to change the differentiation mode used, reserved for more advanced users
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
-/// NumberOfStepsCannotBeZero -> if the derivative step size is zero
-pub fn get_3d_custom<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 3], point: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> Result<T, ErrorCode>
-{
-    return Ok(single_derivative::get_partial_custom(vector_field[0], 0, point, step_size, mode)?
-            + single_derivative::get_partial_custom(vector_field[1], 1, point, step_size, mode)?
-            + single_derivative::get_partial_custom(vector_field[2], 2, point, step_size, mode)?);
+    return Ok(derivator.get(1, vector_field[0], &[0], point)?
+            + derivator.get(1, vector_field[1], &[1], point)?
+            + derivator.get(1, vector_field[2], &[2], point)?);
 }
 
 
@@ -64,10 +61,16 @@ pub fn get_3d_custom<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dy
 /// V is characterized in 3 dimensions: Vx and Vy
 /// The divergence is then defined as dVx/dx + dVy/dy
 /// 
+/// NOTE: Returns a Result<T, &'static str>
+/// Possible &'static str are:
+/// NumberOfStepsCannotBeZero -> if the derivative step size is zero
+/// 
 /// Example:
 /// Assume we have a vector field (y, -x)
 /// ```
 /// use multicalc::vector_field::divergence;
+/// use multicalc::numerical_derivative::finite_difference::*;
+/// 
 /// //x-component
 /// let vf_x = | args: &[f64; 2] | -> f64 
 /// { 
@@ -83,22 +86,14 @@ pub fn get_3d_custom<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dy
 /// let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [&vf_x, &vf_y];
 ///
 /// let point = [0.0, 1.0]; //the point of interest
+/// let derivator = MultiVariableSolver::default();
 ///
 /// //divergence known to be 0.0 
-/// let val = divergence::get_2d(&vector_field_matrix, &point);
+/// let val = divergence::get_2d(derivator, &vector_field_matrix, &point).unwrap();
 /// assert!(f64::abs(val - 0.00) < 0.00001);
 /// ```
-pub fn get_2d<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 2], point: &[T; NUM_VARS]) -> T
+pub fn get_2d<T, D, const NUM_VARS: usize>(derivator: D, vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 2], point: &[T; NUM_VARS]) -> Result<T, &'static str>
+where T: ComplexFloat, D: DerivatorMultiVariable
 {
-    return get_2d_custom(vector_field, point, mode::DEFAULT_STEP_SIZE, mode::DiffMode::CentralFixedStep).unwrap();
-}
-
-///same as [get_2d()] but with the option to change the differentiation mode used, reserved for more advanced users
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
-/// NumberOfStepsCannotBeZero -> if the derivative step size is zero
-pub fn get_2d_custom<T: ComplexFloat, const NUM_VARS: usize>(vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 2], point: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> Result<T, ErrorCode>
-{
-    return Ok(single_derivative::get_partial_custom(vector_field[0], 0, point, step_size, mode)?
-            + single_derivative::get_partial_custom(vector_field[1], 1, point, step_size, mode)?);
+    return Ok(derivator.get(1, vector_field[0], &[0], point)? + derivator.get(1, vector_field[1], &[1], point)?);
 }

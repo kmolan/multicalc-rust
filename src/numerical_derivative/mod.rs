@@ -1,7 +1,6 @@
 pub mod mode;
-pub mod single_derivative;
-pub mod double_derivative;
-pub mod triple_derivative;
+pub mod derivator;
+pub mod finite_difference;
 pub mod jacobian;
 pub mod hessian;
 

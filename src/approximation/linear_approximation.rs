@@ -1,6 +1,5 @@
-use crate::numerical_derivative::single_derivative as single_derivative;
-use crate::numerical_derivative::mode as mode;
-use crate::utils::error_codes::ErrorCode;
+use crate::numerical_derivative::derivator::DerivatorMultiVariable;
+
 use num_complex::ComplexFloat;
 
 #[derive(Debug)]
@@ -80,58 +79,73 @@ impl<T: ComplexFloat, const NUM_VARS: usize> LinearApproximationResult<T, NUM_VA
     }
 }
 
-
-/// For an n-dimensional approximation, the equation is linearized as:
-/// coefficient[0]*var_1 + coefficient[1]*var_2 + ... + coefficient[n-1]*var_n + intercept
-///
-///example function is x + y^2 + z^3, which we want to linearize. First define the function:
-///```
-///use multicalc::approximation::linear_approximation;
-/// 
-///let function_to_approximate = | args: &[f64; 3] | -> f64
-///{ 
-///    return args[0] + args[1].powf(2.0) + args[2].powf(3.0);
-///};
-///
-///let point = [1.0, 2.0, 3.0]; //the point we want to linearize around
-///
-///let result = linear_approximation::get(&function_to_approximate, &point);
-///
-///assert!(f64::abs(function_to_approximate(&point) - result.get_prediction_value(&point)) < 1e-9);
-/// ```
-/// you can also inspect the results of the approximation. For an n-dimensional approximation, the equation is linearized as
-/// 
-/// [`LinearApproximationResult::intercept`] gives you the required intercept
-/// [`LinearApproximationResult::coefficients`] gives you the required coefficients in order
-/// 
-/// if you don't care about the results and want the predictor directly, use [`LinearApproximationResult::get_prediction_value()`]
-/// you can also inspect the prediction metrics by providing list of points, use [`LinearApproximationResult::get_prediction_metrics()`]
-///
-pub fn get<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS]) -> LinearApproximationResult<T, NUM_VARS>
+pub struct LinearApproximator<D: DerivatorMultiVariable>
 {
-    return get_custom(function, point, 0.00001, mode::DiffMode::CentralFixedStep).unwrap();
+    derivator: D
 }
 
-
-///same as [`get`], but for advanced users who want to control the differentiation parameters
-/// NOTE: Returns a Result<T, ErrorCode>
-/// Possible ErrorCode are:
-/// NumberOfStepsCannotBeZero -> if the derivative step size is zero
-pub fn get_custom<T: ComplexFloat, const NUM_VARS: usize>(function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS], step_size: f64, mode: mode::DiffMode) -> Result<LinearApproximationResult<T, NUM_VARS>, ErrorCode>
+impl<D: DerivatorMultiVariable> Default for LinearApproximator<D>
 {
-    let mut slopes_ = [T::zero(); NUM_VARS];
-
-    let mut intercept_ = function(point);
-
-    for iter in 0..NUM_VARS
+    fn default() -> Self 
     {
-        slopes_[iter] = single_derivative::get_partial_custom(function, iter, point, step_size, mode)?;
-        intercept_ = intercept_ - slopes_[iter]*point[iter];
+        return LinearApproximator { derivator: D::default() };    
+    }
+}
+
+impl<D: DerivatorMultiVariable> LinearApproximator<D>
+{
+    pub fn from_derivator(derivator: D) -> Self
+    {
+        return LinearApproximator {derivator}
     }
 
-    return Ok(LinearApproximationResult
+    /// For an n-dimensional approximation, the equation is linearized as:
+    /// coefficient[0]*var_1 + coefficient[1]*var_2 + ... + coefficient[n-1]*var_n + intercept
+    /// 
+    /// NOTE: Returns a Result<T, &'static str>
+    /// Possible &'static str are:
+    /// NumberOfStepsCannotBeZero -> if the derivative step size is zero
+    ///
+    ///example function is x + y^2 + z^3, which we want to linearize. First define the function:
+    ///```
+    ///use multicalc::approximation::linear_approximation::*;
+    ///use multicalc::numerical_derivative::finite_difference::MultiVariableSolver;
+    /// 
+    ///let function_to_approximate = | args: &[f64; 3] | -> f64
+    ///{ 
+    ///    return args[0] + args[1].powf(2.0) + args[2].powf(3.0);
+    ///};
+    ///
+    ///let point = [1.0, 2.0, 3.0]; //the point we want to linearize around
+    ///let approximator = LinearApproximator::<MultiVariableSolver>::default();
+    ///let result = approximator.get(&function_to_approximate, &point).unwrap();
+    ///
+    ///assert!(f64::abs(function_to_approximate(&point) - result.get_prediction_value(&point)) < 1e-9);
+    /// ```
+    /// you can also inspect the results of the approximation. For an n-dimensional approximation, the equation is linearized as
+    /// 
+    /// [`LinearApproximationResult::intercept`] gives you the required intercept
+    /// [`LinearApproximationResult::coefficients`] gives you the required coefficients in order
+    /// 
+    /// if you don't care about the results and want the predictor directly, use [`LinearApproximationResult::get_prediction_value()`]
+    /// you can also inspect the prediction metrics by providing list of points, use [`LinearApproximationResult::get_prediction_metrics()`]
+    ///
+    pub fn get<T: ComplexFloat, const NUM_VARS: usize>(&self, function: &dyn Fn(&[T; NUM_VARS]) -> T, point: &[T; NUM_VARS]) -> Result<LinearApproximationResult<T, NUM_VARS>, &'static str>
     {
-        intercept: intercept_,
-        coefficients: slopes_
-    });
+        let mut slopes_ = [T::zero(); NUM_VARS];
+
+        let mut intercept_ = function(point);
+
+        for iter in 0..NUM_VARS
+        {
+            slopes_[iter] = self.derivator.get(1, function, &[iter], point)?;
+            intercept_ = intercept_ - slopes_[iter]*point[iter];
+        }
+
+        return Ok(LinearApproximationResult
+        {
+            intercept: intercept_,
+            coefficients: slopes_
+        });
+    }
 }

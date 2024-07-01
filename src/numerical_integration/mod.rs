@@ -1,6 +1,7 @@
 pub mod mode;
-pub mod single_integration;
-pub mod double_integration;
+pub mod integrator;
+pub mod iterative_integration;
+pub mod gaussian_integration;
 
 #[cfg(test)]
 mod test;

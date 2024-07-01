@@ -1,8 +1,11 @@
-use crate::utils::error_codes::ErrorCode;
+use crate::numerical_derivative::finite_difference::MultiVariableSolver;
+
 use crate::vector_field::divergence;
 use crate::vector_field::line_integral;
 use crate::vector_field::flux_integral;
 use crate::vector_field::curl;
+
+use crate::utils::error_codes::*;
 
 #[test]
 fn test_line_integral_1()
@@ -38,7 +41,7 @@ fn test_line_integral_error_1()
     //expect error because number of steps is zero
     let val = line_integral::get_2d_custom(&vector_field_matrix, &transformation_matrix, &integration_limit, 0);
     assert!(val.is_err());
-    assert!(val.unwrap_err() == ErrorCode::NumberOfStepsCannotBeZero);
+    assert!(val.unwrap_err() == INTEGRATION_CANNOT_HAVE_ZERO_ITERATIONS);
 }
 
 #[test]
@@ -57,7 +60,7 @@ fn test_line_integral_error_2()
     //expect error because integration limits are ill-defined (lower limit higher than upper limit)
     let val = line_integral::get_2d_custom(&vector_field_matrix, &transformation_matrix, &integration_limit, 100);
     assert!(val.is_err());
-    assert!(val.unwrap_err() == ErrorCode::IntegrationLimitsIllDefined);
+    assert!(val.unwrap_err() == INTEGRATION_LIMITS_ILL_DEFINED);
 }
 
 
@@ -100,8 +103,10 @@ fn test_curl_2d_1()
 
     let point = [1.0, 3.14];
 
+    let derivator = MultiVariableSolver::default();
+
     //curl is known to be -2*x, expect and answer of -2.0
-    let val = curl::get_2d(&vector_field_matrix, &point);
+    let val = curl::get_2d(derivator, &vector_field_matrix, &point).unwrap();
     assert!(f64::abs(val + 2.0) < 0.000001); //numerical error less than 1e-6
 }
 
@@ -130,8 +135,10 @@ fn test_curl_3d_1()
     let vector_field_matrix: [&dyn Fn(&[f64; 3]) -> f64; 3] = [&vf_x, &vf_y, &vf_z];
     let point = [1.0, 2.0, 3.0];
 
+    let derivator = MultiVariableSolver::default();
+
     //curl is known to be (0.0, 0.0, -2.0)
-    let val = curl::get_3d(&vector_field_matrix, &point);
+    let val = curl::get_3d(derivator, &vector_field_matrix, &point).unwrap();
     //numerical error less than 1e-6
     assert!(f64::abs(val[0] - 0.0) < 0.000001);
     assert!(f64::abs(val[1] - 0.0) < 0.000001);
@@ -157,8 +164,10 @@ fn test_divergence_2d_1()
     let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [&vf_x, &vf_y];
     let point = [1.0, 3.14];
 
+    let derivator = MultiVariableSolver::default();
+
     //divergence is known to be 2*y - 3*sin(y), expect and answer of 6.27
-    let val = divergence::get_2d(&vector_field_matrix, &point);
+    let val = divergence::get_2d(derivator, &vector_field_matrix, &point).unwrap();
     assert!(f64::abs(val - 6.27) < 0.01);
 }
 
@@ -187,7 +196,9 @@ fn test_divergence_3d_1()
     let vector_field_matrix: [&dyn Fn(&[f64; 3]) -> f64; 3] = [&vf_x, &vf_y, &vf_z];
     let point = [0.0, 1.0, 3.0]; //the point of interest
 
+    let derivator = MultiVariableSolver::default();
+
     //diverge known to be 2.0 
-    let val = divergence::get_3d(&vector_field_matrix, &point);
+    let val = divergence::get_3d(derivator, &vector_field_matrix, &point).unwrap();
     assert!(f64::abs(val - 2.00) < 0.00001);
 }
