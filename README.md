@@ -4,7 +4,7 @@
 ![github](https://github.com/kmolan/multicalc-rust/actions/workflows/build-tests.yml/badge.svg)
 ![github](https://github.com/kmolan/multicalc-rust/actions/workflows/code-coverage.yml/badge.svg)
 
-Rust scientific computing for single and multi-variable calculus
+Rust scientific computing for high accuracy single and multi-variable calculus
 
 ## Salient Features
 
@@ -396,6 +396,9 @@ for i in 0..function_matrix.len()
     }
 }
 ```
+
+## Benchmarks
+See [BENCHMARKS.md](./BENCHMARKS.md)
 
 ## Contributions Guide
 See [CONTRIBUTIONS.md](./CONTRIBUTIONS.md)
