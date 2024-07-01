@@ -22,6 +22,11 @@ Rust scientific computing for high accuracy single and multi-variable calculus
   - Jacobians and Hessians
   - Vector Field Calculus: Line and flux integrals, curl and divergence
   - Approximation of any given equation to a linear or quadratic mode
+ 
+
+
+## Benchmarks
+See [BENCHMARKS.md](./BENCHMARKS.md)
 
 
 ## Table of Contents
@@ -396,9 +401,6 @@ for i in 0..function_matrix.len()
     }
 }
 ```
-
-## Benchmarks
-See [BENCHMARKS.md](./BENCHMARKS.md)
 
 ## Contributions Guide
 See [CONTRIBUTIONS.md](./CONTRIBUTIONS.md)
