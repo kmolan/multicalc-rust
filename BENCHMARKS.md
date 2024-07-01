@@ -86,5 +86,5 @@ Integrand                              | Approximation error |           Notes  
 -------------------------------------- | ------------------- | ------------------------------------------------------- |
 $$\int_{-\infty}^\infty x^2 e^{-x^2} \mathrm{d}x$$   | 1e-30              |  Trivial Integration to showcase accuracy levels    |
 $$\int_{-\infty}^\infty (4x^3 - 3x^2)e^{-x^2} \mathrm{d}x$$  | 1e-12      |   High accuracy for more complicated integrands      |
-$$\int_{-\infty}^\infty (Sin(x) - \sqrt{x})e^{-x} \mathrm{d}x$$ | 1e-1 | Poor performance for non-polynomial integrands |
+$$\int_{-\infty}^\infty (Sin(x) - \sqrt{x})e^{-x^2} \mathrm{d}x$$ | 1e-1 | Poor performance for non-polynomial integrands |
 

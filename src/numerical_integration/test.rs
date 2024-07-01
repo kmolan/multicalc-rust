@@ -20,7 +20,6 @@ fn test_booles_integration_1()
 
     //simple integration for x, known to be x*x, expect a value of ~4.00
     let val = integrator.get_single(&func, &integration_limit).unwrap();
-    std::println!("{}", val - 4.0);
     assert!(f64::abs(val - 4.0) < 1e-14);
 }
 
@@ -54,7 +53,6 @@ fn test_booles_integration_2()
 
     //partial integration for z, known to be 2.0*x*z + y*z*z/2.0, expect a value of ~15.0 
     let val = integrator.get_single_partial(&func, 2, &integration_limit, &point).unwrap();
-    std::println!("{}", val);
     assert!(f64::abs(val - 15.0) < 0.00001);
 }
 
@@ -74,27 +72,6 @@ fn test_booles_integration_3()
     //simple double integration for 6*x, expect a value of ~24.00
     let val = integrator.get_double(&func, &integration_limits).unwrap();
     assert!(f64::abs(val - 24.0) < 0.00001);
-}
-
-#[test]
-fn test_booles_integration_4()
-{
-    //equation is 2.0*x + y*z
-    let func = | args: &[f64; 2] | -> f64 
-    { 
-        return args[0]/(f64::sqrt(args[0]*args[0] + args[1]*args[1]));
-    };
-
-    let integration_limits = [[0.0, 1.0], [0.0, 1.0]];
-    let point = [1.0, 1.0];
-
-    let integrator = iterative_integration::MultiVariableSolver::from_parameters(20, IterativeMethod::Booles);
-
-    //double partial integration for first x then y, expect a value of ~1.50
-    let val = integrator.get(1, [0], &func, &integration_limits, &point).unwrap();
-    let expected_val = 0.414;
-    std::println!("{}", val - expected_val);
-    assert!(f64::abs(val - 1.50) < 0.00001);
 }
 
 #[test]

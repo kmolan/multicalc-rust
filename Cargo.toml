@@ -1,6 +1,6 @@
 [package]
 name = "multicalc"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["akathail <anmolkathail@gmail.com>"]
 edition = "2021"
 description = "Rust scientific computing for single and multi-variable calculus"
@@ -20,7 +20,7 @@ num-complex = "0.4.6"
 rand = "0.8"
 
 [features]
-default = ["heap"]
+default = []
 heap = []
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
