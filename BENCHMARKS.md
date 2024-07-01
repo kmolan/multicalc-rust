@@ -18,8 +18,8 @@ Derivative                             | Approximation error |           Notes  
 -------------------------------------- | ------------------- | ---------------------------------------------- |
 $$\mathrm{d^2}(x + y + z)\over\mathrm{d}x\mathrm{d}y$$ | 1e-15 | Trivial case to showcase accuracy levels       |
 $$\mathrm{d^2}(ySin(x) + xCos(y) + xye^z)\over\mathrm{d}x^2$$ | 1e-7 | Can easily handle complex equations with high accuracy |
-$$\mathrm{d^2}(x^2 Sin(x))\over\mathrm{d}x\mathrm{d}y$$ | 2e-6 | Approximation errors increase for mixed derivatives |
-$$\mathrm{d^3}(x^2 Sin(x))\over\mathrm{d}x^2\mathrm{d}y$$ | 7e-4| Approximation errors increase with higher order derivatives |
+$$\mathrm{d^2}(ySin(x) + xCos(y) + xye^z)\over\mathrm{d}x\mathrm{d}y$$ | 2e-6 | Approximation errors increase for mixed derivatives |
+$$\mathrm{d^3}(ySin(x) + xCos(y) + xye^z)\over\mathrm{d}x^2\mathrm{d}y$$ | 7e-4| Approximation errors increase with higher order derivatives |
 
 
 ## 3. Iterative integration methods
@@ -69,7 +69,7 @@ Integrand                              | Approximation error |           Notes  
 $$\int_0^2 4x^3 - 3x^2  \mathrm{d}x$$  | 1e-14               |  Trivial Integration to showcase accuracy levels        |
 $$\int_0^1 (2x + yz) \mathrm{d}x$$     | 1e-30               |   High accuracy for simple multivariable integrals      |
 $$\int_0^1\int_0^1 (x^3 y + y^3 z) \mathrm{d}x\mathrm{d}y$$ | 1e-30 | Can handle integration by parts easily|
-$$\int_{0}^1 (Sin(x) - \sqrtx{x})e^{-x} \mathrm{d}x$$ | 1e-2 | Poor performance for non-polynomial integrands |
+$$\int_{0}^1 (Sin(x) - \sqrt{x})e^{-x} \mathrm{d}x$$ | 1e-2 | Poor performance for non-polynomial integrands |
 
 
 Gauss-Laguerre
@@ -78,7 +78,7 @@ Integrand                              | Approximation error |           Notes  
 -------------------------------------- | ------------------- | ------------------------------------------------------- |
 $$\int_{0}^\infty x^2 e^{-x} \mathrm{d}x$$   | 1e-30              |  Trivial Integration to showcase accuracy levels        |
 $$\int_{0}^\infty (4x^3 - 3x^2)e^{-x} \mathrm{d}x$$  | 1e-12      |   High accuracy for more complicated integrands      |
-$$\int_{0}^\infty (Sin(x) - \sqrtx{x})e^{-x} \mathrm{d}x$$ | 1e-2 | Poor performance for non-polynomial integrands |
+$$\int_{0}^\infty (Sin(x) - \sqrt{x})e^{-x} \mathrm{d}x$$ | 1e-2 | Poor performance for non-polynomial integrands |
 
 Gauss-Hermite
 
@@ -86,5 +86,5 @@ Integrand                              | Approximation error |           Notes  
 -------------------------------------- | ------------------- | ------------------------------------------------------- |
 $$\int_{-\infty}^\infty x^2 e^{-x^2} \mathrm{d}x$$   | 1e-30              |  Trivial Integration to showcase accuracy levels    |
 $$\int_{-\infty}^\infty (4x^3 - 3x^2)e^{-x^2} \mathrm{d}x$$  | 1e-12      |   High accuracy for more complicated integrands      |
-$$\int_{-\infty}^\infty (Sin(x) - \sqrtx{x})e^{-x} \mathrm{d}x$$ | 1e-1 | Poor performance for non-polynomial integrands |
+$$\int_{-\infty}^\infty (Sin(x) - \sqrt{x})e^{-x} \mathrm{d}x$$ | 1e-1 | Poor performance for non-polynomial integrands |
 
