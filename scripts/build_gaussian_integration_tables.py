@@ -1,0 +1,75 @@
+import os
+from numpy.polynomial.laguerre import laggauss
+from numpy.polynomial.hermite import hermgauss
+from numpy.polynomial.legendre import leggauss
+
+# Configuration
+MAX_LENGTH = 31
+methods = [
+    ("GaussLaguerre", "laguerre", "LAGUERRE", laggauss),
+    ("GaussHermite", "hermite", "HERMITE", hermgauss),
+    ("GaussLegendre", "legendre", "LEGENDRE", leggauss),
+]
+
+# Ensure output directory exists
+output_dir = "src/gaussian_tables"
+os.makedirs(output_dir, exist_ok=True)
+
+# Generate Rust files for each method
+for _, module_name, const_prefix, func in methods:
+    file_path = os.path.join(output_dir, f"{module_name}.rs")
+    with open(file_path, "w") as f:
+        f.write("// This file is auto-generated. Do not edit manually.\n\n")
+
+        for i in range(1, MAX_LENGTH):
+            abs_values, weights = func(i)
+            f.write(f"pub const {const_prefix}_ABSCISSA_{i}: [f64; {i}] = [\n")
+            f.write(",\n".join(f"    {val:.16e}" for val in abs_values))
+            f.write("\n];\n\n")
+            f.write(f"pub const {const_prefix}_WEIGHT_{i}: [f64; {i}] = [\n")
+            f.write(",\n".join(f"    {val:.16e}" for val in weights))
+            f.write("\n];\n\n")
+
+# Generate gauss.rs master module
+gauss_path = os.path.join(output_dir, "gauss.rs")
+with open(gauss_path, "w") as f:
+    f.write("// This file is auto-generated. Do not edit manually.\n\n")
+    f.write("use crate::utils::error_codes::GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE;\n\n")
+    f.write("use crate::numerical_integration::mode::GaussianQuadratureMethod;\n\n")
+
+    for _, module_name, _, _ in methods:
+        f.write(f"use crate::gaussian_tables::{module_name}::*;\n")
+    f.write("\n")
+
+    # get_abscissae function
+    f.write("pub fn get_abscissae(method: GaussianQuadratureMethod, n: usize) -> Result<&'static [f64], &'static str> {\n")
+    f.write("    match method {\n")
+    for method_name, module_name, const_prefix, _ in methods:
+        f.write(f"        GaussianQuadratureMethod::{method_name} => match n {{\n")
+        for i in range(1, MAX_LENGTH):
+            f.write(f"            {i} => Ok(&{const_prefix}_ABSCISSA_{i}),\n")
+        f.write("            _ => Err(GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE),\n")
+        f.write("        },\n")
+    f.write("    }\n")
+    f.write("}\n\n")
+
+    # get_weights function
+    f.write("pub fn get_weights(method: GaussianQuadratureMethod, n: usize) -> Result<&'static [f64], &'static str> {\n")
+    f.write("    match method {\n")
+    for method_name, module_name, const_prefix, _ in methods:
+        f.write(f"        GaussianQuadratureMethod::{method_name} => match n {{\n")
+        for i in range(1, MAX_LENGTH):
+            f.write(f"            {i} => Ok(&{const_prefix}_WEIGHT_{i}),\n")
+        f.write("            _ => Err(GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE),\n")
+        f.write("        },\n")
+    f.write("    }\n")
+    f.write("}\n")
+
+# Generate mod.rs to include all generated modules
+mod_rs_path = os.path.join(output_dir, "mod.rs")
+with open(mod_rs_path, "w") as f:
+    f.write("// Auto-generated module declarations\n\n")
+    f.write("pub mod laguerre;\n")
+    f.write("pub mod hermite;\n")
+    f.write("pub mod legendre;\n")
+    f.write("pub mod gauss;\n")
