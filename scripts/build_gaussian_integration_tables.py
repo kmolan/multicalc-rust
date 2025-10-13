@@ -34,7 +34,7 @@ for _, module_name, const_prefix, func in methods:
             f.write("\n];\n\n")
 
 # Generate gauss.rs master module
-gauss_path = os.path.join(output_dir, "gauss.rs")
+gauss_path = os.path.join(output_dir, "gauss_tables.rs")
 with open(gauss_path, "w") as f:
     f.write("// This file is auto-generated. Do not edit manually.\n\n")
     f.write("use crate::utils::error_codes::GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE;\n\n")
@@ -44,25 +44,15 @@ with open(gauss_path, "w") as f:
         f.write(f"use crate::gaussian_tables::{module_name}::*;\n")
     f.write("\n")
 
-    # get_abscissae function
-    f.write("pub fn get_abscissae(method: GaussianQuadratureMethod, n: usize) -> Result<&'static [f64], &'static str> {\n")
-    f.write("    match method {\n")
-    for method_name, module_name, const_prefix, _ in methods:
-        f.write(f"        GaussianQuadratureMethod::{method_name} => match n {{\n")
-        for i in range(1, MAX_LENGTH):
-            f.write(f"            {i} => Ok(&{const_prefix}_ABSCISSA_{i}),\n")
-        f.write("            _ => Err(GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE),\n")
-        f.write("        },\n")
-    f.write("    }\n")
-    f.write("}\n\n")
+    f.write(f"pub const MAX_GAUSS_TABLE_ORDER: usize = {MAX_LENGTH-1};\n\n")
 
-    # get_weights function
-    f.write("pub fn get_weights(method: GaussianQuadratureMethod, n: usize) -> Result<&'static [f64], &'static str> {\n")
+    # get_weights_and_abscissae function
+    f.write("pub fn get_weight_and_abscissa(method: GaussianQuadratureMethod, order: usize, index: usize) -> Result<(f64, f64), &'static str> {\n")
     f.write("    match method {\n")
     for method_name, module_name, const_prefix, _ in methods:
-        f.write(f"        GaussianQuadratureMethod::{method_name} => match n {{\n")
+        f.write(f"        GaussianQuadratureMethod::{method_name} => match order {{\n")
         for i in range(1, MAX_LENGTH):
-            f.write(f"            {i} => Ok(&{const_prefix}_WEIGHT_{i}),\n")
+            f.write(f"            {i} => Ok(({const_prefix}_WEIGHT_{i}[index], {const_prefix}_ABSCISSA_{i}[index])),\n")
         f.write("            _ => Err(GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE),\n")
         f.write("        },\n")
     f.write("    }\n")
@@ -75,4 +65,4 @@ with open(mod_rs_path, "w") as f:
     f.write("pub mod laguerre;\n")
     f.write("pub mod hermite;\n")
     f.write("pub mod legendre;\n")
-    f.write("pub mod gauss;\n")
+    f.write("pub mod gauss_tables;\n")

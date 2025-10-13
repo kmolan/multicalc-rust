@@ -1,7 +1,7 @@
+use crate::gaussian_tables::gauss_tables;
 use crate::numerical_integration::integrator::*;
 use crate::numerical_integration::mode::GaussianQuadratureMethod;
 use crate::utils::error_codes::*;
-use crate::utils::{gauss_laguerre_table, gh_table, gl_table};
 
 pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;
 
@@ -59,8 +59,7 @@ impl SingleVariableSolver {
         number_of_integrations: usize,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> Result<(), &'static str> {
-        //TODO
-        if !(1..=gl_table::MAX_GL_ORDER).contains(&self.order) {
+        if !(1..=gauss_tables::MAX_GAUSS_TABLE_ORDER).contains(&self.order) {
             return Err(GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE);
         }
 
@@ -77,7 +76,7 @@ impl SingleVariableSolver {
         return Ok(());
     }
 
-    ///returns the gauss legendre numerical integral for a given equation
+    /// returns the gauss legendre numerical integral for a given equation
     /// number_of_integrations: number of integrations to perform on the equation
     /// func: the equation to integrate
     /// integration_limit: the integration bound(s) for each round of integration
@@ -93,8 +92,12 @@ impl SingleVariableSolver {
             let intercept = (integration_limit[0][1] + integration_limit[0][0]) / 2.0;
 
             for iter in 0..self.order {
-                let (abcsissa, weight) =
-                    gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
+                let (weight, abcsissa) = gauss_tables::get_weight_and_abscissa(
+                    GaussianQuadratureMethod::GaussLegendre,
+                    self.order,
+                    iter,
+                )
+                .unwrap();
 
                 let args = abcsissa_coeff * abcsissa + intercept;
 
@@ -111,7 +114,12 @@ impl SingleVariableSolver {
         //let intercept = (integration_limit[number_of_integrations-1][1] + integration_limit[number_of_integrations-1][0])/2.0;
 
         for iter in 0..self.order {
-            let (_, weight) = gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
+            let (weight, _) = gauss_tables::get_weight_and_abscissa(
+                GaussianQuadratureMethod::GaussLegendre,
+                self.order,
+                iter,
+            )
+            .unwrap();
 
             //let args = abcsissa_coeff*abcsissa + intercept;
 
@@ -137,8 +145,12 @@ impl SingleVariableSolver {
             let mut ans = 0.0;
 
             for iter in 0..self.order {
-                let (abcsissa, weight) =
-                    gh_table::get_gh_weights_and_abscissae(self.order, iter).unwrap();
+                let (weight, abcsissa) = gauss_tables::get_weight_and_abscissa(
+                    GaussianQuadratureMethod::GaussHermite,
+                    self.order,
+                    iter,
+                )
+                .unwrap();
 
                 ans = ans + weight * func(abcsissa) * f64::exp(abcsissa * abcsissa);
             }
@@ -149,7 +161,12 @@ impl SingleVariableSolver {
         let mut ans = 0.0;
 
         for iter in 0..self.order {
-            let (_, weight) = gh_table::get_gh_weights_and_abscissae(self.order, iter).unwrap();
+            let (weight, _) = gauss_tables::get_weight_and_abscissa(
+                GaussianQuadratureMethod::GaussHermite,
+                self.order,
+                iter,
+            )
+            .unwrap();
 
             ans = ans
                 + weight
@@ -173,11 +190,13 @@ impl SingleVariableSolver {
             let mut ans = 0.0;
 
             for iter in 0..self.order {
-                let (abcsissa, weight) =
-                    gauss_laguerre_table::get_gauss_laguerre_weights_and_abscissae(
-                        self.order, iter,
-                    )
-                    .unwrap();
+                let (weight, abcsissa) = gauss_tables::get_weight_and_abscissa(
+                    GaussianQuadratureMethod::GaussLaguerre,
+                    self.order,
+                    iter,
+                )
+                .unwrap();
+
                 ans = ans + (weight * func(abcsissa) * f64::exp(abcsissa));
             }
 
@@ -187,9 +206,12 @@ impl SingleVariableSolver {
         let mut ans = 0.0;
 
         for iter in 0..self.order {
-            let (_, weight) =
-                gauss_laguerre_table::get_gauss_laguerre_weights_and_abscissae(self.order, iter)
-                    .unwrap();
+            let (weight, _) = gauss_tables::get_weight_and_abscissa(
+                GaussianQuadratureMethod::GaussLaguerre,
+                self.order,
+                iter,
+            )
+            .unwrap();
 
             //let args = (integration_limit[0][0] - integration_limit[0][1])*T::log(abcsissa - integration_limit[0][1], T::abs(T::exp(T::one()))) - abcsissa;
 
@@ -307,8 +329,7 @@ impl MultiVariableSolver {
         number_of_integrations: usize,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> Result<(), &'static str> {
-        //TODO
-        if !(1..=gl_table::MAX_GL_ORDER).contains(&self.order) {
+        if !(1..=gauss_tables::MAX_GAUSS_TABLE_ORDER).contains(&self.order) {
             return Err(GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE);
         }
 
@@ -347,8 +368,12 @@ impl MultiVariableSolver {
             let mut args = *point;
 
             for iter in 0..self.order {
-                let (abcsissa, weight) =
-                    gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
+                let (weight, abcsissa) = gauss_tables::get_weight_and_abscissa(
+                    GaussianQuadratureMethod::GaussLegendre,
+                    self.order,
+                    iter,
+                )
+                .unwrap();
 
                 args[idx_to_integrate[0]] = abcsissa_coeff * abcsissa + intercept;
 
@@ -369,8 +394,12 @@ impl MultiVariableSolver {
         let mut args = *point;
 
         for iter in 0..self.order {
-            let (abcsissa, weight) =
-                gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
+            let (weight, abcsissa) = gauss_tables::get_weight_and_abscissa(
+                GaussianQuadratureMethod::GaussLegendre,
+                self.order,
+                iter,
+            )
+            .unwrap();
 
             args[idx_to_integrate[number_of_integrations - 1]] =
                 abcsissa_coeff * abcsissa + intercept;
@@ -409,8 +438,12 @@ impl MultiVariableSolver {
             let mut args = *point;
 
             for iter in 0..self.order {
-                let (abcsissa, weight) =
-                    gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
+                let (weight, abcsissa) = gauss_tables::get_weight_and_abscissa(
+                    GaussianQuadratureMethod::GaussHermite,
+                    self.order,
+                    iter,
+                )
+                .unwrap();
 
                 args[idx_to_integrate[0]] = abcsissa;
 
@@ -425,8 +458,12 @@ impl MultiVariableSolver {
         let mut args = *point;
 
         for iter in 0..self.order {
-            let (abcsissa, weight) =
-                gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
+            let (weight, abcsissa) = gauss_tables::get_weight_and_abscissa(
+                GaussianQuadratureMethod::GaussHermite,
+                self.order,
+                iter,
+            )
+            .unwrap();
 
             args[idx_to_integrate[number_of_integrations - 1]] = abcsissa;
 
@@ -464,8 +501,12 @@ impl MultiVariableSolver {
             let mut args = *point;
 
             for iter in 0..self.order {
-                let (abcsissa, weight) =
-                    gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
+                let (weight, abcsissa) = gauss_tables::get_weight_and_abscissa(
+                    GaussianQuadratureMethod::GaussLaguerre,
+                    self.order,
+                    iter,
+                )
+                .unwrap();
 
                 args[idx_to_integrate[0]] = abcsissa;
 
@@ -480,8 +521,12 @@ impl MultiVariableSolver {
         let mut args = *point;
 
         for iter in 0..self.order {
-            let (abcsissa, weight) =
-                gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
+            let (weight, abcsissa) = gauss_tables::get_weight_and_abscissa(
+                GaussianQuadratureMethod::GaussLaguerre,
+                self.order,
+                iter,
+            )
+            .unwrap();
 
             args[idx_to_integrate[number_of_integrations - 1]] = abcsissa;
 
