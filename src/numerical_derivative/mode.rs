@@ -1,13 +1,11 @@
-
 //In most cases, Central is recommended for the highest accuracy
 //If you feel unsure, start with Central and then tweak depending on results
 //Not that the accuracy of results also depend on the step size
 #[derive(Debug, Copy, Clone)]
-pub enum FiniteDifferenceMode
-{
+pub enum FiniteDifferenceMode {
     Forward,
     Backward,
-    Central
+    Central,
 }
 
 ///constants used by finite_difference module
