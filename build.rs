@@ -2,7 +2,6 @@ use std::process::Command;
 
 fn main() {
     autogenerate_gaussian_tables();
-    run_cargo_fmt();
 }
 
 fn autogenerate_gaussian_tables() {
@@ -15,16 +14,5 @@ fn autogenerate_gaussian_tables() {
 
     if !status.success() {
         panic!("Python script failed with status: {:?}", status);
-    }
-}
-
-fn run_cargo_fmt() {
-    let status = Command::new("cargo")
-        .args(&["fmt"])
-        .status()
-        .expect("Failed to run cargo fmt");
-
-    if !status.success() {
-        panic!("cargo fmt failed with status: {:?}", status);
     }
 }
