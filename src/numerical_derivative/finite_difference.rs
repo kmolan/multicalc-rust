@@ -73,9 +73,9 @@ impl SingleVariableSolver {
         }
     }
 
-    ///Returns the forward difference numerical differentiation for single variable functions
-    ///computes f'(x) = (f(x + h) - f(x))/h, where h is the chosen step size
-    /// you can control how many times to differentiate using the "order" parameter
+    /// Returns the forward difference numerical differentiation for single variable functions.
+    /// Computes f'(x) = (f(x + h) - f(x))/h, where h is the chosen step size.
+    /// You can control how many times to differentiate using the "order" parameter.
     fn get_forward_difference_single_variable<T: ComplexFloat>(
         &self,
         order: usize,
