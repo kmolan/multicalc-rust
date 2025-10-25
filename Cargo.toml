@@ -14,7 +14,7 @@ keywords = ["Math", "Science", "Calculus", "Differentiation", "Integration"]
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-const_poly = "0.0.4"
+const_poly = "0.0.5"
 num-complex = "0.4.6"
 
 [dev-dependencies]
