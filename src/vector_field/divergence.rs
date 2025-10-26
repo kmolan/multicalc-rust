@@ -1,5 +1,5 @@
-use crate::numerical_derivative::finite_difference::MultiVariableSolver;
-use const_poly::Polynomial;
+use crate::numerical_derivative::derivator::DerivatorMultiVariable;
+use num_complex::ComplexFloat;
 
 ///solves for the divegerence of a 3D vector field around a given point
 ///
@@ -44,11 +44,14 @@ use const_poly::Polynomial;
 /// let val = divergence::get_3d(derivator, &vector_field_matrix, &point).unwrap();
 /// assert!(f64::abs(val - 2.00) < 0.00001);
 /// ```
-pub fn get_3d<const NUM_VARS: usize>(
-    derivator: &MultiVariableSolver,
-    vector_field: &[&Polynomial<NUM_VARS>; 3],
-    point: &[f64; NUM_VARS],
-) -> Result<f64, &'static str>
+pub fn get_3d<T, D, const NUM_VARS: usize>(
+    derivator: D,
+    vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 3],
+    point: &[T; NUM_VARS],
+) -> Result<T, &'static str>
+where
+    T: ComplexFloat,
+    D: DerivatorMultiVariable,
 {
     return Ok(derivator.get(1, vector_field[0], &[0], point)?
         + derivator.get(1, vector_field[1], &[1], point)?
@@ -92,11 +95,14 @@ pub fn get_3d<const NUM_VARS: usize>(
 /// let val = divergence::get_2d(derivator, &vector_field_matrix, &point).unwrap();
 /// assert!(f64::abs(val - 0.00) < 0.00001);
 /// ```
-pub fn get_2d<const NUM_VARS: usize>(
-    derivator: &MultiVariableSolver,
-    vector_field: &[&Polynomial<NUM_VARS>; 2],
-    point: &[f64; NUM_VARS],
-) -> Result<f64, &'static str>
+pub fn get_2d<T, D, const NUM_VARS: usize>(
+    derivator: D,
+    vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 2],
+    point: &[T; NUM_VARS],
+) -> Result<T, &'static str>
+where
+    T: ComplexFloat,
+    D: DerivatorMultiVariable,
 {
     return Ok(derivator.get(1, vector_field[0], &[0], point)?
         + derivator.get(1, vector_field[1], &[1], point)?);

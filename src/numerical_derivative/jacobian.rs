@@ -1,23 +1,31 @@
-use crate::numerical_derivative::finite_difference::MultiVariableSolver;
+use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::utils::error_codes::*;
-use const_poly::Polynomial;
+
+use num_complex::ComplexFloat;
 
 #[cfg(feature = "heap")]
 use std::{boxed::Box, vec::Vec};
 
-pub struct Jacobian {
-    derivator: MultiVariableSolver,
+pub struct Jacobian<D: DerivatorMultiVariable> {
+    derivator: D,
 }
 
-impl Default for Jacobian {
+impl<D: DerivatorMultiVariable> Default for Jacobian<D> {
     fn default() -> Self {
-        Self {
-            derivator: MultiVariableSolver::default(),
-        }
+        return Jacobian {
+            derivator: D::default(),
+        };
     }
 }
 
-impl Jacobian {
+impl<D: DerivatorMultiVariable> Jacobian<D> {
+    ///custom constructor, optimal for fine tuning
+    /// You can create a custom multivariable derivator from this crate
+    /// or supply your own by implementing the base traits yourself
+    pub fn from_derivator(derivator: D) -> Self {
+        return Jacobian { derivator };
+    }
+
     /// Returns the jacobian matrix for a given vector of functions
     /// Can handle multivariable functions of any order or complexity
     ///
@@ -54,41 +62,28 @@ impl Jacobian {
     /// let result = jacobian.get(&function_matrix, &points).unwrap();
     /// ```
     ///
-    pub const fn get<const NUM_FUNCS: usize, const NUM_VARS: usize>(
+    pub fn get<T: ComplexFloat, const NUM_FUNCS: usize, const NUM_VARS: usize>(
         &self,
-        function_matrix: &[&Polynomial<NUM_VARS>; NUM_FUNCS],
-        vector_of_points: &[f64; NUM_VARS],
-    ) -> Result<[[f64; NUM_VARS]; NUM_FUNCS], &'static str> {
-
-        if NUM_FUNCS == 0 {
+        function_matrix: &[&dyn Fn(&[T; NUM_VARS]) -> T; NUM_FUNCS],
+        vector_of_points: &[T; NUM_VARS],
+    ) -> Result<[[T; NUM_VARS]; NUM_FUNCS], &'static str> {
+        if function_matrix.is_empty() {
             return Err(VECTOR_OF_FUNCTIONS_CANNOT_BE_EMPTY);
         }
 
-        let mut result = [[0.0; NUM_VARS]; NUM_FUNCS];
+        let mut result = [[T::zero(); NUM_VARS]; NUM_FUNCS];
 
-        let mut row_index = 0;
-        while row_index < NUM_FUNCS {
-
-            let mut col_index = 0;
-            while col_index < NUM_VARS {
-                let val = self.derivator.get_single_partial(
-                    function_matrix[row_index],
+        for row_index in 0..NUM_FUNCS {
+            for col_index in 0..NUM_VARS {
+                result[row_index][col_index] = self.derivator.get_single_partial(
+                    &function_matrix[row_index],
                     col_index,
                     vector_of_points,
-                );
-
-                match val {
-                    Ok(v) => result[row_index][col_index] = v,
-                    Err(e) => return Err(e),
-                }
-
-                col_index += 1;
+                )?;
             }
-
-            row_index += 1;
         }
 
-        Ok(result)
+        return Ok(result);
     }
 
     /// same as [Jacobian::get] but uses heap-allocated vectors to generate the jacobian matrix.

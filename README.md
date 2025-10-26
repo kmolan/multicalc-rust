@@ -417,8 +417,6 @@ anmolkathail@gmail.com
 ## Roadmap
 - [x] Add gauss-hermite
 - [x] Add gauss-laguerre
-- [] add traits back and also allow users to use other modules by supplying their own traits
-- [] add back generic numeric types support
 - [] Add user-friendly macros for ease of use
 - [] Add infinite integration limits to iterative integration methods
 - [] Add finite integration limits to gauss-hermite

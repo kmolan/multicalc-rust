@@ -1,25 +1,25 @@
-use crate::numerical_derivative::finite_difference::MultiVariableSolver;
-use const_poly::Polynomial;
-use crate::utils::helper;
+use crate::numerical_derivative::derivator::DerivatorMultiVariable;
+
+use num_complex::ComplexFloat;
 
 #[derive(Debug)]
-pub struct LinearApproximationResult<const NUM_VARS: usize> {
-    pub intercept: f64,
-    pub coefficients: [f64; NUM_VARS],
+pub struct LinearApproximationResult<T: ComplexFloat, const NUM_VARS: usize> {
+    pub intercept: T,
+    pub coefficients: [T; NUM_VARS],
 }
 
 #[derive(Debug)]
-pub struct LinearApproximationPredictionMetrics {
-    pub mean_absolute_error: f64,
-    pub mean_squared_error: f64,
-    pub root_mean_squared_error: f64,
-    pub r_squared: f64,
-    pub adjusted_r_squared: f64,
+pub struct LinearApproximationPredictionMetrics<T: ComplexFloat> {
+    pub mean_absolute_error: T::Real,
+    pub mean_squared_error: T::Real,
+    pub root_mean_squared_error: T::Real,
+    pub r_squared: T::Real,
+    pub adjusted_r_squared: T::Real,
 }
 
-impl<const NUM_VARS: usize> LinearApproximationResult<NUM_VARS> {
+impl<T: ComplexFloat, const NUM_VARS: usize> LinearApproximationResult<T, NUM_VARS> {
     ///Helper function if you don't care about the details and just want the predictor directly
-    pub fn get_prediction_value(&self, args: &[f64; NUM_VARS]) -> f64 {
+    pub fn get_prediction_value(&self, args: &[T; NUM_VARS]) -> T {
         let mut result = self.intercept;
         for (iter, arg) in args.iter().enumerate().take(NUM_VARS) {
             result = result + self.coefficients[iter] * *arg;
@@ -31,42 +31,42 @@ impl<const NUM_VARS: usize> LinearApproximationResult<NUM_VARS> {
     //get prediction metrics by feeding a list of points and the original function
     pub fn get_prediction_metrics<const NUM_POINTS: usize>(
         &self,
-        points: &[[f64; NUM_VARS]; NUM_POINTS],
-        original_function: &Polynomial<NUM_VARS>,
-    ) -> LinearApproximationPredictionMetrics {
+        points: &[[T; NUM_VARS]; NUM_POINTS],
+        original_function: &dyn Fn(&[T; NUM_VARS]) -> T,
+    ) -> LinearApproximationPredictionMetrics<T> {
         //let num_points = NUM_POINTS as f64;
-        let mut mae = 0.0;
-        let mut mse = 0.0;
+        let mut mae = T::zero();
+        let mut mse = T::zero();
 
         for point in points.iter().take(NUM_POINTS) {
             let predicted_y = self.get_prediction_value(point);
 
-            mae = mae + (predicted_y - original_function.evaluate(point));
-            mse = mse + helper::powi(predicted_y - original_function.evaluate(point), 2);
+            mae = mae + (predicted_y - original_function(point));
+            mse = mse + num_complex::ComplexFloat::powi(predicted_y - original_function(point), 2);
         }
 
-        mae = mae / (NUM_POINTS as f64);
-        mse = mse / (NUM_POINTS as f64);
+        mae = mae / T::from(NUM_POINTS).unwrap();
+        mse = mse / T::from(NUM_POINTS).unwrap();
 
-        let rmse = helper::sqrt(mse).abs();
+        let rmse = mse.sqrt().abs();
 
-        let mut r2_numerator = 0.0;
-        let mut r2_denominator = 0.0;
+        let mut r2_numerator = T::zero();
+        let mut r2_denominator = T::zero();
 
         for point in points.iter().take(NUM_POINTS) {
             let predicted_y = self.get_prediction_value(point);
 
             r2_numerator = r2_numerator
-                + helper::powi(predicted_y - original_function.evaluate(point), 2);
+                + num_complex::ComplexFloat::powi(predicted_y - original_function(point), 2);
             r2_denominator =
-                r2_numerator + helper::powi(mae - original_function.evaluate(point), 2);
+                r2_numerator + num_complex::ComplexFloat::powi(mae - original_function(point), 2);
         }
 
-        let r2 = 1.0 - (r2_numerator / r2_denominator);
+        let r2 = T::one() - (r2_numerator / r2_denominator);
 
-        let r2_adj = 1.0
-            - (1.0 - r2) * ((NUM_POINTS as f64))
-                / ((NUM_POINTS as f64) - 2.0);
+        let r2_adj = T::one()
+            - (T::one() - r2) * (T::from(NUM_POINTS).unwrap())
+                / (T::from(NUM_POINTS).unwrap() - T::from(2.0).unwrap());
 
         return LinearApproximationPredictionMetrics {
             mean_absolute_error: mae.abs(),
@@ -78,19 +78,22 @@ impl<const NUM_VARS: usize> LinearApproximationResult<NUM_VARS> {
     }
 }
 
-pub struct LinearApproximator {
-    derivator: MultiVariableSolver,
+pub struct LinearApproximator<D: DerivatorMultiVariable> {
+    derivator: D,
 }
 
-impl Default for LinearApproximator {
+impl<D: DerivatorMultiVariable> Default for LinearApproximator<D> {
     fn default() -> Self {
-        Self {
-            derivator: MultiVariableSolver::default(),
-        }
+        return LinearApproximator {
+            derivator: D::default(),
+        };
     }
 }
 
-impl LinearApproximator {
+impl<D: DerivatorMultiVariable> LinearApproximator<D> {
+    pub fn from_derivator(derivator: D) -> Self {
+        return LinearApproximator { derivator };
+    }
 
     /// For an n-dimensional approximation, the equation is linearized as:
     /// coefficient[0]*var_1 + coefficient[1]*var_2 + ... + coefficient[n-1]*var_n + intercept
@@ -123,14 +126,14 @@ impl LinearApproximator {
     /// if you don't care about the results and want the predictor directly, use [`LinearApproximationResult::get_prediction_value()`]
     /// you can also inspect the prediction metrics by providing list of points, use [`LinearApproximationResult::get_prediction_metrics()`]
     ///
-    pub fn get<const NUM_VARS: usize>(
+    pub fn get<T: ComplexFloat, const NUM_VARS: usize>(
         &self,
-        function: &Polynomial<NUM_VARS>,
-        point: &[f64; NUM_VARS],
-    ) -> Result<LinearApproximationResult<NUM_VARS>, &'static str> {
-        let mut slopes_ = [0.0; NUM_VARS];
+        function: &dyn Fn(&[T; NUM_VARS]) -> T,
+        point: &[T; NUM_VARS],
+    ) -> Result<LinearApproximationResult<T, NUM_VARS>, &'static str> {
+        let mut slopes_ = [T::zero(); NUM_VARS];
 
-        let mut intercept_ = function.evaluate(point);
+        let mut intercept_ = function(point);
 
         for iter in 0..NUM_VARS {
             slopes_[iter] = self.derivator.get(1, function, &[iter], point)?;
