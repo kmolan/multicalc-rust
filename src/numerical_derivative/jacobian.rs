@@ -65,7 +65,6 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
         function_matrix: &[&dyn Fn(&[f64; NUM_VARS]) -> f64; NUM_FUNCS],
         vector_of_points: &[f64; NUM_VARS],
     ) -> Result<[[f64; NUM_VARS]; NUM_FUNCS], &'static str> {
-
         if function_matrix.is_empty() {
             return Err(VECTOR_OF_FUNCTIONS_CANNOT_BE_EMPTY);
         }
@@ -105,7 +104,6 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
         function_matrix: &Vec<Box<dyn Fn(&[f64; NUM_VARS]) -> f64>>,
         vector_of_points: &[f64; NUM_VARS],
     ) -> Result<Vec<Vec<T>>, &'static str> {
-
         if function_matrix.is_empty() {
             return Err(VECTOR_OF_FUNCTIONS_CANNOT_BE_EMPTY);
         }

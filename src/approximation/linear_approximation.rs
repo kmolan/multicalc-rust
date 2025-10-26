@@ -1,7 +1,6 @@
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use const_poly::function_approximations;
 
-
 #[derive(Debug)]
 pub struct LinearApproximationResult<const NUM_VARS: usize> {
     pub intercept: f64,
@@ -42,7 +41,8 @@ impl<const NUM_VARS: usize> LinearApproximationResult<NUM_VARS> {
             let predicted_y = self.get_prediction_value(point);
 
             mae = mae + (predicted_y - original_function(point));
-            mse = mse + function_approximations::static_powi(predicted_y - original_function(point), 2);
+            mse = mse
+                + function_approximations::static_powi(predicted_y - original_function(point), 2);
         }
 
         mae = mae / (NUM_POINTS as f64);
@@ -58,15 +58,13 @@ impl<const NUM_VARS: usize> LinearApproximationResult<NUM_VARS> {
 
             r2_numerator = r2_numerator
                 + function_approximations::static_powi(predicted_y - original_function(point), 2);
-            r2_denominator =
-                r2_numerator + function_approximations::static_powi(mae - original_function(point), 2);
+            r2_denominator = r2_numerator
+                + function_approximations::static_powi(mae - original_function(point), 2);
         }
 
         let r2 = 1.0 - (r2_numerator / r2_denominator);
 
-        let r2_adj = 1.0
-            - (1.0 - r2) * ((NUM_POINTS as f64))
-                / ((NUM_POINTS as f64) - 2.0);
+        let r2_adj = 1.0 - (1.0 - r2) * (NUM_POINTS as f64) / ((NUM_POINTS as f64) - 2.0);
 
         return LinearApproximationPredictionMetrics {
             mean_absolute_error: mae.abs(),

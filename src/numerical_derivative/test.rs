@@ -227,7 +227,6 @@ fn test_double_derivative_central_difference() {
     //double derivative at x = 1.0
     let val = derivator.get(2, &func, 1.0).unwrap();
     let expected_val = 2.0 * f64::cos(1.0) - 1.0 * f64::sin(1.0);
-    println!("========ANMOL {} {} =========", val, expected_val);
     assert!(f64::abs(val - expected_val) < 0.00001);
     
 }

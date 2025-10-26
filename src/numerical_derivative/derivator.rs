@@ -1,28 +1,16 @@
 ///Base trait for single variable numerical differentiation
 pub trait DerivatorSingleVariable: Default + Clone + Copy {
     ///generic n-th derivative of a single variable function
-    fn get(
-        &self,
-        order: usize,
-        func: &dyn Fn(f64) -> f64,
-        point: f64,
-    ) -> Result<f64, &'static str>;
+    fn get(&self, order: usize, func: &dyn Fn(f64) -> f64, point: f64)
+        -> Result<f64, &'static str>;
 
     ///convenience wrapper for a single derivative of a single variable function
-    fn get_single(
-        &self,
-        func: &dyn Fn(f64) -> f64,
-        point: f64,
-    ) -> Result<f64, &'static str> {
+    fn get_single(&self, func: &dyn Fn(f64) -> f64, point: f64) -> Result<f64, &'static str> {
         return self.get(1, func, point);
     }
 
     ///convenience wrapper for a double derivative of a single variable function
-    fn get_double(
-        &self,
-        func: &dyn Fn(f64) -> f64,
-        point: f64,
-    ) -> Result<f64, &'static str> {
+    fn get_double(&self, func: &dyn Fn(f64) -> f64, point: f64) -> Result<f64, &'static str> {
         return self.get(2, func, point);
     }
 }

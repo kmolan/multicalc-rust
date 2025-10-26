@@ -154,7 +154,10 @@ impl SingleVariableSolver {
                 )
                 .unwrap();
 
-                ans = ans + weight * func(abcsissa) * function_approximations::exp_approx(abcsissa * abcsissa);
+                ans = ans
+                    + weight
+                        * func(abcsissa)
+                        * function_approximations::exp_approx(abcsissa * abcsissa);
             }
 
             return ans;
@@ -199,7 +202,8 @@ impl SingleVariableSolver {
                 )
                 .unwrap();
 
-                ans = ans + (weight * func(abcsissa) * function_approximations::exp_approx(abcsissa));
+                ans =
+                    ans + (weight * func(abcsissa) * function_approximations::exp_approx(abcsissa));
             }
 
             return ans;

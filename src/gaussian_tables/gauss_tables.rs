@@ -5,13 +5,17 @@ use crate::utils::error_codes::GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE;
 
 use crate::numerical_integration::mode::GaussianQuadratureMethod;
 
-use crate::gaussian_tables::laguerre::*;
 use crate::gaussian_tables::hermite::*;
+use crate::gaussian_tables::laguerre::*;
 use crate::gaussian_tables::legendre::*;
 
 pub const MAX_GAUSS_TABLE_ORDER: usize = 30;
 
-pub fn get_weight_and_abscissa(method: GaussianQuadratureMethod, order: usize, index: usize) -> Result<(f64, f64), &'static str> {
+pub fn get_weight_and_abscissa(
+    method: GaussianQuadratureMethod,
+    order: usize,
+    index: usize,
+) -> Result<(f64, f64), &'static str> {
     match method {
         GaussianQuadratureMethod::GaussLaguerre => match order {
             1 => Ok((LAGUERRE_WEIGHT_1[index], LAGUERRE_ABSCISSA_1[index])),

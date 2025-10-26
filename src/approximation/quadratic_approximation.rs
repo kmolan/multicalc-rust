@@ -21,7 +21,6 @@ pub struct QuadraticApproximationPredictionMetrics {
 ///Helper functions if you don't care about the details and just want the predictor directly
 impl<const NUM_VARS: usize> QuadraticApproximationResult<NUM_VARS> {
     pub fn get_prediction_value(&self, args: &[f64; NUM_VARS]) -> f64 {
-
         let mut result = self.intercept;
 
         for (i, arg) in args.iter().enumerate().take(NUM_VARS) {
@@ -42,7 +41,6 @@ impl<const NUM_VARS: usize> QuadraticApproximationResult<NUM_VARS> {
         points: &[[f64; NUM_VARS]; NUM_POINTS],
         original_function: &dyn Fn(&[f64; NUM_VARS]) -> f64,
     ) -> QuadraticApproximationPredictionMetrics {
-
         //let num_points = points.len() as f64;
         let mut mae = 0.0;
         let mut mse = 0.0;
@@ -51,7 +49,8 @@ impl<const NUM_VARS: usize> QuadraticApproximationResult<NUM_VARS> {
             let predicted_y = self.get_prediction_value(point);
 
             mae = mae + (predicted_y - original_function(point));
-            mse = mse + function_approximations::static_powi(predicted_y - original_function(point), 2);
+            mse = mse
+                + function_approximations::static_powi(predicted_y - original_function(point), 2);
         }
 
         mae = mae / (NUM_POINTS as f64);
@@ -67,15 +66,13 @@ impl<const NUM_VARS: usize> QuadraticApproximationResult<NUM_VARS> {
 
             r2_numerator = r2_numerator
                 + function_approximations::static_powi(predicted_y - original_function(point), 2);
-            r2_denominator =
-                r2_numerator + function_approximations::static_powi(mae - original_function(point), 2);
+            r2_denominator = r2_numerator
+                + function_approximations::static_powi(mae - original_function(point), 2);
         }
 
         let r2 = 1.0 - (r2_numerator / r2_denominator);
 
-        let r2_adj = 1.0
-            - (1.0 - r2) * ((NUM_POINTS as f64))
-                / ((NUM_POINTS as f64) - 2.0);
+        let r2_adj = 1.0 - (1.0 - r2) * (NUM_POINTS as f64) / ((NUM_POINTS as f64) - 2.0);
 
         return QuadraticApproximationPredictionMetrics {
             mean_absolute_error: mae.abs(),
@@ -168,8 +165,8 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
                 intercept_ = intercept_ + hessian_matrix[row][col] * point[row] * point[row];
 
                 if row == col {
-                    linear_coeffs_[row] = linear_coeffs_[row]
-                        - 2.0 * hessian_matrix[row][col] * point[row]
+                    linear_coeffs_[row] =
+                        linear_coeffs_[row] - 2.0 * hessian_matrix[row][col] * point[row]
                 } else {
                     linear_coeffs_[row] =
                         linear_coeffs_[row] - hessian_matrix[row][col] * point[col];
