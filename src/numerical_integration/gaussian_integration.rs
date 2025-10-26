@@ -3,8 +3,8 @@ use crate::numerical_integration::integrator::*;
 use crate::numerical_integration::mode::GaussianQuadratureMethod;
 use crate::utils::error_codes::*;
 
-use const_poly::Polynomial;
 use crate::utils::helper;
+use const_poly::Polynomial;
 
 pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;
 
@@ -155,7 +155,8 @@ impl SingleVariableSolver {
                 )
                 .unwrap();
 
-                ans = ans + weight * func.evaluate_scalar(abcsissa) * helper::exp(abcsissa * abcsissa);
+                ans = ans
+                    + weight * func.evaluate_scalar(abcsissa) * helper::exp(abcsissa * abcsissa);
             }
 
             return ans;
@@ -241,7 +242,7 @@ impl IntegratorSingleVariable for SingleVariableSolver {
     /// ```
     /// use const_poly::VarFunction::*;
     /// use const_poly::{Polynomial, const_poly};
-    /// 
+    ///
     /// const FUNC: Polynomial<1> = const_poly!({[4.0,  Pow(3)],
     ///                                          [-3.0, Pow(2)]});
     ///
@@ -564,7 +565,7 @@ impl IntegratorMultiVariable for MultiVariableSolver {
     /// ```
     /// use const_poly::VarFunction::*;
     /// use const_poly::{Polynomial, const_poly};
-    /// 
+    ///
     /// const FUNC: Polynomial<3> = const_poly!({[2.0, Identity,  Pow(0),  Pow(0)],
     ///                                          [1.0, Pow(0),    Identity,  Identity]});
     ///

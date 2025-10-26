@@ -59,7 +59,6 @@ impl Jacobian {
         function_matrix: &[&Polynomial<NUM_VARS>; NUM_FUNCS],
         vector_of_points: &[f64; NUM_VARS],
     ) -> Result<[[f64; NUM_VARS]; NUM_FUNCS], &'static str> {
-
         if NUM_FUNCS == 0 {
             return Err(VECTOR_OF_FUNCTIONS_CANNOT_BE_EMPTY);
         }
@@ -68,7 +67,6 @@ impl Jacobian {
 
         let mut row_index = 0;
         while row_index < NUM_FUNCS {
-
             let mut col_index = 0;
             while col_index < NUM_VARS {
                 let val = self.derivator.get_single_partial(

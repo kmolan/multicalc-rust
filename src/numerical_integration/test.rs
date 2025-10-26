@@ -6,7 +6,7 @@ use crate::numerical_integration::iterative_integration;
 use crate::utils::error_codes::*;
 
 use const_poly::VarFunction::*;
-use const_poly::{Polynomial, const_poly};
+use const_poly::{const_poly, Polynomial};
 
 #[test]
 fn test_booles_integration_1() {
@@ -223,7 +223,7 @@ fn test_simpsons_integration_3() {
 
 #[test]
 fn test_simpsons_integration_4() {
-     //equation is 2.0*x + y*z
+    //equation is 2.0*x + y*z
     const FUNC: Polynomial<3> = const_poly!({
         [2.0, Identity, Pow(0), Pow(0)],
         [1.0, Pow(0), Identity, Identity]
@@ -406,7 +406,7 @@ fn test_error_checking_4() {
         31,
         GaussianQuadratureMethod::GaussLegendre,
     );
-    
+
     let result = integrator.get_single(&FUNC, &integration_limit);
     assert!(result.is_err());
     assert!(result.unwrap_err() == GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE);

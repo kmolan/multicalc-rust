@@ -1,6 +1,6 @@
 use crate::numerical_integration::iterative_integration::DEFAULT_TOTAL_ITERATIONS;
-use const_poly::Polynomial;
 use crate::vector_field::line_integral;
+use const_poly::Polynomial;
 
 ///solves for the flux integral for parametrized curves in a vector field
 ///
@@ -40,7 +40,6 @@ pub fn get_2d(
     transformations: &[&Polynomial<1>; 2],
     integration_limit: &[f64; 2],
 ) -> Result<f64, &'static str> {
-
     return Ok(line_integral::get_partial_2d(
         vector_field,
         transformations,

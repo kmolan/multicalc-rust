@@ -30,7 +30,11 @@ impl SingleVariableSolver {
     /// method: the desired method of differentiation: forward step, backward step or central step
     /// multiplier: default is 10.0, this is the factor by which we multiply the step size with on each iteration.
     ///             Only matters for triple derivatives or higher
-    pub const fn from_parameters(step: f64, method: mode::FiniteDifferenceMode, multiplier: f64) -> Self {
+    pub const fn from_parameters(
+        step: f64,
+        method: mode::FiniteDifferenceMode,
+        multiplier: f64,
+    ) -> Self {
         Self {
             step_size: step,
             method: method,
@@ -173,7 +177,7 @@ impl SingleVariableSolver {
     /// ```
     /// use const_poly::VarFunction::*;
     /// use const_poly::{Polynomial, const_poly};
-    /// 
+    ///
     /// const FUNC : Polynomial<1> = const_poly!([1.0, Pow(3)])
     ///
     /// let point = 2.0; //the point at which we want to differentiate
@@ -235,24 +239,15 @@ impl SingleVariableSolver {
     }
 
     /// convenience wrapper for a single derivative of a single variable function
-    pub const fn get_single(
-        &self,
-        func: &Polynomial<1>,
-        point: f64,
-    ) -> Result<f64, &'static str> {
+    pub const fn get_single(&self, func: &Polynomial<1>, point: f64) -> Result<f64, &'static str> {
         return self.get(1, func, point);
     }
 
     /// convenience wrapper for a double derivative of a single variable function
-    pub const fn get_double(
-        &self,
-        func: &Polynomial<1>,
-        point: f64,
-    ) -> Result<f64, &'static str> {
+    pub const fn get_double(&self, func: &Polynomial<1>, point: f64) -> Result<f64, &'static str> {
         return self.get(2, func, point);
     }
 }
-
 
 ///Implements the finite difference method for numerical differentation for multi-variable functions
 #[derive(Clone, Copy)]
@@ -281,7 +276,11 @@ impl MultiVariableSolver {
     /// method: the desired method of differentiation: forward step, backward step or central step
     /// multiplier: default is 10.0, this is the factor by which we multiply the step size with on each iteration.
     ///             Only matters for triple derivatives or higher
-    pub const fn from_parameters(step: f64, method: mode::FiniteDifferenceMode, multiplier: f64) -> Self {
+    pub const fn from_parameters(
+        step: f64,
+        method: mode::FiniteDifferenceMode,
+        multiplier: f64,
+    ) -> Self {
         MultiVariableSolver {
             step_size: step,
             method: method,
@@ -304,7 +303,7 @@ impl MultiVariableSolver {
     pub const fn get_step_size_multiplier(&self) -> f64 {
         return self.step_size_multiplier;
     }
-    
+
     ///Returns the partial forward difference numerical differentiation for multi variable functions
     ///computes f'(X) = (f(X + h) - f(X))/h, where h is the chosen step size
     /// you can control how many times to differentiate using the "order" parameter
@@ -335,8 +334,7 @@ impl MultiVariableSolver {
         let f0_args = point;
 
         let mut f1_args = *point;
-        f1_args[idx_to_derivate[order - 1]] =
-            f1_args[idx_to_derivate[order - 1]] + step_size;
+        f1_args[idx_to_derivate[order - 1]] = f1_args[idx_to_derivate[order - 1]] + step_size;
 
         let f0 = self.get_forward_difference_multi_variable(
             order - 1,
@@ -384,8 +382,7 @@ impl MultiVariableSolver {
         }
 
         let mut f0_args = *point;
-        f0_args[idx_to_derivate[order - 1]] =
-            f0_args[idx_to_derivate[order - 1]] - step_size;
+        f0_args[idx_to_derivate[order - 1]] = f0_args[idx_to_derivate[order - 1]] - step_size;
 
         let f1_args = point;
 
@@ -436,8 +433,7 @@ impl MultiVariableSolver {
         }
 
         let mut f0_point = *point;
-        f0_point[idx_to_derivate[order - 1]] =
-            f0_point[idx_to_derivate[order - 1]] - step_size;
+        f0_point[idx_to_derivate[order - 1]] = f0_point[idx_to_derivate[order - 1]] - step_size;
 
         let f0 = self.get_central_difference_multi_variable(
             order - 1,
@@ -448,8 +444,7 @@ impl MultiVariableSolver {
         );
 
         let mut f1_point = *point;
-        f1_point[idx_to_derivate[order - 1]] =
-            f1_point[idx_to_derivate[order - 1]] + step_size;
+        f1_point[idx_to_derivate[order - 1]] = f1_point[idx_to_derivate[order - 1]] + step_size;
 
         let f1 = self.get_central_difference_multi_variable(
             order - 1,
@@ -478,7 +473,7 @@ impl MultiVariableSolver {
     /// ```
     /// use const_poly::VarFunction::*;
     /// use const_poly::{Polynomial, const_poly};
-    /// 
+    ///
     /// const FUNC: Polynomial<3> = const_poly!({[1.0, Sin,    Pow(1), Pow(2)],
     ///                                          [1.0, Pow(1), Cos,    Pow(0)],
     ///                                          [1.0, Pow(1), Pow(1), Exp] });
