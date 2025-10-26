@@ -1,27 +1,27 @@
-use crate::numerical_derivative::derivator::DerivatorMultiVariable;
+use crate::numerical_derivative::finite_difference::MultiVariableSolver;
+use const_poly::Polynomial;
 use crate::numerical_derivative::hessian::Hessian;
-
-use num_complex::ComplexFloat;
+use crate::utils::helper;
 
 #[derive(Debug)]
-pub struct QuadraticApproximationResult<T: ComplexFloat, const NUM_VARS: usize> {
-    pub intercept: T,
-    pub linear_coefficients: [T; NUM_VARS],
-    pub quadratic_coefficients: [[T; NUM_VARS]; NUM_VARS],
+pub struct QuadraticApproximationResult<const NUM_VARS: usize> {
+    pub intercept: f64,
+    pub linear_coefficients: [f64; NUM_VARS],
+    pub quadratic_coefficients: [[f64; NUM_VARS]; NUM_VARS],
 }
 
 #[derive(Debug)]
-pub struct QuadraticApproximationPredictionMetrics<T: ComplexFloat> {
-    pub mean_absolute_error: T::Real,
-    pub mean_squared_error: T::Real,
-    pub root_mean_squared_error: T::Real,
-    pub r_squared: T::Real,
-    pub adjusted_r_squared: T::Real,
+pub struct QuadraticApproximationPredictionMetrics {
+    pub mean_absolute_error: f64,
+    pub mean_squared_error: f64,
+    pub root_mean_squared_error: f64,
+    pub r_squared: f64,
+    pub adjusted_r_squared: f64,
 }
 
 ///Helper functions if you don't care about the details and just want the predictor directly
-impl<T: ComplexFloat, const NUM_VARS: usize> QuadraticApproximationResult<T, NUM_VARS> {
-    pub fn get_prediction_value(&self, args: &[T; NUM_VARS]) -> T {
+impl<const NUM_VARS: usize> QuadraticApproximationResult<NUM_VARS> {
+    pub fn get_prediction_value(&self, args: &[f64; NUM_VARS]) -> f64 {
         let mut result = self.intercept;
 
         for (i, arg) in args.iter().enumerate().take(NUM_VARS) {
@@ -39,42 +39,42 @@ impl<T: ComplexFloat, const NUM_VARS: usize> QuadraticApproximationResult<T, NUM
     //get prediction metrics by feeding a list of points and the original function
     pub fn get_prediction_metrics<const NUM_POINTS: usize>(
         &self,
-        points: &[[T; NUM_VARS]; NUM_POINTS],
-        original_function: &dyn Fn(&[T; NUM_VARS]) -> T,
-    ) -> QuadraticApproximationPredictionMetrics<T> {
+        points: &[[f64; NUM_VARS]; NUM_POINTS],
+        original_function: &Polynomial<NUM_VARS>,
+    ) -> QuadraticApproximationPredictionMetrics {
         //let num_points = points.len() as f64;
-        let mut mae = T::zero();
-        let mut mse = T::zero();
+        let mut mae = 0.0;
+        let mut mse = 0.0;
 
         for point in points.iter().take(NUM_POINTS) {
             let predicted_y = self.get_prediction_value(point);
 
-            mae = mae + (predicted_y - original_function(point));
-            mse = mse + num_complex::ComplexFloat::powi(predicted_y - original_function(point), 2);
+            mae = mae + (predicted_y - original_function.evaluate(point));
+            mse = mse + helper::powi(predicted_y - original_function.evaluate(point), 2);
         }
 
-        mae = mae / T::from(NUM_POINTS).unwrap();
-        mse = mse / T::from(NUM_POINTS).unwrap();
+        mae = mae / (NUM_POINTS as f64);
+        mse = mse / (NUM_POINTS as f64);
 
-        let rmse = mse.sqrt().abs();
+        let rmse = helper::sqrt(mse).abs();
 
-        let mut r2_numerator = T::zero();
-        let mut r2_denominator = T::zero();
+        let mut r2_numerator = 0.0;
+        let mut r2_denominator = 0.0;
 
         for point in points.iter().take(NUM_POINTS) {
             let predicted_y = self.get_prediction_value(point);
 
             r2_numerator = r2_numerator
-                + num_complex::ComplexFloat::powi(predicted_y - original_function(point), 2);
+                + helper::powi(predicted_y - original_function.evaluate(point), 2);
             r2_denominator =
-                r2_numerator + num_complex::ComplexFloat::powi(mae - original_function(point), 2);
+                r2_numerator + helper::powi(mae - original_function.evaluate(point), 2);
         }
 
-        let r2 = T::one() - (r2_numerator / r2_denominator);
+        let r2 = 1.0 - (r2_numerator / r2_denominator);
 
-        let r2_adj = T::one()
-            - (T::one() - r2) * (T::from(NUM_POINTS).unwrap())
-                / (T::from(NUM_POINTS).unwrap() - T::from(2.0).unwrap());
+        let r2_adj = 1.0
+            - (1.0 - r2) * ((NUM_POINTS as f64))
+                / ((NUM_POINTS as f64) - 2.0);
 
         return QuadraticApproximationPredictionMetrics {
             mean_absolute_error: mae.abs(),
@@ -86,22 +86,19 @@ impl<T: ComplexFloat, const NUM_VARS: usize> QuadraticApproximationResult<T, NUM
     }
 }
 
-pub struct QuadraticApproximator<D: DerivatorMultiVariable> {
-    derivator: D,
+pub struct QuadraticApproximator {
+    derivator: MultiVariableSolver,
 }
 
-impl<D: DerivatorMultiVariable> Default for QuadraticApproximator<D> {
+impl Default for QuadraticApproximator {
     fn default() -> Self {
-        return QuadraticApproximator {
-            derivator: D::default(),
-        };
+        Self {
+            derivator: MultiVariableSolver::default(),
+        }
     }
 }
 
-impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
-    pub fn from_derivator(derivator: D) -> Self {
-        return QuadraticApproximator { derivator };
-    }
+impl QuadraticApproximator {
 
     /// For an n-dimensional approximation, the equation is approximated as I + L + Q, where:
     /// I = intercept
@@ -141,16 +138,16 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
     /// to see how the [QuadraticApproximationResult::quadratic_coefficients] matrix should be used, refer to [`QuadraticApproximationResult::get_prediction_metrics()`]
     /// or refer to its tests.
     ///
-    pub fn get<T: ComplexFloat, const NUM_VARS: usize>(
+    pub fn get<const NUM_VARS: usize>(
         &self,
-        function: &dyn Fn(&[T; NUM_VARS]) -> T,
-        point: &[T; NUM_VARS],
-    ) -> Result<QuadraticApproximationResult<T, NUM_VARS>, &'static str> {
-        let mut intercept_ = function(point);
+        function: &Polynomial<NUM_VARS>,
+        point: &[f64; NUM_VARS],
+    ) -> Result<QuadraticApproximationResult<NUM_VARS>, &'static str> {
+        let mut intercept_ = function.evaluate(point);
 
-        let mut linear_coeffs_ = [T::zero(); NUM_VARS];
+        let mut linear_coeffs_ = [0.0; NUM_VARS];
 
-        let hessian_matrix = Hessian::from_derivator(self.derivator).get(function, point)?;
+        let hessian_matrix = Hessian::default().get(function, point)?;
 
         for iter in 0..NUM_VARS {
             linear_coeffs_[iter] = self.derivator.get(1, function, &[iter], point)?;
@@ -158,7 +155,7 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
                 intercept_ - self.derivator.get(1, function, &[iter], point)? * point[iter];
         }
 
-        let mut quad_coeff = [[T::zero(); NUM_VARS]; NUM_VARS];
+        let mut quad_coeff = [[0.0; NUM_VARS]; NUM_VARS];
 
         for row in 0..NUM_VARS {
             for col in row..NUM_VARS {
@@ -168,7 +165,7 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
 
                 if row == col {
                     linear_coeffs_[row] = linear_coeffs_[row]
-                        - T::from(2.0).unwrap() * hessian_matrix[row][col] * point[row]
+                        - 2.0 * hessian_matrix[row][col] * point[row]
                 } else {
                     linear_coeffs_[row] =
                         linear_coeffs_[row] - hessian_matrix[row][col] * point[col];

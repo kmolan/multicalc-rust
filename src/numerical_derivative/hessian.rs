@@ -1,29 +1,22 @@
-use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-
-use num_complex::ComplexFloat;
+use crate::numerical_derivative::finite_difference::MultiVariableSolver;
+use const_poly::Polynomial;
 
 ///computes the hessian matrix for a given function
 /// Can handle single and multivariable equations of any complexity or size
-pub struct Hessian<D: DerivatorMultiVariable> {
-    derivator: D,
+pub struct Hessian {
+    derivator: MultiVariableSolver,
 }
 
-impl<D: DerivatorMultiVariable> Default for Hessian<D> {
+impl Default for Hessian {
     ///the default constructor, optimal for most generic cases
     fn default() -> Self {
         return Hessian {
-            derivator: D::default(),
+            derivator: MultiVariableSolver::default(),
         };
     }
 }
 
-impl<D: DerivatorMultiVariable> Hessian<D> {
-    ///custom constructor, optimal for fine tuning
-    /// You can create a custom multivariable derivator from this crate
-    /// or supply your own by implementing the base traits yourself
-    pub fn from_derivator(derivator: D) -> Self {
-        return Hessian { derivator };
-    }
+impl Hessian {
 
     /// Returns the hessian matrix for a given function
     /// Can handle multivariable functions of any order or complexity
@@ -52,28 +45,41 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     /// let result = hessian.get(&my_func, &points).unwrap();
     /// ```
     ///
-    pub fn get<T: ComplexFloat, const NUM_VARS: usize>(
+    pub const fn get<const NUM_VARS: usize>(
         &self,
-        function: &dyn Fn(&[T; NUM_VARS]) -> T,
-        vector_of_points: &[T; NUM_VARS],
-    ) -> Result<[[T; NUM_VARS]; NUM_VARS], &'static str> {
-        let mut result = [[T::from(f64::NAN).unwrap(); NUM_VARS]; NUM_VARS];
+        function: &Polynomial<NUM_VARS>,
+        vector_of_points: &[f64; NUM_VARS],
+    ) -> Result<[[f64; NUM_VARS]; NUM_VARS], &'static str> {
+        let mut result = [[0.0; NUM_VARS]; NUM_VARS];
 
-        for row_index in 0..NUM_VARS {
-            for col_index in 0..NUM_VARS {
-                if result[row_index][col_index].is_nan() {
-                    result[row_index][col_index] = self.derivator.get_double_partial(
+        let mut row_index = 0;
+
+        while row_index < NUM_VARS {
+            let mut col_index = 0;
+            while col_index < NUM_VARS {
+
+                // compute only upper triangle (symmetric Hessian)
+                if col_index >= row_index {
+                    let res = self.derivator.get_double_partial(
                         function,
                         &[row_index, col_index],
                         vector_of_points,
-                    )?;
+                    );
 
-                    result[col_index][row_index] = result[row_index][col_index];
-                    //exploit the fact that a hessian is a symmetric matrix
+                    match res {
+                        Ok(value) => {
+                            result[row_index][col_index] = value;
+                            result[col_index][row_index] = value;
+                        }
+                        Err(e) => return Err(e),
+                    }
                 }
+
+                col_index += 1;
             }
+            row_index += 1;
         }
 
-        return Ok(result);
+        Ok(result)
     }
 }
