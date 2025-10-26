@@ -3,6 +3,8 @@ use crate::numerical_integration::integrator::*;
 use crate::numerical_integration::mode::GaussianQuadratureMethod;
 use crate::utils::error_codes::*;
 
+use const_poly::function_approximations;
+
 pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;
 
 ///Implements the gaussian quadrature methods for numerical integration for single variable functions
@@ -152,7 +154,7 @@ impl SingleVariableSolver {
                 )
                 .unwrap();
 
-                ans = ans + weight * func(abcsissa) * f64::exp(abcsissa * abcsissa);
+                ans = ans + weight * func(abcsissa) * function_approximations::exp_approx(abcsissa * abcsissa);
             }
 
             return ans;
@@ -197,7 +199,7 @@ impl SingleVariableSolver {
                 )
                 .unwrap();
 
-                ans = ans + (weight * func(abcsissa) * f64::exp(abcsissa));
+                ans = ans + (weight * func(abcsissa) * function_approximations::exp_approx(abcsissa));
             }
 
             return ans;

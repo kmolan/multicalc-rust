@@ -408,9 +408,6 @@ See [CONTRIBUTIONS.md](./CONTRIBUTIONS.md)
 ## LICENSE
 multicalc is licensed under the MIT license.
 
-## Acknowledgements
-multicalc uses [num-complex](https://crates.io/crates/num-complex) to provide a generic functionality for all floating type and complex numbers
-
 ## Contact
 anmolkathail@gmail.com
 
@@ -421,6 +418,6 @@ anmolkathail@gmail.com
 - [] Add infinite integration limits to iterative integration methods
 - [] Add finite integration limits to gauss-hermite
 - [] Add finite integration limits to gauss-laguerre
-- [] Add complex number support to integration modules
+- [] Add traits to cover all generic integral types - float or ints
 - [] Add ODE solver modules
 - [] Rework vector calculus module

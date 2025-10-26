@@ -1,30 +1,28 @@
-use num_complex::ComplexFloat;
-
 ///Base trait for single variable numerical differentiation
 pub trait DerivatorSingleVariable: Default + Clone + Copy {
     ///generic n-th derivative of a single variable function
-    fn get<T: ComplexFloat>(
+    fn get(
         &self,
         order: usize,
-        func: &dyn Fn(T) -> T,
-        point: T,
-    ) -> Result<T, &'static str>;
+        func: &dyn Fn(f64) -> f64,
+        point: f64,
+    ) -> Result<f64, &'static str>;
 
     ///convenience wrapper for a single derivative of a single variable function
-    fn get_single<T: ComplexFloat>(
+    fn get_single(
         &self,
-        func: &dyn Fn(T) -> T,
-        point: T,
-    ) -> Result<T, &'static str> {
+        func: &dyn Fn(f64) -> f64,
+        point: f64,
+    ) -> Result<f64, &'static str> {
         return self.get(1, func, point);
     }
 
     ///convenience wrapper for a double derivative of a single variable function
-    fn get_double<T: ComplexFloat>(
+    fn get_double(
         &self,
-        func: &dyn Fn(T) -> T,
-        point: T,
-    ) -> Result<T, &'static str> {
+        func: &dyn Fn(f64) -> f64,
+        point: f64,
+    ) -> Result<f64, &'static str> {
         return self.get(2, func, point);
     }
 }
@@ -32,31 +30,31 @@ pub trait DerivatorSingleVariable: Default + Clone + Copy {
 ///Base trait for multi-variable numerical differentiation
 pub trait DerivatorMultiVariable: Default + Clone + Copy {
     ///generic n-th derivative for a multivariable function of a multivariable function
-    fn get<T: ComplexFloat, const NUM_VARS: usize, const NUM_ORDER: usize>(
+    fn get<const NUM_VARS: usize, const NUM_ORDER: usize>(
         &self,
         order: usize,
-        func: &dyn Fn(&[T; NUM_VARS]) -> T,
+        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         idx_to_derivate: &[usize; NUM_ORDER],
-        point: &[T; NUM_VARS],
-    ) -> Result<T, &'static str>;
+        point: &[f64; NUM_VARS],
+    ) -> Result<f64, &'static str>;
 
     ///convenience wrapper for a single partial derivative of a multivariable function
-    fn get_single_partial<T: ComplexFloat, const NUM_VARS: usize>(
+    fn get_single_partial<const NUM_VARS: usize>(
         &self,
-        func: &dyn Fn(&[T; NUM_VARS]) -> T,
+        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         idx_to_derivate: usize,
-        point: &[T; NUM_VARS],
-    ) -> Result<T, &'static str> {
+        point: &[f64; NUM_VARS],
+    ) -> Result<f64, &'static str> {
         return self.get(1, func, &[idx_to_derivate], point);
     }
 
     ///convenience wrapper for a double partial derivative of a multivariable function
-    fn get_double_partial<T: ComplexFloat, const NUM_VARS: usize>(
+    fn get_double_partial<const NUM_VARS: usize>(
         &self,
-        func: &dyn Fn(&[T; NUM_VARS]) -> T,
+        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         idx_to_derivate: &[usize; 2],
-        point: &[T; NUM_VARS],
-    ) -> Result<T, &'static str> {
+        point: &[f64; NUM_VARS],
+    ) -> Result<f64, &'static str> {
         return self.get(2, func, idx_to_derivate, point);
     }
 }

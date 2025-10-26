@@ -1,8 +1,6 @@
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::utils::error_codes::*;
 
-use num_complex::ComplexFloat;
-
 #[cfg(feature = "heap")]
 use std::{boxed::Box, vec::Vec};
 
@@ -62,16 +60,17 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     /// let result = jacobian.get(&function_matrix, &points).unwrap();
     /// ```
     ///
-    pub fn get<T: ComplexFloat, const NUM_FUNCS: usize, const NUM_VARS: usize>(
+    pub fn get<const NUM_FUNCS: usize, const NUM_VARS: usize>(
         &self,
-        function_matrix: &[&dyn Fn(&[T; NUM_VARS]) -> T; NUM_FUNCS],
-        vector_of_points: &[T; NUM_VARS],
-    ) -> Result<[[T; NUM_VARS]; NUM_FUNCS], &'static str> {
+        function_matrix: &[&dyn Fn(&[f64; NUM_VARS]) -> f64; NUM_FUNCS],
+        vector_of_points: &[f64; NUM_VARS],
+    ) -> Result<[[f64; NUM_VARS]; NUM_FUNCS], &'static str> {
+
         if function_matrix.is_empty() {
             return Err(VECTOR_OF_FUNCTIONS_CANNOT_BE_EMPTY);
         }
 
-        let mut result = [[T::zero(); NUM_VARS]; NUM_FUNCS];
+        let mut result = [[0.0; NUM_VARS]; NUM_FUNCS];
 
         for row_index in 0..NUM_FUNCS {
             for col_index in 0..NUM_VARS {
@@ -101,21 +100,22 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     /// VectorOfFunctionsCannotBeEmpty -> if function_matrix argument is an empty array
     /// NumberOfStepsCannotBeZero -> if the derivative step size is zero
     #[cfg(feature = "heap")]
-    pub fn get_on_heap<T: ComplexFloat, const NUM_VARS: usize>(
+    pub fn get_on_heap<const NUM_VARS: usize>(
         &self,
-        function_matrix: &Vec<Box<dyn Fn(&[T; NUM_VARS]) -> T>>,
-        vector_of_points: &[T; NUM_VARS],
+        function_matrix: &Vec<Box<dyn Fn(&[f64; NUM_VARS]) -> f64>>,
+        vector_of_points: &[f64; NUM_VARS],
     ) -> Result<Vec<Vec<T>>, &'static str> {
+
         if function_matrix.is_empty() {
             return Err(VECTOR_OF_FUNCTIONS_CANNOT_BE_EMPTY);
         }
 
         let num_funcs = function_matrix.len();
 
-        let mut result: Vec<Vec<T>> = Vec::new();
+        let mut result: Vec<Vec<f64>> = Vec::new();
 
         for row_index in 0..num_funcs {
-            let mut cur_row: Vec<T> = Vec::new();
+            let mut cur_row: Vec<f64> = Vec::new();
             for col_index in 0..NUM_VARS {
                 cur_row.push(self.derivator.get_single_partial(
                     &function_matrix[row_index],

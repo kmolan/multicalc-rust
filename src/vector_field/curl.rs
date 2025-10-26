@@ -1,5 +1,4 @@
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-use num_complex::ComplexFloat;
 
 ///solves for the curl of a 3D vector field around a given point
 ///
@@ -48,16 +47,15 @@ use num_complex::ComplexFloat;
 /// assert!(f64::abs(val[1] - 0.00) < 0.00001);
 /// assert!(f64::abs(val[2] + 2.00) < 0.00001);
 /// ```
-pub fn get_3d<T, D, const NUM_VARS: usize>(
+pub fn get_3d<D, const NUM_VARS: usize>(
     derivator: D,
-    vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 3],
-    point: &[T; NUM_VARS],
-) -> Result<[T; 3], &'static str>
+    vector_field: &[&dyn Fn(&[f64; NUM_VARS]) -> f64; 3],
+    point: &[f64; NUM_VARS],
+) -> Result<[f64; 3], &'static str>
 where
-    T: ComplexFloat,
     D: DerivatorMultiVariable,
 {
-    let mut ans = [T::zero(); 3];
+    let mut ans = [0.0; 3];
 
     ans[0] = derivator.get(1, vector_field[2], &[1], point)?
         - derivator.get(1, vector_field[1], &[2], point)?;
@@ -106,13 +104,12 @@ where
 /// let val = curl::get_2d(derivator, &vector_field_matrix, &point).unwrap();
 /// assert!(f64::abs(val + 2.0) < 0.00001);
 /// ```
-pub fn get_2d<T, D, const NUM_VARS: usize>(
+pub fn get_2d<D, const NUM_VARS: usize>(
     derivator: D,
-    vector_field: &[&dyn Fn(&[T; NUM_VARS]) -> T; 2],
-    point: &[T; NUM_VARS],
-) -> Result<T, &'static str>
+    vector_field: &[&dyn Fn(&[f64; NUM_VARS]) -> f64; 2],
+    point: &[f64; NUM_VARS],
+) -> Result<f64, &'static str>
 where
-    T: ComplexFloat,
     D: DerivatorMultiVariable,
 {
     return Ok(derivator.get(1, vector_field[1], &[0], point)?

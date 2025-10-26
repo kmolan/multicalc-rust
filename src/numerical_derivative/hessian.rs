@@ -1,7 +1,5 @@
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 
-use num_complex::ComplexFloat;
-
 ///computes the hessian matrix for a given function
 /// Can handle single and multivariable equations of any complexity or size
 pub struct Hessian<D: DerivatorMultiVariable> {
@@ -52,12 +50,12 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     /// let result = hessian.get(&my_func, &points).unwrap();
     /// ```
     ///
-    pub fn get<T: ComplexFloat, const NUM_VARS: usize>(
+    pub fn get<const NUM_VARS: usize>(
         &self,
-        function: &dyn Fn(&[T; NUM_VARS]) -> T,
-        vector_of_points: &[T; NUM_VARS],
-    ) -> Result<[[T; NUM_VARS]; NUM_VARS], &'static str> {
-        let mut result = [[T::from(f64::NAN).unwrap(); NUM_VARS]; NUM_VARS];
+        function: &dyn Fn(&[f64; NUM_VARS]) -> f64,
+        vector_of_points: &[f64; NUM_VARS],
+    ) -> Result<[[f64; NUM_VARS]; NUM_VARS], &'static str> {
+        let mut result = [[f64::NAN; NUM_VARS]; NUM_VARS];
 
         for row_index in 0..NUM_VARS {
             for col_index in 0..NUM_VARS {

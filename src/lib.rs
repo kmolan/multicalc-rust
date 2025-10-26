@@ -1,7 +1,7 @@
 #![allow(clippy::needless_return)]
 #![allow(clippy::type_complexity)]
 
-#![no_std]
+// #![no_std]
 
 #[cfg(feature = "heap")]
 extern crate std;

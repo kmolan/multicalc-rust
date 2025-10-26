@@ -2,7 +2,6 @@ use crate::numerical_derivative::mode;
 use crate::utils::error_codes::*;
 
 use crate::numerical_derivative::derivator::*;
-use num_complex::ComplexFloat;
 
 ///Implements the finite difference method for numerical differentation for single variable functions
 #[derive(Clone, Copy)]
@@ -76,17 +75,17 @@ impl SingleVariableSolver {
     /// Returns the forward difference numerical differentiation for single variable functions.
     /// Computes f'(x) = (f(x + h) - f(x))/h, where h is the chosen step size.
     /// You can control how many times to differentiate using the "order" parameter.
-    fn get_forward_difference_single_variable<T: ComplexFloat>(
+    fn get_forward_difference_single_variable(
         &self,
         order: usize,
-        func: &dyn Fn(T) -> T,
-        point: T,
+        func: &dyn Fn(f64) -> f64,
+        point: f64,
         step_size: f64,
-    ) -> T {
+    ) -> f64 {
         if order == 1 {
             let f0 = func(point);
-            let f1 = func(point + T::from(step_size).unwrap());
-            return (f1 - f0) / (T::from(step_size).unwrap());
+            let f1 = func(point + step_size);
+            return (f1 - f0) / (step_size);
         }
 
         let f0_point = point;
@@ -97,7 +96,7 @@ impl SingleVariableSolver {
             self.step_size_multiplier * step_size,
         );
 
-        let f1_point = point + T::from(step_size).unwrap();
+        let f1_point = point + step_size;
         let f1 = self.get_forward_difference_single_variable(
             order - 1,
             func,
@@ -105,26 +104,26 @@ impl SingleVariableSolver {
             self.step_size_multiplier * step_size,
         );
 
-        return (f1 - f0) / (T::from(step_size).unwrap());
+        return (f1 - f0) / (step_size);
     }
 
     ///Returns the backward difference numerical differentiation for single variable functions
     ///computes f'(x) = (f(x) - f(x - h))/h, where h is the chosen step size
     /// you can control how many times to differentiate using the "order" parameter
-    fn get_backward_difference_single_variable<T: ComplexFloat>(
+    fn get_backward_difference_single_variable(
         &self,
         order: usize,
-        func: &dyn Fn(T) -> T,
-        point: T,
+        func: &dyn Fn(f64) -> f64,
+        point: f64,
         step_size: f64,
-    ) -> T {
+    ) -> f64 {
         if order == 1 {
-            let f0 = func(point - T::from(step_size).unwrap());
+            let f0 = func(point - step_size);
             let f1 = func(point);
-            return (f1 - f0) / (T::from(step_size).unwrap());
+            return (f1 - f0) / (step_size);
         }
 
-        let f0_point = point - T::from(step_size).unwrap();
+        let f0_point = point - step_size;
         let f0 = self.get_backward_difference_single_variable(
             order - 1,
             func,
@@ -140,26 +139,26 @@ impl SingleVariableSolver {
             self.step_size_multiplier * step_size,
         );
 
-        return (f1 - f0) / (T::from(step_size).unwrap());
+        return (f1 - f0) / (step_size);
     }
 
     ///Returns the central difference numerical differentiation for single variable functions
     ///computes f'(x) = (f(x + h) - f(x - h))/2h, where h is the chosen step size
     /// you can control how many times to differentiate using the "order" parameter
-    fn get_central_difference_single_variable<T: ComplexFloat>(
+    fn get_central_difference_single_variable(
         &self,
         order: usize,
-        func: &dyn Fn(T) -> T,
-        point: T,
+        func: &dyn Fn(f64) -> f64,
+        point: f64,
         step_size: f64,
-    ) -> T {
+    ) -> f64 {
         if order == 1 {
-            let f0 = func(point - T::from(step_size).unwrap());
-            let f1 = func(point + T::from(step_size).unwrap());
-            return (f1 - f0) / (T::from(2.0 * step_size).unwrap());
+            let f0 = func(point - step_size);
+            let f1 = func(point + step_size);
+            return (f1 - f0) / (2.0*step_size);
         }
 
-        let f0_point = point - T::from(step_size).unwrap();
+        let f0_point = point - step_size;
         let f0 = self.get_central_difference_single_variable(
             order - 1,
             func,
@@ -167,7 +166,7 @@ impl SingleVariableSolver {
             self.step_size_multiplier * step_size,
         );
 
-        let f1_point = point + T::from(step_size).unwrap();
+        let f1_point = point + step_size;
         let f1 = self.get_central_difference_single_variable(
             order - 1,
             func,
@@ -175,7 +174,7 @@ impl SingleVariableSolver {
             self.step_size_multiplier * step_size,
         );
 
-        return (f1 - f0) / (T::from(2.0 * step_size).unwrap());
+        return (f1 - f0) / (2.0*step_size);
     }
 }
 
@@ -183,9 +182,9 @@ impl DerivatorSingleVariable for SingleVariableSolver {
     /// Returns the numerical differentiation value for a single variable function
     /// order: number of times the equation should be differentiated
     /// func: the single variable function
-    /// point: the point of interest around which we want to differentiate
+    /// point: f64he point of interest around which we want to differentiate
     ///
-    /// NOTE: Returns a Result<T, &'static str>
+    /// NOTE: Returns a Result<f64, &'static str>
     /// Possible &'static str are:
     /// NUMBER_OF_DERIVATIVE_STEPS_CANNOT_BE_ZERO -> if the step size value is zero
     /// DERIVATE_ORDER_CANNOT_BE_ZERO -> if the 'order' argument is zero
@@ -213,12 +212,12 @@ impl DerivatorSingleVariable for SingleVariableSolver {
     ///```
     ///// Note that the accuracy of approximations fall with every derivative. This can be fine-tuned for each case
     /// using an appropriate starting step size and a step size multiplier
-    fn get<T: ComplexFloat>(
+    fn get(
         &self,
         order: usize,
-        func: &dyn Fn(T) -> T,
-        point: T,
-    ) -> Result<T, &'static str> {
+        func: &dyn Fn(f64) -> f64,
+        point: f64,
+    ) -> Result<f64, &'static str> {
         if order == 0 {
             return Err(DERIVATE_ORDER_CANNOT_BE_ZERO);
         }
@@ -330,34 +329,33 @@ impl MultiVariableSolver {
     /// you can control how many times to differentiate using the "order" parameter
     /// you can specify the variable(s) whose respect to the equation needs to be differentiated using the 'idx_to_derivate' parameter
     fn get_forward_difference_multi_variable<
-        T: ComplexFloat,
         const NUM_VARS: usize,
         const NUM_ORDER: usize,
     >(
         &self,
         order: usize,
-        func: &dyn Fn(&[T; NUM_VARS]) -> T,
+        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         idx_to_derivate: &[usize; NUM_ORDER],
-        point: &[T; NUM_VARS],
+        point: &[f64; NUM_VARS],
         step_size: f64,
-    ) -> T {
+    ) -> f64 {
         if order == 1 {
             let f0_args = point;
 
             let mut f1_args = *point;
-            f1_args[idx_to_derivate[0]] = f1_args[idx_to_derivate[0]] + T::from(step_size).unwrap();
+            f1_args[idx_to_derivate[0]] = f1_args[idx_to_derivate[0]] + step_size;
 
             let f0 = func(f0_args);
             let f1 = func(&f1_args);
 
-            return (f1 - f0) / T::from(step_size).unwrap();
+            return (f1 - f0) / step_size;
         }
 
         let f0_args = point;
 
         let mut f1_args = *point;
         f1_args[idx_to_derivate[order - 1]] =
-            f1_args[idx_to_derivate[order - 1]] + T::from(step_size).unwrap();
+            f1_args[idx_to_derivate[order - 1]] + step_size;
 
         let f0 = self.get_forward_difference_multi_variable(
             order - 1,
@@ -374,7 +372,7 @@ impl MultiVariableSolver {
             self.step_size_multiplier * step_size,
         );
 
-        return (f1 - f0) / T::from(step_size).unwrap();
+        return (f1 - f0) / step_size;
     }
 
     ///Returns the partial backward difference numerical differentiation for multi variable functions
@@ -382,32 +380,31 @@ impl MultiVariableSolver {
     /// you can control how many times to differentiate using the "order" parameter
     /// you can specify the variable(s) whose respect to the equation needs to be differentiated using the 'idx_to_derivate' parameter
     fn get_backward_difference_multi_variable<
-        T: ComplexFloat,
         const NUM_VARS: usize,
         const NUM_ORDER: usize,
     >(
         &self,
         order: usize,
-        func: &dyn Fn(&[T; NUM_VARS]) -> T,
+        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         idx_to_derivate: &[usize; NUM_ORDER],
-        point: &[T; NUM_VARS],
+        point: &[f64; NUM_VARS],
         step_size: f64,
-    ) -> T {
+    ) -> f64 {
         if order == 1 {
             let mut f0_args = *point;
-            f0_args[idx_to_derivate[0]] = f0_args[idx_to_derivate[0]] - T::from(step_size).unwrap();
+            f0_args[idx_to_derivate[0]] = f0_args[idx_to_derivate[0]] - step_size;
 
             let f1_args = point;
 
             let f0 = func(&f0_args);
             let f1 = func(f1_args);
 
-            return (f1 - f0) / T::from(step_size).unwrap();
+            return (f1 - f0) / step_size;
         }
 
         let mut f0_args = *point;
         f0_args[idx_to_derivate[order - 1]] =
-            f0_args[idx_to_derivate[order - 1]] - T::from(step_size).unwrap();
+            f0_args[idx_to_derivate[order - 1]] - step_size;
 
         let f1_args = point;
 
@@ -426,7 +423,7 @@ impl MultiVariableSolver {
             self.step_size_multiplier * step_size,
         );
 
-        return (f1 - f0) / T::from(step_size).unwrap();
+        return (f1 - f0) / step_size;
     }
 
     ///Returns the partial central difference numerical differentiation for multi variable functions
@@ -434,33 +431,32 @@ impl MultiVariableSolver {
     /// you can control how many times to differentiate using the "order" parameter
     /// you can specify the variable(s) whose respect to the equation needs to be differentiated using the 'idx_to_derivate' parameter
     fn get_central_difference_multi_variable<
-        T: ComplexFloat,
         const NUM_VARS: usize,
         const NUM_ORDER: usize,
     >(
         &self,
         order: usize,
-        func: &dyn Fn(&[T; NUM_VARS]) -> T,
+        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         idx_to_derivate: &[usize; NUM_ORDER],
-        point: &[T; NUM_VARS],
+        point: &[f64; NUM_VARS],
         step_size: f64,
-    ) -> T {
+    ) -> f64 {
         if order == 1 {
             let mut f0_args = *point;
-            f0_args[idx_to_derivate[0]] = f0_args[idx_to_derivate[0]] - T::from(step_size).unwrap();
+            f0_args[idx_to_derivate[0]] = f0_args[idx_to_derivate[0]] - step_size;
 
             let mut f1_args = *point;
-            f1_args[idx_to_derivate[0]] = f1_args[idx_to_derivate[0]] + T::from(step_size).unwrap();
+            f1_args[idx_to_derivate[0]] = f1_args[idx_to_derivate[0]] + step_size;
 
             let f0 = func(&f0_args);
             let f1 = func(&f1_args);
 
-            return (f1 - f0) / (T::from(2.0 * step_size).unwrap());
+            return (f1 - f0) / (2.0*step_size);
         }
 
         let mut f0_point = *point;
         f0_point[idx_to_derivate[order - 1]] =
-            f0_point[idx_to_derivate[order - 1]] - T::from(step_size).unwrap();
+            f0_point[idx_to_derivate[order - 1]] - step_size;
 
         let f0 = self.get_central_difference_multi_variable(
             order - 1,
@@ -472,7 +468,7 @@ impl MultiVariableSolver {
 
         let mut f1_point = *point;
         f1_point[idx_to_derivate[order - 1]] =
-            f1_point[idx_to_derivate[order - 1]] + T::from(step_size).unwrap();
+            f1_point[idx_to_derivate[order - 1]] + step_size;
 
         let f1 = self.get_central_difference_multi_variable(
             order - 1,
@@ -482,7 +478,7 @@ impl MultiVariableSolver {
             self.step_size_multiplier * step_size,
         );
 
-        return (f1 - f0) / (T::from(2.0 * step_size).unwrap());
+        return (f1 - f0) / (2.0*step_size);
     }
 }
 
@@ -491,9 +487,9 @@ impl DerivatorMultiVariable for MultiVariableSolver {
     /// order: number of times the equation should be differentiated
     /// func: the multi variable function
     /// idx_to_derivate: The variable index/indices whose respect to we want to differentiate
-    /// point: the point of interest around which we want to differentiate
+    /// point: f64he point of interest around which we want to differentiate
     ///
-    /// NOTE: Returns a Result<T, &'static str>
+    /// NOTE: Returns a Result<f64, &'static str>
     /// Possible &'static str are:
     /// NUMBER_OF_DERIVATIVE_STEPS_CANNOT_BE_ZERO -> if the step size value is zero
     /// DERIVATE_ORDER_CANNOT_BE_ZERO -> if the 'order' argument is zero
@@ -524,13 +520,14 @@ impl DerivatorMultiVariable for MultiVariableSolver {
     ///let expected_value = -1.0*f64::cos(2.0);
     ///assert!(f64::abs(val - expected_value) < 0.0001);
     ///```
-    fn get<T: ComplexFloat, const NUM_VARS: usize, const NUM_ORDER: usize>(
+    fn get<const NUM_VARS: usize, const NUM_ORDER: usize>(
         &self,
         order: usize,
-        func: &dyn Fn(&[T; NUM_VARS]) -> T,
+        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         idx_to_derivate: &[usize; NUM_ORDER],
-        point: &[T; NUM_VARS],
-    ) -> Result<T, &'static str> {
+        point: &[f64; NUM_VARS],
+    ) -> Result<f64, &'static str> {
+        
         if self.step_size == 0.0 {
             return Err(NUMBER_OF_DERIVATIVE_STEPS_CANNOT_BE_ZERO);
         }
