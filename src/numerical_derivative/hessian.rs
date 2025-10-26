@@ -17,6 +17,7 @@ impl Default for Hessian {
 }
 
 impl Hessian {
+
     /// Returns the hessian matrix for a given function
     /// Can handle multivariable functions of any order or complexity
     ///
@@ -56,6 +57,7 @@ impl Hessian {
         while row_index < NUM_VARS {
             let mut col_index = 0;
             while col_index < NUM_VARS {
+
                 // compute only upper triangle (symmetric Hessian)
                 if col_index >= row_index {
                     let res = self.derivator.get_double_partial(

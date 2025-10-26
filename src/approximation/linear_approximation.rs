@@ -1,6 +1,6 @@
 use crate::numerical_derivative::finite_difference::MultiVariableSolver;
-use crate::utils::helper;
 use const_poly::Polynomial;
+use crate::utils::helper;
 
 #[derive(Debug)]
 pub struct LinearApproximationResult<const NUM_VARS: usize> {
@@ -56,15 +56,17 @@ impl<const NUM_VARS: usize> LinearApproximationResult<NUM_VARS> {
         for point in points.iter().take(NUM_POINTS) {
             let predicted_y = self.get_prediction_value(point);
 
-            r2_numerator =
-                r2_numerator + helper::powi(predicted_y - original_function.evaluate(point), 2);
+            r2_numerator = r2_numerator
+                + helper::powi(predicted_y - original_function.evaluate(point), 2);
             r2_denominator =
                 r2_numerator + helper::powi(mae - original_function.evaluate(point), 2);
         }
 
         let r2 = 1.0 - (r2_numerator / r2_denominator);
 
-        let r2_adj = 1.0 - (1.0 - r2) * (NUM_POINTS as f64) / ((NUM_POINTS as f64) - 2.0);
+        let r2_adj = 1.0
+            - (1.0 - r2) * ((NUM_POINTS as f64))
+                / ((NUM_POINTS as f64) - 2.0);
 
         return LinearApproximationPredictionMetrics {
             mean_absolute_error: mae.abs(),
@@ -89,6 +91,7 @@ impl Default for LinearApproximator {
 }
 
 impl LinearApproximator {
+
     /// For an n-dimensional approximation, the equation is linearized as:
     /// coefficient[0]*var_1 + coefficient[1]*var_2 + ... + coefficient[n-1]*var_n + intercept
     ///

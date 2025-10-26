@@ -1,6 +1,6 @@
 use crate::numerical_integration::iterative_integration::DEFAULT_TOTAL_ITERATIONS;
-use crate::utils::error_codes::*;
 use const_poly::Polynomial;
+use crate::utils::error_codes::*;
 
 ///solves for the line integral for parametrized curves in a 2D vector field
 ///
