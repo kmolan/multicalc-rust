@@ -3,8 +3,6 @@ use crate::numerical_integration::integrator::*;
 use crate::numerical_integration::mode::GaussianQuadratureMethod;
 use crate::utils::error_codes::*;
 
-use const_poly::Polynomial;
-
 pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;
 
 ///Implements the gaussian quadrature methods for numerical integration for single variable functions
@@ -85,7 +83,7 @@ impl SingleVariableSolver {
     fn get_gauss_legendre<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
-        func: &Polynomial<1>,
+        func: &dyn Fn(f64) -> f64,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> f64 {
         if number_of_integrations == 1 {
@@ -103,7 +101,7 @@ impl SingleVariableSolver {
 
                 let args = abcsissa_coeff * abcsissa + intercept;
 
-                ans = ans + weight * func.evaluate_scalar(args);
+                ans = ans + weight * func(args);
             }
 
             return abcsissa_coeff * ans;
@@ -140,7 +138,7 @@ impl SingleVariableSolver {
     fn get_gauss_hermite<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
-        func: &Polynomial<1>,
+        func: &dyn Fn(f64) -> f64,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> f64 {
         if number_of_integrations == 1 {
@@ -154,7 +152,7 @@ impl SingleVariableSolver {
                 )
                 .unwrap();
 
-                ans = ans + weight * func.evaluate_scalar(abcsissa) * f64::exp(abcsissa * abcsissa);
+                ans = ans + weight * func(abcsissa) * f64::exp(abcsissa * abcsissa);
             }
 
             return ans;
@@ -185,7 +183,7 @@ impl SingleVariableSolver {
     fn get_gauss_laguerre<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
-        func: &Polynomial<1>,
+        func: &dyn Fn(f64) -> f64,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> f64 {
         if number_of_integrations == 1 {
@@ -199,7 +197,7 @@ impl SingleVariableSolver {
                 )
                 .unwrap();
 
-                ans = ans + (weight * func.evaluate_scalar(abcsissa) * f64::exp(abcsissa));
+                ans = ans + (weight * func(abcsissa) * f64::exp(abcsissa));
             }
 
             return ans;
@@ -238,28 +236,27 @@ impl IntegratorSingleVariable for SingleVariableSolver {
     ///
     /// assume we want to differentiate f(x) = 4.0*x*x*x - 3.0*x*x. the function would be:
     /// ```
-    /// use const_poly::VarFunction::*;
-    /// use const_poly::{Polynomial, const_poly};
-    /// 
-    /// const FUNC: Polynomial<1> = const_poly!({[4.0,  Pow(3)],
-    ///                                          [-3.0, Pow(2)]});
+    ///    let my_func = | arg: f64 | -> f64
+    ///    {
+    ///        return 4.0*arg*arg*arg - 3.0*arg*arg;
+    ///    };
     ///
     /// use multicalc::numerical_integration::integrator::*;
     /// use multicalc::numerical_integration::gaussian_integration;
     ///
     /// let integrator = gaussian_integration::SingleVariableSolver::default();
     /// let integration_limit = [[0.0, 2.0]; 1];
-    /// let val = integrator.get(1, &FUNC, &integration_limit).unwrap(); //single integration
+    /// let val = integrator.get(1, &my_func, &integration_limit).unwrap(); //single integration
     /// assert!(f64::abs(val - 8.0) < 1e-7);
     ///
     /// let integration_limit = [[0.0, 2.0], [-1.0, 1.0]];
-    /// let val = integrator.get(2, &FUNC, &integration_limit).unwrap(); //double integration
+    /// let val = integrator.get(2, &my_func, &integration_limit).unwrap(); //double integration
     /// assert!(f64::abs(val - 16.0) < 1e-7);
     ///```
     fn get<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
-        func: &Polynomial<1>,
+        func: &dyn Fn(f64) -> f64,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> Result<f64, &'static str> {
         self.check_for_errors(number_of_integrations, integration_limit)?;
@@ -359,7 +356,7 @@ impl MultiVariableSolver {
         &self,
         number_of_integrations: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &Polynomial<NUM_VARS>,
+        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
     ) -> f64 {
@@ -380,7 +377,7 @@ impl MultiVariableSolver {
 
                 args[idx_to_integrate[0]] = abcsissa_coeff * abcsissa + intercept;
 
-                ans = ans + weight * func.evaluate(&args);
+                ans = ans + weight * func(&args);
             }
 
             return abcsissa_coeff * ans;
@@ -431,7 +428,7 @@ impl MultiVariableSolver {
         &self,
         number_of_integrations: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &Polynomial<NUM_VARS>,
+        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
     ) -> f64 {
@@ -450,7 +447,7 @@ impl MultiVariableSolver {
 
                 args[idx_to_integrate[0]] = abcsissa;
 
-                ans = ans + weight * func.evaluate(&args);
+                ans = ans + weight * func(&args);
             }
 
             return ans;
@@ -494,7 +491,7 @@ impl MultiVariableSolver {
         &self,
         number_of_integrations: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &Polynomial<NUM_VARS>,
+        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
     ) -> f64 {
@@ -513,7 +510,7 @@ impl MultiVariableSolver {
 
                 args[idx_to_integrate[0]] = abcsissa;
 
-                ans = ans + weight * func.evaluate(&args);
+                ans = ans + weight * func(&args);
             }
 
             return ans;
@@ -561,11 +558,10 @@ impl IntegratorMultiVariable for MultiVariableSolver {
     ///
     /// assume we want to differentiate f(x,y,z) = 2.0*x + y*z. the function would be:
     /// ```
-    /// use const_poly::VarFunction::*;
-    /// use const_poly::{Polynomial, const_poly};
-    /// 
-    /// const FUNC: Polynomial<3> = const_poly!({[2.0, Identity,  Pow(0),  Pow(0)],
-    ///                                          [1.0, Pow(0),    Identity,  Identity]});
+    ///    let my_func = | args: &[f64; 3] | -> f64
+    ///    {
+    ///        return 2.0*args[0] + args[1]*args[2];
+    ///    };
     ///
     /// use multicalc::numerical_integration::integrator::*;
     /// use multicalc::numerical_integration::gaussian_integration;
@@ -574,7 +570,7 @@ impl IntegratorMultiVariable for MultiVariableSolver {
     /// let point = [1.0, 2.0, 3.0];
     ///
     /// let integration_limit = [[0.0, 1.0]; 1];
-    /// let val = integrator.get(1, [0; 1], &FUNC, &integration_limit, &point).unwrap(); //single integration for x
+    /// let val = integrator.get(1, [0; 1], &my_func, &integration_limit, &point).unwrap(); //single integration for x
     /// assert!(f64::abs(val - 7.0) < 1e-7);
     ///
     ///```
@@ -582,7 +578,7 @@ impl IntegratorMultiVariable for MultiVariableSolver {
         &self,
         number_of_integrations: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &Polynomial<NUM_VARS>,
+        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
     ) -> Result<f64, &'static str> {
