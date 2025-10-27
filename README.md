@@ -418,6 +418,7 @@ anmolkathail@gmail.com
 - [] Add infinite integration limits to iterative integration methods
 - [] Add finite integration limits to gauss-hermite
 - [] Add finite integration limits to gauss-laguerre
+- [] improve and benchmark accuracy
 - [] Add traits to cover all generic integral types - float or ints
 - [] Add ODE solver modules
 - [] Rework vector calculus module

@@ -66,3 +66,74 @@ pub trait IntegratorMultiVariable: Default + Clone + Copy {
         return self.get(2, idx_to_integrate, func, integration_limits, point);
     }
 }
+
+/// Evaluates the transformed function value `f(x(t)) * dx/dt`
+/// according to the correct domain-mapping rule.
+///
+/// Mapping functions:
+/// 1. (-∞, ∞):  x = tan(π(t - ½)),     dx/dt = π / cos²(π(t - ½))
+/// 2. (a, ∞):   x = a + t/(1 - t),     dx/dt = 1 / (1 - t)²
+/// 3. (-∞, b):  x = b - t/(1 - t),     dx/dt = 1 / (1 - t)²
+/// 4. Finite (a, b):  x = t,           dx/dt = 1
+///
+/// # Arguments
+/// - `func`: the original function f(x)
+/// - `original_integration_limit`: `[a, b]` integration range, possibly infinite
+/// - `point`: current evaluation point `t` in the transformed finite domain [0, 1]
+///
+/// # Returns
+/// The function value in transformed domain: f(x(t)) * dx/dt
+pub fn get_domain_change_function_value(
+    func: &dyn Fn(f64) -> f64,
+    original_integration_limit: &[f64; 2],
+    point: f64,
+) -> f64 {
+    const PI: f64 = core::f64::consts::PI;
+    let lower_limit = original_integration_limit[0];
+    let upper_limit = original_integration_limit[1];
+
+    if lower_limit.is_infinite() && upper_limit.is_infinite() {
+        // (-∞, ∞)
+
+        let x = f64::tan(PI * (point - 0.5));
+        let jac = PI / f64::cos(PI * (point - 0.5)).powi(2);
+        func(x) * jac
+    } else if lower_limit.is_finite() && upper_limit.is_infinite() {
+        // (lower_limit, ∞)
+
+        let x = lower_limit + point / (1.0 - point);
+        let jac = 1.0 / (1.0 - point).powi(2);
+        func(x) * jac
+    } else if lower_limit.is_infinite() && upper_limit.is_finite() {
+        // (-∞, upper_limit)
+
+        let x = upper_limit - point / (1.0 - point);
+        let jac = 1.0 / (1.0 - point).powi(2);
+        func(x) * jac
+    } else {
+        func(point)
+    }
+}
+
+/// Returns the transformed integration limits `(t0, t1)`
+/// that map an infinite or semi-infinite domain to a finite one.
+///
+/// Mapping rules:
+/// - Finite (a, b): unchanged → (a, b)
+/// - Semi-infinite (a, ∞): t ∈ [0, 1)
+/// - Semi-infinite (-∞, b): t ∈ [0, 1)
+/// - Infinite (-∞, ∞): t ∈ [0, 1)
+pub fn get_domain_change_limits(original_integration_limit: &[f64; 2]) -> (f64, f64) {
+    let a = original_integration_limit[0];
+    let b = original_integration_limit[1];
+
+    const EPSILON: f64 = core::f64::EPSILON;
+
+    if a.is_infinite() || b.is_infinite() {
+        // For all infinite forms, map into [0, 1]
+        (EPSILON, 1.0 - EPSILON) //don't actually map to [0,1] but very close to it, because evaluating at infinity gives undefined behavior
+    } else {
+        // Finite range: leave unchanged
+        (a, b)
+    }
+}
