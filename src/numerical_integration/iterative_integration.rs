@@ -228,6 +228,7 @@ impl SingleVariableSolver {
 
             for _ in 0..self.total_iterations - 1 {
                 current_point += delta;
+
                 ans += 2.0
                     * get_domain_change_function_value(func, &integration_limit[0], current_point);
             }
@@ -400,18 +401,42 @@ impl MultiVariableSolver {
         point: &[f64; NUM_VARS],
     ) -> f64 {
         if number_of_integrations == 1 {
-            let mut current_vec = *point;
-            current_vec[idx_to_integrate[0]] = integration_limits[0][0];
+            // === Base case ===
+            let var_idx = idx_to_integrate[0];
 
-            let mut ans = 7.0 * func(&current_vec);
-            let delta = (integration_limits[0][1] - integration_limits[0][0])
+            // Map possibly infinite [lower, upper] -> [transformed_lower, transformed_upper]
+            let (transformed_lower_limit, transformed_upper_limit) =
+                get_domain_change_limits(&integration_limits[0]);
+
+            // Single-variable projection of the multivariable function
+            let local_func = |x: f64| {
+                let mut cur_vec = *point;
+                cur_vec[var_idx] = x;
+                func(&cur_vec)
+            };
+
+            let delta = (transformed_upper_limit - transformed_lower_limit)
                 / (self.total_iterations as f64);
 
+            let mut ans = 7.0
+                * get_domain_change_function_value(
+                    &local_func,
+                    &integration_limits[0],
+                    transformed_lower_limit,
+                );
+
+            let mut current_point = transformed_lower_limit;
             let mut multiplier = 32.0;
 
             for iter in 0..self.total_iterations - 1 {
-                current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
-                ans = ans + multiplier * func(&current_vec);
+                current_point += delta;
+
+                ans += multiplier
+                    * get_domain_change_function_value(
+                        &local_func,
+                        &integration_limits[0],
+                        current_point,
+                    );
 
                 if (iter + 2) % 2 != 0 {
                     multiplier = 32.0;
@@ -422,71 +447,60 @@ impl MultiVariableSolver {
                 }
             }
 
-            current_vec[idx_to_integrate[0]] = integration_limits[0][1];
-
-            ans = ans + 7.0 * func(&current_vec);
+            ans += 7.0
+                * get_domain_change_function_value(
+                    &local_func,
+                    &integration_limits[0],
+                    transformed_upper_limit,
+                );
 
             return 2.0 * delta * ans / 45.0;
         }
 
-        let mut current_vec = *point;
-        current_vec[idx_to_integrate[number_of_integrations - 1]] =
-            integration_limits[number_of_integrations - 1][0];
+        // === Recursive case ===
+        let var_idx = idx_to_integrate[number_of_integrations - 1];
+        let original_limit = integration_limits[number_of_integrations - 1];
+        let n = self.total_iterations;
 
-        let mut ans = 7.0
-            * self.get_booles(
-                number_of_integrations - 1,
-                idx_to_integrate,
-                func,
-                integration_limits,
-                &current_vec,
-            );
-        let delta = (integration_limits[number_of_integrations - 1][1]
-            - integration_limits[number_of_integrations - 1][0])
-            / (self.total_iterations as f64);
+        // Map possibly infinite [lower, upper] -> [transformed_lower, transformed_upper]
+        let (transformed_lower_limit, transformed_upper_limit) =
+            get_domain_change_limits(&original_limit);
 
-        let mut multiplier = 32.0;
+        let delta = (transformed_upper_limit - transformed_lower_limit) / (n as f64);
 
-        for iter in 0..self.total_iterations - 1 {
-            current_vec[idx_to_integrate[number_of_integrations - 1]] =
-                current_vec[idx_to_integrate[number_of_integrations - 1]] + delta;
-            ans = ans
-                + multiplier
-                    * self.get_booles(
-                        number_of_integrations - 1,
-                        idx_to_integrate,
-                        func,
-                        integration_limits,
-                        &current_vec,
-                    );
+        let mapped_outer_integrand = |t: f64| {
+            let inner_as_fn_of_x = |x: f64| {
+                let mut cur = *point;
+                cur[var_idx] = x;
+                self.get_booles(number_of_integrations - 1, idx_to_integrate, func, integration_limits, &cur)
+            };
+            get_domain_change_function_value(&inner_as_fn_of_x, &original_limit, t)
+        };
 
-            if (iter + 2) % 2 != 0 {
-                multiplier = 32.0;
-            } else if (iter + 2) % 4 == 0 {
-                multiplier = 14.0;
+        let mut ans = 7.0 * mapped_outer_integrand(transformed_lower_limit);
+        let mut mult = 32.0;
+
+        for i in 1..n {
+            let t = transformed_lower_limit + (i as f64) * delta;
+            ans += mult * mapped_outer_integrand(t);
+
+            // sequence: 32, 12, 32, 14, ...
+            mult = if (i + 1) % 2 != 0 {
+                32.0
+            } else if (i + 1) % 4 == 0 {
+                14.0
             } else {
-                multiplier = 12.0;
-            }
+                12.0
+            };
         }
 
-        current_vec[idx_to_integrate[number_of_integrations - 1]] =
-            integration_limits[number_of_integrations - 1][1];
-
-        ans = ans
-            + 7.0
-                * self.get_booles(
-                    number_of_integrations - 1,
-                    idx_to_integrate,
-                    func,
-                    integration_limits,
-                    &current_vec,
-                );
-
-        return 2.0 * delta * ans / 45.0;
+        ans += 7.0 * mapped_outer_integrand(transformed_upper_limit);
+        
+        return 2.0 * delta * ans / 45.0
     }
 
-    ///returns the numerical integration via Simsons' 3/8th method
-    ///number_of_integrations: number of times the equation needs to be integrated
+    /// Returns the numerical integration via Simsons' 3/8th method
+    /// number_of_integrations: number of times the equation needs to be integrated
     /// idx_to_integrate: the variables' index/indices that needs to be integrated
     /// func: The function to integrate
     /// integration_limit: the integration bound(s) for each round of integration
@@ -500,18 +514,43 @@ impl MultiVariableSolver {
         point: &[f64; NUM_VARS],
     ) -> f64 {
         if number_of_integrations == 1 {
-            let mut current_vec = *point;
-            current_vec[idx_to_integrate[0]] = integration_limits[0][0];
+            // === Base case ===
+            let var_idx = idx_to_integrate[0];
 
-            let mut ans = func(&current_vec);
-            let delta = (integration_limits[0][1] - integration_limits[0][0])
+            // Map possibly infinite [lower, upper] -> [transformed_lower, transformed_upper]
+            let (transformed_lower_limit, transformed_upper_limit) =
+                get_domain_change_limits(&integration_limits[0]);
+
+            // Define a pure single-variable view of the multivariable function
+            let local_func = |x: f64| {
+                let mut cur_vec = *point;
+                cur_vec[var_idx] = x;
+                func(&cur_vec)
+            };
+
+            let delta = (transformed_upper_limit - transformed_lower_limit)
                 / (self.total_iterations as f64);
 
+            // Initial term
+            let mut ans = get_domain_change_function_value(
+                &local_func,
+                &integration_limits[0],
+                transformed_lower_limit,
+            );
+
+            let mut current_point = transformed_lower_limit;
             let mut multiplier = 3.0;
 
+            // Interior points
             for iter in 0..self.total_iterations - 1 {
-                current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
-                ans = ans + multiplier * func(&current_vec);
+                current_point += delta;
+
+                ans += multiplier
+                    * get_domain_change_function_value(
+                        &local_func,
+                        &integration_limits[0],
+                        current_point,
+                    );
 
                 if (iter + 2) % 3 == 0 {
                     multiplier = 2.0;
@@ -520,66 +559,51 @@ impl MultiVariableSolver {
                 }
             }
 
-            current_vec[idx_to_integrate[0]] = integration_limits[0][1];
-
-            ans = ans + func(&current_vec);
+            // Final term
+            ans += get_domain_change_function_value(
+                &local_func,
+                &integration_limits[0],
+                transformed_upper_limit,
+            );
 
             return 3.0 * delta * ans / 8.0;
         }
 
-        let mut current_vec = *point;
-        current_vec[idx_to_integrate[number_of_integrations - 1]] =
-            integration_limits[number_of_integrations - 1][0];
+        // === Recursive case ===
+        let var_idx = idx_to_integrate[number_of_integrations - 1];
+        let original_limit = integration_limits[number_of_integrations - 1];
+        let n = self.total_iterations;
 
-        let mut ans = self.get_simpsons(
-            number_of_integrations - 1,
-            idx_to_integrate,
-            func,
-            integration_limits,
-            &current_vec,
-        );
-        let delta = (integration_limits[number_of_integrations - 1][1]
-            - integration_limits[number_of_integrations - 1][0])
-            / (self.total_iterations as f64);
+        // Map possibly infinite [lower, upper] -> [transformed_lower, transformed_upper]
+        let (transformed_lower_limit, transformed_upper_limit) =
+            get_domain_change_limits(&original_limit);
 
-        let mut multiplier = 3.0;
+        let delta = (transformed_upper_limit - transformed_lower_limit) / (n as f64);
 
-        for iter in 0..self.total_iterations - 1 {
-            current_vec[idx_to_integrate[number_of_integrations - 1]] =
-                current_vec[idx_to_integrate[number_of_integrations - 1]] + delta;
-            ans = ans
-                + multiplier
-                    * self.get_simpsons(
-                        number_of_integrations - 1,
-                        idx_to_integrate,
-                        func,
-                        integration_limits,
-                        &current_vec,
-                    );
+        let mapped_outer_integrand = |t: f64| {
+            let inner_as_fn_of_x = |x: f64| {
+                let mut cur = *point;
+                cur[var_idx] = x;
+                self.get_simpsons(number_of_integrations - 1, idx_to_integrate, func, integration_limits, &cur)
+            };
 
-            if (iter + 2) % 3 == 0 {
-                multiplier = 2.0;
-            } else {
-                multiplier = 3.0;
-            }
+            get_domain_change_function_value(&inner_as_fn_of_x, &original_limit, t)
+        };
+
+        let mut ans = mapped_outer_integrand(transformed_lower_limit);
+        let mut mult = 3.0;
+
+        for i in 1..n {
+            let t = transformed_lower_limit + (i as f64) * delta;
+            ans += mult * mapped_outer_integrand(t);
+            mult = if (i + 1) % 3 == 0 { 2.0 } else { 3.0 };
         }
 
-        current_vec[idx_to_integrate[number_of_integrations - 1]] =
-            integration_limits[number_of_integrations - 1][1];
-
-        ans = ans
-            + self.get_simpsons(
-                number_of_integrations - 1,
-                idx_to_integrate,
-                func,
-                integration_limits,
-                &current_vec,
-            );
-
-        return 3.0 * delta * ans / 8.0;
+        ans += mapped_outer_integrand(transformed_upper_limit);
+        return 3.0 * delta * ans / 8.0
     }
 
-    ///returns the numerical integration via Trapezoidal method
+    /// Returns the numerical integration via Trapezoidal method
     /// number_of_integrations: number of times the equation needs to be integrated
     /// idx_to_integrate: the variables' index/indices that needs to be integrated
     /// func: The function to integrate
@@ -594,67 +618,95 @@ impl MultiVariableSolver {
         point: &[f64; NUM_VARS],
     ) -> f64 {
         if number_of_integrations == 1 {
-            let mut current_vec = *point;
-            current_vec[idx_to_integrate[0]] = integration_limits[0][0];
+            // === Base case ===
+            let var_idx = idx_to_integrate[0];
+            let original_integration_limits = integration_limits[0];
 
-            let mut ans = func(&current_vec);
-            let delta = (integration_limits[0][1] - integration_limits[0][0])
+            // Map possibly infinite [lower, upper] -> [transformed_lower, transformed_upper]
+            let (transformed_lower_limit, transformed_upper_limit) =
+                get_domain_change_limits(&original_integration_limits);
+
+            let delta = (transformed_upper_limit - transformed_lower_limit)
                 / (self.total_iterations as f64);
 
+            let mut current_point = transformed_lower_limit;
+
+            // Helper closure: f(x_var) with other variables fixed
+            let local_func = |x: f64| {
+                let mut cur_vec = *point;
+                cur_vec[var_idx] = x;
+                func(&cur_vec)
+            };
+
+            let mut ans = get_domain_change_function_value(
+                &local_func,
+                &original_integration_limits,
+                current_point,
+            );
+
             for _ in 0..self.total_iterations - 1 {
-                current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
-                ans = ans + 2.0 * func(&current_vec);
+                current_point += delta;
+
+                ans += 2.0
+                    * get_domain_change_function_value(
+                        &local_func,
+                        &original_integration_limits,
+                        current_point,
+                    );
             }
 
-            current_vec[idx_to_integrate[0]] = integration_limits[0][1];
-
-            ans = ans + func(&current_vec);
+            ans += get_domain_change_function_value(
+                &local_func,
+                &original_integration_limits,
+                transformed_upper_limit,
+            );
 
             return 0.5 * delta * ans;
         }
 
-        let mut current_vec = *point;
-        current_vec[idx_to_integrate[number_of_integrations - 1]] =
-            integration_limits[number_of_integrations - 1][0];
+        // === Recursive case ===
+        let var_idx = idx_to_integrate[number_of_integrations - 1];
+        let original_limit = integration_limits[number_of_integrations - 1];
 
-        let mut ans = self.get_trapezoidal(
-            number_of_integrations - 1,
-            idx_to_integrate,
-            func,
-            integration_limits,
-            &current_vec,
-        );
-        let delta = (integration_limits[number_of_integrations - 1][1]
-            - integration_limits[number_of_integrations - 1][0])
-            / (self.total_iterations as f64);
+        // Map possibly infinite [lower, upper] -> [transformed_lower, transformed_upper]
+        let (transformed_lower_limit, transformed_upper_limit) =
+            get_domain_change_limits(&original_limit);
 
-        for _ in 0..self.total_iterations - 1 {
-            current_vec[idx_to_integrate[number_of_integrations - 1]] =
-                current_vec[idx_to_integrate[number_of_integrations - 1]] + delta;
-            ans = ans
-                + 2.0
-                    * self.get_trapezoidal(
-                        number_of_integrations - 1,
-                        idx_to_integrate,
-                        func,
-                        integration_limits,
-                        &current_vec,
-                    );
+        let n = self.total_iterations;
+        let delta = (transformed_upper_limit - transformed_lower_limit) / (n as f64);
+
+        // The outer integrand at parameter t is: inner_integral(x(t), other vars fixed) * |dx/dt|
+        let mapped_outer_integrand = |t: f64| -> f64 {
+            // local pure closure: x -> inner integral value with var_idx set to x
+            let inner_as_fn_of_x = |x: f64| {
+                let mut cur = *point;
+                cur[var_idx] = x;
+
+                // recurse for remaining dimensions
+                self.get_trapezoidal(
+                    number_of_integrations - 1,
+                    idx_to_integrate,
+                    func,
+                    integration_limits,
+                    &cur,
+                )
+            };
+
+            // apply x(t) mapping and Jacobian
+            get_domain_change_function_value(&inner_as_fn_of_x, &original_limit, t)
+        };
+
+        // Trapezoidal rule over the transformed t-domain
+        let mut ans = mapped_outer_integrand(transformed_lower_limit);
+
+        for i in 1..n {
+            let t = transformed_lower_limit + (i as f64) * delta;
+            ans += 2.0 * mapped_outer_integrand(t);
         }
 
-        current_vec[idx_to_integrate[number_of_integrations - 1]] =
-            integration_limits[number_of_integrations - 1][1];
+        ans += mapped_outer_integrand(transformed_upper_limit);
 
-        ans = ans
-            + self.get_trapezoidal(
-                number_of_integrations - 1,
-                idx_to_integrate,
-                func,
-                integration_limits,
-                &current_vec,
-            );
-
-        return 0.5 * delta * ans;
+        return 0.5 * delta * ans
     }
 }
 

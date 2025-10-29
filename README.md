@@ -414,11 +414,12 @@ anmolkathail@gmail.com
 ## Roadmap
 - [x] Add gauss-hermite
 - [x] Add gauss-laguerre
-- [] Add user-friendly macros for ease of use
-- [] Add infinite integration limits to iterative integration methods
+- [x] Add infinite integration limits to iterative integration methods
 - [] Add finite integration limits to gauss-hermite
 - [] Add finite integration limits to gauss-laguerre
 - [] improve and benchmark accuracy
 - [] Add traits to cover all generic integral types - float or ints
+- [] fix docs to be more presentable
+- [] Add user-friendly macros for ease of use
 - [] Add ODE solver modules
 - [] Rework vector calculus module

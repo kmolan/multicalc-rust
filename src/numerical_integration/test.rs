@@ -341,39 +341,189 @@ fn test_trapezoidal_integration_4() {
     assert!(f64::abs(val - 8.0) < 0.00001);
 }
 
+
+// === ∫₀^∞ e^{-x} dx = 1 ===
 #[test]
-fn test_infinite_upper_limit() {
+fn test_infinite_limits_single_variable_1() {
+    let methods = [
+        IterativeMethod::Trapezoidal,
+        IterativeMethod::Simpsons,
+        IterativeMethod::Booles,
+    ];
+
     let func = |x: f64| -> f64 {
         return (-x).exp();
     };
 
-    let iterator = iterative_integration::SingleVariableSolver::from_parameters(
-        100,
-        IterativeMethod::Trapezoidal,
-    );
+    let integration_limits = [0.0, f64::INFINITY];
 
-    let val = iterator.get_single(&func, &[0.0, f64::INFINITY]).unwrap();
+    for method in methods {
+        let iterator = iterative_integration::SingleVariableSolver::from_parameters(1000, method);
+        let result = iterator.get_single(&func, &integration_limits).unwrap();
 
-    println!("======= ANMOL ========= {}", val);
-
-    assert!((val - 1.0).abs() < 1e-5);
+        let expected = 1.0;
+        assert!(
+            (result - expected).abs() < 1e-5,
+            "{:?}: got {}, expected {} for exp(-(x+y))",
+            method,
+            result,
+            expected
+        );
+    }
 }
 
+// === ∫₋∞^∞ e^{-x²} dx = √π ≈ 1.77245385091 ===
 #[test]
-fn test_infinite_both_limits() {
+fn test_infinite_limits_single_variable_2() {
+    let methods = [
+        IterativeMethod::Trapezoidal,
+        IterativeMethod::Simpsons,
+        IterativeMethod::Booles,
+    ];
+
     let func = |x: f64| -> f64 {
-        return (-x * x).exp();
+        return (-x*x).exp();
     };
 
-    let iterator = iterative_integration::SingleVariableSolver::from_parameters(
-        100,
-        IterativeMethod::Trapezoidal,
-    );
+    let integration_limits = [f64::NEG_INFINITY, f64::INFINITY];
 
-    let val = iterator
-        .get_single(&func, &[f64::NEG_INFINITY, f64::INFINITY])
-        .unwrap();
-    assert!((val - 1.77245385091).abs() < 1e-2);
+    for method in methods {
+        let iterator = iterative_integration::SingleVariableSolver::from_parameters(1000, method);
+        let result = iterator.get_single(&func, &integration_limits).unwrap();
+
+        let expected = core::f64::consts::PI.sqrt();
+        assert!(
+            (result - expected).abs() < 1e-5,
+            "{:?}: got {}, expected {} for exp(-(x+y))",
+            method,
+            result,
+            expected
+        );
+    }
+}
+
+
+// === ∫₀^∞ (1 / (1 + x²)) dx = π/2 ===
+#[test]
+fn test_infinite_limits_single_variable_3() {
+    let methods = [
+        IterativeMethod::Trapezoidal,
+        IterativeMethod::Simpsons,
+        IterativeMethod::Booles,
+    ];
+
+    let func = |x: f64| -> f64 {
+        return 1.0 / (1.0 + x * x);
+    };
+
+    let integration_limits = [0.0, f64::INFINITY];
+
+    for method in methods {
+        let iterator = iterative_integration::SingleVariableSolver::from_parameters(1000, method);
+        let result = iterator.get_single(&func, &integration_limits).unwrap();
+
+        let expected = core::f64::consts::FRAC_PI_2;
+        assert!(
+            (result - expected).abs() < 1e-3,
+            "{:?}: got {}, expected {} for exp(-(x+y))",
+            method,
+            result,
+            expected
+        );
+    }
+}
+
+
+// === ∫₀^∞ ∫₀^∞ e^{-(x + y)} dx dy = 1 ===
+// (Product of two independent exp(-x) integrals, each = 1)
+#[test]
+fn test_double_infinite_integrals_multivariable_1() {
+    let methods = [
+        IterativeMethod::Trapezoidal,
+        IterativeMethod::Simpsons,
+        IterativeMethod::Booles,
+    ];
+
+    let func = |args: &[f64; 2]| (-args[0] - args[1]).exp();
+    let integration_limits = [[0.0, f64::INFINITY], [0.0, f64::INFINITY]];
+    let point = [0.0, 0.0];
+    let idx_to_integrate = [0, 1];
+
+    for method in methods {
+        let iterator = iterative_integration::MultiVariableSolver::from_parameters(1000, method);
+        let result = iterator.get(2, idx_to_integrate, &func, &integration_limits, &point).unwrap();
+
+        let expected = 1.0;
+        assert!(
+            (result - expected).abs() < 1e-5,
+            "{:?}: got {}, expected {} for exp(-(x+y))",
+            method,
+            result,
+            expected
+        );
+    }
+}
+
+// === ∫₋∞^∞ ∫₋∞^∞ e^{-(x² + y²)} dx dy = π ===
+// (Product of two Gaussian integrals, each = √π)
+#[test]
+fn test_double_infinite_integrals_multivariable_2() {
+    let methods = [
+        IterativeMethod::Trapezoidal,
+        IterativeMethod::Simpsons,
+        IterativeMethod::Booles,
+    ];
+
+    let func = |args: &[f64; 2]| (-(args[0] * args[0] + args[1] * args[1])).exp();
+    let integration_limits = [
+        [f64::NEG_INFINITY, f64::INFINITY],
+        [f64::NEG_INFINITY, f64::INFINITY],
+    ];
+    let point = [0.0, 0.0];
+    let idx_to_integrate = [0, 1];
+
+    for method in methods {
+        let iterator = iterative_integration::MultiVariableSolver::from_parameters(1000, method);
+        let result = iterator.get(2, idx_to_integrate, &func, &integration_limits, &point).unwrap();
+
+        let expected = core::f64::consts::PI;
+        assert!(
+            (result - expected).abs() < 1e-5,
+            "{:?}: got {}, expected {} for exp(-(x²+y²))",
+            method,
+            result,
+            expected
+        );
+    }
+}
+
+// === ∫₀^∞ ∫₀^∞ (1 / ((1 + x²) * (1 + y²))) dx dy = (π/2)² ===
+#[test]
+fn test_double_infinite_integrals_multivariable_3() {
+    let methods = [
+        IterativeMethod::Trapezoidal,
+        IterativeMethod::Simpsons,
+        IterativeMethod::Booles,
+    ];
+
+    let func = |args: &[f64; 2]| 1.0 / ((1.0 + args[0] * args[0]) * (1.0 + args[1] * args[1]));
+    let integration_limits = [[0.0, f64::INFINITY], [0.0, f64::INFINITY]];
+    let point = [0.0, 0.0];
+    let idx_to_integrate = [0, 1];
+
+    for method in methods {
+        let iterator = iterative_integration::MultiVariableSolver::from_parameters(1000, method);
+        let result = iterator.get(2, idx_to_integrate, &func, &integration_limits, &point).unwrap();
+
+        let expected = (core::f64::consts::FRAC_PI_2).powi(2);
+        assert!(
+            (result - expected).abs() < 1e-3,
+            "{:?}: got {}, expected {} for rational function",
+            method,
+            result,
+            expected
+        );
+    }
 }
 
 #[test]

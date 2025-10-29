@@ -92,23 +92,25 @@ pub fn get_domain_change_function_value(
     let lower_limit = original_integration_limit[0];
     let upper_limit = original_integration_limit[1];
 
+    use const_poly::function_approximations::*;
+
     if lower_limit.is_infinite() && upper_limit.is_infinite() {
         // (-∞, ∞)
 
-        let x = f64::tan(PI * (point - 0.5));
-        let jac = PI / f64::cos(PI * (point - 0.5)).powi(2);
+        let x = tan_approx(PI * (point - 0.5));
+        let jac = PI / static_powi(cos_approx(PI * (point - 0.5)), 2);
         func(x) * jac
     } else if lower_limit.is_finite() && upper_limit.is_infinite() {
         // (lower_limit, ∞)
 
         let x = lower_limit + point / (1.0 - point);
-        let jac = 1.0 / (1.0 - point).powi(2);
+        let jac = 1.0 / static_powi(1.0 - point, 2);
         func(x) * jac
     } else if lower_limit.is_infinite() && upper_limit.is_finite() {
         // (-∞, upper_limit)
 
         let x = upper_limit - point / (1.0 - point);
-        let jac = 1.0 / (1.0 - point).powi(2);
+        let jac = 1.0 / static_powi(1.0 - point, 2);
         func(x) * jac
     } else {
         func(point)
