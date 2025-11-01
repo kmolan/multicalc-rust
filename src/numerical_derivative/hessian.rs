@@ -9,9 +9,9 @@ pub struct Hessian<D: DerivatorMultiVariable> {
 impl<D: DerivatorMultiVariable> Default for Hessian<D> {
     ///the default constructor, optimal for most generic cases
     fn default() -> Self {
-        return Hessian {
+        Hessian {
             derivator: D::default(),
-        };
+        }
     }
 }
 
@@ -20,7 +20,7 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     /// You can create a custom multivariable derivator from this crate
     /// or supply your own by implementing the base traits yourself
     pub fn from_derivator(derivator: D) -> Self {
-        return Hessian { derivator };
+        Hessian { derivator }
     }
 
     /// Returns the hessian matrix for a given function
@@ -72,6 +72,6 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
             }
         }
 
-        return Ok(result);
+        Ok(result)
     }
 }

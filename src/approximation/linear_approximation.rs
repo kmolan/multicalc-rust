@@ -21,10 +21,10 @@ impl<const NUM_VARS: usize> LinearApproximationResult<NUM_VARS> {
     pub fn get_prediction_value(&self, args: &[f64; NUM_VARS]) -> f64 {
         let mut result = self.intercept;
         for (iter, arg) in args.iter().enumerate().take(NUM_VARS) {
-            result = result + self.coefficients[iter] * *arg;
+            result += self.coefficients[iter] * *arg;
         }
 
-        return result;
+        result
     }
 
     //get prediction metrics by feeding a list of points and the original function
@@ -40,13 +40,12 @@ impl<const NUM_VARS: usize> LinearApproximationResult<NUM_VARS> {
         for point in points.iter().take(NUM_POINTS) {
             let predicted_y = self.get_prediction_value(point);
 
-            mae = mae + (predicted_y - original_function(point));
-            mse = mse
-                + function_approximations::static_powi(predicted_y - original_function(point), 2);
+            mae += predicted_y - original_function(point);
+            mse += function_approximations::static_powi(predicted_y - original_function(point), 2);
         }
 
-        mae = mae / (NUM_POINTS as f64);
-        mse = mse / (NUM_POINTS as f64);
+        mae /= NUM_POINTS as f64;
+        mse /= NUM_POINTS as f64;
 
         let rmse = function_approximations::sqrt_approx(mse).abs();
 
@@ -56,8 +55,8 @@ impl<const NUM_VARS: usize> LinearApproximationResult<NUM_VARS> {
         for point in points.iter().take(NUM_POINTS) {
             let predicted_y = self.get_prediction_value(point);
 
-            r2_numerator = r2_numerator
-                + function_approximations::static_powi(predicted_y - original_function(point), 2);
+            r2_numerator +=
+                function_approximations::static_powi(predicted_y - original_function(point), 2);
             r2_denominator = r2_numerator
                 + function_approximations::static_powi(mae - original_function(point), 2);
         }
@@ -66,13 +65,13 @@ impl<const NUM_VARS: usize> LinearApproximationResult<NUM_VARS> {
 
         let r2_adj = 1.0 - (1.0 - r2) * (NUM_POINTS as f64) / ((NUM_POINTS as f64) - 2.0);
 
-        return LinearApproximationPredictionMetrics {
+        LinearApproximationPredictionMetrics {
             mean_absolute_error: mae.abs(),
             mean_squared_error: mse.abs(),
             root_mean_squared_error: rmse,
             r_squared: r2.abs(),
             adjusted_r_squared: r2_adj.abs(),
-        };
+        }
     }
 }
 
@@ -82,15 +81,15 @@ pub struct LinearApproximator<D: DerivatorMultiVariable> {
 
 impl<D: DerivatorMultiVariable> Default for LinearApproximator<D> {
     fn default() -> Self {
-        return LinearApproximator {
+        LinearApproximator {
             derivator: D::default(),
-        };
+        }
     }
 }
 
 impl<D: DerivatorMultiVariable> LinearApproximator<D> {
     pub fn from_derivator(derivator: D) -> Self {
-        return LinearApproximator { derivator };
+        LinearApproximator { derivator }
     }
 
     /// For an n-dimensional approximation, the equation is linearized as:
@@ -135,12 +134,12 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D> {
 
         for iter in 0..NUM_VARS {
             slopes_[iter] = self.derivator.get(1, function, &[iter], point)?;
-            intercept_ = intercept_ - slopes_[iter] * point[iter];
+            intercept_ -= slopes_[iter] * point[iter];
         }
 
-        return Ok(LinearApproximationResult {
+        Ok(LinearApproximationResult {
             intercept: intercept_,
             coefficients: slopes_,
-        });
+        })
     }
 }

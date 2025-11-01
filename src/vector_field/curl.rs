@@ -64,7 +64,7 @@ where
     ans[2] = derivator.get(1, vector_field[1], &[0], point)?
         - derivator.get(1, vector_field[0], &[1], point)?;
 
-    return Ok(ans);
+    Ok(ans)
 }
 
 ///solves for the curl of a 2D vector field around a given point
@@ -112,6 +112,6 @@ pub fn get_2d<D, const NUM_VARS: usize>(
 where
     D: DerivatorMultiVariable,
 {
-    return Ok(derivator.get(1, vector_field[1], &[0], point)?
-        - derivator.get(1, vector_field[0], &[1], point)?);
+    Ok(derivator.get(1, vector_field[1], &[0], point)?
+        - derivator.get(1, vector_field[0], &[1], point)?)
 }

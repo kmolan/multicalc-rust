@@ -11,5 +11,5 @@ pub fn transpose<const NUM_ROWS: usize, const NUM_COLUMNS: usize>(
         }
     }
 
-    return result;
+    result
 }

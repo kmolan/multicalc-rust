@@ -10,9 +10,9 @@ pub struct Jacobian<D: DerivatorMultiVariable> {
 
 impl<D: DerivatorMultiVariable> Default for Jacobian<D> {
     fn default() -> Self {
-        return Jacobian {
+        Jacobian {
             derivator: D::default(),
-        };
+        }
     }
 }
 
@@ -21,7 +21,7 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     /// You can create a custom multivariable derivator from this crate
     /// or supply your own by implementing the base traits yourself
     pub fn from_derivator(derivator: D) -> Self {
-        return Jacobian { derivator };
+        Jacobian { derivator }
     }
 
     /// Returns the jacobian matrix for a given vector of functions
@@ -81,7 +81,7 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
             }
         }
 
-        return Ok(result);
+        Ok(result)
     }
 
     /// same as [Jacobian::get] but uses heap-allocated vectors to generate the jacobian matrix.

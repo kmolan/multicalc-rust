@@ -16,7 +16,7 @@ pub trait IntegratorSingleVariable: Default + Clone + Copy {
     ) -> Result<f64, &'static str> {
         let new_limits: [[f64; 2]; 1] = [*integration_limit];
 
-        return self.get(1, func, &new_limits);
+        self.get(1, func, &new_limits)
     }
 
     ///convenience wrapper for a double integral of a single variable function
@@ -25,7 +25,7 @@ pub trait IntegratorSingleVariable: Default + Clone + Copy {
         func: &dyn Fn(f64) -> f64,
         integration_limit: &[[f64; 2]; 2],
     ) -> Result<f64, &'static str> {
-        return self.get(2, func, integration_limit);
+        self.get(2, func, integration_limit)
     }
 }
 
@@ -52,7 +52,7 @@ pub trait IntegratorMultiVariable: Default + Clone + Copy {
         let new_limits: [[f64; 2]; 1] = [*integration_limits];
         let new_idx: [usize; 1] = [idx_to_integrate];
 
-        return self.get(1, new_idx, func, &new_limits, point);
+        self.get(1, new_idx, func, &new_limits, point)
     }
 
     ///convenience wrapper for a double partial integral of a multi variable function
@@ -63,7 +63,7 @@ pub trait IntegratorMultiVariable: Default + Clone + Copy {
         integration_limits: &[[f64; 2]; 2],
         point: &[f64; NUM_VARS],
     ) -> Result<f64, &'static str> {
-        return self.get(2, idx_to_integrate, func, integration_limits, point);
+        self.get(2, idx_to_integrate, func, integration_limits, point)
     }
 }
 

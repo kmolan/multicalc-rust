@@ -38,12 +38,12 @@ pub fn get_2d(
     transformations: &[&dyn Fn(&f64) -> f64; 2],
     integration_limit: &[f64; 2],
 ) -> Result<f64, &'static str> {
-    return get_2d_custom(
+    get_2d_custom(
         vector_field,
         transformations,
         integration_limit,
         DEFAULT_TOTAL_ITERATIONS,
-    );
+    )
 }
 
 ///same as [get_2d()] but with the option to change the total iterations used, reserved for more advanced user
@@ -58,7 +58,7 @@ pub fn get_2d_custom(
     integration_limit: &[f64; 2],
     total_iterations: u64,
 ) -> Result<f64, &'static str> {
-    return Ok(get_partial_2d(
+    Ok(get_partial_2d(
         vector_field,
         transformations,
         integration_limit,
@@ -70,7 +70,7 @@ pub fn get_2d_custom(
         integration_limit,
         total_iterations,
         1,
-    )?);
+    )?)
 }
 
 /// NOTE: Returns a Result<f64, &'static str>
@@ -102,16 +102,15 @@ pub fn get_partial_2d(
     for _ in 0..max_iterations {
         let coords = get_transformed_coordinates_2d(transformations, &cur_point, &delta);
 
-        ans = ans
-            + (coords[idx + 2] - coords[idx])
-                * (vector_field[idx](&coords[2], &coords[3])
-                    + vector_field[idx](&coords[0], &coords[1]))
-                / (2.0);
+        ans += (coords[idx + 2] - coords[idx])
+            * (vector_field[idx](&coords[2], &coords[3])
+                + vector_field[idx](&coords[0], &coords[1]))
+            / (2.0);
 
-        cur_point = cur_point + delta;
+        cur_point += delta;
     }
 
-    return Ok(ans);
+    Ok(ans)
 }
 
 ///same as [`get_2d`] but for parametrized curves in a 3D vector field
@@ -124,12 +123,12 @@ pub fn get_3d(
     transformations: &[&dyn Fn(&f64) -> f64; 3],
     integration_limit: &[f64; 2],
 ) -> Result<f64, &'static str> {
-    return get_3d_custom(
+    get_3d_custom(
         vector_field,
         transformations,
         integration_limit,
         DEFAULT_TOTAL_ITERATIONS,
-    );
+    )
 }
 
 ///same as [get_3d()] but with the option to change the total iterations used, reserved for more advanced user
@@ -144,7 +143,7 @@ pub fn get_3d_custom(
     integration_limit: &[f64; 2],
     total_iterations: u64,
 ) -> Result<f64, &'static str> {
-    return Ok(get_partial_3d(
+    Ok(get_partial_3d(
         vector_field,
         transformations,
         integration_limit,
@@ -162,7 +161,7 @@ pub fn get_3d_custom(
         integration_limit,
         total_iterations,
         2,
-    )?);
+    )?)
 }
 
 /// NOTE: Returns a Result<f64, &'static str>
@@ -194,16 +193,15 @@ pub fn get_partial_3d(
     for _ in 0..steps {
         let coords = get_transformed_coordinates_3d(transformations, &cur_point, &delta);
 
-        ans = ans
-            + (coords[idx + 3] - coords[idx])
-                * (vector_field[idx](&coords[3], &coords[4], &coords[5])
-                    + vector_field[idx](&coords[0], &coords[1], &coords[2]))
-                / (2.0);
+        ans += (coords[idx + 3] - coords[idx])
+            * (vector_field[idx](&coords[3], &coords[4], &coords[5])
+                + vector_field[idx](&coords[0], &coords[1], &coords[2]))
+            / (2.0);
 
-        cur_point = cur_point + delta;
+        cur_point += delta;
     }
 
-    return Ok(ans);
+    Ok(ans)
 }
 
 fn get_transformed_coordinates_2d(
@@ -219,7 +217,7 @@ fn get_transformed_coordinates_2d(
     ans[2] = transformations[0](&(*cur_point + *delta)); //x at t + delta
     ans[3] = transformations[1](&(*cur_point + *delta)); //y at t + delta
 
-    return ans;
+    ans
 }
 
 fn get_transformed_coordinates_3d(
@@ -237,5 +235,5 @@ fn get_transformed_coordinates_3d(
     ans[4] = transformations[1](&(*cur_point + *delta)); //y at t + delta
     ans[5] = transformations[1](&(*cur_point + *delta)); //z at t + delta
 
-    return ans;
+    ans
 }

@@ -40,7 +40,7 @@ pub fn get_2d(
     transformations: &[&dyn Fn(&f64) -> f64; 2],
     integration_limit: &[f64; 2],
 ) -> Result<f64, &'static str> {
-    return Ok(line_integral::get_partial_2d(
+    Ok(line_integral::get_partial_2d(
         vector_field,
         transformations,
         integration_limit,
@@ -52,7 +52,7 @@ pub fn get_2d(
         integration_limit,
         DEFAULT_TOTAL_ITERATIONS,
         1,
-    )?);
+    )?)
 }
 
 pub fn get_2d_custom(
@@ -61,7 +61,7 @@ pub fn get_2d_custom(
     integration_limit: &[f64; 2],
     total_iterations: u64,
 ) -> Result<f64, &'static str> {
-    return Ok(line_integral::get_partial_2d(
+    Ok(line_integral::get_partial_2d(
         vector_field,
         transformations,
         integration_limit,
@@ -73,5 +73,5 @@ pub fn get_2d_custom(
         integration_limit,
         total_iterations,
         1,
-    )?);
+    )?)
 }

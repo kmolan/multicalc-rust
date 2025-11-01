@@ -6,12 +6,12 @@ pub trait DerivatorSingleVariable: Default + Clone + Copy {
 
     ///convenience wrapper for a single derivative of a single variable function
     fn get_single(&self, func: &dyn Fn(f64) -> f64, point: f64) -> Result<f64, &'static str> {
-        return self.get(1, func, point);
+        self.get(1, func, point)
     }
 
     ///convenience wrapper for a double derivative of a single variable function
     fn get_double(&self, func: &dyn Fn(f64) -> f64, point: f64) -> Result<f64, &'static str> {
-        return self.get(2, func, point);
+        self.get(2, func, point)
     }
 }
 
@@ -33,7 +33,7 @@ pub trait DerivatorMultiVariable: Default + Clone + Copy {
         idx_to_derivate: usize,
         point: &[f64; NUM_VARS],
     ) -> Result<f64, &'static str> {
-        return self.get(1, func, &[idx_to_derivate], point);
+        self.get(1, func, &[idx_to_derivate], point)
     }
 
     ///convenience wrapper for a double partial derivative of a multivariable function
@@ -43,6 +43,6 @@ pub trait DerivatorMultiVariable: Default + Clone + Copy {
         idx_to_derivate: &[usize; 2],
         point: &[f64; NUM_VARS],
     ) -> Result<f64, &'static str> {
-        return self.get(2, func, idx_to_derivate, point);
+        self.get(2, func, idx_to_derivate, point)
     }
 }
