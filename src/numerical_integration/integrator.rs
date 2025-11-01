@@ -129,7 +129,7 @@ pub fn get_domain_change_limits(original_integration_limit: &[f64; 2]) -> (f64, 
     let a = original_integration_limit[0];
     let b = original_integration_limit[1];
 
-    const EPSILON: f64 = core::f64::EPSILON;
+    const EPSILON: f64 = f64::EPSILON;
 
     if a.is_infinite() || b.is_infinite() {
         // For all infinite forms, map into [0, 1]

@@ -509,8 +509,8 @@ impl DerivatorMultiVariable for MultiVariableSolver {
             return Err(INDEX_TO_DERIVATE_ILL_FORMED);
         }
 
-        for iter in 0..idx_to_derivate.len() {
-            if idx_to_derivate[iter] >= point.len() {
+        for &idx in idx_to_derivate {
+            if idx >= point.len() {
                 return Err(INDEX_TO_DERIVATIVE_OUT_OF_RANGE);
             }
         }

@@ -63,8 +63,8 @@ impl SingleVariableSolver {
             return Err(GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE);
         }
 
-        for iter in 0..integration_limit.len() {
-            if integration_limit[iter][0] >= integration_limit[iter][1] {
+        for &limit in integration_limit {
+            if limit[0] >= limit[1] {
                 return Err(INTEGRATION_LIMITS_ILL_DEFINED);
             }
         }
@@ -111,7 +111,6 @@ impl SingleVariableSolver {
         let abcsissa_coeff = (integration_limit[number_of_integrations - 1][1]
             - integration_limit[number_of_integrations - 1][0])
             / 2.0;
-        //let intercept = (integration_limit[number_of_integrations-1][1] + integration_limit[number_of_integrations-1][0])/2.0;
 
         for iter in 0..self.order {
             let (weight, _) = gauss_tables::get_weight_and_abscissa(
@@ -329,8 +328,8 @@ impl MultiVariableSolver {
             return Err(GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE);
         }
 
-        for iter in 0..integration_limit.len() {
-            if integration_limit[iter][0] >= integration_limit[iter][1] {
+        for &limit in integration_limit {
+            if limit[0] >= limit[1] {
                 return Err(INTEGRATION_LIMITS_ILL_DEFINED);
             }
         }
