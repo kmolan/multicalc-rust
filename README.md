@@ -415,8 +415,6 @@ anmolkathail@gmail.com
 - [x] Add gauss-hermite
 - [x] Add gauss-laguerre
 - [x] Add infinite integration limits to iterative integration methods
-- [] Add finite integration limits to gauss-hermite
-- [] Add finite integration limits to gauss-laguerre
 - [] improve and benchmark accuracy
 - [] Add traits to cover all generic integral types - float or ints
 - [] fix docs to be more presentable
