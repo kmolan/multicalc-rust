@@ -5,7 +5,7 @@ use crate::utils::error_codes::*;
 
 pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;
 
-///Implements the gaussian quadrature methods for numerical integration for single variable functions
+/// @brief Implements the Gaussian quadrature methods for numerical integration for single-variable functions.
 #[derive(Clone, Copy)]
 pub struct SingleVariableSolver {
     order: usize,
@@ -13,7 +13,7 @@ pub struct SingleVariableSolver {
 }
 
 impl Default for SingleVariableSolver {
-    ///default constructor, optimal for most generic polynomial equations
+    /// @brief Default constructor, optimal for most generic polynomial equations.
     fn default() -> Self {
         SingleVariableSolver {
             order: DEFAULT_QUADRATURE_ORDERS,
@@ -23,29 +23,33 @@ impl Default for SingleVariableSolver {
 }
 
 impl SingleVariableSolver {
-    ///returns the chosen number of nodes/order for quadrature
+    /// @brief Returns the chosen number of nodes/order for quadrature.
+    /// @return The number of nodes (order) used for quadrature.
     pub fn get_order(&self) -> usize {
         self.order
     }
 
-    ///sets the number of nodes/order for quadrature
+    /// @brief Sets the number of nodes/order for quadrature.
+    /// @param order The desired quadrature order (1–MAX_GAUSS_TABLE_ORDER).
     pub fn set_order(&mut self, order: usize) {
         self.order = order;
     }
 
-    ///returns the chosen integration method
-    /// possible choices are GaussLegendre, GaussHermite and GaussLaguerre
+    /// @brief Returns the chosen integration method.
+    /// @note Possible choices are `GaussLegendre`, `GaussHermite`, and `GaussLaguerre`.
     pub fn get_integration_method(&self) -> GaussianQuadratureMethod {
         self.integration_method
     }
 
-    /// sets the integration method
-    /// possible choices are GaussLegendre, GaussHermite and GaussLaguerre
+    /// @brief Sets the integration method.
     pub fn set_integration_method(&mut self, integration_method: GaussianQuadratureMethod) {
         self.integration_method = integration_method;
     }
 
-    ///custom constructor, optimal for fine-tuning for specific cases
+    /// @brief Creates a solver with custom parameters.
+    /// @param order The quadrature order (number of nodes).
+    /// @param integration_method The numerical method (`GaussLegendre`, `GaussHermite`, or `GaussLaguerre`).
+    /// @return A configured [`SingleVariableSolver`] instance.
     pub fn from_parameters(order: usize, integration_method: GaussianQuadratureMethod) -> Self {
         SingleVariableSolver {
             order,
@@ -53,7 +57,12 @@ impl SingleVariableSolver {
         }
     }
 
-    ///Helper method to check if inputs are well defined
+    /// @brief Validates the input parameters and integration limits.
+    ///
+    /// @tparam NUM_INTEGRATIONS Number of nested integrations.
+    /// @param number_of_integrations The number of integrations to perform.
+    /// @param integration_limit Integration limits for each integration stage.
+    /// @return `Ok(())` if valid; otherwise an error string.
     fn check_for_errors<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
@@ -76,10 +85,13 @@ impl SingleVariableSolver {
         Ok(())
     }
 
-    /// returns the gauss legendre numerical integral for a given equation
-    /// number_of_integrations: number of integrations to perform on the equation
-    /// func: the equation to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
+    /// @brief Computes the integral using **Gauss–Legendre quadrature**.
+    ///
+    /// @tparam NUM_INTEGRATIONS Number of nested integrations.
+    /// @param number_of_integrations Number of integrations to perform.
+    /// @param func Function to integrate.
+    /// @param integration_limit Integration limits for each round of integration.
+    /// @return The computed integral value.
     fn get_gauss_legendre<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
@@ -88,27 +100,26 @@ impl SingleVariableSolver {
     ) -> f64 {
         if number_of_integrations == 1 {
             let mut ans = 0.0;
-            let abcsissa_coeff = (integration_limit[0][1] - integration_limit[0][0]) / 2.0;
+            let abscissa_coeff = (integration_limit[0][1] - integration_limit[0][0]) / 2.0;
             let intercept = (integration_limit[0][1] + integration_limit[0][0]) / 2.0;
 
             for iter in 0..self.order {
-                let (weight, abcsissa) = gauss_tables::get_weight_and_abscissa(
+                let (weight, abscissa) = gauss_tables::get_weight_and_abscissa(
                     GaussianQuadratureMethod::GaussLegendre,
                     self.order,
                     iter,
                 )
                 .unwrap();
 
-                let args = abcsissa_coeff * abcsissa + intercept;
-
+                let args = abscissa_coeff * abscissa + intercept;
                 ans += weight * func(args);
             }
 
-            return abcsissa_coeff * ans;
+            return abscissa_coeff * ans;
         }
 
         let mut ans = 0.0;
-        let abcsissa_coeff = (integration_limit[number_of_integrations - 1][1]
+        let abscissa_coeff = (integration_limit[number_of_integrations - 1][1]
             - integration_limit[number_of_integrations - 1][0])
             / 2.0;
 
@@ -124,13 +135,16 @@ impl SingleVariableSolver {
                 * self.get_gauss_legendre(number_of_integrations - 1, func, integration_limit);
         }
 
-        abcsissa_coeff * ans
+        abscissa_coeff * ans
     }
 
-    ///returns the gauss hermite numerical integral for a given equation
-    /// number_of_integrations: number of integrations to perform on the equation
-    /// func: the equation to integrate
-    /// _integration_limit: the integration bound(s) for each round of integration
+    /// @brief Computes the integral using **Gauss–Hermite quadrature**.
+    ///
+    /// @tparam NUM_INTEGRATIONS Number of nested integrations.
+    /// @param number_of_integrations Number of integrations to perform.
+    /// @param func Function to integrate.
+    /// @param _integration_limit Ignored integration limits, currently only integrates from -infinity to +infinity.
+    /// @return The computed integral value.
     fn get_gauss_hermite<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
@@ -141,14 +155,14 @@ impl SingleVariableSolver {
             let mut ans = 0.0;
 
             for iter in 0..self.order {
-                let (weight, abcsissa) = gauss_tables::get_weight_and_abscissa(
+                let (weight, abscissa) = gauss_tables::get_weight_and_abscissa(
                     GaussianQuadratureMethod::GaussHermite,
                     self.order,
                     iter,
                 )
                 .unwrap();
 
-                ans += weight * func(abcsissa);
+                ans += weight * func(abscissa);
             }
 
             return ans;
@@ -171,10 +185,13 @@ impl SingleVariableSolver {
         ans
     }
 
-    ///returns the gauss laguerre numerical integral for a given equation
-    /// number_of_integrations: number of integrations to perform on the equation
-    /// func: the equation to integrate
-    /// _integration_limit: the integration bound(s) for each round of integration
+    /// @brief Computes the integral using **Gauss–Laguerre quadrature**.
+    ///
+    /// @tparam NUM_INTEGRATIONS Number of nested integrations.
+    /// @param number_of_integrations Number of integrations to perform.
+    /// @param func Function to integrate.
+    /// @param _integration_limit Ignored integration limits, currently only integrates from -infinity to +infinity.
+    /// @return The computed integral value.
     fn get_gauss_laguerre<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
@@ -185,14 +202,14 @@ impl SingleVariableSolver {
             let mut ans = 0.0;
 
             for iter in 0..self.order {
-                let (weight, abcsissa) = gauss_tables::get_weight_and_abscissa(
+                let (weight, abscissa) = gauss_tables::get_weight_and_abscissa(
                     GaussianQuadratureMethod::GaussLaguerre,
                     self.order,
                     iter,
                 )
                 .unwrap();
 
-                ans += weight * func(abcsissa);
+                ans += weight * func(abscissa);
             }
 
             return ans;
@@ -216,18 +233,22 @@ impl SingleVariableSolver {
     }
 }
 
+
 impl IntegratorSingleVariable for SingleVariableSolver {
-    ///returns the gaussian quadrature numerical integration for a single variable equation
-    /// number_of_integrations: number of integrations to perform on the equation
-    /// func: the equation to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
+    /// @brief Computes the Gaussian quadrature numerical integration for a single-variable function.
     ///
-    /// NOTE: Returns a Result<f64, &'static str>, where possible Err are:
-    /// GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE -> if the chosen numer of nodes/order is out of supported range
-    /// INTEGRATION_LIMITS_ILL_DEFINED -> if any integration_limit[i][0] >= integration_limit[i][1] for all possible i
-    /// INCORRECT_NUMBER_OF_INTEGRATION_LIMITS -> if number_of_integrations is not equal to the size of integration_limit
+    /// @tparam NUM_INTEGRATIONS Number of nested integrations.
+    /// @param number_of_integrations Number of integrations to perform.
+    /// @param func Function to integrate.
+    /// @param integration_limit Integration bounds for each round of integration.
+    /// @return Result containing the computed integral value, or an error message.
     ///
-    /// assume we want to differentiate f(x) = 4.0*x*x*x - 3.0*x*x. the function would be:
+    /// @note Possible errors:
+    /// - `GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE`: if the chosen order is unsupported.
+    /// - `INTEGRATION_LIMITS_ILL_DEFINED`: if any limit has `a >= b`.
+    /// - `INCORRECT_NUMBER_OF_INTEGRATION_LIMITS`: if bounds count ≠ integration order.
+    ///
+    /// @example Assume we want to differentiate f(x) = 4.0*x*x*x - 3.0*x*x. the function would be:
     /// ```
     ///    let my_func = | arg: f64 | -> f64
     ///    {
@@ -268,7 +289,7 @@ impl IntegratorSingleVariable for SingleVariableSolver {
     }
 }
 
-///Implements the gaussian quadrature methods for numerical integration for multi variable functions
+/// @brief Implements the gaussian quadrature methods for numerical integration for multi variable functions.
 #[derive(Clone, Copy)]
 pub struct MultiVariableSolver {
     order: usize,
@@ -276,7 +297,7 @@ pub struct MultiVariableSolver {
 }
 
 impl Default for MultiVariableSolver {
-    ///default constructor, optimal for most generic polynomial equations
+    /// @brief Default constructor, optimal for most generic polynomial equations.
     fn default() -> Self {
         MultiVariableSolver {
             order: DEFAULT_QUADRATURE_ORDERS,
@@ -286,29 +307,32 @@ impl Default for MultiVariableSolver {
 }
 
 impl MultiVariableSolver {
-    ///returns the chosen number of nodes/order for quadrature
+    /// @brief Returns the chosen number of nodes/order for quadrature.
     pub fn get_order(&self) -> usize {
         self.order
     }
 
-    ///sets the number of nodes/order for quadrature
+    ///@ brief Sets the number of nodes/order for quadrature.
     pub fn set_order(&mut self, order: usize) {
         self.order = order;
     }
 
-    ///returns the chosen integration method
-    /// possible choices are GaussLegendre, GaussHermite and GaussLaguerre
+    /// @brief Returns the chosen integration method.
+    /// @note Possible choices are GaussLegendre, GaussHermite and GaussLaguerre.
     pub fn get_integration_method(&self) -> GaussianQuadratureMethod {
         self.integration_method
     }
 
-    ///sets the integration method
-    /// possible choices are GaussLegendre, GaussHermite and GaussLaguerre
+    /// @brief Sets the integration method.
+    /// @note Possible choices are GaussLegendre, GaussHermite and GaussLaguerre.
     pub fn set_integration_method(&mut self, integration_method: GaussianQuadratureMethod) {
         self.integration_method = integration_method;
     }
 
-    ///custom constructor, optimal for fine-tuning for specific cases
+    /// @brief Creates a solver with custom parameters.
+    /// @param order The quadrature order (number of nodes).
+    /// @param integration_method The numerical method (`GaussLegendre`, `GaussHermite`, or `GaussLaguerre`).
+    /// @return A configured [`SingleVariableSolver`] instance.
     pub fn from_parameters(order: usize, integration_method: GaussianQuadratureMethod) -> Self {
         MultiVariableSolver {
             order,
@@ -316,7 +340,12 @@ impl MultiVariableSolver {
         }
     }
 
-    ///Helper method to check if inputs are well defined
+    /// @brief Validates the input parameters and integration limits.
+    ///
+    /// @tparam NUM_INTEGRATIONS Number of nested integrations.
+    /// @param number_of_integrations The number of integrations to perform.
+    /// @param integration_limit Integration limits for each integration stage.
+    /// @return `Ok(())` if valid; otherwise an error string.
     fn check_for_errors<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
@@ -339,12 +368,17 @@ impl MultiVariableSolver {
         Ok(())
     }
 
-    /// returns the gauss legendre numerical integral for a given equation
-    /// number_of_integrations: number of integrations to perform on the equation
-    /// idx_to_integrate: the index/indices of variable to integrate
-    /// func: the equation to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
-    /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
+    /// @brief Computes the integral using **Gauss–Legendre quadrature**.
+    ///
+    /// @tparam NUM_VARS Number of variables in the multivariable equation.
+    /// @tparam NUM_INTEGRATIONS Number of nested integrations.
+    /// @param number_of_integrations Number of integrations to perform.
+    /// @param idx_to_integrate The index/indices of variable to integrate.
+    /// @param func Function to integrate.
+    /// @param integration_limit Integration limits for each round of integration.
+    /// @param point For variables not being integrated, it is their constant value, otherwise it is 
+    /// their final upper limit of integration.
+    /// @return The computed integral value.
     fn get_gauss_legendre<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
@@ -411,12 +445,17 @@ impl MultiVariableSolver {
         abcsissa_coeff * ans
     }
 
-    /// returns the gauss hermite numerical integral for a given equation
-    /// number_of_integrations: number of integrations to perform on the equation
-    /// idx_to_integrate: the index/indices of variable to integrate
-    /// func: the equation to integrate
-    /// _integration_limits: the integration bound(s) for each round of integration
-    /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
+    /// @brief Computes the integral using **Gauss-Hermite quadrature**.
+    ///
+    /// @tparam NUM_VARS Number of variables in the multivariable equation.
+    /// @tparam NUM_INTEGRATIONS Number of nested integrations.
+    /// @param number_of_integrations Number of integrations to perform.
+    /// @param idx_to_integrate The index/indices of variable to integrate.
+    /// @param func Function to integrate.
+    /// @param integration_limit Integration limits for each round of integration.
+    /// @param point For variables not being integrated, it is their constant value, otherwise it is 
+    /// their final upper limit of integration.
+    /// @return The computed integral value.
     fn get_gauss_hermite<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
@@ -473,12 +512,17 @@ impl MultiVariableSolver {
         ans
     }
 
-    /// returns the gauss laguerre numerical integral for a given equation
-    /// number_of_integrations: number of integrations to perform on the equation
-    /// idx_to_integrate: the index/indices of variable to integrate
-    /// func: the equation to integrate
-    /// _integration_limits: the integration bound(s) for each round of integration
-    /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
+    /// @brief Computes the integral using **Gauss-Laguerre quadrature**.
+    ///
+    /// @tparam NUM_VARS Number of variables in the multivariable equation.
+    /// @tparam NUM_INTEGRATIONS Number of nested integrations.
+    /// @param number_of_integrations Number of integrations to perform.
+    /// @param idx_to_integrate The index/indices of variable to integrate.
+    /// @param func Function to integrate.
+    /// @param integration_limit Integration limits for each round of integration.
+    /// @param point For variables not being integrated, it is their constant value, otherwise it is 
+    /// their final upper limit of integration.
+    /// @return The computed integral value.
     fn get_gauss_laguerre<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
@@ -537,17 +581,24 @@ impl MultiVariableSolver {
 }
 
 impl IntegratorMultiVariable for MultiVariableSolver {
-    ///returns the gaussian quadrature numerical integration for a single variable equation
-    /// number_of_integrations: number of integrations to perform on the equation
-    /// func: the equation to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
+    /// @brief Computes the Gaussian quadrature numerical integration for a multivariable function.
+    /// 
+    /// @tparam NUM_VARS Number of variables in the multivariable equation.
+    /// @tparam NUM_INTEGRATIONS Number of nested integrations.
+    /// @param number_of_integrations Number of integrations to perform.
+    /// @param idx_to_integrate The index/indices of variable to integrate.
+    /// @param func Function to integrate.
+    /// @param integration_limit Integration limits for each round of integration.
+    /// @param point For variables not being integrated, it is their constant value, otherwise it is 
+    /// their final upper limit of integration.
+    /// 
+    /// @return Result containing the computed integral value, or an error message.
     ///
-    /// NOTE: Returns a Result<f64, &'static str>, where possible Err are:
-    /// GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE -> if the chosen numer of nodes/order is out of supported range
-    /// INTEGRATION_LIMITS_ILL_DEFINED -> if any integration_limit[i][0] >= integration_limit[i][1] for all possible i
-    /// INCORRECT_NUMBER_OF_INTEGRATION_LIMITS -> if number_of_integrations is not equal to the size of integration_limit
+    /// @note Possible errors:
+    /// - `GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE`: if the chosen order is unsupported.
+    /// - `INTEGRATION_LIMITS_ILL_DEFINED`: if any limit has `a >= b`.
     ///
-    /// assume we want to differentiate f(x,y,z) = 2.0*x + y*z. the function would be:
+    /// @example Assume we want to differentiate f(x,y,z) = 2.0*x + y*z. the function would be:
     /// ```
     ///    let my_func = | args: &[f64; 3] | -> f64
     ///    {

@@ -416,6 +416,7 @@ anmolkathail@gmail.com
 - [x] Add gauss-laguerre
 - [x] Add infinite integration limits to iterative integration methods
 - [] improve and benchmark accuracy
+- [] better error handling
 - [] Add traits to cover all generic integral types - float or ints
 - [] fix docs to be more presentable
 - [] Add user-friendly macros for ease of use
