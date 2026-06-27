@@ -7,8 +7,8 @@ use crate::numerical_derivative::finite_difference::*;
 
 use crate::utils::error_codes::*;
 
-#[cfg(feature = "heap")]
-use std::{boxed::Box, vec::Vec};
+#[cfg(feature = "alloc")]
+use alloc::{boxed::Box, vec::Vec};
 
 #[test]
 fn test_single_derivative_forward_difference() {
@@ -401,7 +401,7 @@ fn test_jacobian_1() {
 
     let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
 
-    let jacobian = Jacobian::<MultiVariableSolver>::default();
+    let jacobian = Jacobian::<FiniteDifferenceMulti>::default();
 
     let result = jacobian.get(&function_matrix, &points).unwrap();
 
@@ -418,7 +418,7 @@ fn test_jacobian_1() {
 }
 
 #[test]
-#[cfg(feature = "heap")]
+#[cfg(feature = "alloc")]
 fn test_jacobian_2() {
     //function is x*y*z
     let func1 = |args: &[f64; 3]| -> f64 {
@@ -431,11 +431,11 @@ fn test_jacobian_2() {
     };
 
     let function_matrix: Vec<Box<dyn Fn(&[f64; 3]) -> f64>> =
-        std::vec![Box::new(func1), Box::new(func2)];
+        alloc::vec![Box::new(func1), Box::new(func2)];
 
     let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
 
-    let jacobian = Jacobian::<MultiVariableSolver>::default();
+    let jacobian = Jacobian::<FiniteDifferenceMulti>::default();
 
     let result: Vec<Vec<f64>> = jacobian.get_on_heap(&function_matrix, &points).unwrap();
 
@@ -458,13 +458,13 @@ fn test_jacobian_1_error() {
     //the point around which we want the jacobian matrix
     let points = [1.0, 2.0, 3.0];
 
-    let jacobian = Jacobian::<MultiVariableSolver>::default();
+    let jacobian = Jacobian::<FiniteDifferenceMulti>::default();
 
     //expect error because an empty list of function was passed in
     let result = jacobian.get(&function_matrix, &points);
 
     assert!(result.is_err());
-    assert!(result.unwrap_err() == VECTOR_OF_FUNCTIONS_CANNOT_BE_EMPTY);
+    assert!(result.unwrap_err() == CalcError::EmptyFunctionSet);
 }
 
 #[test]
@@ -476,7 +476,7 @@ fn test_hessian_1() {
 
     let points = [1.0, 2.0]; //the point around which we want the hessian matrix
 
-    let hessian = Hessian::<MultiVariableSolver>::default();
+    let hessian = Hessian::<FiniteDifferenceMulti>::default();
 
     let result = hessian.get(&func, &points).unwrap();
 

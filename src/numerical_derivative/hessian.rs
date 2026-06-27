@@ -1,6 +1,5 @@
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-
-use num_complex::ComplexFloat;
+use crate::utils::error_codes::CalcError;
 
 ///computes the hessian matrix for a given function
 /// Can handle single and multivariable equations of any complexity or size
@@ -8,12 +7,12 @@ pub struct Hessian<D: DerivatorMultiVariable> {
     derivator: D,
 }
 
-impl<D: DerivatorMultiVariable> Default for Hessian<D> {
+impl<D: DerivatorMultiVariable + Default> Default for Hessian<D> {
     ///the default constructor, optimal for most generic cases
     fn default() -> Self {
-        return Hessian {
+        Hessian {
             derivator: D::default(),
-        };
+        }
     }
 }
 
@@ -22,7 +21,7 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     /// You can create a custom multivariable derivator from this crate
     /// or supply your own by implementing the base traits yourself
     pub fn from_derivator(derivator: D) -> Self {
-        return Hessian { derivator };
+        Hessian { derivator }
     }
 
     /// Returns the hessian matrix for a given function
@@ -33,13 +32,13 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     ///                                            [d2f/dvar1*dvarN, d2f/dvar2*dvarN, ... , dfM/d2varN]]
     /// where 'N' is the total number of variables
     ///
-    /// NOTE: Returns a Result<T, &'static str>
-    /// Possible &'static str are:
-    /// NUMBER_OF_DERIVATIVE_STEPS_CANNOT_BE_ZERO -> if the derivative step size is zero
+    /// NOTE: Returns a Result<_, CalcError>
+    /// Possible CalcError are:
+    /// CalcError::StepSizeZero -> if the derivative step size is zero
     ///
     /// assume our function is y*sin(x) + 2*x*e^y. First define the function
     /// ```
-    /// use multicalc::numerical_derivative::finite_difference::MultiVariableSolver;
+    /// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
     /// use multicalc::numerical_derivative::hessian::Hessian;
     ///    let my_func = | args: &[f64; 2] | -> f64
     ///    {
@@ -47,17 +46,17 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     ///    };
     ///
     /// let points = [1.0, 2.0]; //the point around which we want the hessian matrix
-    /// let hessian = Hessian::<MultiVariableSolver>::default();
+    /// let hessian = Hessian::<FiniteDifferenceMulti>::default();
     ///
     /// let result = hessian.get(&my_func, &points).unwrap();
     /// ```
     ///
-    pub fn get<T: ComplexFloat, const NUM_VARS: usize>(
+    pub fn get<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize>(
         &self,
-        function: &dyn Fn(&[T; NUM_VARS]) -> T,
-        vector_of_points: &[T; NUM_VARS],
-    ) -> Result<[[T; NUM_VARS]; NUM_VARS], &'static str> {
-        let mut result = [[T::from(f64::NAN).unwrap(); NUM_VARS]; NUM_VARS];
+        function: &F,
+        vector_of_points: &[f64; NUM_VARS],
+    ) -> Result<[[f64; NUM_VARS]; NUM_VARS], CalcError> {
+        let mut result = [[f64::NAN; NUM_VARS]; NUM_VARS];
 
         for row_index in 0..NUM_VARS {
             for col_index in 0..NUM_VARS {
@@ -74,6 +73,6 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
             }
         }
 
-        return Ok(result);
+        Ok(result)
     }
 }
