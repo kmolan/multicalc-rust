@@ -1,9 +1,10 @@
-#![allow(clippy::needless_return)]
 #![allow(clippy::type_complexity)]
 #![no_std]
 
-#[cfg(feature = "heap")]
-extern crate std;
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
+pub use libm;
 
 pub mod approximation;
 pub mod numerical_derivative;

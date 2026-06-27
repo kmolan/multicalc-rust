@@ -1,26 +1,28 @@
 [package]
 name = "multicalc"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["akathail <anmolkathail@gmail.com>"]
 edition = "2021"
+rust-version = "1.81"
 description = "Rust scientific computing for single and multi-variable calculus"
 repository = "https://github.com/kmolan/multicalc-rust"
 license = "MIT"
 readme = "README.md"
-#documentation = TODO
+documentation = "https://docs.rs/multicalc"
 keywords = ["Math", "Science", "Calculus", "Differentiation", "Integration"]
 
 [badges]
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-num-complex = "0.4.6"
+libm = "0.2"
 
 [dev-dependencies]
 rand = "0.8"
+criterion = "0.5"
 
 [features]
 default = []
-heap = []
+alloc = []
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
