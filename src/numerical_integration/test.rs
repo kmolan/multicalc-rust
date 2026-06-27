@@ -15,7 +15,7 @@ fn test_booles_integration_1() {
     let integration_limit = [0.0, 2.0];
 
     let integrator =
-        iterative_integration::SingleVariableSolver::from_parameters(100, IterativeMethod::Booles);
+        iterative_integration::IterativeSingle::from_parameters(100, IterativeMethod::Booles);
 
     //simple integration for x, known to be x*x, expect a value of ~4.00
     let val = integrator.get_single(&func, &integration_limit).unwrap();
@@ -33,7 +33,7 @@ fn test_booles_integration_2() {
     let point = [1.0, 2.0, 3.0];
 
     let integrator =
-        iterative_integration::MultiVariableSolver::from_parameters(100, IterativeMethod::Booles);
+        iterative_integration::IterativeMulti::from_parameters(100, IterativeMethod::Booles);
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
     let val = integrator
@@ -68,7 +68,7 @@ fn test_booles_integration_3() {
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
 
     let integrator =
-        iterative_integration::SingleVariableSolver::from_parameters(20, IterativeMethod::Booles);
+        iterative_integration::IterativeSingle::from_parameters(20, IterativeMethod::Booles);
 
     //simple double integration for 6*x, expect a value of ~24.00
     let val = integrator.get_double(&func, &integration_limits).unwrap();
@@ -159,7 +159,7 @@ fn test_simpsons_integration_1() {
 
     let integration_limit = [0.0, 2.0];
 
-    let integrator = iterative_integration::SingleVariableSolver::from_parameters(
+    let integrator = iterative_integration::IterativeSingle::from_parameters(
         200,
         IterativeMethod::Simpsons,
     );
@@ -180,7 +180,7 @@ fn test_simpsons_integration_2() {
     let point = [1.0, 2.0, 3.0];
 
     let integrator =
-        iterative_integration::MultiVariableSolver::from_parameters(200, IterativeMethod::Simpsons);
+        iterative_integration::IterativeMulti::from_parameters(200, IterativeMethod::Simpsons);
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
     let val = integrator
@@ -214,7 +214,7 @@ fn test_simpsons_integration_3() {
 
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
 
-    let integrator = iterative_integration::SingleVariableSolver::from_parameters(
+    let integrator = iterative_integration::IterativeSingle::from_parameters(
         200,
         IterativeMethod::Simpsons,
     );
@@ -235,7 +235,7 @@ fn test_simpsons_integration_4() {
     let point = [1.0, 1.0, 1.0];
 
     let integrator =
-        iterative_integration::MultiVariableSolver::from_parameters(200, IterativeMethod::Simpsons);
+        iterative_integration::IterativeMulti::from_parameters(200, IterativeMethod::Simpsons);
 
     //double partial integration for first x then y, expect a value of ~1.50
     let val = integrator
@@ -253,7 +253,7 @@ fn test_trapezoidal_integration_1() {
 
     let integration_limit = [0.0, 2.0];
 
-    let iterator = iterative_integration::SingleVariableSolver::from_parameters(
+    let iterator = iterative_integration::IterativeSingle::from_parameters(
         100,
         IterativeMethod::Trapezoidal,
     );
@@ -272,7 +272,7 @@ fn test_trapezoidal_integration_2() {
     let integration_limit = [0.0, 1.0];
     let point = [1.0, 2.0, 3.0];
 
-    let iterator = iterative_integration::MultiVariableSolver::from_parameters(
+    let iterator = iterative_integration::IterativeMulti::from_parameters(
         100,
         IterativeMethod::Trapezoidal,
     );
@@ -309,7 +309,7 @@ fn test_trapezoidal_integration_3() {
 
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
 
-    let integrator = iterative_integration::SingleVariableSolver::from_parameters(
+    let integrator = iterative_integration::IterativeSingle::from_parameters(
         10,
         IterativeMethod::Trapezoidal,
     );
@@ -329,7 +329,7 @@ fn test_trapezoidal_integration_4() {
     let integration_limits = [[0.0, 1.0], [0.0, 2.0]];
     let point = [1.0, 2.0, 3.0];
 
-    let integrator = iterative_integration::MultiVariableSolver::from_parameters(
+    let integrator = iterative_integration::IterativeMulti::from_parameters(
         10,
         IterativeMethod::Trapezoidal,
     );
@@ -350,12 +350,12 @@ fn test_error_checking_1() {
 
     let integration_limit = [10.0, 1.0];
 
-    let integrator = iterative_integration::SingleVariableSolver::default();
+    let integrator = iterative_integration::IterativeSingle::default();
 
     //expect failure because integration interval is ill-defined (lower limit is higher than the upper limit)
     let result = integrator.get_single(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == INTEGRATION_LIMITS_ILL_DEFINED);
+    assert!(result.unwrap_err() == CalcError::IntegrationLimitsIllDefined);
 }
 
 #[test]
@@ -368,12 +368,12 @@ fn test_error_checking_2() {
     let integration_limit = [0.0, 1.0];
 
     let integrator =
-        iterative_integration::SingleVariableSolver::from_parameters(0, IterativeMethod::Booles);
+        iterative_integration::IterativeSingle::from_parameters(0, IterativeMethod::Booles);
 
     //expect failure because number of steps is 0
     let result = integrator.get_single(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == INTEGRATION_CANNOT_HAVE_ZERO_ITERATIONS);
+    assert!(result.unwrap_err() == CalcError::IterationsZero);
 }
 
 //TODO: add more tests
