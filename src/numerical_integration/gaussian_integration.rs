@@ -1,42 +1,71 @@
-use crate::numerical_integration::integrator::*;
+use crate::gaussian_tables::nodes;
+use crate::numerical_integration::integrator::{IntegratorMultiVariable, IntegratorSingleVariable};
 use crate::numerical_integration::mode::GaussianQuadratureMethod;
-use crate::utils::error_codes::*;
-use crate::utils::{gauss_laguerre_table, gh_table, gl_table};
+use crate::utils::error_codes::CalcError;
 
 pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;
 
-///Implements the gaussian quadrature methods for numerical integration for single variable functions
+/// Validates a Gaussian integration limit against the chosen method's fixed domain.
+///
+/// Gauss-Legendre integrates over a finite `[a, b]`; Gauss-Hermite over `(-inf, +inf)`;
+/// Gauss-Laguerre over `[0, +inf)`. The canonical domain is required (not ignored) so a
+/// mismatched limit cannot silently return a wrong result. `NaN` comparisons are false and
+/// are therefore rejected.
+fn check_limits<const NUM_INTEGRATIONS: usize>(
+    method: GaussianQuadratureMethod,
+    integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
+) -> Result<(), CalcError> {
+    for limit in integration_limit {
+        let ok = match method {
+            GaussianQuadratureMethod::GaussLegendre => {
+                limit[0].is_finite() && limit[1].is_finite() && limit[0] < limit[1]
+            }
+            GaussianQuadratureMethod::GaussHermite => {
+                limit[0] == f64::NEG_INFINITY && limit[1] == f64::INFINITY
+            }
+            GaussianQuadratureMethod::GaussLaguerre => limit[0] == 0.0 && limit[1] == f64::INFINITY,
+        };
+
+        if !ok {
+            return Err(CalcError::IntegrationLimitsIllDefined);
+        }
+    }
+
+    Ok(())
+}
+
+/// Implements the gaussian quadrature methods for numerical integration for single variable functions
 #[derive(Clone, Copy)]
-pub struct SingleVariableSolver {
+pub struct GaussianSingle {
     order: usize,
     integration_method: GaussianQuadratureMethod,
 }
 
-impl Default for SingleVariableSolver {
-    ///default constructor, optimal for most generic polynomial equations
+impl Default for GaussianSingle {
+    /// default constructor, optimal for most generic polynomial equations
     fn default() -> Self {
-        return SingleVariableSolver {
+        GaussianSingle {
             order: DEFAULT_QUADRATURE_ORDERS,
             integration_method: GaussianQuadratureMethod::GaussLegendre,
-        };
+        }
     }
 }
 
-impl SingleVariableSolver {
-    ///returns the chosen number of nodes/order for quadrature
+impl GaussianSingle {
+    /// returns the chosen number of nodes/order for quadrature
     pub fn get_order(&self) -> usize {
-        return self.order;
+        self.order
     }
 
-    ///sets the number of nodes/order for quadrature
+    /// sets the number of nodes/order for quadrature
     pub fn set_order(&mut self, order: usize) {
         self.order = order;
     }
 
-    ///returns the chosen integration method
+    /// returns the chosen integration method
     /// possible choices are GaussLegendre, GaussHermite and GaussLaguerre
     pub fn get_integration_method(&self) -> GaussianQuadratureMethod {
-        return self.integration_method;
+        self.integration_method
     }
 
     /// sets the integration method
@@ -45,528 +74,309 @@ impl SingleVariableSolver {
         self.integration_method = integration_method;
     }
 
-    ///custom constructor, optimal for fine-tuning for specific cases
+    /// custom constructor, optimal for fine-tuning for specific cases
     pub fn from_parameters(order: usize, integration_method: GaussianQuadratureMethod) -> Self {
-        SingleVariableSolver {
-            order: order,
-            integration_method: integration_method,
+        GaussianSingle {
+            order,
+            integration_method,
         }
     }
 
-    ///Helper method to check if inputs are well defined
-    fn check_for_errors<const NUM_INTEGRATIONS: usize>(
+    /// Gauss-Legendre over a finite `[a, b]`: nodes (defined on `[-1, 1]`) are affine-mapped
+    /// by `(b-a)/2 * x + (b+a)/2` and the result scaled by `(b-a)/2`. Inner folds of a
+    /// single-variable integral are constant in the outer variable, so the inner result is
+    /// computed once and reused.
+    fn integrate_legendre<F: Fn(f64) -> f64, const NUM_INTEGRATIONS: usize>(
         &self,
-        number_of_integrations: usize,
-        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
-    ) -> Result<(), &'static str> {
-        //TODO
-        if !(1..=gl_table::MAX_GL_ORDER).contains(&self.order) {
-            return Err(GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE);
-        }
-
-        for iter in 0..integration_limit.len() {
-            if integration_limit[iter][0] >= integration_limit[iter][1] {
-                return Err(INTEGRATION_LIMITS_ILL_DEFINED);
-            }
-        }
-
-        if NUM_INTEGRATIONS != number_of_integrations {
-            return Err(INCORRECT_NUMBER_OF_INTEGRATION_LIMITS);
-        }
-
-        return Ok(());
-    }
-
-    ///returns the gauss legendre numerical integral for a given equation
-    /// number_of_integrations: number of integrations to perform on the equation
-    /// func: the equation to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
-    fn get_gauss_legendre<const NUM_INTEGRATIONS: usize>(
-        &self,
-        number_of_integrations: usize,
-        func: &dyn Fn(f64) -> f64,
+        level: usize,
+        table: &'static [(f64, f64)],
+        func: &F,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> f64 {
-        if number_of_integrations == 1 {
+        let a = integration_limit[level - 1][0];
+        let b = integration_limit[level - 1][1];
+        let half = (b - a) / 2.0;
+        let mid = (b + a) / 2.0;
+
+        if level == 1 {
             let mut ans = 0.0;
-            let abcsissa_coeff = (integration_limit[0][1] - integration_limit[0][0]) / 2.0;
-            let intercept = (integration_limit[0][1] + integration_limit[0][0]) / 2.0;
-
-            for iter in 0..self.order {
-                let (abcsissa, weight) =
-                    gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
-
-                let args = abcsissa_coeff * abcsissa + intercept;
-
-                ans = ans + weight * func(args);
+            for &(weight, abscissa) in table {
+                ans += weight * func(half * abscissa + mid);
             }
-
-            return abcsissa_coeff * ans;
+            return half * ans;
         }
 
+        let inner = self.integrate_legendre(level - 1, table, func, integration_limit);
         let mut ans = 0.0;
-        let abcsissa_coeff = (integration_limit[number_of_integrations - 1][1]
-            - integration_limit[number_of_integrations - 1][0])
-            / 2.0;
-        //let intercept = (integration_limit[number_of_integrations-1][1] + integration_limit[number_of_integrations-1][0])/2.0;
-
-        for iter in 0..self.order {
-            let (_, weight) = gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
-
-            //let args = abcsissa_coeff*abcsissa + intercept;
-
-            ans = ans
-                + weight
-                    * self.get_gauss_legendre(number_of_integrations - 1, func, integration_limit);
+        for &(weight, _) in table {
+            ans += weight * inner;
         }
-
-        return abcsissa_coeff * ans;
+        half * ans
     }
 
-    ///returns the gauss hermite numerical integral for a given equation
-    /// number_of_integrations: number of integrations to perform on the equation
-    /// func: the equation to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
-    fn get_gauss_hermite<const NUM_INTEGRATIONS: usize>(
+    /// Gauss-Hermite / Gauss-Laguerre over their fixed domain: nodes are used as-is with no
+    /// affine map and no exponential factor, since the tabulated weights already carry the
+    /// `e^{-x^2}` / `e^{-x}` weighting function.
+    fn integrate_canonical<F: Fn(f64) -> f64>(
         &self,
-        number_of_integrations: usize,
-        func: &dyn Fn(f64) -> f64,
-        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
+        level: usize,
+        table: &'static [(f64, f64)],
+        func: &F,
     ) -> f64 {
-        if number_of_integrations == 1 {
+        if level == 1 {
             let mut ans = 0.0;
-
-            for iter in 0..self.order {
-                let (abcsissa, weight) =
-                    gh_table::get_gh_weights_and_abscissae(self.order, iter).unwrap();
-
-                ans = ans + weight * func(abcsissa) * f64::exp(abcsissa * abcsissa);
+            for &(weight, abscissa) in table {
+                ans += weight * func(abscissa);
             }
-
             return ans;
         }
 
+        let inner = self.integrate_canonical(level - 1, table, func);
         let mut ans = 0.0;
-
-        for iter in 0..self.order {
-            let (_, weight) = gh_table::get_gh_weights_and_abscissae(self.order, iter).unwrap();
-
-            ans = ans
-                + weight
-                    * self.get_gauss_hermite(number_of_integrations - 1, func, integration_limit);
+        for &(weight, _) in table {
+            ans += weight * inner;
         }
-
-        return ans;
-    }
-
-    ///returns the gauss laguerre numerical integral for a given equation
-    /// number_of_integrations: number of integrations to perform on the equation
-    /// func: the equation to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
-    fn get_gauss_laguerre<const NUM_INTEGRATIONS: usize>(
-        &self,
-        number_of_integrations: usize,
-        func: &dyn Fn(f64) -> f64,
-        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
-    ) -> f64 {
-        if number_of_integrations == 1 {
-            let mut ans = 0.0;
-
-            for iter in 0..self.order {
-                let (abcsissa, weight) =
-                    gauss_laguerre_table::get_gauss_laguerre_weights_and_abscissae(
-                        self.order, iter,
-                    )
-                    .unwrap();
-                ans = ans + (weight * func(abcsissa) * f64::exp(abcsissa));
-            }
-
-            return ans;
-        }
-
-        let mut ans = 0.0;
-
-        for iter in 0..self.order {
-            let (_, weight) =
-                gauss_laguerre_table::get_gauss_laguerre_weights_and_abscissae(self.order, iter)
-                    .unwrap();
-
-            //let args = (integration_limit[0][0] - integration_limit[0][1])*T::log(abcsissa - integration_limit[0][1], T::abs(T::exp(T::one()))) - abcsissa;
-
-            ans = ans
-                + weight * self.get_gauss_laguerre(number_of_integrations, func, integration_limit);
-        }
-
-        return ans;
+        ans
     }
 }
 
-impl IntegratorSingleVariable for SingleVariableSolver {
-    ///returns the gaussian quadrature numerical integration for a single variable equation
-    /// number_of_integrations: number of integrations to perform on the equation
+impl IntegratorSingleVariable for GaussianSingle {
+    /// returns the gaussian quadrature numerical integration for a single variable equation
     /// func: the equation to integrate
     /// integration_limit: the integration bound(s) for each round of integration
     ///
-    /// NOTE: Returns a Result<f64, &'static str>, where possible Err are:
-    /// GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE -> if the chosen numer of nodes/order is out of supported range
-    /// INTEGRATION_LIMITS_ILL_DEFINED -> if any integration_limit[i][0] >= integration_limit[i][1] for all possible i
-    /// INCORRECT_NUMBER_OF_INTEGRATION_LIMITS -> if number_of_integrations is not equal to the size of integration_limit
+    /// The number of integrations equals the length of `integration_limit`. The integrand
+    /// is passed bare; the tabulated weights carry the implicit weighting function:
+    /// - GaussLegendre: `∫_a^b f(x) dx`
+    /// - GaussHermite:  `∫_{-∞}^∞ f(x) e^{-x²} dx ≈ Σ wᵢ f(xᵢ)`
+    /// - GaussLaguerre: `∫_0^∞ f(x) e^{-x} dx ≈ Σ wᵢ f(xᵢ)`
     ///
-    /// assume we want to differentiate f(x) = 4.0*x*x*x - 3.0*x*x. the function would be:
+    /// NOTE: Returns a Result<f64, CalcError>, where possible Err are:
+    /// CalcError::QuadratureOrderOutOfRange -> if the chosen number of nodes/order is out of supported range
+    /// CalcError::IntegrationLimitsIllDefined -> if any limit does not match the method's domain
+    ///
+    /// assume we want to integrate f(x) = 4.0*x*x*x - 3.0*x*x. the function would be:
     /// ```
     ///    let my_func = | arg: f64 | -> f64
     ///    {
     ///        return 4.0*arg*arg*arg - 3.0*arg*arg;
     ///    };
     ///
-    /// use multicalc::numerical_integration::integrator::*;
-    /// use multicalc::numerical_integration::gaussian_integration;
+    /// use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
+    /// use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
     ///
-    /// let integrator = gaussian_integration::SingleVariableSolver::default();
+    /// let integrator = GaussianSingle::default();
     /// let integration_limit = [[0.0, 2.0]; 1];
-    /// let val = integrator.get(1, &my_func, &integration_limit).unwrap(); //single integration
+    /// let val = integrator.get(&my_func, &integration_limit).unwrap(); //single integration
     /// assert!(f64::abs(val - 8.0) < 1e-7);
     ///
     /// let integration_limit = [[0.0, 2.0], [-1.0, 1.0]];
-    /// let val = integrator.get(2, &my_func, &integration_limit).unwrap(); //double integration
+    /// let val = integrator.get(&my_func, &integration_limit).unwrap(); //double integration
     /// assert!(f64::abs(val - 16.0) < 1e-7);
     ///```
-    fn get<const NUM_INTEGRATIONS: usize>(
+    fn get<F: Fn(f64) -> f64, const NUM_INTEGRATIONS: usize>(
         &self,
-        number_of_integrations: usize,
-        func: &dyn Fn(f64) -> f64,
+        func: &F,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
-    ) -> Result<f64, &'static str> {
-        self.check_for_errors(number_of_integrations, integration_limit)?;
+    ) -> Result<f64, CalcError> {
+        let table = nodes(self.integration_method, self.order)?;
+        check_limits(self.integration_method, integration_limit)?;
 
-        match self.integration_method {
+        Ok(match self.integration_method {
             GaussianQuadratureMethod::GaussLegendre => {
-                return Ok(self.get_gauss_legendre(number_of_integrations, func, integration_limit))
+                self.integrate_legendre(NUM_INTEGRATIONS, table, func, integration_limit)
             }
-            GaussianQuadratureMethod::GaussHermite => {
-                return Ok(self.get_gauss_hermite(number_of_integrations, func, integration_limit))
-            }
-            GaussianQuadratureMethod::GaussLaguerre => {
-                return Ok(self.get_gauss_laguerre(number_of_integrations, func, integration_limit))
-            }
-        }
+            _ => self.integrate_canonical(NUM_INTEGRATIONS, table, func),
+        })
     }
 }
 
-///Implements the gaussian quadrature methods for numerical integration for multi variable functions
+/// Implements the gaussian quadrature methods for numerical integration for multi variable functions
 #[derive(Clone, Copy)]
-pub struct MultiVariableSolver {
+pub struct GaussianMulti {
     order: usize,
     integration_method: GaussianQuadratureMethod,
 }
 
-impl Default for MultiVariableSolver {
-    ///default constructor, optimal for most generic polynomial equations
+impl Default for GaussianMulti {
+    /// default constructor, optimal for most generic polynomial equations
     fn default() -> Self {
-        return MultiVariableSolver {
+        GaussianMulti {
             order: DEFAULT_QUADRATURE_ORDERS,
             integration_method: GaussianQuadratureMethod::GaussLegendre,
-        };
+        }
     }
 }
 
-impl MultiVariableSolver {
-    ///returns the chosen number of nodes/order for quadrature
+impl GaussianMulti {
+    /// returns the chosen number of nodes/order for quadrature
     pub fn get_order(&self) -> usize {
-        return self.order;
+        self.order
     }
 
-    ///sets the number of nodes/order for quadrature
+    /// sets the number of nodes/order for quadrature
     pub fn set_order(&mut self, order: usize) {
         self.order = order;
     }
 
-    ///returns the chosen integration method
+    /// returns the chosen integration method
     /// possible choices are GaussLegendre, GaussHermite and GaussLaguerre
     pub fn get_integration_method(&self) -> GaussianQuadratureMethod {
-        return self.integration_method;
+        self.integration_method
     }
 
-    ///sets the integration method
+    /// sets the integration method
     /// possible choices are GaussLegendre, GaussHermite and GaussLaguerre
     pub fn set_integration_method(&mut self, integration_method: GaussianQuadratureMethod) {
         self.integration_method = integration_method;
     }
 
-    ///custom constructor, optimal for fine-tuning for specific cases
+    /// custom constructor, optimal for fine-tuning for specific cases
     pub fn from_parameters(order: usize, integration_method: GaussianQuadratureMethod) -> Self {
-        MultiVariableSolver {
+        GaussianMulti {
             order,
             integration_method,
         }
     }
 
-    ///Helper method to check if inputs are well defined
-    fn check_for_errors<const NUM_INTEGRATIONS: usize>(
+    /// Gauss-Legendre partial integration over a finite `[a, b]`. The affine-mapped node is
+    /// written into the integrated variable's slot before recursing; the inner fold depends
+    /// on the outer node, so it is recomputed for each one.
+    fn integrate_legendre<
+        F: Fn(&[f64; NUM_VARS]) -> f64,
+        const NUM_VARS: usize,
+        const NUM_INTEGRATIONS: usize,
+    >(
         &self,
-        number_of_integrations: usize,
-        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
-    ) -> Result<(), &'static str> {
-        //TODO
-        if !(1..=gl_table::MAX_GL_ORDER).contains(&self.order) {
-            return Err(GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE);
-        }
-
-        for iter in 0..integration_limit.len() {
-            if integration_limit[iter][0] >= integration_limit[iter][1] {
-                return Err(INTEGRATION_LIMITS_ILL_DEFINED);
-            }
-        }
-
-        if NUM_INTEGRATIONS != number_of_integrations {
-            return Err(INCORRECT_NUMBER_OF_INTEGRATION_LIMITS);
-        }
-
-        return Ok(());
-    }
-
-    /// returns the gauss legendre numerical integral for a given equation
-    /// number_of_integrations: number of integrations to perform on the equation
-    /// idx_to_integrate: the index/indices of variable to integrate
-    /// func: the equation to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
-    /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
-    fn get_gauss_legendre<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
-        &self,
-        number_of_integrations: usize,
+        level: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
+        table: &'static [(f64, f64)],
+        func: &F,
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
     ) -> f64 {
-        if number_of_integrations == 1 {
-            let mut ans = 0.0;
-            let abcsissa_coeff = (integration_limits[0][1] - integration_limits[0][0]) / 2.0;
-            let intercept = (integration_limits[0][1] + integration_limits[0][0]) / 2.0;
+        let a = integration_limits[level - 1][0];
+        let b = integration_limits[level - 1][1];
+        let half = (b - a) / 2.0;
+        let mid = (b + a) / 2.0;
+        let var = idx_to_integrate[level - 1];
 
-            let mut args = *point;
-
-            for iter in 0..self.order {
-                let (abcsissa, weight) =
-                    gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
-
-                args[idx_to_integrate[0]] = abcsissa_coeff * abcsissa + intercept;
-
-                ans = ans + weight * func(&args);
-            }
-
-            return abcsissa_coeff * ans;
-        }
-
+        let mut current = *point;
         let mut ans = 0.0;
-        let abcsissa_coeff = (integration_limits[number_of_integrations - 1][1]
-            - integration_limits[number_of_integrations - 1][0])
-            / 2.0;
-        let intercept = (integration_limits[number_of_integrations - 1][1]
-            + integration_limits[number_of_integrations - 1][0])
-            / 2.0;
 
-        let mut args = *point;
-
-        for iter in 0..self.order {
-            let (abcsissa, weight) =
-                gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
-
-            args[idx_to_integrate[number_of_integrations - 1]] =
-                abcsissa_coeff * abcsissa + intercept;
-
-            ans = ans
-                + weight
-                    * self.get_gauss_legendre(
-                        number_of_integrations - 1,
-                        idx_to_integrate,
-                        func,
-                        integration_limits,
-                        &args,
-                    );
+        if level == 1 {
+            for &(weight, abscissa) in table {
+                current[var] = half * abscissa + mid;
+                ans += weight * func(&current);
+            }
+            return half * ans;
         }
 
-        return abcsissa_coeff * ans;
+        for &(weight, abscissa) in table {
+            current[var] = half * abscissa + mid;
+            ans += weight
+                * self.integrate_legendre(
+                    level - 1,
+                    idx_to_integrate,
+                    table,
+                    func,
+                    integration_limits,
+                    &current,
+                );
+        }
+        half * ans
     }
 
-    /// returns the gauss hermite numerical integral for a given equation
-    /// number_of_integrations: number of integrations to perform on the equation
-    /// idx_to_integrate: the index/indices of variable to integrate
-    /// func: the equation to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
-    /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
-    fn get_gauss_hermite<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
+    /// Gauss-Hermite / Gauss-Laguerre partial integration over the fixed domain. The node is
+    /// written into the integrated variable's slot as-is (no map, no exponential factor) and
+    /// the recursion stays in the same method.
+    fn integrate_canonical<
+        F: Fn(&[f64; NUM_VARS]) -> f64,
+        const NUM_VARS: usize,
+        const NUM_INTEGRATIONS: usize,
+    >(
         &self,
-        number_of_integrations: usize,
+        level: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
-        integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
+        table: &'static [(f64, f64)],
+        func: &F,
         point: &[f64; NUM_VARS],
     ) -> f64 {
-        if number_of_integrations == 1 {
-            let mut ans = 0.0;
+        let var = idx_to_integrate[level - 1];
 
-            let mut args = *point;
+        let mut current = *point;
+        let mut ans = 0.0;
 
-            for iter in 0..self.order {
-                let (abcsissa, weight) =
-                    gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
-
-                args[idx_to_integrate[0]] = abcsissa;
-
-                ans = ans + weight * func(&args);
+        if level == 1 {
+            for &(weight, abscissa) in table {
+                current[var] = abscissa;
+                ans += weight * func(&current);
             }
-
             return ans;
         }
 
-        let mut ans = 0.0;
-
-        let mut args = *point;
-
-        for iter in 0..self.order {
-            let (abcsissa, weight) =
-                gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
-
-            args[idx_to_integrate[number_of_integrations - 1]] = abcsissa;
-
-            ans = ans
-                + weight
-                    * self.get_gauss_legendre(
-                        number_of_integrations - 1,
-                        idx_to_integrate,
-                        func,
-                        integration_limits,
-                        &args,
-                    );
+        for &(weight, abscissa) in table {
+            current[var] = abscissa;
+            ans += weight
+                * self.integrate_canonical(level - 1, idx_to_integrate, table, func, &current);
         }
-
-        return ans;
-    }
-
-    /// returns the gauss laguerre numerical integral for a given equation
-    /// number_of_integrations: number of integrations to perform on the equation
-    /// idx_to_integrate: the index/indices of variable to integrate
-    /// func: the equation to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
-    /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
-    fn get_gauss_laguerre<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
-        &self,
-        number_of_integrations: usize,
-        idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
-        integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
-        point: &[f64; NUM_VARS],
-    ) -> f64 {
-        if number_of_integrations == 1 {
-            let mut ans = 0.0;
-
-            let mut args = *point;
-
-            for iter in 0..self.order {
-                let (abcsissa, weight) =
-                    gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
-
-                args[idx_to_integrate[0]] = abcsissa;
-
-                ans = ans + weight * func(&args);
-            }
-
-            return ans;
-        }
-
-        let mut ans = 0.0;
-
-        let mut args = *point;
-
-        for iter in 0..self.order {
-            let (abcsissa, weight) =
-                gl_table::get_gl_weights_and_abscissae(self.order, iter).unwrap();
-
-            args[idx_to_integrate[number_of_integrations - 1]] = abcsissa;
-
-            ans = ans
-                + weight
-                    * self.get_gauss_legendre(
-                        number_of_integrations - 1,
-                        idx_to_integrate,
-                        func,
-                        integration_limits,
-                        &args,
-                    );
-        }
-
-        return ans;
+        ans
     }
 }
 
-impl IntegratorMultiVariable for MultiVariableSolver {
-    ///returns the gaussian quadrature numerical integration for a single variable equation
-    /// number_of_integrations: number of integrations to perform on the equation
+impl IntegratorMultiVariable for GaussianMulti {
+    /// returns the gaussian quadrature numerical integration for a multi-variable equation
+    /// idx_to_integrate: the variables' index/indices that needs to be integrated
     /// func: the equation to integrate
     /// integration_limit: the integration bound(s) for each round of integration
+    /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
     ///
-    /// NOTE: Returns a Result<f64, &'static str>, where possible Err are:
-    /// GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE -> if the chosen numer of nodes/order is out of supported range
-    /// INTEGRATION_LIMITS_ILL_DEFINED -> if any integration_limit[i][0] >= integration_limit[i][1] for all possible i
-    /// INCORRECT_NUMBER_OF_INTEGRATION_LIMITS -> if number_of_integrations is not equal to the size of integration_limit
+    /// The number of integrations equals the length of `integration_limits`. The integrand
+    /// is passed bare; the tabulated weights carry the implicit weighting function (see
+    /// [`GaussianSingle`] for the per-method integral forms).
     ///
-    /// assume we want to differentiate f(x,y,z) = 2.0*x + y*z. the function would be:
+    /// NOTE: Returns a Result<f64, CalcError>, where possible Err are:
+    /// CalcError::QuadratureOrderOutOfRange -> if the chosen number of nodes/order is out of supported range
+    /// CalcError::IntegrationLimitsIllDefined -> if any limit does not match the method's domain
+    ///
+    /// assume we want to integrate f(x,y,z) = 2.0*x + y*z. the function would be:
     /// ```
     ///    let my_func = | args: &[f64; 3] | -> f64
     ///    {
     ///        return 2.0*args[0] + args[1]*args[2];
     ///    };
     ///
-    /// use multicalc::numerical_integration::integrator::*;
-    /// use multicalc::numerical_integration::gaussian_integration;
+    /// use multicalc::numerical_integration::integrator::IntegratorMultiVariable;
+    /// use multicalc::numerical_integration::gaussian_integration::GaussianMulti;
     ///
-    /// let integrator = gaussian_integration::MultiVariableSolver::default();
+    /// let integrator = GaussianMulti::default();
     /// let point = [1.0, 2.0, 3.0];
     ///
     /// let integration_limit = [[0.0, 1.0]; 1];
-    /// let val = integrator.get(1, [0; 1], &my_func, &integration_limit, &point).unwrap(); //single integration for x
+    /// let val = integrator.get([0; 1], &my_func, &integration_limit, &point).unwrap(); //single integration for x
     /// assert!(f64::abs(val - 7.0) < 1e-7);
     ///
     ///```
-    fn get<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
+    fn get<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
         &self,
-        number_of_integrations: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
+        func: &F,
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
-    ) -> Result<f64, &'static str> {
-        self.check_for_errors(number_of_integrations, integration_limits)?;
+    ) -> Result<f64, CalcError> {
+        let table = nodes(self.integration_method, self.order)?;
+        check_limits(self.integration_method, integration_limits)?;
 
-        match self.integration_method {
-            GaussianQuadratureMethod::GaussLegendre => {
-                return Ok(self.get_gauss_legendre(
-                    number_of_integrations,
-                    idx_to_integrate,
-                    func,
-                    integration_limits,
-                    point,
-                ))
-            }
-            GaussianQuadratureMethod::GaussHermite => {
-                return Ok(self.get_gauss_hermite(
-                    number_of_integrations,
-                    idx_to_integrate,
-                    func,
-                    integration_limits,
-                    point,
-                ))
-            }
-            GaussianQuadratureMethod::GaussLaguerre => {
-                return Ok(self.get_gauss_laguerre(
-                    number_of_integrations,
-                    idx_to_integrate,
-                    func,
-                    integration_limits,
-                    point,
-                ))
-            }
-        }
+        Ok(match self.integration_method {
+            GaussianQuadratureMethod::GaussLegendre => self.integrate_legendre(
+                NUM_INTEGRATIONS,
+                idx_to_integrate,
+                table,
+                func,
+                integration_limits,
+                point,
+            ),
+            _ => self.integrate_canonical(NUM_INTEGRATIONS, idx_to_integrate, table, func, point),
+        })
     }
 }

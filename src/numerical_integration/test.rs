@@ -84,7 +84,7 @@ fn test_gauss_legendre_quadrature_integration_1() {
 
     let integration_limit = [0.0, 2.0];
 
-    let integrator = gaussian_integration::SingleVariableSolver::from_parameters(
+    let integrator = gaussian_integration::GaussianSingle::from_parameters(
         4,
         GaussianQuadratureMethod::GaussLegendre,
     );
@@ -104,7 +104,7 @@ fn test_gauss_legendre_quadrature_integration_2() {
     let integration_limit = [0.0, 1.0];
     let point = [1.0, 2.0, 3.0];
 
-    let integrator = gaussian_integration::MultiVariableSolver::from_parameters(
+    let integrator = gaussian_integration::GaussianMulti::from_parameters(
         2,
         GaussianQuadratureMethod::GaussLegendre,
     );
@@ -140,7 +140,7 @@ fn test_gauss_legendre_quadrature_integration_3() {
     };
 
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
-    let integrator = gaussian_integration::SingleVariableSolver::from_parameters(
+    let integrator = gaussian_integration::GaussianSingle::from_parameters(
         2,
         GaussianQuadratureMethod::GaussLegendre,
     );
@@ -388,13 +388,13 @@ fn test_error_checking_3() {
     let integration_limit = [0.0, 2.0];
 
     //Gauss Legendre not valid for n < 1
-    let integrator = gaussian_integration::SingleVariableSolver::from_parameters(
+    let integrator = gaussian_integration::GaussianSingle::from_parameters(
         0,
         GaussianQuadratureMethod::GaussLegendre,
     );
     let result = integrator.get_single(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE);
+    assert!(result.unwrap_err() == CalcError::QuadratureOrderOutOfRange);
 }
 
 #[test]
@@ -407,11 +407,11 @@ fn test_error_checking_4() {
     let integration_limit = [0.0, 2.0];
 
     //Gauss Legendre not valid for n > 30
-    let integrator = gaussian_integration::SingleVariableSolver::from_parameters(
+    let integrator = gaussian_integration::GaussianSingle::from_parameters(
         31,
         GaussianQuadratureMethod::GaussLegendre,
     );
     let result = integrator.get_single(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE);
+    assert!(result.unwrap_err() == CalcError::QuadratureOrderOutOfRange);
 }
