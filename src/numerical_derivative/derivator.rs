@@ -1,62 +1,93 @@
-use num_complex::ComplexFloat;
+use crate::utils::error_codes::CalcError;
 
-///Base trait for single variable numerical differentiation
-pub trait DerivatorSingleVariable: Default + Clone + Copy {
-    ///generic n-th derivative of a single variable function
-    fn get<T: ComplexFloat>(
+/// Base trait for single-variable numerical differentiation.
+pub trait DerivatorSingleVariable {
+    /// Computes the `order`-th derivative of `func` at `point`.
+    ///
+    /// # Errors
+    /// [`CalcError::DerivativeOrderZero`] if `order` is zero, or
+    /// [`CalcError::StepSizeZero`] if the configured step size is zero.
+    ///
+    /// # Examples
+    /// ```
+    /// use multicalc::numerical_derivative::derivator::DerivatorSingleVariable;
+    /// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceSingle;
+    ///
+    /// let func = |x: f64| x * x * x;
+    /// let derivator = FiniteDifferenceSingle::default();
+    ///
+    /// let val = derivator.get(1, &func, 2.0).unwrap();
+    /// assert!(f64::abs(val - 12.0) < 1e-7);
+    /// let val = derivator.get(2, &func, 2.0).unwrap();
+    /// assert!(f64::abs(val - 12.0) < 1e-5);
+    /// ```
+    fn get<F: Fn(f64) -> f64>(
         &self,
         order: usize,
-        func: &dyn Fn(T) -> T,
-        point: T,
-    ) -> Result<T, &'static str>;
+        func: &F,
+        point: f64,
+    ) -> Result<f64, CalcError>;
 
-    ///convenience wrapper for a single derivative of a single variable function
-    fn get_single<T: ComplexFloat>(
-        &self,
-        func: &dyn Fn(T) -> T,
-        point: T,
-    ) -> Result<T, &'static str> {
-        return self.get(1, func, point);
+    /// Convenience wrapper for the first derivative.
+    fn get_single<F: Fn(f64) -> f64>(&self, func: &F, point: f64) -> Result<f64, CalcError> {
+        self.get(1, func, point)
     }
 
-    ///convenience wrapper for a double derivative of a single variable function
-    fn get_double<T: ComplexFloat>(
-        &self,
-        func: &dyn Fn(T) -> T,
-        point: T,
-    ) -> Result<T, &'static str> {
-        return self.get(2, func, point);
+    /// Convenience wrapper for the second derivative.
+    fn get_double<F: Fn(f64) -> f64>(&self, func: &F, point: f64) -> Result<f64, CalcError> {
+        self.get(2, func, point)
     }
 }
 
-///Base trait for multi-variable numerical differentiation
-pub trait DerivatorMultiVariable: Default + Clone + Copy {
-    ///generic n-th derivative for a multivariable function of a multivariable function
-    fn get<T: ComplexFloat, const NUM_VARS: usize, const NUM_ORDER: usize>(
+/// Base trait for multi-variable numerical differentiation.
+pub trait DerivatorMultiVariable {
+    /// Computes the partial derivative of `func` at `point`, differentiating once
+    /// with respect to each variable index listed in `idx_to_differentiate`. The
+    /// derivative order equals the length of that array.
+    ///
+    /// # Errors
+    /// [`CalcError::DerivativeOrderZero`] if `idx_to_differentiate` is empty,
+    /// [`CalcError::StepSizeZero`] if the step size is zero, or
+    /// [`CalcError::IndexOutOfRange`] if any index is `>= NUM_VARS`.
+    ///
+    /// # Examples
+    /// ```
+    /// use multicalc::numerical_derivative::derivator::DerivatorMultiVariable;
+    /// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
+    ///
+    /// // f(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z
+    /// let func = |v: &[f64; 3]| v[1] * v[0].sin() + v[0] * v[1].cos() + v[0] * v[1] * v[2].exp();
+    /// let derivator = FiniteDifferenceMulti::default();
+    ///
+    /// // mixed partial d(df/dx)/dy
+    /// let val = derivator.get(&func, &[0, 1], &[1.0, 2.0, 3.0]).unwrap();
+    /// let expected = f64::cos(1.0) - f64::sin(2.0) + f64::exp(3.0);
+    /// assert!(f64::abs(val - expected) < 0.001);
+    /// ```
+    fn get<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize, const NUM_ORDER: usize>(
         &self,
-        order: usize,
-        func: &dyn Fn(&[T; NUM_VARS]) -> T,
-        idx_to_derivate: &[usize; NUM_ORDER],
-        point: &[T; NUM_VARS],
-    ) -> Result<T, &'static str>;
+        func: &F,
+        idx_to_differentiate: &[usize; NUM_ORDER],
+        point: &[f64; NUM_VARS],
+    ) -> Result<f64, CalcError>;
 
-    ///convenience wrapper for a single partial derivative of a multivariable function
-    fn get_single_partial<T: ComplexFloat, const NUM_VARS: usize>(
+    /// Convenience wrapper for a single partial derivative.
+    fn get_single_partial<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize>(
         &self,
-        func: &dyn Fn(&[T; NUM_VARS]) -> T,
-        idx_to_derivate: usize,
-        point: &[T; NUM_VARS],
-    ) -> Result<T, &'static str> {
-        return self.get(1, func, &[idx_to_derivate], point);
+        func: &F,
+        idx_to_differentiate: usize,
+        point: &[f64; NUM_VARS],
+    ) -> Result<f64, CalcError> {
+        self.get(func, &[idx_to_differentiate], point)
     }
 
-    ///convenience wrapper for a double partial derivative of a multivariable function
-    fn get_double_partial<T: ComplexFloat, const NUM_VARS: usize>(
+    /// Convenience wrapper for a second partial derivative.
+    fn get_double_partial<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize>(
         &self,
-        func: &dyn Fn(&[T; NUM_VARS]) -> T,
-        idx_to_derivate: &[usize; 2],
-        point: &[T; NUM_VARS],
-    ) -> Result<T, &'static str> {
-        return self.get(2, func, idx_to_derivate, point);
+        func: &F,
+        idx_to_differentiate: &[usize; 2],
+        point: &[f64; NUM_VARS],
+    ) -> Result<f64, CalcError> {
+        self.get(func, idx_to_differentiate, point)
     }
 }
