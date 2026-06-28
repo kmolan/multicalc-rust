@@ -2,8 +2,8 @@
 name = "multicalc"
 version = "0.6.0"
 authors = ["akathail <anmolkathail@gmail.com>"]
-edition = "2021"
-rust-version = "1.81"
+edition = "2024"
+rust-version = "1.85"
 description = "Rust scientific computing for single and multi-variable calculus"
 repository = "https://github.com/kmolan/multicalc-rust"
 license = "MIT"
