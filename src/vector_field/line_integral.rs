@@ -1,66 +1,114 @@
-use num_complex::ComplexFloat;
-
 use crate::numerical_integration::iterative_integration::DEFAULT_TOTAL_ITERATIONS;
-use crate::utils::error_codes::*;
+use crate::utils::error_codes::CalcError;
 
-///solves for the line integral for parametrized curves in a 2D vector field
+/// Builds the curve position [transformations[0](t), ..., transformations[N-1](t)].
+fn curve_point<const N: usize>(transformations: &[&dyn Fn(f64) -> f64; N], t: f64) -> [f64; N] {
+    let mut point = [0.0; N];
+    for i in 0..N {
+        point[i] = transformations[i](t);
+    }
+    point
+}
+
+/// Trapezoidal integration of the `idx`-th field component along the parametrized curve.
+/// Generic over the dimension `N`, so the 2D and 3D paths share one body.
+fn get_partial<const N: usize>(
+    vector_field: &[&dyn Fn(&[f64; N]) -> f64; N],
+    transformations: &[&dyn Fn(f64) -> f64; N],
+    integration_limit: &[f64; 2],
+    total_iterations: u64,
+    idx: usize,
+) -> Result<f64, CalcError> {
+    if total_iterations == 0 {
+        return Err(CalcError::IterationsZero);
+    }
+    // rejects NaN, equal, and reversed limits (partial_cmp is None for NaN)
+    if !matches!(
+        integration_limit[0].partial_cmp(&integration_limit[1]),
+        Some(core::cmp::Ordering::Less)
+    ) {
+        return Err(CalcError::IntegrationLimitsIllDefined);
+    }
+
+    let delta = (integration_limit[1] - integration_limit[0]) / total_iterations as f64;
+    let mut t = integration_limit[0];
+    let mut ans = 0.0;
+
+    //use the trapezoidal rule for line integrals, caching the shared endpoint so each
+    //curve point and field value is evaluated once per node rather than twice
+    //https://ocw.mit.edu/ans7870/18/18.013a/textbook/HTML/chapter25/section04.html
+    let mut left = curve_point(transformations, t);
+    let mut left_value = vector_field[idx](&left);
+
+    for _ in 0..total_iterations {
+        let right = curve_point(transformations, t + delta);
+        let right_value = vector_field[idx](&right);
+
+        ans += (right[idx] - left[idx]) * (left_value + right_value) / 2.0;
+
+        t += delta;
+        left = right;
+        left_value = right_value;
+    }
+
+    Ok(ans)
+}
+
+/// Computes the line integral of a 2D vector field along a parametrized curve.
 ///
-/// NOTE: Returns a Result<T, &'static str>
-/// Possible &'static str are:
-/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
+/// The curve is described by a parameter `t`: the transforms map `t` to each coordinate, and
+/// the field is sampled at the resulting curve position. Uses the default iteration count;
+/// see [`get_2d_custom`] to set it.
 ///
-/// assume a vector field, V, and a curve, C
-/// V is characterized in 2 dimensions, Vx and Vy
-/// C is parameterized by a single variable, say, "t".
-/// We also need a transformation to go t->x and t->y
-/// The line integral limits are also based on this parameter t
+/// # Arguments
+/// * `vector_field` - the two field components, each taking the curve position `[x, y]`.
+/// * `transformations` - the two transforms mapping `t` to `x` and to `y`.
+/// * `integration_limit` - the `[lower, upper]` range of the parameter `t`.
 ///
-/// [vector_field] is an array of 2 elements. The 0th element has vector field's contribution to the x-axis based on x and y values. The 1st element does the same for y-axis
-/// [transformations] is an array of 2 elements. The 0th element contains the transformation from t->x, and 1st element for t->y
-/// [integration_limit] is the limit parameter 't' goes to
-/// [steps] is the total number of steps that the integration is discretized into. Higher number gives more accuracy, but at the cost of more computation time
+/// # Errors
+/// [`CalcError::IntegrationLimitsIllDefined`] if the lower limit is not strictly less than the
+/// upper limit.
 ///
-/// Example:
-/// Assume we have a vector field (y, -x)
-/// The curve is a unit circle, parameterized by (Cos(t), Sin(t)), such that t goes from 0->2*pi
+/// # Examples
 /// ```
 /// use multicalc::vector_field::line_integral;
-/// let vector_field_matrix: [&dyn Fn(&f64, &f64) -> f64; 2] = [&(|_:&f64, y:&f64|-> f64 { *y }), &(|x:&f64, _:&f64|-> f64 { -x })];
 ///
-/// let transformation_matrix: [&dyn Fn(&f64) -> f64; 2] = [&(|t:&f64|->f64 { t.cos() }), &(|t:&f64|->f64 { t.sin() })];
+/// // the field (y, -x) along the unit circle (cos t, sin t), for t in [0, 2*pi]
+/// let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] =
+///     [&(|args: &[f64; 2]| args[1]), &(|args: &[f64; 2]| -args[0])];
+/// let transformation_matrix: [&dyn Fn(f64) -> f64; 2] =
+///     [&(|t: f64| t.cos()), &(|t: f64| t.sin())];
 ///
-/// let integration_limit = [0.0, 6.28];
-///
-/// //line integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of -2.0*pi
-/// let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit).unwrap();
+/// let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &[0.0, 6.28]).unwrap();
+/// // the line integral is -2*pi
 /// assert!(f64::abs(val + 6.28) < 0.01);
 /// ```
-pub fn get_2d<T: ComplexFloat>(
-    vector_field: &[&dyn Fn(&T, &T) -> T; 2],
-    transformations: &[&dyn Fn(&T) -> T; 2],
-    integration_limit: &[T; 2],
-) -> Result<T, &'static str> {
-    return get_2d_custom(
+pub fn get_2d(
+    vector_field: &[&dyn Fn(&[f64; 2]) -> f64; 2],
+    transformations: &[&dyn Fn(f64) -> f64; 2],
+    integration_limit: &[f64; 2],
+) -> Result<f64, CalcError> {
+    get_2d_custom(
         vector_field,
         transformations,
         integration_limit,
         DEFAULT_TOTAL_ITERATIONS,
-    );
+    )
 }
 
-///same as [get_2d()] but with the option to change the total iterations used, reserved for more advanced user
-/// The argument 'n' denotes the number of steps to be used. However, for [`mode::IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
-/// NOTE: Returns a Result<T, &'static str>
-/// Possible &'static str are:
-/// NumberOfStepsCannotBeZero -> if the number of steps is zero
-/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
-pub fn get_2d_custom<T: ComplexFloat>(
-    vector_field: &[&dyn Fn(&T, &T) -> T; 2],
-    transformations: &[&dyn Fn(&T) -> T; 2],
-    integration_limit: &[T; 2],
+/// Same as [`get_2d`] but with an explicit iteration count for finer control.
+///
+/// # Errors
+/// [`CalcError::IterationsZero`] if `total_iterations` is zero, or
+/// [`CalcError::IntegrationLimitsIllDefined`] if the lower limit is not strictly less than the
+/// upper limit.
+pub fn get_2d_custom(
+    vector_field: &[&dyn Fn(&[f64; 2]) -> f64; 2],
+    transformations: &[&dyn Fn(f64) -> f64; 2],
+    integration_limit: &[f64; 2],
     total_iterations: u64,
-) -> Result<T, &'static str> {
-    return Ok(get_partial_2d(
+) -> Result<f64, CalcError> {
+    Ok(get_partial_2d(
         vector_field,
         transformations,
         integration_limit,
@@ -72,81 +120,64 @@ pub fn get_2d_custom<T: ComplexFloat>(
         integration_limit,
         total_iterations,
         1,
-    )?);
+    )?)
 }
 
-/// NOTE: Returns a Result<T, &'static str>
-/// Possible &'static str are:
-/// NumberOfStepsCannotBeZero -> if the number of steps is zero
-/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
-pub fn get_partial_2d<T: ComplexFloat>(
-    vector_field: &[&dyn Fn(&T, &T) -> T; 2],
-    transformations: &[&dyn Fn(&T) -> T; 2],
-    integration_limit: &[T; 2],
-    max_iterations: u64,
+/// Line integral of a single field component (`idx`) along the 2D curve. Used by both
+/// [`get_2d_custom`] and the flux integral.
+///
+/// # Errors
+/// [`CalcError::IterationsZero`] if `total_iterations` is zero, or
+/// [`CalcError::IntegrationLimitsIllDefined`] if the lower limit is not strictly less than the
+/// upper limit.
+pub fn get_partial_2d(
+    vector_field: &[&dyn Fn(&[f64; 2]) -> f64; 2],
+    transformations: &[&dyn Fn(f64) -> f64; 2],
+    integration_limit: &[f64; 2],
+    total_iterations: u64,
     idx: usize,
-) -> Result<T, &'static str> {
-    if max_iterations == 0 {
-        return Err(INTEGRATION_CANNOT_HAVE_ZERO_ITERATIONS);
-    }
-    if integration_limit[0].abs() >= integration_limit[1].abs() {
-        return Err(INTEGRATION_LIMITS_ILL_DEFINED);
-    }
-
-    let mut ans = T::zero();
-
-    let mut cur_point = integration_limit[0];
-
-    let delta = (integration_limit[1] - integration_limit[0]) / (T::from(max_iterations).unwrap());
-
-    //use the trapezoidal rule for line integrals
-    //https://ocw.mit.edu/ans7870/18/18.013a/textbook/HTML/chapter25/section04.html
-    for _ in 0..max_iterations {
-        let coords = get_transformed_coordinates_2d(transformations, &cur_point, &delta);
-
-        ans = ans
-            + (coords[idx + 2] - coords[idx])
-                * (vector_field[idx](&coords[2], &coords[3])
-                    + vector_field[idx](&coords[0], &coords[1]))
-                / (T::from(2.0).unwrap());
-
-        cur_point = cur_point + delta;
-    }
-
-    return Ok(ans);
+) -> Result<f64, CalcError> {
+    get_partial(
+        vector_field,
+        transformations,
+        integration_limit,
+        total_iterations,
+        idx,
+    )
 }
 
-///same as [`get_2d`] but for parametrized curves in a 3D vector field
-/// NOTE: Returns a Result<T, &'static str>
-/// Possible &'static str are:
-/// NumberOfStepsCannotBeZero -> if the number of steps is zero
-/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
-pub fn get_3d<T: ComplexFloat>(
-    vector_field: &[&dyn Fn(&T, &T, &T) -> T; 3],
-    transformations: &[&dyn Fn(&T) -> T; 3],
-    integration_limit: &[T; 2],
-) -> Result<T, &'static str> {
-    return get_3d_custom(
+/// Same as [`get_2d`] but for a parametrized curve in a 3D vector field. Uses the default
+/// iteration count; see [`get_3d_custom`] to set it.
+///
+/// # Errors
+/// [`CalcError::IntegrationLimitsIllDefined`] if the lower limit is not strictly less than the
+/// upper limit.
+pub fn get_3d(
+    vector_field: &[&dyn Fn(&[f64; 3]) -> f64; 3],
+    transformations: &[&dyn Fn(f64) -> f64; 3],
+    integration_limit: &[f64; 2],
+) -> Result<f64, CalcError> {
+    get_3d_custom(
         vector_field,
         transformations,
         integration_limit,
         DEFAULT_TOTAL_ITERATIONS,
-    );
+    )
 }
 
-///same as [get_3d()] but with the option to change the total iterations used, reserved for more advanced user
-/// The argument 'n' denotes the number of steps to be used. However, for [`mode::IntegrationMethod::GaussLegendre`], it denotes the highest order of our equation
-/// NOTE: Returns a Result<T, &'static str>
-/// Possible &'static str are:
-/// NumberOfStepsCannotBeZero -> if the number of steps is zero
-/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
-pub fn get_3d_custom<T: ComplexFloat>(
-    vector_field: &[&dyn Fn(&T, &T, &T) -> T; 3],
-    transformations: &[&dyn Fn(&T) -> T; 3],
-    integration_limit: &[T; 2],
+/// Same as [`get_3d`] but with an explicit iteration count for finer control.
+///
+/// # Errors
+/// [`CalcError::IterationsZero`] if `total_iterations` is zero, or
+/// [`CalcError::IntegrationLimitsIllDefined`] if the lower limit is not strictly less than the
+/// upper limit.
+pub fn get_3d_custom(
+    vector_field: &[&dyn Fn(&[f64; 3]) -> f64; 3],
+    transformations: &[&dyn Fn(f64) -> f64; 3],
+    integration_limit: &[f64; 2],
     total_iterations: u64,
-) -> Result<T, &'static str> {
-    return Ok(get_partial_3d(
+) -> Result<f64, CalcError> {
+    Ok(get_partial_3d(
         vector_field,
         transformations,
         integration_limit,
@@ -164,80 +195,28 @@ pub fn get_3d_custom<T: ComplexFloat>(
         integration_limit,
         total_iterations,
         2,
-    )?);
+    )?)
 }
 
-/// NOTE: Returns a Result<T, &'static str>
-/// Possible &'static str are:
-/// NumberOfStepsCannotBeZero -> if the number of steps is zero
-/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
-pub fn get_partial_3d<T: ComplexFloat>(
-    vector_field: &[&dyn Fn(&T, &T, &T) -> T; 3],
-    transformations: &[&dyn Fn(&T) -> T; 3],
-    integration_limit: &[T; 2],
-    steps: u64,
+/// Line integral of a single field component (`idx`) along the 3D curve. Used by both
+/// [`get_3d_custom`] and the flux integral.
+///
+/// # Errors
+/// [`CalcError::IterationsZero`] if `total_iterations` is zero, or
+/// [`CalcError::IntegrationLimitsIllDefined`] if the lower limit is not strictly less than the
+/// upper limit.
+pub fn get_partial_3d(
+    vector_field: &[&dyn Fn(&[f64; 3]) -> f64; 3],
+    transformations: &[&dyn Fn(f64) -> f64; 3],
+    integration_limit: &[f64; 2],
+    total_iterations: u64,
     idx: usize,
-) -> Result<T, &'static str> {
-    if steps == 0 {
-        return Err(INTEGRATION_CANNOT_HAVE_ZERO_ITERATIONS);
-    }
-    if integration_limit[0].abs() >= integration_limit[1].abs() {
-        return Err(INTEGRATION_LIMITS_ILL_DEFINED);
-    }
-
-    let mut ans = T::zero();
-
-    let mut cur_point = integration_limit[0];
-
-    let delta = (integration_limit[1] - integration_limit[0]) / (T::from(steps).unwrap());
-
-    //use the trapezoidal rule for line integrals
-    //https://ocw.mit.edu/ans7870/18/18.013a/textbook/HTML/chapter25/section04.html
-    for _ in 0..steps {
-        let coords = get_transformed_coordinates_3d(transformations, &cur_point, &delta);
-
-        ans = ans
-            + (coords[idx + 3] - coords[idx])
-                * (vector_field[idx](&coords[3], &coords[4], &coords[5])
-                    + vector_field[idx](&coords[0], &coords[1], &coords[2]))
-                / (T::from(2.0).unwrap());
-
-        cur_point = cur_point + delta;
-    }
-
-    return Ok(ans);
-}
-
-fn get_transformed_coordinates_2d<T: ComplexFloat>(
-    transformations: &[&dyn Fn(&T) -> T; 2],
-    cur_point: &T,
-    delta: &T,
-) -> [T; 4] {
-    let mut ans = [T::zero(); 4];
-
-    ans[0] = transformations[0](cur_point); //x at t
-    ans[1] = transformations[1](cur_point); //y at t
-
-    ans[2] = transformations[0](&(*cur_point + *delta)); //x at t + delta
-    ans[3] = transformations[1](&(*cur_point + *delta)); //y at t + delta
-
-    return ans;
-}
-
-fn get_transformed_coordinates_3d<T: ComplexFloat>(
-    transformations: &[&dyn Fn(&T) -> T; 3],
-    cur_point: &T,
-    delta: &T,
-) -> [T; 6] {
-    let mut ans = [T::zero(); 6];
-
-    ans[0] = transformations[0](cur_point); //x at t
-    ans[1] = transformations[1](cur_point); //y at t
-    ans[2] = transformations[1](cur_point); //z at t
-
-    ans[3] = transformations[0](&(*cur_point + *delta)); //x at t + delta
-    ans[4] = transformations[1](&(*cur_point + *delta)); //y at t + delta
-    ans[5] = transformations[1](&(*cur_point + *delta)); //z at t + delta
-
-    return ans;
+) -> Result<f64, CalcError> {
+    get_partial(
+        vector_field,
+        transformations,
+        integration_limit,
+        total_iterations,
+        idx,
+    )
 }
