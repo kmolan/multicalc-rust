@@ -29,6 +29,11 @@ Rust scientific computing for high accuracy single and multi-variable calculus
 See [BENCHMARKS.md](./BENCHMARKS.md)
 
 
+## Examples
+Runnable, self-contained examples for each module live in [`examples/`](./examples) — see
+[examples/README.md](./examples/README.md) for the full index. Run any of them with `cargo run --example <name>`:
+
+
 ## Table of Contents
 
 
