@@ -20,7 +20,7 @@ fn test_single_derivative_forward_difference() {
     //simple derivative around x = 2.0, expect a value of 2.00
 
     let mut derivator = FiniteDifferenceSingle::default();
-    derivator.set_method(FiniteDifferenceMode::Forward);
+    derivator.config.method = FiniteDifferenceMode::Forward;
 
     let val = derivator.get(1, &func, 2.0).unwrap();
     assert!(f64::abs(val - 2.0) < 0.001);
@@ -34,7 +34,7 @@ fn test_single_derivative_backward_difference() {
     };
 
     let mut derivator = FiniteDifferenceSingle::default();
-    derivator.set_method(FiniteDifferenceMode::Backward);
+    derivator.config.method = FiniteDifferenceMode::Backward;
 
     let val = derivator.get(1, &func, 2.0).unwrap();
     assert!(f64::abs(val - 2.0) < 0.001);
@@ -48,7 +48,7 @@ fn test_single_derivative_central_difference() {
     };
 
     let mut derivator = FiniteDifferenceSingle::default();
-    derivator.set_method(FiniteDifferenceMode::Central);
+    derivator.config.method = FiniteDifferenceMode::Central;
 
     //simple derivative around x = 2.0, expect a value of 2.00
     let val = derivator.get(1, &func, 2.0).unwrap();
@@ -65,7 +65,7 @@ fn test_single_derivative_partial_1() {
     let point = [1.0, 3.0];
 
     let mut derivator = FiniteDifferenceMulti::default();
-    derivator.set_method(FiniteDifferenceMode::Central);
+    derivator.config.method = FiniteDifferenceMode::Central;
 
     //partial derivate for (x, y) = (1.0, 3.0), partial derivative for x is known to be 6*x + 2*y
     let val = derivator.get_single_partial(&func, 0, &point).unwrap();
@@ -88,7 +88,7 @@ fn test_single_derivative_partial_2() {
     let point = [1.0, 2.0, 3.0];
 
     let mut derivator = FiniteDifferenceMulti::default();
-    derivator.set_method(FiniteDifferenceMode::Central);
+    derivator.config.method = FiniteDifferenceMode::Central;
 
     //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial derivative for x is known to be y*cos(x) + cos(y) + y*e^z
     let val = derivator.get_single_partial(&func, 0, &point).unwrap();
@@ -191,7 +191,7 @@ fn test_double_derivative_forward_difference() {
     };
 
     let mut derivator = FiniteDifferenceSingle::default();
-    derivator.set_method(FiniteDifferenceMode::Forward);
+    derivator.config.method = FiniteDifferenceMode::Forward;
 
     //double derivative at x = 1.0
     let val = derivator.get(2, &func, 1.0).unwrap();
@@ -207,7 +207,7 @@ fn test_double_derivative_backward_difference() {
     };
 
     let mut derivator = FiniteDifferenceSingle::default();
-    derivator.set_method(FiniteDifferenceMode::Backward);
+    derivator.config.method = FiniteDifferenceMode::Backward;
 
     //double derivative at x = 1.0
     let val = derivator.get(2, &func, 1.0).unwrap();
@@ -223,7 +223,7 @@ fn test_double_derivative_central_difference() {
     };
 
     let mut derivator = FiniteDifferenceSingle::default();
-    derivator.set_method(FiniteDifferenceMode::Central);
+    derivator.config.method = FiniteDifferenceMode::Central;
 
     //double derivative at x = 1.0
     let val = derivator.get(2, &func, 1.0).unwrap();
@@ -303,7 +303,7 @@ fn test_triple_derivative_forward_difference() {
     };
 
     let mut derivator = FiniteDifferenceSingle::default();
-    derivator.set_method(FiniteDifferenceMode::Forward);
+    derivator.config.method = FiniteDifferenceMode::Forward;
 
     //expect a value of 24.00
     let val = derivator.get(4, &func, 1.0).unwrap();
@@ -318,7 +318,7 @@ fn test_triple_derivative_backward_difference() {
     };
 
     let mut derivator = FiniteDifferenceSingle::default();
-    derivator.set_method(FiniteDifferenceMode::Backward);
+    derivator.config.method = FiniteDifferenceMode::Backward;
 
     //expect a value of 24.00
     let val = derivator.get(4, &func, 1.0).unwrap();
@@ -333,7 +333,7 @@ fn test_triple_derivative_central_difference() {
     };
 
     let mut derivator = FiniteDifferenceSingle::default();
-    derivator.set_method(FiniteDifferenceMode::Central);
+    derivator.config.method = FiniteDifferenceMode::Central;
 
     //expect a value of 24.00
     let val = derivator.get(4, &func, 1.0).unwrap();

@@ -5,80 +5,77 @@ use crate::utils::error_codes::CalcError;
 
 pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;
 
-/// Validates a Gaussian integration limit against the chosen method's fixed domain.
-///
-/// Gauss-Legendre integrates over a finite `[a, b]`; Gauss-Hermite over `(-inf, +inf)`;
-/// Gauss-Laguerre over `[0, +inf)`. The canonical domain is required (not ignored) so a
-/// mismatched limit cannot silently return a wrong result. `NaN` comparisons are false and
-/// are therefore rejected.
-fn check_limits<const NUM_INTEGRATIONS: usize>(
-    method: GaussianQuadratureMethod,
-    integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
-) -> Result<(), CalcError> {
-    for limit in integration_limit {
-        let ok = match method {
-            GaussianQuadratureMethod::GaussLegendre => {
-                limit[0].is_finite() && limit[1].is_finite() && limit[0] < limit[1]
-            }
-            GaussianQuadratureMethod::GaussHermite => {
-                limit[0] == f64::NEG_INFINITY && limit[1] == f64::INFINITY
-            }
-            GaussianQuadratureMethod::GaussLaguerre => limit[0] == 0.0 && limit[1] == f64::INFINITY,
-        };
-
-        if !ok {
-            return Err(CalcError::IntegrationLimitsIllDefined);
-        }
-    }
-
-    Ok(())
+/// Configuration shared by the single- and multi-variable Gaussian integrators.
+#[derive(Debug, Clone, Copy)]
+pub struct GaussianConfig {
+    /// Number of quadrature nodes (the order). See [`DEFAULT_QUADRATURE_ORDERS`].
+    pub order: usize,
+    /// The quadrature family: GaussLegendre, GaussHermite or GaussLaguerre.
+    pub integration_method: GaussianQuadratureMethod,
 }
 
-/// Implements the gaussian quadrature methods for numerical integration for single variable functions
-#[derive(Clone, Copy)]
-pub struct GaussianSingle {
-    order: usize,
-    integration_method: GaussianQuadratureMethod,
-}
-
-impl Default for GaussianSingle {
-    /// default constructor, optimal for most generic polynomial equations
+impl Default for GaussianConfig {
+    /// Gauss-Legendre at [`DEFAULT_QUADRATURE_ORDERS`]; optimal for most generic polynomial equations.
     fn default() -> Self {
-        GaussianSingle {
+        GaussianConfig {
             order: DEFAULT_QUADRATURE_ORDERS,
             integration_method: GaussianQuadratureMethod::GaussLegendre,
         }
     }
 }
 
+impl GaussianConfig {
+    /// Builds a config with an explicit order and quadrature family.
+    pub fn from_parameters(order: usize, integration_method: GaussianQuadratureMethod) -> Self {
+        GaussianConfig {
+            order,
+            integration_method,
+        }
+    }
+
+    /// Validates each integration limit against the method's fixed domain.
+    ///
+    /// Gauss-Legendre integrates over a finite `[a, b]`; Gauss-Hermite over `(-inf, +inf)`;
+    /// Gauss-Laguerre over `[0, +inf)`. The canonical domain is required (not ignored) so a
+    /// mismatched limit cannot silently return a wrong result. `NaN` comparisons are false and
+    /// are therefore rejected.
+    fn check_limits<const NUM_INTEGRATIONS: usize>(
+        &self,
+        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
+    ) -> Result<(), CalcError> {
+        for limit in integration_limit {
+            let ok = match self.integration_method {
+                GaussianQuadratureMethod::GaussLegendre => {
+                    limit[0].is_finite() && limit[1].is_finite() && limit[0] < limit[1]
+                }
+                GaussianQuadratureMethod::GaussHermite => {
+                    limit[0] == f64::NEG_INFINITY && limit[1] == f64::INFINITY
+                }
+                GaussianQuadratureMethod::GaussLaguerre => {
+                    limit[0] == 0.0 && limit[1] == f64::INFINITY
+                }
+            };
+
+            if !ok {
+                return Err(CalcError::IntegrationLimitsIllDefined);
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// Implements the gaussian quadrature methods for numerical integration for single variable functions
+#[derive(Debug, Clone, Copy, Default)]
+pub struct GaussianSingle {
+    pub config: GaussianConfig,
+}
+
 impl GaussianSingle {
-    /// returns the chosen number of nodes/order for quadrature
-    pub fn get_order(&self) -> usize {
-        self.order
-    }
-
-    /// sets the number of nodes/order for quadrature
-    pub fn set_order(&mut self, order: usize) {
-        self.order = order;
-    }
-
-    /// returns the chosen integration method
-    /// possible choices are GaussLegendre, GaussHermite and GaussLaguerre
-    pub fn get_integration_method(&self) -> GaussianQuadratureMethod {
-        self.integration_method
-    }
-
-    /// sets the integration method
-    /// possible choices are GaussLegendre, GaussHermite and GaussLaguerre
-    pub fn set_integration_method(&mut self, integration_method: GaussianQuadratureMethod) {
-        self.integration_method = integration_method;
-    }
-
     /// custom constructor, optimal for fine-tuning for specific cases
     pub fn from_parameters(order: usize, integration_method: GaussianQuadratureMethod) -> Self {
         GaussianSingle {
-            order,
-            integration_method,
+            config: GaussianConfig::from_parameters(order, integration_method),
         }
     }
 
@@ -179,10 +176,10 @@ impl IntegratorSingleVariable for GaussianSingle {
         func: &F,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> Result<f64, CalcError> {
-        let table = nodes(self.integration_method, self.order)?;
-        check_limits(self.integration_method, integration_limit)?;
+        let table = nodes(self.config.integration_method, self.config.order)?;
+        self.config.check_limits(integration_limit)?;
 
-        Ok(match self.integration_method {
+        Ok(match self.config.integration_method {
             GaussianQuadratureMethod::GaussLegendre => {
                 self.integrate_legendre(NUM_INTEGRATIONS, table, func, integration_limit)
             }
@@ -192,50 +189,16 @@ impl IntegratorSingleVariable for GaussianSingle {
 }
 
 /// Implements the gaussian quadrature methods for numerical integration for multi variable functions
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct GaussianMulti {
-    order: usize,
-    integration_method: GaussianQuadratureMethod,
-}
-
-impl Default for GaussianMulti {
-    /// default constructor, optimal for most generic polynomial equations
-    fn default() -> Self {
-        GaussianMulti {
-            order: DEFAULT_QUADRATURE_ORDERS,
-            integration_method: GaussianQuadratureMethod::GaussLegendre,
-        }
-    }
+    pub config: GaussianConfig,
 }
 
 impl GaussianMulti {
-    /// returns the chosen number of nodes/order for quadrature
-    pub fn get_order(&self) -> usize {
-        self.order
-    }
-
-    /// sets the number of nodes/order for quadrature
-    pub fn set_order(&mut self, order: usize) {
-        self.order = order;
-    }
-
-    /// returns the chosen integration method
-    /// possible choices are GaussLegendre, GaussHermite and GaussLaguerre
-    pub fn get_integration_method(&self) -> GaussianQuadratureMethod {
-        self.integration_method
-    }
-
-    /// sets the integration method
-    /// possible choices are GaussLegendre, GaussHermite and GaussLaguerre
-    pub fn set_integration_method(&mut self, integration_method: GaussianQuadratureMethod) {
-        self.integration_method = integration_method;
-    }
-
     /// custom constructor, optimal for fine-tuning for specific cases
     pub fn from_parameters(order: usize, integration_method: GaussianQuadratureMethod) -> Self {
         GaussianMulti {
-            order,
-            integration_method,
+            config: GaussianConfig::from_parameters(order, integration_method),
         }
     }
 
@@ -364,10 +327,10 @@ impl IntegratorMultiVariable for GaussianMulti {
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
     ) -> Result<f64, CalcError> {
-        let table = nodes(self.integration_method, self.order)?;
-        check_limits(self.integration_method, integration_limits)?;
+        let table = nodes(self.config.integration_method, self.config.order)?;
+        self.config.check_limits(integration_limits)?;
 
-        Ok(match self.integration_method {
+        Ok(match self.config.integration_method {
             GaussianQuadratureMethod::GaussLegendre => self.integrate_legendre(
                 NUM_INTEGRATIONS,
                 idx_to_integrate,

@@ -6,6 +6,53 @@ use crate::utils::error_codes::CalcError;
 /// Simpson 3/8 (needs a multiple of 3) both align with the composite-rule weights.
 pub const DEFAULT_TOTAL_ITERATIONS: u64 = 120;
 
+/// Configuration shared by the single- and multi-variable iterative integrators.
+#[derive(Debug, Clone, Copy)]
+pub struct IterativeConfig {
+    /// Number of intervals the composite rule walks. See [`DEFAULT_TOTAL_ITERATIONS`].
+    pub total_iterations: u64,
+    /// The composite rule to use: Booles, Simpsons or Trapezoidal.
+    pub integration_method: IterativeMethod,
+}
+
+impl Default for IterativeConfig {
+    /// Boole's rule with [`DEFAULT_TOTAL_ITERATIONS`] intervals; optimal for most generic equations.
+    fn default() -> Self {
+        IterativeConfig {
+            total_iterations: DEFAULT_TOTAL_ITERATIONS,
+            integration_method: IterativeMethod::Booles,
+        }
+    }
+}
+
+impl IterativeConfig {
+    /// Builds a config with an explicit iteration count and rule.
+    pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self {
+        IterativeConfig {
+            total_iterations,
+            integration_method,
+        }
+    }
+
+    /// Checks that the iteration count is non-zero and every limit is well-defined.
+    /// The iteration count is checked before the limits so a zero count reports
+    /// [`CalcError::IterationsZero`] regardless of the limits.
+    fn check_for_errors<const NUM_INTEGRATIONS: usize>(
+        &self,
+        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
+    ) -> Result<(), CalcError> {
+        if self.total_iterations == 0 {
+            return Err(CalcError::IterationsZero);
+        }
+
+        for limit in integration_limit {
+            classify(limit)?;
+        }
+
+        Ok(())
+    }
+}
+
 /// Dispatches to the chosen rule, integrating `g` over `[lo, hi]` with `iterations`
 /// intervals. The caller decides the domain branch before building `g`, so a finite
 /// integral passes `func` straight through with no per-sample transform.
@@ -91,67 +138,17 @@ fn trapezoidal<G: FnMut(f64) -> f64>(iterations: u64, lo: f64, hi: f64, mut g: G
 }
 
 /// Implements the iterative methods for numerical integration for single variable functions
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct IterativeSingle {
-    total_iterations: u64,
-    integration_method: IterativeMethod,
-}
-
-impl Default for IterativeSingle {
-    /// default constructor, optimal for most generic equations
-    fn default() -> Self {
-        IterativeSingle {
-            total_iterations: DEFAULT_TOTAL_ITERATIONS,
-            integration_method: IterativeMethod::Booles,
-        }
-    }
+    pub config: IterativeConfig,
 }
 
 impl IterativeSingle {
-    /// returns the total number of iterations
-    pub fn get_total_iterations(&self) -> u64 {
-        self.total_iterations
-    }
-
-    /// sets the total number of iterations
-    pub fn set_total_iterations(&mut self, total_iterations: u64) {
-        self.total_iterations = total_iterations;
-    }
-
-    /// returns the chosen integration method
-    /// choices are: Booles, Simpsons and Trapezoidal
-    pub fn get_integration_method(&self) -> IterativeMethod {
-        self.integration_method
-    }
-
-    /// sets the integration method
-    /// choices are: Booles, Simpsons and Trapezoidal
-    pub fn set_integration_method(&mut self, integration_method: IterativeMethod) {
-        self.integration_method = integration_method;
-    }
-
     /// custom constructor. Optimal for fine-tuning for more complex equations
     pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self {
         IterativeSingle {
-            total_iterations,
-            integration_method,
+            config: IterativeConfig::from_parameters(total_iterations, integration_method),
         }
-    }
-
-    /// Checks that the iteration count is non-zero and every limit is well-defined.
-    fn check_for_errors<const NUM_INTEGRATIONS: usize>(
-        &self,
-        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
-    ) -> Result<(), CalcError> {
-        if self.total_iterations == 0 {
-            return Err(CalcError::IterationsZero);
-        }
-
-        for limit in integration_limit {
-            classify(limit)?;
-        }
-
-        Ok(())
     }
 
     /// Integrates the `level`-th limit (1-based). Inner folds of a single-variable
@@ -164,6 +161,9 @@ impl IterativeSingle {
         func: &F,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> f64 {
+        let method = self.config.integration_method;
+        let iterations = self.config.total_iterations;
+
         let domain = match classify(&integration_limit[level - 1]) {
             Ok(d) => d,
             Err(_) => return f64::NAN, // limits validated in check_for_errors; unreachable
@@ -171,12 +171,10 @@ impl IterativeSingle {
 
         if level == 1 {
             return match domain {
-                Domain::Finite(a, b) => {
-                    integrate_rule(self.integration_method, self.total_iterations, a, b, func)
-                }
+                Domain::Finite(a, b) => integrate_rule(method, iterations, a, b, func),
                 _ => {
                     let (lo, hi) = t_bounds(&domain);
-                    integrate_rule(self.integration_method, self.total_iterations, lo, hi, |t| {
+                    integrate_rule(method, iterations, lo, hi, |t| {
                         let (x, jacobian) = map_sample(&domain, t);
                         func(x) * jacobian
                     })
@@ -186,12 +184,10 @@ impl IterativeSingle {
 
         let inner = self.integrate(level - 1, func, integration_limit);
         match domain {
-            Domain::Finite(a, b) => {
-                integrate_rule(self.integration_method, self.total_iterations, a, b, |_| inner)
-            }
+            Domain::Finite(a, b) => integrate_rule(method, iterations, a, b, |_| inner),
             _ => {
                 let (lo, hi) = t_bounds(&domain);
-                integrate_rule(self.integration_method, self.total_iterations, lo, hi, |t| {
+                integrate_rule(method, iterations, lo, hi, |t| {
                     let (_, jacobian) = map_sample(&domain, t);
                     inner * jacobian
                 })
@@ -240,73 +236,23 @@ impl IntegratorSingleVariable for IterativeSingle {
         func: &F,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> Result<f64, CalcError> {
-        self.check_for_errors(integration_limit)?;
+        self.config.check_for_errors(integration_limit)?;
         Ok(self.integrate(NUM_INTEGRATIONS, func, integration_limit))
     }
 }
 
 /// Implements the iterative methods for numerical integration for multi variable functions
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct IterativeMulti {
-    total_iterations: u64,
-    integration_method: IterativeMethod,
-}
-
-impl Default for IterativeMulti {
-    /// default constructor, optimal for most generic equations
-    fn default() -> Self {
-        IterativeMulti {
-            total_iterations: DEFAULT_TOTAL_ITERATIONS,
-            integration_method: IterativeMethod::Booles,
-        }
-    }
+    pub config: IterativeConfig,
 }
 
 impl IterativeMulti {
-    /// returns the total number of iterations
-    pub fn get_total_iterations(&self) -> u64 {
-        self.total_iterations
-    }
-
-    /// sets the total number of iterations
-    pub fn set_total_iterations(&mut self, total_iterations: u64) {
-        self.total_iterations = total_iterations;
-    }
-
-    /// returns the chosen integration method
-    /// choices are: Booles, Simpsons and Trapezoidal
-    pub fn get_integration_method(&self) -> IterativeMethod {
-        self.integration_method
-    }
-
-    /// sets the integration method
-    /// choices are: Booles, Simpsons and Trapezoidal
-    pub fn set_integration_method(&mut self, integration_method: IterativeMethod) {
-        self.integration_method = integration_method;
-    }
-
     /// custom constructor, optimal for fine-tuning the integrator for more complex equations
     pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self {
         IterativeMulti {
-            total_iterations,
-            integration_method,
+            config: IterativeConfig::from_parameters(total_iterations, integration_method),
         }
-    }
-
-    /// Checks that the iteration count is non-zero and every limit is well-defined.
-    fn check_for_errors<const NUM_INTEGRATIONS: usize>(
-        &self,
-        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
-    ) -> Result<(), CalcError> {
-        if self.total_iterations == 0 {
-            return Err(CalcError::IterationsZero);
-        }
-
-        for limit in integration_limit {
-            classify(limit)?;
-        }
-
-        Ok(())
     }
 
     /// Integrates the `level`-th limit (1-based) of a partial integral. The sampled
@@ -321,6 +267,9 @@ impl IterativeMulti {
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
     ) -> f64 {
+        let method = self.config.integration_method;
+        let iterations = self.config.total_iterations;
+
         let domain = match classify(&integration_limits[level - 1]) {
             Ok(d) => d,
             Err(_) => return f64::NAN, // limits validated in check_for_errors; unreachable
@@ -330,15 +279,13 @@ impl IterativeMulti {
         if level == 1 {
             let mut current = *point;
             return match domain {
-                Domain::Finite(a, b) => {
-                    integrate_rule(self.integration_method, self.total_iterations, a, b, |x| {
-                        current[var] = x;
-                        func(&current)
-                    })
-                }
+                Domain::Finite(a, b) => integrate_rule(method, iterations, a, b, |x| {
+                    current[var] = x;
+                    func(&current)
+                }),
                 _ => {
                     let (lo, hi) = t_bounds(&domain);
-                    integrate_rule(self.integration_method, self.total_iterations, lo, hi, |t| {
+                    integrate_rule(method, iterations, lo, hi, |t| {
                         let (x, jacobian) = map_sample(&domain, t);
                         current[var] = x;
                         func(&current) * jacobian
@@ -349,15 +296,13 @@ impl IterativeMulti {
 
         let mut current = *point;
         match domain {
-            Domain::Finite(a, b) => {
-                integrate_rule(self.integration_method, self.total_iterations, a, b, |x| {
-                    current[var] = x;
-                    self.integrate(level - 1, idx_to_integrate, func, integration_limits, &current)
-                })
-            }
+            Domain::Finite(a, b) => integrate_rule(method, iterations, a, b, |x| {
+                current[var] = x;
+                self.integrate(level - 1, idx_to_integrate, func, integration_limits, &current)
+            }),
             _ => {
                 let (lo, hi) = t_bounds(&domain);
-                integrate_rule(self.integration_method, self.total_iterations, lo, hi, |t| {
+                integrate_rule(method, iterations, lo, hi, |t| {
                     let (x, jacobian) = map_sample(&domain, t);
                     current[var] = x;
                     let inner = self.integrate(
@@ -411,7 +356,7 @@ impl IntegratorMultiVariable for IterativeMulti {
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
     ) -> Result<f64, CalcError> {
-        self.check_for_errors(integration_limits)?;
+        self.config.check_for_errors(integration_limits)?;
         Ok(self.integrate(NUM_INTEGRATIONS, idx_to_integrate, func, integration_limits, point))
     }
 }

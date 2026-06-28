@@ -19,17 +19,22 @@ fn offsets(method: FiniteDifferenceMode) -> (f64, f64, f64) {
     }
 }
 
-/// Finite-difference differentiator for single-variable functions.
-#[derive(Clone, Copy)]
-pub struct FiniteDifferenceSingle {
-    step_size: f64,
-    method: FiniteDifferenceMode,
-    step_size_multiplier: f64,
+/// Configuration shared by the single- and multi-variable finite-difference differentiators.
+#[derive(Debug, Clone, Copy)]
+pub struct FiniteDifferenceConfig {
+    /// The finite-difference step size. See [`mode::DEFAULT_STEP_SIZE`].
+    pub step_size: f64,
+    /// Forward, Backward or Central difference.
+    pub method: FiniteDifferenceMode,
+    /// Factor the step is scaled by on each recursion level; only matters for third
+    /// derivatives and higher. See [`mode::DEFAULT_STEP_SIZE_MULTIPLIER`].
+    pub step_size_multiplier: f64,
 }
 
-impl Default for FiniteDifferenceSingle {
+impl Default for FiniteDifferenceConfig {
+    /// Central difference with the default step size and multiplier; best for most cases.
     fn default() -> Self {
-        FiniteDifferenceSingle {
+        FiniteDifferenceConfig {
             step_size: mode::DEFAULT_STEP_SIZE,
             method: FiniteDifferenceMode::Central,
             step_size_multiplier: mode::DEFAULT_STEP_SIZE_MULTIPLIER,
@@ -37,49 +42,42 @@ impl Default for FiniteDifferenceSingle {
     }
 }
 
-impl FiniteDifferenceSingle {
-    /// Returns the step size.
-    pub fn get_step_size(&self) -> f64 {
-        self.step_size
-    }
-
-    /// Sets the step size.
-    pub fn set_step_size(&mut self, step_size: f64) {
-        self.step_size = step_size;
-    }
-
-    /// Returns the differentiation method.
-    pub fn get_method(&self) -> FiniteDifferenceMode {
-        self.method
-    }
-
-    /// Sets the differentiation method.
-    pub fn set_method(&mut self, method: FiniteDifferenceMode) {
-        self.method = method;
-    }
-
-    /// Returns the step-size multiplier applied on each recursion level.
-    pub fn get_step_size_multiplier(&self) -> f64 {
-        self.step_size_multiplier
-    }
-
-    /// Sets the step-size multiplier. Only matters for third derivatives and higher.
-    pub fn set_step_size_multiplier(&mut self, multiplier: f64) {
-        self.step_size_multiplier = multiplier;
-    }
-
-    /// Builds a differentiator with explicit parameters.
+impl FiniteDifferenceConfig {
+    /// Builds a config with explicit parameters.
     pub fn from_parameters(step: f64, method: FiniteDifferenceMode, multiplier: f64) -> Self {
-        FiniteDifferenceSingle {
+        FiniteDifferenceConfig {
             step_size: step,
             method,
             step_size_multiplier: multiplier,
         }
     }
 
+    /// Returns [`CalcError::StepSizeZero`] if the step size is zero.
+    fn check_step_size(&self) -> Result<(), CalcError> {
+        if self.step_size == 0.0 {
+            return Err(CalcError::StepSizeZero);
+        }
+        Ok(())
+    }
+}
+
+/// Finite-difference differentiator for single-variable functions.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct FiniteDifferenceSingle {
+    pub config: FiniteDifferenceConfig,
+}
+
+impl FiniteDifferenceSingle {
+    /// Builds a differentiator with explicit parameters.
+    pub fn from_parameters(step: f64, method: FiniteDifferenceMode, multiplier: f64) -> Self {
+        FiniteDifferenceSingle {
+            config: FiniteDifferenceConfig::from_parameters(step, method, multiplier),
+        }
+    }
+
     #[inline]
     fn diff<F: Fn(f64) -> f64>(&self, order: usize, func: &F, point: f64, step: f64) -> f64 {
-        let (lo, hi, denom) = offsets(self.method);
+        let (lo, hi, denom) = offsets(self.config.method);
 
         if order == 1 {
             let low = func(point + lo * step);
@@ -87,7 +85,7 @@ impl FiniteDifferenceSingle {
             return (high - low) / (denom * step);
         }
 
-        let next = self.step_size_multiplier * step;
+        let next = self.config.step_size_multiplier * step;
         let low = self.diff(order - 1, func, point + lo * step, next);
         let high = self.diff(order - 1, func, point + hi * step, next);
         (high - low) / (denom * step)
@@ -104,68 +102,22 @@ impl DerivatorSingleVariable for FiniteDifferenceSingle {
         if order == 0 {
             return Err(CalcError::DerivativeOrderZero);
         }
-        if self.step_size == 0.0 {
-            return Err(CalcError::StepSizeZero);
-        }
-        Ok(self.diff(order, func, point, self.step_size))
+        self.config.check_step_size()?;
+        Ok(self.diff(order, func, point, self.config.step_size))
     }
 }
 
 /// Finite-difference differentiator for multi-variable functions.
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct FiniteDifferenceMulti {
-    step_size: f64,
-    method: FiniteDifferenceMode,
-    step_size_multiplier: f64,
-}
-
-impl Default for FiniteDifferenceMulti {
-    fn default() -> Self {
-        FiniteDifferenceMulti {
-            step_size: mode::DEFAULT_STEP_SIZE,
-            method: FiniteDifferenceMode::Central,
-            step_size_multiplier: mode::DEFAULT_STEP_SIZE_MULTIPLIER,
-        }
-    }
+    pub config: FiniteDifferenceConfig,
 }
 
 impl FiniteDifferenceMulti {
-    /// Returns the step size.
-    pub fn get_step_size(&self) -> f64 {
-        self.step_size
-    }
-
-    /// Sets the step size.
-    pub fn set_step_size(&mut self, step_size: f64) {
-        self.step_size = step_size;
-    }
-
-    /// Returns the differentiation method.
-    pub fn get_method(&self) -> FiniteDifferenceMode {
-        self.method
-    }
-
-    /// Sets the differentiation method.
-    pub fn set_method(&mut self, method: FiniteDifferenceMode) {
-        self.method = method;
-    }
-
-    /// Returns the step-size multiplier applied on each recursion level.
-    pub fn get_step_size_multiplier(&self) -> f64 {
-        self.step_size_multiplier
-    }
-
-    /// Sets the step-size multiplier. Only matters for third derivatives and higher.
-    pub fn set_step_size_multiplier(&mut self, multiplier: f64) {
-        self.step_size_multiplier = multiplier;
-    }
-
     /// Builds a differentiator with explicit parameters.
     pub fn from_parameters(step: f64, method: FiniteDifferenceMode, multiplier: f64) -> Self {
         FiniteDifferenceMulti {
-            step_size: step,
-            method,
-            step_size_multiplier: multiplier,
+            config: FiniteDifferenceConfig::from_parameters(step, method, multiplier),
         }
     }
 
@@ -178,7 +130,7 @@ impl FiniteDifferenceMulti {
         point: &[f64; NUM_VARS],
         step: f64,
     ) -> f64 {
-        let (lo, hi, denom) = offsets(self.method);
+        let (lo, hi, denom) = offsets(self.config.method);
         let var = idx_to_differentiate[order - 1];
 
         let mut low_point = *point;
@@ -190,7 +142,7 @@ impl FiniteDifferenceMulti {
             return (func(&high_point) - func(&low_point)) / (denom * step);
         }
 
-        let next = self.step_size_multiplier * step;
+        let next = self.config.step_size_multiplier * step;
         let low = self.diff(order - 1, func, idx_to_differentiate, &low_point, next);
         let high = self.diff(order - 1, func, idx_to_differentiate, &high_point, next);
         (high - low) / (denom * step)
@@ -207,14 +159,12 @@ impl DerivatorMultiVariable for FiniteDifferenceMulti {
         if NUM_ORDER == 0 {
             return Err(CalcError::DerivativeOrderZero);
         }
-        if self.step_size == 0.0 {
-            return Err(CalcError::StepSizeZero);
-        }
+        self.config.check_step_size()?;
         for &idx in idx_to_differentiate {
             if idx >= NUM_VARS {
                 return Err(CalcError::IndexOutOfRange);
             }
         }
-        Ok(self.diff(NUM_ORDER, func, idx_to_differentiate, point, self.step_size))
+        Ok(self.diff(NUM_ORDER, func, idx_to_differentiate, point, self.config.step_size))
     }
 }
