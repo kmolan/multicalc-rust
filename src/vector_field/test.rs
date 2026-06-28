@@ -1,4 +1,4 @@
-use crate::numerical_derivative::finite_difference::MultiVariableSolver;
+use crate::numerical_derivative::finite_difference::FiniteDifferenceMulti;
 
 use crate::vector_field::curl;
 use crate::vector_field::divergence;
@@ -13,14 +13,14 @@ fn test_line_integral_1() {
     //curve is a unit circle, defined by (Cos(t), Sin(t))
     //limit t goes from 0->2*pi
 
-    let vector_field_matrix: [&dyn Fn(&f64, &f64) -> f64; 2] = [
-        &(|_: &f64, y: &f64| -> f64 { *y }),
-        &(|x: &f64, _: &f64| -> f64 { -x }),
+    let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [
+        &(|args: &[f64; 2]| -> f64 { args[1] }),
+        &(|args: &[f64; 2]| -> f64 { -args[0] }),
     ];
 
-    let transformation_matrix: [&dyn Fn(&f64) -> f64; 2] = [
-        &(|t: &f64| -> f64 { t.cos() }),
-        &(|t: &f64| -> f64 { t.sin() }),
+    let transformation_matrix: [&dyn Fn(f64) -> f64; 2] = [
+        &(|t: f64| -> f64 { t.cos() }),
+        &(|t: f64| -> f64 { t.sin() }),
     ];
 
     let integration_limit = [0.0, 6.28];
@@ -42,14 +42,14 @@ fn test_line_integral_error_1() {
     //curve is a unit circle, defined by (Cos(t), Sin(t))
     //limit t goes from 0->2*pi
 
-    let vector_field_matrix: [&dyn Fn(&f64, &f64) -> f64; 2] = [
-        &(|_: &f64, y: &f64| -> f64 { *y }),
-        &(|x: &f64, _: &f64| -> f64 { -x }),
+    let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [
+        &(|args: &[f64; 2]| -> f64 { args[1] }),
+        &(|args: &[f64; 2]| -> f64 { -args[0] }),
     ];
 
-    let transformation_matrix: [&dyn Fn(&f64) -> f64; 2] = [
-        &(|t: &f64| -> f64 { t.cos() }),
-        &(|t: &f64| -> f64 { t.sin() }),
+    let transformation_matrix: [&dyn Fn(f64) -> f64; 2] = [
+        &(|t: f64| -> f64 { t.cos() }),
+        &(|t: f64| -> f64 { t.sin() }),
     ];
 
     let integration_limit = [0.0, 6.28];
@@ -62,7 +62,7 @@ fn test_line_integral_error_1() {
         0,
     );
     assert!(val.is_err());
-    assert!(val.unwrap_err() == INTEGRATION_CANNOT_HAVE_ZERO_ITERATIONS);
+    assert!(val.unwrap_err() == CalcError::IterationsZero);
 }
 
 #[test]
@@ -71,14 +71,14 @@ fn test_line_integral_error_2() {
     //curve is a unit circle, defined by (Cos(t), Sin(t))
     //limit t goes from 0->2*pi
 
-    let vector_field_matrix: [&dyn Fn(&f64, &f64) -> f64; 2] = [
-        &(|_: &f64, y: &f64| -> f64 { *y }),
-        &(|x: &f64, _: &f64| -> f64 { -x }),
+    let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [
+        &(|args: &[f64; 2]| -> f64 { args[1] }),
+        &(|args: &[f64; 2]| -> f64 { -args[0] }),
     ];
 
-    let transformation_matrix: [&dyn Fn(&f64) -> f64; 2] = [
-        &(|t: &f64| -> f64 { t.cos() }),
-        &(|t: &f64| -> f64 { t.sin() }),
+    let transformation_matrix: [&dyn Fn(f64) -> f64; 2] = [
+        &(|t: f64| -> f64 { t.cos() }),
+        &(|t: f64| -> f64 { t.sin() }),
     ];
 
     let integration_limit = [10.0, 0.0];
@@ -91,7 +91,7 @@ fn test_line_integral_error_2() {
         100,
     );
     assert!(val.is_err());
-    assert!(val.unwrap_err() == INTEGRATION_LIMITS_ILL_DEFINED);
+    assert!(val.unwrap_err() == CalcError::IntegrationLimitsIllDefined);
 }
 
 #[test]
@@ -100,14 +100,14 @@ fn test_flux_integral_1() {
     //curve is a unit circle, defined by (Cos(t), Sin(t))
     //limit t goes from 0->2*pi
 
-    let vector_field_matrix: [&dyn Fn(&f64, &f64) -> f64; 2] = [
-        &(|_: &f64, y: &f64| -> f64 { *y }),
-        &(|x: &f64, _: &f64| -> f64 { -x }),
+    let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [
+        &(|args: &[f64; 2]| -> f64 { args[1] }),
+        &(|args: &[f64; 2]| -> f64 { -args[0] }),
     ];
 
-    let transformation_matrix: [&dyn Fn(&f64) -> f64; 2] = [
-        &(|t: &f64| -> f64 { t.cos() }),
-        &(|t: &f64| -> f64 { t.sin() }),
+    let transformation_matrix: [&dyn Fn(f64) -> f64; 2] = [
+        &(|t: f64| -> f64 { t.cos() }),
+        &(|t: f64| -> f64 { t.sin() }),
     ];
 
     let integration_limit = [0.0, 6.28];
@@ -139,7 +139,7 @@ fn test_curl_2d_1() {
 
     let point = [1.0, 3.14];
 
-    let derivator = MultiVariableSolver::default();
+    let derivator = FiniteDifferenceMulti::default();
 
     //curl is known to be -2*x, expect and answer of -2.0
     let val = curl::get_2d(derivator, &vector_field_matrix, &point).unwrap();
@@ -167,7 +167,7 @@ fn test_curl_3d_1() {
     let vector_field_matrix: [&dyn Fn(&[f64; 3]) -> f64; 3] = [&vf_x, &vf_y, &vf_z];
     let point = [1.0, 2.0, 3.0];
 
-    let derivator = MultiVariableSolver::default();
+    let derivator = FiniteDifferenceMulti::default();
 
     //curl is known to be (0.0, 0.0, -2.0)
     let val = curl::get_3d(derivator, &vector_field_matrix, &point).unwrap();
@@ -191,7 +191,7 @@ fn test_divergence_2d_1() {
     let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [&vf_x, &vf_y];
     let point = [1.0, 3.14];
 
-    let derivator = MultiVariableSolver::default();
+    let derivator = FiniteDifferenceMulti::default();
 
     //divergence is known to be 2*y - 3*sin(y), expect and answer of 6.27
     let val = divergence::get_2d(derivator, &vector_field_matrix, &point).unwrap();
@@ -219,7 +219,7 @@ fn test_divergence_3d_1() {
     let vector_field_matrix: [&dyn Fn(&[f64; 3]) -> f64; 3] = [&vf_x, &vf_y, &vf_z];
     let point = [0.0, 1.0, 3.0]; //the point of interest
 
-    let derivator = MultiVariableSolver::default();
+    let derivator = FiniteDifferenceMulti::default();
 
     //diverge known to be 2.0
     let val = divergence::get_3d(derivator, &vector_field_matrix, &point).unwrap();
