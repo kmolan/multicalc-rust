@@ -54,6 +54,8 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     ) -> Result<[[f64; NUM_VARS]; NUM_VARS], CalcError> {
         let mut result = [[f64::NAN; NUM_VARS]; NUM_VARS];
 
+        // explicit indices are needed for the symmetric mirror write `result[col][row]`
+        #[allow(clippy::needless_range_loop)]
         for row_index in 0..NUM_VARS {
             for col_index in 0..NUM_VARS {
                 if result[row_index][col_index].is_nan() {

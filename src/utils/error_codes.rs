@@ -25,7 +25,9 @@ impl core::fmt::Display for CalcError {
             CalcError::StepSizeZero => "step size cannot be zero",
             CalcError::IndexOutOfRange => "variable index out of range",
             CalcError::IterationsZero => "number of iterations cannot be zero",
-            CalcError::IntegrationLimitsIllDefined => "lower limit must be strictly less than upper limit",
+            CalcError::IntegrationLimitsIllDefined => {
+                "lower limit must be strictly less than upper limit"
+            }
             CalcError::QuadratureOrderOutOfRange => "quadrature order is out of supported range",
             CalcError::EmptyFunctionSet => "function set cannot be empty",
         })

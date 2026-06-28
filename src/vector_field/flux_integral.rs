@@ -57,8 +57,17 @@ pub fn get_2d_custom(
     integration_limit: &[f64; 2],
     total_iterations: u64,
 ) -> Result<f64, CalcError> {
-    Ok(
-        line_integral::get_partial_2d(vector_field, transformations, integration_limit, total_iterations, 0)?
-            - line_integral::get_partial_2d(vector_field, transformations, integration_limit, total_iterations, 1)?,
-    )
+    Ok(line_integral::get_partial_2d(
+        vector_field,
+        transformations,
+        integration_limit,
+        total_iterations,
+        0,
+    )? - line_integral::get_partial_2d(
+        vector_field,
+        transformations,
+        integration_limit,
+        total_iterations,
+        1,
+    )?)
 }

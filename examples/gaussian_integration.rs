@@ -27,13 +27,17 @@ fn main() {
     // int_0^2 (4x^3 - 3x^2) dx = 8  (exact: order 5 handles degree <= 9)
     report(
         "int_0^2 4x^3-3x^2",
-        legendre.get_single(&|x| 4.0 * x * x * x - 3.0 * x * x, &[0.0, 2.0]).unwrap(),
+        legendre
+            .get_single(&|x| 4.0 * x * x * x - 3.0 * x * x, &[0.0, 2.0])
+            .unwrap(),
         8.0,
     );
     // non-polynomial integrand: accuracy falls
     report(
         "int_0^1 (sinx-sqrtx)e^-x",
-        legendre.get_single(&|x| (x.sin() - x.sqrt()) * (-x).exp(), &[0.0, 1.0]).unwrap(),
+        legendre
+            .get_single(&|x| (x.sin() - x.sqrt()) * (-x).exp(), &[0.0, 1.0])
+            .unwrap(),
         -0.13311916,
     );
 
@@ -53,7 +57,12 @@ fn main() {
     report(
         "int int x^2 y^2 e^-x^2-y^2",
         hermite_m
-            .get([0, 1], &|v: &[f64; 2]| v[0] * v[0] * v[1] * v[1], &[real_line; 2], &[0.0, 0.0])
+            .get(
+                [0, 1],
+                &|v: &[f64; 2]| v[0] * v[0] * v[1] * v[1],
+                &[real_line; 2],
+                &[0.0, 0.0],
+            )
             .unwrap(),
         (sqrt_pi / 2.0) * (sqrt_pi / 2.0),
     );
@@ -71,7 +80,9 @@ fn main() {
     // int (4x^3 - 3x^2) e^(-x) = 18
     report(
         "int (4x^3-3x^2) e^-x",
-        laguerre.get_single(&|x| 4.0 * x * x * x - 3.0 * x * x, &half_line).unwrap(),
+        laguerre
+            .get_single(&|x| 4.0 * x * x * x - 3.0 * x * x, &half_line)
+            .unwrap(),
         18.0,
     );
 }

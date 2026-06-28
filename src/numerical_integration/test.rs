@@ -8,9 +8,7 @@ use crate::utils::error_codes::*;
 #[test]
 fn test_booles_integration_1() {
     //equation is 2.0*x
-    let func = |args: f64| -> f64 {
-        return 2.0 * args;
-    };
+    let func = |args: f64| -> f64 { 2.0 * args };
 
     let integration_limit = [0.0, 2.0];
 
@@ -25,9 +23,7 @@ fn test_booles_integration_1() {
 #[test]
 fn test_booles_integration_2() {
     //equation is 2.0*x + y*z
-    let func = |args: &[f64; 3]| -> f64 {
-        return 2.0 * args[0] + args[1] * args[2];
-    };
+    let func = |args: &[f64; 3]| -> f64 { 2.0 * args[0] + args[1] * args[2] };
 
     let integration_limit = [0.0, 1.0];
     let point = [1.0, 2.0, 3.0];
@@ -61,9 +57,7 @@ fn test_booles_integration_2() {
 #[test]
 fn test_booles_integration_3() {
     //equation is 6.0*x
-    let func = |args: f64| -> f64 {
-        return 6.0 * args;
-    };
+    let func = |args: f64| -> f64 { 6.0 * args };
 
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
 
@@ -78,9 +72,7 @@ fn test_booles_integration_3() {
 #[test]
 fn test_gauss_legendre_quadrature_integration_1() {
     //equation is 4.0*x*x*x - 3.0*x*x
-    let func = |args: f64| -> f64 {
-        return 4.0 * args * args * args - 3.0 * args * args;
-    };
+    let func = |args: f64| -> f64 { 4.0 * args * args * args - 3.0 * args * args };
 
     let integration_limit = [0.0, 2.0];
 
@@ -97,9 +89,7 @@ fn test_gauss_legendre_quadrature_integration_1() {
 #[test]
 fn test_gauss_legendre_quadrature_integration_2() {
     //equation is 2.0*x + y*z
-    let func = |args: &[f64; 3]| -> f64 {
-        return 2.0 * args[0] + args[1] * args[2];
-    };
+    let func = |args: &[f64; 3]| -> f64 { 2.0 * args[0] + args[1] * args[2] };
 
     let integration_limit = [0.0, 1.0];
     let point = [1.0, 2.0, 3.0];
@@ -135,9 +125,7 @@ fn test_gauss_legendre_quadrature_integration_2() {
 #[test]
 fn test_gauss_legendre_quadrature_integration_3() {
     //equation is 6.0*x
-    let func = |args: f64| -> f64 {
-        return 6.0 * args;
-    };
+    let func = |args: f64| -> f64 { 6.0 * args };
 
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
     let integrator = gaussian_integration::GaussianSingle::from_parameters(
@@ -153,16 +141,12 @@ fn test_gauss_legendre_quadrature_integration_3() {
 #[test]
 fn test_simpsons_integration_1() {
     //equation is 2.0*x
-    let func = |args: f64| -> f64 {
-        return 2.0 * args;
-    };
+    let func = |args: f64| -> f64 { 2.0 * args };
 
     let integration_limit = [0.0, 2.0];
 
-    let integrator = iterative_integration::IterativeSingle::from_parameters(
-        200,
-        IterativeMethod::Simpsons,
-    );
+    let integrator =
+        iterative_integration::IterativeSingle::from_parameters(200, IterativeMethod::Simpsons);
 
     //simple integration for x, known to be x*x, expect a value of ~4.00
     let val = integrator.get_single(&func, &integration_limit).unwrap();
@@ -172,9 +156,7 @@ fn test_simpsons_integration_1() {
 #[test]
 fn test_simpsons_integration_2() {
     //equation is 2.0*x + y*z
-    let func = |args: &[f64; 3]| -> f64 {
-        return 2.0 * args[0] + args[1] * args[2];
-    };
+    let func = |args: &[f64; 3]| -> f64 { 2.0 * args[0] + args[1] * args[2] };
 
     let integration_limit = [0.0, 1.0];
     let point = [1.0, 2.0, 3.0];
@@ -208,16 +190,12 @@ fn test_simpsons_integration_2() {
 #[test]
 fn test_simpsons_integration_3() {
     //equation is 6.0*x
-    let func = |args: f64| -> f64 {
-        return 6.0 * args;
-    };
+    let func = |args: f64| -> f64 { 6.0 * args };
 
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
 
-    let integrator = iterative_integration::IterativeSingle::from_parameters(
-        200,
-        IterativeMethod::Simpsons,
-    );
+    let integrator =
+        iterative_integration::IterativeSingle::from_parameters(200, IterativeMethod::Simpsons);
 
     //simple double integration for 6*x, expect a value of ~24.00
     let val = integrator.get_double(&func, &integration_limits).unwrap();
@@ -227,9 +205,7 @@ fn test_simpsons_integration_3() {
 #[test]
 fn test_simpsons_integration_4() {
     //equation is 2.0*x + y*z
-    let func = |args: &[f64; 3]| -> f64 {
-        return 2.0 * args[0] + args[1] * args[2];
-    };
+    let func = |args: &[f64; 3]| -> f64 { 2.0 * args[0] + args[1] * args[2] };
 
     let integration_limits = [[0.0, 1.0], [0.0, 1.0]];
     let point = [1.0, 1.0, 1.0];
@@ -247,16 +223,12 @@ fn test_simpsons_integration_4() {
 #[test]
 fn test_trapezoidal_integration_1() {
     //equation is 2.0*x
-    let func = |args: f64| -> f64 {
-        return 2.0 * args;
-    };
+    let func = |args: f64| -> f64 { 2.0 * args };
 
     let integration_limit = [0.0, 2.0];
 
-    let iterator = iterative_integration::IterativeSingle::from_parameters(
-        100,
-        IterativeMethod::Trapezoidal,
-    );
+    let iterator =
+        iterative_integration::IterativeSingle::from_parameters(100, IterativeMethod::Trapezoidal);
     let val = iterator.get_single(&func, &integration_limit).unwrap();
 
     assert!(f64::abs(val - 4.0) < 0.00001);
@@ -265,17 +237,13 @@ fn test_trapezoidal_integration_1() {
 #[test]
 fn test_trapezoidal_integration_2() {
     //equation is 2.0*x + y*z
-    let func = |args: &[f64; 3]| -> f64 {
-        return 2.0 * args[0] + args[1] * args[2];
-    };
+    let func = |args: &[f64; 3]| -> f64 { 2.0 * args[0] + args[1] * args[2] };
 
     let integration_limit = [0.0, 1.0];
     let point = [1.0, 2.0, 3.0];
 
-    let iterator = iterative_integration::IterativeMulti::from_parameters(
-        100,
-        IterativeMethod::Trapezoidal,
-    );
+    let iterator =
+        iterative_integration::IterativeMulti::from_parameters(100, IterativeMethod::Trapezoidal);
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
     let val = iterator
@@ -303,16 +271,12 @@ fn test_trapezoidal_integration_2() {
 #[test]
 fn test_trapezoidal_integration_3() {
     //equation is 6.0*x
-    let func = |args: f64| -> f64 {
-        return 6.0 * args;
-    };
+    let func = |args: f64| -> f64 { 6.0 * args };
 
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
 
-    let integrator = iterative_integration::IterativeSingle::from_parameters(
-        10,
-        IterativeMethod::Trapezoidal,
-    );
+    let integrator =
+        iterative_integration::IterativeSingle::from_parameters(10, IterativeMethod::Trapezoidal);
 
     //simple double integration for 6*x, expect a value of ~24.00
     let val = integrator.get_double(&func, &integration_limits).unwrap();
@@ -322,17 +286,13 @@ fn test_trapezoidal_integration_3() {
 #[test]
 fn test_trapezoidal_integration_4() {
     //equation is 2.0*x + y*z
-    let func = |args: &[f64; 3]| -> f64 {
-        return 2.0 * args[0] + args[1] * args[2];
-    };
+    let func = |args: &[f64; 3]| -> f64 { 2.0 * args[0] + args[1] * args[2] };
 
     let integration_limits = [[0.0, 1.0], [0.0, 2.0]];
     let point = [1.0, 2.0, 3.0];
 
-    let integrator = iterative_integration::IterativeMulti::from_parameters(
-        10,
-        IterativeMethod::Trapezoidal,
-    );
+    let integrator =
+        iterative_integration::IterativeMulti::from_parameters(10, IterativeMethod::Trapezoidal);
 
     //double partial integration for first x then y, expect a value of ~2.50
     let val = integrator
@@ -344,9 +304,7 @@ fn test_trapezoidal_integration_4() {
 #[test]
 fn test_error_checking_1() {
     //equation is 2.0*x
-    let func = |args: f64| -> f64 {
-        return 2.0 * args;
-    };
+    let func = |args: f64| -> f64 { 2.0 * args };
 
     let integration_limit = [10.0, 1.0];
 
@@ -361,9 +319,7 @@ fn test_error_checking_1() {
 #[test]
 fn test_error_checking_2() {
     //equation is 2.0*x
-    let func = |args: f64| -> f64 {
-        return 2.0 * args;
-    };
+    let func = |args: f64| -> f64 { 2.0 * args };
 
     let integration_limit = [0.0, 1.0];
 
@@ -381,9 +337,7 @@ fn test_error_checking_2() {
 #[test]
 fn test_error_checking_3() {
     //equation is 4.0*x*x*x - 3.0*x*x
-    let func = |args: f64| -> f64 {
-        return 4.0 * args * args * args - 3.0 * args * args;
-    };
+    let func = |args: f64| -> f64 { 4.0 * args * args * args - 3.0 * args * args };
 
     let integration_limit = [0.0, 2.0];
 
@@ -400,9 +354,7 @@ fn test_error_checking_3() {
 #[test]
 fn test_error_checking_4() {
     //equation is 4.0*x*x*x - 3.0*x*x
-    let func = |args: f64| -> f64 {
-        return 4.0 * args * args * args - 3.0 * args * args;
-    };
+    let func = |args: f64| -> f64 { 4.0 * args * args * args - 3.0 * args * args };
 
     let integration_limit = [0.0, 2.0];
 
@@ -420,9 +372,7 @@ fn test_error_checking_4() {
 fn test_gauss_hermite_single() {
     //integrand is x*x; weights carry the e^{-x*x} kernel
     //∫_{-∞}^∞ x² e^{-x²} dx = √π / 2
-    let func = |x: f64| -> f64 {
-        return x * x;
-    };
+    let func = |x: f64| -> f64 { x * x };
 
     let integrator = gaussian_integration::GaussianSingle::from_parameters(
         5,
@@ -440,9 +390,7 @@ fn test_gauss_hermite_single() {
 fn test_gauss_laguerre_single() {
     //integrand is x*x; weights carry the e^{-x} kernel
     //∫_0^∞ x² e^{-x} dx = 2
-    let func = |x: f64| -> f64 {
-        return x * x;
-    };
+    let func = |x: f64| -> f64 { x * x };
 
     let integrator = gaussian_integration::GaussianSingle::from_parameters(
         5,
@@ -458,9 +406,7 @@ fn test_gauss_laguerre_single() {
 #[test]
 fn test_gauss_hermite_multivariable() {
     //∫∫ x² y² e^{-x²} e^{-y²} dx dy = (√π/2)²
-    let func = |args: &[f64; 2]| -> f64 {
-        return args[0] * args[0] * args[1] * args[1];
-    };
+    let func = |args: &[f64; 2]| -> f64 { args[0] * args[0] * args[1] * args[1] };
 
     let integrator = gaussian_integration::GaussianMulti::from_parameters(
         5,
@@ -483,9 +429,7 @@ fn test_gauss_hermite_multivariable() {
 #[test]
 fn test_gauss_laguerre_multivariable() {
     //∫∫ x² y² e^{-x} e^{-y} dx dy = 2 * 2 = 4
-    let func = |args: &[f64; 2]| -> f64 {
-        return args[0] * args[0] * args[1] * args[1];
-    };
+    let func = |args: &[f64; 2]| -> f64 { args[0] * args[0] * args[1] * args[1] };
 
     let integrator = gaussian_integration::GaussianMulti::from_parameters(
         5,
@@ -504,9 +448,7 @@ fn test_gauss_laguerre_multivariable() {
 #[test]
 fn test_iterative_infinite_gaussian() {
     //∫_{-∞}^∞ e^{-x²} dx = √π
-    let func = |x: f64| -> f64 {
-        return f64::exp(-x * x);
-    };
+    let func = |x: f64| -> f64 { f64::exp(-x * x) };
 
     let integrator = iterative_integration::IterativeSingle::default();
 
@@ -519,9 +461,7 @@ fn test_iterative_infinite_gaussian() {
 #[test]
 fn test_iterative_semi_infinite_exp() {
     //∫_0^∞ e^{-x} dx = 1
-    let func = |x: f64| -> f64 {
-        return f64::exp(-x);
-    };
+    let func = |x: f64| -> f64 { f64::exp(-x) };
 
     let integrator = iterative_integration::IterativeSingle::default();
 
@@ -534,9 +474,7 @@ fn test_iterative_semi_infinite_exp() {
 #[test]
 fn test_iterative_semi_infinite_inverse_square() {
     //∫_1^∞ x^{-2} dx = 1
-    let func = |x: f64| -> f64 {
-        return 1.0 / (x * x);
-    };
+    let func = |x: f64| -> f64 { 1.0 / (x * x) };
 
     let integrator = iterative_integration::IterativeSingle::default();
 
@@ -549,9 +487,7 @@ fn test_iterative_semi_infinite_inverse_square() {
 #[test]
 fn test_iterative_negative_limits() {
     //∫_{-2}^{1} 2x dx = x² evaluated from -2 to 1 = 1 - 4 = -3
-    let func = |x: f64| -> f64 {
-        return 2.0 * x;
-    };
+    let func = |x: f64| -> f64 { 2.0 * x };
 
     let integrator = iterative_integration::IterativeSingle::default();
 
@@ -565,17 +501,13 @@ fn test_iterative_negative_limits() {
 fn test_composite_rule_degree_3_polynomial() {
     //a degree-3 integrand exposes composite-rule divisibility (a linear one would be exact
     //under every rule and hide it). ∫_0^2 x³ dx = 4
-    let func = |x: f64| -> f64 {
-        return x * x * x;
-    };
+    let func = |x: f64| -> f64 { x * x * x };
 
     let integration_limit = [0.0, 2.0];
 
     //120 is a multiple of 3, so Simpson's 3/8 is exact for cubics here
-    let simpson = iterative_integration::IterativeSingle::from_parameters(
-        120,
-        IterativeMethod::Simpsons,
-    );
+    let simpson =
+        iterative_integration::IterativeSingle::from_parameters(120, IterativeMethod::Simpsons);
     let val = simpson.get_single(&func, &integration_limit).unwrap();
     assert!(f64::abs(val - 4.0) < 1e-9);
 

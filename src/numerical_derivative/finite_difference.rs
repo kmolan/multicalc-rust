@@ -93,12 +93,7 @@ impl FiniteDifferenceSingle {
 }
 
 impl DerivatorSingleVariable for FiniteDifferenceSingle {
-    fn get<F: Fn(f64) -> f64>(
-        &self,
-        order: usize,
-        func: &F,
-        point: f64,
-    ) -> Result<f64, CalcError> {
+    fn get<F: Fn(f64) -> f64>(&self, order: usize, func: &F, point: f64) -> Result<f64, CalcError> {
         if order == 0 {
             return Err(CalcError::DerivativeOrderZero);
         }
@@ -165,6 +160,12 @@ impl DerivatorMultiVariable for FiniteDifferenceMulti {
                 return Err(CalcError::IndexOutOfRange);
             }
         }
-        Ok(self.diff(NUM_ORDER, func, idx_to_differentiate, point, self.config.step_size))
+        Ok(self.diff(
+            NUM_ORDER,
+            func,
+            idx_to_differentiate,
+            point,
+            self.config.step_size,
+        ))
     }
 }

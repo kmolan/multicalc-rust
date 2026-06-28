@@ -8,7 +8,9 @@ description = "Rust scientific computing for single and multi-variable calculus"
 repository = "https://github.com/kmolan/multicalc-rust"
 license = "MIT"
 documentation = "https://docs.rs/multicalc"
+readme = "README.md"
 keywords = ["Math", "Science", "Calculus", "Differentiation", "Integration"]
+categories = ["mathematics", "science", "no-std"]
 
 [dependencies]
 libm = "0.2"
@@ -24,3 +26,11 @@ alloc = []
 [[bench]]
 name = "calculus"
 harness = false
+
+[lints.rust]
+# Backs the "pure, safe Rust" claim: the crate must contain no `unsafe`.
+unsafe_code = "forbid"
+
+[lints.clippy]
+# The `[&dyn Fn(&[f64; N]) -> f64; N]` field/transform arrays are inherent to the API.
+type_complexity = "allow"

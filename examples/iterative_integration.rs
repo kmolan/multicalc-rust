@@ -23,7 +23,10 @@ fn main() {
     // ---- single variable: int_0^2 2x dx = 4 ----
     let f = |x: f64| 2.0 * x;
     let integrator = IterativeSingle::default(); // Boole's rule, 120 intervals
-    println!("int_0^2 2x dx = {:.8}   (exact 4)", integrator.get_single(&f, &[0.0, 2.0]).unwrap());
+    println!(
+        "int_0^2 2x dx = {:.8}   (exact 4)",
+        integrator.get_single(&f, &[0.0, 2.0]).unwrap()
+    );
 
     // ---- compare the three rules on the same integrand ----
     // int_0^1 (yz x^2 e^x) dx folded three times, with y*z = 6  ->  6*(e - 2)
@@ -46,17 +49,23 @@ fn main() {
     let bell = |x: f64| (-x * x).exp();
     report(
         "e^(-x^2)",
-        integrator.get_single(&bell, &[f64::NEG_INFINITY, f64::INFINITY]).unwrap(),
+        integrator
+            .get_single(&bell, &[f64::NEG_INFINITY, f64::INFINITY])
+            .unwrap(),
         std::f64::consts::PI.sqrt(),
     );
     report(
         "e^(-x)",
-        integrator.get_single(&|x| (-x).exp(), &[0.0, f64::INFINITY]).unwrap(),
+        integrator
+            .get_single(&|x| (-x).exp(), &[0.0, f64::INFINITY])
+            .unwrap(),
         1.0,
     );
     report(
         "x^(-2)",
-        integrator.get_single(&|x| 1.0 / (x * x), &[1.0, f64::INFINITY]).unwrap(),
+        integrator
+            .get_single(&|x| 1.0 / (x * x), &[1.0, f64::INFINITY])
+            .unwrap(),
         1.0,
     );
 
@@ -67,7 +76,9 @@ fn main() {
     println!("\nint_0^1 (2x + yz) dx at (1, 2, 3):");
     report(
         "partial",
-        multi.get_single_partial(&h, 0, &[0.0, 1.0], &point).unwrap(),
+        multi
+            .get_single_partial(&h, 0, &[0.0, 1.0], &point)
+            .unwrap(),
         7.0,
     );
 }

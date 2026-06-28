@@ -21,12 +21,7 @@ pub trait DerivatorSingleVariable {
     /// let val = derivator.get(2, &func, 2.0).unwrap();
     /// assert!(f64::abs(val - 12.0) < 1e-5);
     /// ```
-    fn get<F: Fn(f64) -> f64>(
-        &self,
-        order: usize,
-        func: &F,
-        point: f64,
-    ) -> Result<f64, CalcError>;
+    fn get<F: Fn(f64) -> f64>(&self, order: usize, func: &F, point: f64) -> Result<f64, CalcError>;
 
     /// Convenience wrapper for the first derivative.
     fn get_single<F: Fn(f64) -> f64>(&self, func: &F, point: f64) -> Result<f64, CalcError> {

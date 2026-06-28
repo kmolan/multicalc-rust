@@ -15,10 +15,15 @@ pub struct QuadraticApproximation<const NUM_VARS: usize> {
 /// Goodness-of-fit metrics for a [`QuadraticApproximation`] over a set of sample points.
 #[derive(Debug, Clone, Copy)]
 pub struct QuadraticApproximationPredictionMetrics {
+    /// Mean absolute error.
     pub mean_absolute_error: f64,
+    /// Mean squared error.
     pub mean_squared_error: f64,
+    /// Root mean squared error.
     pub root_mean_squared_error: f64,
+    /// Coefficient of determination; `NaN` when the truth is constant over the points.
     pub r_squared: f64,
+    /// R² adjusted for the number of predictors; `NaN` when there are too few points.
     pub adjusted_r_squared: f64,
 }
 
@@ -27,11 +32,17 @@ impl<const NUM_VARS: usize> QuadraticApproximation<NUM_VARS> {
     /// both diagonal and off-diagonal Hessian entries.
     pub fn predict(&self, x: &[f64; NUM_VARS]) -> f64 {
         let mut result = self.value;
-        for i in 0..NUM_VARS {
-            let di = x[i] - self.point[i];
-            result += self.gradient[i] * di;
-            for j in 0..NUM_VARS {
-                result += 0.5 * self.hessian[i][j] * di * (x[j] - self.point[j]);
+        for (((&gi, &xi), &pi), hrow) in self
+            .gradient
+            .iter()
+            .zip(x)
+            .zip(&self.point)
+            .zip(&self.hessian)
+        {
+            let di = xi - pi;
+            result += gi * di;
+            for ((&hij, &xj), &pj) in hrow.iter().zip(x).zip(&self.point) {
+                result += 0.5 * hij * di * (xj - pj);
             }
         }
         result
@@ -81,6 +92,8 @@ impl<const NUM_VARS: usize> QuadraticApproximation<NUM_VARS> {
     }
 }
 
+/// Builds a [`QuadraticApproximation`] of a function, using any derivator that implements
+/// [`DerivatorMultiVariable`].
 pub struct QuadraticApproximator<D: DerivatorMultiVariable> {
     derivator: D,
 }
@@ -94,6 +107,7 @@ impl<D: DerivatorMultiVariable + Default> Default for QuadraticApproximator<D> {
 }
 
 impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
+    /// Builds an approximator from an explicit derivator.
     pub fn from_derivator(derivator: D) -> Self {
         QuadraticApproximator { derivator }
     }
@@ -129,17 +143,20 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
         let value = function(point);
 
         let mut gradient = [0.0; NUM_VARS];
-        for i in 0..NUM_VARS {
-            gradient[i] = self.derivator.get_single_partial(function, i, point)?;
+        for (i, slot) in gradient.iter_mut().enumerate() {
+            *slot = self.derivator.get_single_partial(function, i, point)?;
         }
 
-        // symmetric fill: compute the upper triangle + diagonal once, mirror the rest
+        // symmetric fill: compute the upper triangle + diagonal once, mirror the rest.
+        // the explicit indices are needed for the mirror write `hessian[col][row]`.
         let mut hessian = [[f64::NAN; NUM_VARS]; NUM_VARS];
+        #[allow(clippy::needless_range_loop)]
         for row in 0..NUM_VARS {
             for col in 0..NUM_VARS {
                 if hessian[row][col].is_nan() {
                     hessian[row][col] =
-                        self.derivator.get_double_partial(function, &[row, col], point)?;
+                        self.derivator
+                            .get_double_partial(function, &[row, col], point)?;
                     hessian[col][row] = hessian[row][col];
                 }
             }

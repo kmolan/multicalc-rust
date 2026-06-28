@@ -260,7 +260,11 @@ impl IterativeMulti {
     /// abscissa is written into the integrated variable's slot before recursing, and
     /// an infinite limit weights the whole inner integral by `dx/dt`. A finite limit
     /// skips the domain transform entirely.
-    fn integrate<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
+    fn integrate<
+        F: Fn(&[f64; NUM_VARS]) -> f64,
+        const NUM_VARS: usize,
+        const NUM_INTEGRATIONS: usize,
+    >(
         &self,
         level: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
@@ -299,7 +303,13 @@ impl IterativeMulti {
         match domain {
             Domain::Finite(a, b) => integrate_rule(method, iterations, a, b, |x| {
                 current[var] = x;
-                self.integrate(level - 1, idx_to_integrate, func, integration_limits, &current)
+                self.integrate(
+                    level - 1,
+                    idx_to_integrate,
+                    func,
+                    integration_limits,
+                    &current,
+                )
             }),
             _ => {
                 let (lo, hi) = t_bounds(&domain);
@@ -356,6 +366,12 @@ impl IntegratorMultiVariable for IterativeMulti {
         point: &[f64; NUM_VARS],
     ) -> Result<f64, CalcError> {
         self.config.check_for_errors(integration_limits)?;
-        Ok(self.integrate(NUM_INTEGRATIONS, idx_to_integrate, func, integration_limits, point))
+        Ok(self.integrate(
+            NUM_INTEGRATIONS,
+            idx_to_integrate,
+            func,
+            integration_limits,
+            point,
+        ))
     }
 }

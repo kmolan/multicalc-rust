@@ -3,6 +3,7 @@ use crate::numerical_integration::integrator::{IntegratorMultiVariable, Integrat
 use crate::numerical_integration::mode::GaussianQuadratureMethod;
 use crate::utils::error_codes::CalcError;
 
+/// Default quadrature order (number of nodes).
 pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;
 
 /// Configuration shared by the single- and multi-variable Gaussian integrators.

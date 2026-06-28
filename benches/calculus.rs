@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 use multicalc::approximation::linear_approximation::LinearApproximator;
 use multicalc::approximation::quadratic_approximation::QuadraticApproximator;
@@ -103,7 +103,11 @@ fn gaussian_integration(c: &mut Criterion) {
     let hermite = GaussianSingle::from_parameters(5, GaussianQuadratureMethod::GaussHermite);
     let hermite_limit = [f64::NEG_INFINITY, f64::INFINITY];
     c.bench_function("gaussian/hermite_order_5", |b| {
-        b.iter(|| hermite.get_single(&square, black_box(&hermite_limit)).unwrap())
+        b.iter(|| {
+            hermite
+                .get_single(&square, black_box(&hermite_limit))
+                .unwrap()
+        })
     });
 
     let laguerre = GaussianSingle::from_parameters(5, GaussianQuadratureMethod::GaussLaguerre);
@@ -158,18 +162,26 @@ fn vector_field(c: &mut Criterion) {
     let line_field: [&dyn Fn(&[f64; 2]) -> f64; 2] =
         [&(|a: &[f64; 2]| a[1]), &(|a: &[f64; 2]| -a[0])];
     let transforms: [&dyn Fn(f64) -> f64; 2] = [&(|t: f64| t.cos()), &(|t: f64| t.sin())];
-    let limit = [0.0, 6.28];
+    let limit = [0.0, std::f64::consts::TAU];
 
     c.bench_function("vector_field/line_integral_2d", |b| {
         b.iter(|| {
-            line_integral::get_2d(black_box(&line_field), black_box(&transforms), black_box(&limit))
-                .unwrap()
+            line_integral::get_2d(
+                black_box(&line_field),
+                black_box(&transforms),
+                black_box(&limit),
+            )
+            .unwrap()
         })
     });
     c.bench_function("vector_field/flux_integral_2d", |b| {
         b.iter(|| {
-            flux_integral::get_2d(black_box(&line_field), black_box(&transforms), black_box(&limit))
-                .unwrap()
+            flux_integral::get_2d(
+                black_box(&line_field),
+                black_box(&transforms),
+                black_box(&limit),
+            )
+            .unwrap()
         })
     });
 }

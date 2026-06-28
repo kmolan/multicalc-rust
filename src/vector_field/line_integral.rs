@@ -22,7 +22,11 @@ fn get_partial<const N: usize>(
     if total_iterations == 0 {
         return Err(CalcError::IterationsZero);
     }
-    if !(integration_limit[0] < integration_limit[1]) {
+    // rejects NaN, equal, and reversed limits (partial_cmp is None for NaN)
+    if !matches!(
+        integration_limit[0].partial_cmp(&integration_limit[1]),
+        Some(core::cmp::Ordering::Less)
+    ) {
         return Err(CalcError::IntegrationLimitsIllDefined);
     }
 
@@ -104,10 +108,19 @@ pub fn get_2d_custom(
     integration_limit: &[f64; 2],
     total_iterations: u64,
 ) -> Result<f64, CalcError> {
-    Ok(
-        get_partial_2d(vector_field, transformations, integration_limit, total_iterations, 0)?
-            + get_partial_2d(vector_field, transformations, integration_limit, total_iterations, 1)?,
-    )
+    Ok(get_partial_2d(
+        vector_field,
+        transformations,
+        integration_limit,
+        total_iterations,
+        0,
+    )? + get_partial_2d(
+        vector_field,
+        transformations,
+        integration_limit,
+        total_iterations,
+        1,
+    )?)
 }
 
 /// Line integral of a single field component (`idx`) along the 2D curve. Used by both
@@ -124,7 +137,13 @@ pub fn get_partial_2d(
     total_iterations: u64,
     idx: usize,
 ) -> Result<f64, CalcError> {
-    get_partial(vector_field, transformations, integration_limit, total_iterations, idx)
+    get_partial(
+        vector_field,
+        transformations,
+        integration_limit,
+        total_iterations,
+        idx,
+    )
 }
 
 /// Same as [`get_2d`] but for a parametrized curve in a 3D vector field. Uses the default
@@ -158,11 +177,25 @@ pub fn get_3d_custom(
     integration_limit: &[f64; 2],
     total_iterations: u64,
 ) -> Result<f64, CalcError> {
-    Ok(
-        get_partial_3d(vector_field, transformations, integration_limit, total_iterations, 0)?
-            + get_partial_3d(vector_field, transformations, integration_limit, total_iterations, 1)?
-            + get_partial_3d(vector_field, transformations, integration_limit, total_iterations, 2)?,
-    )
+    Ok(get_partial_3d(
+        vector_field,
+        transformations,
+        integration_limit,
+        total_iterations,
+        0,
+    )? + get_partial_3d(
+        vector_field,
+        transformations,
+        integration_limit,
+        total_iterations,
+        1,
+    )? + get_partial_3d(
+        vector_field,
+        transformations,
+        integration_limit,
+        total_iterations,
+        2,
+    )?)
 }
 
 /// Line integral of a single field component (`idx`) along the 3D curve. Used by both
@@ -179,5 +212,11 @@ pub fn get_partial_3d(
     total_iterations: u64,
     idx: usize,
 ) -> Result<f64, CalcError> {
-    get_partial(vector_field, transformations, integration_limit, total_iterations, idx)
+    get_partial(
+        vector_field,
+        transformations,
+        integration_limit,
+        total_iterations,
+        idx,
+    )
 }

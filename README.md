@@ -2,8 +2,7 @@
 
 [![On crates.io](https://img.shields.io/crates/v/multicalc.svg)](https://crates.io/crates/multicalc)
 ![Downloads](https://img.shields.io/crates/d/multicalc?style=flat-square)
-![github](https://github.com/kmolan/multicalc-rust/actions/workflows/build-tests.yml/badge.svg)
-![github](https://github.com/kmolan/multicalc-rust/actions/workflows/code-coverage.yml/badge.svg)
+[![CI](https://github.com/kmolan/multicalc-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/kmolan/multicalc-rust/actions/workflows/ci.yml)
 [![Docs](https://docs.rs/multicalc/badge.svg)](https://docs.rs/multicalc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 

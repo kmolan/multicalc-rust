@@ -26,7 +26,11 @@ fn main() {
     let (s, c) = (x.sin(), x.cos());
 
     println!("f(x) = x^2 sin(x)  at x = {x}");
-    report("f'", derivator.get(1, &f, x).unwrap(), 2.0 * x * s + x * x * c);
+    report(
+        "f'",
+        derivator.get(1, &f, x).unwrap(),
+        2.0 * x * s + x * x * c,
+    );
     report(
         "f''",
         derivator.get(2, &f, x).unwrap(),
@@ -61,7 +65,11 @@ fn main() {
     // d2g/dx2 = -y*sin(x)
     report("d2g/dx2", multi.get(&g, &[0, 0], &p).unwrap(), -2.0 * s);
     // mixed partial d(dg/dx)/dy = cos(x) - sin(y) + e^z
-    report("d2g/dx dy", multi.get(&g, &[0, 1], &p).unwrap(), c - sin2 + e3);
+    report(
+        "d2g/dx dy",
+        multi.get(&g, &[0, 1], &p).unwrap(),
+        c - sin2 + e3,
+    );
     // third-order mixed partial d2(dg/dy)/dx2 = -sin(x)
     report("d3g/dx2 dy", multi.get(&g, &[0, 0, 1], &p).unwrap(), -s);
 }

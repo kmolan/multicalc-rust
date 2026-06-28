@@ -6,9 +6,8 @@ use rand::Rng;
 #[test]
 fn test_linear_approximation_1() {
     //function is x + y^2 + z^3, which we want to linearize
-    let function_to_approximate = |args: &[f64; 3]| -> f64 {
-        return args[0] + args[1].powf(2.0) + args[2].powf(3.0);
-    };
+    let function_to_approximate =
+        |args: &[f64; 3]| -> f64 { args[0] + args[1].powf(2.0) + args[2].powf(3.0) };
 
     let point = [1.0, 2.0, 3.0]; //the point we want to linearize around
 
@@ -22,9 +21,9 @@ fn test_linear_approximation_1() {
     let mut prediction_points = [[0.0; 3]; 1000];
     let mut random_generator = rand::thread_rng();
 
-    for iter in 0..1000 {
+    for p in &mut prediction_points {
         let noise = random_generator.gen_range(-0.1..0.1);
-        prediction_points[iter] = [point[0] + noise, point[1] + noise, point[2] + noise];
+        *p = [point[0] + noise, point[1] + noise, point[2] + noise];
     }
 
     let prediction_metrics =
@@ -40,11 +39,10 @@ fn test_linear_approximation_1() {
 #[test]
 fn test_quadratic_approximation_1() {
     //function is e^(x/2) + sin(y) + 2.0*z
-    let function_to_approximate = |args: &[f64; 3]| -> f64 {
-        return f64::exp(args[0] / 2.0) + f64::sin(args[1]) + 2.0 * args[2];
-    };
+    let function_to_approximate =
+        |args: &[f64; 3]| -> f64 { f64::exp(args[0] / 2.0) + f64::sin(args[1]) + 2.0 * args[2] };
 
-    let point = [0.0, 3.14 / 2.0, 10.0]; //the point we want to approximate around
+    let point = [0.0, core::f64::consts::FRAC_PI_2, 10.0]; //the point we want to approximate around
 
     let approximator = QuadraticApproximator::<FiniteDifferenceMulti>::default();
 
@@ -57,9 +55,9 @@ fn test_quadratic_approximation_1() {
     let mut prediction_points = [[0.0; 3]; 1000];
     let mut random_generator = rand::thread_rng();
 
-    for iter in 0..1000 {
+    for p in &mut prediction_points {
         let noise = random_generator.gen_range(-0.1..0.1);
-        prediction_points[iter] = [0.0 + noise, (3.14 / 2.0) + noise, 10.0 + noise];
+        *p = [noise, core::f64::consts::FRAC_PI_2 + noise, 10.0 + noise];
     }
 
     let prediction_metrics =
@@ -86,9 +84,7 @@ fn test_linear_approximation_exact() {
 
     //prediction matches the truth away from the base point, not just at it
     let elsewhere = [4.0, -1.0, 0.5];
-    assert!(
-        f64::abs(function_to_approximate(&elsewhere) - result.predict(&elsewhere)) < 1e-6
-    );
+    assert!(f64::abs(function_to_approximate(&elsewhere) - result.predict(&elsewhere)) < 1e-6);
 
     //metrics on a spread of points where the truth genuinely varies
     let mut prediction_points = [[0.0; 3]; 10];

@@ -13,10 +13,15 @@ pub struct LinearApproximation<const NUM_VARS: usize> {
 /// Goodness-of-fit metrics for a [`LinearApproximation`] over a set of sample points.
 #[derive(Debug, Clone, Copy)]
 pub struct LinearApproximationPredictionMetrics {
+    /// Mean absolute error.
     pub mean_absolute_error: f64,
+    /// Mean squared error.
     pub mean_squared_error: f64,
+    /// Root mean squared error.
     pub root_mean_squared_error: f64,
+    /// Coefficient of determination; `NaN` when the truth is constant over the points.
     pub r_squared: f64,
+    /// R² adjusted for the number of predictors; `NaN` when there are too few points.
     pub adjusted_r_squared: f64,
 }
 
@@ -24,8 +29,8 @@ impl<const NUM_VARS: usize> LinearApproximation<NUM_VARS> {
     /// Evaluates the approximation at `x`.
     pub fn predict(&self, x: &[f64; NUM_VARS]) -> f64 {
         let mut result = self.value;
-        for i in 0..NUM_VARS {
-            result += self.gradient[i] * (x[i] - self.point[i]);
+        for ((&g, &xi), &pi) in self.gradient.iter().zip(x).zip(&self.point) {
+            result += g * (xi - pi);
         }
         result
     }
@@ -76,6 +81,8 @@ impl<const NUM_VARS: usize> LinearApproximation<NUM_VARS> {
     }
 }
 
+/// Builds a [`LinearApproximation`] of a function, using any derivator that implements
+/// [`DerivatorMultiVariable`].
 pub struct LinearApproximator<D: DerivatorMultiVariable> {
     derivator: D,
 }
@@ -89,6 +96,7 @@ impl<D: DerivatorMultiVariable + Default> Default for LinearApproximator<D> {
 }
 
 impl<D: DerivatorMultiVariable> LinearApproximator<D> {
+    /// Builds an approximator from an explicit derivator.
     pub fn from_derivator(derivator: D) -> Self {
         LinearApproximator { derivator }
     }
@@ -124,8 +132,8 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D> {
         let value = function(point);
 
         let mut gradient = [0.0; NUM_VARS];
-        for i in 0..NUM_VARS {
-            gradient[i] = self.derivator.get_single_partial(function, i, point)?;
+        for (i, slot) in gradient.iter_mut().enumerate() {
+            *slot = self.derivator.get_single_partial(function, i, point)?;
         }
 
         Ok(LinearApproximation {

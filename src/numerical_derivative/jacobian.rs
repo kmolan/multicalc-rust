@@ -64,13 +64,11 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
 
         let mut result = [[0.0; NUM_VARS]; NUM_FUNCS];
 
-        for row_index in 0..NUM_FUNCS {
-            for col_index in 0..NUM_VARS {
-                result[row_index][col_index] = self.derivator.get_single_partial(
-                    &function_matrix[row_index],
-                    col_index,
-                    vector_of_points,
-                )?;
+        for (func, row) in function_matrix.iter().zip(result.iter_mut()) {
+            for (col_index, slot) in row.iter_mut().enumerate() {
+                *slot = self
+                    .derivator
+                    .get_single_partial(func, col_index, vector_of_points)?;
             }
         }
 
@@ -93,27 +91,24 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     #[cfg(feature = "alloc")]
     pub fn get_on_heap<const NUM_VARS: usize>(
         &self,
-        function_matrix: &Vec<Box<dyn Fn(&[f64; NUM_VARS]) -> f64>>,
+        function_matrix: &[Box<dyn Fn(&[f64; NUM_VARS]) -> f64>],
         vector_of_points: &[f64; NUM_VARS],
     ) -> Result<Vec<Vec<f64>>, CalcError> {
         if function_matrix.is_empty() {
             return Err(CalcError::EmptyFunctionSet);
         }
 
-        let num_funcs = function_matrix.len();
-
         let mut result: Vec<Vec<f64>> = Vec::new();
 
-        for row_index in 0..num_funcs {
+        for func in function_matrix {
             let mut cur_row: Vec<f64> = Vec::new();
             for col_index in 0..NUM_VARS {
                 cur_row.push(self.derivator.get_single_partial(
-                    &function_matrix[row_index],
+                    func,
                     col_index,
                     vector_of_points,
                 )?);
             }
-
             result.push(cur_row);
         }
 
