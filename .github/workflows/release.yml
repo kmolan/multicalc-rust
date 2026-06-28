@@ -63,6 +63,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      # write the notes OUTSIDE the repo so `cargo publish`'s clean-tree check still passes
       - name: Extract release notes for this version
         run: |
           awk -v ver="${{ needs.prepare.outputs.version }}" '
@@ -70,17 +71,19 @@ jobs:
             capture && /^## \[/ { exit }
             capture && /^\[.*\]:/ { exit }
             capture { print }
-          ' CHANGELOG.md > RELEASE_NOTES.md
-          cat RELEASE_NOTES.md
+          ' CHANGELOG.md > "$RUNNER_TEMP/RELEASE_NOTES.md"
+          cat "$RUNNER_TEMP/RELEASE_NOTES.md"
 
       # publish BEFORE tagging: a crates.io version is immutable, so the tag should
       # only appear once the publish has succeeded
       - name: Publish to crates.io
-        run: cargo publish --token "${{ secrets.CARGO_REGISTRY_TOKEN }}"
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish
 
       - name: Tag and create the GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.prepare.outputs.version }}
           name: v${{ needs.prepare.outputs.version }}
-          body_path: RELEASE_NOTES.md
+          body_path: ${{ runner.temp }}/RELEASE_NOTES.md
