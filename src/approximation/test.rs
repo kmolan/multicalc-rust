@@ -1,6 +1,6 @@
 use crate::approximation::linear_approximation::*;
 use crate::approximation::quadratic_approximation::*;
-use crate::numerical_derivative::finite_difference::MultiVariableSolver;
+use crate::numerical_derivative::finite_difference::FiniteDifferenceMulti;
 use rand::Rng;
 
 #[test]
@@ -12,10 +12,10 @@ fn test_linear_approximation_1() {
 
     let point = [1.0, 2.0, 3.0]; //the point we want to linearize around
 
-    let approximator = LinearApproximator::<MultiVariableSolver>::default();
+    let approximator = LinearApproximator::<FiniteDifferenceMulti>::default();
 
     let result = approximator.get(&function_to_approximate, &point).unwrap();
-    assert!(f64::abs(function_to_approximate(&point) - result.get_prediction_value(&point)) < 1e-9);
+    assert!(f64::abs(function_to_approximate(&point) - result.predict(&point)) < 1e-9);
 
     //now test the prediction metrics. For prediction, generate a list of 1000 points, all centered around the original point
     //with random noise between [-0.1, +0.1)
@@ -46,11 +46,11 @@ fn test_quadratic_approximation_1() {
 
     let point = [0.0, 3.14 / 2.0, 10.0]; //the point we want to approximate around
 
-    let approximator = QuadraticApproximator::<MultiVariableSolver>::default();
+    let approximator = QuadraticApproximator::<FiniteDifferenceMulti>::default();
 
     let result = approximator.get(&function_to_approximate, &point).unwrap();
 
-    assert!(f64::abs(function_to_approximate(&point) - result.get_prediction_value(&point)) < 1e-9);
+    assert!(f64::abs(function_to_approximate(&point) - result.predict(&point)) < 1e-9);
 
     //now test the prediction metrics. For prediction, generate a list of 1000 points, all centered around the original point
     //with random noise between [-0.1, +0.1)
