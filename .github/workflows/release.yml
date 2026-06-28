@@ -1,0 +1,68 @@
+name: Release
+
+# Publishes to crates.io and cuts a GitHub release when a Cargo.toml version bump
+# lands on main. Non-version edits and re-runs are no-ops (guarded on the tag).
+on:
+  push:
+    branches: [main]
+    paths: ['Cargo.toml']
+  workflow_dispatch:
+
+# never cancel an in-flight publish
+concurrency: release
+
+permissions:
+  contents: write # create the tag + GitHub release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need tags to detect an already-released version
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Resolve version from Cargo.toml
+        id: v
+        run: echo "version=$(cargo metadata --no-deps --format-version=1 | jq -r '.packages[0].version')" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if this version is already tagged
+        id: tag
+        run: |
+          if git rev-parse "v${{ steps.v.outputs.version }}" >/dev/null 2>&1; then
+            echo "new=false" >> "$GITHUB_OUTPUT"
+            echo "v${{ steps.v.outputs.version }} already exists - nothing to release"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Require a changelog entry
+        if: steps.tag.outputs.new == 'true'
+        run: grep -q "^## \[${{ steps.v.outputs.version }}\]" CHANGELOG.md
+
+      - name: Extract release notes for this version
+        if: steps.tag.outputs.new == 'true'
+        run: |
+          awk -v ver="${{ steps.v.outputs.version }}" '
+            $0 ~ ("^## \\[" ver "\\]") { capture=1; next }
+            capture && /^## \[/ { exit }
+            capture && /^\[.*\]:/ { exit }
+            capture { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          cat RELEASE_NOTES.md
+
+      # publish BEFORE tagging: a crates.io version is immutable, so the tag should
+      # only appear once the publish has succeeded
+      - name: Publish to crates.io
+        if: steps.tag.outputs.new == 'true'
+        run: cargo publish --token "${{ secrets.CARGO_REGISTRY_TOKEN }}"
+
+      - name: Tag and create the GitHub release
+        if: steps.tag.outputs.new == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.v.outputs.version }}
+          name: v${{ steps.v.outputs.version }}
+          body_path: RELEASE_NOTES.md
