@@ -71,3 +71,35 @@ fn test_quadratic_approximation_1() {
     assert!(prediction_metrics.r_squared > 0.9999);
     assert!(prediction_metrics.adjusted_r_squared > 0.9999);
 }
+
+#[test]
+fn test_linear_approximation_exact() {
+    //an exactly-linear truth: 2x + 3y - z + 5. The linear approximation is exact
+    //everywhere, so the fit is perfect (R² == 1, near-zero error).
+    let function_to_approximate =
+        |args: &[f64; 3]| -> f64 { 2.0 * args[0] + 3.0 * args[1] - args[2] + 5.0 };
+
+    let point = [1.0, 2.0, 3.0];
+
+    let approximator = LinearApproximator::<FiniteDifferenceMulti>::default();
+    let result = approximator.get(&function_to_approximate, &point).unwrap();
+
+    //prediction matches the truth away from the base point, not just at it
+    let elsewhere = [4.0, -1.0, 0.5];
+    assert!(
+        f64::abs(function_to_approximate(&elsewhere) - result.predict(&elsewhere)) < 1e-6
+    );
+
+    //metrics on a spread of points where the truth genuinely varies
+    let mut prediction_points = [[0.0; 3]; 10];
+    for (iter, p) in prediction_points.iter_mut().enumerate() {
+        let s = iter as f64;
+        *p = [1.0 + s, 2.0 - s, 3.0 + 0.5 * s];
+    }
+
+    let metrics = result.get_prediction_metrics(&prediction_points, &function_to_approximate);
+    assert!(metrics.mean_absolute_error < 1e-6);
+    assert!(metrics.root_mean_squared_error < 1e-6);
+    assert!(f64::abs(metrics.r_squared - 1.0) < 1e-6);
+    assert!(f64::abs(metrics.adjusted_r_squared - 1.0) < 1e-6);
+}

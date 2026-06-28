@@ -415,3 +415,173 @@ fn test_error_checking_4() {
     assert!(result.is_err());
     assert!(result.unwrap_err() == CalcError::QuadratureOrderOutOfRange);
 }
+
+#[test]
+fn test_gauss_hermite_single() {
+    //integrand is x*x; weights carry the e^{-x*x} kernel
+    //∫_{-∞}^∞ x² e^{-x²} dx = √π / 2
+    let func = |x: f64| -> f64 {
+        return x * x;
+    };
+
+    let integrator = gaussian_integration::GaussianSingle::from_parameters(
+        5,
+        GaussianQuadratureMethod::GaussHermite,
+    );
+
+    let integration_limit = [f64::NEG_INFINITY, f64::INFINITY];
+    let val = integrator.get_single(&func, &integration_limit).unwrap();
+
+    let expected = core::f64::consts::PI.sqrt() / 2.0;
+    assert!(f64::abs(val - expected) < 1e-10);
+}
+
+#[test]
+fn test_gauss_laguerre_single() {
+    //integrand is x*x; weights carry the e^{-x} kernel
+    //∫_0^∞ x² e^{-x} dx = 2
+    let func = |x: f64| -> f64 {
+        return x * x;
+    };
+
+    let integrator = gaussian_integration::GaussianSingle::from_parameters(
+        5,
+        GaussianQuadratureMethod::GaussLaguerre,
+    );
+
+    let integration_limit = [0.0, f64::INFINITY];
+    let val = integrator.get_single(&func, &integration_limit).unwrap();
+
+    assert!(f64::abs(val - 2.0) < 1e-9);
+}
+
+#[test]
+fn test_gauss_hermite_multivariable() {
+    //∫∫ x² y² e^{-x²} e^{-y²} dx dy = (√π/2)²
+    let func = |args: &[f64; 2]| -> f64 {
+        return args[0] * args[0] * args[1] * args[1];
+    };
+
+    let integrator = gaussian_integration::GaussianMulti::from_parameters(
+        5,
+        GaussianQuadratureMethod::GaussHermite,
+    );
+
+    let integration_limits = [
+        [f64::NEG_INFINITY, f64::INFINITY],
+        [f64::NEG_INFINITY, f64::INFINITY],
+    ];
+    let point = [0.0, 0.0];
+    let val = integrator
+        .get([0, 1], &func, &integration_limits, &point)
+        .unwrap();
+
+    let sqrt_pi_half = core::f64::consts::PI.sqrt() / 2.0;
+    assert!(f64::abs(val - sqrt_pi_half * sqrt_pi_half) < 1e-10);
+}
+
+#[test]
+fn test_gauss_laguerre_multivariable() {
+    //∫∫ x² y² e^{-x} e^{-y} dx dy = 2 * 2 = 4
+    let func = |args: &[f64; 2]| -> f64 {
+        return args[0] * args[0] * args[1] * args[1];
+    };
+
+    let integrator = gaussian_integration::GaussianMulti::from_parameters(
+        5,
+        GaussianQuadratureMethod::GaussLaguerre,
+    );
+
+    let integration_limits = [[0.0, f64::INFINITY], [0.0, f64::INFINITY]];
+    let point = [0.0, 0.0];
+    let val = integrator
+        .get([0, 1], &func, &integration_limits, &point)
+        .unwrap();
+
+    assert!(f64::abs(val - 4.0) < 1e-8);
+}
+
+#[test]
+fn test_iterative_infinite_gaussian() {
+    //∫_{-∞}^∞ e^{-x²} dx = √π
+    let func = |x: f64| -> f64 {
+        return f64::exp(-x * x);
+    };
+
+    let integrator = iterative_integration::IterativeSingle::default();
+
+    let integration_limit = [f64::NEG_INFINITY, f64::INFINITY];
+    let val = integrator.get_single(&func, &integration_limit).unwrap();
+
+    assert!(f64::abs(val - core::f64::consts::PI.sqrt()) < 1e-3);
+}
+
+#[test]
+fn test_iterative_semi_infinite_exp() {
+    //∫_0^∞ e^{-x} dx = 1
+    let func = |x: f64| -> f64 {
+        return f64::exp(-x);
+    };
+
+    let integrator = iterative_integration::IterativeSingle::default();
+
+    let integration_limit = [0.0, f64::INFINITY];
+    let val = integrator.get_single(&func, &integration_limit).unwrap();
+
+    assert!(f64::abs(val - 1.0) < 1e-3);
+}
+
+#[test]
+fn test_iterative_semi_infinite_inverse_square() {
+    //∫_1^∞ x^{-2} dx = 1
+    let func = |x: f64| -> f64 {
+        return 1.0 / (x * x);
+    };
+
+    let integrator = iterative_integration::IterativeSingle::default();
+
+    let integration_limit = [1.0, f64::INFINITY];
+    let val = integrator.get_single(&func, &integration_limit).unwrap();
+
+    assert!(f64::abs(val - 1.0) < 1e-3);
+}
+
+#[test]
+fn test_iterative_negative_limits() {
+    //∫_{-2}^{1} 2x dx = x² evaluated from -2 to 1 = 1 - 4 = -3
+    let func = |x: f64| -> f64 {
+        return 2.0 * x;
+    };
+
+    let integrator = iterative_integration::IterativeSingle::default();
+
+    let integration_limit = [-2.0, 1.0];
+    let val = integrator.get_single(&func, &integration_limit).unwrap();
+
+    assert!(f64::abs(val - (-3.0)) < 1e-9);
+}
+
+#[test]
+fn test_composite_rule_degree_3_polynomial() {
+    //a degree-3 integrand exposes composite-rule divisibility (a linear one would be exact
+    //under every rule and hide it). ∫_0^2 x³ dx = 4
+    let func = |x: f64| -> f64 {
+        return x * x * x;
+    };
+
+    let integration_limit = [0.0, 2.0];
+
+    //120 is a multiple of 3, so Simpson's 3/8 is exact for cubics here
+    let simpson = iterative_integration::IterativeSingle::from_parameters(
+        120,
+        IterativeMethod::Simpsons,
+    );
+    let val = simpson.get_single(&func, &integration_limit).unwrap();
+    assert!(f64::abs(val - 4.0) < 1e-9);
+
+    //120 is a multiple of 4, so Boole's rule is exact too
+    let boole =
+        iterative_integration::IterativeSingle::from_parameters(120, IterativeMethod::Booles);
+    let val = boole.get_single(&func, &integration_limit).unwrap();
+    assert!(f64::abs(val - 4.0) < 1e-9);
+}
