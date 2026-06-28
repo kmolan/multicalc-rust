@@ -138,39 +138,35 @@ impl GaussianSingle {
 }
 
 impl IntegratorSingleVariable for GaussianSingle {
-    /// returns the gaussian quadrature numerical integration for a single variable equation
-    /// func: the equation to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
+    /// Integrates `func` by Gaussian quadrature, once for each limit in `integration_limit`
+    /// (so the array length sets the number of integrations).
     ///
-    /// The number of integrations equals the length of `integration_limit`. The integrand
-    /// is passed bare; the tabulated weights carry the implicit weighting function:
-    /// - GaussLegendre: `∫_a^b f(x) dx`
-    /// - GaussHermite:  `∫_{-∞}^∞ f(x) e^{-x²} dx ≈ Σ wᵢ f(xᵢ)`
-    /// - GaussLaguerre: `∫_0^∞ f(x) e^{-x} dx ≈ Σ wᵢ f(xᵢ)`
+    /// The integrand is passed bare; the tabulated weights carry the implicit weighting
+    /// function, and each method has a fixed domain:
+    /// - `GaussLegendre`: a finite `[a, b]`, computing `∫_a^b f(x) dx`.
+    /// - `GaussHermite`: `[f64::NEG_INFINITY, f64::INFINITY]`, computing `∫ f(x) e^{-x²} dx`.
+    /// - `GaussLaguerre`: `[0.0, f64::INFINITY]`, computing `∫_0^∞ f(x) e^{-x} dx`.
     ///
-    /// NOTE: Returns a Result<f64, CalcError>, where possible Err are:
-    /// CalcError::QuadratureOrderOutOfRange -> if the chosen number of nodes/order is out of supported range
-    /// CalcError::IntegrationLimitsIllDefined -> if any limit does not match the method's domain
+    /// # Arguments
+    /// * `func` - the bare integrand `f(x)`.
+    /// * `integration_limit` - the limit for each level of integration; each must match the
+    ///   method's fixed domain.
     ///
-    /// assume we want to integrate f(x) = 4.0*x*x*x - 3.0*x*x. the function would be:
+    /// # Errors
+    /// [`CalcError::QuadratureOrderOutOfRange`] if the configured order is unsupported, or
+    /// [`CalcError::IntegrationLimitsIllDefined`] if any limit does not match the method's domain.
+    ///
+    /// # Examples
     /// ```
-    ///    let my_func = | arg: f64 | -> f64
-    ///    {
-    ///        return 4.0*arg*arg*arg - 3.0*arg*arg;
-    ///    };
-    ///
     /// use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
     /// use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
     ///
+    /// // Gauss-Legendre is exact for polynomials: integral of 4x^3 - 3x^2 over [0, 2] is 8
+    /// let my_func = |x: f64| 4.0 * x * x * x - 3.0 * x * x;
     /// let integrator = GaussianSingle::default();
-    /// let integration_limit = [[0.0, 2.0]; 1];
-    /// let val = integrator.get(&my_func, &integration_limit).unwrap(); //single integration
+    /// let val = integrator.get(&my_func, &[[0.0, 2.0]; 1]).unwrap();
     /// assert!(f64::abs(val - 8.0) < 1e-7);
-    ///
-    /// let integration_limit = [[0.0, 2.0], [-1.0, 1.0]];
-    /// let val = integrator.get(&my_func, &integration_limit).unwrap(); //double integration
-    /// assert!(f64::abs(val - 16.0) < 1e-7);
-    ///```
+    /// ```
     fn get<F: Fn(f64) -> f64, const NUM_INTEGRATIONS: usize>(
         &self,
         func: &F,
@@ -288,38 +284,37 @@ impl GaussianMulti {
 }
 
 impl IntegratorMultiVariable for GaussianMulti {
-    /// returns the gaussian quadrature numerical integration for a multi-variable equation
-    /// idx_to_integrate: the variables' index/indices that needs to be integrated
-    /// func: the equation to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
-    /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
+    /// Partially integrates `func` by Gaussian quadrature over the variables in
+    /// `idx_to_integrate`, once for each limit in `integration_limits` (so the array length
+    /// sets the number of integrations).
     ///
-    /// The number of integrations equals the length of `integration_limits`. The integrand
-    /// is passed bare; the tabulated weights carry the implicit weighting function (see
-    /// [`GaussianSingle`] for the per-method integral forms).
+    /// The integrand is passed bare; the tabulated weights carry the implicit weighting
+    /// function (see [`GaussianSingle`] for the per-method domains and integral forms).
     ///
-    /// NOTE: Returns a Result<f64, CalcError>, where possible Err are:
-    /// CalcError::QuadratureOrderOutOfRange -> if the chosen number of nodes/order is out of supported range
-    /// CalcError::IntegrationLimitsIllDefined -> if any limit does not match the method's domain
+    /// # Arguments
+    /// * `idx_to_integrate` - the variable index integrated at each level.
+    /// * `func` - the bare integrand.
+    /// * `integration_limits` - the limit for each level; each must match the method's domain.
+    /// * `point` - the value of every variable. A variable being integrated holds its final
+    ///   upper limit; a variable held constant holds that constant.
     ///
-    /// assume we want to integrate f(x,y,z) = 2.0*x + y*z. the function would be:
+    /// # Errors
+    /// [`CalcError::QuadratureOrderOutOfRange`] if the configured order is unsupported, or
+    /// [`CalcError::IntegrationLimitsIllDefined`] if any limit does not match the method's domain.
+    ///
+    /// # Examples
     /// ```
-    ///    let my_func = | args: &[f64; 3] | -> f64
-    ///    {
-    ///        return 2.0*args[0] + args[1]*args[2];
-    ///    };
-    ///
     /// use multicalc::numerical_integration::integrator::IntegratorMultiVariable;
     /// use multicalc::numerical_integration::gaussian_integration::GaussianMulti;
     ///
+    /// // f(x, y, z) = 2x + yz, integrated over x in [0, 1] with (y, z) = (2, 3); result is 7
+    /// let my_func = |args: &[f64; 3]| 2.0 * args[0] + args[1] * args[2];
     /// let integrator = GaussianMulti::default();
     /// let point = [1.0, 2.0, 3.0];
     ///
-    /// let integration_limit = [[0.0, 1.0]; 1];
-    /// let val = integrator.get([0; 1], &my_func, &integration_limit, &point).unwrap(); //single integration for x
+    /// let val = integrator.get([0; 1], &my_func, &[[0.0, 1.0]; 1], &point).unwrap();
     /// assert!(f64::abs(val - 7.0) < 1e-7);
-    ///
-    ///```
+    /// ```
     fn get<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
         &self,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],

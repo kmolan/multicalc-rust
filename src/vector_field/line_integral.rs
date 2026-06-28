@@ -50,35 +50,33 @@ fn get_partial<const N: usize>(
     Ok(ans)
 }
 
-///solves for the line integral for parametrized curves in a 2D vector field
+/// Computes the line integral of a 2D vector field along a parametrized curve.
 ///
-/// NOTE: Returns a Result<_, CalcError>
-/// Possible CalcError are:
-/// CalcError::IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
+/// The curve is described by a parameter `t`: the transforms map `t` to each coordinate, and
+/// the field is sampled at the resulting curve position. Uses the default iteration count;
+/// see [`get_2d_custom`] to set it.
 ///
-/// assume a vector field, V, and a curve, C
-/// V is characterized in 2 dimensions, Vx and Vy
-/// C is parameterized by a single variable, say, "t".
-/// We also need a transformation to go t->x and t->y
-/// The line integral limits are also based on this parameter t
+/// # Arguments
+/// * `vector_field` - the two field components, each taking the curve position `[x, y]`.
+/// * `transformations` - the two transforms mapping `t` to `x` and to `y`.
+/// * `integration_limit` - the `[lower, upper]` range of the parameter `t`.
 ///
-/// [vector_field] is an array of 2 elements. Each element takes the curve position [x, y] and returns that axis' contribution
-/// [transformations] is an array of 2 elements. The 0th element contains the transformation from t->x, and 1st element for t->y
-/// [integration_limit] is the limit parameter 't' goes to
+/// # Errors
+/// [`CalcError::IntegrationLimitsIllDefined`] if the lower limit is not strictly less than the
+/// upper limit.
 ///
-/// Example:
-/// Assume we have a vector field (y, -x)
-/// The curve is a unit circle, parameterized by (Cos(t), Sin(t)), such that t goes from 0->2*pi
+/// # Examples
 /// ```
 /// use multicalc::vector_field::line_integral;
-/// let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [&(|args:&[f64; 2]|-> f64 { args[1] }), &(|args:&[f64; 2]|-> f64 { -args[0] })];
 ///
-/// let transformation_matrix: [&dyn Fn(f64) -> f64; 2] = [&(|t:f64|->f64 { t.cos() }), &(|t:f64|->f64 { t.sin() })];
+/// // the field (y, -x) along the unit circle (cos t, sin t), for t in [0, 2*pi]
+/// let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] =
+///     [&(|args: &[f64; 2]| args[1]), &(|args: &[f64; 2]| -args[0])];
+/// let transformation_matrix: [&dyn Fn(f64) -> f64; 2] =
+///     [&(|t: f64| t.cos()), &(|t: f64| t.sin())];
 ///
-/// let integration_limit = [0.0, 6.28];
-///
-/// //line integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of -2.0*pi
-/// let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &integration_limit).unwrap();
+/// let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &[0.0, 6.28]).unwrap();
+/// // the line integral is -2*pi
 /// assert!(f64::abs(val + 6.28) < 0.01);
 /// ```
 pub fn get_2d(
@@ -94,11 +92,12 @@ pub fn get_2d(
     )
 }
 
-///same as [get_2d()] but with the option to change the total iterations used, reserved for more advanced user
-/// NOTE: Returns a Result<_, CalcError>
-/// Possible CalcError are:
-/// CalcError::IterationsZero -> if the number of steps is zero
-/// CalcError::IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
+/// Same as [`get_2d`] but with an explicit iteration count for finer control.
+///
+/// # Errors
+/// [`CalcError::IterationsZero`] if `total_iterations` is zero, or
+/// [`CalcError::IntegrationLimitsIllDefined`] if the lower limit is not strictly less than the
+/// upper limit.
 pub fn get_2d_custom(
     vector_field: &[&dyn Fn(&[f64; 2]) -> f64; 2],
     transformations: &[&dyn Fn(f64) -> f64; 2],
@@ -111,10 +110,13 @@ pub fn get_2d_custom(
     )
 }
 
-/// NOTE: Returns a Result<_, CalcError>
-/// Possible CalcError are:
-/// CalcError::IterationsZero -> if the number of steps is zero
-/// CalcError::IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
+/// Line integral of a single field component (`idx`) along the 2D curve. Used by both
+/// [`get_2d_custom`] and the flux integral.
+///
+/// # Errors
+/// [`CalcError::IterationsZero`] if `total_iterations` is zero, or
+/// [`CalcError::IntegrationLimitsIllDefined`] if the lower limit is not strictly less than the
+/// upper limit.
 pub fn get_partial_2d(
     vector_field: &[&dyn Fn(&[f64; 2]) -> f64; 2],
     transformations: &[&dyn Fn(f64) -> f64; 2],
@@ -125,11 +127,12 @@ pub fn get_partial_2d(
     get_partial(vector_field, transformations, integration_limit, total_iterations, idx)
 }
 
-///same as [`get_2d`] but for parametrized curves in a 3D vector field
-/// NOTE: Returns a Result<_, CalcError>
-/// Possible CalcError are:
-/// CalcError::IterationsZero -> if the number of steps is zero
-/// CalcError::IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
+/// Same as [`get_2d`] but for a parametrized curve in a 3D vector field. Uses the default
+/// iteration count; see [`get_3d_custom`] to set it.
+///
+/// # Errors
+/// [`CalcError::IntegrationLimitsIllDefined`] if the lower limit is not strictly less than the
+/// upper limit.
 pub fn get_3d(
     vector_field: &[&dyn Fn(&[f64; 3]) -> f64; 3],
     transformations: &[&dyn Fn(f64) -> f64; 3],
@@ -143,11 +146,12 @@ pub fn get_3d(
     )
 }
 
-///same as [get_3d()] but with the option to change the total iterations used, reserved for more advanced user
-/// NOTE: Returns a Result<_, CalcError>
-/// Possible CalcError are:
-/// CalcError::IterationsZero -> if the number of steps is zero
-/// CalcError::IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
+/// Same as [`get_3d`] but with an explicit iteration count for finer control.
+///
+/// # Errors
+/// [`CalcError::IterationsZero`] if `total_iterations` is zero, or
+/// [`CalcError::IntegrationLimitsIllDefined`] if the lower limit is not strictly less than the
+/// upper limit.
 pub fn get_3d_custom(
     vector_field: &[&dyn Fn(&[f64; 3]) -> f64; 3],
     transformations: &[&dyn Fn(f64) -> f64; 3],
@@ -161,10 +165,13 @@ pub fn get_3d_custom(
     )
 }
 
-/// NOTE: Returns a Result<_, CalcError>
-/// Possible CalcError are:
-/// CalcError::IterationsZero -> if the number of steps is zero
-/// CalcError::IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
+/// Line integral of a single field component (`idx`) along the 3D curve. Used by both
+/// [`get_3d_custom`] and the flux integral.
+///
+/// # Errors
+/// [`CalcError::IterationsZero`] if `total_iterations` is zero, or
+/// [`CalcError::IntegrationLimitsIllDefined`] if the lower limit is not strictly less than the
+/// upper limit.
 pub fn get_partial_3d(
     vector_field: &[&dyn Fn(&[f64; 3]) -> f64; 3],
     transformations: &[&dyn Fn(f64) -> f64; 3],

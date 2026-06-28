@@ -103,6 +103,13 @@ pub trait IntegratorMultiVariable {
     /// Generic n-th partial integration of a multi variable function. The number of
     /// integrations equals the length of `integration_limits`.
     ///
+    /// # Arguments
+    /// * `idx_to_integrate` - the variable index integrated at each level.
+    /// * `func` - the function to integrate.
+    /// * `integration_limits` - the limit for each level of integration.
+    /// * `point` - the value of every variable. A variable being integrated holds its final
+    ///   upper limit; a variable held constant holds that constant.
+    ///
     /// # Errors
     /// [`CalcError::IterationsZero`] if the configured iteration count is zero, or
     /// [`CalcError::IntegrationLimitsIllDefined`] if any limit is ill-defined.

@@ -1,18 +1,22 @@
+/// The composite rule used by the iterative integrators.
 #[derive(Debug, Clone, Copy)]
 pub enum IterativeMethod {
-    Booles, //Highly accurate, but needs more iterations than the trapezoidal method. Good generalist method, but trapezoidal outperforms in most cases
-    Simpsons, //Least accurate. Needs a huge number of iterations to match other methods listed here
-    Trapezoidal, //Highly accuracate, do not need to do many iterations, best generalist out of all options
+    /// Highest-order rule here; the most accurate generalist for smooth integrands.
+    Booles,
+    /// Intermediate order and accuracy.
+    Simpsons,
+    /// Lowest order; simplest and a solid generalist.
+    Trapezoidal,
 }
 
+/// The Gaussian quadrature family used by the integrators. Each is most accurate for
+/// polynomial-like integrands over its fixed domain.
 #[derive(Debug, Clone, Copy)]
 pub enum GaussianQuadratureMethod {
-    //Extremely accurate, but only recommended for polynomial equations. A specialist method with a narrow use case.
+    /// Integrates `f(x)` over a finite `[a, b]`.
     GaussLegendre,
-
-    //Extremely accurate, but only recommended for integrands of the form ∫exp(-X*X)*f(X), where f(X) is a polynomial equations.
+    /// Integrates `f(x) * e^{-x^2}` over the whole real line.
     GaussHermite,
-
-    //Extremely accurate, but only recommended for integrands of the form ∫exp(-X)*f(X), where f(X) is a polynomial equations.
+    /// Integrates `f(x) * e^{-x}` over `[0, +inf)`.
     GaussLaguerre,
 }

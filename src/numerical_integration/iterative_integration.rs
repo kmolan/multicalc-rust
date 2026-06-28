@@ -197,40 +197,41 @@ impl IterativeSingle {
 }
 
 impl IntegratorSingleVariable for IterativeSingle {
-    /// returns the numeric integration value for a single variable function
-    /// func: The function to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
+    /// Integrates `func`, once for each limit in `integration_limit` (so the array length
+    /// sets the number of integrations).
     ///
-    /// The number of integrations equals the length of `integration_limit`.
+    /// A limit may be finite, or use `f64::INFINITY` / `f64::NEG_INFINITY` for an infinite or
+    /// semi-infinite range. Infinite ranges are mapped onto a finite interval and are accurate
+    /// only for integrands that decay toward the infinite end.
     ///
-    /// NOTE: Returns a Result<f64, CalcError>, where possible Err are:
-    /// CalcError::IterationsZero -> if the configured iteration count is zero
-    /// CalcError::IntegrationLimitsIllDefined -> if any limit is ill-defined
+    /// # Arguments
+    /// * `func` - the function to integrate.
+    /// * `integration_limit` - the `[lower, upper]` limit for each level of integration.
     ///
-    /// assume we want to integrate 2*x . the function would be:
+    /// # Errors
+    /// [`CalcError::IterationsZero`] if the configured iteration count is zero, or
+    /// [`CalcError::IntegrationLimitsIllDefined`] if any limit is ill-defined.
+    ///
+    /// # Examples
     /// ```
-    ///    let my_func = | arg: f64 | -> f64
-    ///    {
-    ///        return 2.0*arg;
-    ///    };
-    ///
     /// use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
     /// use multicalc::numerical_integration::iterative_integration::IterativeSingle;
     ///
+    /// let my_func = |x: f64| 2.0 * x;
     /// let integrator = IterativeSingle::default();
     ///
-    /// let integration_limit = [[0.0, 2.0]; 1]; //desired integration limit
-    /// let val = integrator.get(&my_func, &integration_limit).unwrap(); //single integration
+    /// // single integration of 2x over [0, 2] is 4
+    /// let val = integrator.get(&my_func, &[[0.0, 2.0]; 1]).unwrap();
     /// assert!(f64::abs(val - 4.0) < 1e-6);
     ///
-    /// let integration_limit = [[0.0, 2.0], [-1.0, 1.0]]; //desired integration limits
-    /// let val = integrator.get(&my_func, &integration_limit).unwrap(); //double integration
+    /// // double integration over [0, 2] then [-1, 1] is 8
+    /// let val = integrator.get(&my_func, &[[0.0, 2.0], [-1.0, 1.0]]).unwrap();
     /// assert!(f64::abs(val - 8.0) < 1e-6);
     ///
-    /// let integration_limit = [[0.0, 2.0], [0.0, 2.0], [0.0, 2.0]]; //desired integration limits
-    /// let val = integrator.get(&my_func, &integration_limit).unwrap(); //triple integration
-    /// assert!(f64::abs(val - 16.0) < 1e-6);
-    ///```
+    /// // an infinite limit, for a decaying integrand: integral of e^(-x^2) over the real line is sqrt(pi)
+    /// let val = integrator.get(&|x| (-x * x).exp(), &[[f64::NEG_INFINITY, f64::INFINITY]]).unwrap();
+    /// assert!(f64::abs(val - std::f64::consts::PI.sqrt()) < 1e-6);
+    /// ```
     fn get<F: Fn(f64) -> f64, const NUM_INTEGRATIONS: usize>(
         &self,
         func: &F,
@@ -320,33 +321,31 @@ impl IterativeMulti {
 }
 
 impl IntegratorMultiVariable for IterativeMulti {
-    /// returns the numeric integration value for a multi-variable function
-    /// idx_to_integrate: the variables' index/indices that needs to be integrated
-    /// func: The function to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
-    /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
+    /// Partially integrates `func` over the variables in `idx_to_integrate`, once for each
+    /// limit in `integration_limits` (so the array length sets the number of integrations).
     ///
-    /// The number of integrations equals the length of `integration_limits`.
+    /// # Arguments
+    /// * `idx_to_integrate` - the variable index integrated at each level.
+    /// * `func` - the function to integrate.
+    /// * `integration_limits` - the `[lower, upper]` limit for each level of integration.
+    /// * `point` - the value of every variable. A variable being integrated holds its final
+    ///   upper limit; a variable held constant holds that constant.
     ///
-    /// NOTE: Returns a Result<f64, CalcError>, where possible Err are:
-    /// CalcError::IterationsZero -> if the configured iteration count is zero
-    /// CalcError::IntegrationLimitsIllDefined -> if any limit is ill-defined
+    /// # Errors
+    /// [`CalcError::IterationsZero`] if the configured iteration count is zero, or
+    /// [`CalcError::IntegrationLimitsIllDefined`] if any limit is ill-defined.
     ///
-    /// assume we want to integrate 2.0*x + y*z . the function would be:
+    /// # Examples
     /// ```
-    /// let func = | args: &[f64; 3] | -> f64
-    ///{
-    ///    return 2.0*args[0] + args[1]*args[2];
-    ///};
-    /// let point = [1.0, 2.0, 3.0];
-    ///
     /// use multicalc::numerical_integration::integrator::IntegratorMultiVariable;
     /// use multicalc::numerical_integration::iterative_integration::IterativeMulti;
     ///
+    /// // f(x, y, z) = 2x + yz, integrated over x in [0, 1] with (y, z) = (2, 3); result is 7
+    /// let func = |args: &[f64; 3]| 2.0 * args[0] + args[1] * args[2];
+    /// let point = [1.0, 2.0, 3.0];
     /// let integrator = IterativeMulti::default();
     ///
-    /// let integration_limit = [[0.0, 1.0]; 1]; //desired integation limit
-    /// let val = integrator.get([0; 1], &func, &integration_limit, &point).unwrap();
+    /// let val = integrator.get([0; 1], &func, &[[0.0, 1.0]; 1], &point).unwrap();
     /// assert!(f64::abs(val - 7.0) < 1e-6);
     /// ```
     fn get<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(

@@ -4,6 +4,8 @@ use crate::utils::error_codes::CalcError;
 #[cfg(feature = "alloc")]
 use alloc::{boxed::Box, vec::Vec};
 
+/// Computes the Jacobian matrix of a vector of multi-variable functions, using any
+/// derivator that implements [`DerivatorMultiVariable`].
 pub struct Jacobian<D: DerivatorMultiVariable> {
     derivator: D,
 }
@@ -17,49 +19,40 @@ impl<D: DerivatorMultiVariable + Default> Default for Jacobian<D> {
 }
 
 impl<D: DerivatorMultiVariable> Jacobian<D> {
-    ///custom constructor, optimal for fine tuning
-    /// You can create a custom multivariable derivator from this crate
-    /// or supply your own by implementing the base traits yourself
+    /// Builds a Jacobian from an explicit derivator. Use this to supply a custom derivator,
+    /// either one from this crate or your own implementation of [`DerivatorMultiVariable`].
     pub fn from_derivator(derivator: D) -> Self {
         Jacobian { derivator }
     }
 
-    /// Returns the jacobian matrix for a given vector of functions
-    /// Can handle multivariable functions of any order or complexity
+    /// Returns the Jacobian matrix of `function_matrix` evaluated at `vector_of_points`.
     ///
-    /// The 2-D matrix returned has the structure [[df1/dvar1, df1/dvar2, ... , df1/dvarN],
-    ///                                            [         ...              ],
-    ///                                            [dfM/dvar1, dfM/dvar2, ... , dfM/dvarN]]
+    /// The result has one row per function and one column per variable, so entry `[m][n]`
+    /// is `d(function m)/d(variable n)`.
     ///
-    /// where 'N' is the total number of variables, and 'M' is the total number of functions
+    /// # Arguments
+    /// * `function_matrix` - the functions whose partial derivatives form the rows.
+    /// * `vector_of_points` - the point at which the derivatives are taken.
     ///
-    /// NOTE: Returns a Result<_, CalcError>
-    /// Possible CalcError are:
-    /// CalcError::EmptyFunctionSet -> if function_matrix argument is an empty array
-    /// CalcError::StepSizeZero -> if the derivative step size is zero
+    /// # Errors
+    /// [`CalcError::EmptyFunctionSet`] if `function_matrix` is empty, or
+    /// [`CalcError::StepSizeZero`] if the derivator's step size is zero.
     ///
-    /// assume our function vector is (x*y*z ,  x^2 + y^2). First define both the functions
+    /// # Examples
     /// ```
     /// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
     /// use multicalc::numerical_derivative::jacobian::Jacobian;
-    ///    let my_func1 = | args: &[f64; 3] | -> f64
-    ///    {
-    ///        return args[0]*args[1]*args[2]; //x*y*z
-    ///    };
     ///
-    ///    let my_func2 = | args: &[f64; 3] | -> f64
-    ///    {
-    ///        return args[0].powf(2.0) + args[1].powf(2.0); //x^2 + y^2
-    ///    };
-    ///
-    /// //define the function vector
+    /// // the vector function (x*y*z, x^2 + y^2)
+    /// let my_func1 = |args: &[f64; 3]| args[0] * args[1] * args[2];
+    /// let my_func2 = |args: &[f64; 3]| args[0] * args[0] + args[1] * args[1];
     /// let function_matrix: [&dyn Fn(&[f64; 3]) -> f64; 2] = [&my_func1, &my_func2];
-    /// let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
     ///
     /// let jacobian = Jacobian::<FiniteDifferenceMulti>::default();
-    /// let result = jacobian.get(&function_matrix, &points).unwrap();
+    /// let result = jacobian.get(&function_matrix, &[1.0, 2.0, 3.0]).unwrap();
+    /// // result is [[6, 3, 2], [2, 4, 0]]
+    /// assert!(f64::abs(result[0][0] - 6.0) < 1e-6);
     /// ```
-    ///
     pub fn get<const NUM_FUNCS: usize, const NUM_VARS: usize>(
         &self,
         function_matrix: &[&dyn Fn(&[f64; NUM_VARS]) -> f64; NUM_FUNCS],
@@ -84,20 +77,19 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
         Ok(result)
     }
 
-    /// same as [Jacobian::get] but uses heap-allocated vectors to generate the jacobian matrix.
-    /// Useful when handling large datasets to avoid a stack overflow. To use, turn on the feature "alloc" (false by default)
-    /// Can handle multivariable functions of any order or complexity
+    /// Same as [`Jacobian::get`] but returns a heap-allocated `Vec<Vec<f64>>`, which avoids a
+    /// stack overflow on large inputs. Requires the `alloc` feature (off by default).
     ///
-    /// The 2-D matrix returned has the structure [[df1/dvar1, df1/dvar2, ... , df1/dvarN],
-    ///                                            [         ...              ],
-    ///                                            [dfM/dvar1, dfM/dvar2, ... , dfM/dvarN]]
+    /// The result has one row per function and one column per variable, so entry `[m][n]`
+    /// is `d(function m)/d(variable n)`.
     ///
-    /// where 'N' is the total number of variables, and 'M' is the total number of functions
+    /// # Arguments
+    /// * `function_matrix` - the functions whose partial derivatives form the rows.
+    /// * `vector_of_points` - the point at which the derivatives are taken.
     ///
-    /// NOTE: Returns a Result<_, CalcError>
-    /// Possible CalcError are:
-    /// CalcError::EmptyFunctionSet -> if function_matrix argument is an empty array
-    /// CalcError::StepSizeZero -> if the derivative step size is zero
+    /// # Errors
+    /// [`CalcError::EmptyFunctionSet`] if `function_matrix` is empty, or
+    /// [`CalcError::StepSizeZero`] if the derivator's step size is zero.
     #[cfg(feature = "alloc")]
     pub fn get_on_heap<const NUM_VARS: usize>(
         &self,
