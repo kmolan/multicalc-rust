@@ -31,9 +31,9 @@ use crate::utils::error_codes::CalcError;
 /// ```
 pub fn get_3d<D: DerivatorMultiVariable, const NUM_VARS: usize>(
     derivator: D,
-    vector_field: &[&dyn Fn(&[f64; NUM_VARS]) -> f64; 3],
-    point: &[f64; NUM_VARS],
-) -> Result<f64, CalcError> {
+    vector_field: &[&dyn Fn(&[D::Scalar; NUM_VARS]) -> D::Scalar; 3],
+    point: &[D::Scalar; NUM_VARS],
+) -> Result<D::Scalar, CalcError> {
     Ok(derivator.get_single_partial(&vector_field[0], 0, point)?
         + derivator.get_single_partial(&vector_field[1], 1, point)?
         + derivator.get_single_partial(&vector_field[2], 2, point)?)
@@ -68,9 +68,9 @@ pub fn get_3d<D: DerivatorMultiVariable, const NUM_VARS: usize>(
 /// ```
 pub fn get_2d<D: DerivatorMultiVariable, const NUM_VARS: usize>(
     derivator: D,
-    vector_field: &[&dyn Fn(&[f64; NUM_VARS]) -> f64; 2],
-    point: &[f64; NUM_VARS],
-) -> Result<f64, CalcError> {
+    vector_field: &[&dyn Fn(&[D::Scalar; NUM_VARS]) -> D::Scalar; 2],
+    point: &[D::Scalar; NUM_VARS],
+) -> Result<D::Scalar, CalcError> {
     Ok(derivator.get_single_partial(&vector_field[0], 0, point)?
         + derivator.get_single_partial(&vector_field[1], 1, point)?)
 }

@@ -1,6 +1,7 @@
 use crate::approximation::linear_approximation::*;
 use crate::approximation::quadratic_approximation::*;
 use crate::numerical_derivative::finite_difference::FiniteDifferenceMulti;
+use crate::numerical_derivative::mode::FiniteDifferenceMode;
 use rand::Rng;
 
 #[test]
@@ -98,4 +99,25 @@ fn test_linear_approximation_exact() {
     assert!(metrics.root_mean_squared_error < 1e-6);
     assert!(f64::abs(metrics.r_squared - 1.0) < 1e-6);
     assert!(f64::abs(metrics.adjusted_r_squared - 1.0) < 1e-6);
+}
+
+#[test]
+fn test_linear_approximation_f32() {
+    //exactly-linear truth 2x + 3y - z + 5; the linear model is exact up to f32 rounding
+    let truth = |args: &[f32; 3]| -> f32 { 2.0 * args[0] + 3.0 * args[1] - args[2] + 5.0 };
+
+    let point = [1.0, 2.0, 3.0];
+
+    //a larger step suits f32; the default 1e-5 cancels badly at single precision
+    let approximator = LinearApproximator::from_derivator(
+        FiniteDifferenceMulti::<f32>::from_parameters(0.01, FiniteDifferenceMode::Central, 10.0),
+    );
+    let result = approximator.get(&truth, &point).unwrap();
+
+    let nearby = [1.05, 2.05, 2.95];
+    let predicted = result.predict(&nearby);
+    assert!(
+        f32::abs(truth(&nearby) - predicted) < 1e-2,
+        "got {predicted}"
+    );
 }

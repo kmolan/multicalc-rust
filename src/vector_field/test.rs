@@ -1,4 +1,5 @@
 use crate::numerical_derivative::finite_difference::FiniteDifferenceMulti;
+use crate::numerical_derivative::mode::FiniteDifferenceMode;
 
 use crate::vector_field::curl;
 use crate::vector_field::divergence;
@@ -265,4 +266,22 @@ fn test_line_integral_negative_limits() {
     .unwrap();
 
     assert!(f64::abs(val - (-3.0)) < 1e-9);
+}
+
+#[test]
+fn test_divergence_3d_f32() {
+    //field (y, -x, 2z); divergence is 0 + 0 + 2 = 2
+    let vf_x = |args: &[f32; 3]| -> f32 { args[1] };
+    let vf_y = |args: &[f32; 3]| -> f32 { -args[0] };
+    let vf_z = |args: &[f32; 3]| -> f32 { 2.0 * args[2] };
+
+    let vector_field_matrix: [&dyn Fn(&[f32; 3]) -> f32; 3] = [&vf_x, &vf_y, &vf_z];
+    let point = [0.0, 1.0, 3.0];
+
+    //a larger step suits f32; the default 1e-5 cancels badly at single precision
+    let derivator =
+        FiniteDifferenceMulti::<f32>::from_parameters(0.01, FiniteDifferenceMode::Central, 10.0);
+
+    let val = divergence::get_3d(derivator, &vector_field_matrix, &point).unwrap();
+    assert!(f32::abs(val - 2.0) < 1e-2, "got {val}");
 }

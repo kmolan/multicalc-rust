@@ -1,3 +1,4 @@
+use crate::numeric::Numeric;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::utils::error_codes::CalcError;
 
@@ -5,32 +6,32 @@ use crate::utils::error_codes::CalcError;
 /// `f(x) ≈ value + Σ gradient[i]·dx[i] + ½ Σ_i Σ_j hessian[i][j]·dx[i]·dx[j]`,
 /// where `dx[i] = x[i] - point[i]`.
 #[derive(Debug, Clone, Copy)]
-pub struct QuadraticApproximation<const NUM_VARS: usize> {
-    point: [f64; NUM_VARS],
-    value: f64,
-    gradient: [f64; NUM_VARS],
-    hessian: [[f64; NUM_VARS]; NUM_VARS],
+pub struct QuadraticApproximation<const NUM_VARS: usize, T = f64> {
+    point: [T; NUM_VARS],
+    value: T,
+    gradient: [T; NUM_VARS],
+    hessian: [[T; NUM_VARS]; NUM_VARS],
 }
 
 /// Goodness-of-fit metrics for a [`QuadraticApproximation`] over a set of sample points.
 #[derive(Debug, Clone, Copy)]
-pub struct QuadraticApproximationPredictionMetrics {
+pub struct QuadraticApproximationPredictionMetrics<T = f64> {
     /// Mean absolute error.
-    pub mean_absolute_error: f64,
+    pub mean_absolute_error: T,
     /// Mean squared error.
-    pub mean_squared_error: f64,
+    pub mean_squared_error: T,
     /// Root mean squared error.
-    pub root_mean_squared_error: f64,
+    pub root_mean_squared_error: T,
     /// Coefficient of determination; `NaN` when the truth is constant over the points.
-    pub r_squared: f64,
+    pub r_squared: T,
     /// R² adjusted for the number of predictors; `NaN` when there are too few points.
-    pub adjusted_r_squared: f64,
+    pub adjusted_r_squared: T,
 }
 
-impl<const NUM_VARS: usize> QuadraticApproximation<NUM_VARS> {
+impl<const NUM_VARS: usize, T: Numeric> QuadraticApproximation<NUM_VARS, T> {
     /// Evaluates the approximation at `x`. The `½` keeps the quadratic term correct for
     /// both diagonal and off-diagonal Hessian entries.
-    pub fn predict(&self, x: &[f64; NUM_VARS]) -> f64 {
+    pub fn predict(&self, x: &[T; NUM_VARS]) -> T {
         let mut result = self.value;
         for (((&gi, &xi), &pi), hrow) in self
             .gradient
@@ -42,24 +43,24 @@ impl<const NUM_VARS: usize> QuadraticApproximation<NUM_VARS> {
             let di = xi - pi;
             result += gi * di;
             for ((&hij, &xj), &pj) in hrow.iter().zip(x).zip(&self.point) {
-                result += 0.5 * hij * di * (xj - pj);
+                result += T::HALF * hij * di * (xj - pj);
             }
         }
         result
     }
 
     /// The base point the approximation is centered on.
-    pub fn point(&self) -> &[f64; NUM_VARS] {
+    pub fn point(&self) -> &[T; NUM_VARS] {
         &self.point
     }
 
     /// The gradient at the base point.
-    pub fn gradient(&self) -> &[f64; NUM_VARS] {
+    pub fn gradient(&self) -> &[T; NUM_VARS] {
         &self.gradient
     }
 
     /// The Hessian matrix at the base point.
-    pub fn hessian(&self) -> &[[f64; NUM_VARS]; NUM_VARS] {
+    pub fn hessian(&self) -> &[[T; NUM_VARS]; NUM_VARS] {
         &self.hessian
     }
 
@@ -67,11 +68,11 @@ impl<const NUM_VARS: usize> QuadraticApproximation<NUM_VARS> {
     ///
     /// `r_squared` is `NaN` when the truth is constant over `points`;
     /// `adjusted_r_squared` is `NaN` when there are too few points.
-    pub fn get_prediction_metrics<O: Fn(&[f64; NUM_VARS]) -> f64, const NUM_POINTS: usize>(
+    pub fn get_prediction_metrics<O: Fn(&[T; NUM_VARS]) -> T, const NUM_POINTS: usize>(
         &self,
-        points: &[[f64; NUM_VARS]; NUM_POINTS],
+        points: &[[T; NUM_VARS]; NUM_POINTS],
         original_function: &O,
-    ) -> QuadraticApproximationPredictionMetrics {
+    ) -> QuadraticApproximationPredictionMetrics<T> {
         // p = N gradient terms + N(N+1)/2 distinct (symmetric) Hessian terms
         let num_predictors = NUM_VARS + NUM_VARS * (NUM_VARS + 1) / 2;
 
@@ -135,21 +136,21 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
     /// //the approximation is exact at the base point
     /// assert!(f64::abs(function_to_approximate(&point) - result.predict(&point)) < 1e-9);
     /// ```
-    pub fn get<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize>(
+    pub fn get<F: Fn(&[D::Scalar; NUM_VARS]) -> D::Scalar, const NUM_VARS: usize>(
         &self,
         function: &F,
-        point: &[f64; NUM_VARS],
-    ) -> Result<QuadraticApproximation<NUM_VARS>, CalcError> {
+        point: &[D::Scalar; NUM_VARS],
+    ) -> Result<QuadraticApproximation<NUM_VARS, D::Scalar>, CalcError> {
         let value = function(point);
 
-        let mut gradient = [0.0; NUM_VARS];
+        let mut gradient = [<D::Scalar as Numeric>::ZERO; NUM_VARS];
         for (i, slot) in gradient.iter_mut().enumerate() {
             *slot = self.derivator.get_single_partial(function, i, point)?;
         }
 
         // symmetric fill: compute the upper triangle + diagonal once, mirror the rest.
         // the explicit indices are needed for the mirror write `hessian[col][row]`.
-        let mut hessian = [[f64::NAN; NUM_VARS]; NUM_VARS];
+        let mut hessian = [[<D::Scalar as Numeric>::NAN; NUM_VARS]; NUM_VARS];
         #[allow(clippy::needless_range_loop)]
         for row in 0..NUM_VARS {
             for col in 0..NUM_VARS {

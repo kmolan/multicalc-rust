@@ -1,3 +1,4 @@
+use crate::numeric::Numeric;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::utils::error_codes::CalcError;
 
@@ -47,12 +48,12 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     /// let result = hessian.get(&my_func, &[1.0, 2.0]).unwrap();
     /// assert!(f64::abs(result[0][0] - (-2.0 * f64::sin(1.0))) < 1e-5);
     /// ```
-    pub fn get<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize>(
+    pub fn get<F: Fn(&[D::Scalar; NUM_VARS]) -> D::Scalar, const NUM_VARS: usize>(
         &self,
         function: &F,
-        vector_of_points: &[f64; NUM_VARS],
-    ) -> Result<[[f64; NUM_VARS]; NUM_VARS], CalcError> {
-        let mut result = [[f64::NAN; NUM_VARS]; NUM_VARS];
+        vector_of_points: &[D::Scalar; NUM_VARS],
+    ) -> Result<[[D::Scalar; NUM_VARS]; NUM_VARS], CalcError> {
+        let mut result = [[<D::Scalar as Numeric>::NAN; NUM_VARS]; NUM_VARS];
 
         // explicit indices are needed for the symmetric mirror write `result[col][row]`
         #[allow(clippy::needless_range_loop)]
