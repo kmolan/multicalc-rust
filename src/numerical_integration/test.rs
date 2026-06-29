@@ -517,3 +517,31 @@ fn test_composite_rule_degree_3_polynomial() {
     let val = boole.get_single(&func, &integration_limit).unwrap();
     assert!(f64::abs(val - 4.0) < 1e-9);
 }
+
+#[test]
+fn test_booles_integration_f32() {
+    //2x integrated over [0, 2] is 4
+    let func = |x: f32| -> f32 { 2.0 * x };
+
+    let integrator = iterative_integration::IterativeSingle::<f32>::from_parameters(
+        100,
+        IterativeMethod::Booles,
+    );
+
+    let val = integrator.get_single(&func, &[0.0, 2.0]).unwrap();
+    assert!(f32::abs(val - 4.0) < 1e-3, "got {val}");
+}
+
+#[test]
+fn test_gauss_legendre_integration_f32() {
+    //4x^3 - 3x^2 integrated over [0, 2] is 8
+    let func = |x: f32| -> f32 { 4.0 * x * x * x - 3.0 * x * x };
+
+    let integrator = gaussian_integration::GaussianSingle::<f32>::from_parameters(
+        4,
+        GaussianQuadratureMethod::GaussLegendre,
+    );
+
+    let val = integrator.get_single(&func, &[0.0, 2.0]).unwrap();
+    assert!(f32::abs(val - 8.0) < 1e-2, "got {val}");
+}

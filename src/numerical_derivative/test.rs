@@ -448,3 +448,15 @@ fn test_hessian_1() {
         }
     }
 }
+
+#[test]
+fn test_single_derivative_f32() {
+    //x*x at 0.5; central difference is exact for quadratics, leaving only f32 rounding
+    let func = |x: f32| -> f32 { x * x };
+
+    let derivator = FiniteDifferenceSingle::<f32>::default();
+
+    //first derivative is 2x, known to be 1.0 at x = 0.5
+    let val = derivator.get(1, &func, 0.5).unwrap();
+    assert!(f32::abs(val - 1.0) < 1e-2, "got {val}");
+}
