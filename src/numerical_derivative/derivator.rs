@@ -1,7 +1,11 @@
+use crate::numeric::Numeric;
 use crate::utils::error_codes::CalcError;
 
 /// Base trait for single-variable numerical differentiation.
 pub trait DerivatorSingleVariable {
+    /// The scalar the derivative is computed in.
+    type Scalar: Numeric;
+
     /// Computes the `order`-th derivative of `func` at `point`.
     ///
     /// # Errors
@@ -21,21 +25,37 @@ pub trait DerivatorSingleVariable {
     /// let val = derivator.get(2, &func, 2.0).unwrap();
     /// assert!(f64::abs(val - 12.0) < 1e-5);
     /// ```
-    fn get<F: Fn(f64) -> f64>(&self, order: usize, func: &F, point: f64) -> Result<f64, CalcError>;
+    fn get<F: Fn(Self::Scalar) -> Self::Scalar>(
+        &self,
+        order: usize,
+        func: &F,
+        point: Self::Scalar,
+    ) -> Result<Self::Scalar, CalcError>;
 
     /// Convenience wrapper for the first derivative.
-    fn get_single<F: Fn(f64) -> f64>(&self, func: &F, point: f64) -> Result<f64, CalcError> {
+    fn get_single<F: Fn(Self::Scalar) -> Self::Scalar>(
+        &self,
+        func: &F,
+        point: Self::Scalar,
+    ) -> Result<Self::Scalar, CalcError> {
         self.get(1, func, point)
     }
 
     /// Convenience wrapper for the second derivative.
-    fn get_double<F: Fn(f64) -> f64>(&self, func: &F, point: f64) -> Result<f64, CalcError> {
+    fn get_double<F: Fn(Self::Scalar) -> Self::Scalar>(
+        &self,
+        func: &F,
+        point: Self::Scalar,
+    ) -> Result<Self::Scalar, CalcError> {
         self.get(2, func, point)
     }
 }
 
 /// Base trait for multi-variable numerical differentiation.
 pub trait DerivatorMultiVariable {
+    /// The scalar the derivative is computed in.
+    type Scalar: Numeric;
+
     /// Computes the partial derivative of `func` at `point`, differentiating once
     /// with respect to each variable index listed in `idx_to_differentiate`. The
     /// derivative order equals the length of that array.
@@ -59,30 +79,40 @@ pub trait DerivatorMultiVariable {
     /// let expected = f64::cos(1.0) - f64::sin(2.0) + f64::exp(3.0);
     /// assert!(f64::abs(val - expected) < 0.001);
     /// ```
-    fn get<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize, const NUM_ORDER: usize>(
+    fn get<
+        F: Fn(&[Self::Scalar; NUM_VARS]) -> Self::Scalar,
+        const NUM_VARS: usize,
+        const NUM_ORDER: usize,
+    >(
         &self,
         func: &F,
         idx_to_differentiate: &[usize; NUM_ORDER],
-        point: &[f64; NUM_VARS],
-    ) -> Result<f64, CalcError>;
+        point: &[Self::Scalar; NUM_VARS],
+    ) -> Result<Self::Scalar, CalcError>;
 
     /// Convenience wrapper for a single partial derivative.
-    fn get_single_partial<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize>(
+    fn get_single_partial<
+        F: Fn(&[Self::Scalar; NUM_VARS]) -> Self::Scalar,
+        const NUM_VARS: usize,
+    >(
         &self,
         func: &F,
         idx_to_differentiate: usize,
-        point: &[f64; NUM_VARS],
-    ) -> Result<f64, CalcError> {
+        point: &[Self::Scalar; NUM_VARS],
+    ) -> Result<Self::Scalar, CalcError> {
         self.get(func, &[idx_to_differentiate], point)
     }
 
     /// Convenience wrapper for a second partial derivative.
-    fn get_double_partial<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize>(
+    fn get_double_partial<
+        F: Fn(&[Self::Scalar; NUM_VARS]) -> Self::Scalar,
+        const NUM_VARS: usize,
+    >(
         &self,
         func: &F,
         idx_to_differentiate: &[usize; 2],
-        point: &[f64; NUM_VARS],
-    ) -> Result<f64, CalcError> {
+        point: &[Self::Scalar; NUM_VARS],
+    ) -> Result<Self::Scalar, CalcError> {
         self.get(func, idx_to_differentiate, point)
     }
 }
