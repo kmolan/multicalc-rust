@@ -16,7 +16,11 @@ pub use libm;
 /// The scalar trait the calculus modules are generic over (implemented for `f32` and `f64`).
 pub use numeric::Numeric;
 
+/// Forward-mode dual number giving exact first derivatives (it implements [`Numeric`]).
+pub use dual::Dual;
+
 pub mod approximation;
+pub mod dual;
 pub mod gaussian_tables;
 pub mod numeric;
 pub mod numerical_derivative;
