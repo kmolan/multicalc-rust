@@ -13,6 +13,7 @@ Jacobians and Hessians, vector-field operators, and Taylor approximation in a `n
 
 - Pure, safe Rust.
 - `no_std`, with no heap allocation and no panics — it runs on bare-metal and embedded targets.
+- Generic over the scalar type — use `f32` or `f64`, defaulting to `f64`.
 - Transcendental functions come from [`libm`](https://crates.io/crates/libm), so the math works
   without `std`.
 - Every fallible call returns a typed [`CalcError`](./src/utils/error_codes.rs); convenience
@@ -181,14 +182,15 @@ let y = model.predict(&[1.1, 2.1, 3.1]);
 ## Error handling
 
 Where a sensible default exists, a "safe" wrapper (such as `get_single` or `get_double`) returns the
-answer directly. Otherwise the call returns `Result<f64, CalcError>`, so you decide how to handle bad
-input. All variants are listed in [error_codes.rs](./src/utils/error_codes.rs).
+answer directly. Otherwise the call returns `Result<T, CalcError>` for the working scalar `T` (`f64`
+by default), so you decide how to handle bad input. All variants are listed in
+[error_codes.rs](./src/utils/error_codes.rs).
 
 ## Heap allocation
 
 By default everything uses fixed-size stack arrays. Enable the `alloc` feature for `Vec`-based methods
 that handle inputs too large for the stack. This currently covers the Jacobian's `get_on_heap`, which
-returns a `Vec<Vec<f64>>`.
+returns a `Vec<Vec<T>>` of the scalar (`Vec<Vec<f64>>` by default).
 
 ## Examples
 

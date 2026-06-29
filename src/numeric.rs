@@ -7,7 +7,7 @@
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// A floating-point scalar usable by the differentiation, integration, and approximation
-/// modules. Transcendentals come from [`libm`](libm), so the trait works without `std`.
+/// modules. Transcendentals come from [`libm`], so the trait works without `std`.
 pub trait Numeric:
     Copy
     + Clone

@@ -1,7 +1,8 @@
 //! `multicalc` — single- and multi-variable calculus for `no_std` Rust: derivatives,
 //! integrals, Jacobians and Hessians, vector-field operators, and Taylor approximation.
 //!
-//! All math is on `f64`, with transcendentals from [`libm`] so it works without `std`.
+//! Operations are generic over the [`Numeric`] scalar trait — implemented for `f32` and `f64`,
+//! defaulting to `f64` — with transcendentals from [`libm`] so it works without `std`.
 //! Fallible operations return [`utils::error_codes::CalcError`].
 #![no_std]
 
