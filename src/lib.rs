@@ -12,8 +12,12 @@ extern crate alloc;
 /// (`libm::sin`, `libm::exp`, …) without taking their own dependency.
 pub use libm;
 
+/// The scalar trait the calculus modules are generic over (implemented for `f32` and `f64`).
+pub use numeric::Numeric;
+
 pub mod approximation;
 pub mod gaussian_tables;
+pub mod numeric;
 pub mod numerical_derivative;
 pub mod numerical_integration;
 pub mod utils;
