@@ -54,10 +54,40 @@ pub trait Numeric:
     fn abs(self) -> Self;
     /// Square root.
     fn sqrt(self) -> Self;
+    /// Sine, with `self` in radians.
+    fn sin(self) -> Self;
     /// Cosine, with `self` in radians.
     fn cos(self) -> Self;
     /// Tangent, with `self` in radians.
     fn tan(self) -> Self;
+    /// `e` raised to the power `self`.
+    fn exp(self) -> Self;
+    /// Natural logarithm of `self`.
+    fn ln(self) -> Self;
+
+    /// `self` raised to an integer power, by exponentiation-by-squaring.
+    ///
+    /// The zero exponent gives [`Numeric::ONE`]; a negative exponent inverts the result.
+    /// Built from `*` and `/` alone, so any `Numeric` (including a dual number) gets a
+    /// correct derivative without overriding this method.
+    #[inline]
+    fn powi(self, n: i32) -> Self {
+        let mut exponent = n.unsigned_abs();
+        let mut base = self;
+        let mut acc = Self::ONE;
+
+        while exponent > 0 {
+            if exponent & 1 == 1 {
+                acc *= base;
+            }
+            exponent >>= 1;
+            if exponent > 0 {
+                base *= base;
+            }
+        }
+
+        if n < 0 { Self::ONE / acc } else { acc }
+    }
 
     /// Returns `true` if `self` is NaN.
     fn is_nan(self) -> bool;
@@ -98,12 +128,24 @@ impl Numeric for f64 {
         libm::sqrt(self)
     }
     #[inline]
+    fn sin(self) -> Self {
+        libm::sin(self)
+    }
+    #[inline]
     fn cos(self) -> Self {
         libm::cos(self)
     }
     #[inline]
     fn tan(self) -> Self {
         libm::tan(self)
+    }
+    #[inline]
+    fn exp(self) -> Self {
+        libm::exp(self)
+    }
+    #[inline]
+    fn ln(self) -> Self {
+        libm::log(self)
     }
 
     #[inline]
@@ -149,12 +191,24 @@ impl Numeric for f32 {
         libm::sqrtf(self)
     }
     #[inline]
+    fn sin(self) -> Self {
+        libm::sinf(self)
+    }
+    #[inline]
     fn cos(self) -> Self {
         libm::cosf(self)
     }
     #[inline]
     fn tan(self) -> Self {
         libm::tanf(self)
+    }
+    #[inline]
+    fn exp(self) -> Self {
+        libm::expf(self)
+    }
+    #[inline]
+    fn ln(self) -> Self {
+        libm::logf(self)
     }
 
     #[inline]
