@@ -1,7 +1,7 @@
-use crate::scalar::Numeric;
+use crate::scalar::{Numeric, ScalarFn, ScalarFnN};
 use crate::utils::error_codes::CalcError;
 
-/// Base trait for single-variable numerical differentiation.
+/// Base trait for single-variable differentiation.
 pub trait DerivatorSingleVariable {
     /// The scalar the derivative is computed in.
     type Scalar: Numeric;
@@ -16,8 +16,9 @@ pub trait DerivatorSingleVariable {
     /// ```
     /// use multicalc::numerical_derivative::derivator::DerivatorSingleVariable;
     /// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceSingle;
+    /// use multicalc::scalar_fn;
     ///
-    /// let func = |x: f64| x * x * x;
+    /// let func = scalar_fn!(|x| x * x * x);
     /// let derivator = FiniteDifferenceSingle::default();
     ///
     /// let val = derivator.get(1, &func, 2.0).unwrap();
@@ -25,7 +26,7 @@ pub trait DerivatorSingleVariable {
     /// let val = derivator.get(2, &func, 2.0).unwrap();
     /// assert!(f64::abs(val - 12.0) < 1e-5);
     /// ```
-    fn get<F: Fn(Self::Scalar) -> Self::Scalar>(
+    fn get<F: ScalarFn>(
         &self,
         order: usize,
         func: &F,
@@ -33,7 +34,7 @@ pub trait DerivatorSingleVariable {
     ) -> Result<Self::Scalar, CalcError>;
 
     /// Convenience wrapper for the first derivative.
-    fn get_single<F: Fn(Self::Scalar) -> Self::Scalar>(
+    fn get_single<F: ScalarFn>(
         &self,
         func: &F,
         point: Self::Scalar,
@@ -42,7 +43,7 @@ pub trait DerivatorSingleVariable {
     }
 
     /// Convenience wrapper for the second derivative.
-    fn get_double<F: Fn(Self::Scalar) -> Self::Scalar>(
+    fn get_double<F: ScalarFn>(
         &self,
         func: &F,
         point: Self::Scalar,
@@ -51,7 +52,7 @@ pub trait DerivatorSingleVariable {
     }
 }
 
-/// Base trait for multi-variable numerical differentiation.
+/// Base trait for multi-variable differentiation.
 pub trait DerivatorMultiVariable {
     /// The scalar the derivative is computed in.
     type Scalar: Numeric;
@@ -69,9 +70,10 @@ pub trait DerivatorMultiVariable {
     /// ```
     /// use multicalc::numerical_derivative::derivator::DerivatorMultiVariable;
     /// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
+    /// use multicalc::scalar_fn;
     ///
     /// // f(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z
-    /// let func = |v: &[f64; 3]| v[1] * v[0].sin() + v[0] * v[1].cos() + v[0] * v[1] * v[2].exp();
+    /// let func = scalar_fn!(|v: &[f64; 3]| v[1] * v[0].sin() + v[0] * v[1].cos() + v[0] * v[1] * v[2].exp());
     /// let derivator = FiniteDifferenceMulti::default();
     ///
     /// // mixed partial d(df/dx)/dy
@@ -79,11 +81,7 @@ pub trait DerivatorMultiVariable {
     /// let expected = f64::cos(1.0) - f64::sin(2.0) + f64::exp(3.0);
     /// assert!(f64::abs(val - expected) < 0.001);
     /// ```
-    fn get<
-        F: Fn(&[Self::Scalar; NUM_VARS]) -> Self::Scalar,
-        const NUM_VARS: usize,
-        const NUM_ORDER: usize,
-    >(
+    fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize, const NUM_ORDER: usize>(
         &self,
         func: &F,
         idx_to_differentiate: &[usize; NUM_ORDER],
@@ -91,10 +89,7 @@ pub trait DerivatorMultiVariable {
     ) -> Result<Self::Scalar, CalcError>;
 
     /// Convenience wrapper for a single partial derivative.
-    fn get_single_partial<
-        F: Fn(&[Self::Scalar; NUM_VARS]) -> Self::Scalar,
-        const NUM_VARS: usize,
-    >(
+    fn get_single_partial<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
         &self,
         func: &F,
         idx_to_differentiate: usize,
@@ -104,10 +99,7 @@ pub trait DerivatorMultiVariable {
     }
 
     /// Convenience wrapper for a second partial derivative.
-    fn get_double_partial<
-        F: Fn(&[Self::Scalar; NUM_VARS]) -> Self::Scalar,
-        const NUM_VARS: usize,
-    >(
+    fn get_double_partial<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
         &self,
         func: &F,
         idx_to_differentiate: &[usize; 2],

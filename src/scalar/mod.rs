@@ -11,7 +11,7 @@ pub mod jet;
 pub mod numeric;
 
 pub use dual::Dual;
-pub use function::{ScalarFn, ScalarFnN};
+pub use function::{ScalarFn, ScalarFnN, VectorFn, c};
 pub use hyper_dual::HyperDual;
 pub use jet::Jet;
 pub use numeric::Numeric;

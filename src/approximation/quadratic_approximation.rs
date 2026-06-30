@@ -1,5 +1,6 @@
+use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-use crate::scalar::Numeric;
+use crate::scalar::{Numeric, ScalarFnN};
 use crate::utils::error_codes::CalcError;
 
 /// A second-order (quadratic) Taylor approximation of a function about a base point:
@@ -68,7 +69,7 @@ impl<const NUM_VARS: usize, T: Numeric> QuadraticApproximation<NUM_VARS, T> {
     ///
     /// `r_squared` is `NaN` when the truth is constant over `points`;
     /// `adjusted_r_squared` is `NaN` when there are too few points.
-    pub fn get_prediction_metrics<O: Fn(&[T; NUM_VARS]) -> T, const NUM_POINTS: usize>(
+    pub fn get_prediction_metrics<O: ScalarFnN<NUM_VARS>, const NUM_POINTS: usize>(
         &self,
         points: &[[T; NUM_VARS]; NUM_POINTS],
         original_function: &O,
@@ -79,7 +80,7 @@ impl<const NUM_VARS: usize, T: Numeric> QuadraticApproximation<NUM_VARS, T> {
         let (mae, mse, rmse, r_squared, adjusted_r_squared) = crate::approximation::compute_metrics(
             |x| self.predict(x),
             points,
-            original_function,
+            &|x: &[T; NUM_VARS]| original_function.eval(x),
             num_predictors,
         );
 
@@ -93,9 +94,9 @@ impl<const NUM_VARS: usize, T: Numeric> QuadraticApproximation<NUM_VARS, T> {
     }
 }
 
-/// Builds a [`QuadraticApproximation`] of a function, using any derivator that implements
-/// [`DerivatorMultiVariable`].
-pub struct QuadraticApproximator<D: DerivatorMultiVariable> {
+/// Builds a [`QuadraticApproximation`] of a function. The differentiation backend defaults to
+/// autodiff ([`AutoDiffMulti`]); pass a finite-difference derivator explicitly to use that instead.
+pub struct QuadraticApproximator<D: DerivatorMultiVariable = AutoDiffMulti> {
     derivator: D,
 }
 
@@ -121,27 +122,26 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
     /// # Examples
     /// ```
     /// use multicalc::approximation::quadratic_approximation::QuadraticApproximator;
-    /// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
+    /// use multicalc::scalar::{c, ScalarFnN};
+    /// use multicalc::scalar_fn;
     ///
     /// // e^(x/2) + sin(y) + 2z
-    /// let function_to_approximate = | args: &[f64; 3] | -> f64
-    /// {
-    ///     return f64::exp(args[0]/2.0) + f64::sin(args[1]) + 2.0*args[2];
-    /// };
+    /// let function_to_approximate =
+    ///     scalar_fn!(|v: &[f64; 3]| (c(0.5) * v[0]).exp() + v[1].sin() + c(2.0) * v[2]);
     ///
-    /// let point = [0.0, 1.57, 10.0]; //the point we want to approximate around
-    /// let approximator = QuadraticApproximator::<FiniteDifferenceMulti>::default();
+    /// let point = [0.0, 1.57, 10.0]; // the point we want to approximate around
+    /// let approximator: QuadraticApproximator = QuadraticApproximator::default();
     /// let result = approximator.get(&function_to_approximate, &point).unwrap();
     ///
-    /// //the approximation is exact at the base point
-    /// assert!(f64::abs(function_to_approximate(&point) - result.predict(&point)) < 1e-9);
+    /// // the approximation is exact at the base point
+    /// assert!(f64::abs(function_to_approximate.eval(&point) - result.predict(&point)) < 1e-12);
     /// ```
-    pub fn get<F: Fn(&[D::Scalar; NUM_VARS]) -> D::Scalar, const NUM_VARS: usize>(
+    pub fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
         &self,
         function: &F,
         point: &[D::Scalar; NUM_VARS],
     ) -> Result<QuadraticApproximation<NUM_VARS, D::Scalar>, CalcError> {
-        let value = function(point);
+        let value = function.eval(point);
 
         let mut gradient = [<D::Scalar as Numeric>::ZERO; NUM_VARS];
         for (i, slot) in gradient.iter_mut().enumerate() {

@@ -27,7 +27,7 @@ pub use scalar::Jet;
 
 /// Scalar-function abstraction evaluable at any [`Numeric`] scalar, so one formula drives both
 /// finite differences and autodiff.
-pub use scalar::{ScalarFn, ScalarFnN};
+pub use scalar::{ScalarFn, ScalarFnN, VectorFn};
 
 pub mod approximation;
 pub mod gaussian_tables;
