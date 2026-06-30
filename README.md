@@ -22,7 +22,8 @@ Jacobians and Hessians, vector-field operators, and Taylor approximation in a `n
 
 ## What it does
 
-- **Differentiation** of any order (finite differences), total and partial.
+- **Differentiation** of any order, total and partial — exact via forward-mode autodiff by default,
+  with finite differences available for black-box functions.
 - **Integration** of any order:
   - Iterative rules — Boole, Simpson, Trapezoidal — over finite, semi-infinite, and infinite limits.
   - Gaussian quadrature — Gauss-Legendre, Gauss-Hermite, Gauss-Laguerre.
@@ -49,11 +50,12 @@ reach it as `multicalc::libm`. The examples below use `x.sin()` because they ass
 ### Derivatives
 
 ```rust
+use multicalc::numerical_derivative::autodiff::AutoDiffSingle;
 use multicalc::numerical_derivative::derivator::DerivatorSingleVariable;
-use multicalc::numerical_derivative::finite_difference::FiniteDifferenceSingle;
+use multicalc::scalar_fn;
 
-let f = |x: f64| x * x * x;                  // f(x) = x^3
-let d = FiniteDifferenceSingle::default();   // central difference, default step size
+let f = scalar_fn!(|x| x * x * x);           // f(x) = x^3
+let d = AutoDiffSingle::default();           // forward-mode autodiff, exact
 
 let first = d.get(1, &f, 2.0).unwrap();      // 12.0
 let third = d.get(3, &f, 2.0).unwrap();      //  6.0
@@ -63,17 +65,22 @@ let third = d.get(3, &f, 2.0).unwrap();      //  6.0
 For several variables, the derivative order is just the number of indices you pass:
 
 ```rust
+use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 use multicalc::numerical_derivative::derivator::DerivatorMultiVariable;
-use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
+use multicalc::scalar_fn;
 
 // g(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z
-let g = |v: &[f64; 3]| v[1] * v[0].sin() + v[0] * v[1].cos() + v[0] * v[1] * v[2].exp();
-let d = FiniteDifferenceMulti::default();
+let g = scalar_fn!(|v: &[f64; 3]| v[1] * v[0].sin() + v[0] * v[1].cos() + v[0] * v[1] * v[2].exp());
+let d = AutoDiffMulti::default();
 let point = [1.0, 2.0, 3.0];
 
 let dx    = d.get_single_partial(&g, 0, &point).unwrap();  // dg/dx
 let mixed = d.get(&g, &[0, 1], &point).unwrap();           // d(dg/dx)/dy
+let third = d.get(&g, &[0, 0, 1], &point).unwrap();        // d^3 g / dx^2 dy
 ```
+
+Pass a finite-difference derivator (`FiniteDifferenceSingle` / `FiniteDifferenceMulti`) instead when
+the function is a black box you cannot author with `scalar_fn!`.
 
 ### Integration
 
@@ -124,35 +131,40 @@ let val = hermite
 
 ### Jacobian and Hessian
 
+A vector-valued function is authored with `scalar_fn_vec!`, so its rows differentiate under autodiff:
+
 ```rust
-use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
 use multicalc::numerical_derivative::jacobian::Jacobian;
 use multicalc::numerical_derivative::hessian::Hessian;
+use multicalc::scalar::c;
+use multicalc::{scalar_fn, scalar_fn_vec};
 
-let f1 = |v: &[f64; 3]| v[0] * v[1] * v[2];
-let f2 = |v: &[f64; 3]| v[0] * v[0] + v[1] * v[1];
-let functions: [&dyn Fn(&[f64; 3]) -> f64; 2] = [&f1, &f2];
+// the vector function (x*y*z, x^2 + y^2)
+let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+let jacobian: Jacobian = Jacobian::default();
+let j = jacobian.get(&f, &[1.0, 2.0, 3.0]).unwrap();   // [[6, 3, 2], [2, 4, 0]]
 
-let jacobian = Jacobian::<FiniteDifferenceMulti>::default();
-let j = jacobian.get(&functions, &[1.0, 2.0, 3.0]).unwrap();   // [[6, 3, 2], [2, 4, 0]]
-
-let g = |v: &[f64; 2]| v[1] * v[0].sin() + 2.0 * v[0] * v[1].exp();
-let hessian = Hessian::<FiniteDifferenceMulti>::default();
+// g(x, y) = y*sin(x) + 2*x*e^y
+let g = scalar_fn!(|v: &[f64; 2]| v[1] * v[0].sin() + c(2.0) * v[0] * v[1].exp());
+let hessian: Hessian = Hessian::default();
 let h = hessian.get(&g, &[1.0, 2.0]).unwrap();
 ```
 
 ### Vector calculus
 
+Curl and divergence take an explicit derivator; pass `AutoDiffMulti::default()` for exact results.
+Line and flux integrals sample the field, so they take plain closures.
+
 ```rust
-use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
+use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::scalar::c;
+use multicalc::scalar_fn_vec;
 use multicalc::vector_field::{curl, divergence, line_integral, flux_integral};
 
 // field (2xy, 3cos y)
-let field: [&dyn Fn(&[f64; 2]) -> f64; 2] =
-    [&(|v: &[f64; 2]| 2.0 * v[0] * v[1]), &(|v: &[f64; 2]| 3.0 * v[1].cos())];
-let derivator = FiniteDifferenceMulti::default();
-let c = curl::get_2d(derivator, &field, &[1.0, 3.14]).unwrap();
-let d = divergence::get_2d(derivator, &field, &[1.0, 3.14]).unwrap();
+let field = scalar_fn_vec!(|v: &[f64; 2]| [c(2.0) * v[0] * v[1], c(3.0) * v[1].cos()]);
+let curl_2d = curl::get_2d(AutoDiffMulti::default(), &field, &[1.0, 3.14]).unwrap();
+let div_2d = divergence::get_2d(AutoDiffMulti::default(), &field, &[1.0, 3.14]).unwrap();
 
 // field (y, -x) along the unit circle (cos t, sin t)
 let g: [&dyn Fn(&[f64; 2]) -> f64; 2] = [&(|v: &[f64; 2]| v[1]), &(|v: &[f64; 2]| -v[0])];
@@ -166,12 +178,11 @@ let flux = flux_integral::get_2d(&g, &curve, &limit).unwrap();   //  0
 
 ```rust
 use multicalc::approximation::linear_approximation::LinearApproximator;
-use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
+use multicalc::scalar_fn;
 
-let f = |v: &[f64; 3]| v[0] + v[1] * v[1] + v[2] * v[2] * v[2];
-let model = LinearApproximator::<FiniteDifferenceMulti>::default()
-    .get(&f, &[1.0, 2.0, 3.0])
-    .unwrap();
+let f = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] * v[1] + v[2] * v[2] * v[2]);
+let linear: LinearApproximator = LinearApproximator::default();
+let model = linear.get(&f, &[1.0, 2.0, 3.0]).unwrap();
 
 let y = model.predict(&[1.1, 2.1, 3.1]);
 // model.get_prediction_metrics(&samples, &f) returns RMSE, R^2, and more
