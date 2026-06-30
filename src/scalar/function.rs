@@ -2,7 +2,7 @@
 //! at an autodiff scalar (`Dual`/`HyperDual`/`Jet`).
 //!
 //! A type implementing [`ScalarFn`] / [`ScalarFnN`] is generic over the scalar through its `eval`
-//! method, so a single value drives every backend. The [`scalar_fn!`] macro builds these from
+//! method, so a single value drives every backend. The `scalar_fn!` macro builds these from
 //! closure-style syntax, and [`c`] marks numeric constants inside the body.
 
 use core::ops::{Add, Div, Mul, Sub};
@@ -53,14 +53,14 @@ impl<F: VectorFn<N, M>, const N: usize, const M: usize> ScalarFnN<N> for Compone
 }
 
 /// A scalar constant marker produced by [`c`], for use on the **left** of an operator with a
-/// [`Numeric`] scalar inside a [`scalar_fn!`] body (e.g. `c(2.0) * x`).
+/// [`Numeric`] scalar inside a `scalar_fn!` body (e.g. `c(2.0) * x`).
 ///
 /// A bare `2.0 * x` cannot typecheck in a generic body (`2.0` is always `f64`); `Const` carries the
 /// constant until it meets the scalar, then takes that scalar's type.
 #[derive(Debug, Clone, Copy)]
 pub struct Const(f64);
 
-/// Marks a scalar constant in a [`scalar_fn!`] body. Place it on the left of the operator
+/// Marks a scalar constant in a `scalar_fn!` body. Place it on the left of the operator
 /// (`c(2.0) * x`, `c(1.0) + x`); the constant takes the function's scalar type.
 #[inline]
 pub fn c(value: f64) -> Const {

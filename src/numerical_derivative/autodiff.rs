@@ -45,7 +45,7 @@ impl<T> Default for AutoDiffSingle<T> {
 impl<T: Numeric> DerivatorSingleVariable for AutoDiffSingle<T> {
     type Scalar = T;
 
-    /// Orders 1 and 2 use [`Dual`]/[`HyperDual`]; orders 3..=[`MAX_ORDER`] use a [`Jet`]. Higher
+    /// Orders 1 and 2 use [`Dual`]/[`HyperDual`]; orders 3..=`MAX_ORDER` use a [`Jet`]. Higher
     /// orders return [`CalcError::DerivativeOrderUnsupported`].
     fn get<F: ScalarFn>(&self, order: usize, func: &F, point: T) -> Result<T, CalcError> {
         match order {
