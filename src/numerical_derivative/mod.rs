@@ -1,3 +1,4 @@
+pub mod autodiff;
 pub mod derivator;
 pub mod finite_difference;
 pub mod hessian;

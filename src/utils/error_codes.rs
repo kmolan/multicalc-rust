@@ -4,6 +4,8 @@
 pub enum CalcError {
     /// The requested derivative order was zero.
     DerivativeOrderZero,
+    /// The requested derivative order is beyond what this differentiator supports.
+    DerivativeOrderUnsupported,
     /// A finite-difference step size of zero was supplied.
     StepSizeZero,
     /// A variable index was outside the bounds of the point array.
@@ -22,6 +24,7 @@ impl core::fmt::Display for CalcError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(match self {
             CalcError::DerivativeOrderZero => "derivative order cannot be zero",
+            CalcError::DerivativeOrderUnsupported => "derivative order is not supported",
             CalcError::StepSizeZero => "step size cannot be zero",
             CalcError::IndexOutOfRange => "variable index out of range",
             CalcError::IterationsZero => "number of iterations cannot be zero",
