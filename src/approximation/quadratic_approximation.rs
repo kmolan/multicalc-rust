@@ -1,3 +1,4 @@
+use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
 use crate::utils::error_codes::CalcError;
@@ -93,9 +94,9 @@ impl<const NUM_VARS: usize, T: Numeric> QuadraticApproximation<NUM_VARS, T> {
     }
 }
 
-/// Builds a [`QuadraticApproximation`] of a function, using any derivator that implements
-/// [`DerivatorMultiVariable`].
-pub struct QuadraticApproximator<D: DerivatorMultiVariable> {
+/// Builds a [`QuadraticApproximation`] of a function. The differentiation backend defaults to
+/// autodiff ([`AutoDiffMulti`]); pass a finite-difference derivator explicitly to use that instead.
+pub struct QuadraticApproximator<D: DerivatorMultiVariable = AutoDiffMulti> {
     derivator: D,
 }
 
@@ -121,7 +122,6 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
     /// # Examples
     /// ```
     /// use multicalc::approximation::quadratic_approximation::QuadraticApproximator;
-    /// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
     /// use multicalc::scalar::{c, ScalarFnN};
     /// use multicalc::scalar_fn;
     ///
@@ -130,11 +130,11 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
     ///     scalar_fn!(|v: &[f64; 3]| (c(0.5) * v[0]).exp() + v[1].sin() + c(2.0) * v[2]);
     ///
     /// let point = [0.0, 1.57, 10.0]; // the point we want to approximate around
-    /// let approximator = QuadraticApproximator::<FiniteDifferenceMulti>::default();
+    /// let approximator: QuadraticApproximator = QuadraticApproximator::default();
     /// let result = approximator.get(&function_to_approximate, &point).unwrap();
     ///
     /// // the approximation is exact at the base point
-    /// assert!(f64::abs(function_to_approximate.eval(&point) - result.predict(&point)) < 1e-9);
+    /// assert!(f64::abs(function_to_approximate.eval(&point) - result.predict(&point)) < 1e-12);
     /// ```
     pub fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
         &self,

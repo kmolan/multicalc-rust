@@ -5,7 +5,6 @@
 
 use multicalc::approximation::linear_approximation::LinearApproximator;
 use multicalc::approximation::quadratic_approximation::QuadraticApproximator;
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 use multicalc::scalar::{ScalarFnN, c};
 use multicalc::scalar_fn;
 
@@ -14,7 +13,7 @@ fn main() {
     let f = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] * v[1] + v[2] * v[2] * v[2]);
     let base = [1.0, 2.0, 3.0];
 
-    let linear = LinearApproximator::<AutoDiffMulti>::default();
+    let linear: LinearApproximator = LinearApproximator::default();
     let model = linear.get(&f, &base).unwrap();
 
     println!("Linear model of x + y^2 + z^3 about {base:?}");
@@ -50,7 +49,7 @@ fn main() {
     let g = scalar_fn!(|v: &[f64; 3]| (c(0.5) * v[0]).exp() + v[1].sin() + c(2.0) * v[2]);
     let base = [0.0, std::f64::consts::FRAC_PI_2, 10.0];
 
-    let quadratic = QuadraticApproximator::<AutoDiffMulti>::default();
+    let quadratic: QuadraticApproximator = QuadraticApproximator::default();
     let model = quadratic.get(&g, &base).unwrap();
 
     println!("\nQuadratic model of e^(x/2) + sin(y) + 2z about (0, pi/2, 10)");

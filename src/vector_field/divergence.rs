@@ -17,7 +17,7 @@ use crate::utils::error_codes::CalcError;
 ///
 /// # Examples
 /// ```
-/// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
+/// use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 /// use multicalc::scalar::c;
 /// use multicalc::scalar_fn_vec;
 /// use multicalc::vector_field::divergence;
@@ -25,10 +25,10 @@ use crate::utils::error_codes::CalcError;
 /// // the field (y, -x, 2z)
 /// let vf = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
 ///
-/// let derivator = FiniteDifferenceMulti::default();
+/// let derivator = AutoDiffMulti::default();
 /// let val = divergence::get_3d(derivator, &vf, &[0.0, 1.0, 3.0]).unwrap();
 /// // divergence is known to be 2
-/// assert!(f64::abs(val - 2.0) < 1e-5);
+/// assert!(f64::abs(val - 2.0) < 1e-12);
 /// ```
 pub fn get_3d<D: DerivatorMultiVariable, F: VectorFn<NUM_VARS, 3>, const NUM_VARS: usize>(
     derivator: D,
@@ -58,17 +58,17 @@ pub fn get_3d<D: DerivatorMultiVariable, F: VectorFn<NUM_VARS, 3>, const NUM_VAR
 ///
 /// # Examples
 /// ```
-/// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
+/// use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 /// use multicalc::scalar_fn_vec;
 /// use multicalc::vector_field::divergence;
 ///
 /// // the field (y, -x)
 /// let vf = scalar_fn_vec!(|v: &[f64; 2]| [v[1], -v[0]]);
 ///
-/// let derivator = FiniteDifferenceMulti::default();
+/// let derivator = AutoDiffMulti::default();
 /// let val = divergence::get_2d(derivator, &vf, &[0.0, 1.0]).unwrap();
 /// // divergence is known to be 0
-/// assert!(f64::abs(val) < 1e-5);
+/// assert!(f64::abs(val) < 1e-12);
 /// ```
 pub fn get_2d<D: DerivatorMultiVariable, F: VectorFn<NUM_VARS, 2>, const NUM_VARS: usize>(
     derivator: D,

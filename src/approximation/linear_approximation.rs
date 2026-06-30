@@ -1,3 +1,4 @@
+use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
 use crate::utils::error_codes::CalcError;
@@ -82,9 +83,9 @@ impl<const NUM_VARS: usize, T: Numeric> LinearApproximation<NUM_VARS, T> {
     }
 }
 
-/// Builds a [`LinearApproximation`] of a function, using any derivator that implements
-/// [`DerivatorMultiVariable`].
-pub struct LinearApproximator<D: DerivatorMultiVariable> {
+/// Builds a [`LinearApproximation`] of a function. The differentiation backend defaults to autodiff
+/// ([`AutoDiffMulti`]); pass a finite-difference derivator explicitly to use that instead.
+pub struct LinearApproximator<D: DerivatorMultiVariable = AutoDiffMulti> {
     derivator: D,
 }
 
@@ -110,7 +111,6 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D> {
     /// # Examples
     /// ```
     /// use multicalc::approximation::linear_approximation::LinearApproximator;
-    /// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
     /// use multicalc::scalar::ScalarFnN;
     /// use multicalc::scalar_fn;
     ///
@@ -118,11 +118,11 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D> {
     /// let function_to_approximate = scalar_fn!(|v: &[f64; 3]| v[0] + v[1].powi(2) + v[2].powi(3));
     ///
     /// let point = [1.0, 2.0, 3.0]; // the point we want to linearize around
-    /// let approximator = LinearApproximator::<FiniteDifferenceMulti>::default();
+    /// let approximator: LinearApproximator = LinearApproximator::default();
     /// let result = approximator.get(&function_to_approximate, &point).unwrap();
     ///
     /// // the approximation is exact at the base point
-    /// assert!(f64::abs(function_to_approximate.eval(&point) - result.predict(&point)) < 1e-9);
+    /// assert!(f64::abs(function_to_approximate.eval(&point) - result.predict(&point)) < 1e-12);
     /// ```
     pub fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
         &self,
