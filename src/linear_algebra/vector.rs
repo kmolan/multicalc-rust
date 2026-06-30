@@ -1,6 +1,6 @@
 //! Fixed-size, stack-allocated column vector.
 
-use core::ops::{Index, IndexMut};
+use core::ops::{Add, AddAssign, Index, IndexMut, Mul, Neg, Sub, SubAssign};
 
 use crate::scalar::Numeric;
 
@@ -8,9 +8,15 @@ use crate::scalar::Numeric;
 ///
 /// ```
 /// use multicalc::linear_algebra::Vector;
-/// let v = Vector::from([1.0, 2.0, 3.0]);
-/// assert_eq!(v[0], 1.0);
-/// assert_eq!(v.into_array(), [1.0, 2.0, 3.0]);
+/// let a = Vector::new([1.0, 2.0, 3.0]);
+/// let b = Vector::from([4.0, 5.0, 6.0]);
+///
+/// assert_eq!(a[0], 1.0);
+/// assert_eq!(a + b, Vector::new([5.0, 7.0, 9.0]));
+/// assert_eq!(b - a, Vector::new([3.0, 3.0, 3.0]));
+/// assert_eq!(-a, Vector::new([-1.0, -2.0, -3.0]));
+/// assert_eq!(a * 2.0, Vector::new([2.0, 4.0, 6.0]));
+/// assert_eq!(a.dot(b), 32.0);
 /// ```
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -112,6 +118,58 @@ impl<const N: usize, T: Numeric> Vector<N, T> {
     pub fn zeros() -> Self {
         Vector::from_fn(|_| T::ZERO)
     }
+
+    /// Multiplies every component by `scalar`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// assert_eq!(Vector::new([1.0, 2.0]).scale(3.0), Vector::new([3.0, 6.0]));
+    /// ```
+    #[inline]
+    pub fn scale(self, scalar: T) -> Self {
+        Vector::from_fn(|i| self.data[i] * scalar)
+    }
+
+    /// The dot product `Σ self[i] * rhs[i]`, summed left to right.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// assert_eq!(Vector::new([1.0, 2.0, 3.0]).dot(Vector::new([4.0, 5.0, 6.0])), 32.0);
+    /// assert_eq!(Vector::new([1.0, 0.0]).dot(Vector::new([0.0, 1.0])), 0.0);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn dot(self, rhs: Self) -> T {
+        let mut sum = T::ZERO;
+        for (&a, &b) in self.data.iter().zip(&rhs.data) {
+            sum += a * b;
+        }
+        sum
+    }
+
+    /// The squared Euclidean norm `self · self` (no square root).
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// assert_eq!(Vector::new([3.0, 4.0]).norm_squared(), 25.0);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn norm_squared(self) -> T {
+        self.dot(self)
+    }
+
+    /// The Euclidean norm `√(self · self)`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// assert_eq!(Vector::new([3.0, 4.0]).norm(), 5.0);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn norm(self) -> T {
+        self.norm_squared().sqrt()
+    }
 }
 
 impl<const N: usize, T> From<[T; N]> for Vector<N, T> {
@@ -134,5 +192,109 @@ impl<const N: usize, T> IndexMut<usize> for Vector<N, T> {
     #[inline]
     fn index_mut(&mut self, index: usize) -> &mut T {
         &mut self.data[index]
+    }
+}
+
+impl<const N: usize, T: Numeric> Add for Vector<N, T> {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: Self) -> Self {
+        Vector::from_fn(|i| self.data[i] + rhs.data[i])
+    }
+}
+
+impl<const N: usize, T: Numeric> AddAssign for Vector<N, T> {
+    #[inline]
+    fn add_assign(&mut self, rhs: Self) {
+        for (a, &b) in self.data.iter_mut().zip(&rhs.data) {
+            *a += b;
+        }
+    }
+}
+
+impl<const N: usize, T: Numeric> Sub for Vector<N, T> {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: Self) -> Self {
+        Vector::from_fn(|i| self.data[i] - rhs.data[i])
+    }
+}
+
+impl<const N: usize, T: Numeric> SubAssign for Vector<N, T> {
+    #[inline]
+    fn sub_assign(&mut self, rhs: Self) {
+        for (a, &b) in self.data.iter_mut().zip(&rhs.data) {
+            *a -= b;
+        }
+    }
+}
+
+impl<const N: usize, T: Numeric> Neg for Vector<N, T> {
+    type Output = Self;
+
+    #[inline]
+    fn neg(self) -> Self {
+        Vector::from_fn(|i| -self.data[i])
+    }
+}
+
+impl<const N: usize, T: Numeric> Mul<T> for Vector<N, T> {
+    type Output = Self;
+
+    #[inline]
+    fn mul(self, scalar: T) -> Self {
+        self.scale(scalar)
+    }
+}
+
+impl<T: Numeric> Vector<3, T> {
+    /// The cross product `self × rhs`, available only for 3-D vectors.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// let x = Vector::new([1.0, 0.0, 0.0]);
+    /// let y = Vector::new([0.0, 1.0, 0.0]);
+    /// assert_eq!(x.cross(y), Vector::new([0.0, 0.0, 1.0]));
+    /// ```
+    #[inline]
+    pub fn cross(self, rhs: Self) -> Self {
+        let [ax, ay, az] = self.data;
+        let [bx, by, bz] = rhs.data;
+        Vector::new([ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx])
+    }
+
+    /// The scalar triple product `self · (b × c)`: the signed volume spanned by the three vectors.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// let x = Vector::new([1.0, 0.0, 0.0]);
+    /// let y = Vector::new([0.0, 1.0, 0.0]);
+    /// let z = Vector::new([0.0, 0.0, 1.0]);
+    /// assert_eq!(x.scalar_triple(y, z), 1.0);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn scalar_triple(self, b: Self, c: Self) -> T {
+        self.dot(b.cross(c))
+    }
+}
+
+impl<T: Numeric> Vector<2, T> {
+    /// The 2-D cross product `self[0] * rhs[1] - self[1] * rhs[0]` — the scalar z-component of the
+    /// 3-D cross, available only for 2-D vectors.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// let x = Vector::new([1.0, 0.0]);
+    /// let y = Vector::new([0.0, 1.0]);
+    /// assert_eq!(x.cross(y), 1.0);
+    /// assert_eq!(y.cross(x), -1.0);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn cross(self, rhs: Self) -> T {
+        self[0] * rhs[1] - self[1] * rhs[0]
     }
 }
