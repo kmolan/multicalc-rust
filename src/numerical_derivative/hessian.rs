@@ -1,5 +1,5 @@
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-use crate::scalar::Numeric;
+use crate::scalar::{Numeric, ScalarFnN};
 use crate::utils::error_codes::CalcError;
 
 /// Computes the Hessian matrix of a scalar multi-variable function, using any derivator
@@ -40,15 +40,18 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     /// ```
     /// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
     /// use multicalc::numerical_derivative::hessian::Hessian;
+    /// use multicalc::scalar::c;
+    /// use multicalc::scalar_fn;
     ///
     /// // f(x, y) = y*sin(x) + 2*x*e^y
-    /// let my_func = |args: &[f64; 2]| args[1] * args[0].sin() + 2.0 * args[0] * args[1].exp();
+    /// let my_func =
+    ///     scalar_fn!(|args: &[f64; 2]| args[1] * args[0].sin() + c(2.0) * args[0] * args[1].exp());
     ///
     /// let hessian = Hessian::<FiniteDifferenceMulti>::default();
     /// let result = hessian.get(&my_func, &[1.0, 2.0]).unwrap();
     /// assert!(f64::abs(result[0][0] - (-2.0 * f64::sin(1.0))) < 1e-5);
     /// ```
-    pub fn get<F: Fn(&[D::Scalar; NUM_VARS]) -> D::Scalar, const NUM_VARS: usize>(
+    pub fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
         &self,
         function: &F,
         vector_of_points: &[D::Scalar; NUM_VARS],

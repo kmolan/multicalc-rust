@@ -6,7 +6,7 @@
 
 use crate::numerical_derivative::derivator::{DerivatorMultiVariable, DerivatorSingleVariable};
 use crate::numerical_derivative::mode::{self, FiniteDifferenceMode};
-use crate::scalar::Numeric;
+use crate::scalar::{Numeric, ScalarFn, ScalarFnN};
 use crate::utils::error_codes::CalcError;
 
 /// Low and high sample offsets (in units of the step size) and the divisor factor
@@ -85,12 +85,12 @@ impl<T: Numeric> FiniteDifferenceSingle<T> {
     }
 
     #[inline]
-    fn diff<F: Fn(T) -> T>(&self, order: usize, func: &F, point: T, step: T) -> T {
+    fn diff<F: ScalarFn>(&self, order: usize, func: &F, point: T, step: T) -> T {
         let (lo, hi, denom) = offsets::<T>(self.config.method);
 
         if order == 1 {
-            let low = func(point + lo * step);
-            let high = func(point + hi * step);
+            let low = func.eval(point + lo * step);
+            let high = func.eval(point + hi * step);
             return (high - low) / (denom * step);
         }
 
@@ -104,7 +104,7 @@ impl<T: Numeric> FiniteDifferenceSingle<T> {
 impl<T: Numeric> DerivatorSingleVariable for FiniteDifferenceSingle<T> {
     type Scalar = T;
 
-    fn get<F: Fn(T) -> T>(&self, order: usize, func: &F, point: T) -> Result<T, CalcError> {
+    fn get<F: ScalarFn>(&self, order: usize, func: &F, point: T) -> Result<T, CalcError> {
         if order == 0 {
             return Err(CalcError::DerivativeOrderZero);
         }
@@ -136,7 +136,7 @@ impl<T: Numeric> FiniteDifferenceMulti<T> {
     }
 
     #[inline]
-    fn diff<F: Fn(&[T; NUM_VARS]) -> T, const NUM_VARS: usize, const NUM_ORDER: usize>(
+    fn diff<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize, const NUM_ORDER: usize>(
         &self,
         order: usize,
         func: &F,
@@ -153,7 +153,7 @@ impl<T: Numeric> FiniteDifferenceMulti<T> {
         high_point[var] += hi * step;
 
         if order == 1 {
-            return (func(&high_point) - func(&low_point)) / (denom * step);
+            return (func.eval(&high_point) - func.eval(&low_point)) / (denom * step);
         }
 
         let next = self.config.step_size_multiplier * step;
@@ -166,7 +166,7 @@ impl<T: Numeric> FiniteDifferenceMulti<T> {
 impl<T: Numeric> DerivatorMultiVariable for FiniteDifferenceMulti<T> {
     type Scalar = T;
 
-    fn get<F: Fn(&[T; NUM_VARS]) -> T, const NUM_VARS: usize, const NUM_ORDER: usize>(
+    fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize, const NUM_ORDER: usize>(
         &self,
         func: &F,
         idx_to_differentiate: &[usize; NUM_ORDER],

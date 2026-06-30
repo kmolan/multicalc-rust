@@ -32,14 +32,20 @@ pub trait VectorFn<const N: usize, const M: usize> {
 
 /// Wraps one output of a [`VectorFn`] as a [`ScalarFnN`], so a vector-valued function can be
 /// differentiated component-by-component through the scalar derivators.
-pub(crate) struct Component<'a, F> {
-    /// The vector-valued function.
-    pub func: &'a F,
-    /// Which output component this exposes.
-    pub index: usize,
+pub(crate) struct Component<'a, F, const N: usize, const M: usize> {
+    func: &'a F,
+    index: usize,
 }
 
-impl<F: VectorFn<N, M>, const N: usize, const M: usize> ScalarFnN<N> for Component<'_, F> {
+impl<'a, F: VectorFn<N, M>, const N: usize, const M: usize> Component<'a, F, N, M> {
+    /// Wraps output `index` of `func`. `N`/`M` are inferred from the function's [`VectorFn`] impl.
+    #[inline]
+    pub fn new(func: &'a F, index: usize) -> Self {
+        Component { func, index }
+    }
+}
+
+impl<F: VectorFn<N, M>, const N: usize, const M: usize> ScalarFnN<N> for Component<'_, F, N, M> {
     #[inline]
     fn eval<S: Numeric>(&self, point: &[S; N]) -> S {
         self.func.eval(point)[self.index]
