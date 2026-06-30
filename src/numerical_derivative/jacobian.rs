@@ -1,3 +1,4 @@
+use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::function::Component;
 use crate::scalar::{Numeric, VectorFn};
@@ -6,9 +7,10 @@ use crate::utils::error_codes::CalcError;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
-/// Computes the Jacobian matrix of a vector-valued function, using any derivator that
-/// implements [`DerivatorMultiVariable`].
-pub struct Jacobian<D: DerivatorMultiVariable> {
+/// Computes the Jacobian matrix of a vector-valued function. The differentiation backend
+/// defaults to autodiff ([`AutoDiffMulti`]); pass a finite-difference derivator explicitly to
+/// use that instead.
+pub struct Jacobian<D: DerivatorMultiVariable = AutoDiffMulti> {
     derivator: D,
 }
 
@@ -42,17 +44,17 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     ///
     /// # Examples
     /// ```
-    /// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
     /// use multicalc::numerical_derivative::jacobian::Jacobian;
     /// use multicalc::scalar_fn_vec;
     ///
     /// // the vector function (x*y*z, x^2 + y^2)
     /// let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
     ///
-    /// let jacobian = Jacobian::<FiniteDifferenceMulti>::default();
+    /// // autodiff is the default backend, so the result is exact
+    /// let jacobian: Jacobian = Jacobian::default();
     /// let result = jacobian.get(&f, &[1.0, 2.0, 3.0]).unwrap();
     /// // result is [[6, 3, 2], [2, 4, 0]]
-    /// assert!(f64::abs(result[0][0] - 6.0) < 1e-6);
+    /// assert!(f64::abs(result[0][0] - 6.0) < 1e-12);
     /// ```
     pub fn get<F: VectorFn<NUM_VARS, NUM_FUNCS>, const NUM_FUNCS: usize, const NUM_VARS: usize>(
         &self,

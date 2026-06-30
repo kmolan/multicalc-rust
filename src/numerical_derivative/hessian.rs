@@ -1,10 +1,12 @@
+use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
 use crate::utils::error_codes::CalcError;
 
-/// Computes the Hessian matrix of a scalar multi-variable function, using any derivator
-/// that implements [`DerivatorMultiVariable`].
-pub struct Hessian<D: DerivatorMultiVariable> {
+/// Computes the Hessian matrix of a scalar multi-variable function. The differentiation backend
+/// defaults to autodiff ([`AutoDiffMulti`]); pass a finite-difference derivator explicitly to use
+/// that instead.
+pub struct Hessian<D: DerivatorMultiVariable = AutoDiffMulti> {
     derivator: D,
 }
 
@@ -38,7 +40,6 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     ///
     /// # Examples
     /// ```
-    /// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
     /// use multicalc::numerical_derivative::hessian::Hessian;
     /// use multicalc::scalar::c;
     /// use multicalc::scalar_fn;
@@ -47,9 +48,10 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     /// let my_func =
     ///     scalar_fn!(|args: &[f64; 2]| args[1] * args[0].sin() + c(2.0) * args[0] * args[1].exp());
     ///
-    /// let hessian = Hessian::<FiniteDifferenceMulti>::default();
+    /// // autodiff is the default backend, so the Hessian is exact
+    /// let hessian: Hessian = Hessian::default();
     /// let result = hessian.get(&my_func, &[1.0, 2.0]).unwrap();
-    /// assert!(f64::abs(result[0][0] - (-2.0 * f64::sin(1.0))) < 1e-5);
+    /// assert!(f64::abs(result[0][0] - (-2.0 * f64::sin(1.0))) < 1e-12);
     /// ```
     pub fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
         &self,
