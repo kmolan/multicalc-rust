@@ -48,7 +48,7 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     /// let my_func =
     ///     scalar_fn!(|args: &[f64; 2]| args[1] * args[0].sin() + c(2.0) * args[0] * args[1].exp());
     ///
-    /// // autodiff is the default backend, so the Hessian is exact
+    ///
     /// let hessian: Hessian = Hessian::default();
     /// let result = hessian.get(&my_func, &[1.0, 2.0]).unwrap();
     /// assert!(f64::abs(result[0][0] - (-2.0 * f64::sin(1.0))) < 1e-12);

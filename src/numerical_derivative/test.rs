@@ -1,462 +1,211 @@
+use crate::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
+use crate::numerical_derivative::derivator::*;
+use crate::numerical_derivative::finite_difference::*;
 use crate::numerical_derivative::hessian::Hessian;
 use crate::numerical_derivative::jacobian::Jacobian;
 use crate::numerical_derivative::mode::*;
-
-use crate::numerical_derivative::derivator::*;
-use crate::numerical_derivative::finite_difference::*;
-
+use crate::scalar::{Numeric, VectorFn, c};
 use crate::utils::error_codes::*;
+use crate::{scalar_fn, scalar_fn_vec};
 
-#[cfg(feature = "alloc")]
-use alloc::{boxed::Box, vec::Vec};
+// ----- autodiff (the default backend): exact derivatives -----
 
 #[test]
-fn test_single_derivative_forward_difference() {
-    //function is x*x/2.0, derivative is known to be x
-    let func = |args: f64| -> f64 { args * args / 2.0 };
+fn ad_single_derivative() {
+    // f(x) = x^3 -> f' = 3x^2, f'' = 6x, f''' = 6
+    let func = scalar_fn!(|x| x * x * x);
+    let d = AutoDiffSingle::default();
 
-    //simple derivative around x = 2.0, expect a value of 2.00
-
-    let mut derivator = FiniteDifferenceSingle::default();
-    derivator.config.method = FiniteDifferenceMode::Forward;
-
-    let val = derivator.get(1, &func, 2.0).unwrap();
-    assert!(f64::abs(val - 2.0) < 0.001);
+    assert!(f64::abs(d.get(1, &func, 2.0).unwrap() - 12.0) < 1e-12);
+    assert!(f64::abs(d.get(2, &func, 2.0).unwrap() - 12.0) < 1e-12);
+    assert!(f64::abs(d.get(3, &func, 2.0).unwrap() - 6.0) < 1e-12);
 }
 
 #[test]
-fn test_single_derivative_backward_difference() {
-    //function is x*x/2.0, derivative is known to be x
-    let func = |args: f64| -> f64 { args * args / 2.0 };
-
-    let mut derivator = FiniteDifferenceSingle::default();
-    derivator.config.method = FiniteDifferenceMode::Backward;
-
-    let val = derivator.get(1, &func, 2.0).unwrap();
-    assert!(f64::abs(val - 2.0) < 0.001);
-}
-
-#[test]
-fn test_single_derivative_central_difference() {
-    //function is x*x/2.0, derivative is known to be x
-    let func = |args: f64| -> f64 { args * args / 2.0 };
-
-    let mut derivator = FiniteDifferenceSingle::default();
-    derivator.config.method = FiniteDifferenceMode::Central;
-
-    //simple derivative around x = 2.0, expect a value of 2.00
-    let val = derivator.get(1, &func, 2.0).unwrap();
-    assert!(f64::abs(val - 2.0) < 0.000001);
-}
-
-#[test]
-fn test_single_derivative_partial_1() {
-    //function is 3*x*x + 2*x*y
-    let func = |args: &[f64; 2]| -> f64 { 3.0 * args[0] * args[0] + 2.0 * args[0] * args[1] };
-
+fn ad_first_partials() {
+    // f(x, y) = 3x^2 + 2xy -> df/dx = 6x + 2y, df/dy = 2x
+    let func = scalar_fn!(|v: &[f64; 2]| c(3.0) * v[0] * v[0] + c(2.0) * v[0] * v[1]);
+    let d = AutoDiffMulti::default();
     let point = [1.0, 3.0];
 
-    let mut derivator = FiniteDifferenceMulti::default();
-    derivator.config.method = FiniteDifferenceMode::Central;
-
-    //partial derivate for (x, y) = (1.0, 3.0), partial derivative for x is known to be 6*x + 2*y
-    let val = derivator.get_single_partial(&func, 0, &point).unwrap();
-    assert!(f64::abs(val - 12.0) < 0.000001);
-
-    //partial derivate for (x, y) = (1.0, 3.0), partial derivative for y is known to be 2.0*x
-    let val = derivator.get_single_partial(&func, 1, &point).unwrap();
-    assert!(f64::abs(val - 2.0) < 0.000001);
+    assert!(f64::abs(d.get_single_partial(&func, 0, &point).unwrap() - 12.0) < 1e-12);
+    assert!(f64::abs(d.get_single_partial(&func, 1, &point).unwrap() - 2.0) < 1e-12);
 }
 
 #[test]
-fn test_single_derivative_partial_2() {
-    //function is y*sin(x) + x*cos(y) + x*y*e^z
-    let func = |args: &[f64; 3]| -> f64 {
-        args[1] * args[0].sin() + args[0] * args[1].cos() + args[0] * args[1] * args[2].exp()
-    };
-
+fn ad_first_partials_transcendental() {
+    // f(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z
+    let func = scalar_fn!(|v: &[f64; 3]| {
+        v[1] * v[0].sin() + v[0] * v[1].cos() + v[0] * v[1] * v[2].exp()
+    });
+    let d = AutoDiffMulti::default();
     let point = [1.0, 2.0, 3.0];
 
-    let mut derivator = FiniteDifferenceMulti::default();
-    derivator.config.method = FiniteDifferenceMode::Central;
+    // df/dx = y*cos(x) + cos(y) + y*e^z
+    let dx = 2.0 * f64::cos(1.0) + f64::cos(2.0) + 2.0 * f64::exp(3.0);
+    assert!(f64::abs(d.get_single_partial(&func, 0, &point).unwrap() - dx) < 1e-12);
 
-    //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial derivative for x is known to be y*cos(x) + cos(y) + y*e^z
-    let val = derivator.get_single_partial(&func, 0, &point).unwrap();
-    let expected_value = 2.0 * f64::cos(1.0) + f64::cos(2.0) + 2.0 * f64::exp(3.0);
-    assert!(f64::abs(val - expected_value) < 0.000001);
-
-    //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial derivative for y is known to be sin(x) - x*sin(y) + x*e^z
-    let val = derivator.get_single_partial(&func, 1, &point).unwrap();
-    let expected_value = f64::sin(1.0) - 1.0 * f64::sin(2.0) + 1.0 * f64::exp(3.0);
-    assert!(f64::abs(val - expected_value) < 0.000001);
-
-    //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial derivative for z is known to be x*y*e^z
-    let val = derivator.get_single_partial(&func, 2, &point).unwrap();
-    let expected_value = 1.0 * 2.0 * f64::exp(3.0);
-    assert!(f64::abs(val - expected_value) < 0.00001);
+    // df/dz = x*y*e^z
+    let dz = 1.0 * 2.0 * f64::exp(3.0);
+    assert!(f64::abs(d.get_single_partial(&func, 2, &point).unwrap() - dz) < 1e-12);
 }
 
 #[test]
-fn test_single_derivative_error_1() {
-    //function is y*sin(x) + x*cos(y) + x*y*e^z
-    let func = |args: &[f64; 3]| -> f64 {
-        args[1] * args[0].sin() + args[0] * args[1].cos() + args[0] * args[1] * args[2].exp()
-    };
-
+fn ad_second_partials() {
+    // f(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z
+    let func = scalar_fn!(|v: &[f64; 3]| {
+        v[1] * v[0].sin() + v[0] * v[1].cos() + v[0] * v[1] * v[2].exp()
+    });
+    let d = AutoDiffMulti::default();
     let point = [1.0, 2.0, 3.0];
 
-    let derivator = FiniteDifferenceMulti::from_parameters(0.0, FiniteDifferenceMode::Central, 1.0);
+    // d2f/dx2 = -y*sin(x)
+    let dxx = -2.0 * f64::sin(1.0);
+    assert!(f64::abs(d.get_double_partial(&func, &[0, 0], &point).unwrap() - dxx) < 1e-12);
 
-    //expect failure because step size is zero
-    let result = derivator.get(&func, &[0], &point);
-    assert!(result.is_err());
-    assert!(result.unwrap_err() == CalcError::StepSizeZero);
+    // mixed d2f/dx dy = cos(x) - sin(y) + e^z
+    let dxy = f64::cos(1.0) - f64::sin(2.0) + f64::exp(3.0);
+    assert!(f64::abs(d.get_double_partial(&func, &[0, 1], &point).unwrap() - dxy) < 1e-12);
 }
 
 #[test]
-fn test_single_derivative_error_2() {
-    //function is y*sin(x) + x*cos(y) + x*y*e^z
-    let func = |args: &[f64; 3]| -> f64 {
-        args[1] * args[0].sin() + args[0] * args[1].cos() + args[0] * args[1] * args[2].exp()
-    };
-
+fn ad_third_partials() {
+    // f = x^3 y^3 z^3:  d3/dx dy dz = 27 x^2 y^2 z^2 = 972;  d3/dx2 dy = 18 x y^2 z^3 = 1944
+    let func = scalar_fn!(|v: &[f64; 3]| v[0].powi(3) * v[1].powi(3) * v[2].powi(3));
+    let d = AutoDiffMulti::default();
     let point = [1.0, 2.0, 3.0];
 
-    let derivator = FiniteDifferenceMulti::default();
-
-    //expect failure because the index is greater than the number of points
-    let result = derivator.get(&func, &[5], &point);
-    assert!(result.is_err());
-    assert!(result.unwrap_err() == CalcError::IndexOutOfRange);
+    assert!(f64::abs(d.get(&func, &[0, 1, 2], &point).unwrap() - 972.0) < 1e-9);
+    assert!(f64::abs(d.get(&func, &[0, 0, 1], &point).unwrap() - 1944.0) < 1e-9);
 }
 
 #[test]
-fn test_single_derivative_error_3() {
-    //function is y*sin(x) + x*cos(y) + x*y*e^z
-    let func = |args: &[f64; 3]| -> f64 {
-        args[1] * args[0].sin() + args[0] * args[1].cos() + args[0] * args[1] * args[2].exp()
-    };
+fn ad_jacobian() {
+    // (x*y*z, x^2 + y^2)
+    let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    let jacobian: Jacobian = Jacobian::default();
+    let result = jacobian.get(&f, &[1.0, 2.0, 3.0]).unwrap();
 
-    let point = [1.0, 2.0, 3.0];
-
-    let derivator = FiniteDifferenceMulti::default();
-
-    //expect failure because the derivative order (length of the index array) is zero
-    let idx: [usize; 0] = [];
-    let result = derivator.get(&func, &idx, &point);
-    assert!(result.is_err());
-    assert!(result.unwrap_err() == CalcError::DerivativeOrderZero);
-}
-
-#[test]
-fn test_single_derivative_error_4() {
-    //function is y*sin(x) + x*cos(y) + x*y*e^z
-    let func = |args: &[f64; 3]| -> f64 {
-        args[1] * args[0].sin() + args[0] * args[1].cos() + args[0] * args[1] * args[2].exp()
-    };
-
-    let point = [1.0, 2.0, 3.0];
-
-    let derivator = FiniteDifferenceMulti::default();
-
-    //expect failure because a later index is out of range
-    let result = derivator.get(&func, &[0, 5], &point);
-    assert!(result.is_err());
-    assert!(result.unwrap_err() == CalcError::IndexOutOfRange);
-}
-
-#[test]
-fn test_double_derivative_forward_difference() {
-    //function is x*Sin(x), double derivative known to be 2.0*Cos(x) - x*Sin(x)
-    let func = |args: f64| -> f64 { args * args.sin() };
-
-    let mut derivator = FiniteDifferenceSingle::default();
-    derivator.config.method = FiniteDifferenceMode::Forward;
-
-    //double derivative at x = 1.0
-    let val = derivator.get(2, &func, 1.0).unwrap();
-    let expected_val = 2.0 * f64::cos(1.0) - 1.0 * f64::sin(1.0);
-    assert!(f64::abs(val - expected_val) < 0.05);
-}
-
-#[test]
-fn test_double_derivative_backward_difference() {
-    //function is x*Sin(x), double derivative known to be 2.0*Cos(x) - x*Sin(x)
-    let func = |args: f64| -> f64 { args * args.sin() };
-
-    let mut derivator = FiniteDifferenceSingle::default();
-    derivator.config.method = FiniteDifferenceMode::Backward;
-
-    //double derivative at x = 1.0
-    let val = derivator.get(2, &func, 1.0).unwrap();
-    let expected_val = 2.0 * f64::cos(1.0) - 1.0 * f64::sin(1.0);
-    assert!(f64::abs(val - expected_val) < 0.05);
-}
-
-#[test]
-fn test_double_derivative_central_difference() {
-    //function is x*Sin(x), double derivative known to be 2.0*Cos(x) - x*Sin(x)
-    let func = |args: f64| -> f64 { args * args.sin() };
-
-    let mut derivator = FiniteDifferenceSingle::default();
-    derivator.config.method = FiniteDifferenceMode::Central;
-
-    //double derivative at x = 1.0
-    let val = derivator.get(2, &func, 1.0).unwrap();
-    let expected_val = 2.0 * f64::cos(1.0) - 1.0 * f64::sin(1.0);
-    assert!(f64::abs(val - expected_val) < 0.00001);
-}
-
-#[test]
-fn test_double_derivative_partial_1() {
-    //function is y*sin(x) + x*cos(y) + x*y*e^z
-    let func = |args: &[f64; 3]| -> f64 {
-        args[1] * args[0].sin() + args[0] * args[1].cos() + args[0] * args[1] * args[2].exp()
-    };
-
-    let point = [1.0, 2.0, 3.0];
-
-    let derivator = FiniteDifferenceMulti::default();
-
-    let idx: [usize; 2] = [0, 0];
-    //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial double derivative for x is known to be -y*sin(x)
-    let val = derivator.get(&func, &idx, &point).unwrap();
-    let expected_value = -2.0 * f64::sin(1.0);
-    assert!(f64::abs(val - expected_value) < 0.0001);
-
-    let idx: [usize; 2] = [1, 1];
-    //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial double derivative for y is known to be -x*cos(y)
-    let val = derivator.get(&func, &idx, &point).unwrap();
-    let expected_value = -f64::cos(2.0);
-    assert!(f64::abs(val - expected_value) < 0.0001);
-
-    let idx: [usize; 2] = [2, 2];
-    //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), partial double derivative for z is known to be x*y*e^z
-    let val = derivator.get(&func, &idx, &point).unwrap();
-    let expected_value = 1.0 * 2.0 * f64::exp(3.0);
-    assert!(f64::abs(val - expected_value) < 0.0001);
-}
-
-#[test]
-fn test_double_derivative_partial_2() {
-    //function is y*sin(x) + x*cos(y) + x*y*e^z
-    let func = |args: &[f64; 3]| -> f64 {
-        args[1] * args[0].sin() + args[0] * args[1].cos() + args[0] * args[1] * args[2].exp()
-    };
-
-    let point = [1.0, 2.0, 3.0];
-
-    let derivator = FiniteDifferenceMulti::default();
-
-    let idx: [usize; 2] = [0, 1]; //mixed partial double derivate d(df/dx)/dy
-    //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), mixed partial double derivative is known to be cos(x) - sin(y) + e^z
-    let val = derivator.get(&func, &idx, &point).unwrap();
-    let expected_value = f64::cos(1.0) - f64::sin(2.0) + f64::exp(3.0);
-    assert!(f64::abs(val - expected_value) < 0.001);
-
-    let idx: [usize; 2] = [1, 2]; //mixed partial double derivate d(df/dy)/dz
-    //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), mixed partial double derivative is known to be x*e^z
-    let val = derivator.get(&func, &idx, &point).unwrap();
-    let expected_value = 1.0 * f64::exp(3.0);
-    assert!(f64::abs(val - expected_value) < 0.001);
-
-    let idx: [usize; 2] = [0, 2]; //mixed partial double derivate d(df/dx)/dz
-    //partial derivate for (x, y, z) = (1.0, 2.0, 3.0), mixed partial double derivative is known to be y*e^z
-    let val = derivator.get(&func, &idx, &point).unwrap();
-    let expected_value = 2.0 * f64::exp(3.0);
-    assert!(f64::abs(val - expected_value) < 0.001);
-}
-
-#[test]
-fn test_triple_derivative_forward_difference() {
-    //function is x^4, triple derivative is known to be 24.0*x
-    let func = |args: f64| -> f64 { args.powf(4.0) };
-
-    let mut derivator = FiniteDifferenceSingle::default();
-    derivator.config.method = FiniteDifferenceMode::Forward;
-
-    //expect a value of 24.00
-    let val = derivator.get(4, &func, 1.0).unwrap();
-    assert!(f64::abs(val - 24.0) < 0.05);
-}
-
-#[test]
-fn test_triple_derivative_backward_difference() {
-    //function is x^4, triple derivative is known to be 24.0*x
-    let func = |args: f64| -> f64 { args.powf(4.0) };
-
-    let mut derivator = FiniteDifferenceSingle::default();
-    derivator.config.method = FiniteDifferenceMode::Backward;
-
-    //expect a value of 24.00
-    let val = derivator.get(4, &func, 1.0).unwrap();
-    assert!(f64::abs(val - 24.0) < 0.05);
-}
-
-#[test]
-fn test_triple_derivative_central_difference() {
-    //function is x^4, triple derivative is known to be 24.0*x
-    let func = |args: f64| -> f64 { args.powf(4.0) };
-
-    let mut derivator = FiniteDifferenceSingle::default();
-    derivator.config.method = FiniteDifferenceMode::Central;
-
-    //expect a value of 24.00
-    let val = derivator.get(4, &func, 1.0).unwrap();
-    assert!(f64::abs(val - 24.0) < 0.05);
-}
-
-#[test]
-fn test_triple_derivative_partial_1() {
-    //function is y*sin(x) + 2*x*e^y
-    let func = |args: &[f64; 2]| -> f64 { args[1] * args[0].sin() + 2.0 * args[0] * args[1].exp() };
-
-    let point = [1.0, 3.0];
-
-    let derivator = FiniteDifferenceMulti::default();
-
-    let idx = [0, 0, 0];
-    //partial derivate for (x, y) = (1.0, 3.0), partial triple derivative for x is known to be -y*cos(x)
-    let val = derivator.get(&func, &idx, &point).unwrap();
-    let expected_val = -3.0 * f64::cos(1.0);
-    assert!(f64::abs(val - expected_val) < 0.001);
-
-    let idx = [1, 1, 1];
-    //partial derivate for (x, y) = (1.0, 3.0), partial triple derivative for y is known to be 2*x*e^y
-    let val = derivator.get(&func, &idx, &point).unwrap();
-    let expected_val = 2.0 * 1.0 * f64::exp(3.0);
-    assert!(f64::abs(val - expected_val) < 0.001);
-}
-
-#[test]
-fn test_triple_derivative_partial_2() {
-    //function is x^3 * y^3 * z^3
-    let func =
-        |args: &[f64; 3]| -> f64 { args[0].powf(3.0) * args[1].powf(3.0) * args[2].powf(3.0) };
-
-    let point = [1.0, 2.0, 3.0];
-
-    let derivator = FiniteDifferenceMulti::default();
-
-    let idx = [0, 1, 2]; //mixed partial double derivate d(d(df/dx)/dy)/dz
-    //partial derivate for (x, y) = (1.0, 2.0, 3.0), mixed partial triple derivative is known to be 27.0*x^2*y^2*z^2
-    let val = derivator.get(&func, &idx, &point).unwrap();
-    assert!(f64::abs(val - 972.0) < 0.01);
-
-    let idx = [0, 1, 1]; //mixed partial double derivate d(d(df/dx)/dy)/dy
-    //partial derivate for (x, y) = (1.0, 2.0, 3.0), mixed partial triple derivative for y is known to be 18*x^2*y*z^3
-    let val = derivator.get(&func, &idx, &point).unwrap();
-    assert!(f64::abs(val - 972.0) < 0.01);
-}
-
-#[test]
-fn test_jacobian_1() {
-    //function is x*y*z
-    let func1 = |args: &[f64; 3]| -> f64 { args[0] * args[1] * args[2] };
-
-    //function is x^2 + y^2
-    let func2 = |args: &[f64; 3]| -> f64 { args[0].powf(2.0) + args[1].powf(2.0) };
-
-    let function_matrix: [&dyn Fn(&[f64; 3]) -> f64; 2] = [&func1, &func2];
-
-    let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
-
-    let jacobian = Jacobian::<FiniteDifferenceMulti>::default();
-
-    let result = jacobian.get(&function_matrix, &points).unwrap();
-
-    assert!(result.len() == function_matrix.len()); //number of rows
-    assert!(result[0].len() == points.len()); //number of columns
-
-    let expected_result = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
-
-    for i in 0..function_matrix.len() {
-        for j in 0..points.len() {
-            assert!(f64::abs(result[i][j] - expected_result[i][j]) < 0.000001);
+    let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
+    for i in 0..2 {
+        for j in 0..3 {
+            assert!(f64::abs(result[i][j] - expected[i][j]) < 1e-12);
         }
     }
 }
 
 #[test]
 #[cfg(feature = "alloc")]
-fn test_jacobian_2() {
-    //function is x*y*z
-    let func1 = |args: &[f64; 3]| -> f64 { args[0] * args[1] * args[2] };
+fn ad_jacobian_on_heap() {
+    let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    let jacobian: Jacobian = Jacobian::default();
+    let result = jacobian.get_on_heap(&f, &[1.0, 2.0, 3.0]).unwrap();
 
-    //function is x^2 + y^2
-    let func2 = |args: &[f64; 3]| -> f64 { args[0].powf(2.0) + args[1].powf(2.0) };
-
-    let function_matrix: Vec<Box<dyn Fn(&[f64; 3]) -> f64>> =
-        alloc::vec![Box::new(func1), Box::new(func2)];
-
-    let points = [1.0, 2.0, 3.0]; //the point around which we want the jacobian matrix
-
-    let jacobian = Jacobian::<FiniteDifferenceMulti>::default();
-
-    let result: Vec<Vec<f64>> = jacobian.get_on_heap(&function_matrix, &points).unwrap();
-
-    assert!(result.len() == function_matrix.len()); //number of rows
-    assert!(result[0].len() == points.len()); //number of columns
-
-    let expected_result = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
-
-    for i in 0..function_matrix.len() {
-        for j in 0..points.len() {
-            assert!(f64::abs(result[i][j] - expected_result[i][j]) < 0.000001);
+    let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
+    for i in 0..2 {
+        for j in 0..3 {
+            assert!(f64::abs(result[i][j] - expected[i][j]) < 1e-12);
         }
     }
 }
 
 #[test]
-fn test_jacobian_1_error() {
-    let function_matrix = [];
+fn ad_hessian() {
+    // f(x, y) = y*sin(x) + 2*x*e^y
+    let func = scalar_fn!(|v: &[f64; 2]| v[1] * v[0].sin() + c(2.0) * v[0] * v[1].exp());
+    let hessian: Hessian = Hessian::default();
+    let result = hessian.get(&func, &[1.0, 2.0]).unwrap();
 
-    //the point around which we want the jacobian matrix
-    let points = [1.0, 2.0, 3.0];
-
-    let jacobian = Jacobian::<FiniteDifferenceMulti>::default();
-
-    //expect error because an empty list of function was passed in
-    let result = jacobian.get(&function_matrix, &points);
-
-    assert!(result.is_err());
-    assert!(result.unwrap_err() == CalcError::EmptyFunctionSet);
-}
-
-#[test]
-fn test_hessian_1() {
-    //function is y*sin(x) + 2*x*e^y
-    let func = |args: &[f64; 2]| -> f64 { args[1] * args[0].sin() + 2.0 * args[0] * args[1].exp() };
-
-    let points = [1.0, 2.0]; //the point around which we want the hessian matrix
-
-    let hessian = Hessian::<FiniteDifferenceMulti>::default();
-
-    let result = hessian.get(&func, &points).unwrap();
-
-    assert!(result.len() == points.len()); //number of rows
-    assert!(result[0].len() == points.len()); //number of columns
-
-    let expected_result = [
+    let expected = [
         [-2.0 * f64::sin(1.0), f64::cos(1.0) + 2.0 * f64::exp(2.0)],
         [f64::cos(1.0) + 2.0 * f64::exp(2.0), 2.0 * f64::exp(2.0)],
     ];
-
-    for i in 0..points.len() {
-        for j in 0..points.len() {
-            assert!(f64::abs(result[i][j] - expected_result[i][j]) < 1e-5);
+    for i in 0..2 {
+        for j in 0..2 {
+            assert!(f64::abs(result[i][j] - expected[i][j]) < 1e-12);
         }
     }
 }
 
 #[test]
-fn test_single_derivative_f32() {
-    //x*x at 0.5; central difference is exact for quadratics, leaving only f32 rounding
-    let func = |x: f32| -> f32 { x * x };
+fn ad_f32() {
+    // x*x at 0.5; first derivative 2x = 1.0, exact under autodiff
+    let func = scalar_fn!(|x| x * x);
+    let d = AutoDiffSingle::<f32>::default();
+    assert!(f32::abs(d.get(1, &func, 0.5_f32).unwrap() - 1.0) < 1e-6);
+}
 
-    let derivator = FiniteDifferenceSingle::<f32>::default();
+// ----- autodiff error handling -----
 
-    //first derivative is 2x, known to be 1.0 at x = 0.5
-    let val = derivator.get(1, &func, 0.5).unwrap();
-    assert!(f32::abs(val - 1.0) < 1e-2, "got {val}");
+#[test]
+fn ad_error_index_out_of_range() {
+    let func = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] + v[2]);
+    let d = AutoDiffMulti::default();
+    let result = d.get_single_partial(&func, 5, &[1.0, 2.0, 3.0]);
+    assert_eq!(result.unwrap_err(), CalcError::IndexOutOfRange);
+}
+
+#[test]
+fn ad_error_order_zero() {
+    let func = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] + v[2]);
+    let d = AutoDiffMulti::default();
+    let idx: [usize; 0] = [];
+    assert_eq!(
+        d.get(&func, &idx, &[1.0, 2.0, 3.0]).unwrap_err(),
+        CalcError::DerivativeOrderZero
+    );
+}
+
+#[test]
+fn ad_error_order_unsupported() {
+    // autodiff multi caps at third order; a fourth-order partial is rejected
+    let func = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] + v[2]);
+    let d = AutoDiffMulti::default();
+    assert_eq!(
+        d.get(&func, &[0, 1, 2, 0], &[1.0, 2.0, 3.0]).unwrap_err(),
+        CalcError::DerivativeOrderUnsupported
+    );
+}
+
+#[test]
+fn ad_jacobian_empty_error() {
+    // a function with no outputs is an empty function set
+    struct EmptyVectorFn;
+    impl VectorFn<3, 0> for EmptyVectorFn {
+        fn eval<S: Numeric>(&self, _point: &[S; 3]) -> [S; 0] {
+            []
+        }
+    }
+
+    let jacobian: Jacobian = Jacobian::default();
+    let result = jacobian.get(&EmptyVectorFn, &[1.0, 2.0, 3.0]);
+    assert_eq!(result.unwrap_err(), CalcError::EmptyFunctionSet);
+}
+
+// ----- finite differences: kept as a sparse fallback for the engine and the cases autodiff
+//       does not cover (high-order mixed partials, zero-step-size error) -----
+
+#[test]
+fn fd_single_derivative_modes() {
+    // x^2/2, derivative x; check all three finite-difference modes still work
+    let func = scalar_fn!(|x| c(0.5) * x * x);
+    for mode in [
+        FiniteDifferenceMode::Forward,
+        FiniteDifferenceMode::Backward,
+        FiniteDifferenceMode::Central,
+    ] {
+        let mut d = FiniteDifferenceSingle::default();
+        d.config.method = mode;
+        assert!(f64::abs(d.get(1, &func, 2.0).unwrap() - 2.0) < 0.001);
+    }
+}
+
+#[test]
+fn fd_step_size_zero_error() {
+    let func = scalar_fn!(|v: &[f64; 3]| v[1] * v[0].sin());
+    let d = FiniteDifferenceMulti::from_parameters(0.0, FiniteDifferenceMode::Central, 1.0);
+    assert_eq!(
+        d.get(&func, &[0], &[1.0, 2.0, 3.0]).unwrap_err(),
+        CalcError::StepSizeZero
+    );
 }

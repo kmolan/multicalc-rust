@@ -50,7 +50,7 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     /// // the vector function (x*y*z, x^2 + y^2)
     /// let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
     ///
-    /// // autodiff is the default backend, so the result is exact
+    ///
     /// let jacobian: Jacobian = Jacobian::default();
     /// let result = jacobian.get(&f, &[1.0, 2.0, 3.0]).unwrap();
     /// // result is [[6, 3, 2], [2, 4, 0]]

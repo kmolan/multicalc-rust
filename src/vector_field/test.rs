@@ -1,5 +1,6 @@
-use crate::numerical_derivative::finite_difference::FiniteDifferenceMulti;
-use crate::numerical_derivative::mode::FiniteDifferenceMode;
+use crate::numerical_derivative::autodiff::AutoDiffMulti;
+use crate::scalar::c;
+use crate::scalar_fn_vec;
 
 use crate::vector_field::curl;
 use crate::vector_field::divergence;
@@ -126,89 +127,44 @@ fn test_flux_integral_1() {
 
 #[test]
 fn test_curl_2d_1() {
-    //vector field is (2*x*y, 3*cos(y))
-
-    //x-component
-    let vf_x = |args: &[f64; 2]| -> f64 { 2.0 * args[0] * args[1] };
-
-    //y-component
-    let vf_y = |args: &[f64; 2]| -> f64 { 3.0 * args[1].cos() };
-
-    let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [&vf_x, &vf_y];
-
+    //vector field is (2*x*y, 3*cos(y)); curl is known to be -2*x, so -2.0 at x = 1
+    let vf = scalar_fn_vec!(|v: &[f64; 2]| [c(2.0) * v[0] * v[1], c(3.0) * v[1].cos()]);
     let point = [1.0, core::f64::consts::PI];
 
-    let derivator = FiniteDifferenceMulti::default();
-
-    //curl is known to be -2*x, expect and answer of -2.0
-    let val = curl::get_2d(derivator, &vector_field_matrix, &point).unwrap();
-    assert!(f64::abs(val + 2.0) < 0.000001); //numerical error less than 1e-6
+    let val = curl::get_2d(AutoDiffMulti::default(), &vf, &point).unwrap();
+    assert!(f64::abs(val + 2.0) < 1e-12);
 }
 
 #[test]
 fn test_curl_3d_1() {
-    //vector field is (y, -x, 2*z)
-    //x-component
-    let vf_x = |args: &[f64; 3]| -> f64 { args[1] };
-
-    //y-component
-    let vf_y = |args: &[f64; 3]| -> f64 { -args[0] };
-
-    //z-component
-    let vf_z = |args: &[f64; 3]| -> f64 { 2.0 * args[2] };
-
-    let vector_field_matrix: [&dyn Fn(&[f64; 3]) -> f64; 3] = [&vf_x, &vf_y, &vf_z];
+    //vector field is (y, -x, 2*z); curl is known to be (0, 0, -2)
+    let vf = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
     let point = [1.0, 2.0, 3.0];
 
-    let derivator = FiniteDifferenceMulti::default();
-
-    //curl is known to be (0.0, 0.0, -2.0)
-    let val = curl::get_3d(derivator, &vector_field_matrix, &point).unwrap();
-    //numerical error less than 1e-6
-    assert!(f64::abs(val[0] - 0.0) < 0.000001);
-    assert!(f64::abs(val[1] - 0.0) < 0.000001);
-    assert!(f64::abs(val[2] + 2.0) < 0.000001);
+    let val = curl::get_3d(AutoDiffMulti::default(), &vf, &point).unwrap();
+    assert!(f64::abs(val[0]) < 1e-12);
+    assert!(f64::abs(val[1]) < 1e-12);
+    assert!(f64::abs(val[2] + 2.0) < 1e-12);
 }
 
 #[test]
 fn test_divergence_2d_1() {
-    //vector field is (2*x*y, 3*cos(y))
-    //x-component
-    let vf_x = |args: &[f64; 2]| -> f64 { 2.0 * args[0] * args[1] };
-
-    //y-component
-    let vf_y = |args: &[f64; 2]| -> f64 { 3.0 * args[1].cos() };
-
-    let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [&vf_x, &vf_y];
+    //vector field is (2*x*y, 3*cos(y)); divergence is 2*y - 3*sin(y), which is 2*pi at y = pi
+    let vf = scalar_fn_vec!(|v: &[f64; 2]| [c(2.0) * v[0] * v[1], c(3.0) * v[1].cos()]);
     let point = [1.0, core::f64::consts::PI];
 
-    let derivator = FiniteDifferenceMulti::default();
-
-    //divergence is known to be 2*y - 3*sin(y); at y = pi that is 2*pi
-    let val = divergence::get_2d(derivator, &vector_field_matrix, &point).unwrap();
-    assert!(f64::abs(val - core::f64::consts::TAU) < 0.01);
+    let val = divergence::get_2d(AutoDiffMulti::default(), &vf, &point).unwrap();
+    assert!(f64::abs(val - core::f64::consts::TAU) < 1e-12);
 }
 
 #[test]
 fn test_divergence_3d_1() {
-    //vector field is (y, -x, 2*z)
-    //x-component
-    let vf_x = |args: &[f64; 3]| -> f64 { args[1] };
+    //vector field is (y, -x, 2*z); divergence is known to be 2.0
+    let vf = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
+    let point = [0.0, 1.0, 3.0];
 
-    //y-component
-    let vf_y = |args: &[f64; 3]| -> f64 { -args[0] };
-
-    //z-component
-    let vf_z = |args: &[f64; 3]| -> f64 { 2.0 * args[2] };
-
-    let vector_field_matrix: [&dyn Fn(&[f64; 3]) -> f64; 3] = [&vf_x, &vf_y, &vf_z];
-    let point = [0.0, 1.0, 3.0]; //the point of interest
-
-    let derivator = FiniteDifferenceMulti::default();
-
-    //diverge known to be 2.0
-    let val = divergence::get_3d(derivator, &vector_field_matrix, &point).unwrap();
-    assert!(f64::abs(val - 2.00) < 0.00001);
+    let val = divergence::get_3d(AutoDiffMulti::default(), &vf, &point).unwrap();
+    assert!(f64::abs(val - 2.0) < 1e-12);
 }
 
 #[test]
@@ -270,18 +226,10 @@ fn test_line_integral_negative_limits() {
 
 #[test]
 fn test_divergence_3d_f32() {
-    //field (y, -x, 2z); divergence is 0 + 0 + 2 = 2
-    let vf_x = |args: &[f32; 3]| -> f32 { args[1] };
-    let vf_y = |args: &[f32; 3]| -> f32 { -args[0] };
-    let vf_z = |args: &[f32; 3]| -> f32 { 2.0 * args[2] };
+    //field (y, -x, 2z); divergence is 0 + 0 + 2 = 2. The same authored field evaluates at f32.
+    let vf = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
+    let point = [0.0_f32, 1.0, 3.0];
 
-    let vector_field_matrix: [&dyn Fn(&[f32; 3]) -> f32; 3] = [&vf_x, &vf_y, &vf_z];
-    let point = [0.0, 1.0, 3.0];
-
-    //a larger step suits f32; the default 1e-5 cancels badly at single precision
-    let derivator =
-        FiniteDifferenceMulti::<f32>::from_parameters(0.01, FiniteDifferenceMode::Central, 10.0);
-
-    let val = divergence::get_3d(derivator, &vector_field_matrix, &point).unwrap();
-    assert!(f32::abs(val - 2.0) < 1e-2, "got {val}");
+    let val = divergence::get_3d(AutoDiffMulti::<f32>::default(), &vf, &point).unwrap();
+    assert!(f32::abs(val - 2.0) < 1e-6, "got {val}");
 }

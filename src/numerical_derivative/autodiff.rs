@@ -98,8 +98,8 @@ impl<T> Default for AutoDiffMulti<T> {
 impl<T: Numeric> DerivatorMultiVariable for AutoDiffMulti<T> {
     type Scalar = T;
 
-    /// First partials seed one [`Dual`] direction; second (mixed) partials seed the two
-    /// [`HyperDual`] directions. Orders beyond 2 return
+    /// First partials use [`Dual`], second (mixed) use [`HyperDual`], and third use a nested
+    /// `Dual<HyperDual>` (three independent directions). Orders beyond 3 return
     /// [`CalcError::DerivativeOrderUnsupported`] (use [`AutoDiffSingle`] for high single-variable
     /// orders, or a finite-difference differentiator).
     fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize, const NUM_ORDER: usize>(
@@ -135,6 +135,23 @@ impl<T: Numeric> DerivatorMultiVariable for AutoDiffMulti<T> {
                 seed[i].eps1 = T::ONE;
                 seed[j].eps2 = T::ONE;
                 Ok(func.eval(&seed).eps1eps2)
+            }
+            3 => {
+                let i = idx_to_differentiate[0];
+                let j = idx_to_differentiate[1];
+                let k = idx_to_differentiate[2];
+                // three independent directions: the two HyperDual epsilons plus the outer Dual.
+                // equal indices just seed the same variable on more than one direction.
+                let seed: [Dual<HyperDual<T>>; NUM_VARS] = core::array::from_fn(|m| {
+                    let a = if m == i { T::ONE } else { T::ZERO };
+                    let b = if m == j { T::ONE } else { T::ZERO };
+                    let c = if m == k { T::ONE } else { T::ZERO };
+                    Dual::new(
+                        HyperDual::new(point[m], a, b, T::ZERO),
+                        HyperDual::new(c, T::ZERO, T::ZERO, T::ZERO),
+                    )
+                });
+                Ok(func.eval(&seed).deriv.eps1eps2)
             }
             _ => Err(CalcError::DerivativeOrderUnsupported),
         }

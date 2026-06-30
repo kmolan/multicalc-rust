@@ -5,27 +5,29 @@
 
 use multicalc::approximation::linear_approximation::LinearApproximator;
 use multicalc::approximation::quadratic_approximation::QuadraticApproximator;
-use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
+use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::scalar::{ScalarFnN, c};
+use multicalc::scalar_fn;
 
 fn main() {
     // ---- linearize f(x, y, z) = x + y^2 + z^3 about (1, 2, 3) ----
-    let f = |v: &[f64; 3]| v[0] + v[1] * v[1] + v[2] * v[2] * v[2];
+    let f = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] * v[1] + v[2] * v[2] * v[2]);
     let base = [1.0, 2.0, 3.0];
 
-    let linear = LinearApproximator::<FiniteDifferenceMulti>::default();
+    let linear = LinearApproximator::<AutoDiffMulti>::default();
     let model = linear.get(&f, &base).unwrap();
 
     println!("Linear model of x + y^2 + z^3 about {base:?}");
     println!(
         "  predict(base)        = {:.6}   (truth {:.6})",
         model.predict(&base),
-        f(&base)
+        f.eval(&base)
     );
     let nearby = [1.1, 2.1, 3.1];
     println!(
         "  predict({nearby:?}) = {:.6}   (truth {:.6})",
         model.predict(&nearby),
-        f(&nearby)
+        f.eval(&nearby)
     );
 
     // goodness-of-fit metrics over a spread of sample points
@@ -45,10 +47,10 @@ fn main() {
     );
 
     // ---- quadratic approximation of e^(x/2) + sin(y) + 2z about (0, pi/2, 10) ----
-    let g = |v: &[f64; 3]| (v[0] / 2.0).exp() + v[1].sin() + 2.0 * v[2];
+    let g = scalar_fn!(|v: &[f64; 3]| (c(0.5) * v[0]).exp() + v[1].sin() + c(2.0) * v[2]);
     let base = [0.0, std::f64::consts::FRAC_PI_2, 10.0];
 
-    let quadratic = QuadraticApproximator::<FiniteDifferenceMulti>::default();
+    let quadratic = QuadraticApproximator::<AutoDiffMulti>::default();
     let model = quadratic.get(&g, &base).unwrap();
 
     println!("\nQuadratic model of e^(x/2) + sin(y) + 2z about (0, pi/2, 10)");
@@ -56,6 +58,6 @@ fn main() {
     println!(
         "  predict({nearby:?}) = {:.6}   (truth {:.6})",
         model.predict(&nearby),
-        g(&nearby)
+        g.eval(&nearby)
     );
 }
