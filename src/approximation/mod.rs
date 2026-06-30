@@ -1,4 +1,4 @@
-use crate::numeric::Numeric;
+use crate::scalar::Numeric;
 
 pub mod linear_approximation;
 pub mod quadratic_approximation;

@@ -1,4 +1,4 @@
-use crate::numeric::Numeric;
+use crate::scalar::Numeric;
 use crate::utils::error_codes::CalcError;
 
 /// Base trait for single-variable numerical differentiation.

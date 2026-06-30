@@ -1,5 +1,5 @@
-use crate::numeric::Numeric;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
+use crate::scalar::Numeric;
 use crate::utils::error_codes::CalcError;
 
 /// A second-order (quadratic) Taylor approximation of a function about a base point:

@@ -1,9 +1,9 @@
 use core::marker::PhantomData;
 
 use crate::gaussian_tables::nodes;
-use crate::numeric::Numeric;
 use crate::numerical_integration::integrator::{IntegratorMultiVariable, IntegratorSingleVariable};
 use crate::numerical_integration::mode::GaussianQuadratureMethod;
+use crate::scalar::Numeric;
 use crate::utils::error_codes::CalcError;
 
 /// Default quadrature order (number of nodes).

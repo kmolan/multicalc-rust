@@ -1,4 +1,4 @@
-use crate::numeric::Numeric;
+use crate::scalar::Numeric;
 use crate::utils::error_codes::CalcError;
 
 /// Classification of an integration interval, distinguishing finite domains from the

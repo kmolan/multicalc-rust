@@ -14,16 +14,25 @@ extern crate alloc;
 pub use libm;
 
 /// The scalar trait the calculus modules are generic over (implemented for `f32` and `f64`).
-pub use numeric::Numeric;
+pub use scalar::Numeric;
 
 /// Forward-mode dual number giving exact first derivatives (it implements [`Numeric`]).
-pub use dual::Dual;
+pub use scalar::Dual;
+
+/// Hyper-dual number giving exact first and second derivatives (it implements [`Numeric`]).
+pub use scalar::HyperDual;
+
+/// Jet (truncated Taylor series) giving exact derivatives to arbitrary order (it implements [`Numeric`]).
+pub use scalar::Jet;
+
+/// Scalar-function abstraction evaluable at any [`Numeric`] scalar, so one formula drives both
+/// finite differences and autodiff.
+pub use scalar::{ScalarFn, ScalarFnN};
 
 pub mod approximation;
-pub mod dual;
 pub mod gaussian_tables;
-pub mod numeric;
 pub mod numerical_derivative;
 pub mod numerical_integration;
+pub mod scalar;
 pub mod utils;
 pub mod vector_field;
