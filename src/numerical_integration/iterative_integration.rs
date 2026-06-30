@@ -1,8 +1,8 @@
 use core::marker::PhantomData;
 
-use crate::numeric::Numeric;
 use crate::numerical_integration::integrator::*;
 use crate::numerical_integration::mode::IterativeMethod;
+use crate::scalar::Numeric;
 use crate::utils::error_codes::CalcError;
 
 /// Default interval count. A multiple of 12 so Boole (needs a multiple of 4) and

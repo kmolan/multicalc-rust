@@ -8,7 +8,7 @@
 use core::cmp::Ordering;
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use crate::numeric::Numeric;
+use crate::scalar::Numeric;
 
 /// A dual number `value + deriv·ε`, where `ε² = 0`.
 ///
@@ -279,7 +279,7 @@ impl<T: Numeric> Numeric for Dual<T> {
 #[cfg(test)]
 mod test {
     use super::Dual;
-    use crate::numeric::Numeric;
+    use crate::scalar::Numeric;
 
     // Dual results are exact to rounding, so the tolerances are tight.
     const TOL: f64 = 1e-12;

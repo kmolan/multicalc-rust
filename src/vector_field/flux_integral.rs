@@ -1,5 +1,5 @@
-use crate::numeric::Numeric;
 use crate::numerical_integration::iterative_integration::DEFAULT_TOTAL_ITERATIONS;
+use crate::scalar::Numeric;
 use crate::utils::error_codes::CalcError;
 
 use crate::vector_field::line_integral;
