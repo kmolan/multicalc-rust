@@ -4,29 +4,29 @@
 - [4. Gaussian Quadrature methods](#4-gaussian-quadrature-methods)
 - [5. Latency](#5-latency)
 
-Sections 1–4 report **accuracy** (approximation error). Section 5 reports **latency** (wall-clock time per call).
+Sections 1–2 report differentiation **accuracy**: these are now exact via autodiff. Sections 3–4 report integration **accuracy** (approximation error). Section 5 reports **latency** (wall-clock time per call).
 
 ## 1. Single variable Differentiation
 
-Approximation errors evaluated at x = 1 (central difference, default step size).
+Differentiation uses forward-mode autodiff (the default backend), so there is no step size and no truncation error — the result equals the closed form to rounding. Errors below are measured against the analytic derivative at x = 1.
 
-| Derivative                                     | Approximation error | Notes                                                       |
-| ---------------------------------------------- | ------------------- | ----------------------------------------------------------- |
-| $$\mathrm{d}(Sin(x))\over\mathrm{d}x$$         | 1e-11               | Trivial case to showcase accuracy levels                    |
-| $$\mathrm{d}(x^2 Sin(x))\over\mathrm{d}x$$     | 4e-11               | Can easily handle product rule with high accuracy           |
-| $$\mathrm{d^2}(x^2 Sin(x))\over\mathrm{d}x^2$$ | 1e-7                | Approximation errors increase with higher order derivatives |
-| $$\mathrm{d^3}(x^2 Sin(x))\over\mathrm{d}x^3$$ | 5e-5                | Approximation errors increase with higher order derivatives |
+| Derivative                                     | Approximation Error  | Notes                                                          |
+| ---------------------------------------------- | ------ | -------------------------------------------------------------- |
+| $$\mathrm{d}(Sin(x))\over\mathrm{d}x$$         | 0.0      | Exact: the Dual carries cos(x), matching the closed form       |
+| $$\mathrm{d}(x^2 Sin(x))\over\mathrm{d}x$$     | 0.0      | Product rule handled exactly                                   |
+| $$\mathrm{d^2}(x^2 Sin(x))\over\mathrm{d}x^2$$ | 0.0      | Second order via HyperDual, still exact                        |
+| $$\mathrm{d^3}(x^2 Sin(x))\over\mathrm{d}x^3$$ | 4e-16  | Third order via Jet; a single rounding ulp, order-independent  |
 
 ## 2. Multi variable Differentiation
 
-Approximation errors evaluated at (x, y, z) = (1, 2, 3) (central difference, default step size).
+Partial derivatives also use autodiff: first via Dual, second via HyperDual, third via a nested `Dual<HyperDual>`. Errors below are measured against the analytic derivative at (x, y, z) = (1, 2, 3).
 
-| Derivative                                                               | Approximation error | Notes                                                       |
-| ------------------------------------------------------------------------ | ------------------- | ----------------------------------------------------------- |
-| $$\mathrm{d^2}(x + y + z)\over\mathrm{d}x\mathrm{d}y$$                   | <1e-15              | Trivial case to showcase accuracy levels                    |
-| $$\mathrm{d^2}(ySin(x) + xCos(y) + xye^z)\over\mathrm{d}x^2$$            | 2e-7                | Can easily handle complex equations with high accuracy      |
-| $$\mathrm{d^2}(ySin(x) + xCos(y) + xye^z)\over\mathrm{d}x\mathrm{d}y$$   | 2e-6                | Approximation errors increase for mixed derivatives         |
-| $$\mathrm{d^3}(ySin(x) + xCos(y) + xye^z)\over\mathrm{d}x^2\mathrm{d}y$$ | 3e-3                | Approximation errors increase with higher order derivatives |
+| Derivative                                                               | Approximation Error  | Notes                                              |
+| ------------------------------------------------------------------------ | ------ | -------------------------------------------------- |
+| $$\mathrm{d^2}(x + y + z)\over\mathrm{d}x\mathrm{d}y$$                   | 0.0      | Trivial linear case, exact                         |
+| $$\mathrm{d^2}(ySin(x) + xCos(y) + xye^z)\over\mathrm{d}x^2$$            | 0.0      | Pure second partial, exact                         |
+| $$\mathrm{d^2}(ySin(x) + xCos(y) + xye^z)\over\mathrm{d}x\mathrm{d}y$$   | 0.0      | Mixed second partial, exact                        |
+| $$\mathrm{d^3}(ySin(x) + xCos(y) + xye^z)\over\mathrm{d}x^2\mathrm{d}y$$ | 0.0      | Third-order mixed partial, exact                   |
 
 
 ## 3. Iterative integration methods
@@ -113,16 +113,20 @@ WSL2 (Ubuntu). Iterative integrals use the default **120** intervals; Gaussian q
 
 ### Differentiation
 
-Operation                                                        | Median time |
----------------------------------------------------------------- | ----------- |
-single-variable, 1st derivative                                  | 1.6 ns      |
-single-variable, 2nd derivative                                  | 4.5 ns      |
-single-variable, 3rd derivative                                  | 16 ns       |
-multi-variable, single partial $$\partial/\partial x$$           | 31 ns       |
-multi-variable, mixed partial $$\partial^2/\partial x\partial y$$ | 74 ns       |
+Operation                                                          | Median time |
+------------------------------------------------------------------ | ----------- |
+single-variable, 1st derivative (Dual)                             | 1.2 ns      |
+single-variable, 2nd derivative (HyperDual)                        | 1.5 ns      |
+single-variable, 3rd derivative (Jet)                              | 4.0 ns      |
+multi-variable, single partial $$\partial/\partial x$$ (Dual)      | 34 ns       |
+multi-variable, mixed partial $$\partial^2/\partial x\partial y$$ (HyperDual) | 46 ns |
+multi-variable, mixed partial $$\partial^3/\partial x^2\partial y$$ (`Dual<HyperDual>`) | 79 ns |
 
-Cost grows steeply with derivative order — each level doubles the function evaluations of repeated
-finite differencing (as documented in `finite_difference.rs`).
+Every derivative is a *single* function evaluation that carries its derivatives in an autodiff scalar,
+so cost grows with the scalar — Dual → HyperDual → nested `Dual<HyperDual>` — rather than by re-sampling
+the function. Single-variable orders stay in the low nanoseconds; the step up at the 3rd order is the
+switch to a fixed-width `Jet`. Multi-variable partials cost more because each evaluation seeds all the
+input variables, and the mixed third-order path carries three independent perturbation directions.
 
 ### Iterative integration (120 intervals)
 
@@ -156,25 +160,31 @@ of nodes, i.e. ~10–20× cheaper than the 120-interval iterative rules.
 
 Operation                                                        | Median time |
 ---------------------------------------------------------------- | ----------- |
-Jacobian, 2 functions × 3 variables                              | 37 ns       |
-Hessian, 3 variables                                             | 0.37 µs     |
-Curl, 3D                                                         | 20 ns       |
-Divergence, 3D                                                   | 9.7 ns      |
-Line integral, 2D (120 intervals)                                | 3.2 µs      |
-Flux integral, 2D (120 intervals)                                | 3.2 µs      |
+Jacobian, 2 functions × 3 variables                              | 2.7 ns      |
+Hessian, 3 variables                                             | 0.15 µs     |
+Curl, 3D                                                         | 6.2 ns      |
+Divergence, 3D                                                   | 0.37 ns     |
+Line integral, 2D (120 intervals)                                | 3.3 µs      |
+Flux integral, 2D (120 intervals)                                | 3.3 µs      |
 
-The 3-variable Hessian computes only 6 second derivatives (`N·(N+1)/2`), not 9, thanks to the
-symmetric fill. Line/flux integrals are dominated by 120 `cos`/`sin` transform evaluations along the curve.
+Jacobian, curl and divergence run on autodiff: one Dual evaluation per column rather than a two-sided
+finite difference, so they are both exact and several times cheaper than before. The 3-variable Hessian
+is the most expensive of these — it differentiates a `sin`/`exp` field with HyperDual — yet still
+computes only 6 second derivatives (`N·(N+1)/2`), not 9, thanks to the symmetric fill. Line/flux
+integrals sample the field rather than differentiate it and are dominated by 120 `cos`/`sin` transform
+evaluations along the curve.
 
 ### Approximation
 
 Operation                                                        | Median time |
 ---------------------------------------------------------------- | ----------- |
-Linear approximation, build                                      | 2.9 ns      |
-Linear approximation, `predict`                                  | 0.73 ns     |
-Quadratic approximation, build                                   | 0.18 µs     |
-Quadratic approximation, `predict`                               | 2.8 ns      |
+Linear approximation, build                                      | 2.2 ns      |
+Linear approximation, `predict`                                  | 0.72 ns     |
+Quadratic approximation, build                                   | 11 ns       |
+Quadratic approximation, `predict`                               | 3.3 ns      |
 
 `predict` is essentially free (sub-nanosecond for the linear form): the centered-Taylor representation
-is a handful of fused multiply-adds with no allocation. The quadratic build cost is the Hessian.
+is a handful of fused multiply-adds with no allocation. The build cost is the autodiff gradient (linear)
+or Hessian (quadratic); on this polynomial target the autodiff Hessian is roughly an order of magnitude
+cheaper than the previous finite-difference build.
 
