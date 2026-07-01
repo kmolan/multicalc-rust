@@ -1,3 +1,4 @@
+use crate::linear_algebra::Matrix;
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
@@ -58,25 +59,24 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
         function: &F,
         vector_of_points: &[D::Scalar; NUM_VARS],
     ) -> Result<[[D::Scalar; NUM_VARS]; NUM_VARS], CalcError> {
-        let mut result = [[<D::Scalar as Numeric>::NAN; NUM_VARS]; NUM_VARS];
+        let mut result: Matrix<NUM_VARS, NUM_VARS, D::Scalar> =
+            Matrix::from_fn(|_, _| <D::Scalar as Numeric>::NAN);
 
-        // explicit indices are needed for the symmetric mirror write `result[col][row]`
-        #[allow(clippy::needless_range_loop)]
+        // explicit indices drive the symmetric mirror write `result[(col, row)]`
         for row_index in 0..NUM_VARS {
             for col_index in 0..NUM_VARS {
-                if result[row_index][col_index].is_nan() {
-                    result[row_index][col_index] = self.derivator.get_double_partial(
+                if result[(row_index, col_index)].is_nan() {
+                    result[(row_index, col_index)] = self.derivator.get_double_partial(
                         function,
                         &[row_index, col_index],
                         vector_of_points,
                     )?;
-
-                    result[col_index][row_index] = result[row_index][col_index];
-                    //exploit the fact that a hessian is a symmetric matrix
+                    // a Hessian is symmetric, so mirror instead of recomputing
+                    result[(col_index, row_index)] = result[(row_index, col_index)];
                 }
             }
         }
 
-        Ok(result)
+        Ok(result.into_array())
     }
 }

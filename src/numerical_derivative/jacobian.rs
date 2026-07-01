@@ -1,7 +1,8 @@
+use crate::linear_algebra::Matrix;
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
+use crate::scalar::VectorFn;
 use crate::scalar::function::Component;
-use crate::scalar::{Numeric, VectorFn};
 use crate::utils::error_codes::CalcError;
 
 #[cfg(feature = "alloc")]
@@ -65,18 +66,18 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
             return Err(CalcError::EmptyFunctionSet);
         }
 
-        let mut result = [[<D::Scalar as Numeric>::ZERO; NUM_VARS]; NUM_FUNCS];
+        let mut result: Matrix<NUM_FUNCS, NUM_VARS, D::Scalar> = Matrix::zeros();
 
-        for (m, row) in result.iter_mut().enumerate() {
+        for m in 0..NUM_FUNCS {
             let component = Component::new(function, m);
-            for (col_index, slot) in row.iter_mut().enumerate() {
-                *slot =
+            for n in 0..NUM_VARS {
+                result[(m, n)] =
                     self.derivator
-                        .get_single_partial(&component, col_index, vector_of_points)?;
+                        .get_single_partial(&component, n, vector_of_points)?;
             }
         }
 
-        Ok(result)
+        Ok(result.into_array())
     }
 
     /// Same as [`Jacobian::get`] but returns a heap-allocated `Vec<Vec<_>>`, which avoids a
