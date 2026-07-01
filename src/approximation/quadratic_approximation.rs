@@ -1,3 +1,4 @@
+use crate::linear_algebra::{Matrix, Vector};
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
@@ -32,22 +33,11 @@ pub struct QuadraticApproximationPredictionMetrics<T = f64> {
 impl<const NUM_VARS: usize, T: Numeric> QuadraticApproximation<NUM_VARS, T> {
     /// Evaluates the approximation at `x`. The `½` keeps the quadratic term correct for
     /// both diagonal and off-diagonal Hessian entries.
+    #[inline]
     pub fn predict(&self, x: &[T; NUM_VARS]) -> T {
-        let mut result = self.value;
-        for (((&gi, &xi), &pi), hrow) in self
-            .gradient
-            .iter()
-            .zip(x)
-            .zip(&self.point)
-            .zip(&self.hessian)
-        {
-            let di = xi - pi;
-            result += gi * di;
-            for ((&hij, &xj), &pj) in hrow.iter().zip(x).zip(&self.point) {
-                result += T::HALF * hij * di * (xj - pj);
-            }
-        }
-        result
+        let dx = Vector::from(*x) - Vector::from(self.point);
+        let hessian = Matrix::from(self.hessian);
+        self.value + Vector::from(self.gradient).dot(dx) + T::HALF * (hessian * dx).dot(dx)
     }
 
     /// The base point the approximation is centered on.

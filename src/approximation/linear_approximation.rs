@@ -1,3 +1,4 @@
+use crate::linear_algebra::Vector;
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
@@ -29,12 +30,10 @@ pub struct LinearApproximationPredictionMetrics<T = f64> {
 
 impl<const NUM_VARS: usize, T: Numeric> LinearApproximation<NUM_VARS, T> {
     /// Evaluates the approximation at `x`.
+    #[inline]
     pub fn predict(&self, x: &[T; NUM_VARS]) -> T {
-        let mut result = self.value;
-        for ((&g, &xi), &pi) in self.gradient.iter().zip(x).zip(&self.point) {
-            result += g * (xi - pi);
-        }
-        result
+        let dx = Vector::from(*x) - Vector::from(self.point);
+        self.value + Vector::from(self.gradient).dot(dx)
     }
 
     /// The base point the approximation is centered on.

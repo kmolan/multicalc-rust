@@ -27,6 +27,10 @@ alloc = []
 name = "calculus"
 harness = false
 
+[[bench]]
+name = "linear_algebra"
+harness = false
+
 [lints.rust]
 # Backs the "pure, safe Rust" claim: the crate must contain no `unsafe`.
 unsafe_code = "forbid"

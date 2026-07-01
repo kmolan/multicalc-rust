@@ -29,8 +29,12 @@ pub use scalar::Jet;
 /// finite differences and autodiff.
 pub use scalar::{ScalarFn, ScalarFnN, VectorFn};
 
+/// Fixed-size, stack-allocated vector and matrix types.
+pub use linear_algebra::{Matrix, Vector};
+
 pub mod approximation;
 pub mod gaussian_tables;
+pub mod linear_algebra;
 pub mod numerical_derivative;
 pub mod numerical_integration;
 pub mod scalar;
