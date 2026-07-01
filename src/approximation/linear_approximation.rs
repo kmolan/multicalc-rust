@@ -30,6 +30,7 @@ pub struct LinearApproximationPredictionMetrics<T = f64> {
 
 impl<const NUM_VARS: usize, T: Numeric> LinearApproximation<NUM_VARS, T> {
     /// Evaluates the approximation at `x`.
+    #[inline]
     pub fn predict(&self, x: &[T; NUM_VARS]) -> T {
         let dx = Vector::from(*x) - Vector::from(self.point);
         self.value + Vector::from(self.gradient).dot(dx)

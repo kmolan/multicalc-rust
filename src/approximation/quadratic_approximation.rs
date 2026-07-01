@@ -33,6 +33,7 @@ pub struct QuadraticApproximationPredictionMetrics<T = f64> {
 impl<const NUM_VARS: usize, T: Numeric> QuadraticApproximation<NUM_VARS, T> {
     /// Evaluates the approximation at `x`. The `½` keeps the quadratic term correct for
     /// both diagonal and off-diagonal Hessian entries.
+    #[inline]
     pub fn predict(&self, x: &[T; NUM_VARS]) -> T {
         let dx = Vector::from(*x) - Vector::from(self.point);
         let hessian = Matrix::from(self.hessian);
