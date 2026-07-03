@@ -1,6 +1,6 @@
 //! Column-pivoted Householder QR factorization, with an overflow-safe norm and helpers.
 
-use crate::linear_algebra::Matrix;
+use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
 use crate::utils::error_codes::CalcError;
 
@@ -84,13 +84,13 @@ pub(crate) fn min<T: PartialOrd>(a: T, b: T) -> T {
 /// `A * P == Q * R`, where column `j` of `P` is column `permutation[j]` of the identity.
 #[derive(Debug, Clone, Copy)]
 #[must_use]
-#[allow(dead_code)]
 pub struct PivotedQr<const M: usize, const N: usize, T = f64> {
     /// Packed reflectors (below the diagonal) and off-diagonal `R` (above it).
     pub(crate) qr: Matrix<M, N, T>,
     /// Diagonal of `R`.
     pub(crate) r_diag: [T; N],
     /// Euclidean norms of the original columns of `A`, in original order.
+    #[allow(dead_code)]
     pub(crate) column_norms: [T; N],
     /// Pivot order: column `j` of `A * P` is column `permutation[j]` of `A`.
     pub(crate) permutation: [usize; N],
@@ -206,5 +206,103 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
             column_norms,
             permutation,
         })
+    }
+
+    /// The `N`-by-`N` upper-triangular factor `R`.
+    pub fn r(&self) -> Matrix<N, N, T> {
+        Matrix::from_fn(|row, col| {
+            if row == col {
+                self.r_diag[row]
+            } else if col > row {
+                self.qr[(row, col)]
+            } else {
+                T::ZERO
+            }
+        })
+    }
+
+    /// The `M`-by-`N` factor `Q`, formed by applying the stored reflectors to the identity.
+    /// Its columns are orthonormal.
+    pub fn q(&self) -> Matrix<M, N, T> {
+        let mut q = Matrix::from_fn(|row, col| if row == col { T::ONE } else { T::ZERO });
+        for col in 0..N {
+            for j in (0..N).rev() {
+                let pivot = self.qr[(j, j)];
+                if pivot == T::ZERO {
+                    continue;
+                }
+                let mut sum = T::ZERO;
+                for i in j..M {
+                    sum += self.qr[(i, j)] * q[(i, col)];
+                }
+                let factor = sum / pivot;
+                for i in j..M {
+                    q[(i, col)] -= factor * self.qr[(i, j)];
+                }
+            }
+        }
+        q
+    }
+
+    /// The pivot order: column `j` of `A * P` is column `permutation()[j]` of `A`.
+    #[inline]
+    #[must_use]
+    pub fn permutation(&self) -> [usize; N] {
+        self.permutation
+    }
+
+    /// Solves the least-squares problem `min ‖A x − b‖`, reusing this factorization. When `A`
+    /// is square and full rank this is the exact solve of `A x = b`.
+    ///
+    /// Returns [`CalcError::SingularMatrix`] if `A` is rank-deficient (a zero on the diagonal of
+    /// `R`), rather than dividing by it.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::{Matrix, PivotedQr, Vector};
+    /// // A x = b has the exact solution x = [1, 1, 1].
+    /// let a = Matrix::<3, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 10.0]]);
+    /// let b = Vector::new([6.0, 15.0, 25.0]);
+    /// let x = PivotedQr::decompose(a).unwrap().solve_least_squares(b).unwrap();
+    /// assert!((x[0] - 1.0).abs() < 1e-12);
+    /// assert!((x[1] - 1.0).abs() < 1e-12);
+    /// assert!((x[2] - 1.0).abs() < 1e-12);
+    /// ```
+    pub fn solve_least_squares(&self, b: Vector<M, T>) -> Result<Vector<N, T>, CalcError> {
+        // Apply the reflectors to b, leaving Qᵀb in the first N entries.
+        let mut qtb = b;
+        for j in 0..N {
+            let pivot = self.qr[(j, j)];
+            if pivot == T::ZERO {
+                continue;
+            }
+            let mut sum = T::ZERO;
+            for i in j..M {
+                sum += self.qr[(i, j)] * qtb[i];
+            }
+            let factor = sum / pivot;
+            for i in j..M {
+                qtb[i] -= factor * self.qr[(i, j)];
+            }
+        }
+
+        // Back-substitute R y = Qᵀb over the first N rows.
+        let mut y = [T::ZERO; N];
+        for row in (0..N).rev() {
+            if self.r_diag[row] == T::ZERO {
+                return Err(CalcError::SingularMatrix);
+            }
+            let mut acc = qtb[row];
+            for (col, &y_value) in y.iter().enumerate().skip(row + 1) {
+                acc -= self.qr[(row, col)] * y_value;
+            }
+            y[row] = acc / self.r_diag[row];
+        }
+
+        // Undo the column permutation: x = P y.
+        let mut x = [T::ZERO; N];
+        for (j, &target) in self.permutation.iter().enumerate() {
+            x[target] = y[j];
+        }
+        Ok(Vector::new(x))
     }
 }

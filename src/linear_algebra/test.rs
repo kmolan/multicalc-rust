@@ -300,42 +300,7 @@ fn min_max_pick_an_argument() {
     assert_eq!(min(1.0_f64, f64::NAN), 1.0);
 }
 
-// ----- column-pivoted QR (decompose) -----
-
-// Rebuilds the orthogonal factor Q by applying the packed reflectors to the identity.
-fn qr_q<const M: usize, const N: usize>(f: &PivotedQr<M, N>) -> Matrix<M, N> {
-    let mut q: Matrix<M, N> = Matrix::from_fn(|r, c| if r == c { 1.0 } else { 0.0 });
-    for col in 0..N {
-        for j in (0..N).rev() {
-            let pivot = f.qr[(j, j)];
-            if pivot == 0.0 {
-                continue;
-            }
-            let mut sum = 0.0;
-            for i in j..M {
-                sum += f.qr[(i, j)] * q[(i, col)];
-            }
-            let factor = sum / pivot;
-            for i in j..M {
-                q[(i, col)] -= factor * f.qr[(i, j)];
-            }
-        }
-    }
-    q
-}
-
-// Rebuilds the upper-triangular factor R.
-fn qr_r<const M: usize, const N: usize>(f: &PivotedQr<M, N>) -> Matrix<N, N> {
-    Matrix::from_fn(|r, c| {
-        if r == c {
-            f.r_diag[r]
-        } else if c > r {
-            f.qr[(r, c)]
-        } else {
-            0.0
-        }
-    })
-}
+// ----- column-pivoted QR (decompose, accessors, solve) -----
 
 #[test]
 fn qr_reconstructs_pivoted_matrix() {
@@ -346,9 +311,10 @@ fn qr_reconstructs_pivoted_matrix() {
         [2.0, -1.0, 1.0],
     ]);
     let f = PivotedQr::decompose(a).unwrap();
+    let perm = f.permutation();
 
     // The most-normed column (index 2) pivots to the front, so |r_diag[0]| is its norm.
-    assert_eq!(f.permutation[0], 2);
+    assert_eq!(perm[0], 2);
     assert!((f.r_diag[0].abs() - 146.0_f64.sqrt()).abs() < 1e-12);
 
     // Column norms are the original ones, in original order.
@@ -356,8 +322,8 @@ fn qr_reconstructs_pivoted_matrix() {
     assert!((f.column_norms[1] - 94.0_f64.sqrt()).abs() < 1e-12);
     assert!((f.column_norms[2] - 146.0_f64.sqrt()).abs() < 1e-12);
 
-    let q = qr_q(&f);
-    let r = qr_r(&f);
+    let q = f.q();
+    let r = f.r();
 
     // R is upper-triangular.
     for row in 0..3 {
@@ -370,7 +336,7 @@ fn qr_reconstructs_pivoted_matrix() {
     approx_identity(q.transpose() * q);
 
     // A * P == Q * R.
-    let ap = Matrix::<4, 3>::from_fn(|i, c| a[(i, f.permutation[c])]);
+    let ap = Matrix::<4, 3>::from_fn(|i, c| a[(i, perm[c])]);
     let product = q * r;
     for i in 0..4 {
         for c in 0..3 {
@@ -398,19 +364,51 @@ fn qr_handles_zero_column() {
         [7.0, 0.0, 8.0],
     ]);
     let f = PivotedQr::decompose(a).unwrap();
+    let perm = f.permutation();
 
     // The zero column sorts last and carries a zero diagonal.
-    assert_eq!(f.permutation[2], 1);
+    assert_eq!(perm[2], 1);
     assert!(f.r_diag[2].abs() < 1e-12);
 
     // The factorization still reproduces A * P.
-    let q = qr_q(&f);
-    let r = qr_r(&f);
-    let ap = Matrix::<4, 3>::from_fn(|i, c| a[(i, f.permutation[c])]);
-    let product = q * r;
+    let ap = Matrix::<4, 3>::from_fn(|i, c| a[(i, perm[c])]);
+    let product = f.q() * f.r();
     for i in 0..4 {
         for c in 0..3 {
             assert!((ap[(i, c)] - product[(i, c)]).abs() < 1e-12);
         }
     }
+}
+
+#[test]
+fn qr_solves_square_system() {
+    // A x = b with the exact solution x = [1, 1, 1].
+    let a = Matrix::<3, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 10.0]]);
+    let b = Vector::new([6.0, 15.0, 25.0]);
+    let x = PivotedQr::decompose(a).unwrap().solve_least_squares(b).unwrap();
+    for value in x.into_array() {
+        assert!((value - 1.0).abs() < 1e-12);
+    }
+}
+
+#[test]
+fn qr_solves_overdetermined_least_squares() {
+    // Fit y = m t + c to three non-collinear points; least-squares gives m = 0.5, c = 7/6.
+    let a = Matrix::<3, 2>::new([[0.0, 1.0], [1.0, 1.0], [2.0, 1.0]]);
+    let b = Vector::new([1.0, 2.0, 2.0]);
+    let x = PivotedQr::decompose(a).unwrap().solve_least_squares(b).unwrap();
+    assert!((x[0] - 0.5).abs() < 1e-12);
+    assert!((x[1] - 7.0 / 6.0).abs() < 1e-12);
+}
+
+#[test]
+fn qr_solve_reports_singular() {
+    // The middle column is zero, so R has a zero diagonal entry: rank-deficient.
+    let a = Matrix::<3, 3>::new([[1.0, 0.0, 2.0], [3.0, 0.0, 4.0], [5.0, 0.0, 6.0]]);
+    let b = Vector::new([1.0, 2.0, 3.0]);
+    let f = PivotedQr::decompose(a).unwrap();
+    assert!(matches!(
+        f.solve_least_squares(b),
+        Err(CalcError::SingularMatrix)
+    ));
 }

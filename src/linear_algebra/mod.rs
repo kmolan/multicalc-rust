@@ -15,6 +15,7 @@ pub mod qr;
 pub mod vector;
 
 pub use matrix::Matrix;
+pub use qr::PivotedQr;
 pub use vector::Vector;
 
 #[cfg(test)]
