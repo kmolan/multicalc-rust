@@ -220,8 +220,8 @@ fn matrix_determinant() {
 fn matrix_inverse() {
     let id2: Matrix<2, 2> = Matrix::identity();
     let id3: Matrix<3, 3> = Matrix::identity();
-    assert_eq!(id2.inverse(), Some(id2));
-    assert_eq!(id3.inverse(), Some(id3));
+    assert_eq!(id2.inverse(), Ok(id2));
+    assert_eq!(id3.inverse(), Ok(id3));
 
     let a = Matrix::new([[4.0, 7.0], [2.0, 6.0]]);
     approx_identity(a * a.inverse().unwrap());
@@ -229,11 +229,12 @@ fn matrix_inverse() {
     let b = Matrix::new([[1.0, 2.0, 3.0], [0.0, 1.0, 4.0], [5.0, 6.0, 0.0]]);
     approx_identity(b * b.inverse().unwrap());
 
-    // singular -> None
-    assert!(Matrix::new([[1.0, 2.0], [2.0, 4.0]]).inverse().is_none());
+    // singular -> Err(SingularMatrix)
+    let singular2 = Matrix::new([[1.0, 2.0], [2.0, 4.0]]);
+    assert_eq!(singular2.inverse(), Err(CalcError::SingularMatrix));
     let singular3 = Matrix::new([[1.0, 2.0, 3.0], [2.0, 4.0, 6.0], [1.0, 1.0, 1.0]]);
     assert_eq!(singular3.determinant(), 0.0);
-    assert!(singular3.inverse().is_none());
+    assert_eq!(singular3.inverse(), Err(CalcError::SingularMatrix));
 }
 
 // ----- genericity: the same code at f32 -----

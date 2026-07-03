@@ -4,6 +4,7 @@ use core::ops::{Add, AddAssign, Index, IndexMut, Mul, Neg, Sub, SubAssign};
 
 use crate::linear_algebra::Vector;
 use crate::scalar::Numeric;
+use crate::utils::error_codes::CalcError;
 
 /// A `ROWS`×`COLS` matrix stored inline on the stack in row-major order.
 ///
@@ -280,27 +281,28 @@ impl<T: Numeric> Matrix<2, 2, T> {
         self[(0, 0)] * self[(1, 1)] - self[(0, 1)] * self[(1, 0)]
     }
 
-    /// The inverse, or `None` if the matrix is singular (`determinant() == 0`).
+    /// The inverse, or [`CalcError::SingularMatrix`] if the matrix is singular
+    /// (`determinant() == 0`).
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let m: Matrix<2, 2> = Matrix::new([[4.0, 7.0], [2.0, 6.0]]);
     /// let p = m * m.inverse().unwrap();
     /// assert!((p[(0, 0)] - 1.0).abs() < 1e-12 && (p[(1, 1)] - 1.0).abs() < 1e-12);
-    /// assert!(Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 4.0]]).inverse().is_none());
+    /// assert!(Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 4.0]]).inverse().is_err());
     /// ```
     #[inline]
-    #[must_use]
-    pub fn inverse(self) -> Option<Self> {
+    pub fn inverse(self) -> Result<Self, CalcError> {
         let det = self.determinant();
-        (det != T::ZERO).then(|| {
-            let inv = T::ONE / det;
-            let m = self;
-            Matrix::new([
-                [m[(1, 1)] * inv, -m[(0, 1)] * inv],
-                [-m[(1, 0)] * inv, m[(0, 0)] * inv],
-            ])
-        })
+        if det == T::ZERO {
+            return Err(CalcError::SingularMatrix);
+        }
+        let inv = T::ONE / det;
+        let m = self;
+        Ok(Matrix::new([
+            [m[(1, 1)] * inv, -m[(0, 1)] * inv],
+            [-m[(1, 0)] * inv, m[(0, 0)] * inv],
+        ]))
     }
 }
 
@@ -321,7 +323,8 @@ impl<T: Numeric> Matrix<3, 3, T> {
             + m[(0, 2)] * (m[(1, 0)] * m[(2, 1)] - m[(1, 1)] * m[(2, 0)])
     }
 
-    /// The inverse, or `None` if the matrix is singular (`determinant() == 0`).
+    /// The inverse, or [`CalcError::SingularMatrix`] if the matrix is singular
+    /// (`determinant() == 0`).
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
@@ -329,29 +332,29 @@ impl<T: Numeric> Matrix<3, 3, T> {
     /// assert_eq!(i.inverse().unwrap().into_array(), i.into_array());
     /// ```
     #[inline]
-    #[must_use]
-    pub fn inverse(self) -> Option<Self> {
+    pub fn inverse(self) -> Result<Self, CalcError> {
         let det = self.determinant();
-        (det != T::ZERO).then(|| {
-            let inv = T::ONE / det;
-            let m = self;
-            Matrix::new([
-                [
-                    (m[(1, 1)] * m[(2, 2)] - m[(1, 2)] * m[(2, 1)]) * inv,
-                    (m[(0, 2)] * m[(2, 1)] - m[(0, 1)] * m[(2, 2)]) * inv,
-                    (m[(0, 1)] * m[(1, 2)] - m[(0, 2)] * m[(1, 1)]) * inv,
-                ],
-                [
-                    (m[(1, 2)] * m[(2, 0)] - m[(1, 0)] * m[(2, 2)]) * inv,
-                    (m[(0, 0)] * m[(2, 2)] - m[(0, 2)] * m[(2, 0)]) * inv,
-                    (m[(0, 2)] * m[(1, 0)] - m[(0, 0)] * m[(1, 2)]) * inv,
-                ],
-                [
-                    (m[(1, 0)] * m[(2, 1)] - m[(1, 1)] * m[(2, 0)]) * inv,
-                    (m[(0, 1)] * m[(2, 0)] - m[(0, 0)] * m[(2, 1)]) * inv,
-                    (m[(0, 0)] * m[(1, 1)] - m[(0, 1)] * m[(1, 0)]) * inv,
-                ],
-            ])
-        })
+        if det == T::ZERO {
+            return Err(CalcError::SingularMatrix);
+        }
+        let inv = T::ONE / det;
+        let m = self;
+        Ok(Matrix::new([
+            [
+                (m[(1, 1)] * m[(2, 2)] - m[(1, 2)] * m[(2, 1)]) * inv,
+                (m[(0, 2)] * m[(2, 1)] - m[(0, 1)] * m[(2, 2)]) * inv,
+                (m[(0, 1)] * m[(1, 2)] - m[(0, 2)] * m[(1, 1)]) * inv,
+            ],
+            [
+                (m[(1, 2)] * m[(2, 0)] - m[(1, 0)] * m[(2, 2)]) * inv,
+                (m[(0, 0)] * m[(2, 2)] - m[(0, 2)] * m[(2, 0)]) * inv,
+                (m[(0, 2)] * m[(1, 0)] - m[(0, 0)] * m[(1, 2)]) * inv,
+            ],
+            [
+                (m[(1, 0)] * m[(2, 1)] - m[(1, 1)] * m[(2, 0)]) * inv,
+                (m[(0, 1)] * m[(2, 0)] - m[(0, 0)] * m[(2, 1)]) * inv,
+                (m[(0, 0)] * m[(1, 1)] - m[(0, 1)] * m[(1, 0)]) * inv,
+            ],
+        ]))
     }
 }
