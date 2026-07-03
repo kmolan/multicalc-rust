@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, PivotedQr, Vector};
 
 fn vector(crit: &mut Criterion) {
     let u: Vector<3> = Vector::new([1.0, 2.0, 3.0]);
@@ -58,12 +58,52 @@ fn matrix(crit: &mut Criterion) {
     crit.bench_function("matrix/inverse_3x3", |b| b.iter(|| black_box(a).inverse()));
 }
 
+fn qr(crit: &mut Criterion) {
+    // Degree-6 polynomial least-squares fit over 20 nodes on [-1, 1] (Vandermonde design).
+    let node = |i: usize| -1.0 + 2.0 * i as f64 / 19.0;
+    let vandermonde = Matrix::<20, 7>::from_fn(|i, j| {
+        let t = node(i);
+        (0..j).fold(1.0, |acc, _| acc * t)
+    });
+    let vb = vandermonde * Vector::new([0.5, -1.2, 2.0, 0.3, -0.8, 1.1, -0.4]);
+    crit.bench_function("qr/vandermonde_20x7_solve", |b| {
+        b.iter(|| {
+            PivotedQr::decompose(black_box(vandermonde))
+                .unwrap()
+                .solve_least_squares(black_box(vb))
+                .unwrap()
+        })
+    });
+
+    // Factorization of the famously ill-conditioned 8x8 Hilbert matrix.
+    let hilbert = Matrix::<8, 8>::from_fn(|i, j| 1.0 / ((i + j + 1) as f64));
+    crit.bench_function("qr/hilbert_8x8_decompose", |b| {
+        b.iter(|| PivotedQr::decompose(black_box(hilbert)).unwrap())
+    });
+
+    // Ridge (Tikhonov) damped solve on a 15x8 Vandermonde design.
+    let rnode = |i: usize| -1.0 + 2.0 * i as f64 / 14.0;
+    let design = Matrix::<15, 8>::from_fn(|i, j| {
+        let t = rnode(i);
+        (0..j).fold(1.0, |acc, _| acc * t)
+    });
+    let rb = design * Vector::new([0.4, 1.0, -0.6, 0.9, -1.3, 0.5, 0.7, -0.2]);
+    crit.bench_function("qr/ridge_15x8_damped_solve", |b| {
+        b.iter(|| {
+            PivotedQr::decompose(black_box(design))
+                .unwrap()
+                .into_damped(black_box(rb))
+                .solve_with_diagonal(black_box(&[0.1; 8]))
+        })
+    });
+}
+
 criterion_group! {
     name = benches;
     config = Criterion::default()
         .sample_size(50)
         .warm_up_time(Duration::from_millis(500))
         .measurement_time(Duration::from_secs(2));
-    targets = vector, matrix
+    targets = vector, matrix, qr
 }
 criterion_main!(benches);

@@ -31,6 +31,10 @@ harness = false
 name = "linear_algebra"
 harness = false
 
+[[bench]]
+name = "optimization"
+harness = false
+
 [lints.rust]
 # Backs the "pure, safe Rust" claim: the crate must contain no `unsafe`.
 unsafe_code = "forbid"

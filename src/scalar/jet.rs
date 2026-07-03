@@ -216,6 +216,8 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     const NAN: Self = Self::constant(T::NAN);
     const INFINITY: Self = Self::constant(T::INFINITY);
     const NEG_INFINITY: Self = Self::constant(T::NEG_INFINITY);
+    const MAX: Self = Self::constant(T::MAX);
+    const MIN_POSITIVE: Self = Self::constant(T::MIN_POSITIVE);
 
     #[inline]
     fn from_f64(value: f64) -> Self {

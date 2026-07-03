@@ -188,6 +188,14 @@ impl<T: Numeric> Numeric for Dual<T> {
         value: T::NEG_INFINITY,
         deriv: T::ZERO,
     };
+    const MAX: Self = Dual {
+        value: T::MAX,
+        deriv: T::ZERO,
+    };
+    const MIN_POSITIVE: Self = Dual {
+        value: T::MIN_POSITIVE,
+        deriv: T::ZERO,
+    };
 
     #[inline]
     fn from_f64(value: f64) -> Self {

@@ -30,6 +30,9 @@ Jacobians and Hessians, vector-field operators, and Taylor approximation in a `n
 - **Jacobian** and **Hessian** matrices.
 - **Vector calculus** — line and flux integrals, curl, and divergence.
 - **Approximation** — linear and quadratic (Taylor) models, with goodness-of-fit metrics.
+- **Linear algebra** — a stable column-pivoted Householder QR for least-squares and linear solves.
+- **Least-squares optimization** — Levenberg-Marquardt and Gauss-Newton solvers for nonlinear
+  curve fitting.
 
 ## Install
 
@@ -190,6 +193,41 @@ let y = model.predict(&[1.1, 2.1, 3.1]);
 
 `QuadraticApproximator` works the same way and captures curvature as well.
 
+### Least-squares fitting
+
+Author the residuals `model - data` with `scalar_fn_vec!`; the solver differentiates them under
+autodiff. `LevenbergMarquardt` is the robust default; `GaussNewton` is the faster undamped variant
+for well-conditioned problems.
+
+```rust
+use multicalc::optimization::LevenbergMarquardt;
+use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::scalar::c;
+use multicalc::scalar_fn_vec;
+
+// Fit a*e^(b*t) to (0, 100), (1, 50), (2, 25): the minimum is a = 100, b = -ln 2.
+let residuals = scalar_fn_vec!(|v: &[f64; 2]| [
+    c(-100.0) + v[0],
+    c(-50.0) + v[0] * v[1].exp(),
+    c(-25.0) + v[0] * (c(2.0) * v[1]).exp(),
+]);
+let report = LevenbergMarquardt::<AutoDiffMulti>::default()
+    .minimize(&residuals, &[80.0, -0.3])
+    .unwrap();
+// report.solution ~ [100.0, -0.693]; report.termination says which test converged
+```
+
+For a plain linear least-squares or linear solve, use the QR factorization directly:
+
+```rust
+use multicalc::linear_algebra::{Matrix, PivotedQr, Vector};
+
+// Least-squares fit of y = a + b*t through (0, 1), (1, 3), (2, 5): a = 1, b = 2.
+let a = Matrix::<3, 2>::new([[1.0, 0.0], [1.0, 1.0], [1.0, 2.0]]);
+let b = Vector::new([1.0, 3.0, 5.0]);
+let x = PivotedQr::decompose(a).unwrap().solve_least_squares(b).unwrap();
+```
+
 ## Error handling
 
 Where a sensible default exists, a "safe" wrapper (such as `get_single` or `get_double`) returns the
@@ -219,6 +257,13 @@ See [BENCHMARKS.md](./BENCHMARKS.md) for accuracy figures and measured latency.
 ## Contributing
 
 See [CONTRIBUTIONS.md](./CONTRIBUTIONS.md).
+
+## Acknowledgements
+
+The least-squares solvers and QR factorization port the public-domain MINPACK routines `lmder`,
+`lmpar`, `qrfac`, and `qrsolv` (Moré, Garbow, Hillstrom; netlib), following Moré (1978), "The
+Levenberg-Marquardt algorithm: Implementation and theory", and Nocedal & Wright, *Numerical
+Optimization* (chapters 4 and 10).
 
 ## License
 

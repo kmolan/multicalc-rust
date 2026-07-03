@@ -42,6 +42,20 @@ pub trait Numeric:
     const INFINITY: Self;
     /// Negative infinity.
     const NEG_INFINITY: Self;
+    /// The largest finite value.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    /// assert_eq!(<f64 as Numeric>::MAX, f64::MAX);
+    /// ```
+    const MAX: Self;
+    /// The smallest positive normal value.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    /// assert_eq!(<f64 as Numeric>::MIN_POSITIVE, f64::MIN_POSITIVE);
+    /// ```
+    const MIN_POSITIVE: Self;
 
     /// Converts from `f64`, narrowing if necessary. Used for table values and literals.
     fn from_f64(value: f64) -> Self;
@@ -105,6 +119,8 @@ impl Numeric for f64 {
     const NAN: Self = f64::NAN;
     const INFINITY: Self = f64::INFINITY;
     const NEG_INFINITY: Self = f64::NEG_INFINITY;
+    const MAX: Self = f64::MAX;
+    const MIN_POSITIVE: Self = f64::MIN_POSITIVE;
 
     #[inline]
     fn from_f64(value: f64) -> Self {
@@ -168,6 +184,8 @@ impl Numeric for f32 {
     const NAN: Self = f32::NAN;
     const INFINITY: Self = f32::INFINITY;
     const NEG_INFINITY: Self = f32::NEG_INFINITY;
+    const MAX: Self = f32::MAX;
+    const MIN_POSITIVE: Self = f32::MIN_POSITIVE;
 
     #[inline]
     fn from_f64(value: f64) -> Self {
