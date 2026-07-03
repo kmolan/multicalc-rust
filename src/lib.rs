@@ -32,11 +32,15 @@ pub use scalar::{ScalarFn, ScalarFnN, VectorFn};
 /// Fixed-size, stack-allocated vector and matrix types.
 pub use linear_algebra::{Matrix, Vector};
 
+/// The outcome and stopping reason reported by the optimization solvers.
+pub use optimization::{MinimizationReport, TerminationReason};
+
 pub mod approximation;
 pub mod gaussian_tables;
 pub mod linear_algebra;
 pub mod numerical_derivative;
 pub mod numerical_integration;
+pub mod optimization;
 pub mod scalar;
 pub mod utils;
 pub mod vector_field;
