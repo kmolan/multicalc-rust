@@ -22,6 +22,8 @@ pub enum CalcError {
     Underdetermined,
     /// A matrix was singular or rank-deficient where a solve required full rank.
     SingularMatrix,
+    /// A matrix was not positive definite.
+    NotPositiveDefinite,
     /// A solver ran out of its iteration or evaluation budget before converging.
     DidNotConverge,
     /// A residual or Jacobian value was infinite or NaN.
@@ -43,6 +45,7 @@ impl core::fmt::Display for CalcError {
             CalcError::EmptyFunctionSet => "function set cannot be empty",
             CalcError::Underdetermined => "system is underdetermined (M < N)",
             CalcError::SingularMatrix => "matrix is singular or rank-deficient",
+            CalcError::NotPositiveDefinite => "matrix is not positive definite",
             CalcError::DidNotConverge => {
                 "solver did not converge within the iteration/evaluation budget"
             }
@@ -89,6 +92,10 @@ mod test {
         assert!(renders_as(
             CalcError::SingularMatrix,
             "matrix is singular or rank-deficient"
+        ));
+        assert!(renders_as(
+            CalcError::NotPositiveDefinite,
+            "matrix is not positive definite"
         ));
         assert!(renders_as(
             CalcError::DidNotConverge,
