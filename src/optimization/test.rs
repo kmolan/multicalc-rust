@@ -1,7 +1,7 @@
 use crate::linear_algebra::{Matrix, PivotedQr, Vector};
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::optimization::trust_region::determine_lambda_and_parameter_update;
-use crate::optimization::{LevenbergMarquardt, MinimizationReport, TerminationReason};
+use crate::optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
 use crate::scalar::{Numeric, VectorFn, c};
 use crate::scalar_fn_vec;
 use crate::utils::error_codes::CalcError;
@@ -231,3 +231,154 @@ fn lm_solves_trigonometric() {
         report.objective_function
     );
  }
+
+// ----- Gauss-Newton solver -----
+
+#[test]
+fn gn_recovers_linear_least_squares() {
+    // A linear residual: Gauss-Newton reaches the exact least-squares solution.
+    let f = scalar_fn_vec!(|v: &[f64; 2]| [
+        c(-1.0) + v[1],
+        c(-3.0) + v[0] + v[1],
+        c(-5.0) + c(2.0) * v[0] + v[1],
+    ]);
+    let report = GaussNewton::<AutoDiffMulti>::default().minimize(&f, &[0.0, 0.0]).unwrap();
+    assert!((report.solution[0] - 2.0).abs() < 1e-9);
+    assert!((report.solution[1] - 1.0).abs() < 1e-9);
+}
+
+#[test]
+fn gn_solves_rosenbrock() {
+    // From a near guess, Gauss-Newton converges quadratically on this zero-residual problem.
+    let f = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
+    let report = GaussNewton::<AutoDiffMulti>::default()
+        .minimize(&f, &[0.9, 0.9])
+        .unwrap();
+    assert!((report.solution[0] - 1.0).abs() < 1e-9);
+    assert!((report.solution[1] - 1.0).abs() < 1e-9);
+    assert!(report.objective_function < 1e-16);
+}
+
+#[test]
+fn gn_reports_singular() {
+    // The two residuals are proportional, so the Jacobian is rank-deficient.
+    let f = scalar_fn_vec!(|v: &[f64; 2]| [
+        c(-1.0) + v[0] - v[1],
+        c(-2.0) + c(2.0) * v[0] - c(2.0) * v[1],
+    ]);
+    let result = GaussNewton::<AutoDiffMulti>::default().minimize(&f, &[0.0, 0.0]);
+    assert!(matches!(result, Err(CalcError::SingularMatrix)));
+}
+
+#[test]
+fn gn_rejects_underdetermined() {
+    let f = scalar_fn_vec!(|v: &[f64; 3]| [c(-1.0) + v[0] + v[1], c(-2.0) + v[2]]);
+    let result = GaussNewton::<AutoDiffMulti>::default().minimize(&f, &[0.0, 0.0, 0.0]);
+    assert!(matches!(result, Err(CalcError::Underdetermined)));
+}
+
+#[test]
+fn gn_reports_non_finite() {
+    let f = scalar_fn_vec!(|v: &[f64; 1]| [c(1.0) / v[0], v[0]]);
+    let result = GaussNewton::<AutoDiffMulti>::default().minimize(&f, &[0.0]);
+    assert!(matches!(result, Err(CalcError::NonFiniteValue)));
+}
+
+// Fit a circle (center cx, cy, radius r) to points, minimizing the geometric distance residual
+// sqrt((x-cx)^2 + (y-cy)^2) - r. Holds the measured points.
+struct CircleFit {
+    px: [f64; 40],
+    py: [f64; 40],
+}
+
+impl VectorFn<3, 40> for CircleFit {
+    fn eval<S: Numeric>(&self, p: &[S; 3]) -> [S; 40] {
+        let cx = p[0];
+        let cy = p[1];
+        let r = p[2];
+        core::array::from_fn(|i| {
+            let dx = S::from_f64(self.px[i]) - cx;
+            let dy = S::from_f64(self.py[i]) - cy;
+            (dx * dx + dy * dy).sqrt() - r
+        })
+    }
+}
+
+#[test]
+fn gn_fits_circle() {
+    // Points sampled exactly on a circle of center (2, -1), radius 3.
+    let angle = |i: usize| core::f64::consts::TAU * i as f64 / 40.0;
+    let px = core::array::from_fn(|i| 2.0 + 3.0 * angle(i).cos());
+    let py = core::array::from_fn(|i| -1.0 + 3.0 * angle(i).sin());
+    let problem = CircleFit { px, py };
+
+    // A near guess for the geometry.
+    let report = GaussNewton::<AutoDiffMulti>::default()
+        .minimize(&problem, &[2.4, -0.6, 3.5])
+        .unwrap();
+    assert!((report.solution[0] - 2.0).abs() < 1e-9);
+    assert!((report.solution[1] + 1.0).abs() < 1e-9);
+    assert!((report.solution[2] - 3.0).abs() < 1e-9);
+    assert!(report.objective_function < 1e-16);
+}
+
+// Fit two Gaussian peaks [a, mu, sigma] each to a sampled spectrum.
+struct GaussianPeaks {
+    t: [f64; 50],
+    y: [f64; 50],
+}
+
+impl VectorFn<6, 50> for GaussianPeaks {
+    fn eval<S: Numeric>(&self, p: &[S; 6]) -> [S; 50] {
+        core::array::from_fn(|i| {
+            let t = S::from_f64(self.t[i]);
+            let mut model = S::ZERO;
+            for k in 0..2 {
+                let a = p[3 * k];
+                let mu = p[3 * k + 1];
+                let sigma = p[3 * k + 2];
+                let z = (t - mu) / sigma;
+                model += a * (-(z * z)).exp();
+            }
+            model - S::from_f64(self.y[i])
+        })
+    }
+}
+
+#[test]
+fn gn_fits_gaussian_peaks() {
+    // Two well-separated peaks: a=2 at mu=3 (sigma 0.8), a=1.5 at mu=7 (sigma 1.2).
+    let truth = [2.0, 3.0, 0.8, 1.5, 7.0, 1.2];
+    let t: [f64; 50] = core::array::from_fn(|i| i as f64 * 10.0 / 49.0);
+    let mut problem = GaussianPeaks { t, y: [0.0; 50] };
+    problem.y = problem.eval(&truth);
+
+    // A near start recovers all six parameters.
+    let start = [2.2, 3.2, 0.7, 1.3, 6.8, 1.3];
+    let report = GaussNewton::<AutoDiffMulti>::default()
+        .minimize(&problem, &start)
+        .unwrap();
+    assert!(report.objective_function < 1e-12);
+    for (got, want) in report.solution.iter().zip(truth.iter()) {
+        assert!((got - want).abs() < 1e-5, "got {got}, want {want}");
+    }
+}
+
+#[test]
+fn gn_backtracking_rescues_far_start() {
+    // Fit exp(a*t) to non-exponential (linear) data: a large-residual problem where the full
+    // Gauss-Newton step overshoots.
+    let residual = || scalar_fn_vec!(|v: &[f64; 1]| [
+        c(-2.5) + (v[0]).exp(),
+        c(-3.0) + (c(2.0) * v[0]).exp(),
+        c(-3.5) + (c(3.0) * v[0]).exp(),
+        c(-4.0) + (c(4.0) * v[0]).exp(),
+        c(-4.5) + (c(5.0) * v[0]).exp(),
+    ]);
+    let s = 2.5_f64;
+    let plain = GaussNewton::<AutoDiffMulti>::default().minimize(&residual(), &[s]);
+    let guarded = GaussNewton::<AutoDiffMulti>::default()
+        .with_backtracking(true)
+        .minimize(&residual(), &[s]);
+    panic!("start {s}: plain={plain:?} guarded={guarded:?}");
+}

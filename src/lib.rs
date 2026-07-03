@@ -32,8 +32,8 @@ pub use scalar::{ScalarFn, ScalarFnN, VectorFn};
 /// Fixed-size, stack-allocated vector and matrix types.
 pub use linear_algebra::{Matrix, Vector};
 
-/// The Levenberg-Marquardt least-squares solver and its result types.
-pub use optimization::{LevenbergMarquardt, MinimizationReport, TerminationReason};
+/// The Levenberg-Marquardt and Gauss-Newton least-squares solvers and their result types.
+pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
 
 pub mod approximation;
 pub mod gaussian_tables;

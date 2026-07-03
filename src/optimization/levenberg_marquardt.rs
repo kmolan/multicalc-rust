@@ -6,7 +6,7 @@ use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::numerical_derivative::jacobian::Jacobian;
 use crate::optimization::trust_region::determine_lambda_and_parameter_update;
-use crate::optimization::{MinimizationReport, TerminationReason};
+use crate::optimization::{MinimizationReport, TerminationReason, is_finite, report};
 use crate::scalar::{Numeric, VectorFn};
 use crate::utils::error_codes::CalcError;
 
@@ -241,25 +241,5 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
         }
 
         Err(CalcError::DidNotConverge)
-    }
-}
-
-/// Whether every element of `v` is finite.
-fn is_finite<const K: usize, T: Numeric>(v: &[T; K]) -> bool {
-    v.iter().all(|value| value.is_finite())
-}
-
-/// Assembles a report at the final point.
-fn report<const N: usize, T: Numeric>(
-    solution: [T; N],
-    residual_norm: T,
-    evaluations: usize,
-    termination: TerminationReason,
-) -> MinimizationReport<N, T> {
-    MinimizationReport {
-        solution,
-        objective_function: T::HALF * residual_norm * residual_norm,
-        evaluations,
-        termination,
     }
 }
