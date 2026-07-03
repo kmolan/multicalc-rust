@@ -254,8 +254,8 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
     /// Solves the least-squares problem `min ‖A x − b‖`, reusing this factorization. When `A`
     /// is square and full rank this is the exact solve of `A x = b`.
     ///
-    /// Returns [`CalcError::SingularMatrix`] if `A` is rank-deficient (a zero on the diagonal of
-    /// `R`), rather than dividing by it.
+    /// Returns [`CalcError::SingularMatrix`] if `A` is rank-deficient — a diagonal entry of `R`
+    /// at or below `EPSILON * max(M, N)` times the largest — rather than dividing by a tiny pivot.
     ///
     /// ```
     /// use multicalc::linear_algebra::{Matrix, PivotedQr, Vector};
@@ -285,10 +285,17 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
             }
         }
 
+        // A diagonal entry at or below this fraction of the largest signals rank deficiency.
+        let threshold = if N == 0 {
+            T::ZERO
+        } else {
+            T::EPSILON * T::from_usize(M.max(N)) * self.r_diag[0].abs()
+        };
+
         // Back-substitute R y = Qᵀb over the first N rows.
         let mut y = [T::ZERO; N];
         for row in (0..N).rev() {
-            if self.r_diag[row] == T::ZERO {
+            if self.r_diag[row].abs() <= threshold {
                 return Err(CalcError::SingularMatrix);
             }
             let mut acc = qtb[row];

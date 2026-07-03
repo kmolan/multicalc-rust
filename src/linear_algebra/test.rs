@@ -403,8 +403,21 @@ fn qr_solves_overdetermined_least_squares() {
 
 #[test]
 fn qr_solve_reports_singular() {
-    // The middle column is zero, so R has a zero diagonal entry: rank-deficient.
+    // The middle column is zero, so R has an exactly-zero diagonal entry: rank-deficient.
     let a = Matrix::<3, 3>::new([[1.0, 0.0, 2.0], [3.0, 0.0, 4.0], [5.0, 0.0, 6.0]]);
+    let b = Vector::new([1.0, 2.0, 3.0]);
+    let f = PivotedQr::decompose(a).unwrap();
+    assert!(matches!(
+        f.solve_least_squares(b),
+        Err(CalcError::SingularMatrix)
+    ));
+}
+
+#[test]
+fn qr_solve_reports_rank_deficient() {
+    // col2 = col0 + col1: dependent columns leave a tiny (not exactly zero) diagonal, which
+    // the relative rank tolerance still flags.
+    let a = Matrix::<3, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 9.0], [7.0, 8.0, 15.0]]);
     let b = Vector::new([1.0, 2.0, 3.0]);
     let f = PivotedQr::decompose(a).unwrap();
     assert!(matches!(
