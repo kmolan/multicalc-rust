@@ -237,6 +237,91 @@ fn matrix_inverse() {
     assert_eq!(singular3.inverse(), Err(CalcError::SingularMatrix));
 }
 
+#[test]
+fn matrix_4x4_determinant_and_inverse() {
+    // Upper-triangular: the determinant is the product of the diagonal.
+    let upper = Matrix::<4, 4>::new([
+        [2.0, 1.0, 1.0, 1.0],
+        [0.0, 3.0, 1.0, 1.0],
+        [0.0, 0.0, 4.0, 1.0],
+        [0.0, 0.0, 0.0, 5.0],
+    ]);
+    assert_eq!(upper.determinant(), 120.0);
+
+    // Reference determinant and inverse from an exact rational solve.
+    let a = Matrix::<4, 4>::new([
+        [4.0, 3.0, 2.0, 1.0],
+        [3.0, 4.0, 3.0, 2.0],
+        [2.0, 3.0, 4.0, 3.0],
+        [1.0, 2.0, 3.0, 4.0],
+    ]);
+    assert_eq!(a.determinant(), 20.0);
+
+    let expected_inv = [
+        [0.6, -0.5, 0.0, 0.1],
+        [-0.5, 1.0, -0.5, 0.0],
+        [0.0, -0.5, 1.0, -0.5],
+        [0.1, 0.0, -0.5, 0.6],
+    ];
+    let inv = a.inverse().unwrap();
+    for r in 0..4 {
+        for c in 0..4 {
+            assert!((inv[(r, c)] - expected_inv[r][c]).abs() < 1e-12);
+        }
+    }
+    approx_identity(a * inv);
+
+    // A non-symmetric matrix, so its (non-symmetric) inverse catches any transpose error in
+    // the adjugate. Reference from an exact rational solve.
+    let b = Matrix::<4, 4>::new([
+        [1.0, 2.0, 3.0, 4.0],
+        [2.0, 1.0, 0.0, 1.0],
+        [0.0, 3.0, 1.0, 2.0],
+        [1.0, 0.0, 2.0, 1.0],
+    ]);
+    assert_eq!(b.determinant(), -20.0);
+
+    let expected_b_inv = [
+        [-0.15, 0.45, -0.05, 0.25],
+        [-0.35, 0.05, 0.55, 0.25],
+        [-0.25, -0.25, 0.25, 0.75],
+        [0.65, 0.05, -0.45, -0.75],
+    ];
+    let b_inv = b.inverse().unwrap();
+    for r in 0..4 {
+        for c in 0..4 {
+            assert!((b_inv[(r, c)] - expected_b_inv[r][c]).abs() < 1e-12);
+        }
+    }
+    approx_identity(b * b_inv);
+    approx_identity(b_inv * b);
+
+    // Rows in arithmetic progression are rank-deficient.
+    let singular = Matrix::<4, 4>::new([
+        [1.0, 2.0, 3.0, 4.0],
+        [5.0, 6.0, 7.0, 8.0],
+        [9.0, 10.0, 11.0, 12.0],
+        [13.0, 14.0, 15.0, 16.0],
+    ]);
+    assert_eq!(singular.determinant(), 0.0);
+    assert_eq!(singular.inverse(), Err(CalcError::SingularMatrix));
+
+    // The same code at f32 round-trips to the identity.
+    let af = Matrix::<4, 4, f32>::new([
+        [4.0, 3.0, 2.0, 1.0],
+        [3.0, 4.0, 3.0, 2.0],
+        [2.0, 3.0, 4.0, 3.0],
+        [1.0, 2.0, 3.0, 4.0],
+    ]);
+    let pf = af * af.inverse().unwrap();
+    let idf: Matrix<4, 4, f32> = Matrix::identity();
+    for r in 0..4 {
+        for c in 0..4 {
+            assert!((pf[(r, c)] - idf[(r, c)]).abs() < 1e-5);
+        }
+    }
+}
+
 // ----- genericity: the same code at f32 -----
 
 #[test]
