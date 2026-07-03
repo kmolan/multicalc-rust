@@ -1,9 +1,11 @@
 //! Nonlinear least-squares optimization.
 //!
-//! [`LevenbergMarquardt`] minimizes the sum of squared residuals of a `VectorFn`, reporting the
-//! outcome as a [`MinimizationReport`] whose [`TerminationReason`] says which test converged.
-//! Failures (non-finite values, an underdetermined system, no convergence within the budget) come
-//! back as a [`CalcError`](crate::utils::error_codes::CalcError).
+//! [`LevenbergMarquardt`] and its undamped sibling [`GaussNewton`] minimize the sum of squared
+//! residuals of a `VectorFn`, reporting the outcome as a [`MinimizationReport`] whose
+//! [`TerminationReason`] says which test converged. The Jacobian is taken by exact autodiff by
+//! default, or by finite differences if a finite-difference derivator is supplied. Failures
+//! (non-finite values, an underdetermined system, no convergence within the budget) come back as a
+//! [`CalcError`](crate::utils::error_codes::CalcError).
 
 pub mod gauss_newton;
 pub mod levenberg_marquardt;

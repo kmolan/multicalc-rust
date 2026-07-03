@@ -100,6 +100,18 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
     /// Returns [`CalcError::Underdetermined`] if `M < N`. Never panics: a zero pivot column
     /// leaves the corresponding `r_diag` entry at zero rather than dividing by it, so a
     /// rank-deficient matrix factorizes without error (the deficiency surfaces in a solve).
+    ///
+    /// # Examples
+    /// ```
+    /// use multicalc::linear_algebra::{Matrix, PivotedQr, Vector};
+    ///
+    /// // Least-squares fit of y = a + b*t through (0, 1), (1, 3), (2, 5): a = 1, b = 2.
+    /// let a = Matrix::<3, 2>::new([[1.0, 0.0], [1.0, 1.0], [1.0, 2.0]]);
+    /// let b = Vector::new([1.0, 3.0, 5.0]);
+    /// let x = PivotedQr::decompose(a).unwrap().solve_least_squares(b).unwrap();
+    /// assert!((x[0] - 1.0).abs() < 1e-12);
+    /// assert!((x[1] - 2.0).abs() < 1e-12);
+    /// ```
     pub fn decompose(a: Matrix<M, N, T>) -> Result<Self, CalcError> {
         if M < N {
             return Err(CalcError::Underdetermined);

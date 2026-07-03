@@ -18,6 +18,20 @@ const MAX_TRUST_REGION_TRIALS: usize = 100;
 ///
 /// The Jacobian defaults to exact autodiff ([`AutoDiffMulti`]); pass a finite-difference
 /// derivator to [`from_derivator`](LevenbergMarquardt::from_derivator) to use that instead.
+///
+/// # Examples
+/// ```
+/// use multicalc::optimization::LevenbergMarquardt;
+/// use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+/// use multicalc::scalar::c;
+/// use multicalc::scalar_fn_vec;
+///
+/// // Minimize the Rosenbrock residual; the minimum is at (1, 1).
+/// let f = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
+/// let report = LevenbergMarquardt::<AutoDiffMulti>::default().minimize(&f, &[-1.2, 1.0]).unwrap();
+/// assert!((report.solution[0] - 1.0).abs() < 1e-6);
+/// assert!((report.solution[1] - 1.0).abs() < 1e-6);
+/// ```
 pub struct LevenbergMarquardt<D: DerivatorMultiVariable = AutoDiffMulti> {
     derivator: D,
     ftol: D::Scalar,

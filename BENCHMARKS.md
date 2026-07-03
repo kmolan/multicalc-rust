@@ -2,9 +2,10 @@
 - [2. Multi variable Differentiation](#2-multi-variable-differentiation)
 - [3. Iterative integration methods](#3-iterative-integration-methods)
 - [4. Gaussian Quadrature methods](#4-gaussian-quadrature-methods)
-- [5. Latency](#5-latency)
+- [5. Least-squares optimization](#5-least-squares-optimization)
+- [6. Latency](#6-latency)
 
-Sections 1–2 report differentiation **accuracy**: these are now exact via autodiff. Sections 3–4 report integration **accuracy** (approximation error). Section 5 reports **latency** (wall-clock time per call).
+Sections 1–2 report differentiation **accuracy**. Sections 3–4 report integration **accuracy** (approximation error). Section 5 reports least-squares solver **accuracy** (recovery error against the known solution). Section 6 reports **latency** (wall-clock time per call).
 
 ## 1. Single variable Differentiation
 
@@ -100,11 +101,37 @@ Gauss-Hermite
 | $$\int_{-\infty}^\infty\int_{-\infty}^\infty\int_{-\infty}^\infty (x^3 y + y^3 z)e^{-x^2} \mathrm{d}x\mathrm{d}x\mathrm{d}y$$ | <1e-15              | High accuracy for higher order integrals        |
 | $$\int_{-\infty}^\infty (Sin(x) - \sqrt{x})e^{-x^2} \mathrm{d}x$$                                                             | undefined           | √x is not real at the negative abscissae        |
 
-## 5. Latency
+## 5. Least-squares optimization
 
-Measured with the `criterion` suite in [`benches/calculus.rs`](benches/calculus.rs) (`cargo bench`). Each
-figure is the median of criterion's estimate. These are wall-clock numbers and therefore machine- and
-build-specific — treat the **relative** costs and scaling as the signal, not the absolute nanoseconds.
+The Levenberg-Marquardt and Gauss-Newton solvers are run on the standard fitting and minimization test problems. The data is noiseless (generated from the model), so a correct solver recovers every parameter — or reaches the known minimum — to machine precision. Reported below are the final **objective** (half the sum of squared residuals) and the largest **parameter error** across the recovered parameters versus the known truth. A "0.0" is an exact result to the last bit; a dash marks a pure-minimization problem with no reference parameter vector.
+
+Levenberg-Marquardt:
+
+| Problem                                        | Final objective | Parameter error | Notes                                                    |
+| ---------------------------------------------- | --------------- | --------------- | -------------------------------------------------------- |
+| Linear least squares, fit $$y = a + bt$$       | 0.0             | 0.0             | Linear residual: the exact least-squares solution        |
+| Exponential decay, $$a\,e^{bt}$$ fit           | 0.0             | 0.0             | Zero-residual data; a and b recovered exactly            |
+| Rosenbrock residual                            | 0.0             | 0.0             | Zero-residual; the minimum (1, 1) is reached exactly     |
+| Damped sinusoids, 12 parameters                | 6e-31           | 2e-16           | All twelve parameters to ~1 ulp                          |
+| Trigonometric (Moré-Garbow-Hillstrom), 6 vars  | 1e-31           | —               | Global minimum of zero reached to machine precision      |
+
+Gauss-Newton:
+
+| Problem                                        | Final objective | Parameter error | Notes                                                    |
+| ---------------------------------------------- | --------------- | --------------- | -------------------------------------------------------- |
+| Linear least squares, fit $$y = a + bt$$       | 0.0             | 0.0             | Reaches the exact solution in a single step              |
+| Rosenbrock residual                            | 0.0             | 0.0             | Zero-residual; the minimum (1, 1) is reached exactly     |
+| Geometric circle fit, 3 parameters             | 1e-30           | 0.0             | Center (2, -1) and radius 3 exact to machine precision   |
+| Two Gaussian peaks, 6 parameters               | 0.0             | 0.0             | All six peak parameters recovered exactly                |
+
+On these noiseless problems both solvers hit the minimizer to the last few bits; the only nonzero figures are the hardest fits (the 12-parameter sinusoid sum and the 3-parameter circle), where accumulated rounding leaves the objective around `1e-30` and the parameters within ~1 ulp. Accuracy here is bounded by floating-point rounding, not by the algorithm.
+
+## 6. Latency
+
+Measured with the `criterion` suites in [`benches/`](benches) — `calculus.rs`, `linear_algebra.rs`, and
+`optimization.rs` (`cargo bench`). Each figure is the median of criterion's estimate. These are wall-clock
+numbers and therefore machine- and build-specific — treat the **relative** costs and scaling as the signal,
+not the absolute nanoseconds.
 Regressions are guarded automatically by the deterministic work-count `#[test]`s (run under `cargo test`),
 not by these timings.
 
@@ -187,4 +214,38 @@ Quadratic approximation, `predict`                               | 3.3 ns      |
 is a handful of fused multiply-adds with no allocation. The build cost is the autodiff gradient (linear)
 or Hessian (quadratic); on this polynomial target the autodiff Hessian is roughly an order of magnitude
 cheaper than the previous finite-difference build.
+
+### Linear algebra (QR)
+
+Operation                                                        | Median time |
+---------------------------------------------------------------- | ----------- |
+Column-pivoted QR, 8×8 decomposition (Hilbert)                   | 0.56 µs     |
+QR least-squares solve, 20×7 (Vandermonde fit)                   | 0.89 µs     |
+Damped (ridge) solve, 15×8                                       | 1.4 µs      |
+
+The column-pivoted Householder factorization is `O(M·N²)`; the least-squares solve adds a `Qᵀb`
+apply and a back-substitution, and the damped (ridge) solve adds a `qrsolv` Givens pass that reuses
+the same factorization rather than reforming `JᵀJ + λD²`. Everything is stack-allocated fixed-size
+arrays, so there is no per-call heap traffic; the overflow-safe `enorm` keeps the column norms
+accurate even on the ill-conditioned Hilbert and Vandermonde designs.
+
+### Least-squares optimization
+
+Operation                                                        | Median time |
+---------------------------------------------------------------- | ----------- |
+Gauss-Newton, linear least squares (3×2)                         | 0.23 µs     |
+Gauss-Newton, Rosenbrock (near start)                            | 0.26 µs     |
+Gauss-Newton, circle fit (3 params, 40 residuals)               | 56 µs       |
+Levenberg-Marquardt, exponential decay fit (2 params)            | 1.4 µs      |
+Levenberg-Marquardt, Rosenbrock                                  | 6.2 µs      |
+Levenberg-Marquardt, trigonometric (6 vars)                      | 45 µs       |
+Levenberg-Marquardt, damped sinusoids (12 params, 60 residuals) | 14 ms       |
+
+Each outer iteration costs one autodiff Jacobian — a Dual pass per parameter over every residual —
+plus a QR factorization, so runtime scales with `params × residuals × iterations`. Gauss-Newton is the
+cheapest per step (no trust-region loop): the well-conditioned linear and Rosenbrock fits finish in a
+few iterations at a couple hundred nanoseconds. Levenberg-Marquardt adds the LMPAR damping search
+(≤ 10 inner solves per step), earning robustness at a small constant factor. The 12-parameter
+damped-sinusoid fit is the heaviest case — 60 residuals differentiated in 12 directions each outer
+iteration, over many iterations — while low-dimension fits stay in the microseconds.
 

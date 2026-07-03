@@ -1,5 +1,7 @@
 use crate::linear_algebra::{Matrix, PivotedQr, Vector};
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
+use crate::numerical_derivative::finite_difference::FiniteDifferenceMulti;
+use crate::numerical_derivative::jacobian::Jacobian;
 use crate::optimization::trust_region::determine_lambda_and_parameter_update;
 use crate::optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
 use crate::scalar::{Numeric, VectorFn, c};
@@ -388,4 +390,53 @@ fn gn_backtracking_rescues_far_start() {
         .unwrap();
     assert!(guarded.objective_function < 1e-12, "{guarded:?}");
     assert!(guarded.solution[0].abs() < 1e-6, "{guarded:?}");
+}
+
+// ----- Residual / Jacobian API -----
+
+// Largest entrywise gap between the exact autodiff Jacobian and a central finite-difference
+// Jacobian of `f` at `x`. A small value confirms the autodiff derivatives the solvers rely on
+// match an independent finite-difference estimate.
+fn check_jacobian<F: VectorFn<N, M>, const N: usize, const M: usize>(f: &F, x: &[f64; N]) -> f64 {
+    let autodiff = Jacobian::<AutoDiffMulti>::default().get(f, x).unwrap();
+    let finite = Jacobian::from_derivator(FiniteDifferenceMulti::<f64>::default())
+        .get(f, x)
+        .unwrap();
+    let mut worst = 0.0_f64;
+    for m in 0..M {
+        for n in 0..N {
+            worst = worst.max((autodiff[m][n] - finite[m][n]).abs());
+        }
+    }
+    worst
+}
+
+#[test]
+fn autodiff_jacobian_matches_finite_differences() {
+    // Rosenbrock residual: a low-degree polynomial, so central differences are near exact.
+    let rosenbrock = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
+    assert!(check_jacobian(&rosenbrock, &[-1.2, 1.0]) < 1e-6);
+
+    // A transcendental residual exercises the sin and exp derivatives.
+    let mixed = scalar_fn_vec!(|v: &[f64; 2]| [v[0].sin() * v[1], c(2.0) * v[0] + v[1].exp()]);
+    assert!(check_jacobian(&mixed, &[0.7, -0.4]) < 1e-6);
+}
+
+#[test]
+fn solvers_accept_a_finite_difference_backend() {
+    // Swap the autodiff default for a finite-difference Jacobian; both solvers still converge on
+    // the zero-residual Rosenbrock problem.
+    let f = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
+
+    let lm = LevenbergMarquardt::from_derivator(FiniteDifferenceMulti::<f64>::default())
+        .minimize(&f, &[-1.2, 1.0])
+        .unwrap();
+    assert!((lm.solution[0] - 1.0).abs() < 1e-5, "{lm:?}");
+    assert!((lm.solution[1] - 1.0).abs() < 1e-5, "{lm:?}");
+
+    let gn = GaussNewton::from_derivator(FiniteDifferenceMulti::<f64>::default())
+        .minimize(&f, &[0.9, 0.9])
+        .unwrap();
+    assert!((gn.solution[0] - 1.0).abs() < 1e-5, "{gn:?}");
+    assert!((gn.solution[1] - 1.0).abs() < 1e-5, "{gn:?}");
 }

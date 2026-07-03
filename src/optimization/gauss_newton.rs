@@ -18,6 +18,24 @@ const MAX_BACKTRACK: usize = 20;
 /// It has no trust region, so on ill-conditioned or far-from-solution problems it can diverge or
 /// fail on a rank-deficient step; use `LevenbergMarquardt` there, or enable backtracking. The
 /// Jacobian defaults to exact autodiff ([`AutoDiffMulti`]).
+///
+/// # Examples
+/// ```
+/// use multicalc::optimization::GaussNewton;
+/// use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+/// use multicalc::scalar::c;
+/// use multicalc::scalar_fn_vec;
+///
+/// // Fit y = a + b*t to points on y = 2t + 1; a linear residual is solved in one step.
+/// let f = scalar_fn_vec!(|v: &[f64; 2]| [
+///     c(-1.0) + v[1],
+///     c(-3.0) + v[0] + v[1],
+///     c(-5.0) + c(2.0) * v[0] + v[1],
+/// ]);
+/// let report = GaussNewton::<AutoDiffMulti>::default().minimize(&f, &[0.0, 0.0]).unwrap();
+/// assert!((report.solution[0] - 2.0).abs() < 1e-9);
+/// assert!((report.solution[1] - 1.0).abs() < 1e-9);
+/// ```
 pub struct GaussNewton<D: DerivatorMultiVariable = AutoDiffMulti> {
     derivator: D,
     ftol: D::Scalar,
