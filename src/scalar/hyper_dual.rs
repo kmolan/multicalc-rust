@@ -253,6 +253,18 @@ impl<T: Numeric> Numeric for HyperDual<T> {
         eps2: T::ZERO,
         eps1eps2: T::ZERO,
     };
+    const MAX: Self = HyperDual {
+        real: T::MAX,
+        eps1: T::ZERO,
+        eps2: T::ZERO,
+        eps1eps2: T::ZERO,
+    };
+    const MIN_POSITIVE: Self = HyperDual {
+        real: T::MIN_POSITIVE,
+        eps1: T::ZERO,
+        eps2: T::ZERO,
+        eps1eps2: T::ZERO,
+    };
 
     #[inline]
     fn from_f64(value: f64) -> Self {
