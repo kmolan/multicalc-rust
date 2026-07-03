@@ -741,3 +741,89 @@ fn damped_solves_ridge_regression() {
         assert!((lhs[i] - vtb[i]).abs() < 1e-8);
     }
 }
+
+// ----- LU decomposition (Doolittle, partial pivoting) -----
+
+// Factorizes `a` and checks the factors are triangular and reconstruct `P·A`.
+fn lu_reconstructs<const N: usize>(a: Matrix<N, N>) {
+    let f = a.lu().unwrap();
+    let l = f.l();
+    let u = f.u();
+    let perm = f.permutation();
+
+    // L is unit lower-triangular; U is upper-triangular.
+    for r in 0..N {
+        assert_eq!(l[(r, r)], 1.0);
+        for c in (r + 1)..N {
+            assert_eq!(l[(r, c)], 0.0);
+        }
+        for c in 0..r {
+            assert_eq!(u[(r, c)], 0.0);
+        }
+    }
+
+    // P·A == L·U.
+    let pa = Matrix::<N, N>::from_fn(|i, c| a[(perm[i], c)]);
+    let prod = l * u;
+    for i in 0..N {
+        for c in 0..N {
+            assert!((pa[(i, c)] - prod[(i, c)]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn lu_reconstructs_pivoted_matrix() {
+    // The largest first-column entry is in the last row, forcing a swap.
+    lu_reconstructs(Matrix::<3, 3>::new([
+        [2.0, 1.0, 1.0],
+        [4.0, 3.0, 3.0],
+        [8.0, 7.0, 9.0],
+    ]));
+    lu_reconstructs(Matrix::<4, 4>::new([
+        [4.0, 3.0, 2.0, 1.0],
+        [3.0, 4.0, 3.0, 2.0],
+        [2.0, 3.0, 4.0, 3.0],
+        [1.0, 2.0, 3.0, 4.0],
+    ]));
+}
+
+#[test]
+fn lu_determinant_matches_direct() {
+    // Cross-check against the direct determinant, including the pivot-sign handling.
+    let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    assert!((a.lu().unwrap().determinant() - a.determinant()).abs() < 1e-12);
+
+    let b = Matrix::<4, 4>::new([
+        [1.0, 2.0, 3.0, 4.0],
+        [2.0, 1.0, 0.0, 1.0],
+        [0.0, 3.0, 1.0, 2.0],
+        [1.0, 0.0, 2.0, 1.0],
+    ]);
+    assert!((b.lu().unwrap().determinant() - b.determinant()).abs() < 1e-12);
+    assert!((b.lu().unwrap().determinant() + 20.0).abs() < 1e-12);
+}
+
+#[test]
+fn lu_rejects_singular() {
+    // A zero column: the pivot search turns up only zeros.
+    let zero_col = Matrix::<3, 3>::new([[1.0, 0.0, 2.0], [3.0, 0.0, 4.0], [5.0, 0.0, 6.0]]);
+    assert_eq!(zero_col.lu().err(), Some(CalcError::SingularMatrix));
+
+    // Dependent rows drive a pivot to zero during elimination.
+    let dependent = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 4.0]]);
+    assert_eq!(dependent.lu().err(), Some(CalcError::SingularMatrix));
+}
+
+#[test]
+fn lu_f32_reconstructs() {
+    let a = Matrix::<3, 3, f32>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    let f = a.lu().unwrap();
+    let pa = Matrix::<3, 3, f32>::from_fn(|i, c| a[(f.permutation()[i], c)]);
+    let prod = f.l() * f.u();
+    for i in 0..3 {
+        for c in 0..3 {
+            assert!((pa[(i, c)] - prod[(i, c)]).abs() < 1e-5);
+        }
+    }
+}
