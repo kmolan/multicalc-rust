@@ -1,6 +1,8 @@
 //! Types shared by the nonlinear least-squares solvers: the [`MinimizationReport`] a solver
 //! returns and the [`TerminationReason`] that explains why it stopped.
 
+pub(crate) mod trust_region;
+
 /// Why a solver stopped.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
