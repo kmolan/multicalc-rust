@@ -1,3 +1,4 @@
+use crate::linear_algebra::qr::{enorm, max, min};
 use crate::linear_algebra::{Matrix, Vector};
 
 /// Asserts every entry of `m` is within tolerance of the identity matrix.
@@ -246,4 +247,54 @@ fn generic_f32() {
     let m = Matrix::<2, 2, f32>::new([[1.0, 2.0], [3.0, 4.0]]);
     let id: Matrix<2, 2, f32> = Matrix::identity();
     assert_eq!(m * id, m);
+}
+
+// ----- overflow-safe norm (enorm) and comparison helpers -----
+
+#[test]
+fn enorm_matches_naive_norm() {
+    // On ordinary values, enorm agrees with the plain sqrt-of-dot norm.
+    assert!((enorm(&[3.0_f64, 4.0]) - 5.0).abs() < 1e-12);
+
+    let v = Vector::new([1.0_f64, 2.0, 2.0]);
+    assert!((enorm(v.as_array()) - v.norm()).abs() < 1e-12);
+}
+
+#[test]
+fn enorm_survives_huge_components() {
+    // A naive norm would overflow to infinity here; enorm stays finite.
+    let result = enorm(&[3.0e200_f64, 4.0e200]);
+    assert!(result.is_finite());
+    assert!((result / 5.0e200 - 1.0).abs() < 1e-12);
+}
+
+#[test]
+fn enorm_survives_tiny_components() {
+    // A naive norm would underflow to zero here; enorm keeps the magnitude.
+    let result = enorm(&[3.0e-200_f64, 4.0e-200]);
+    assert!(result > 0.0);
+    assert!((result / 5.0e-200 - 1.0).abs() < 1e-12);
+}
+
+#[test]
+fn enorm_f32_extremes_stay_finite() {
+    let big = enorm(&[3.0e30_f32, 4.0e30]);
+    assert!(big.is_finite());
+    assert!((big / 5.0e30 - 1.0).abs() < 1e-5);
+
+    let small = enorm(&[3.0e-30_f32, 4.0e-30]);
+    assert!(small > 0.0);
+    assert!((small / 5.0e-30 - 1.0).abs() < 1e-5);
+}
+
+#[test]
+fn min_max_pick_an_argument() {
+    assert_eq!(max(2.0_f64, 3.0), 3.0);
+    assert_eq!(max(3.0_f64, 2.0), 3.0);
+    assert_eq!(min(2.0_f64, 3.0), 2.0);
+    assert_eq!(min(3.0_f64, 2.0), 2.0);
+
+    // An incomparable pair returns the first argument unchanged.
+    assert_eq!(max(1.0_f64, f64::NAN), 1.0);
+    assert_eq!(min(1.0_f64, f64::NAN), 1.0);
 }

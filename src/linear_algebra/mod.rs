@@ -11,6 +11,7 @@
 //! ```
 
 pub mod matrix;
+pub mod qr;
 pub mod vector;
 
 pub use matrix::Matrix;
