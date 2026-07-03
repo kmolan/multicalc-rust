@@ -71,7 +71,6 @@ pub(crate) fn max<T: PartialOrd>(a: T, b: T) -> T {
 
 /// Returns the smaller of `a` and `b`. If the two do not compare (a NaN is involved),
 /// returns `a`.
-#[allow(dead_code)]
 pub(crate) fn min<T: PartialOrd>(a: T, b: T) -> T {
     if b < a { b } else { a }
 }

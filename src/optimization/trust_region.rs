@@ -6,7 +6,6 @@ use crate::scalar::Numeric;
 
 /// The damping parameter and step produced by the trust-region search.
 #[derive(Debug, Clone, Copy)]
-#[allow(dead_code)]
 pub(crate) struct LmParameter<const N: usize, T = f64> {
     /// The Levenberg damping parameter λ.
     pub lambda: T,
@@ -18,7 +17,6 @@ pub(crate) struct LmParameter<const N: usize, T = f64> {
 ///
 /// Runs a bounded Newton iteration on `λ` (at most 10 steps), reusing the one factorization in
 /// `dls` for every trial. `delta` must be positive and every entry of `diag` must be positive.
-#[allow(dead_code)]
 pub(crate) fn determine_lambda_and_parameter_update<const N: usize, T: Numeric>(
     dls: &DampedLeastSquares<N, T>,
     diag: &[T; N],
