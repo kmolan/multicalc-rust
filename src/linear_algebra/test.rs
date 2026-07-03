@@ -542,3 +542,105 @@ fn damped_cholesky_factor_matches_normal_matrix() {
         }
     }
 }
+
+#[test]
+fn qr_fits_vandermonde_polynomial() {
+    // Fit a degree-6 polynomial to 20 points on [-1, 1] by QR least squares.
+    let node = |i: usize| -1.0 + 2.0 * i as f64 / 19.0;
+    let vandermonde = Matrix::<20, 7>::from_fn(|i, j| {
+        let t = node(i);
+        (0..j).fold(1.0, |acc, _| acc * t)
+    });
+    let coeffs = [0.5, -1.2, 2.0, 0.3, -0.8, 1.1, -0.4];
+    let b = vandermonde * Vector::new(coeffs);
+
+    let x = PivotedQr::decompose(vandermonde)
+        .unwrap()
+        .solve_least_squares(b)
+        .unwrap();
+
+    // Every coefficient is recovered and the fit reproduces the samples.
+    for (got, want) in x.into_array().iter().zip(coeffs.iter()) {
+        assert!((got - want).abs() < 1e-7, "got {got}, want {want}");
+    }
+    assert!((vandermonde * x - b).norm() < 1e-10);
+}
+
+#[test]
+fn qr_factorizes_hilbert_stably() {
+    // The Hilbert matrix is famously ill-conditioned (cond(H_8) is about 1.5e10).
+    let hilbert = Matrix::<8, 8>::from_fn(|i, j| 1.0 / ((i + j + 1) as f64));
+    let f = PivotedQr::decompose(hilbert).unwrap();
+    let perm = f.permutation();
+    let q = f.q();
+    let r = f.r();
+
+    // The factorization stays backward-stable regardless of conditioning.
+    approx_identity(q.transpose() * q);
+    let ap = Matrix::<8, 8>::from_fn(|i, c| hilbert[(i, perm[c])]);
+    let product = q * r;
+    for i in 0..8 {
+        for c in 0..8 {
+            assert!((ap[(i, c)] - product[(i, c)]).abs() < 1e-12);
+        }
+    }
+
+    // Solving is backward-stable (tiny residual) though the solution itself degrades.
+    let x_true = [1.0; 8];
+    let b = hilbert * Vector::new(x_true);
+    let x = f.solve_least_squares(b).unwrap();
+    assert!((hilbert * x - b).norm() < 1e-12);
+    for value in x.into_array() {
+        assert!((value - 1.0).abs() < 1e-2);
+    }
+}
+
+#[test]
+fn enorm_handles_extreme_dynamic_range() {
+    // Twelve large components: a naive sum of squares would overflow to infinity.
+    let many_large = [1.0e160_f64; 12];
+    let result = enorm(&many_large);
+    assert!(result.is_finite());
+    assert!((result / (12.0_f64.sqrt() * 1.0e160) - 1.0).abs() < 1e-12);
+
+    // A vector mixing all three magnitude bands; the large band sets the norm.
+    let mut mixed = [0.0_f64; 16];
+    mixed[0] = 3.0e160;
+    mixed[1] = 4.0e160;
+    mixed[2] = 1.0;
+    mixed[3] = 1.0;
+    mixed[4] = 3.0e-160;
+    mixed[5] = 4.0e-160;
+    let norm = enorm(&mixed);
+    assert!(norm.is_finite());
+    assert!((norm / 5.0e160 - 1.0).abs() < 1e-12);
+}
+
+#[test]
+fn damped_solves_ridge_regression() {
+    // Ridge (Tikhonov) regression on an ill-conditioned Vandermonde design:
+    // (VᵀV + λ²I) x = Vᵀb, which is exactly the damped solve with a constant diagonal.
+    let node = |i: usize| -1.0 + 2.0 * i as f64 / 14.0;
+    let v = Matrix::<15, 8>::from_fn(|i, j| {
+        let t = node(i);
+        (0..j).fold(1.0, |acc, _| acc * t)
+    });
+    let x_true = [0.4, 1.0, -0.6, 0.9, -1.3, 0.5, 0.7, -0.2];
+    let b = v * Vector::new(x_true);
+    let lambda = 0.1;
+
+    let (x, _) = PivotedQr::decompose(v)
+        .unwrap()
+        .into_damped(b)
+        .solve_with_diagonal(&[lambda; 8]);
+
+    // x satisfies the regularized normal equations.
+    let vtv = v.transpose() * v;
+    let vtb = v.transpose() * b;
+    let lhs = Matrix::<8, 8>::from_fn(|r, c| {
+        vtv[(r, c)] + if r == c { lambda * lambda } else { 0.0 }
+    }) * x;
+    for i in 0..8 {
+        assert!((lhs[i] - vtb[i]).abs() < 1e-8);
+    }
+}
