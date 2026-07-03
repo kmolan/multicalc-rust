@@ -1,5 +1,6 @@
-use crate::linear_algebra::qr::{enorm, max, min};
+use crate::linear_algebra::qr::{PivotedQr, enorm, max, min};
 use crate::linear_algebra::{Matrix, Vector};
+use crate::utils::error_codes::CalcError;
 
 /// Asserts every entry of `m` is within tolerance of the identity matrix.
 fn approx_identity<const N: usize>(m: Matrix<N, N>) {
@@ -297,4 +298,119 @@ fn min_max_pick_an_argument() {
     // An incomparable pair returns the first argument unchanged.
     assert_eq!(max(1.0_f64, f64::NAN), 1.0);
     assert_eq!(min(1.0_f64, f64::NAN), 1.0);
+}
+
+// ----- column-pivoted QR (decompose) -----
+
+// Rebuilds the orthogonal factor Q by applying the packed reflectors to the identity.
+fn qr_q<const M: usize, const N: usize>(f: &PivotedQr<M, N>) -> Matrix<M, N> {
+    let mut q: Matrix<M, N> = Matrix::from_fn(|r, c| if r == c { 1.0 } else { 0.0 });
+    for col in 0..N {
+        for j in (0..N).rev() {
+            let pivot = f.qr[(j, j)];
+            if pivot == 0.0 {
+                continue;
+            }
+            let mut sum = 0.0;
+            for i in j..M {
+                sum += f.qr[(i, j)] * q[(i, col)];
+            }
+            let factor = sum / pivot;
+            for i in j..M {
+                q[(i, col)] -= factor * f.qr[(i, j)];
+            }
+        }
+    }
+    q
+}
+
+// Rebuilds the upper-triangular factor R.
+fn qr_r<const M: usize, const N: usize>(f: &PivotedQr<M, N>) -> Matrix<N, N> {
+    Matrix::from_fn(|r, c| {
+        if r == c {
+            f.r_diag[r]
+        } else if c > r {
+            f.qr[(r, c)]
+        } else {
+            0.0
+        }
+    })
+}
+
+#[test]
+fn qr_reconstructs_pivoted_matrix() {
+    let a = Matrix::<4, 3>::new([
+        [1.0, 2.0, 3.0],
+        [4.0, 5.0, 6.0],
+        [7.0, 8.0, 10.0],
+        [2.0, -1.0, 1.0],
+    ]);
+    let f = PivotedQr::decompose(a).unwrap();
+
+    // The most-normed column (index 2) pivots to the front, so |r_diag[0]| is its norm.
+    assert_eq!(f.permutation[0], 2);
+    assert!((f.r_diag[0].abs() - 146.0_f64.sqrt()).abs() < 1e-12);
+
+    // Column norms are the original ones, in original order.
+    assert!((f.column_norms[0] - 70.0_f64.sqrt()).abs() < 1e-12);
+    assert!((f.column_norms[1] - 94.0_f64.sqrt()).abs() < 1e-12);
+    assert!((f.column_norms[2] - 146.0_f64.sqrt()).abs() < 1e-12);
+
+    let q = qr_q(&f);
+    let r = qr_r(&f);
+
+    // R is upper-triangular.
+    for row in 0..3 {
+        for col in 0..row {
+            assert_eq!(r[(row, col)], 0.0);
+        }
+    }
+
+    // Q has orthonormal columns.
+    approx_identity(q.transpose() * q);
+
+    // A * P == Q * R.
+    let ap = Matrix::<4, 3>::from_fn(|i, c| a[(i, f.permutation[c])]);
+    let product = q * r;
+    for i in 0..4 {
+        for c in 0..3 {
+            assert!((ap[(i, c)] - product[(i, c)]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn qr_rejects_underdetermined() {
+    let a = Matrix::<2, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
+    assert!(matches!(
+        PivotedQr::decompose(a),
+        Err(CalcError::Underdetermined)
+    ));
+}
+
+#[test]
+fn qr_handles_zero_column() {
+    // Column 1 is entirely zero: decompose must not divide by its zero norm.
+    let a = Matrix::<4, 3>::new([
+        [1.0, 0.0, 2.0],
+        [3.0, 0.0, 4.0],
+        [5.0, 0.0, 6.0],
+        [7.0, 0.0, 8.0],
+    ]);
+    let f = PivotedQr::decompose(a).unwrap();
+
+    // The zero column sorts last and carries a zero diagonal.
+    assert_eq!(f.permutation[2], 1);
+    assert!(f.r_diag[2].abs() < 1e-12);
+
+    // The factorization still reproduces A * P.
+    let q = qr_q(&f);
+    let r = qr_r(&f);
+    let ap = Matrix::<4, 3>::from_fn(|i, c| a[(i, f.permutation[c])]);
+    let product = q * r;
+    for i in 0..4 {
+        for c in 0..3 {
+            assert!((ap[(i, c)] - product[(i, c)]).abs() < 1e-12);
+        }
+    }
 }
