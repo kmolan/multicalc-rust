@@ -87,9 +87,9 @@ fn lm_solves_rosenbrock() {
     let report: MinimizationReport<2> = LevenbergMarquardt::<AutoDiffMulti>::default()
         .minimize(&f, &[-1.2, 1.0])
         .unwrap();
-    assert!((report.solution[0] - 1.0).abs() < 1e-6);
-    assert!((report.solution[1] - 1.0).abs() < 1e-6);
-    assert!(report.objective_function < 1e-10);
+    assert!((report.solution[0] - 1.0).abs() < 1e-8);
+    assert!((report.solution[1] - 1.0).abs() < 1e-8);
+    assert!(report.objective_function < 1e-16);
 }
 
 #[test]
@@ -101,8 +101,9 @@ fn lm_recovers_linear_least_squares() {
         c(-5.0) + c(2.0) * v[0] + v[1],
     ]);
     let report = LevenbergMarquardt::<AutoDiffMulti>::default().minimize(&f, &[0.0, 0.0]).unwrap();
-    assert!((report.solution[0] - 2.0).abs() < 1e-9);
-    assert!((report.solution[1] - 1.0).abs() < 1e-9);
+    assert!((report.solution[0] - 2.0).abs() < 1e-12);
+    assert!((report.solution[1] - 1.0).abs() < 1e-12);
+    assert!(report.objective_function < 1e-16);
 }
 
 #[test]
@@ -114,8 +115,9 @@ fn lm_fits_exponential_decay() {
         c(-25.0) + v[0] * (c(2.0) * v[1]).exp(),
     ]);
     let report = LevenbergMarquardt::<AutoDiffMulti>::default().minimize(&f, &[80.0, -0.3]).unwrap();
-    assert!((report.solution[0] - 100.0).abs() < 1e-5);
-    assert!((report.solution[1] + 2.0_f64.ln()).abs() < 1e-6);
+    assert!((report.solution[0] - 100.0).abs() < 1e-7);
+    assert!((report.solution[1] + 2.0_f64.ln()).abs() < 1e-8);
+    assert!(report.objective_function < 1e-12);
     assert!(matches!(
         report.termination,
         TerminationReason::Ftol | TerminationReason::Xtol | TerminationReason::Gtol
@@ -196,10 +198,10 @@ fn lm_fits_damped_sinusoids() {
         .minimize(&problem, &start)
         .unwrap();
 
-    // The fit is essentially perfect and every one of the 12 parameters is recovered.
-    assert!(report.objective_function < 1e-12);
+    // The fit reaches machine precision and every one of the 12 parameters is recovered.
+    assert!(report.objective_function < 1e-16);
     for (got, want) in report.solution.iter().zip(truth.iter()) {
-        assert!((got - want).abs() < 1e-4, "got {got}, want {want}");
+        assert!((got - want).abs() < 1e-10, "got {got}, want {want}");
     }
 }
 
@@ -228,7 +230,7 @@ fn lm_solves_trigonometric() {
         .minimize(&Trigonometric::<6>, &[1.0 / 6.0; 6])
         .unwrap();
     assert!(
-        report.objective_function < 1e-12,
+        report.objective_function < 1e-16,
         "objective {}",
         report.objective_function
     );
@@ -245,8 +247,9 @@ fn gn_recovers_linear_least_squares() {
         c(-5.0) + c(2.0) * v[0] + v[1],
     ]);
     let report = GaussNewton::<AutoDiffMulti>::default().minimize(&f, &[0.0, 0.0]).unwrap();
-    assert!((report.solution[0] - 2.0).abs() < 1e-9);
-    assert!((report.solution[1] - 1.0).abs() < 1e-9);
+    assert!((report.solution[0] - 2.0).abs() < 1e-12);
+    assert!((report.solution[1] - 1.0).abs() < 1e-12);
+    assert!(report.objective_function < 1e-16);
 }
 
 #[test]
@@ -360,9 +363,9 @@ fn gn_fits_gaussian_peaks() {
     let report = GaussNewton::<AutoDiffMulti>::default()
         .minimize(&problem, &start)
         .unwrap();
-    assert!(report.objective_function < 1e-12);
+    assert!(report.objective_function < 1e-16);
     for (got, want) in report.solution.iter().zip(truth.iter()) {
-        assert!((got - want).abs() < 1e-5, "got {got}, want {want}");
+        assert!((got - want).abs() < 1e-9, "got {got}, want {want}");
     }
 }
 
