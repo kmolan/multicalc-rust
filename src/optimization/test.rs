@@ -366,19 +366,26 @@ fn gn_fits_gaussian_peaks() {
 
 #[test]
 fn gn_backtracking_rescues_far_start() {
-    // Fit exp(a*t) to non-exponential (linear) data: a large-residual problem where the full
-    // Gauss-Newton step overshoots.
-    let residual = || scalar_fn_vec!(|v: &[f64; 1]| [
-        c(-2.5) + (v[0]).exp(),
-        c(-3.0) + (c(2.0) * v[0]).exp(),
-        c(-3.5) + (c(3.0) * v[0]).exp(),
-        c(-4.0) + (c(4.0) * v[0]).exp(),
-        c(-4.5) + (c(5.0) * v[0]).exp(),
-    ]);
-    let s = 2.5_f64;
-    let plain = GaussNewton::<AutoDiffMulti>::default().minimize(&residual(), &[s]);
+    // r(x) = x / sqrt(1 + x^2): a bounded sigmoid whose Gauss-Newton step map is x -> -x^3.
+    // The minimum is x = 0, but past |x| = 1 the full step cubes and flings the iterate off to
+    // the saturated tail (|r| -> 1). Backtracking halves the overshoot until the residual drops,
+    // landing back in the basin.
+    let residual = || scalar_fn_vec!(|v: &[f64; 1]| [v[0] / (c(1.0) + v[0] * v[0]).sqrt()]);
+    let far = [2.0];
+
+    // Plain Gauss-Newton overshoots: it either overflows or stalls on the tail far from x = 0.
+    let plain = GaussNewton::<AutoDiffMulti>::default().minimize(&residual(), &far);
+    let plain_missed = match &plain {
+        Ok(r) => r.objective_function > 0.4,
+        Err(_) => true,
+    };
+    assert!(plain_missed, "plain GN unexpectedly reached the minimum: {plain:?}");
+
+    // Backtracking rescues the same start and converges to x = 0.
     let guarded = GaussNewton::<AutoDiffMulti>::default()
         .with_backtracking(true)
-        .minimize(&residual(), &[s]);
-    panic!("start {s}: plain={plain:?} guarded={guarded:?}");
+        .minimize(&residual(), &far)
+        .unwrap();
+    assert!(guarded.objective_function < 1e-12, "{guarded:?}");
+    assert!(guarded.solution[0].abs() < 1e-6, "{guarded:?}");
 }
