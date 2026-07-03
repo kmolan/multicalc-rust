@@ -57,9 +57,9 @@ fn lmpar_hits_trust_region_boundary() {
     // The step solves the damped normal equations (JᵀJ + λI) p = Jᵀb (D = I here).
     let jtj = j.transpose() * j;
     let jtb = j.transpose() * b;
-    let lhs = Matrix::<3, 3>::from_fn(|r, c| {
-        jtj[(r, c)] + if r == c { result.lambda } else { 0.0 }
-    }) * result.step;
+    let lhs =
+        Matrix::<3, 3>::from_fn(|r, c| jtj[(r, c)] + if r == c { result.lambda } else { 0.0 })
+            * result.step;
     for i in 0..3 {
         assert!((lhs[i] - jtb[i]).abs() < 1e-10);
     }
@@ -100,7 +100,9 @@ fn lm_recovers_linear_least_squares() {
         c(-3.0) + v[0] + v[1],
         c(-5.0) + c(2.0) * v[0] + v[1],
     ]);
-    let report = LevenbergMarquardt::<AutoDiffMulti>::default().minimize(&f, &[0.0, 0.0]).unwrap();
+    let report = LevenbergMarquardt::<AutoDiffMulti>::default()
+        .minimize(&f, &[0.0, 0.0])
+        .unwrap();
     assert!((report.solution[0] - 2.0).abs() < 1e-12);
     assert!((report.solution[1] - 1.0).abs() < 1e-12);
     assert!(report.objective_function < 1e-16);
@@ -114,7 +116,9 @@ fn lm_fits_exponential_decay() {
         c(-50.0) + v[0] * v[1].exp(),
         c(-25.0) + v[0] * (c(2.0) * v[1]).exp(),
     ]);
-    let report = LevenbergMarquardt::<AutoDiffMulti>::default().minimize(&f, &[80.0, -0.3]).unwrap();
+    let report = LevenbergMarquardt::<AutoDiffMulti>::default()
+        .minimize(&f, &[80.0, -0.3])
+        .unwrap();
     assert!((report.solution[0] - 100.0).abs() < 1e-7);
     assert!((report.solution[1] + 2.0_f64.ln()).abs() < 1e-8);
     assert!(report.objective_function < 1e-12);
@@ -244,7 +248,7 @@ fn lm_solves_trigonometric() {
         "objective {}",
         report.objective_function
     );
- }
+}
 
 // ----- Gauss-Newton solver -----
 
@@ -256,7 +260,9 @@ fn gn_recovers_linear_least_squares() {
         c(-3.0) + v[0] + v[1],
         c(-5.0) + c(2.0) * v[0] + v[1],
     ]);
-    let report = GaussNewton::<AutoDiffMulti>::default().minimize(&f, &[0.0, 0.0]).unwrap();
+    let report = GaussNewton::<AutoDiffMulti>::default()
+        .minimize(&f, &[0.0, 0.0])
+        .unwrap();
     assert!((report.solution[0] - 2.0).abs() < 1e-12);
     assert!((report.solution[1] - 1.0).abs() < 1e-12);
     assert!(report.objective_function < 1e-16);
@@ -394,7 +400,10 @@ fn gn_backtracking_rescues_far_start() {
         Ok(r) => r.objective_function > 0.4,
         Err(_) => true,
     };
-    assert!(plain_missed, "plain GN unexpectedly reached the minimum: {plain:?}");
+    assert!(
+        plain_missed,
+        "plain GN unexpectedly reached the minimum: {plain:?}"
+    );
 
     // Backtracking rescues the same start and converges to x = 0.
     let guarded = GaussNewton::<AutoDiffMulti>::default()

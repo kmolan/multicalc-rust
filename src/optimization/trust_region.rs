@@ -1,7 +1,7 @@
 //! The Levenberg-Marquardt trust-region parameter search (MINPACK `lmpar`).
 
-use crate::linear_algebra::qr::{DampedLeastSquares, enorm, max, min};
 use crate::linear_algebra::Vector;
+use crate::linear_algebra::qr::{DampedLeastSquares, enorm, max, min};
 use crate::scalar::Numeric;
 
 /// The damping parameter and step produced by the trust-region search.
@@ -47,8 +47,9 @@ pub(crate) fn determine_lambda_and_parameter_update<const N: usize, T: Numeric>(
     let mut parl = T::ZERO;
     if full_rank {
         let scaled = scale(&gauss_newton);
-        let mut w: [T; N] =
-            core::array::from_fn(|j| diag[dls.permutation[j]] * (scaled[dls.permutation[j]] / dxnorm));
+        let mut w: [T; N] = core::array::from_fn(|j| {
+            diag[dls.permutation[j]] * (scaled[dls.permutation[j]] / dxnorm)
+        });
         // Forward-solve Rᵀ w = w.
         for j in 0..N {
             let mut sum = T::ZERO;
@@ -107,8 +108,9 @@ pub(crate) fn determine_lambda_and_parameter_update<const N: usize, T: Numeric>(
         }
 
         // Newton correction on λ, using the Cholesky factor of the damped system.
-        let rhs: [T; N] =
-            core::array::from_fn(|j| diag[dls.permutation[j]] * (scaled_step[dls.permutation[j]] / dxnorm));
+        let rhs: [T; N] = core::array::from_fn(|j| {
+            diag[dls.permutation[j]] * (scaled_step[dls.permutation[j]] / dxnorm)
+        });
         let temp = enorm(&cholesky.solve(rhs));
         if temp == T::ZERO {
             break;

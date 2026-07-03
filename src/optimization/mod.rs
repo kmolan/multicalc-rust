@@ -9,8 +9,8 @@
 //!
 //! The Levenberg-Marquardt driver ports MINPACK's `lmder`/`lmpar` (Moré, Garbow, Hillstrom; public
 //! domain, netlib), following Moré (1978), "The Levenberg-Marquardt algorithm: Implementation and
-//! theory", and Nocedal & Wright, *Numerical Optimization*, chapters 4 and 10. This is a clean-room, 
-//! fixed-size `no_std` reimplementation on this crate's own [`Vector`](crate::linear_algebra::Vector) 
+//! theory", and Nocedal & Wright, *Numerical Optimization*, chapters 4 and 10. This is a clean-room,
+//! fixed-size `no_std` reimplementation on this crate's own [`Vector`](crate::linear_algebra::Vector)
 //! and [`Matrix`](crate::linear_algebra::Matrix) types.
 
 pub mod gauss_newton;

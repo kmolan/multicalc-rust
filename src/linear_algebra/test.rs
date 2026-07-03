@@ -385,7 +385,10 @@ fn qr_solves_square_system() {
     // A x = b with the exact solution x = [1, 1, 1].
     let a = Matrix::<3, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 10.0]]);
     let b = Vector::new([6.0, 15.0, 25.0]);
-    let x = PivotedQr::decompose(a).unwrap().solve_least_squares(b).unwrap();
+    let x = PivotedQr::decompose(a)
+        .unwrap()
+        .solve_least_squares(b)
+        .unwrap();
     for value in x.into_array() {
         assert!((value - 1.0).abs() < 1e-12);
     }
@@ -396,7 +399,10 @@ fn qr_solves_overdetermined_least_squares() {
     // Fit y = m t + c to three non-collinear points; least-squares gives m = 0.5, c = 7/6.
     let a = Matrix::<3, 2>::new([[0.0, 1.0], [1.0, 1.0], [2.0, 1.0]]);
     let b = Vector::new([1.0, 2.0, 2.0]);
-    let x = PivotedQr::decompose(a).unwrap().solve_least_squares(b).unwrap();
+    let x = PivotedQr::decompose(a)
+        .unwrap()
+        .solve_least_squares(b)
+        .unwrap();
     assert!((x[0] - 0.5).abs() < 1e-12);
     assert!((x[1] - 7.0 / 6.0).abs() < 1e-12);
 }
@@ -450,9 +456,9 @@ fn damped_solve_satisfies_normal_equations() {
     // x must satisfy (JᵀJ + D²) x = Jᵀb.
     let jtj = j.transpose() * j;
     let jtb = j.transpose() * b;
-    let lhs = Matrix::<3, 3>::from_fn(|r, c| {
-        jtj[(r, c)] + if r == c { diag[r] * diag[r] } else { 0.0 }
-    }) * x;
+    let lhs =
+        Matrix::<3, 3>::from_fn(|r, c| jtj[(r, c)] + if r == c { diag[r] * diag[r] } else { 0.0 })
+            * x;
     for i in 0..3 {
         assert!((lhs[i] - jtb[i]).abs() < 1e-12);
     }
@@ -497,7 +503,12 @@ fn damped_a_x_norm_matches_direct() {
 #[test]
 fn damped_is_non_singular() {
     let (j, b) = sample_problem();
-    assert!(PivotedQr::decompose(j).unwrap().into_damped(b).is_non_singular());
+    assert!(
+        PivotedQr::decompose(j)
+            .unwrap()
+            .into_damped(b)
+            .is_non_singular()
+    );
 
     // A zero column makes the problem rank-deficient.
     let deficient = Matrix::<4, 3>::new([
@@ -637,9 +648,9 @@ fn damped_solves_ridge_regression() {
     // x satisfies the regularized normal equations.
     let vtv = v.transpose() * v;
     let vtb = v.transpose() * b;
-    let lhs = Matrix::<8, 8>::from_fn(|r, c| {
-        vtv[(r, c)] + if r == c { lambda * lambda } else { 0.0 }
-    }) * x;
+    let lhs =
+        Matrix::<8, 8>::from_fn(|r, c| vtv[(r, c)] + if r == c { lambda * lambda } else { 0.0 })
+            * x;
     for i in 0..8 {
         assert!((lhs[i] - vtb[i]).abs() < 1e-8);
     }

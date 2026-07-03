@@ -155,7 +155,11 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
 
             if first {
                 for (slot, &column_norm) in diag.iter_mut().zip(dls.column_norms.iter()) {
-                    *slot = if column_norm == zero { one } else { column_norm };
+                    *slot = if column_norm == zero {
+                        one
+                    } else {
+                        column_norm
+                    };
                 }
                 xnorm = enorm(&core::array::from_fn::<_, N, _>(|j| diag[j] * x[j]));
                 delta = self.stepbound * xnorm;
@@ -207,7 +211,11 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
                 let prered = temp1 * temp1 + (temp2 * temp2) / p5;
                 let dirder = -(temp1 * temp1 + temp2 * temp2);
 
-                let ratio = if prered != zero { actred / prered } else { zero };
+                let ratio = if prered != zero {
+                    actred / prered
+                } else {
+                    zero
+                };
 
                 // Adjust the trust-region radius and damping by the gain ratio.
                 if ratio <= p25 {
