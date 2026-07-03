@@ -1,6 +1,6 @@
 //! LU factorization with partial pivoting (Doolittle), for square systems.
 
-use crate::linear_algebra::Matrix;
+use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
 use crate::utils::error_codes::CalcError;
 
@@ -125,5 +125,82 @@ impl<const N: usize, T: Numeric> Lu<N, T> {
             det *= self.lu[(i, i)];
         }
         det
+    }
+
+    /// Solves `A·x = b` for `x`, reusing this factorization.
+    ///
+    /// Infallible: the factorization already guaranteed every `U` diagonal entry is nonzero.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::{Matrix, Vector};
+    /// let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    /// // A·x = b has the exact solution x = [1, 2, 3].
+    /// let x = a.lu().unwrap().solve(Vector::new([7.0, 19.0, 49.0]));
+    /// assert!((x[0] - 1.0).abs() < 1e-12);
+    /// assert!((x[1] - 2.0).abs() < 1e-12);
+    /// assert!((x[2] - 3.0).abs() < 1e-12);
+    /// ```
+    pub fn solve(&self, b: Vector<N, T>) -> Vector<N, T> {
+        // Apply the row permutation: start from P·b.
+        let mut x: [T; N] = core::array::from_fn(|i| b[self.perm[i]]);
+
+        // Forward substitution for L·y = P·b (L has a unit diagonal).
+        for i in 0..N {
+            let mut sum = x[i];
+            for (j, &xj) in x.iter().enumerate().take(i) {
+                sum -= self.lu[(i, j)] * xj;
+            }
+            x[i] = sum;
+        }
+
+        // Back substitution for U·x = y.
+        for i in (0..N).rev() {
+            let mut sum = x[i];
+            for (j, &xj) in x.iter().enumerate().skip(i + 1) {
+                sum -= self.lu[(i, j)] * xj;
+            }
+            x[i] = sum / self.lu[(i, i)];
+        }
+
+        Vector::new(x)
+    }
+
+    /// Solves `A·X = B` for `X`, one column at a time, reusing this factorization.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// let a = Matrix::<2, 2>::new([[4.0, 3.0], [6.0, 3.0]]);
+    /// // Solving A·X = I gives X = A⁻¹.
+    /// let x = a.lu().unwrap().solve_matrix(Matrix::<2, 2>::identity());
+    /// let p = a * x;
+    /// assert!((p[(0, 0)] - 1.0).abs() < 1e-12);
+    /// assert!((p[(1, 1)] - 1.0).abs() < 1e-12);
+    /// ```
+    pub fn solve_matrix<const K: usize>(&self, b: Matrix<N, K, T>) -> Matrix<N, K, T> {
+        let mut result = Matrix::zeros();
+        for c in 0..K {
+            let x = self.solve(b.column(c));
+            for r in 0..N {
+                result[(r, c)] = x[r];
+            }
+        }
+        result
+    }
+
+    /// The inverse of the factorized matrix, from solving `A·X = I`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    /// let p = a * a.lu().unwrap().inverse();
+    /// for r in 0..3 {
+    ///     for c in 0..3 {
+    ///         let expected = if r == c { 1.0 } else { 0.0 };
+    ///         assert!((p[(r, c)] - expected).abs() < 1e-12);
+    ///     }
+    /// }
+    /// ```
+    pub fn inverse(&self) -> Matrix<N, N, T> {
+        self.solve_matrix(Matrix::identity())
     }
 }
