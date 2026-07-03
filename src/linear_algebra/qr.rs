@@ -1,4 +1,8 @@
 //! Column-pivoted Householder QR factorization, with an overflow-safe norm and helpers.
+//!
+//! The factorization, damped solve, and norm port MINPACK's `qrfac`, `qrsolv`, and `enorm` (Moré,
+//! Garbow, Hillstrom; public domain, netlib) — a clean-room, fixed-size `no_std` reimplementation
+//! on this crate's own [`Vector`] and [`Matrix`] types.
 
 use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;

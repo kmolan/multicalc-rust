@@ -258,6 +258,13 @@ See [BENCHMARKS.md](./BENCHMARKS.md) for accuracy figures and measured latency.
 
 See [CONTRIBUTIONS.md](./CONTRIBUTIONS.md).
 
+## Acknowledgements
+
+The least-squares solvers and QR factorization port the public-domain MINPACK routines `lmder`,
+`lmpar`, `qrfac`, and `qrsolv` (Moré, Garbow, Hillstrom; netlib), following Moré (1978), "The
+Levenberg-Marquardt algorithm: Implementation and theory", and Nocedal & Wright, *Numerical
+Optimization* (chapters 4 and 10).
+
 ## License
 
 multicalc is licensed under the MIT license.

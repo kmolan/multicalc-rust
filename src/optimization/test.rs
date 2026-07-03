@@ -151,6 +151,16 @@ fn lm_reports_non_finite() {
     assert!(matches!(result, Err(CalcError::NonFiniteValue)));
 }
 
+#[test]
+fn lm_reports_did_not_converge() {
+    // A one-iteration budget is too small for Rosenbrock, so the solver runs out.
+    let f = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
+    let result = LevenbergMarquardt::<AutoDiffMulti>::default()
+        .with_patience(1)
+        .minimize(&f, &[-1.2, 1.0]);
+    assert!(matches!(result, Err(CalcError::DidNotConverge)));
+}
+
 // Sum of three damped sinusoids sampled at 60 points, with parameters [A, lambda, omega, phi]
 // per component. Holds the sample times and targets so the residual is model - target.
 struct DampedSinusoids {
