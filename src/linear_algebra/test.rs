@@ -425,3 +425,120 @@ fn qr_solve_reports_rank_deficient() {
         Err(CalcError::SingularMatrix)
     ));
 }
+
+// ----- damped least squares (qrsolv) -----
+
+// A full-rank 4x3 problem reused across the damped-solve tests.
+fn sample_problem() -> (Matrix<4, 3>, Vector<4>) {
+    let j = Matrix::<4, 3>::new([
+        [1.0, 2.0, 0.0],
+        [0.0, 1.0, 3.0],
+        [2.0, 1.0, 1.0],
+        [1.0, 0.0, 2.0],
+    ]);
+    let b = Vector::new([1.0, 2.0, 3.0, 4.0]);
+    (j, b)
+}
+
+#[test]
+fn damped_solve_satisfies_normal_equations() {
+    let (j, b) = sample_problem();
+    let diag = [1.0, 0.5, 2.0];
+    let dls = PivotedQr::decompose(j).unwrap().into_damped(b);
+    let (x, _) = dls.solve_with_diagonal(&diag);
+
+    // x must satisfy (JᵀJ + D²) x = Jᵀb.
+    let jtj = j.transpose() * j;
+    let jtb = j.transpose() * b;
+    let lhs = Matrix::<3, 3>::from_fn(|r, c| {
+        jtj[(r, c)] + if r == c { diag[r] * diag[r] } else { 0.0 }
+    }) * x;
+    for i in 0..3 {
+        assert!((lhs[i] - jtb[i]).abs() < 1e-12);
+    }
+}
+
+#[test]
+fn damped_zero_diagonal_matches_least_squares() {
+    let (j, b) = sample_problem();
+    let qr = PivotedQr::decompose(j).unwrap();
+    let expected = qr.solve_least_squares(b).unwrap();
+    let (x, _) = qr.into_damped(b).solve_with_zero_diagonal();
+    for i in 0..3 {
+        assert!((x[i] - expected[i]).abs() < 1e-12);
+    }
+}
+
+#[test]
+fn damped_max_a_t_b_scaled_matches_direct() {
+    let (j, b) = sample_problem();
+    let dls = PivotedQr::decompose(j).unwrap().into_damped(b);
+    let b_norm = b.norm();
+
+    // Direct: max over columns of |Jᵀb|ₗ / (b_norm · ‖columnₗ‖).
+    let jtb = j.transpose() * b;
+    let mut expected = 0.0_f64;
+    for l in 0..3 {
+        let scaled = (jtb[l] / b_norm / j.column(l).norm()).abs();
+        expected = expected.max(scaled);
+    }
+    assert!((dls.max_a_t_b_scaled(b_norm) - expected).abs() < 1e-12);
+}
+
+#[test]
+fn damped_a_x_norm_matches_direct() {
+    let (j, b) = sample_problem();
+    let dls = PivotedQr::decompose(j).unwrap().into_damped(b);
+    let x = Vector::new([1.0, -2.0, 0.5]);
+    // a_x_norm(x) is ‖J x‖.
+    assert!((dls.a_x_norm(&x) - (j * x).norm()).abs() < 1e-12);
+}
+
+#[test]
+fn damped_is_non_singular() {
+    let (j, b) = sample_problem();
+    assert!(PivotedQr::decompose(j).unwrap().into_damped(b).is_non_singular());
+
+    // A zero column makes the problem rank-deficient.
+    let deficient = Matrix::<4, 3>::new([
+        [1.0, 0.0, 2.0],
+        [3.0, 0.0, 4.0],
+        [5.0, 0.0, 6.0],
+        [7.0, 0.0, 8.0],
+    ]);
+    let dls = PivotedQr::decompose(deficient).unwrap().into_damped(b);
+    assert!(!dls.is_non_singular());
+}
+
+#[test]
+fn damped_cholesky_factor_matches_normal_matrix() {
+    let (j, b) = sample_problem();
+    let diag = [1.0, 0.5, 2.0];
+    let dls = PivotedQr::decompose(j).unwrap().into_damped(b);
+    let (_, cf) = dls.solve_with_diagonal(&diag);
+
+    // Reconstruct S (upper triangular) from the factor.
+    let s = Matrix::<3, 3>::from_fn(|row, col| {
+        if row == col {
+            cf.s_diag[row]
+        } else if col > row {
+            cf.s[(col, row)]
+        } else {
+            0.0
+        }
+    });
+
+    // SᵀS must equal RᵀR + D², with D permuted the way qrsolv applies it.
+    let sts = s.transpose() * s;
+    let rtr = dls.r.transpose() * dls.r;
+    for row in 0..3 {
+        for col in 0..3 {
+            let mut expected = rtr[(row, col)];
+            if row == col {
+                let d = diag[dls.permutation[row]];
+                expected += d * d;
+            }
+            assert!((sts[(row, col)] - expected).abs() < 1e-9);
+        }
+    }
+}

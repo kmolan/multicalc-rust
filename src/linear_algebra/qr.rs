@@ -90,7 +90,6 @@ pub struct PivotedQr<const M: usize, const N: usize, T = f64> {
     /// Diagonal of `R`.
     pub(crate) r_diag: [T; N],
     /// Euclidean norms of the original columns of `A`, in original order.
-    #[allow(dead_code)]
     pub(crate) column_norms: [T; N],
     /// Pivot order: column `j` of `A * P` is column `permutation[j]` of `A`.
     pub(crate) permutation: [usize; N],
@@ -311,5 +310,230 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
             x[target] = y[j];
         }
         Ok(Vector::new(x))
+    }
+
+    /// Turns this factorization into a reusable damped least-squares problem for `b`,
+    /// precomputing `Qᵀb` so a whole family of damped systems shares one factorization.
+    pub fn into_damped(self, b: Vector<M, T>) -> DampedLeastSquares<N, T> {
+        // Apply the reflectors to b, leaving Qᵀb in the first N entries.
+        let mut transformed = b;
+        for j in 0..N {
+            let pivot = self.qr[(j, j)];
+            if pivot == T::ZERO {
+                continue;
+            }
+            let mut sum = T::ZERO;
+            for i in j..M {
+                sum += self.qr[(i, j)] * transformed[i];
+            }
+            let factor = sum / pivot;
+            for i in j..M {
+                transformed[i] -= factor * self.qr[(i, j)];
+            }
+        }
+        let mut qt_b = [T::ZERO; N];
+        for (dst, &src) in qt_b.iter_mut().zip(transformed.as_array().iter().take(N)) {
+            *dst = src;
+        }
+
+        DampedLeastSquares {
+            r: self.r(),
+            qt_b,
+            permutation: self.permutation,
+            column_norms: self.column_norms,
+        }
+    }
+}
+
+/// A reusable damped least-squares problem built from one QR factorization of `A`.
+///
+/// Given `A = Q R P` and `b`, it solves `(AᵀA + D²) x = Aᵀb` for any diagonal `D` without
+/// refactorizing, using the MINPACK `qrsolv` scheme (Givens rotations that eliminate the `D`
+/// rows into `R`). This is the linear subproblem the Levenberg-Marquardt trust region solves.
+#[derive(Debug, Clone, Copy)]
+#[must_use]
+pub struct DampedLeastSquares<const N: usize, T = f64> {
+    /// Upper-triangular factor `R`.
+    pub(crate) r: Matrix<N, N, T>,
+    /// `Qᵀb`, the right-hand side in factored coordinates.
+    pub(crate) qt_b: [T; N],
+    /// Pivot order carried over from the factorization.
+    pub(crate) permutation: [usize; N],
+    /// Euclidean norms of the original columns of `A`, in original order.
+    pub(crate) column_norms: [T; N],
+}
+
+impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
+    /// Solves `(AᵀA + D²) x = Aᵀb` for the diagonal `D` given by `diag`, returning the solution
+    /// and the Cholesky-like factor `S` of `AᵀA + D²`.
+    pub fn solve_with_diagonal(&self, diag: &[T; N]) -> (Vector<N, T>, CholeskyFactor<N, T>) {
+        // Working matrix: upper triangle is R, lower triangle mirrors it as scratch.
+        let mut s = self.r;
+        for j in 0..N {
+            for i in (j + 1)..N {
+                s[(i, j)] = s[(j, i)];
+            }
+        }
+
+        let mut saved_diag = [T::ZERO; N];
+        let mut wa = [T::ZERO; N];
+        for j in 0..N {
+            saved_diag[j] = s[(j, j)];
+            wa[j] = self.qt_b[j];
+        }
+
+        let mut s_diag = [T::ZERO; N];
+        let quarter = T::from_f64(0.25);
+
+        for j in 0..N {
+            let l = self.permutation[j];
+            if diag[l] != T::ZERO {
+                for entry in s_diag.iter_mut().skip(j) {
+                    *entry = T::ZERO;
+                }
+                s_diag[j] = diag[l];
+
+                // Eliminate the diagonal row of D with Givens rotations, carrying the extra
+                // right-hand-side element (initially zero) alongside.
+                let mut qtbpj = T::ZERO;
+                for k in j..N {
+                    if s_diag[k] == T::ZERO {
+                        continue;
+                    }
+                    let (sin, cos) = if s[(k, k)].abs() >= s_diag[k].abs() {
+                        let tan = s_diag[k] / s[(k, k)];
+                        let cos = T::HALF / (quarter + quarter * tan * tan).sqrt();
+                        (cos * tan, cos)
+                    } else {
+                        let cotan = s[(k, k)] / s_diag[k];
+                        let sin = T::HALF / (quarter + quarter * cotan * cotan).sqrt();
+                        (sin, sin * cotan)
+                    };
+
+                    s[(k, k)] = cos * s[(k, k)] + sin * s_diag[k];
+                    let temp = cos * wa[k] + sin * qtbpj;
+                    qtbpj = -sin * wa[k] + cos * qtbpj;
+                    wa[k] = temp;
+
+                    for i in (k + 1)..N {
+                        let rotated = cos * s[(i, k)] + sin * s_diag[i];
+                        s_diag[i] = -sin * s[(i, k)] + cos * s_diag[i];
+                        s[(i, k)] = rotated;
+                    }
+                }
+            }
+            // Store the S diagonal and restore R's.
+            s_diag[j] = s[(j, j)];
+            s[(j, j)] = saved_diag[j];
+        }
+
+        // Solve the triangular system for the permuted solution, zeroing any singular tail.
+        let mut nsing = N;
+        for j in 0..N {
+            if s_diag[j] == T::ZERO && nsing == N {
+                nsing = j;
+            }
+            if nsing < N {
+                wa[j] = T::ZERO;
+            }
+        }
+        for k in 0..nsing {
+            let j = nsing - 1 - k;
+            let mut sum = T::ZERO;
+            for i in (j + 1)..nsing {
+                sum += s[(i, j)] * wa[i];
+            }
+            wa[j] = (wa[j] - sum) / s_diag[j];
+        }
+
+        // Permute the solution back to original coordinates.
+        let mut x = [T::ZERO; N];
+        for (j, &target) in self.permutation.iter().enumerate() {
+            x[target] = wa[j];
+        }
+
+        (Vector::new(x), CholeskyFactor { s, s_diag })
+    }
+
+    /// Solves the undamped problem `AᵀA x = Aᵀb` (the Gauss-Newton direction).
+    pub fn solve_with_zero_diagonal(&self) -> (Vector<N, T>, CholeskyFactor<N, T>) {
+        self.solve_with_diagonal(&[T::ZERO; N])
+    }
+
+    /// The largest scaled gradient component `|Aᵀb|ⱼ / (b_norm · ‖columnⱼ‖)`, used by the
+    /// gradient convergence test. Returns zero when `b_norm` is zero.
+    #[must_use]
+    pub fn max_a_t_b_scaled(&self, b_norm: T) -> T {
+        if b_norm == T::ZERO {
+            return T::ZERO;
+        }
+        let mut result = T::ZERO;
+        for j in 0..N {
+            let l = self.permutation[j];
+            if self.column_norms[l] != T::ZERO {
+                let mut sum = T::ZERO;
+                for (i, &qi) in self.qt_b.iter().enumerate().take(j + 1) {
+                    sum += self.r[(i, j)] * (qi / b_norm);
+                }
+                result = max(result, (sum / self.column_norms[l]).abs());
+            }
+        }
+        result
+    }
+
+    /// The norm `‖A x‖`, computed as `‖R P x‖` since `Q` has orthonormal columns.
+    #[must_use]
+    pub fn a_x_norm(&self, x: &Vector<N, T>) -> T {
+        let mut w = [T::ZERO; N];
+        for j in 0..N {
+            let xl = x[self.permutation[j]];
+            for (i, slot) in w.iter_mut().enumerate().take(j + 1) {
+                *slot += self.r[(i, j)] * xl;
+            }
+        }
+        enorm(&w)
+    }
+
+    /// Whether `R` has full rank (no diagonal entry negligible against the largest).
+    #[must_use]
+    pub fn is_non_singular(&self) -> bool {
+        if N == 0 {
+            return true;
+        }
+        let threshold = T::EPSILON * T::from_usize(N) * self.r[(0, 0)].abs();
+        (0..N).all(|j| self.r[(j, j)].abs() > threshold)
+    }
+}
+
+/// The Cholesky-like factor `S` (upper triangular) of `AᵀA + D²` from a damped solve.
+///
+/// Stored in the working matrix's strict lower triangle (as `Sᵀ`) plus a separate diagonal.
+/// Its [`solve`](CholeskyFactor::solve) forward-substitutes `Sᵀ`, which the trust-region
+/// parameter search uses for its Newton correction.
+#[derive(Debug, Clone, Copy)]
+#[must_use]
+pub struct CholeskyFactor<const N: usize, T = f64> {
+    /// Working matrix whose strict lower triangle holds `Sᵀ`.
+    pub(crate) s: Matrix<N, N, T>,
+    /// Diagonal of `S`.
+    pub(crate) s_diag: [T; N],
+}
+
+impl<const N: usize, T: Numeric> CholeskyFactor<N, T> {
+    /// Forward-solves `Sᵀ w = rhs`, with `rhs` and the result in the factor's internal order.
+    #[must_use]
+    pub fn solve(&self, mut rhs: [T; N]) -> [T; N] {
+        for j in 0..N {
+            if self.s_diag[j] != T::ZERO {
+                rhs[j] /= self.s_diag[j];
+            } else {
+                rhs[j] = T::ZERO;
+            }
+            let temp = rhs[j];
+            for (i, slot) in rhs.iter_mut().enumerate().skip(j + 1) {
+                *slot -= self.s[(i, j)] * temp;
+            }
+        }
+        rhs
     }
 }
