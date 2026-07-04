@@ -1,4 +1,8 @@
 //! Cholesky factorization for symmetric positive-definite matrices.
+//!
+//! A fixed-size `no_std` implementation of the standard Cholesky–Banachiewicz
+//! algorithm on this crate's own [`Vector`] and [`Matrix`] types; results are checked against
+//! numpy/LAPACK reference values.
 
 use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
