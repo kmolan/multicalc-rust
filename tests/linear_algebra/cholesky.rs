@@ -2,14 +2,16 @@ use crate::helpers::{assert_close, assert_identity, cholesky_reconstructs};
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::utils::error_codes::CalcError;
 
-// ----- Cholesky -----
-
 #[test]
 fn cholesky_reconstructs_spd() {
     cholesky_reconstructs(Matrix::<2, 2>::new([[4.0, 2.0], [2.0, 3.0]]), 1e-12);
 
     // A matrix with a known exact factor: L = [[2,0,0],[6,1,0],[-8,5,3]].
-    let a = Matrix::<3, 3>::new([[4.0, 12.0, -16.0], [12.0, 37.0, -43.0], [-16.0, -43.0, 98.0]]);
+    let a = Matrix::<3, 3>::new([
+        [4.0, 12.0, -16.0],
+        [12.0, 37.0, -43.0],
+        [-16.0, -43.0, 98.0],
+    ]);
     cholesky_reconstructs(a, 1e-12);
     assert_close(
         a.cholesky().unwrap().l(),
@@ -28,7 +30,11 @@ fn cholesky_reconstructs_spd() {
 
     // The same code at f32.
     cholesky_reconstructs(
-        Matrix::<3, 3, f32>::new([[4.0, 12.0, -16.0], [12.0, 37.0, -43.0], [-16.0, -43.0, 98.0]]),
+        Matrix::<3, 3, f32>::new([
+            [4.0, 12.0, -16.0],
+            [12.0, 37.0, -43.0],
+            [-16.0, -43.0, 98.0],
+        ]),
         1e-3,
     );
 }

@@ -5,15 +5,15 @@
 #[path = "linear_algebra/helpers.rs"]
 mod helpers;
 
-#[path = "linear_algebra/vector.rs"]
-mod vector;
+#[path = "linear_algebra/cholesky.rs"]
+mod cholesky;
+#[path = "linear_algebra/lu.rs"]
+mod lu;
 #[path = "linear_algebra/matrix.rs"]
 mod matrix;
 #[path = "linear_algebra/qr.rs"]
 mod qr;
-#[path = "linear_algebra/lu.rs"]
-mod lu;
-#[path = "linear_algebra/cholesky.rs"]
-mod cholesky;
 #[path = "linear_algebra/svd.rs"]
 mod svd;
+#[path = "linear_algebra/vector.rs"]
+mod vector;

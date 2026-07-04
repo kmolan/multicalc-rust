@@ -1,143 +1,107 @@
-// ----- SVD -----
-
-fn svd_reconstructs<const M: usize, const N: usize>(a: Matrix<M, N>) {
-    let f = a.svd().unwrap();
-    let (u, s, v) = (f.u(), f.singular_values(), f.v());
-
-    // Singular values are non-negative and descending.
-    for k in 0..N {
-        assert!(s[k] >= 0.0);
-        if k + 1 < N {
-            assert!(s[k] >= s[k + 1]);
-        }
-    }
-
-    // U and V have orthonormal columns.
-    approx_identity(u.transpose() * u);
-    approx_identity(v.transpose() * v);
-
-    // U · diag(σ) · Vᵀ == A.
-    for r in 0..M {
-        for c in 0..N {
-            let mut acc = 0.0;
-            for k in 0..N {
-                acc += u[(r, k)] * s[k] * v[(c, k)];
-            }
-            assert!((acc - a[(r, c)]).abs() < 1e-12);
-        }
-    }
-}
+use crate::helpers::{assert_close, assert_identity, svd_moore_penrose, svd_reconstructs};
+use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::utils::error_codes::CalcError;
 
 #[test]
 fn svd_reconstructs_various() {
-    svd_reconstructs(Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]));
-    svd_reconstructs(Matrix::<3, 3>::new([
-        [4.0, 1.0, 2.0],
-        [1.0, 5.0, 3.0],
-        [2.0, 3.0, 6.0],
-    ]));
-    svd_reconstructs(Matrix::<4, 3>::new([
-        [1.0, 0.0, 2.0],
-        [0.0, 3.0, 1.0],
-        [4.0, 1.0, 0.0],
-        [2.0, 1.0, 5.0],
-    ]));
+    svd_reconstructs(
+        Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]),
+        1e-12,
+    );
+    svd_reconstructs(
+        Matrix::<3, 3>::new([[4.0, 1.0, 2.0], [1.0, 5.0, 3.0], [2.0, 3.0, 6.0]]),
+        1e-12,
+    );
+    svd_reconstructs(
+        Matrix::<4, 3>::new([
+            [1.0, 0.0, 2.0],
+            [0.0, 3.0, 1.0],
+            [4.0, 1.0, 0.0],
+            [2.0, 1.0, 5.0],
+        ]),
+        1e-12,
+    );
     // Larger, well-conditioned tall matrices.
-    svd_reconstructs(Matrix::<12, 6>::from_fn(|i, j| {
-        if i == j {
-            10.0
-        } else {
-            1.0 / (1.0 + (i + j) as f64)
-        }
-    }));
-    svd_reconstructs(Matrix::<20, 6>::from_fn(|i, j| {
-        if i == j {
-            8.0
-        } else {
-            (i as f64 - j as f64) / (5.0 + (i + j) as f64)
-        }
-    }));
+    svd_reconstructs(
+        Matrix::<12, 6>::from_fn(|i, j| {
+            if i == j {
+                10.0
+            } else {
+                1.0 / (1.0 + (i + j) as f64)
+            }
+        }),
+        1e-12,
+    );
+    svd_reconstructs(
+        Matrix::<20, 6>::from_fn(|i, j| {
+            if i == j {
+                8.0
+            } else {
+                (i as f64 - j as f64) / (5.0 + (i + j) as f64)
+            }
+        }),
+        1e-12,
+    );
+    // The same code at f32.
+    svd_reconstructs(
+        Matrix::<3, 3, f32>::new([[4.0, 1.0, 2.0], [1.0, 5.0, 3.0], [2.0, 3.0, 6.0]]),
+        1e-4,
+    );
 }
 
 #[test]
-fn svd_matches_reference() {
-    // A symmetric matrix built from a known spectrum: A = R · diag(σ) · Rᵀ with R a proper
-    // rotation, so the singular values are exactly [6, 3, 1].
+fn svd_singular_values() {
+    // A symmetric matrix built from a known spectrum: A = R·diag(σ)·Rᵀ with R a proper rotation,
+    // so the singular values are exactly [6, 3, 1].
     let r = Matrix::<3, 3>::new([
         [2.0 / 3.0, -2.0 / 3.0, -1.0 / 3.0],
         [1.0 / 3.0, 2.0 / 3.0, -2.0 / 3.0],
         [2.0 / 3.0, 1.0 / 3.0, 2.0 / 3.0],
     ]);
     let d = Matrix::<3, 3>::new([[6.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 1.0]]);
-    let a = r * d * r.transpose();
-    let s = a.svd().unwrap().singular_values();
-    let expected = [6.0, 3.0, 1.0];
-    for k in 0..3 {
-        assert!((s[k] - expected[k]).abs() < 1e-12);
+    let s = (r * d * r.transpose()).svd().unwrap().singular_values();
+    for (k, want) in [6.0, 3.0, 1.0].into_iter().enumerate() {
+        assert!((s[k] - want).abs() < 1e-12);
     }
-}
 
-#[test]
-fn svd_diagonal_singular_values() {
     // Diagonal input: singular values are the sorted absolute diagonal.
-    let a = Matrix::<4, 4>::from_fn(|i, j| {
+    let diag = Matrix::<4, 4>::from_fn(|i, j| {
         if i == j {
             [3.0, -5.0, 2.0, -1.0][i]
         } else {
             0.0
         }
     });
-    let s = a.svd().unwrap().singular_values();
-    let expected = [5.0, 3.0, 2.0, 1.0];
-    for k in 0..4 {
-        assert!((s[k] - expected[k]).abs() < 1e-12);
-    }
-}
-
-fn svd_moore_penrose<const M: usize, const N: usize>(a: Matrix<M, N>) {
-    let ap = a.pseudo_inverse().unwrap();
-    let aapa = a * ap * a;
-    let papap = ap * a * ap;
-    let aap = a * ap;
-    let apa = ap * a;
-    for r in 0..M {
-        for c in 0..N {
-            assert!((aapa[(r, c)] - a[(r, c)]).abs() < 1e-10);
-        }
-    }
-    for r in 0..N {
-        for c in 0..M {
-            assert!((papap[(r, c)] - ap[(r, c)]).abs() < 1e-10);
-        }
-    }
-    for r in 0..M {
-        for c in 0..M {
-            assert!((aap[(r, c)] - aap[(c, r)]).abs() < 1e-12);
-        }
-    }
-    for r in 0..N {
-        for c in 0..N {
-            assert!((apa[(r, c)] - apa[(c, r)]).abs() < 1e-12);
-        }
+    let s = diag.svd().unwrap().singular_values();
+    for (k, want) in [5.0, 3.0, 2.0, 1.0].into_iter().enumerate() {
+        assert!((s[k] - want).abs() < 1e-12);
     }
 }
 
 #[test]
 fn svd_pseudo_inverse_conditions() {
-    svd_moore_penrose(Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]));
-    svd_moore_penrose(Matrix::<2, 3>::new([[1.0, 0.0, 2.0], [0.0, 1.0, 1.0]]));
-    svd_moore_penrose(Matrix::<3, 3>::new([
-        [4.0, 1.0, 2.0],
-        [1.0, 5.0, 3.0],
-        [2.0, 3.0, 6.0],
-    ]));
-    svd_moore_penrose(Matrix::<12, 6>::from_fn(|i, j| {
-        if i == j {
-            10.0
-        } else {
-            1.0 / (1.0 + (i + j) as f64)
-        }
-    }));
+    svd_moore_penrose(
+        Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]),
+        1e-10,
+    );
+    svd_moore_penrose(
+        Matrix::<2, 3>::new([[1.0, 0.0, 2.0], [0.0, 1.0, 1.0]]),
+        1e-10,
+    );
+    svd_moore_penrose(
+        Matrix::<3, 3>::new([[4.0, 1.0, 2.0], [1.0, 5.0, 3.0], [2.0, 3.0, 6.0]]),
+        1e-10,
+    );
+    svd_moore_penrose(
+        Matrix::<12, 6>::from_fn(|i, j| {
+            if i == j {
+                10.0
+            } else {
+                1.0 / (1.0 + (i + j) as f64)
+            }
+        }),
+        1e-10,
+    );
 }
 
 #[test]
@@ -163,22 +127,6 @@ fn svd_rank_deficient() {
     let x_pinv = ap * b;
     for i in 0..2 {
         assert!((x[i] - x_pinv[i]).abs() < 1e-12);
-    }
-}
-
-#[test]
-fn svd_f32_reconstructs() {
-    let a = Matrix::<3, 3, f32>::new([[4.0, 1.0, 2.0], [1.0, 5.0, 3.0], [2.0, 3.0, 6.0]]);
-    let f = a.svd().unwrap();
-    let (u, s, v) = (f.u(), f.singular_values(), f.v());
-    for r in 0..3 {
-        for c in 0..3 {
-            let mut acc = 0.0f32;
-            for k in 0..3 {
-                acc += u[(r, k)] * s[k] * v[(c, k)];
-            }
-            assert!((acc - a[(r, c)]).abs() < 1e-4);
-        }
     }
 }
 
@@ -240,12 +188,8 @@ fn svd_kabsch_rotation_recovery() {
         rhat = uf * v.transpose();
     }
     // Recovered rotation matches, is orthonormal, and has determinant +1.
-    for i in 0..3 {
-        for j in 0..3 {
-            assert!((rhat[(i, j)] - rot[(i, j)]).abs() < 1e-9);
-        }
-    }
-    approx_identity(rhat.transpose() * rhat);
+    assert_close(rhat, rot, 1e-9);
+    assert_identity(rhat.transpose() * rhat, 1e-12);
     assert!((rhat.determinant() - 1.0).abs() < 1e-9);
 }
 
@@ -266,18 +210,9 @@ fn svd_redundant_jacobian_pseudo_inverse() {
     let jp = j.pseudo_inverse().unwrap();
 
     // Moore–Penrose: J·J⁺·J == J and J·J⁺ symmetric.
-    let jjpj = j * jp * j;
-    for r in 0..6 {
-        for c in 0..7 {
-            assert!((jjpj[(r, c)] - j[(r, c)]).abs() < 1e-9);
-        }
-    }
+    assert_close(j * jp * j, j, 1e-9);
     let jjp = j * jp;
-    for r in 0..6 {
-        for c in 0..6 {
-            assert!((jjp[(r, c)] - jjp[(c, r)]).abs() < 1e-12);
-        }
-    }
+    assert_close(jjp, jjp.transpose(), 1e-12);
 
     // Minimum-norm resolution: J⁺·v beats any other solution of J·x = v.
     let vtwist = Vector::<6>::from_fn(|i| i as f64 - 2.5);

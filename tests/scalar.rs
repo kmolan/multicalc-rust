@@ -592,4 +592,3 @@ mod function {
         assert!(f64::abs(col[1].deriv) < 1e-12);
     }
 }
-

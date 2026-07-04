@@ -1,7 +1,9 @@
 use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
 use multicalc::numerical_derivative::jacobian::Jacobian;
-use multicalc::optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
+use multicalc::optimization::{
+    GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason,
+};
 use multicalc::scalar::{Numeric, VectorFn, c};
 use multicalc::scalar_fn_vec;
 use multicalc::utils::error_codes::CalcError;
