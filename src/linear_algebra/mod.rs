@@ -14,12 +14,14 @@ pub mod cholesky;
 pub mod lu;
 pub mod matrix;
 pub mod qr;
+pub mod svd;
 pub mod vector;
 
 pub use cholesky::Cholesky;
 pub use lu::Lu;
 pub use matrix::Matrix;
 pub use qr::PivotedQr;
+pub use svd::Svd;
 pub use vector::Vector;
 
 #[cfg(test)]
