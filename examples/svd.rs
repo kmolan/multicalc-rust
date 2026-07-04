@@ -128,7 +128,9 @@ fn near_singular() {
     let rank = f.rank(tol);
     let pinv_max = max_entry(f.pseudo_inverse_tol(tol));
     let label = "Near-singular 6x6";
-    println!("  {label:<20} {ns:>8.1} ns   cond {cond:.1e}   rank {rank}   |pinv|max {pinv_max:.1e}");
+    println!(
+        "  {label:<20} {ns:>8.1} ns   cond {cond:.1e}   rank {rank}   |pinv|max {pinv_max:.1e}"
+    );
 }
 
 /// Overdetermined plane fit: solve 30 noisy samples and cross-check the normal equations.

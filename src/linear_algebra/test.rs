@@ -1344,7 +1344,11 @@ fn svd_reconstructs<const M: usize, const N: usize>(a: Matrix<M, N>) {
 #[test]
 fn svd_reconstructs_various() {
     svd_reconstructs(Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]));
-    svd_reconstructs(Matrix::<3, 3>::new([[4.0, 1.0, 2.0], [1.0, 5.0, 3.0], [2.0, 3.0, 6.0]]));
+    svd_reconstructs(Matrix::<3, 3>::new([
+        [4.0, 1.0, 2.0],
+        [1.0, 5.0, 3.0],
+        [2.0, 3.0, 6.0],
+    ]));
     svd_reconstructs(Matrix::<4, 3>::new([
         [1.0, 0.0, 2.0],
         [0.0, 3.0, 1.0],
@@ -1353,7 +1357,11 @@ fn svd_reconstructs_various() {
     ]));
     // Larger, well-conditioned tall matrices.
     svd_reconstructs(Matrix::<12, 6>::from_fn(|i, j| {
-        if i == j { 10.0 } else { 1.0 / (1.0 + (i + j) as f64) }
+        if i == j {
+            10.0
+        } else {
+            1.0 / (1.0 + (i + j) as f64)
+        }
     }));
     svd_reconstructs(Matrix::<20, 6>::from_fn(|i, j| {
         if i == j {
@@ -1385,7 +1393,13 @@ fn svd_matches_reference() {
 #[test]
 fn svd_diagonal_singular_values() {
     // Diagonal input: singular values are the sorted absolute diagonal.
-    let a = Matrix::<4, 4>::from_fn(|i, j| if i == j { [3.0, -5.0, 2.0, -1.0][i] } else { 0.0 });
+    let a = Matrix::<4, 4>::from_fn(|i, j| {
+        if i == j {
+            [3.0, -5.0, 2.0, -1.0][i]
+        } else {
+            0.0
+        }
+    });
     let s = a.svd().unwrap().singular_values();
     let expected = [5.0, 3.0, 2.0, 1.0];
     for k in 0..4 {
@@ -1425,9 +1439,17 @@ fn svd_moore_penrose<const M: usize, const N: usize>(a: Matrix<M, N>) {
 fn svd_pseudo_inverse_conditions() {
     svd_moore_penrose(Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]));
     svd_moore_penrose(Matrix::<2, 3>::new([[1.0, 0.0, 2.0], [0.0, 1.0, 1.0]]));
-    svd_moore_penrose(Matrix::<3, 3>::new([[4.0, 1.0, 2.0], [1.0, 5.0, 3.0], [2.0, 3.0, 6.0]]));
+    svd_moore_penrose(Matrix::<3, 3>::new([
+        [4.0, 1.0, 2.0],
+        [1.0, 5.0, 3.0],
+        [2.0, 3.0, 6.0],
+    ]));
     svd_moore_penrose(Matrix::<12, 6>::from_fn(|i, j| {
-        if i == j { 10.0 } else { 1.0 / (1.0 + (i + j) as f64) }
+        if i == j {
+            10.0
+        } else {
+            1.0 / (1.0 + (i + j) as f64)
+        }
     }));
 }
 
@@ -1545,7 +1567,11 @@ fn svd_redundant_jacobian_pseudo_inverse() {
     // A 6x7 manipulator Jacobian (7 joints -> 6-D task twist), full row rank.
     let j = Matrix::<6, 7>::from_fn(|r, c| {
         if c < 6 {
-            if r == c { 2.0 } else { 0.3 / (1.0 + (r + c) as f64) }
+            if r == c {
+                2.0
+            } else {
+                0.3 / (1.0 + (r + c) as f64)
+            }
         } else {
             0.5 * (r as f64 + 1.0)
         }
