@@ -70,7 +70,13 @@ fn matrix(crit: &mut Criterion) {
 fn lu(crit: &mut Criterion) {
     // Well-conditioned, diagonally dominant systems.
     let a4: Matrix<4, 4> = Matrix::from_fn(|i, j| if i == j { 10.0 } else { (i + j) as f64 });
-    let a8: Matrix<8, 8> = Matrix::from_fn(|i, j| if i == j { 20.0 } else { 1.0 / (i + j + 1) as f64 });
+    let a8: Matrix<8, 8> = Matrix::from_fn(|i, j| {
+        if i == j {
+            20.0
+        } else {
+            1.0 / (i + j + 1) as f64
+        }
+    });
     let b8: Vector<8> = Vector::from_fn(|i| (i + 1) as f64);
 
     crit.bench_function("lu/decompose_4x4", |b| {
