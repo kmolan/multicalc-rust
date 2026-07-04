@@ -147,12 +147,52 @@ fn qr(crit: &mut Criterion) {
     });
 }
 
+fn svd(crit: &mut Criterion) {
+    // Decomposition at robotics-relevant shapes.
+    let a3: Matrix<3, 3> = Matrix::new([[4.0, 1.0, 2.0], [1.0, 5.0, 3.0], [2.0, 3.0, 6.0]]);
+    let a6: Matrix<6, 6> =
+        Matrix::from_fn(|i, j| if i == j { 6.0 } else { 1.0 / (i + j + 1) as f64 });
+    let a8: Matrix<8, 8> =
+        Matrix::from_fn(|i, j| if i == j { 8.0 } else { 1.0 / (i + j + 1) as f64 });
+    // Tall Vandermonde design over 12 nodes on [-1, 1].
+    let tall: Matrix<12, 6> = Matrix::from_fn(|i, j| {
+        let t = -1.0 + 2.0 * i as f64 / 11.0;
+        (0..j).fold(1.0, |acc, _| acc * t)
+    });
+
+    crit.bench_function("svd/decompose_3x3", |b| {
+        b.iter(|| black_box(a3).svd().unwrap())
+    });
+    crit.bench_function("svd/decompose_6x6", |b| {
+        b.iter(|| black_box(a6).svd().unwrap())
+    });
+    crit.bench_function("svd/decompose_8x8", |b| {
+        b.iter(|| black_box(a8).svd().unwrap())
+    });
+    crit.bench_function("svd/decompose_12x6", |b| {
+        b.iter(|| black_box(tall).svd().unwrap())
+    });
+
+    // Pseudo-inverse at a square and the redundant 6x7 (wide) shape.
+    let j6: Matrix<6, 6> =
+        Matrix::from_fn(|i, j| if i == j { 3.0 } else { 1.0 / (i + j + 1) as f64 });
+    let j67: Matrix<6, 7> =
+        Matrix::from_fn(|i, j| if i == j { 5.0 } else { 1.0 / (i + j + 1) as f64 });
+
+    crit.bench_function("svd/pseudo_inverse_6x6", |b| {
+        b.iter(|| black_box(j6).pseudo_inverse().unwrap())
+    });
+    crit.bench_function("svd/pseudo_inverse_6x7", |b| {
+        b.iter(|| black_box(j67).pseudo_inverse().unwrap())
+    });
+}
+
 criterion_group! {
     name = benches;
     config = Criterion::default()
         .sample_size(50)
         .warm_up_time(Duration::from_millis(500))
         .measurement_time(Duration::from_secs(2));
-    targets = vector, matrix, qr, lu, cholesky
+    targets = vector, matrix, qr, lu, cholesky, svd
 }
 criterion_main!(benches);

@@ -1,6 +1,8 @@
 //! Singular value decomposition by one-sided Jacobi, for tall or square matrices.
 //!
-//! A fixed-size `no_std` implementation on this crate's own [`Vector`] and [`Matrix`] types.
+//! The method follows Golub & Van Loan, *Matrix Computations*, and Demmel & Veselić for high
+//! relative accuracy — a fixed-size `no_std` implementation on this crate's own
+//! [`Vector`] and [`Matrix`] types. Reference values for the tests come from numpy/LAPACK.
 
 use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;

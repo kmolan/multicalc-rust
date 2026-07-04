@@ -246,6 +246,27 @@ let s = Matrix::<2, 2>::new([[4.0, 2.0], [2.0, 3.0]]);
 let s_inv = s.cholesky().unwrap().inverse();
 ```
 
+### Singular values and pseudo-inverse
+
+The singular value decomposition (one-sided Jacobi) gives the pseudo-inverse, minimum-norm
+least-squares solve, rank, and condition number for any shape.
+
+```rust
+use multicalc::linear_algebra::{Matrix, Vector};
+
+// Thin SVD of a tall matrix: A = U · diag(σ) · Vᵀ.
+let a = Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
+let svd = a.svd().unwrap();
+let sigma = svd.singular_values();          // descending, non-negative
+let cond = svd.condition_number();          // σ_max / σ_min
+
+// Moore–Penrose pseudo-inverse — tall, square, or wide (M < N) inputs.
+let a_pinv = a.pseudo_inverse().unwrap();
+
+// Minimum-norm least-squares solve of A·x = b, without forming A⁺.
+let x = svd.solve(Vector::new([1.0, 2.0, 3.0]));
+```
+
 ## Error handling
 
 Where a sensible default exists, a "safe" wrapper (such as `get_single` or `get_double`) returns the
