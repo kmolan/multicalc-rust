@@ -1,13 +1,13 @@
-use crate::numerical_derivative::autodiff::AutoDiffMulti;
-use crate::scalar::c;
-use crate::scalar_fn_vec;
+use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::scalar::c;
+use multicalc::scalar_fn_vec;
 
-use crate::vector_field::curl;
-use crate::vector_field::divergence;
-use crate::vector_field::flux_integral;
-use crate::vector_field::line_integral;
+use multicalc::vector_field::curl;
+use multicalc::vector_field::divergence;
+use multicalc::vector_field::flux_integral;
+use multicalc::vector_field::line_integral;
 
-use crate::utils::error_codes::*;
+use multicalc::utils::error_codes::*;
 
 #[test]
 fn test_line_integral_1() {

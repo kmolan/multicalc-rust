@@ -1,8 +1,8 @@
-use crate::approximation::linear_approximation::*;
-use crate::approximation::quadratic_approximation::*;
-use crate::numerical_derivative::autodiff::AutoDiffMulti;
-use crate::scalar::{ScalarFnN, c};
-use crate::scalar_fn;
+use multicalc::approximation::linear_approximation::*;
+use multicalc::approximation::quadratic_approximation::*;
+use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::scalar::{ScalarFnN, c};
+use multicalc::scalar_fn;
 use rand::Rng;
 
 #[test]

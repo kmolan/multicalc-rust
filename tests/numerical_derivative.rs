@@ -1,12 +1,12 @@
-use crate::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
-use crate::numerical_derivative::derivator::*;
-use crate::numerical_derivative::finite_difference::*;
-use crate::numerical_derivative::hessian::Hessian;
-use crate::numerical_derivative::jacobian::Jacobian;
-use crate::numerical_derivative::mode::*;
-use crate::scalar::{Numeric, VectorFn, c};
-use crate::utils::error_codes::*;
-use crate::{scalar_fn, scalar_fn_vec};
+use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
+use multicalc::numerical_derivative::derivator::*;
+use multicalc::numerical_derivative::finite_difference::*;
+use multicalc::numerical_derivative::hessian::Hessian;
+use multicalc::numerical_derivative::jacobian::Jacobian;
+use multicalc::numerical_derivative::mode::*;
+use multicalc::scalar::{Numeric, VectorFn, c};
+use multicalc::utils::error_codes::*;
+use multicalc::{scalar_fn, scalar_fn_vec};
 
 // ----- autodiff (the default backend): exact derivatives -----
 
