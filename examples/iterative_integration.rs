@@ -1,8 +1,8 @@
 //! Numerical integration with the iterative composite rules (Boole, Simpson, Trapezoidal),
 //! including the 0.6.0 infinite / semi-infinite limits.
 //!
-//! Also reproduces the accuracy figures in BENCHMARKS.md section 3: Boole is the highest-order
-//! rule and most accurate, Simpson is intermediate, Trapezoidal is lowest order.
+//! Also reproduces the iterative-integration accuracy figures in benches/calculus.md: Boole is
+//! the highest-order rule and most accurate, Simpson is intermediate, Trapezoidal is lowest order.
 //!
 //! Run with: `cargo run --example iterative_integration`
 

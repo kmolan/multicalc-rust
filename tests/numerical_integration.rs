@@ -1,9 +1,9 @@
-use crate::numerical_integration::mode::*;
+use multicalc::numerical_integration::mode::*;
 
-use crate::numerical_integration::gaussian_integration;
-use crate::numerical_integration::integrator::*;
-use crate::numerical_integration::iterative_integration;
-use crate::utils::error_codes::*;
+use multicalc::numerical_integration::gaussian_integration;
+use multicalc::numerical_integration::integrator::*;
+use multicalc::numerical_integration::iterative_integration;
+use multicalc::utils::error_codes::*;
 
 #[test]
 fn test_booles_integration_1() {

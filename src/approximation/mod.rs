@@ -3,9 +3,6 @@ use crate::scalar::Numeric;
 pub mod linear_approximation;
 pub mod quadratic_approximation;
 
-#[cfg(test)]
-mod test;
-
 /// Goodness-of-fit metrics shared by the linear and quadratic approximators.
 ///
 /// Returns `(mae, mse, rmse, r_squared, adjusted_r_squared)`. `num_predictors` is the
