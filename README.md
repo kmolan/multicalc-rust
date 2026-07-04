@@ -30,7 +30,6 @@ Jacobians and Hessians, vector-field operators, and Taylor approximation in a `n
 - **Jacobian** and **Hessian** matrices.
 - **Vector calculus** — line and flux integrals, curl, and divergence.
 - **Approximation** — linear and quadratic (Taylor) models, with goodness-of-fit metrics.
-- **Linear algebra** — a stable column-pivoted Householder QR for least-squares and linear solves.
 - **Least-squares optimization** — Levenberg-Marquardt and Gauss-Newton solvers for nonlinear
   curve fitting.
 
@@ -226,6 +225,25 @@ use multicalc::linear_algebra::{Matrix, PivotedQr, Vector};
 let a = Matrix::<3, 2>::new([[1.0, 0.0], [1.0, 1.0], [1.0, 2.0]]);
 let b = Vector::new([1.0, 3.0, 5.0]);
 let x = PivotedQr::decompose(a).unwrap().solve_least_squares(b).unwrap();
+```
+
+### Linear solves
+
+```rust
+use multicalc::linear_algebra::{Matrix, Vector};
+
+// Solve A·x = b.
+let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+let b = Vector::new([7.0, 19.0, 49.0]);
+let x = a.solve(b).unwrap();                       // [1, 2, 3]
+
+let lu = a.lu().unwrap();
+let det = lu.determinant();
+let inv = lu.inverse();
+
+// A symmetric positive-definite matrix has a faster Cholesky path.
+let s = Matrix::<2, 2>::new([[4.0, 2.0], [2.0, 3.0]]);
+let s_inv = s.cholesky().unwrap().inverse();
 ```
 
 ## Error handling

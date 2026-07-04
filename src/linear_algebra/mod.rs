@@ -16,6 +16,8 @@ pub mod matrix;
 pub mod qr;
 pub mod vector;
 
+pub use cholesky::Cholesky;
+pub use lu::Lu;
 pub use matrix::Matrix;
 pub use qr::PivotedQr;
 pub use vector::Vector;
