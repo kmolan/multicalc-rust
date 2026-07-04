@@ -170,6 +170,31 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
             v,
         })
     }
+
+    /// The Moore–Penrose pseudo-inverse of `self`, for any shape.
+    ///
+    /// Tall or square inputs go straight through [`Matrix::svd`]; a wide input (`M < N`) is handled
+    /// as `((Aᵀ)⁺)ᵀ`. Returns [`CalcError::NonFiniteValue`] if any entry is not finite.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// // A wide matrix, handled through the transpose route.
+    /// let a = Matrix::<2, 3>::new([[1.0, 0.0, 2.0], [0.0, 1.0, 1.0]]);
+    /// let pinv = a.pseudo_inverse().unwrap();
+    /// let recon = a * pinv * a; // A·A⁺·A == A
+    /// for r in 0..2 {
+    ///     for c in 0..3 {
+    ///         assert!((recon[(r, c)] - a[(r, c)]).abs() < 1e-12);
+    ///     }
+    /// }
+    /// ```
+    pub fn pseudo_inverse(self) -> Result<Matrix<N, M, T>, CalcError> {
+        if M >= N {
+            Ok(self.svd()?.pseudo_inverse())
+        } else {
+            Ok(self.transpose().svd()?.pseudo_inverse().transpose())
+        }
+    }
 }
 
 impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
@@ -227,5 +252,68 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
         } else {
             self.singular_values[0] / smallest
         }
+    }
+
+    /// The default cutoff below which a singular value counts as zero.
+    fn default_tol(&self) -> T {
+        if N == 0 {
+            return T::ZERO;
+        }
+        T::from_usize(M.max(N)) * T::EPSILON * self.singular_values[0]
+    }
+
+    /// The Moore–Penrose pseudo-inverse `V · Σ⁺ · Uᵀ`, dropping singular values `<= tol`.
+    pub fn pseudo_inverse_tol(&self, tol: T) -> Matrix<N, M, T> {
+        Matrix::from_fn(|i, j| {
+            let mut acc = T::ZERO;
+            for k in 0..N {
+                let sigma = self.singular_values[k];
+                if sigma > tol {
+                    acc += self.v[(i, k)] * self.u[(j, k)] / sigma;
+                }
+            }
+            acc
+        })
+    }
+
+    /// The Moore–Penrose pseudo-inverse, using a default cutoff from the largest singular value.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// let a = Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
+    /// let pinv = a.svd().unwrap().pseudo_inverse();
+    /// let recon = a * pinv * a; // A·A⁺·A == A
+    /// for r in 0..3 {
+    ///     for c in 0..2 {
+    ///         assert!((recon[(r, c)] - a[(r, c)]).abs() < 1e-12);
+    ///     }
+    /// }
+    /// ```
+    pub fn pseudo_inverse(&self) -> Matrix<N, M, T> {
+        self.pseudo_inverse_tol(self.default_tol())
+    }
+
+    /// The minimum-norm least-squares solution of `A·x = b`, from `V · Σ⁺ · Uᵀ · b`.
+    ///
+    /// The pseudo-inverse is never formed. Singular values `<= tol` are dropped.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::{Matrix, Vector};
+    /// // Overdetermined and consistent: the exact solution is x = [1, 2].
+    /// let a = Matrix::<3, 2>::new([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]);
+    /// let x = a.svd().unwrap().solve(Vector::new([1.0, 2.0, 3.0]));
+    /// assert!((x[0] - 1.0).abs() < 1e-12);
+    /// assert!((x[1] - 2.0).abs() < 1e-12);
+    /// ```
+    pub fn solve(&self, b: Vector<M, T>) -> Vector<N, T> {
+        let tol = self.default_tol();
+        let mut z = Vector::<N, T>::zeros();
+        for k in 0..N {
+            let sigma = self.singular_values[k];
+            if sigma > tol {
+                z[k] = self.u.column(k).dot(b) / sigma;
+            }
+        }
+        self.v * z
     }
 }
