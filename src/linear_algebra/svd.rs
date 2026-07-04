@@ -44,6 +44,28 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
     ///     }
     /// }
     /// ```
+    ///
+    /// A wide matrix (`M < N`) has no thin form here; take the SVD of its transpose, whose singular
+    /// values are the same. Its pseudo-inverse then follows from `A⁺ = ((Aᵀ)⁺)ᵀ`, which
+    /// [`Matrix::pseudo_inverse`] applies for any shape.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// // For a wide matrix, decompose its transpose.
+    /// let a = Matrix::<2, 3>::new([[1.0, 0.0, 2.0], [0.0, 1.0, 1.0]]);
+    /// let at = a.transpose();
+    /// let svd = at.svd().unwrap();
+    /// let (u, s, v) = (svd.u(), svd.singular_values(), svd.v());
+    /// for r in 0..3 {
+    ///     for c in 0..2 {
+    ///         let mut acc = 0.0;
+    ///         for k in 0..2 {
+    ///             acc += u[(r, k)] * s[k] * v[(c, k)];
+    ///         }
+    ///         assert!((acc - at[(r, c)]).abs() < 1e-12);
+    ///     }
+    /// }
+    /// ```
     pub fn svd(self) -> Result<Svd<M, N, T>, CalcError> {
         if M < N {
             return Err(CalcError::Underdetermined);
