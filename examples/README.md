@@ -20,3 +20,4 @@ sections 1–4 (noted below), so the published tables stay honest.
 | [`vector_field`](vector_field.rs) | `vector_field` | Curl, divergence, line integrals and flux integrals. |
 | [`approximation`](approximation.rs) | `approximation` | Linear and quadratic Taylor approximations, `predict`, and goodness-of-fit metrics. |
 | [`linear_algebra`](linear_algebra.rs) | `linear_algebra` | LU and Cholesky factorizations, linear solves, and the direct 4x4 inverse under a latency + approximation-error stress test on well- and ill-conditioned inputs. |
+| [`svd`](svd.rs) | `linear_algebra::svd` | Singular value decomposition and Moore–Penrose pseudo-inverse under a robotics stress test — Kabsch rotation recovery, a redundant-arm pseudo-inverse, a near-singular Jacobian, and an overdetermined fit — with latency + approximation error. |

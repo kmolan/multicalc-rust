@@ -211,6 +211,18 @@ Cholesky decompose, 8×8                                          | 109 ns      
 Cholesky decompose + solve, 8×8                                  | 184 ns      |
 
 
+### Linear algebra (SVD, pseudo-inverse)
+
+Operation                                                        | Median time |
+---------------------------------------------------------------- | ----------- |
+One-sided Jacobi SVD, 3×3 decomposition (Kabsch shape)           | 0.34 µs     |
+One-sided Jacobi SVD, 6×6 decomposition                          | 1.7 µs      |
+One-sided Jacobi SVD, 8×8 decomposition                          | 4.8 µs      |
+One-sided Jacobi SVD, 12×6 decomposition (tall)                  | 1.2 µs      |
+Pseudo-inverse, 6×6                                              | 2.0 µs      |
+Pseudo-inverse, 6×7 (redundant / wide path)                      | 2.1 µs      |
+
+
 ### Least-squares optimization
 
 Operation                                                        | Median time |
