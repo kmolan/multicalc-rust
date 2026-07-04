@@ -187,4 +187,45 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
     pub fn v(&self) -> Matrix<N, N, T> {
         self.v
     }
+
+    /// The number of singular values greater than `tol`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// // Column 2 is twice column 1, so the matrix has rank 1.
+    /// let a = Matrix::<3, 2>::new([[1.0, 2.0], [2.0, 4.0], [3.0, 6.0]]);
+    /// assert_eq!(a.svd().unwrap().rank(1e-9), 1);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn rank(&self, tol: T) -> usize {
+        let mut count = 0;
+        for k in 0..N {
+            if self.singular_values[k] > tol {
+                count += 1;
+            }
+        }
+        count
+    }
+
+    /// The ratio `σ_max / σ_min`, or infinity when the smallest singular value is zero.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// let a = Matrix::<2, 2>::new([[2.0, 0.0], [0.0, 1.0]]);
+    /// assert!((a.svd().unwrap().condition_number() - 2.0).abs() < 1e-12);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn condition_number(&self) -> T {
+        if N == 0 {
+            return T::INFINITY;
+        }
+        let smallest = self.singular_values[N - 1];
+        if smallest <= T::ZERO {
+            T::INFINITY
+        } else {
+            self.singular_values[0] / smallest
+        }
+    }
 }
