@@ -956,3 +956,168 @@ fn lu_inverse_matches_reference_5x5() {
     }
     approx_identity(a * inv);
 }
+
+// ----- Cholesky -----
+
+fn cholesky_reconstructs<const N: usize>(a: Matrix<N, N>) {
+    let l = a.cholesky().unwrap().l();
+
+    // L is lower-triangular with a strictly positive diagonal.
+    for r in 0..N {
+        assert!(l[(r, r)] > 0.0);
+        for c in (r + 1)..N {
+            assert_eq!(l[(r, c)], 0.0);
+        }
+    }
+
+    // L·Lᵀ == A.
+    let prod = l * l.transpose();
+    for r in 0..N {
+        for c in 0..N {
+            assert!((prod[(r, c)] - a[(r, c)]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn cholesky_reconstructs_spd() {
+    cholesky_reconstructs(Matrix::<2, 2>::new([[4.0, 2.0], [2.0, 3.0]]));
+    cholesky_reconstructs(Matrix::<3, 3>::new([
+        [4.0, 12.0, -16.0],
+        [12.0, 37.0, -43.0],
+        [-16.0, -43.0, 98.0],
+    ]));
+    // An M·Mᵀ product is symmetric positive-definite for full-rank M.
+    let m = Matrix::<4, 4>::new([
+        [2.0, 0.0, 0.0, 0.0],
+        [1.0, 3.0, 0.0, 0.0],
+        [-1.0, 2.0, 4.0, 0.0],
+        [0.0, 1.0, -2.0, 5.0],
+    ]);
+    cholesky_reconstructs(m * m.transpose());
+}
+
+#[test]
+fn cholesky_matches_reference() {
+    let a = Matrix::<3, 3>::new([
+        [4.0, 12.0, -16.0],
+        [12.0, 37.0, -43.0],
+        [-16.0, -43.0, 98.0],
+    ]);
+    let l = a.cholesky().unwrap().l();
+    let expected = [[2.0, 0.0, 0.0], [6.0, 1.0, 0.0], [-8.0, 5.0, 3.0]];
+    for r in 0..3 {
+        for c in 0..3 {
+            assert!((l[(r, c)] - expected[r][c]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn cholesky_rejects_non_pd() {
+    // Symmetric but indefinite (eigenvalues 3 and -1).
+    let indefinite = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 1.0]]);
+    assert_eq!(
+        indefinite.cholesky().err(),
+        Some(CalcError::NotPositiveDefinite)
+    );
+
+    // Negative leading diagonal entry.
+    let negative = Matrix::<2, 2>::new([[-4.0, 0.0], [0.0, 1.0]]);
+    assert_eq!(
+        negative.cholesky().err(),
+        Some(CalcError::NotPositiveDefinite)
+    );
+
+    // Singular: the second radicand collapses to zero.
+    let singular = Matrix::<2, 2>::new([[1.0, 1.0], [1.0, 1.0]]);
+    assert_eq!(
+        singular.cholesky().err(),
+        Some(CalcError::NotPositiveDefinite)
+    );
+}
+
+#[test]
+fn cholesky_solves_system() {
+    let a = Matrix::<3, 3>::new([[2.0, 1.0, 0.0], [1.0, 2.0, 1.0], [0.0, 1.0, 2.0]]);
+    let x_exact = Vector::new([1.0, -2.0, 3.0]);
+    let b = a * x_exact;
+    let x = a.cholesky().unwrap().solve(b);
+    for i in 0..3 {
+        assert!((x[i] - x_exact[i]).abs() < 1e-12);
+    }
+    assert!((a * x - b).norm() < 1e-12);
+
+    // Agrees with the LU solve on the same SPD system.
+    let lu_x = a.lu().unwrap().solve(b);
+    for i in 0..3 {
+        assert!((x[i] - lu_x[i]).abs() < 1e-12);
+    }
+}
+
+#[test]
+fn cholesky_solve_matrix_multi_rhs() {
+    let a = Matrix::<2, 2>::new([[4.0, 2.0], [2.0, 3.0]]);
+    let f = a.cholesky().unwrap();
+    let rhs = Matrix::<2, 3>::new([[8.0, 6.0, 4.0], [8.0, 5.0, 3.0]]);
+    let x = f.solve_matrix(rhs);
+    // A·X == B.
+    let prod = a * x;
+    for r in 0..2 {
+        for c in 0..3 {
+            assert!((prod[(r, c)] - rhs[(r, c)]).abs() < 1e-12);
+        }
+    }
+    // Each column agrees with a single-RHS solve.
+    for c in 0..3 {
+        let single = f.solve(rhs.column(c));
+        for r in 0..2 {
+            assert!((x[(r, c)] - single[r]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn cholesky_determinant_matches() {
+    let a = Matrix::<3, 3>::new([
+        [4.0, 12.0, -16.0],
+        [12.0, 37.0, -43.0],
+        [-16.0, -43.0, 98.0],
+    ]);
+    let det = a.cholesky().unwrap().determinant();
+    // (2·1·3)² == 36.
+    assert!((det - 36.0).abs() < 1e-9);
+    assert!((det - a.determinant()).abs() < 1e-9);
+    assert!((det - a.lu().unwrap().determinant()).abs() < 1e-9);
+}
+
+#[test]
+fn cholesky_inverse_matches_lu() {
+    let a = Matrix::<3, 3>::new([[2.0, 1.0, 0.0], [1.0, 2.0, 1.0], [0.0, 1.0, 2.0]]);
+    let inv = a.cholesky().unwrap().inverse();
+    approx_identity(inv * a);
+    approx_identity(a * inv);
+
+    let lu_inv = a.lu().unwrap().inverse();
+    for r in 0..3 {
+        for c in 0..3 {
+            assert!((inv[(r, c)] - lu_inv[(r, c)]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn cholesky_f32_reconstructs() {
+    let a = Matrix::<3, 3, f32>::new([
+        [4.0, 12.0, -16.0],
+        [12.0, 37.0, -43.0],
+        [-16.0, -43.0, 98.0],
+    ]);
+    let l = a.cholesky().unwrap().l();
+    let prod = l * l.transpose();
+    for r in 0..3 {
+        for c in 0..3 {
+            assert!((prod[(r, c)] - a[(r, c)]).abs() < 1e-3);
+        }
+    }
+}
