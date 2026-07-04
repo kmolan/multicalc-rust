@@ -1107,6 +1107,27 @@ fn cholesky_inverse_matches_lu() {
 }
 
 #[test]
+fn matrix_solve_agrees_with_lu() {
+    let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    let b = Vector::new([7.0, 19.0, 49.0]);
+    let x = a.solve(b).unwrap();
+
+    // The convenience solver matches an explicit LU solve.
+    let lu_x = a.lu().unwrap().solve(b);
+    for i in 0..3 {
+        assert!((x[i] - lu_x[i]).abs() < 1e-12);
+    }
+    assert!((a * x - b).norm() < 1e-12);
+
+    // A singular system is rejected.
+    let singular = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 4.0]]);
+    assert_eq!(
+        singular.solve(Vector::new([1.0, 2.0])).err(),
+        Some(CalcError::SingularMatrix)
+    );
+}
+
+#[test]
 fn cholesky_f32_reconstructs() {
     let a = Matrix::<3, 3, f32>::new([
         [4.0, 12.0, -16.0],

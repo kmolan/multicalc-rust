@@ -82,6 +82,25 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
 
         Ok(Lu { lu: a, perm, sign })
     }
+
+    /// Solves `A·x = b` for `x`, factorizing `self` by LU.
+    ///
+    /// A one-call convenience over [`Matrix::lu`] followed by [`Lu::solve`]. Returns
+    /// [`CalcError::SingularMatrix`] if `self` is singular. To solve several right-hand sides,
+    /// factor once with [`Matrix::lu`] and reuse the result. For a symmetric positive-definite
+    /// matrix, [`Matrix::cholesky`] is faster.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::{Matrix, Vector};
+    /// let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    /// let x = a.solve(Vector::new([7.0, 19.0, 49.0])).unwrap();
+    /// assert!((x[0] - 1.0).abs() < 1e-12);
+    /// assert!((x[1] - 2.0).abs() < 1e-12);
+    /// assert!((x[2] - 3.0).abs() < 1e-12);
+    /// ```
+    pub fn solve(self, b: Vector<N, T>) -> Result<Vector<N, T>, CalcError> {
+        Ok(self.lu()?.solve(b))
+    }
 }
 
 impl<const N: usize, T: Numeric> Lu<N, T> {
