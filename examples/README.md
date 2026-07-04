@@ -19,3 +19,4 @@ sections 1–4 (noted below), so the published tables stay honest.
 | [`gaussian_integration`](gaussian_integration.rs) | `numerical_integration::gaussian_integration` | Gauss-Legendre (finite), Gauss-Hermite and Gauss-Laguerre (infinite), with the bare-integrand convention. Reproduces BENCHMARKS.md §4. |
 | [`vector_field`](vector_field.rs) | `vector_field` | Curl, divergence, line integrals and flux integrals. |
 | [`approximation`](approximation.rs) | `approximation` | Linear and quadratic Taylor approximations, `predict`, and goodness-of-fit metrics. |
+| [`linear_algebra`](linear_algebra.rs) | `linear_algebra` | LU and Cholesky factorizations, linear solves, and the direct 4x4 inverse under a latency + approximation-error stress test on well- and ill-conditioned inputs. |

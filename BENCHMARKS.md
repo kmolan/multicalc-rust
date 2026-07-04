@@ -9,7 +9,7 @@ Sections 1–2 report differentiation **accuracy**. Sections 3–4 report integr
 
 ## 1. Single variable Differentiation
 
-Differentiation uses forward-mode autodiff (the default backend), so there is no step size and no truncation error — the result equals the closed form to rounding. Errors below are measured against the analytic derivative at x = 1.
+Differentiation uses forward-mode autodiff (the default backend). Errors below are measured against the analytic derivative at x = 1.
 
 | Derivative                                     | Approximation Error  | Notes                                                          |
 | ---------------------------------------------- | ------ | -------------------------------------------------------------- |
@@ -70,8 +70,6 @@ Trapezoidal:
 
 With gaussian quadratures, there is no one 'objective' better answer. Each quadrature rule is designed to solve a specific integrand type. For most integrands with finite limits, Gauss-Legendre is the most suitable choice. For infinite limits, Gauss-Hermite or Gauss-Laguerre is a better fit. However, all these models are only suitable for polynomial equations. For non-polynomial equations, their performance falls very fast.
 
-Measured at order 5. Gauss-Hermite and Gauss-Laguerre take the **bare** integrand f(x): the tabulated weights already carry the $$e^{-x^2}$$ / $$e^{-x}$$ weighting function, so you pass only the polynomial factor (e.g. $$x^2$$, not $$x^2 e^{-x^2}$$). The integrands below are written in full weighted form.
-
 Gauss-Legendre
 
 | Integrand                                                                      | Approximation error | Notes                                            |
@@ -103,7 +101,7 @@ Gauss-Hermite
 
 ## 5. Least-squares optimization
 
-The Levenberg-Marquardt and Gauss-Newton solvers are run on the standard fitting and minimization test problems. The data is noiseless (generated from the model), so a correct solver recovers every parameter — or reaches the known minimum — to machine precision. Reported below are the final **objective** (half the sum of squared residuals) and the largest **parameter error** across the recovered parameters versus the known truth. A "0.0" is an exact result to the last bit; a dash marks a pure-minimization problem with no reference parameter vector.
+Reported below are the final **objective** (half the sum of squared residuals) and the largest **parameter error** across the recovered parameters versus the known truth. A "0.0" is an exact result to the last bit; a dash marks a pure-minimization problem with no reference parameter vector.
 
 Levenberg-Marquardt:
 
@@ -130,10 +128,7 @@ On these noiseless problems both solvers hit the minimizer to the last few bits;
 
 Measured with the `criterion` suites in [`benches/`](benches) — `calculus.rs`, `linear_algebra.rs`, and
 `optimization.rs` (`cargo bench`). Each figure is the median of criterion's estimate. These are wall-clock
-numbers and therefore machine- and build-specific — treat the **relative** costs and scaling as the signal,
-not the absolute nanoseconds.
-Regressions are guarded automatically by the deterministic work-count `#[test]`s (run under `cargo test`),
-not by these timings.
+numbers and therefore machine- and build-specific.
 
 **Environment:** 12th Gen Intel Core i7-12650H · `rustc` 1.95.0 (release, `opt-level = 3`) · criterion 0.5 ·
 WSL2 (Ubuntu). Iterative integrals use the default **120** intervals; Gaussian quadrature uses the listed order.
@@ -149,11 +144,6 @@ multi-variable, single partial $$\partial/\partial x$$ (Dual)      | 34 ns      
 multi-variable, mixed partial $$\partial^2/\partial x\partial y$$ (HyperDual) | 46 ns |
 multi-variable, mixed partial $$\partial^3/\partial x^2\partial y$$ (`Dual<HyperDual>`) | 79 ns |
 
-Every derivative is a *single* function evaluation that carries its derivatives in an autodiff scalar,
-so cost grows with the scalar — Dual → HyperDual → nested `Dual<HyperDual>` — rather than by re-sampling
-the function. Single-variable orders stay in the low nanoseconds; the step up at the 3rd order is the
-switch to a fixed-width `Jet`. Multi-variable partials cost more because each evaluation seeds all the
-input variables, and the mixed third-order path carries three independent perturbation directions.
 
 ### Iterative integration (120 intervals)
 
@@ -166,9 +156,6 @@ Boole, double-fold single-variable                               | 127 ns      |
 Boole, $$e^{-x^2}$$ over a **finite** limit $$[-5, 5]$$          | 0.49 µs     |
 Boole, $$e^{-x^2}$$ over an **infinite** limit $$(-\infty,\infty)$$ | 2.2 µs   |
 
-The finite/infinite pair (same integrand, same rule) is the **finite fast path** in action: the
-domain transform — `libm::tan`/`cos` per node — is paid only on the infinite domain (~4.4×), while
-finite integrals are byte-for-byte the pre-transform path.
 
 ### Gaussian quadrature
 
@@ -179,9 +166,6 @@ Gauss-Legendre, order 16                                         | 17 ns       |
 Gauss-Hermite, order 5                                           | 4.4 ns      |
 Gauss-Laguerre, order 5                                          | 4.4 ns      |
 
-Roughly linear in `order` (≈0.8 ns/node) — the flat `(weight, abscissa)` table is an O(1) lookup with
-no per-sample `match` or `unwrap`. For polynomial integrands, Gauss reaches full accuracy in a handful
-of nodes, i.e. ~10–20× cheaper than the 120-interval iterative rules.
 
 ### Jacobian, Hessian & vector field
 
@@ -194,12 +178,6 @@ Divergence, 3D                                                   | 0.37 ns     |
 Line integral, 2D (120 intervals)                                | 3.3 µs      |
 Flux integral, 2D (120 intervals)                                | 3.3 µs      |
 
-Jacobian, curl and divergence run on autodiff: one Dual evaluation per column rather than a two-sided
-finite difference, so they are both exact and several times cheaper than before. The 3-variable Hessian
-is the most expensive of these — it differentiates a `sin`/`exp` field with HyperDual — yet still
-computes only 6 second derivatives (`N·(N+1)/2`), not 9, thanks to the symmetric fill. Line/flux
-integrals sample the field rather than differentiate it and are dominated by 120 `cos`/`sin` transform
-evaluations along the curve.
 
 ### Approximation
 
@@ -210,10 +188,6 @@ Linear approximation, `predict`                                  | 0.72 ns     |
 Quadratic approximation, build                                   | 11 ns       |
 Quadratic approximation, `predict`                               | 3.3 ns      |
 
-`predict` is essentially free (sub-nanosecond for the linear form): the centered-Taylor representation
-is a handful of fused multiply-adds with no allocation. The build cost is the autodiff gradient (linear)
-or Hessian (quadratic); on this polynomial target the autodiff Hessian is roughly an order of magnitude
-cheaper than the previous finite-difference build.
 
 ### Linear algebra (QR)
 
@@ -223,11 +197,19 @@ Column-pivoted QR, 8×8 decomposition (Hilbert)                   | 0.56 µs    
 QR least-squares solve, 20×7 (Vandermonde fit)                   | 0.89 µs     |
 Damped (ridge) solve, 15×8                                       | 1.4 µs      |
 
-The column-pivoted Householder factorization is `O(M·N²)`; the least-squares solve adds a `Qᵀb`
-apply and a back-substitution, and the damped (ridge) solve adds a `qrsolv` Givens pass that reuses
-the same factorization rather than reforming `JᵀJ + λD²`. Everything is stack-allocated fixed-size
-arrays, so there is no per-call heap traffic; the overflow-safe `enorm` keeps the column norms
-accurate even on the ill-conditioned Hilbert and Vandermonde designs.
+
+### Linear algebra (LU, Cholesky, direct inverse)
+
+Operation                                                        | Median time |
+---------------------------------------------------------------- | ----------- |
+Direct 4×4 inverse (cofactor / adjugate)                         | 31 ns       |
+LU decompose, 4×4 (Doolittle, partial pivot)                     | 46 ns       |
+LU decompose, 8×8                                                | 145 ns      |
+LU decompose + solve, 8×8                                        | 184 ns      |
+Cholesky decompose, 4×4 (SPD)                                    | 16 ns       |
+Cholesky decompose, 8×8                                          | 109 ns      |
+Cholesky decompose + solve, 8×8                                  | 184 ns      |
+
 
 ### Least-squares optimization
 
@@ -240,12 +222,3 @@ Levenberg-Marquardt, exponential decay fit (2 params)            | 1.4 µs      
 Levenberg-Marquardt, Rosenbrock                                  | 6.2 µs      |
 Levenberg-Marquardt, trigonometric (6 vars)                      | 45 µs       |
 Levenberg-Marquardt, damped sinusoids (12 params, 60 residuals) | 14 ms       |
-
-Each outer iteration costs one autodiff Jacobian — a Dual pass per parameter over every residual —
-plus a QR factorization, so runtime scales with `params × residuals × iterations`. Gauss-Newton is the
-cheapest per step (no trust-region loop): the well-conditioned linear and Rosenbrock fits finish in a
-few iterations at a couple hundred nanoseconds. Levenberg-Marquardt adds the LMPAR damping search
-(≤ 10 inner solves per step), earning robustness at a small constant factor. The 12-parameter
-damped-sinusoid fit is the heaviest case — 60 residuals differentiated in 12 directions each outer
-iteration, over many iterations — while low-dimension fits stay in the microseconds.
-

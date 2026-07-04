@@ -1,6 +1,9 @@
 use crate::linear_algebra::qr::{PivotedQr, enorm, max, min};
 use crate::linear_algebra::{Matrix, Vector};
+use crate::scalar::Numeric;
 use crate::utils::error_codes::CalcError;
+use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 /// Asserts every entry of `m` is within tolerance of the identity matrix.
 fn approx_identity<const N: usize>(m: Matrix<N, N>) {
@@ -220,8 +223,8 @@ fn matrix_determinant() {
 fn matrix_inverse() {
     let id2: Matrix<2, 2> = Matrix::identity();
     let id3: Matrix<3, 3> = Matrix::identity();
-    assert_eq!(id2.inverse(), Some(id2));
-    assert_eq!(id3.inverse(), Some(id3));
+    assert_eq!(id2.inverse(), Ok(id2));
+    assert_eq!(id3.inverse(), Ok(id3));
 
     let a = Matrix::new([[4.0, 7.0], [2.0, 6.0]]);
     approx_identity(a * a.inverse().unwrap());
@@ -229,11 +232,97 @@ fn matrix_inverse() {
     let b = Matrix::new([[1.0, 2.0, 3.0], [0.0, 1.0, 4.0], [5.0, 6.0, 0.0]]);
     approx_identity(b * b.inverse().unwrap());
 
-    // singular -> None
-    assert!(Matrix::new([[1.0, 2.0], [2.0, 4.0]]).inverse().is_none());
+    // singular -> Err(SingularMatrix)
+    let singular2 = Matrix::new([[1.0, 2.0], [2.0, 4.0]]);
+    assert_eq!(singular2.inverse(), Err(CalcError::SingularMatrix));
     let singular3 = Matrix::new([[1.0, 2.0, 3.0], [2.0, 4.0, 6.0], [1.0, 1.0, 1.0]]);
     assert_eq!(singular3.determinant(), 0.0);
-    assert!(singular3.inverse().is_none());
+    assert_eq!(singular3.inverse(), Err(CalcError::SingularMatrix));
+}
+
+#[test]
+fn matrix_4x4_determinant_and_inverse() {
+    // Upper-triangular: the determinant is the product of the diagonal.
+    let upper = Matrix::<4, 4>::new([
+        [2.0, 1.0, 1.0, 1.0],
+        [0.0, 3.0, 1.0, 1.0],
+        [0.0, 0.0, 4.0, 1.0],
+        [0.0, 0.0, 0.0, 5.0],
+    ]);
+    assert_eq!(upper.determinant(), 120.0);
+
+    // Reference determinant and inverse from an exact rational solve.
+    let a = Matrix::<4, 4>::new([
+        [4.0, 3.0, 2.0, 1.0],
+        [3.0, 4.0, 3.0, 2.0],
+        [2.0, 3.0, 4.0, 3.0],
+        [1.0, 2.0, 3.0, 4.0],
+    ]);
+    assert_eq!(a.determinant(), 20.0);
+
+    let expected_inv = [
+        [0.6, -0.5, 0.0, 0.1],
+        [-0.5, 1.0, -0.5, 0.0],
+        [0.0, -0.5, 1.0, -0.5],
+        [0.1, 0.0, -0.5, 0.6],
+    ];
+    let inv = a.inverse().unwrap();
+    for r in 0..4 {
+        for c in 0..4 {
+            assert!((inv[(r, c)] - expected_inv[r][c]).abs() < 1e-12);
+        }
+    }
+    approx_identity(a * inv);
+
+    // A non-symmetric matrix, so its (non-symmetric) inverse catches any transpose error in
+    // the adjugate. Reference from an exact rational solve.
+    let b = Matrix::<4, 4>::new([
+        [1.0, 2.0, 3.0, 4.0],
+        [2.0, 1.0, 0.0, 1.0],
+        [0.0, 3.0, 1.0, 2.0],
+        [1.0, 0.0, 2.0, 1.0],
+    ]);
+    assert_eq!(b.determinant(), -20.0);
+
+    let expected_b_inv = [
+        [-0.15, 0.45, -0.05, 0.25],
+        [-0.35, 0.05, 0.55, 0.25],
+        [-0.25, -0.25, 0.25, 0.75],
+        [0.65, 0.05, -0.45, -0.75],
+    ];
+    let b_inv = b.inverse().unwrap();
+    for r in 0..4 {
+        for c in 0..4 {
+            assert!((b_inv[(r, c)] - expected_b_inv[r][c]).abs() < 1e-12);
+        }
+    }
+    approx_identity(b * b_inv);
+    approx_identity(b_inv * b);
+
+    // Rows in arithmetic progression are rank-deficient.
+    let singular = Matrix::<4, 4>::new([
+        [1.0, 2.0, 3.0, 4.0],
+        [5.0, 6.0, 7.0, 8.0],
+        [9.0, 10.0, 11.0, 12.0],
+        [13.0, 14.0, 15.0, 16.0],
+    ]);
+    assert_eq!(singular.determinant(), 0.0);
+    assert_eq!(singular.inverse(), Err(CalcError::SingularMatrix));
+
+    // The same code at f32 round-trips to the identity.
+    let af = Matrix::<4, 4, f32>::new([
+        [4.0, 3.0, 2.0, 1.0],
+        [3.0, 4.0, 3.0, 2.0],
+        [2.0, 3.0, 4.0, 3.0],
+        [1.0, 2.0, 3.0, 4.0],
+    ]);
+    let pf = af * af.inverse().unwrap();
+    let idf: Matrix<4, 4, f32> = Matrix::identity();
+    for r in 0..4 {
+        for c in 0..4 {
+            assert!((pf[(r, c)] - idf[(r, c)]).abs() < 1e-5);
+        }
+    }
 }
 
 // ----- genericity: the same code at f32 -----
@@ -654,4 +743,560 @@ fn damped_solves_ridge_regression() {
     for i in 0..8 {
         assert!((lhs[i] - vtb[i]).abs() < 1e-8);
     }
+}
+
+// ----- LU decomposition (Doolittle, partial pivoting) -----
+
+// Factorizes `a` and checks the factors are triangular and reconstruct `P·A`.
+fn lu_reconstructs<const N: usize>(a: Matrix<N, N>) {
+    let f = a.lu().unwrap();
+    let l = f.l();
+    let u = f.u();
+    let perm = f.permutation();
+
+    // L is unit lower-triangular; U is upper-triangular.
+    for r in 0..N {
+        assert_eq!(l[(r, r)], 1.0);
+        for c in (r + 1)..N {
+            assert_eq!(l[(r, c)], 0.0);
+        }
+        for c in 0..r {
+            assert_eq!(u[(r, c)], 0.0);
+        }
+    }
+
+    // P·A == L·U.
+    let pa = Matrix::<N, N>::from_fn(|i, c| a[(perm[i], c)]);
+    let prod = l * u;
+    for i in 0..N {
+        for c in 0..N {
+            assert!((pa[(i, c)] - prod[(i, c)]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn lu_reconstructs_pivoted_matrix() {
+    // The largest first-column entry is in the last row, forcing a swap.
+    lu_reconstructs(Matrix::<3, 3>::new([
+        [2.0, 1.0, 1.0],
+        [4.0, 3.0, 3.0],
+        [8.0, 7.0, 9.0],
+    ]));
+    lu_reconstructs(Matrix::<4, 4>::new([
+        [4.0, 3.0, 2.0, 1.0],
+        [3.0, 4.0, 3.0, 2.0],
+        [2.0, 3.0, 4.0, 3.0],
+        [1.0, 2.0, 3.0, 4.0],
+    ]));
+}
+
+#[test]
+fn lu_determinant_matches_direct() {
+    // Cross-check against the direct determinant, including the pivot-sign handling.
+    let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    assert!((a.lu().unwrap().determinant() - a.determinant()).abs() < 1e-12);
+
+    let b = Matrix::<4, 4>::new([
+        [1.0, 2.0, 3.0, 4.0],
+        [2.0, 1.0, 0.0, 1.0],
+        [0.0, 3.0, 1.0, 2.0],
+        [1.0, 0.0, 2.0, 1.0],
+    ]);
+    assert!((b.lu().unwrap().determinant() - b.determinant()).abs() < 1e-12);
+    assert!((b.lu().unwrap().determinant() + 20.0).abs() < 1e-12);
+}
+
+#[test]
+fn lu_rejects_singular() {
+    // A zero column: the pivot search turns up only zeros.
+    let zero_col = Matrix::<3, 3>::new([[1.0, 0.0, 2.0], [3.0, 0.0, 4.0], [5.0, 0.0, 6.0]]);
+    assert_eq!(zero_col.lu().err(), Some(CalcError::SingularMatrix));
+
+    // Dependent rows drive a pivot to zero during elimination.
+    let dependent = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 4.0]]);
+    assert_eq!(dependent.lu().err(), Some(CalcError::SingularMatrix));
+}
+
+#[test]
+fn lu_f32_reconstructs() {
+    let a = Matrix::<3, 3, f32>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    let f = a.lu().unwrap();
+    let pa = Matrix::<3, 3, f32>::from_fn(|i, c| a[(f.permutation()[i], c)]);
+    let prod = f.l() * f.u();
+    for i in 0..3 {
+        for c in 0..3 {
+            assert!((pa[(i, c)] - prod[(i, c)]).abs() < 1e-5);
+        }
+    }
+}
+
+#[test]
+fn lu_solves_system() {
+    let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    // A·x = b has the exact solution x = [1, 2, 3].
+    let b = Vector::new([7.0, 19.0, 49.0]);
+    let x = a.lu().unwrap().solve(b);
+    assert!((x[0] - 1.0).abs() < 1e-12);
+    assert!((x[1] - 2.0).abs() < 1e-12);
+    assert!((x[2] - 3.0).abs() < 1e-12);
+    // The residual is tiny.
+    assert!((a * x - b).norm() < 1e-12);
+}
+
+#[test]
+fn lu_solve_matrix_multi_rhs() {
+    let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    let f = a.lu().unwrap();
+    let rhs = Matrix::<3, 2>::new([[7.0, 4.0], [19.0, 10.0], [49.0, 26.0]]);
+    let x = f.solve_matrix(rhs);
+    // A·X == B.
+    let prod = a * x;
+    for r in 0..3 {
+        for c in 0..2 {
+            assert!((prod[(r, c)] - rhs[(r, c)]).abs() < 1e-12);
+        }
+    }
+    // Each column agrees with a single-RHS solve.
+    for c in 0..2 {
+        let single = f.solve(rhs.column(c));
+        for r in 0..3 {
+            assert!((x[(r, c)] - single[r]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn lu_inverse_matches_direct() {
+    // LU inverse agrees with the direct closed-form inverses for 2×2, 3×3, and 4×4.
+    let a2 = Matrix::<2, 2>::new([[4.0, 7.0], [2.0, 6.0]]);
+    approx_identity(a2.lu().unwrap().inverse() * a2);
+    let d2 = a2.inverse().unwrap();
+    for r in 0..2 {
+        for c in 0..2 {
+            assert!((a2.lu().unwrap().inverse()[(r, c)] - d2[(r, c)]).abs() < 1e-12);
+        }
+    }
+
+    let a3 = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    let d3 = a3.inverse().unwrap();
+    let lu3 = a3.lu().unwrap().inverse();
+    for r in 0..3 {
+        for c in 0..3 {
+            assert!((lu3[(r, c)] - d3[(r, c)]).abs() < 1e-12);
+        }
+    }
+
+    let a4 = Matrix::<4, 4>::new([
+        [1.0, 2.0, 3.0, 4.0],
+        [2.0, 1.0, 0.0, 1.0],
+        [0.0, 3.0, 1.0, 2.0],
+        [1.0, 0.0, 2.0, 1.0],
+    ]);
+    let d4 = a4.inverse().unwrap();
+    let lu4 = a4.lu().unwrap().inverse();
+    for r in 0..4 {
+        for c in 0..4 {
+            assert!((lu4[(r, c)] - d4[(r, c)]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn lu_inverse_matches_reference_5x5() {
+    // A non-symmetric 5×5; reference inverse from an exact rational solve.
+    let a = Matrix::<5, 5>::new([
+        [5.0, 1.0, 0.0, 2.0, 1.0],
+        [1.0, 6.0, 2.0, 0.0, 1.0],
+        [3.0, 2.0, 7.0, 1.0, 0.0],
+        [2.0, 0.0, 1.0, 8.0, 2.0],
+        [1.0, 4.0, 0.0, 2.0, 9.0],
+    ]);
+    assert!((a.lu().unwrap().determinant() - 10406.0).abs() < 1e-9);
+
+    let expected = [
+        [
+            0.2200653469152412,
+            -0.03757447626369402,
+            0.01864309052469729,
+            -0.055352681145492987,
+            -0.007976167595617912,
+        ],
+        [
+            -0.005573707476455891,
+            0.20488179896213723,
+            -0.06073419181241591,
+            0.01537574476263694,
+            -0.025562175667883914,
+        ],
+        [
+            -0.08687295790889871,
+            -0.04804920238324044,
+            0.15683259657889678,
+            -0.0017297712857966558,
+            0.01537574476263694,
+        ],
+        [
+            -0.04093792043052085,
+            0.039304247549490676,
+            -0.032289064001537575,
+            0.14741495291178167,
+            -0.032577359215837015,
+        ],
+        [
+            -0.012877186238708437,
+            -0.09561791274264847,
+            0.032096867192004615,
+            -0.03344224485873534,
+            0.13059773207764752,
+        ],
+    ];
+    let inv = a.lu().unwrap().inverse();
+    for r in 0..5 {
+        for c in 0..5 {
+            assert!((inv[(r, c)] - expected[r][c]).abs() < 1e-12);
+        }
+    }
+    approx_identity(a * inv);
+}
+
+// ----- Cholesky -----
+
+fn cholesky_reconstructs<const N: usize>(a: Matrix<N, N>) {
+    let l = a.cholesky().unwrap().l();
+
+    // L is lower-triangular with a strictly positive diagonal.
+    for r in 0..N {
+        assert!(l[(r, r)] > 0.0);
+        for c in (r + 1)..N {
+            assert_eq!(l[(r, c)], 0.0);
+        }
+    }
+
+    // L·Lᵀ == A.
+    let prod = l * l.transpose();
+    for r in 0..N {
+        for c in 0..N {
+            assert!((prod[(r, c)] - a[(r, c)]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn cholesky_reconstructs_spd() {
+    cholesky_reconstructs(Matrix::<2, 2>::new([[4.0, 2.0], [2.0, 3.0]]));
+    cholesky_reconstructs(Matrix::<3, 3>::new([
+        [4.0, 12.0, -16.0],
+        [12.0, 37.0, -43.0],
+        [-16.0, -43.0, 98.0],
+    ]));
+    // An M·Mᵀ product is symmetric positive-definite for full-rank M.
+    let m = Matrix::<4, 4>::new([
+        [2.0, 0.0, 0.0, 0.0],
+        [1.0, 3.0, 0.0, 0.0],
+        [-1.0, 2.0, 4.0, 0.0],
+        [0.0, 1.0, -2.0, 5.0],
+    ]);
+    cholesky_reconstructs(m * m.transpose());
+}
+
+#[test]
+fn cholesky_matches_reference() {
+    let a = Matrix::<3, 3>::new([
+        [4.0, 12.0, -16.0],
+        [12.0, 37.0, -43.0],
+        [-16.0, -43.0, 98.0],
+    ]);
+    let l = a.cholesky().unwrap().l();
+    let expected = [[2.0, 0.0, 0.0], [6.0, 1.0, 0.0], [-8.0, 5.0, 3.0]];
+    for r in 0..3 {
+        for c in 0..3 {
+            assert!((l[(r, c)] - expected[r][c]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn cholesky_rejects_non_pd() {
+    // Symmetric but indefinite (eigenvalues 3 and -1).
+    let indefinite = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 1.0]]);
+    assert_eq!(
+        indefinite.cholesky().err(),
+        Some(CalcError::NotPositiveDefinite)
+    );
+
+    // Negative leading diagonal entry.
+    let negative = Matrix::<2, 2>::new([[-4.0, 0.0], [0.0, 1.0]]);
+    assert_eq!(
+        negative.cholesky().err(),
+        Some(CalcError::NotPositiveDefinite)
+    );
+
+    // Singular: the second radicand collapses to zero.
+    let singular = Matrix::<2, 2>::new([[1.0, 1.0], [1.0, 1.0]]);
+    assert_eq!(
+        singular.cholesky().err(),
+        Some(CalcError::NotPositiveDefinite)
+    );
+}
+
+#[test]
+fn cholesky_solves_system() {
+    let a = Matrix::<3, 3>::new([[2.0, 1.0, 0.0], [1.0, 2.0, 1.0], [0.0, 1.0, 2.0]]);
+    let x_exact = Vector::new([1.0, -2.0, 3.0]);
+    let b = a * x_exact;
+    let x = a.cholesky().unwrap().solve(b);
+    for i in 0..3 {
+        assert!((x[i] - x_exact[i]).abs() < 1e-12);
+    }
+    assert!((a * x - b).norm() < 1e-12);
+
+    // Agrees with the LU solve on the same SPD system.
+    let lu_x = a.lu().unwrap().solve(b);
+    for i in 0..3 {
+        assert!((x[i] - lu_x[i]).abs() < 1e-12);
+    }
+}
+
+#[test]
+fn cholesky_solve_matrix_multi_rhs() {
+    let a = Matrix::<2, 2>::new([[4.0, 2.0], [2.0, 3.0]]);
+    let f = a.cholesky().unwrap();
+    let rhs = Matrix::<2, 3>::new([[8.0, 6.0, 4.0], [8.0, 5.0, 3.0]]);
+    let x = f.solve_matrix(rhs);
+    // A·X == B.
+    let prod = a * x;
+    for r in 0..2 {
+        for c in 0..3 {
+            assert!((prod[(r, c)] - rhs[(r, c)]).abs() < 1e-12);
+        }
+    }
+    // Each column agrees with a single-RHS solve.
+    for c in 0..3 {
+        let single = f.solve(rhs.column(c));
+        for r in 0..2 {
+            assert!((x[(r, c)] - single[r]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn cholesky_determinant_matches() {
+    let a = Matrix::<3, 3>::new([
+        [4.0, 12.0, -16.0],
+        [12.0, 37.0, -43.0],
+        [-16.0, -43.0, 98.0],
+    ]);
+    let det = a.cholesky().unwrap().determinant();
+    // (2·1·3)² == 36.
+    assert!((det - 36.0).abs() < 1e-9);
+    assert!((det - a.determinant()).abs() < 1e-9);
+    assert!((det - a.lu().unwrap().determinant()).abs() < 1e-9);
+}
+
+#[test]
+fn cholesky_inverse_matches_lu() {
+    let a = Matrix::<3, 3>::new([[2.0, 1.0, 0.0], [1.0, 2.0, 1.0], [0.0, 1.0, 2.0]]);
+    let inv = a.cholesky().unwrap().inverse();
+    approx_identity(inv * a);
+    approx_identity(a * inv);
+
+    let lu_inv = a.lu().unwrap().inverse();
+    for r in 0..3 {
+        for c in 0..3 {
+            assert!((inv[(r, c)] - lu_inv[(r, c)]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn matrix_solve_agrees_with_lu() {
+    let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    let b = Vector::new([7.0, 19.0, 49.0]);
+    let x = a.solve(b).unwrap();
+
+    // The convenience solver matches an explicit LU solve.
+    let lu_x = a.lu().unwrap().solve(b);
+    for i in 0..3 {
+        assert!((x[i] - lu_x[i]).abs() < 1e-12);
+    }
+    assert!((a * x - b).norm() < 1e-12);
+
+    // A singular system is rejected.
+    let singular = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 4.0]]);
+    assert_eq!(
+        singular.solve(Vector::new([1.0, 2.0])).err(),
+        Some(CalcError::SingularMatrix)
+    );
+}
+
+#[test]
+fn cholesky_f32_reconstructs() {
+    let a = Matrix::<3, 3, f32>::new([
+        [4.0, 12.0, -16.0],
+        [12.0, 37.0, -43.0],
+        [-16.0, -43.0, 98.0],
+    ]);
+    let l = a.cholesky().unwrap().l();
+    let prod = l * l.transpose();
+    for r in 0..3 {
+        for c in 0..3 {
+            assert!((prod[(r, c)] - a[(r, c)]).abs() < 1e-3);
+        }
+    }
+}
+
+// ----- work-count regression guard -----
+
+// A scalar that tallies every multiply and divide it performs, so a test can pin the arithmetic
+// work of a factorization to a fixed count. That count is a deterministic function of the matrix
+// size, independent of wall-clock timing, so it fails if an algorithm starts doing more work than
+// the BENCHMARKS.md figures assume. Only `factorization_work_counts` touches the counter, and it
+// runs single-threaded, so the shared tally needs no synchronization beyond atomicity.
+static MUL_DIV_OPS: AtomicUsize = AtomicUsize::new(0);
+
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+struct Counted(f64);
+
+impl Counted {
+    fn tick() {
+        MUL_DIV_OPS.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+impl Add for Counted {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        Counted(self.0 + rhs.0)
+    }
+}
+impl Sub for Counted {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self {
+        Counted(self.0 - rhs.0)
+    }
+}
+impl Mul for Counted {
+    type Output = Self;
+    fn mul(self, rhs: Self) -> Self {
+        Self::tick();
+        Counted(self.0 * rhs.0)
+    }
+}
+impl Div for Counted {
+    type Output = Self;
+    fn div(self, rhs: Self) -> Self {
+        Self::tick();
+        Counted(self.0 / rhs.0)
+    }
+}
+impl Neg for Counted {
+    type Output = Self;
+    fn neg(self) -> Self {
+        Counted(-self.0)
+    }
+}
+impl AddAssign for Counted {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
+impl SubAssign for Counted {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
+    }
+}
+impl MulAssign for Counted {
+    fn mul_assign(&mut self, rhs: Self) {
+        Self::tick();
+        self.0 *= rhs.0;
+    }
+}
+impl DivAssign for Counted {
+    fn div_assign(&mut self, rhs: Self) {
+        Self::tick();
+        self.0 /= rhs.0;
+    }
+}
+
+impl Numeric for Counted {
+    const ZERO: Self = Counted(0.0);
+    const ONE: Self = Counted(1.0);
+    const TWO: Self = Counted(2.0);
+    const HALF: Self = Counted(0.5);
+    const PI: Self = Counted(core::f64::consts::PI);
+    const EPSILON: Self = Counted(f64::EPSILON);
+    const NAN: Self = Counted(f64::NAN);
+    const INFINITY: Self = Counted(f64::INFINITY);
+    const NEG_INFINITY: Self = Counted(f64::NEG_INFINITY);
+    const MAX: Self = Counted(f64::MAX);
+    const MIN_POSITIVE: Self = Counted(f64::MIN_POSITIVE);
+
+    fn from_f64(value: f64) -> Self {
+        Counted(value)
+    }
+    fn from_u64(value: u64) -> Self {
+        Counted(value as f64)
+    }
+    fn from_usize(value: usize) -> Self {
+        Counted(value as f64)
+    }
+
+    fn abs(self) -> Self {
+        Counted(libm::fabs(self.0))
+    }
+    fn sqrt(self) -> Self {
+        Counted(libm::sqrt(self.0))
+    }
+    fn sin(self) -> Self {
+        Counted(libm::sin(self.0))
+    }
+    fn cos(self) -> Self {
+        Counted(libm::cos(self.0))
+    }
+    fn tan(self) -> Self {
+        Counted(libm::tan(self.0))
+    }
+    fn exp(self) -> Self {
+        Counted(libm::exp(self.0))
+    }
+    fn ln(self) -> Self {
+        Counted(libm::log(self.0))
+    }
+
+    fn is_nan(self) -> bool {
+        self.0.is_nan()
+    }
+    fn is_finite(self) -> bool {
+        self.0.is_finite()
+    }
+}
+
+#[test]
+fn factorization_work_counts() {
+    // Symmetric positive-definite and invertible, so LU, Cholesky, and the direct 4x4 inverse all
+    // apply. The multiply/divide counts below are fixed functions of the size — for a 4x4:
+    //   LU:       divisions N(N-1)/2 = 6, multiplications sum_{p<N} p^2 = 14  -> 20
+    //   Cholesky: multiplications 10, divisions 6                            -> 16
+    // and the direct inverse is a cofactor expansion. If any of these change, revisit BENCHMARKS.md.
+    let a =
+        Matrix::<4, 4, Counted>::from_fn(|i, j| if i == j { Counted(4.0) } else { Counted(1.0) });
+
+    let measure = |f: &dyn Fn()| {
+        MUL_DIV_OPS.store(0, Ordering::Relaxed);
+        f();
+        MUL_DIV_OPS.load(Ordering::Relaxed)
+    };
+
+    let lu = measure(&|| {
+        let _ = a.lu().unwrap();
+    });
+    let cholesky = measure(&|| {
+        let _ = a.cholesky().unwrap();
+    });
+    let inverse = measure(&|| {
+        let _ = a.inverse().unwrap();
+    });
+
+    assert_eq!((lu, cholesky, inverse), (20, 16, 95));
 }

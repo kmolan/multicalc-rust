@@ -10,10 +10,14 @@
 //! let _ = Vector::new([1.0, 2.0]) + Vector::new([1.0, 2.0, 3.0]);
 //! ```
 
+pub mod cholesky;
+pub mod lu;
 pub mod matrix;
 pub mod qr;
 pub mod vector;
 
+pub use cholesky::Cholesky;
+pub use lu::Lu;
 pub use matrix::Matrix;
 pub use qr::PivotedQr;
 pub use vector::Vector;
