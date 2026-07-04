@@ -1151,7 +1151,8 @@ fn cholesky_f32_reconstructs() {
 // A scalar that tallies every multiply and divide it performs, so a test can pin the arithmetic
 // work of a factorization to a fixed count. That count is a deterministic function of the matrix
 // size, independent of wall-clock timing, so it fails if an algorithm starts doing more work than
-// the BENCHMARKS.md figures assume. Only `factorization_work_counts` touches the counter, and it
+// the benches/linear_algebra.md figures assume. Only `factorization_work_counts` touches the
+// counter, and it
 // runs single-threaded, so the shared tally needs no synchronization beyond atomicity.
 static MUL_DIV_OPS: AtomicUsize = AtomicUsize::new(0);
 
@@ -1278,7 +1279,8 @@ fn factorization_work_counts() {
     // apply. The multiply/divide counts below are fixed functions of the size — for a 4x4:
     //   LU:       divisions N(N-1)/2 = 6, multiplications sum_{p<N} p^2 = 14  -> 20
     //   Cholesky: multiplications 10, divisions 6                            -> 16
-    // and the direct inverse is a cofactor expansion. If any of these change, revisit BENCHMARKS.md.
+    // and the direct inverse is a cofactor expansion. If any of these change, revisit
+    // benches/linear_algebra.md.
     let a =
         Matrix::<4, 4, Counted>::from_fn(|i, j| if i == j { Counted(4.0) } else { Counted(1.0) });
 

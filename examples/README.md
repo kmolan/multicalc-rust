@@ -8,16 +8,16 @@ the API in action and check accuracy at the same time:
 cargo run --example <name>
 ```
 
-The three numerical examples also reproduce the accuracy figures in [`BENCHMARKS.md`](../BENCHMARKS.md)
-sections 1–4 (noted below), so the published tables stay honest.
+Several examples also reproduce the published accuracy figures in [`benches/`](../benches)
+(noted below), so the tables stay honest.
 
 | Example | Module(s) | What it shows |
 | --- | --- | --- |
-| [`differentiation`](differentiation.rs) | `numerical_derivative` | Single- and multi-variable finite-difference derivatives (orders 1–3, partials, mixed partials). Reproduces BENCHMARKS.md §1–2. |
+| [`differentiation`](differentiation.rs) | `numerical_derivative` | Single- and multi-variable finite-difference derivatives (orders 1–3, partials, mixed partials). Reproduces the differentiation accuracy tables in benches/calculus.md. |
 | [`jacobian_hessian`](jacobian_hessian.rs) | `numerical_derivative::{jacobian, hessian}` | Jacobian of a vector of functions and the Hessian of a scalar function. |
-| [`iterative_integration`](iterative_integration.rs) | `numerical_integration::iterative_integration` | Boole / Simpson / Trapezoidal rules, multi-variable partial integrals, and infinite / semi-infinite limits. Reproduces BENCHMARKS.md §3. |
-| [`gaussian_integration`](gaussian_integration.rs) | `numerical_integration::gaussian_integration` | Gauss-Legendre (finite), Gauss-Hermite and Gauss-Laguerre (infinite), with the bare-integrand convention. Reproduces BENCHMARKS.md §4. |
+| [`iterative_integration`](iterative_integration.rs) | `numerical_integration::iterative_integration` | Boole / Simpson / Trapezoidal rules, multi-variable partial integrals, and infinite / semi-infinite limits. Reproduces the iterative-integration accuracy table in benches/calculus.md. |
+| [`gaussian_integration`](gaussian_integration.rs) | `numerical_integration::gaussian_integration` | Gauss-Legendre (finite), Gauss-Hermite and Gauss-Laguerre (infinite), with the bare-integrand convention. Reproduces the Gaussian-quadrature accuracy table in benches/calculus.md. |
 | [`vector_field`](vector_field.rs) | `vector_field` | Curl, divergence, line integrals and flux integrals. |
 | [`approximation`](approximation.rs) | `approximation` | Linear and quadratic Taylor approximations, `predict`, and goodness-of-fit metrics. |
-| [`linear_algebra`](linear_algebra.rs) | `linear_algebra` | LU and Cholesky factorizations, linear solves, and the direct 4x4 inverse under a latency + approximation-error stress test on well- and ill-conditioned inputs. |
-| [`svd`](svd.rs) | `linear_algebra::svd` | Singular value decomposition and Moore–Penrose pseudo-inverse under a robotics stress test — Kabsch rotation recovery, a redundant-arm pseudo-inverse, a near-singular Jacobian, and an overdetermined fit — with latency + approximation error. |
+| [`linear_algebra`](linear_algebra.rs) | `linear_algebra` | LU and Cholesky factorizations, linear solves, and the direct 4x4 inverse under a latency + approximation-error stress test on well- and ill-conditioned inputs. Reproduces the LU / Cholesky / inverse accuracy tables in benches/linear_algebra.md. |
+| [`svd`](svd.rs) | `linear_algebra::svd` | Singular value decomposition and Moore–Penrose pseudo-inverse under a robotics stress test — Kabsch rotation recovery, a redundant-arm pseudo-inverse, a near-singular Jacobian, and an overdetermined fit — with latency + approximation error. Reproduces the SVD / pseudo-inverse accuracy table in benches/linear_algebra.md. |

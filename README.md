@@ -291,7 +291,9 @@ cargo run --example <name>
 
 ## Benchmarks
 
-See [BENCHMARKS.md](./BENCHMARKS.md) for accuracy figures and measured latency.
+See [benches/README.md](./benches/README.md) for the index, or go straight to
+[calculus](./benches/calculus.md), [linear_algebra](./benches/linear_algebra.md), or
+[optimization](./benches/optimization.md) for accuracy figures and measured latency.
 
 ## Contributing
 

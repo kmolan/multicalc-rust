@@ -1,7 +1,8 @@
 //! Gaussian quadrature: Gauss-Legendre (finite), Gauss-Hermite and Gauss-Laguerre (infinite).
 //!
-//! Also reproduces the accuracy figures in BENCHMARKS.md section 4: these rules are exact (to
-//! machine precision) for polynomial integrands, and lose accuracy fast on non-polynomial ones.
+//! Also reproduces the Gaussian-quadrature accuracy figures in benches/calculus.md: these rules
+//! are exact (to machine precision) for polynomial integrands, and lose accuracy fast on
+//! non-polynomial ones.
 //!
 //! Run with: `cargo run --example gaussian_integration`
 
