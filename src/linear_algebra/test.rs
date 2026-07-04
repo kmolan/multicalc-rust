@@ -1,6 +1,9 @@
 use crate::linear_algebra::qr::{PivotedQr, enorm, max, min};
 use crate::linear_algebra::{Matrix, Vector};
+use crate::scalar::Numeric;
 use crate::utils::error_codes::CalcError;
+use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 /// Asserts every entry of `m` is within tolerance of the identity matrix.
 fn approx_identity<const N: usize>(m: Matrix<N, N>) {
@@ -1141,4 +1144,159 @@ fn cholesky_f32_reconstructs() {
             assert!((prod[(r, c)] - a[(r, c)]).abs() < 1e-3);
         }
     }
+}
+
+// ----- work-count regression guard -----
+
+// A scalar that tallies every multiply and divide it performs, so a test can pin the arithmetic
+// work of a factorization to a fixed count. That count is a deterministic function of the matrix
+// size, independent of wall-clock timing, so it fails if an algorithm starts doing more work than
+// the BENCHMARKS.md figures assume. Only `factorization_work_counts` touches the counter, and it
+// runs single-threaded, so the shared tally needs no synchronization beyond atomicity.
+static MUL_DIV_OPS: AtomicUsize = AtomicUsize::new(0);
+
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+struct Counted(f64);
+
+impl Counted {
+    fn tick() {
+        MUL_DIV_OPS.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+impl Add for Counted {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        Counted(self.0 + rhs.0)
+    }
+}
+impl Sub for Counted {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self {
+        Counted(self.0 - rhs.0)
+    }
+}
+impl Mul for Counted {
+    type Output = Self;
+    fn mul(self, rhs: Self) -> Self {
+        Self::tick();
+        Counted(self.0 * rhs.0)
+    }
+}
+impl Div for Counted {
+    type Output = Self;
+    fn div(self, rhs: Self) -> Self {
+        Self::tick();
+        Counted(self.0 / rhs.0)
+    }
+}
+impl Neg for Counted {
+    type Output = Self;
+    fn neg(self) -> Self {
+        Counted(-self.0)
+    }
+}
+impl AddAssign for Counted {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
+impl SubAssign for Counted {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
+    }
+}
+impl MulAssign for Counted {
+    fn mul_assign(&mut self, rhs: Self) {
+        Self::tick();
+        self.0 *= rhs.0;
+    }
+}
+impl DivAssign for Counted {
+    fn div_assign(&mut self, rhs: Self) {
+        Self::tick();
+        self.0 /= rhs.0;
+    }
+}
+
+impl Numeric for Counted {
+    const ZERO: Self = Counted(0.0);
+    const ONE: Self = Counted(1.0);
+    const TWO: Self = Counted(2.0);
+    const HALF: Self = Counted(0.5);
+    const PI: Self = Counted(core::f64::consts::PI);
+    const EPSILON: Self = Counted(f64::EPSILON);
+    const NAN: Self = Counted(f64::NAN);
+    const INFINITY: Self = Counted(f64::INFINITY);
+    const NEG_INFINITY: Self = Counted(f64::NEG_INFINITY);
+    const MAX: Self = Counted(f64::MAX);
+    const MIN_POSITIVE: Self = Counted(f64::MIN_POSITIVE);
+
+    fn from_f64(value: f64) -> Self {
+        Counted(value)
+    }
+    fn from_u64(value: u64) -> Self {
+        Counted(value as f64)
+    }
+    fn from_usize(value: usize) -> Self {
+        Counted(value as f64)
+    }
+
+    fn abs(self) -> Self {
+        Counted(libm::fabs(self.0))
+    }
+    fn sqrt(self) -> Self {
+        Counted(libm::sqrt(self.0))
+    }
+    fn sin(self) -> Self {
+        Counted(libm::sin(self.0))
+    }
+    fn cos(self) -> Self {
+        Counted(libm::cos(self.0))
+    }
+    fn tan(self) -> Self {
+        Counted(libm::tan(self.0))
+    }
+    fn exp(self) -> Self {
+        Counted(libm::exp(self.0))
+    }
+    fn ln(self) -> Self {
+        Counted(libm::log(self.0))
+    }
+
+    fn is_nan(self) -> bool {
+        self.0.is_nan()
+    }
+    fn is_finite(self) -> bool {
+        self.0.is_finite()
+    }
+}
+
+#[test]
+fn factorization_work_counts() {
+    // Symmetric positive-definite and invertible, so LU, Cholesky, and the direct 4x4 inverse all
+    // apply. The multiply/divide counts below are fixed functions of the size — for a 4x4:
+    //   LU:       divisions N(N-1)/2 = 6, multiplications sum_{p<N} p^2 = 14  -> 20
+    //   Cholesky: multiplications 10, divisions 6                            -> 16
+    // and the direct inverse is a cofactor expansion. If any of these change, revisit BENCHMARKS.md.
+    let a =
+        Matrix::<4, 4, Counted>::from_fn(|i, j| if i == j { Counted(4.0) } else { Counted(1.0) });
+
+    let measure = |f: &dyn Fn()| {
+        MUL_DIV_OPS.store(0, Ordering::Relaxed);
+        f();
+        MUL_DIV_OPS.load(Ordering::Relaxed)
+    };
+
+    let lu = measure(&|| {
+        let _ = a.lu().unwrap();
+    });
+    let cholesky = measure(&|| {
+        let _ = a.cholesky().unwrap();
+    });
+    let inverse = measure(&|| {
+        let _ = a.inverse().unwrap();
+    });
+
+    assert_eq!((lu, cholesky, inverse), (20, 16, 95));
 }

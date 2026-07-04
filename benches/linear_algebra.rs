@@ -35,6 +35,12 @@ fn matrix(crit: &mut Criterion) {
     let b3: Matrix<3, 3> = Matrix::new([[2.0, 0.0, 1.0], [1.0, 3.0, 2.0], [0.0, 1.0, 4.0]]);
     let a4: Matrix<4, 4> = Matrix::from_fn(|r, c| (r * 4 + c + 1) as f64);
     let b4: Matrix<4, 4> = Matrix::from_fn(|r, c| (r + c) as f64);
+    let inv4: Matrix<4, 4> = Matrix::new([
+        [1.0, 2.0, 3.0, 4.0],
+        [2.0, 1.0, 0.0, 1.0],
+        [0.0, 3.0, 1.0, 2.0],
+        [1.0, 0.0, 2.0, 1.0],
+    ]);
     let v: Vector<3> = Vector::new([1.0, 2.0, 3.0]);
 
     crit.bench_function("matrix/matmul_3x3", |b| {
@@ -56,6 +62,43 @@ fn matrix(crit: &mut Criterion) {
         b.iter(|| black_box(a).determinant())
     });
     crit.bench_function("matrix/inverse_3x3", |b| b.iter(|| black_box(a).inverse()));
+    crit.bench_function("matrix/inverse_4x4", |b| {
+        b.iter(|| black_box(inv4).inverse())
+    });
+}
+
+fn lu(crit: &mut Criterion) {
+    // Well-conditioned, diagonally dominant systems.
+    let a4: Matrix<4, 4> = Matrix::from_fn(|i, j| if i == j { 10.0 } else { (i + j) as f64 });
+    let a8: Matrix<8, 8> = Matrix::from_fn(|i, j| if i == j { 20.0 } else { 1.0 / (i + j + 1) as f64 });
+    let b8: Vector<8> = Vector::from_fn(|i| (i + 1) as f64);
+
+    crit.bench_function("lu/decompose_4x4", |b| {
+        b.iter(|| black_box(a4).lu().unwrap())
+    });
+    crit.bench_function("lu/decompose_8x8", |b| {
+        b.iter(|| black_box(a8).lu().unwrap())
+    });
+    crit.bench_function("lu/decompose_solve_8x8", |b| {
+        b.iter(|| black_box(a8).lu().unwrap().solve(black_box(b8)))
+    });
+}
+
+fn cholesky(crit: &mut Criterion) {
+    // Symmetric positive-definite (diagonally dominant, positive diagonal).
+    let a4: Matrix<4, 4> = Matrix::from_fn(|i, j| if i == j { 5.0 } else { 1.0 });
+    let a8: Matrix<8, 8> = Matrix::from_fn(|i, j| if i == j { 9.0 } else { 1.0 });
+    let b8: Vector<8> = Vector::from_fn(|i| (i + 1) as f64);
+
+    crit.bench_function("cholesky/decompose_4x4", |b| {
+        b.iter(|| black_box(a4).cholesky().unwrap())
+    });
+    crit.bench_function("cholesky/decompose_8x8", |b| {
+        b.iter(|| black_box(a8).cholesky().unwrap())
+    });
+    crit.bench_function("cholesky/decompose_solve_8x8", |b| {
+        b.iter(|| black_box(a8).cholesky().unwrap().solve(black_box(b8)))
+    });
 }
 
 fn qr(crit: &mut Criterion) {
@@ -104,6 +147,6 @@ criterion_group! {
         .sample_size(50)
         .warm_up_time(Duration::from_millis(500))
         .measurement_time(Duration::from_secs(2));
-    targets = vector, matrix, qr
+    targets = vector, matrix, qr, lu, cholesky
 }
 criterion_main!(benches);
