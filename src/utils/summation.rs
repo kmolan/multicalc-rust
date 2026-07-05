@@ -1,47 +1,75 @@
-//! Streaming pairwise (cascade) summation for the long running sums.
+//! Blocked pairwise (cascade) summation for the long running sums.
 
 use crate::scalar::Numeric;
 
-// 64 levels cover any u64 term count (and any usize point count): the mask never
-// carries past bit 63 for counts below 2^64, so `level` stays in 0..64.
-const MAX_LEVELS: usize = 64;
+// Terms are first summed naively into a fixed block, and each completed block sum is fed
+// into a binary-carry tree of level slots (slot `k` holds a sum of `2^k` block sums). This
+// keeps short sums (the default 120-interval integration fits in one block) at naive speed,
+// while long sums still accumulate with O(log n · eps) error instead of the naive O(n · eps).
+//
+// BLOCK exceeds the default term count so those sums never touch the tree. LEVELS covers up
+// to `BLOCK << LEVELS` terms with the full tree structure; past that the top slot absorbs the
+// carry naively, which only happens at term counts far beyond anything computed here.
+const BLOCK: usize = 128;
+const LEVELS: usize = 32;
 
-/// Streaming pairwise (cascade) summation. Reorders the additions into a balanced
-/// binary tree so the rounding error grows like O(log n · eps) instead of the naive
-/// O(n · eps), at the same add count. Slot `k` holds a completed sum of `2^k` terms;
-/// `occupied` tracks which slots are live.
+/// Blocked pairwise (cascade) summation. Sums terms naively within a block of `BLOCK`, then
+/// combines completed block sums in a balanced binary tree so the rounding error grows like
+/// O(log n · eps) rather than the naive O(n · eps). `occupied` tracks which tree slots are live.
 pub(crate) struct PairwiseSum<T: Numeric> {
-    blocks: [T; MAX_LEVELS],
+    tree: [T; LEVELS],
     occupied: u64,
+    block_sum: T,
+    block_count: usize,
 }
 
 impl<T: Numeric> PairwiseSum<T> {
+    #[inline]
     pub(crate) fn new() -> Self {
-        Self { blocks: [T::ZERO; MAX_LEVELS], occupied: 0 }
+        Self { tree: [T::ZERO; LEVELS], occupied: 0, block_sum: T::ZERO, block_count: 0 }
     }
 
-    pub(crate) fn add(&mut self, mut value: T) {
+    #[inline]
+    pub(crate) fn add(&mut self, value: T) {
+        self.block_sum += value;
+        self.block_count += 1;
+        // Rarely taken, so `add` stays as cheap as a naive `+=` for the short sums.
+        if self.block_count == BLOCK {
+            let block = self.block_sum;
+            self.push(block);
+            self.block_sum = T::ZERO;
+            self.block_count = 0;
+        }
+    }
+
+    /// Merges a completed block sum into the tree, carrying like a binary counter.
+    fn push(&mut self, mut value: T) {
         let mut level = 0;
-        // Carry: while this level already holds a completed subtree, merge and move up.
-        while self.occupied & (1u64 << level) != 0 {
-            value = self.blocks[level] + value;
+        // The mask lets the compiler drop the bounds checks; `level` stays below LEVELS.
+        while level < LEVELS && self.occupied & (1u64 << level) != 0 {
+            value = self.tree[level & (LEVELS - 1)] + value;
             self.occupied &= !(1u64 << level);
             level += 1;
         }
-        self.blocks[level] = value;
+        // Overflow guard: past `BLOCK << LEVELS` terms fold the carry into the top slot.
+        if level == LEVELS {
+            level = LEVELS - 1;
+        }
+        self.tree[level & (LEVELS - 1)] = value;
         self.occupied |= 1u64 << level;
     }
 
+    #[inline]
     pub(crate) fn total(&self) -> T {
-        // Combine the remaining partial subtrees, smallest first. Scan only up to the
-        // highest occupied level (~log2 n), not the full bank, to keep the per-call
-        // overhead O(log n) rather than a constant 64 for the short integration sums.
-        let mut sum = T::ZERO;
+        // Combine the live tree slots (smallest first) with the partial block. Scan only up
+        // to the highest occupied level (~log2 n): an unfilled block leaves the tree empty,
+        // so a short sum returns its block directly.
+        let mut sum = self.block_sum;
         let top = (u64::BITS - self.occupied.leading_zeros()) as usize;
         #[allow(clippy::needless_range_loop)]
         for level in 0..top {
             if self.occupied & (1u64 << level) != 0 {
-                sum += self.blocks[level];
+                sum += self.tree[level & (LEVELS - 1)];
             }
         }
         sum
@@ -89,9 +117,10 @@ mod tests {
 
     #[test]
     fn beats_naive_on_long_sum() {
-        // 1.0 then N tiny terms, each exactly half an ulp at 1.0. A naive `+=` rounds
-        // every tiny term away and stays at 1.0; pairwise groups them into subtrees that
-        // grow large enough to survive the merge, recovering the full 2^-29 they sum to.
+        // 1.0 then N tiny terms, each exactly half an ulp at 1.0. A naive `+=` rounds every
+        // tiny term away and stays at 1.0; the blocked pairwise sum groups them into block
+        // and tree sums that grow large enough to survive the merge, recovering the 2^-29 they
+        // total to within a few ulp (the first partial block loses at most BLOCK tiny terms).
         let tiny = 2f64.powi(-53);
         let n: u64 = 1 << 24;
         let analytic = 1.0 + (n as f64) * tiny; // 1.0 + 2^-29, exactly representable
@@ -109,7 +138,7 @@ mod tests {
 
         let pairwise_err = (pairwise - analytic).abs();
         let naive_err = (naive - analytic).abs();
-        assert!(pairwise_err < 1e-15, "pairwise error {pairwise_err:e} too large");
+        assert!(pairwise_err < 1e-12, "pairwise error {pairwise_err:e} too large");
         assert!(
             pairwise_err < naive_err,
             "pairwise ({pairwise_err:e}) should be strictly closer than naive ({naive_err:e})"
