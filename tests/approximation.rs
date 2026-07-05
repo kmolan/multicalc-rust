@@ -143,10 +143,26 @@ fn metrics_are_accurate_on_large_point_set() {
     let r2_ref = 1.0 - ss_res / ss_tot;
 
     let close = |got: f64, want: f64| (got - want).abs() <= 1e-8 * want.abs().max(1.0);
-    assert!(close(metrics.mean_absolute_error, mae_ref), "mae {} vs {mae_ref}", metrics.mean_absolute_error);
-    assert!(close(metrics.mean_squared_error, mse_ref), "mse {} vs {mse_ref}", metrics.mean_squared_error);
-    assert!(close(metrics.root_mean_squared_error, rmse_ref), "rmse {} vs {rmse_ref}", metrics.root_mean_squared_error);
-    assert!(close(metrics.r_squared, r2_ref), "r2 {} vs {r2_ref}", metrics.r_squared);
+    assert!(
+        close(metrics.mean_absolute_error, mae_ref),
+        "mae {} vs {mae_ref}",
+        metrics.mean_absolute_error
+    );
+    assert!(
+        close(metrics.mean_squared_error, mse_ref),
+        "mse {} vs {mse_ref}",
+        metrics.mean_squared_error
+    );
+    assert!(
+        close(metrics.root_mean_squared_error, rmse_ref),
+        "rmse {} vs {rmse_ref}",
+        metrics.root_mean_squared_error
+    );
+    assert!(
+        close(metrics.r_squared, r2_ref),
+        "r2 {} vs {r2_ref}",
+        metrics.r_squared
+    );
 }
 
 #[test]

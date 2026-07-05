@@ -26,7 +26,12 @@ pub(crate) struct PairwiseSum<T: Numeric> {
 impl<T: Numeric> PairwiseSum<T> {
     #[inline]
     pub(crate) fn new() -> Self {
-        Self { tree: [T::ZERO; LEVELS], occupied: 0, block_sum: T::ZERO, block_count: 0 }
+        Self {
+            tree: [T::ZERO; LEVELS],
+            occupied: 0,
+            block_sum: T::ZERO,
+            block_count: 0,
+        }
     }
 
     #[inline]
@@ -138,7 +143,10 @@ mod tests {
 
         let pairwise_err = (pairwise - analytic).abs();
         let naive_err = (naive - analytic).abs();
-        assert!(pairwise_err < 1e-12, "pairwise error {pairwise_err:e} too large");
+        assert!(
+            pairwise_err < 1e-12,
+            "pairwise error {pairwise_err:e} too large"
+        );
         assert!(
             pairwise_err < naive_err,
             "pairwise ({pairwise_err:e}) should be strictly closer than naive ({naive_err:e})"

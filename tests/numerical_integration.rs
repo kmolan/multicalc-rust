@@ -552,7 +552,10 @@ fn pairwise_integration_is_accurate_on_long_sum() {
     let naive_err = f64::abs(naive - exact);
 
     //tighter than the ~n*eps a naive sum could reach at this term count
-    assert!(pairwise_err < 1e-12, "pairwise error {pairwise_err:e} too large");
+    assert!(
+        pairwise_err < 1e-12,
+        "pairwise error {pairwise_err:e} too large"
+    );
     //and strictly closer to the exact value than the naive accumulation
     assert!(
         pairwise_err < naive_err,
