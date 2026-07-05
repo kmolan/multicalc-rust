@@ -33,7 +33,11 @@ pub struct Bisection<T = f64> {
 impl<T: Numeric> Default for Bisection<T> {
     fn default() -> Self {
         let tol = T::EPSILON * T::from_f64(4.0);
-        Bisection { xtol: tol, ftol: tol, max_iterations: 100 }
+        Bisection {
+            xtol: tol,
+            ftol: tol,
+            max_iterations: 100,
+        }
     }
 }
 

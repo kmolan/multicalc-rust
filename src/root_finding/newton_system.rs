@@ -60,7 +60,13 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
     /// tolerances of `30 × EPSILON`, budget of 100 iterations, backtracking off.
     pub fn from_derivator(derivator: D) -> Self {
         let tol = D::Scalar::EPSILON * D::Scalar::from_f64(30.0);
-        NewtonSystem { derivator, xtol: tol, ftol: tol, max_iterations: 100, backtracking: false }
+        NewtonSystem {
+            derivator,
+            xtol: tol,
+            ftol: tol,
+            max_iterations: 100,
+            backtracking: false,
+        }
     }
 
     /// Sets the step-size tolerance (relative: compared against `xtol × (1 + ‖x‖)`).
@@ -144,12 +150,14 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
             let mut alpha = one;
             let mut tries = 0usize;
             let (x_new, r_new, fnorm_new) = loop {
-                let candidate: [D::Scalar; N] =
-                    core::array::from_fn(|k| x[k] + alpha * step[k]);
+                let candidate: [D::Scalar; N] = core::array::from_fn(|k| x[k] + alpha * step[k]);
                 let trial = f.eval(&candidate);
                 let trial_finite = all_finite(&trial);
-                let trial_fnorm =
-                    if trial_finite { enorm(&trial) } else { D::Scalar::INFINITY };
+                let trial_fnorm = if trial_finite {
+                    enorm(&trial)
+                } else {
+                    D::Scalar::INFINITY
+                };
 
                 if !self.backtracking {
                     if !trial_finite {

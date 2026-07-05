@@ -39,12 +39,12 @@ pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, Term
 pub use root_finding::{Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination};
 
 pub mod approximation;
-pub mod root_finding;
 pub mod gaussian_tables;
 pub mod linear_algebra;
 pub mod numerical_derivative;
 pub mod numerical_integration;
 pub mod optimization;
+pub mod root_finding;
 pub mod scalar;
 pub mod utils;
 pub mod vector_field;

@@ -53,7 +53,13 @@ impl<D: DerivatorSingleVariable> Newton<D> {
     /// tolerances of `30 × EPSILON`, budget of 100 iterations, backtracking off.
     pub fn from_derivator(derivator: D) -> Self {
         let tol = D::Scalar::EPSILON * D::Scalar::from_f64(30.0);
-        Newton { derivator, xtol: tol, ftol: tol, max_iterations: 100, backtracking: false }
+        Newton {
+            derivator,
+            xtol: tol,
+            ftol: tol,
+            max_iterations: 100,
+            backtracking: false,
+        }
     }
 
     /// Sets the step-size tolerance (relative: compared against `xtol × (1 + |x|)`).
