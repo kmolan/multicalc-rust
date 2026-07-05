@@ -32,6 +32,8 @@ Jacobians and Hessians, vector-field operators, and Taylor approximation in a `n
 - **Approximation** — linear and quadratic (Taylor) models, with goodness-of-fit metrics.
 - **Least-squares optimization** — Levenberg-Marquardt and Gauss-Newton solvers for nonlinear
   curve fitting.
+- **Root finding** — bracketed bisection and Newton solvers for scalar equations and square
+  systems, with exact derivatives by default and an optional damped (backtracking) line search.
 
 ## Install
 
@@ -227,6 +229,36 @@ let b = Vector::new([1.0, 3.0, 5.0]);
 let x = PivotedQr::decompose(a).unwrap().solve_least_squares(b).unwrap();
 ```
 
+### Root finding
+
+`Bisection` brackets a scalar root and is guaranteed to converge. `Newton` takes Newton steps with
+exact derivatives by default (finite differences on request); `with_backtracking(true)` adds a damped
+line search that rescues far starts. `NewtonSystem` solves square systems `F(x) = 0` with the exact
+Jacobian. Every solver takes an iteration budget and reports why it stopped.
+
+```rust
+use multicalc::root_finding::{Bisection, Newton, NewtonSystem};
+use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
+use multicalc::scalar::c;
+use multicalc::{scalar_fn, scalar_fn_vec};
+
+// Bracket a scalar root: f(x) = x^2 - 2 on [0, 2].
+let f = scalar_fn!(|x| c(-2.0) + x * x);
+let bracketed = Bisection::default().solve(&f, 0.0, 2.0).unwrap();   // ~ sqrt(2)
+
+// Newton with exact derivatives; damped Newton adds a backtracking line search.
+let quadratic = Newton::<AutoDiffSingle>::default().solve(&f, 2.0).unwrap();   // ~ 1.41421356
+let damped = Newton::<AutoDiffSingle>::default()
+    .with_backtracking(true)
+    .solve(&f, 2.0)
+    .unwrap();
+
+// Square system: x^2 + y^2 = 4 and x*y = 1.
+let system = scalar_fn_vec!(|v: &[f64; 2]| [c(-4.0) + v[0] * v[0] + v[1] * v[1], c(-1.0) + v[0] * v[1]]);
+let solved = NewtonSystem::<AutoDiffMulti>::default().solve(&system, &[1.5, 0.8]).unwrap();
+// solved.root ~ [1.9319, 0.5176]; solved.termination says which test converged
+```
+
 ### Linear solves
 
 ```rust
@@ -292,8 +324,9 @@ cargo run --example <name>
 ## Benchmarks
 
 See [benches/README.md](./benches/README.md) for the index, or go straight to
-[calculus](./benches/calculus.md), [linear_algebra](./benches/linear_algebra.md), or
-[optimization](./benches/optimization.md) for accuracy figures and measured latency.
+[calculus](./benches/calculus.md), [linear_algebra](./benches/linear_algebra.md),
+[optimization](./benches/optimization.md), or [root_finding](./benches/root_finding.md) for
+accuracy figures and measured latency.
 
 ## Contributing
 
