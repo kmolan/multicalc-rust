@@ -1,4 +1,5 @@
 use crate::scalar::Numeric;
+use crate::utils::summation::PairwiseSum;
 
 pub mod linear_approximation;
 pub mod quadratic_approximation;
@@ -22,22 +23,23 @@ where
 {
     let n = T::from_usize(NUM_POINTS);
 
-    let mut mean_y = T::ZERO;
+    let mut mean_y = PairwiseSum::new();
     for point in points {
-        mean_y += original_function(point);
+        mean_y.add(original_function(point));
     }
-    mean_y /= n;
+    let mean_y = mean_y.total() / n;
 
-    let mut sum_abs = T::ZERO;
-    let mut ss_res = T::ZERO;
-    let mut ss_tot = T::ZERO;
+    let mut sum_abs = PairwiseSum::new();
+    let mut ss_res = PairwiseSum::new();
+    let mut ss_tot = PairwiseSum::new();
     for point in points {
         let y = original_function(point);
         let residual = predict(point) - y;
-        sum_abs += residual.abs();
-        ss_res += residual * residual;
-        ss_tot += (y - mean_y) * (y - mean_y);
+        sum_abs.add(residual.abs());
+        ss_res.add(residual * residual);
+        ss_tot.add((y - mean_y) * (y - mean_y));
     }
+    let (sum_abs, ss_res, ss_tot) = (sum_abs.total(), ss_res.total(), ss_tot.total());
 
     let mae = sum_abs / n;
     let mse = ss_res / n;
