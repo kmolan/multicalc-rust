@@ -28,6 +28,8 @@ pub enum CalcError {
     DidNotConverge,
     /// A residual or Jacobian value was infinite or NaN.
     NonFiniteValue,
+    /// The bracket endpoints did not enclose a sign change.
+    InvalidBracket,
 }
 
 impl core::fmt::Display for CalcError {
@@ -50,6 +52,7 @@ impl core::fmt::Display for CalcError {
                 "solver did not converge within the iteration/evaluation budget"
             }
             CalcError::NonFiniteValue => "residual or Jacobian contained a non-finite value",
+            CalcError::InvalidBracket => "bracket endpoints must enclose a sign change",
         })
     }
 }
