@@ -35,10 +35,13 @@ harness = false
 name = "optimization"
 harness = false
 
+[[bench]]
+name = "root_finding"
+harness = false
+
 [lints.rust]
-# Backs the "pure, safe Rust" claim: the crate must contain no `unsafe`.
 unsafe_code = "forbid"
 
 [lints.clippy]
-# The `[&dyn Fn(&[f64; N]) -> f64; N]` field/transform arrays are inherent to the API.
+# For `[&dyn Fn(&[f64; N]) -> f64; N]` field/transform arrays
 type_complexity = "allow"

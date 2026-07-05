@@ -9,8 +9,9 @@ figures (wall-clock time per call).
 | calculus | [`calculus.rs`](calculus.rs) | [`calculus.md`](calculus.md) | Single- and multi-variable differentiation, iterative integration (Boole / Simpson / Trapezoidal), Gaussian quadrature, Jacobian / Hessian, vector field, and approximation. |
 | linear_algebra | [`linear_algebra.rs`](linear_algebra.rs) | [`linear_algebra.md`](linear_algebra.md) | Vector and matrix ops, and the LU / Cholesky / column-pivoted QR / SVD factorizations. |
 | optimization | [`optimization.rs`](optimization.rs) | [`optimization.md`](optimization.md) | Nonlinear least-squares solvers: Levenberg-Marquardt and Gauss-Newton. |
+| root_finding | [`root_finding.rs`](root_finding.rs) | [`root_finding.md`](root_finding.md) | Scalar and system root finders: bisection, Newton, damped Newton, and square-system Newton. |
 
-Accuracy vs latency: every suite doc reports latency (wall-clock time per call); all three also
+Accuracy vs latency: every suite doc reports latency (wall-clock time per call); all four also
 report accuracy (how close the result lands to the known value). The examples in
 [`examples/`](../examples) reproduce those accuracy tables, so the published figures stay honest.
 
