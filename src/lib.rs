@@ -35,6 +35,9 @@ pub use linear_algebra::{Matrix, Vector};
 /// The Levenberg-Marquardt and Gauss-Newton least-squares solvers and their result types.
 pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
 
+/// Bracketed and Newton root finders for scalar equations and square systems.
+pub use root_finding::{Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination};
+
 pub mod approximation;
 pub mod root_finding;
 pub mod gaussian_tables;
