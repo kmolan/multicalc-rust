@@ -47,3 +47,72 @@ impl<T: Numeric> PairwiseSum<T> {
         sum
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_input_is_zero() {
+        let acc = PairwiseSum::<f64>::new();
+        assert_eq!(acc.total(), 0.0);
+    }
+
+    #[test]
+    fn matches_naive_on_short_input() {
+        let values = [0.1, 0.2, 0.3, 0.4, 1.5, -0.7, 2.25, 8.0];
+
+        let mut acc = PairwiseSum::new();
+        let mut naive = 0.0;
+        for &v in &values {
+            acc.add(v);
+            naive += v;
+        }
+
+        // Reordered additions, so assert closeness rather than bit-equality.
+        assert!((acc.total() - naive).abs() < 1e-12);
+    }
+
+    #[test]
+    fn f32_matches_naive_on_short_input() {
+        let values = [0.1f32, 0.2, 0.3, 0.4, 1.5, -0.7, 2.25, 8.0];
+
+        let mut acc = PairwiseSum::new();
+        let mut naive = 0.0f32;
+        for &v in &values {
+            acc.add(v);
+            naive += v;
+        }
+
+        assert!((acc.total() - naive).abs() < 1e-5);
+    }
+
+    #[test]
+    fn beats_naive_on_long_sum() {
+        // 1.0 then N tiny terms, each exactly half an ulp at 1.0. A naive `+=` rounds
+        // every tiny term away and stays at 1.0; pairwise groups them into subtrees that
+        // grow large enough to survive the merge, recovering the full 2^-29 they sum to.
+        let tiny = 2f64.powi(-53);
+        let n: u64 = 1 << 24;
+        let analytic = 1.0 + (n as f64) * tiny; // 1.0 + 2^-29, exactly representable
+
+        let mut acc = PairwiseSum::new();
+        acc.add(1.0);
+        let mut naive = 1.0f64;
+        for _ in 0..n {
+            acc.add(tiny);
+            naive += tiny;
+        }
+        let pairwise = acc.total();
+
+        assert_eq!(naive, 1.0, "naive should lose every tiny term");
+
+        let pairwise_err = (pairwise - analytic).abs();
+        let naive_err = (naive - analytic).abs();
+        assert!(pairwise_err < 1e-15, "pairwise error {pairwise_err:e} too large");
+        assert!(
+            pairwise_err < naive_err,
+            "pairwise ({pairwise_err:e}) should be strictly closer than naive ({naive_err:e})"
+        );
+    }
+}
