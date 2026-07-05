@@ -11,8 +11,6 @@ pub mod newton;
 pub mod newton_system;
 
 pub use bisection::Bisection;
-pub use newton::Newton;
-pub use newton_system::NewtonSystem;
 
 use crate::scalar::Numeric;
 
