@@ -313,3 +313,250 @@ fn newton_system_circle_hyperbola_f32() {
     let report = solver.solve(&CircleHyperbola, &[1.5_f32, 0.8]).unwrap();
     assert!(report.residual_norm < 1e-3);
 }
+
+// ======================================================================
+// Real-life stress tests
+//
+// Each solver runs on an engineering, physics, or finance equation. Every
+// case has a known root: either a documented physical constant, or an
+// input generated from a chosen answer so the solver recovers it (pick the
+// root, compute the parameters, solve).
+// ======================================================================
+
+// Kepler's equation E - e*sin(E) = M, relating the mean anomaly M to the
+// eccentric anomaly E of an orbit with eccentricity e.
+struct Kepler {
+    e: f64,
+    m: f64,
+}
+
+impl ScalarFn for Kepler {
+    fn eval<S: Numeric>(&self, big_e: S) -> S {
+        big_e - S::from_f64(self.e) * big_e.sin() - S::from_f64(self.m)
+    }
+}
+
+#[test]
+fn kepler_equation_moderate_eccentricity() {
+    // Orbit with e = 0.8. Pick a true eccentric anomaly, form the mean
+    // anomaly from it, then recover E by Newton starting at x0 = M.
+    let e = 0.8_f64;
+    let e_true = 1.0_f64;
+    let m = e_true - e * e_true.sin();
+    let report = newton(&Kepler { e, m }, m).unwrap();
+    assert!((report.root - e_true).abs() < 1e-12, "{report:?}");
+    // The solved equation holds: E - e*sin(E) == M.
+    assert!((report.root - e * report.root.sin() - m).abs() < 1e-12);
+}
+
+#[test]
+fn kepler_equation_high_eccentricity() {
+    // e = 0.99 with M near zero makes 1 - e*cos(E) ~ 0.01 near the root, so
+    // the Newton derivative is small and the plain step is fragile. Bisection
+    // on [0, π] is guaranteed; damped Newton also recovers the root.
+    let e = 0.99_f64;
+    let e_true = 0.5_f64;
+    let m = e_true - e * e_true.sin();
+    let f = Kepler { e, m };
+
+    let bracketed = bisect(&f, 0.0_f64, core::f64::consts::PI).unwrap();
+    assert!((bracketed.root - e_true).abs() < 1e-9, "{bracketed:?}");
+
+    let damped: Newton = Newton::default().with_backtracking(true);
+    let stepped = damped.solve(&f, m).unwrap();
+    assert!((stepped.root - e_true).abs() < 1e-9, "{stepped:?}");
+}
+
+// Colebrook–White equation for the Darcy friction factor f of turbulent
+// pipe flow: 1/√f + 2*log10(rel_roughness/3.7 + 2.51/(Re*√f)) = 0.
+struct Colebrook {
+    reynolds: f64,
+    rel_roughness: f64,
+}
+
+impl ScalarFn for Colebrook {
+    fn eval<S: Numeric>(&self, f: S) -> S {
+        let re = S::from_f64(self.reynolds);
+        let eps = S::from_f64(self.rel_roughness);
+        let root_f = f.sqrt();
+        let inner = eps / S::from_f64(3.7) + S::from_f64(2.51) / (re * root_f);
+        let log10 = inner.ln() / S::from_f64(10.0).ln();
+        S::ONE / root_f + S::TWO * log10
+    }
+}
+
+#[test]
+fn colebrook_white_friction_factor() {
+    // Water in a commercial-steel pipe: Re = 1e5, relative roughness 1e-4.
+    let f = Colebrook {
+        reynolds: 1.0e5,
+        rel_roughness: 1.0e-4,
+    };
+    let report = newton(&f, 0.02_f64).unwrap();
+    assert!(report.residual.abs() < 1e-10, "{report:?}");
+    // Physical friction factors sit in this range.
+    assert!(report.root > 0.01 && report.root < 0.05, "{report:?}");
+}
+
+// Bond pricing: the present value of the cash flows discounted at yield r
+// equals the market price. Solving for r gives the yield to maturity.
+struct BondYield {
+    cashflows: [f64; 5],
+    times: [i32; 5],
+    price: f64,
+}
+
+impl ScalarFn for BondYield {
+    fn eval<S: Numeric>(&self, r: S) -> S {
+        let mut pv = S::ZERO;
+        for (cash, t) in self.cashflows.iter().zip(self.times.iter()) {
+            pv += S::from_f64(*cash) / (S::ONE + r).powi(*t);
+        }
+        pv - S::from_f64(self.price)
+    }
+}
+
+#[test]
+fn bond_internal_rate_of_return() {
+    // Five-year bond, 5% annual coupon on 100 face value. Choose the true
+    // yield, price the bond at it, then recover the yield by Newton.
+    let cashflows = [5.0, 5.0, 5.0, 5.0, 105.0];
+    let times = [1, 2, 3, 4, 5];
+    let r_true = 0.04_f64;
+    let price: f64 = cashflows
+        .iter()
+        .zip(times.iter())
+        .map(|(cash, t)| cash / (1.0_f64 + r_true).powi(*t))
+        .sum();
+    let report = newton(
+        &BondYield {
+            cashflows,
+            times,
+            price,
+        },
+        0.1_f64,
+    )
+    .unwrap();
+    assert!((report.root - r_true).abs() < 1e-10, "{report:?}");
+}
+
+// Catenary: a uniform cable of length `length` hung between supports a
+// horizontal distance `span` apart satisfies length = 2a*sinh(span/(2a))
+// for the catenary constant a.
+struct Catenary {
+    span: f64,
+    length: f64,
+}
+
+impl ScalarFn for Catenary {
+    fn eval<S: Numeric>(&self, a: S) -> S {
+        let z = S::from_f64(self.span) / (S::TWO * a);
+        let sinh = (z.exp() - (-z).exp()) * S::HALF;
+        S::TWO * a * sinh - S::from_f64(self.length)
+    }
+}
+
+#[test]
+fn catenary_constant() {
+    // Choose the catenary constant, derive the cable length for a 4 m span,
+    // then recover the constant by Newton.
+    let span = 4.0_f64;
+    let a_true = 2.0_f64;
+    let z = span / (2.0 * a_true);
+    let length = 2.0 * a_true * z.sinh();
+    let report = newton(&Catenary { span, length }, 1.0_f64).unwrap();
+    assert!((report.root - a_true).abs() < 1e-10, "{report:?}");
+}
+
+// Diode load line: the node voltage V where the resistor current (Vs-V)/R
+// equals the Shockley diode current Is*(exp(V/Vt) - 1).
+struct DiodeLoadLine {
+    vs: f64,
+    r: f64,
+    is: f64,
+    vt: f64,
+}
+
+impl ScalarFn for DiodeLoadLine {
+    fn eval<S: Numeric>(&self, v: S) -> S {
+        let vs = S::from_f64(self.vs);
+        let r = S::from_f64(self.r);
+        let is = S::from_f64(self.is);
+        let vt = S::from_f64(self.vt);
+        (vs - v) / r - is * ((v / vt).exp() - S::ONE)
+    }
+}
+
+#[test]
+fn diode_load_line_voltage() {
+    // 5 V source, 1 kΩ resistor, thermal voltage 25.852 mV. Pick the true
+    // node voltage and back out the saturation current so it is the exact
+    // root, then bracket the stiff exponential equation with bisection.
+    let vs = 5.0_f64;
+    let r = 1000.0_f64;
+    let vt = 0.025852_f64;
+    let v_true = 0.6_f64;
+    let is = ((vs - v_true) / r) / ((v_true / vt).exp() - 1.0);
+    let diode = DiodeLoadLine { vs, r, is, vt };
+    let report = bisect(&diode, 0.0_f64, 1.0).unwrap();
+    assert!((report.root - v_true).abs() < 1e-9, "{report:?}");
+}
+
+#[test]
+fn wien_displacement_constant_from_blackbody_peak() {
+    // The wavelength peak of the Planck blackbody spectrum solves
+    // x - 5 + 5*e^(-x) = 0. Its root yields Wien's displacement constant
+    // b = h*c/(x*k_B) ≈ 2.897771955e-3 m·K.
+    let f = scalar_fn!(|x| c(-5.0) + x + c(5.0) * (-x).exp());
+    let report = newton(&f, 5.0_f64).unwrap();
+    let x = report.root;
+    let h = 6.62607015e-34_f64;
+    let c_light = 299_792_458.0_f64;
+    let k_b = 1.380649e-23_f64;
+    let b = h * c_light / (x * k_b);
+    assert!((b - 2.897771955e-3).abs() < 1e-9, "b = {b}");
+}
+
+// ----- Systems -----
+
+#[test]
+fn chemical_equilibrium_three_species() {
+    // Mass balance A + B + C = 1 coupled with two equilibria B = K1*A² and
+    // C = K2*A*B. The constants are chosen so the solution is (0.4, 0.2, 0.4).
+    let f = scalar_fn_vec!(|v: &[f64; 3]| [
+        c(-1.0) + v[0] + v[1] + v[2],
+        v[1] - c(1.25) * v[0] * v[0],
+        v[2] - c(5.0) * v[0] * v[1],
+    ]);
+    let solver: NewtonSystem = NewtonSystem::default();
+    let report = solver.solve(&f, &[0.5_f64, 0.25, 0.25]).unwrap();
+    assert!(report.residual_norm < 1e-12, "{report:?}");
+    let [a, b, conc_c] = report.root;
+    assert!((a - 0.4).abs() < 1e-10, "{report:?}");
+    assert!((b - 0.2).abs() < 1e-10, "{report:?}");
+    assert!((conc_c - 0.4).abs() < 1e-10, "{report:?}");
+}
+
+#[test]
+fn two_link_arm_far_start_damped() {
+    // A 2 m + 1 m planar arm reaching a target built from true joint angles.
+    // Starting far from the solution, damped Newton pulls the tip onto the
+    // target; the residual is the tip-to-target error.
+    let (l1, l2) = (2.0_f64, 1.0_f64);
+    let (t1_true, t2_true) = (0.6_f64, 0.9_f64);
+    let px = l1 * t1_true.cos() + l2 * (t1_true + t2_true).cos();
+    let py = l1 * t1_true.sin() + l2 * (t1_true + t2_true).sin();
+    let arm = TwoLinkArm { l1, l2, px, py };
+
+    let solver: NewtonSystem = NewtonSystem::default().with_backtracking(true);
+    let report = solver.solve(&arm, &[0.1_f64, 0.5]).unwrap();
+    assert!(report.residual_norm < 1e-10, "{report:?}");
+    // The recovered angles place the tip on the target.
+    let [t1, t2] = report.root;
+    let tip_x = l1 * t1.cos() + l2 * (t1 + t2).cos();
+    let tip_y = l1 * t1.sin() + l2 * (t1 + t2).sin();
+    assert!(
+        (tip_x - px).abs() < 1e-9 && (tip_y - py).abs() < 1e-9,
+        "{report:?}"
+    );
+}
