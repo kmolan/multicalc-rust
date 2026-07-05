@@ -36,6 +36,7 @@ pub use linear_algebra::{Matrix, Vector};
 pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
 
 pub mod approximation;
+pub mod root_finding;
 pub mod gaussian_tables;
 pub mod linear_algebra;
 pub mod numerical_derivative;
