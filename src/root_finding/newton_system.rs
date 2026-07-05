@@ -34,10 +34,11 @@ const MAX_BACKTRACK: usize = 20;
 ///
 /// // Find (x, y) where x² + y² = 4 and xy = 1.
 /// let f = scalar_fn_vec!(|v: &[f64; 2]| [
-///     v[0] * v[0] + v[1] * v[1] - c(4.0),
-///     v[0] * v[1] - c(1.0),
+///     c(-4.0) + v[0] * v[0] + v[1] * v[1],
+///     c(-1.0) + v[0] * v[1],
 /// ]);
-/// let report = NewtonSystem::default().solve(&f, &[1.5_f64, 0.8]).unwrap();
+/// let solver: NewtonSystem = NewtonSystem::default();
+/// let report = solver.solve(&f, &[1.5_f64, 0.8]).unwrap();
 /// assert!(report.residual_norm < 1e-12);
 /// ```
 pub struct NewtonSystem<D: DerivatorMultiVariable = AutoDiffMulti> {

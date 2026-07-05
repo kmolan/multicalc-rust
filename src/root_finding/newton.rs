@@ -29,8 +29,9 @@ const MAX_BACKTRACK: usize = 20;
 /// use multicalc::scalar_fn;
 ///
 /// // f(x) = x² − 2, root at √2 ≈ 1.41421356
-/// let f = scalar_fn!(|x| x * x - c(2.0));
-/// let report = Newton::default().solve(&f, 2.0_f64).unwrap();
+/// let f = scalar_fn!(|x| c(-2.0) + x * x);
+/// let solver: Newton = Newton::default();
+/// let report = solver.solve(&f, 2.0_f64).unwrap();
 /// assert!((report.root - 2.0_f64.sqrt()).abs() < 1e-12);
 /// ```
 pub struct Newton<D: DerivatorSingleVariable = AutoDiffSingle> {

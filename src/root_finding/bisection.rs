@@ -20,7 +20,7 @@ use crate::utils::error_codes::CalcError;
 /// use multicalc::scalar_fn;
 ///
 /// // f(x) = x² − 2, root at √2 ≈ 1.41421356
-/// let f = scalar_fn!(|x| x * x - c(2.0));
+/// let f = scalar_fn!(|x| c(-2.0) + x * x);
 /// let report = Bisection::default().solve(&f, 0.0_f64, 2.0).unwrap();
 /// assert!((report.root - 2.0_f64.sqrt()).abs() < 1e-9);
 /// ```
