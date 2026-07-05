@@ -1,0 +1,1 @@
+//! Bracketed scalar bisection solver.
