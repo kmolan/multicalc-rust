@@ -518,6 +518,51 @@ fn test_composite_rule_degree_3_polynomial() {
     assert!(f64::abs(val - 4.0) < 1e-9);
 }
 
+//naive left-to-right trapezoidal accumulation, matching the library's point stepping and
+//weights so the only difference from the pairwise version is the summation order
+fn naive_trapezoidal<F: Fn(f64) -> f64>(iterations: u64, lo: f64, hi: f64, f: F) -> f64 {
+    let delta = (hi - lo) / iterations as f64;
+    let mut point = lo;
+    let mut ans = f(point);
+    for _ in 0..iterations - 1 {
+        point += delta;
+        ans += 2.0 * f(point);
+    }
+    ans += f(hi);
+    0.5 * delta * ans
+}
+
+#[test]
+fn pairwise_integration_is_accurate_on_long_sum() {
+    //1/(1+x^2) over [0, 1] is exactly pi/4. With 2^23 intervals the trapezoidal truncation
+    //error sits at machine epsilon, so naive accumulation (error ~ n*eps) becomes the limiting
+    //factor; pairwise keeps the result truncation-limited and lands far closer to the exact value
+    let func = |x: f64| -> f64 { 1.0 / (1.0 + x * x) };
+    let exact = core::f64::consts::PI / 4.0;
+    let iterations: u64 = 1 << 23;
+
+    let integrator = iterative_integration::IterativeSingle::from_parameters(
+        iterations,
+        IterativeMethod::Trapezoidal,
+    );
+    let pairwise = integrator.get_single(&func, &[0.0, 1.0]).unwrap();
+    let naive = naive_trapezoidal(iterations, 0.0, 1.0, func);
+
+    let pairwise_err = f64::abs(pairwise - exact);
+    let naive_err = f64::abs(naive - exact);
+
+    //tighter than the ~n*eps a naive sum could reach at this term count
+    assert!(
+        pairwise_err < 1e-12,
+        "pairwise error {pairwise_err:e} too large"
+    );
+    //and strictly closer to the exact value than the naive accumulation
+    assert!(
+        pairwise_err < naive_err,
+        "pairwise ({pairwise_err:e}) should be closer than naive ({naive_err:e})"
+    );
+}
+
 #[test]
 fn test_booles_integration_f32() {
     //2x integrated over [0, 2] is 4

@@ -102,6 +102,70 @@ fn test_linear_approximation_exact() {
 }
 
 #[test]
+fn metrics_are_accurate_on_large_point_set() {
+    //truth is x^2, so a linear approximation about `a` has the exact residual -(x - a)^2.
+    //over a large point set this exercises the four running sums inside the metrics; assert the
+    //returned metrics match the closed-form analytic values.
+    const N: usize = 10_000;
+    let truth = scalar_fn!(|v: &[f64; 1]| v[0] * v[0]);
+    let a = 6.0;
+
+    let approximator = LinearApproximator::<AutoDiffMulti>::default();
+    let result = approximator.get(&truth, &[a]).unwrap();
+
+    let mut prediction_points = [[0.0; 1]; N];
+    for (i, p) in prediction_points.iter_mut().enumerate() {
+        p[0] = 1.0 + i as f64 * 0.001; //x spread over [1.0, 11.0)
+    }
+
+    let metrics = result.get_prediction_metrics(&prediction_points, &truth);
+
+    //closed-form reference: residual(x) = -(x - a)^2 and y = x^2
+    let n = N as f64;
+    let mut sum_abs = 0.0;
+    let mut ss_res = 0.0;
+    let mut sum_y = 0.0;
+    for p in &prediction_points {
+        let residual_sq = (p[0] - a) * (p[0] - a);
+        sum_abs += residual_sq;
+        ss_res += residual_sq * residual_sq;
+        sum_y += p[0] * p[0];
+    }
+    let mean_y = sum_y / n;
+    let mut ss_tot = 0.0;
+    for p in &prediction_points {
+        let d = p[0] * p[0] - mean_y;
+        ss_tot += d * d;
+    }
+    let mae_ref = sum_abs / n;
+    let mse_ref = ss_res / n;
+    let rmse_ref = mse_ref.sqrt();
+    let r2_ref = 1.0 - ss_res / ss_tot;
+
+    let close = |got: f64, want: f64| (got - want).abs() <= 1e-8 * want.abs().max(1.0);
+    assert!(
+        close(metrics.mean_absolute_error, mae_ref),
+        "mae {} vs {mae_ref}",
+        metrics.mean_absolute_error
+    );
+    assert!(
+        close(metrics.mean_squared_error, mse_ref),
+        "mse {} vs {mse_ref}",
+        metrics.mean_squared_error
+    );
+    assert!(
+        close(metrics.root_mean_squared_error, rmse_ref),
+        "rmse {} vs {rmse_ref}",
+        metrics.root_mean_squared_error
+    );
+    assert!(
+        close(metrics.r_squared, r2_ref),
+        "r2 {} vs {r2_ref}",
+        metrics.r_squared
+    );
+}
+
+#[test]
 fn test_linear_approximation_f32() {
     //exactly-linear truth 2x + 3y - z + 5
     let truth = scalar_fn!(|v: &[f64; 3]| c(5.0) + c(2.0) * v[0] + c(3.0) * v[1] - v[2]);

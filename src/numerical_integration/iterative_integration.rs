@@ -4,6 +4,7 @@ use crate::numerical_integration::integrator::*;
 use crate::numerical_integration::mode::IterativeMethod;
 use crate::scalar::Numeric;
 use crate::utils::error_codes::CalcError;
+use crate::utils::summation::PairwiseSum;
 
 /// Default interval count. A multiple of 12 so Boole (needs a multiple of 4) and
 /// Simpson 3/8 (needs a multiple of 3) both align with the composite-rule weights.
@@ -78,12 +79,13 @@ fn booles<T: Numeric, G: FnMut(T) -> T>(iterations: u64, lo: T, hi: T, mut g: G)
     let delta = (hi - lo) / T::from_u64(iterations);
     let mut point = lo;
 
-    let mut ans = T::from_f64(7.0) * g(point);
+    let mut ans = PairwiseSum::new();
+    ans.add(T::from_f64(7.0) * g(point));
     let mut multiplier = T::from_f64(32.0);
 
     for iter in 0..iterations - 1 {
         point += delta;
-        ans += multiplier * g(point);
+        ans.add(multiplier * g(point));
 
         if (iter + 2) % 2 != 0 {
             multiplier = T::from_f64(32.0);
@@ -94,9 +96,9 @@ fn booles<T: Numeric, G: FnMut(T) -> T>(iterations: u64, lo: T, hi: T, mut g: G)
         }
     }
 
-    ans += T::from_f64(7.0) * g(hi);
+    ans.add(T::from_f64(7.0) * g(hi));
 
-    T::TWO * delta * ans / T::from_f64(45.0)
+    T::TWO * delta * ans.total() / T::from_f64(45.0)
 }
 
 /// Simpson's 3/8 composite rule over `[lo, hi]`.
@@ -104,12 +106,13 @@ fn simpsons<T: Numeric, G: FnMut(T) -> T>(iterations: u64, lo: T, hi: T, mut g: 
     let delta = (hi - lo) / T::from_u64(iterations);
     let mut point = lo;
 
-    let mut ans = g(point);
+    let mut ans = PairwiseSum::new();
+    ans.add(g(point));
     let mut multiplier = T::from_f64(3.0);
 
     for iter in 0..iterations - 1 {
         point += delta;
-        ans += multiplier * g(point);
+        ans.add(multiplier * g(point));
 
         if (iter + 2) % 3 == 0 {
             multiplier = T::TWO;
@@ -118,9 +121,9 @@ fn simpsons<T: Numeric, G: FnMut(T) -> T>(iterations: u64, lo: T, hi: T, mut g: 
         }
     }
 
-    ans += g(hi);
+    ans.add(g(hi));
 
-    T::from_f64(3.0) * delta * ans / T::from_f64(8.0)
+    T::from_f64(3.0) * delta * ans.total() / T::from_f64(8.0)
 }
 
 /// Trapezoidal composite rule over `[lo, hi]`.
@@ -128,16 +131,17 @@ fn trapezoidal<T: Numeric, G: FnMut(T) -> T>(iterations: u64, lo: T, hi: T, mut 
     let delta = (hi - lo) / T::from_u64(iterations);
     let mut point = lo;
 
-    let mut ans = g(point);
+    let mut ans = PairwiseSum::new();
+    ans.add(g(point));
 
     for _ in 0..iterations - 1 {
         point += delta;
-        ans += T::TWO * g(point);
+        ans.add(T::TWO * g(point));
     }
 
-    ans += g(hi);
+    ans.add(g(hi));
 
-    T::HALF * delta * ans
+    T::HALF * delta * ans.total()
 }
 
 /// Implements the iterative methods for numerical integration for single variable functions

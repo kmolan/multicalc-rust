@@ -116,11 +116,11 @@ multi-variable, mixed partial $$\partial^3/\partial x^2\partial y$$ (`Dual<Hyper
 
 Operation                                                        | Median time |
 ---------------------------------------------------------------- | ----------- |
-Boole, single integral, finite limits                            | 81 ns       |
-Simpson 3/8, single integral, finite limits                      | 88 ns       |
-Trapezoidal, single integral, finite limits                      | 74 ns       |
-Boole, double-fold single-variable                               | 127 ns      |
-Boole, $$e^{-x^2}$$ over a **finite** limit $$[-5, 5]$$          | 0.49 µs     |
+Boole, single integral, finite limits                            | 98 ns       |
+Simpson 3/8, single integral, finite limits                      | 104 ns      |
+Trapezoidal, single integral, finite limits                      | 86 ns       |
+Boole, double-fold single-variable                               | 180 ns      |
+Boole, $$e^{-x^2}$$ over a **finite** limit $$[-5, 5]$$          | 0.55 µs     |
 Boole, $$e^{-x^2}$$ over an **infinite** limit $$(-\infty,\infty)$$ | 2.2 µs   |
 
 ### Gaussian quadrature
