@@ -1,0 +1,51 @@
+[package]
+name = "multicalc"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Rust scientific computing for single and multi-variable calculus"
+repository.workspace = true
+license.workspace = true
+documentation = "https://docs.rs/multicalc"
+readme = "README.md"
+keywords = ["Math", "Science", "Calculus", "Differentiation", "Integration"]
+categories = ["mathematics", "science", "no-std"]
+
+[dependencies]
+libm = "0.2"
+
+[target.'cfg(not(target_arch = "arm"))'.dev-dependencies]
+rand = "0.8"
+criterion = "0.5"
+
+[features]
+default = []
+alloc = []
+embedded = []    # marker only, keeps the firmware example off host builds
+
+[[example]]
+name = "embedded_curve_fit"
+required-features = ["embedded"]
+
+[target.'cfg(target_arch = "arm")'.dev-dependencies]
+cortex-m-rt = "0.7"  # ARM-only, not pulled in for host builds
+
+[[bench]]
+name = "calculus"
+harness = false
+
+[[bench]]
+name = "linear_algebra"
+harness = false
+
+[[bench]]
+name = "optimization"
+harness = false
+
+[[bench]]
+name = "root_finding"
+harness = false
+
+[lints]
+workspace = true

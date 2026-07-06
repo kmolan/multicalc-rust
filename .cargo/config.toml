@@ -13,6 +13,6 @@ rustflags = [
 ]
 
 [alias]
-fit        = "run --example curve_fit"
-fit-eabi   = "build --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabi"
-fit-eabihf = "build --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabihf"
+fit        = "run -p multicalc --example curve_fit"
+fit-eabi   = "build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabi"
+fit-eabihf = "build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabihf"

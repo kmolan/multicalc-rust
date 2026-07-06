@@ -1,55 +1,19 @@
-[package]
-name = "multicalc"
+[workspace]
+members = ["crates/multicalc"]
+default-members = ["crates/multicalc"]
+resolver = "3"
+
+[workspace.package]
 version = "0.7.0"
 authors = ["akathail <anmolkathail@gmail.com>"]
 edition = "2024"
 rust-version = "1.85"
-description = "Rust scientific computing for single and multi-variable calculus"
-repository = "https://github.com/kmolan/multicalc-rust"
 license = "MIT"
-documentation = "https://docs.rs/multicalc"
-readme = "README.md"
-keywords = ["Math", "Science", "Calculus", "Differentiation", "Integration"]
-categories = ["mathematics", "science", "no-std"]
+repository = "https://github.com/kmolan/multicalc-rust"
 
-[dependencies]
-libm = "0.2"
-
-[target.'cfg(not(target_arch = "arm"))'.dev-dependencies]
-rand = "0.8"
-criterion = "0.5"
-
-[features]
-default = []
-alloc = []
-embedded = []    # marker only, keeps the firmware example off host builds
-
-[[example]]
-name = "embedded_curve_fit"
-required-features = ["embedded"]
-
-[target.'cfg(target_arch = "arm")'.dev-dependencies]
-cortex-m-rt = "0.7"  # ARM-only, not pulled in for host builds
-
-[[bench]]
-name = "calculus"
-harness = false
-
-[[bench]]
-name = "linear_algebra"
-harness = false
-
-[[bench]]
-name = "optimization"
-harness = false
-
-[[bench]]
-name = "root_finding"
-harness = false
-
-[lints.rust]
+[workspace.lints.rust]
 unsafe_code = "forbid"
 
-[lints.clippy]
+[workspace.lints.clippy]
 # For `[&dyn Fn(&[f64; N]) -> f64; N]` field/transform arrays
 type_complexity = "allow"
