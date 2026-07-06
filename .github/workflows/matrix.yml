@@ -45,7 +45,10 @@ jobs:
           targets: ${{ matrix.target }}
           components: llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@cargo-binutils
+      # cargo-binutils provides `cargo size`, used by the budget check. It wraps
+      # the llvm-tools-preview component installed above.
+      - name: Install cargo-binutils
+        run: cargo install cargo-binutils
       - name: Install QEMU
         run: sudo apt-get update && sudo apt-get install -y qemu-system-arm
       - name: Run smoke test under QEMU
