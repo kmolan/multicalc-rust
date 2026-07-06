@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/multicalc"]
+members = ["crates/multicalc", "crates/embedded-smoke"]
 default-members = ["crates/multicalc"]
 resolver = "3"
 
