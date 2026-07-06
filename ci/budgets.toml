@@ -2,8 +2,22 @@
 # text_bytes: size of the .text section of the release smoke binary.
 # stack_bytes: peak stack use printed by the smoke run (STACK_HWM_BYTES).
 # tolerance_pct: allowed growth before the check fails.
-# Measure with: cargo run -p embedded-smoke --release --target <triple>
-# and: cargo size --release -p embedded-smoke --target <triple> -- -A
+#
+# Run the gate for one target (capture the run, then compare):
+#   cargo run -p embedded-smoke --release --target <triple> | tee smoke-<triple>.txt
+#   bash ci/check_budgets.sh <triple> smoke-<triple>.txt
+# where <triple> is one of the three sections below:
+#   thumbv7em-none-eabi     (Cortex-M4, soft-float)
+#   thumbv7em-none-eabihf   (Cortex-M4, hardware FPU)
+#   thumbv6m-none-eabi      (Cortex-M0 build)
+#
+# Copy-paste form for each target:
+#   cargo run -p embedded-smoke --release --target thumbv7em-none-eabi   | tee smoke-thumbv7em-none-eabi.txt   && bash ci/check_budgets.sh thumbv7em-none-eabi   smoke-thumbv7em-none-eabi.txt
+#   cargo run -p embedded-smoke --release --target thumbv7em-none-eabihf | tee smoke-thumbv7em-none-eabihf.txt && bash ci/check_budgets.sh thumbv7em-none-eabihf smoke-thumbv7em-none-eabihf.txt
+#   cargo run -p embedded-smoke --release --target thumbv6m-none-eabi    | tee smoke-thumbv6m-none-eabi.txt    && bash ci/check_budgets.sh thumbv6m-none-eabi    smoke-thumbv6m-none-eabi.txt
+#
+# Read just the raw .text size for a target:
+#   cargo size --release -p embedded-smoke --target <triple> -- -A
 
 tolerance_pct = 10
 
