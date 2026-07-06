@@ -1,8 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -21,31 +19,23 @@ env:
 jobs:
   matrix:
     name: target matrix
+    # Representative set (full: false by default): x86_64 host + both thumbv7em ABIs.
+    # The complete matrix runs in full.yml (push:main / nightly) and on release.
     uses: ./.github/workflows/matrix.yml
 
   test:
-    name: test (${{ matrix.rust }})
+    name: test (stable)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # "1.85" is the MSRV and must match Cargo.toml `rust-version`
-        rust: [stable, "1.85"]
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.rust }}
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@cargo-hack
       - name: Test (default, no_std-shaped)
         run: cargo test -p multicalc
       - name: Test (alloc feature)
         run: cargo test -p multicalc --features alloc
       - name: Doctests
         run: cargo test -p multicalc --doc
-      - name: Every feature combination compiles
-        run: cargo hack -p multicalc --feature-powerset --no-dev-deps check
 
   oracle:
     name: oracle fixtures (host-only)
@@ -105,28 +95,6 @@ jobs:
       - name: Build embedded example — hardware-FPU (links a firmware image)
         run: cargo build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabihf
 
-  package:
-    name: package + examples/benches
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Build examples
-        run: cargo build -p multicalc --examples
-      - name: Build benches
-        run: cargo build -p multicalc --benches
-      # runs a clean `cargo package` build — the same packaging the Step 15
-      # release workflow relies on, so a release can't fail at publish time
-      - name: Packaging dry-run
-        run: cargo publish -p multicalc --dry-run
-      - name: Build timings
-        run: cargo build -p multicalc --timings
-      - uses: actions/upload-artifact@v4
-        with:
-          name: cargo-timings
-          path: target/cargo-timings/*.html
-
   semver:
     name: semver-checks
     runs-on: ubuntu-latest
@@ -138,35 +106,15 @@ jobs:
       - name: Check for unplanned breaking changes
         run: cargo semver-checks --package multicalc
 
-  supply-chain:
-    name: cargo-deny
+  # Green only if every representative job passed.
+  # Branch protection points at this job, so adding or removing a job above never
+  # needs a settings change.
+  ci-success:
+    name: CI success
+    if: always()
+    needs: [matrix, test, oracle, lint, docs, no_std, semver]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: taiki-e/install-action@cargo-deny
-      - name: Advisories, licenses, sources
-        run: cargo deny check
-
-  coverage:
-    name: coverage (informational)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@cargo-llvm-cov
-      - name: Measure line coverage
-        run: |
-          cargo llvm-cov --no-report -p multicalc --features alloc
-          cargo llvm-cov report --lcov --output-path lcov.info
-          cargo llvm-cov report --html
-          echo "Coverage report attached as an artifact." >> "$GITHUB_STEP_SUMMARY"
-          cargo llvm-cov report --summary-only >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: |
-            lcov.info
-            target/llvm-cov/html
+      - name: Fail if any dependency failed or was cancelled
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: exit 1

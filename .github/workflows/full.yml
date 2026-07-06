@@ -1,0 +1,196 @@
+name: Full CI
+
+# The complete suite, run where speed matters less than coverage: after a commit
+# lands on main (post-merge), nightly, and on demand. Per-PR runs use the trimmed
+# representative set in ci.yml; this workflow is a strict superset of it — it
+# re-runs host, thumbv7em, test, oracle, lint, docs,
+# no_std, semver and adds the aarch64 host, the thumbv6m canary, the MSRV
+# toolchain, the feature powerset, packaging, cargo-deny, and coverage. So a
+# direct push to main gets the same gates a PR would, plus the full matrix.
+#
+# Scheduled runs only fire from the default branch's copy of this file, and GitHub
+# disables schedules after 60 days of repository inactivity — a manual run or any
+# push re-arms them. On an active repo the push:main trigger is the primary full
+# run; nightly is the backstop for quiet periods and time-based drift (new RUSTSEC
+# advisories with no dependency change).
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * *" # ~06:17 UTC; odd minute avoids the congested top-of-hour
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Let an in-flight full run finish rather than cancelling it — every landed commit
+# should get its own complete result.
+concurrency:
+  group: full-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  matrix:
+    name: target matrix
+    uses: ./.github/workflows/matrix.yml
+    with:
+      full: true
+
+  test:
+    name: test (${{ matrix.rust }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # "1.85" is the MSRV and must match Cargo.toml `rust-version`
+        rust: [stable, "1.85"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Test (default, no_std-shaped)
+        run: cargo test -p multicalc
+      - name: Test (alloc feature)
+        run: cargo test -p multicalc --features alloc
+      - name: Doctests
+        run: cargo test -p multicalc --doc
+
+  oracle:
+    name: oracle fixtures (host-only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Reads committed fixtures only — never runs Python, never downloads MuJoCo.
+      - run: cargo test -p multicalc-oracle
+
+  lint:
+    name: fmt + clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Formatting
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy -p multicalc --all-targets --features alloc -- -D warnings
+      - name: No nightly features
+        run: |
+          if grep -rnE '#!\[feature\(|generic_const_exprs' crates/*/src; then
+            echo "Nightly-only features are not allowed on stable."
+            exit 1
+          fi
+
+  docs:
+    name: doc build
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build docs (deny warnings, broken links)
+        run: cargo doc -p multicalc --no-deps --all-features
+
+  no_std:
+    name: bare-metal (thumbv7em-none-eabi)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv7em-none-eabi, thumbv7em-none-eabihf
+      - uses: Swatinem/rust-cache@v2
+      - name: Build for bare metal (no default features)
+        run: cargo build -p multicalc --no-default-features --target thumbv7em-none-eabi
+      - name: Build embedded example — soft-float (links a firmware image)
+        run: cargo build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabi
+      - name: Build embedded example — hardware-FPU (links a firmware image)
+        run: cargo build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabihf
+
+  semver:
+    name: semver-checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-semver-checks
+      - name: Check for unplanned breaking changes
+        run: cargo semver-checks --package multicalc
+
+  feature-powerset:
+    name: feature powerset
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-hack
+      - name: Every feature combination compiles
+        run: cargo hack -p multicalc --feature-powerset --no-dev-deps check
+
+  package:
+    name: package + examples/benches
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build examples
+        run: cargo build -p multicalc --examples
+      - name: Build benches
+        run: cargo build -p multicalc --benches
+      # runs a clean `cargo package` build — the same packaging the Step 15
+      # release workflow relies on, so a release can't fail at publish time
+      - name: Packaging dry-run
+        run: cargo publish -p multicalc --dry-run
+      - name: Build timings
+        run: cargo build -p multicalc --timings
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cargo-timings
+          path: target/cargo-timings/*.html
+
+  supply-chain:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@cargo-deny
+      - name: Advisories, licenses, sources
+        run: cargo deny check
+
+  coverage:
+    name: coverage (informational)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Measure line coverage
+        run: |
+          cargo llvm-cov --no-report -p multicalc --features alloc
+          cargo llvm-cov report --lcov --output-path lcov.info
+          cargo llvm-cov report --html
+          echo "Coverage report attached as an artifact." >> "$GITHUB_STEP_SUMMARY"
+          cargo llvm-cov report --summary-only >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            lcov.info
+            target/llvm-cov/html

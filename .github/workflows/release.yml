@@ -53,6 +53,9 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.new == 'true'
     uses: ./.github/workflows/matrix.yml
+    # Releases always run the complete 5-target matrix.
+    with:
+      full: true
 
   # Runs only for a genuinely new version. The `crates-io` environment is where a
   # manual-approval gate lives: add required reviewers to it in the repo settings and
