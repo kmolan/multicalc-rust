@@ -48,11 +48,17 @@ jobs:
         if: steps.tag.outputs.new == 'true'
         run: grep -q "^## \[${{ steps.v.outputs.version }}\]" CHANGELOG.md
 
+  # Build and run every target before publishing. Only runs for a new version.
+  matrix:
+    needs: prepare
+    if: needs.prepare.outputs.new == 'true'
+    uses: ./.github/workflows/matrix.yml
+
   # Runs only for a genuinely new version. The `crates-io` environment is where a
   # manual-approval gate lives: add required reviewers to it in the repo settings and
   # this job pauses for sign-off before publishing. Until then it runs unguarded.
   publish:
-    needs: prepare
+    needs: [prepare, matrix]
     if: needs.prepare.outputs.new == 'true'
     runs-on: ubuntu-latest
     environment: crates-io
