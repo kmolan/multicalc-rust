@@ -46,11 +46,20 @@ jobs:
           components: llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
       # cargo-binutils provides `cargo size`, used by the budget check. It wraps
-      # the llvm-tools-preview component installed above.
-      - name: Install cargo-binutils
-        run: cargo install cargo-binutils
-      - name: Install QEMU
-        run: sudo apt-get update && sudo apt-get install -y qemu-system-arm
+      # the llvm-tools-preview component installed above. rust-cache does not cover
+      # installed binaries, so cache the compiled tool separately (built from source
+      # on a cache miss, restored on a hit).
+      - name: Install cargo-binutils (cached)
+        uses: taiki-e/cache-cargo-install-action@v3
+        with:
+          tool: cargo-binutils
+      # Cache the QEMU apt package + its dependencies instead of re-downloading it
+      # on every run.
+      - name: Install QEMU (cached)
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: qemu-system-arm
+          version: 1.0
       - name: Run smoke test under QEMU
         run: cargo run -p embedded-smoke --release --target ${{ matrix.target }} | tee smoke-${{ matrix.target }}.txt
       - name: Check size and stack budget
