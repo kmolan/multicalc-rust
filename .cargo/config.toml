@@ -1,0 +1,18 @@
+[target.thumbv7em-none-eabi]      # soft-float
+rustflags = [
+  "-C", "link-arg=-Tlink.x",      # cortex-m-rt linker script (INCLUDEs memory.x)
+  "-C", "link-arg=--nmagic",      # no page-alignment padding on bare metal
+  "-L", ".",                      # repo root onto the linker search path so memory.x resolves
+]
+
+[target.thumbv7em-none-eabihf]    # hardware-FPU — identical flags
+rustflags = [
+  "-C", "link-arg=-Tlink.x",
+  "-C", "link-arg=--nmagic",
+  "-L", ".",
+]
+
+[alias]
+fit        = "run --example curve_fit"
+fit-eabi   = "build --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabi"
+fit-eabihf = "build --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabihf"

@@ -343,6 +343,36 @@ fn gn_backtracking_rescues_far_start() {
     assert!(guarded.solution[0].abs() < 1e-6, "{guarded:?}");
 }
 
+// ----- Embedded artifact regression -----
+
+struct SensorFit<const M: usize> {
+    t: [f64; M],
+    y: [f64; M],
+}
+
+impl<const M: usize> VectorFn<2, M> for SensorFit<M> {
+    fn eval<S: Numeric>(&self, p: &[S; 2]) -> [S; M] {
+        let (a, b) = (p[0], p[1]);
+        core::array::from_fn(|i| a * (b * S::from_f64(self.t[i])).exp() - S::from_f64(self.y[i]))
+    }
+}
+
+#[test]
+fn embedded_artifact_fit_recovers_parameters() {
+    let t: [f64; 8] = core::array::from_fn(|i| i as f64);
+    let y: [f64; 8] = core::array::from_fn(|i| 100.0 * (-0.5 * i as f64).exp());
+    let problem = SensorFit { t, y };
+
+    let report = LevenbergMarquardt::<AutoDiffMulti>::default()
+        .with_patience(50)
+        .minimize(&problem, &[80.0, -0.3])
+        .unwrap();
+
+    assert!((report.solution[0] - 100.0).abs() < 1e-9);
+    assert!((report.solution[1] + 0.5).abs() < 1e-9);
+    assert!(report.objective_function < 1e-12);
+}
+
 // ----- Residual / Jacobian API -----
 
 // Largest entrywise gap between the exact autodiff Jacobian and a central finite-difference
