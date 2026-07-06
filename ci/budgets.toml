@@ -1,0 +1,20 @@
+# Size and stack budgets per bare-metal target.
+# text_bytes: size of the .text section of the release smoke binary.
+# stack_bytes: peak stack use printed by the smoke run (STACK_HWM_BYTES).
+# tolerance_pct: allowed growth before the check fails.
+# Measure with: cargo run -p embedded-smoke --release --target <triple>
+# and: cargo size --release -p embedded-smoke --target <triple> -- -A
+
+tolerance_pct = 10
+
+[thumbv7em-none-eabi]
+text_bytes = 30272
+stack_bytes = 1935
+
+[thumbv7em-none-eabihf]
+text_bytes = 33372
+stack_bytes = 2195
+
+[thumbv6m-none-eabi]
+text_bytes = 29968
+stack_bytes = 2100

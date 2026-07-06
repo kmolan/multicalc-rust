@@ -19,6 +19,10 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  matrix:
+    name: target matrix
+    uses: ./.github/workflows/matrix.yml
+
   test:
     name: test (${{ matrix.rust }})
     runs-on: ubuntu-latest

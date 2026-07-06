@@ -13,9 +13,9 @@ mod checks;
 // Byte written across free stack so we can find how deep the stack went.
 const PAINT: u8 = 0xAA;
 // Bytes of free stack to watch. Must be smaller than the free stack on the
-// smallest target (the microbit has 16 KB RAM) and larger than the deepest check.
-// 4 KB fits both. If the printed stack ever equals WINDOW it has saturated —
-// raise WINDOW and confirm the target still has room.
+// target (64 KB RAM) and larger than the deepest check. 4 KB fits both. If the
+// printed stack ever equals WINDOW it has saturated — raise WINDOW and confirm
+// the target still has room.
 const WINDOW: usize = 4096;
 // Bytes just below the current stack pointer we never touch (our own frame).
 const GUARD: usize = 64;

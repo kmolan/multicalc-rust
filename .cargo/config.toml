@@ -14,12 +14,12 @@ rustflags = [
   "-L", ".",
 ]
 
-[target.thumbv6m-none-eabi]       # Cortex-M0, no compare-and-swap
-runner = "qemu-system-arm -machine microbit -nographic -semihosting-config enable=on,target=native -kernel"
+[target.thumbv6m-none-eabi]       # Cortex-M0 build; runs on the Cortex-M4 machine (M0 is a subset of it)
+runner = "qemu-system-arm -machine netduinoplus2 -nographic -semihosting-config enable=on,target=native -kernel"
 rustflags = [
   "-C", "link-arg=-Tlink.x",
   "-C", "link-arg=--nmagic",
-  "-L", "crates/embedded-smoke/nrf51",
+  "-L", ".",                      # repo root onto the linker search path so memory.x resolves
 ]
 
 [alias]
