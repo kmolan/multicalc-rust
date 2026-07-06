@@ -13,6 +13,16 @@ ABIs under QEMU. It is a dev-only crate (`publish = false`, not in
 `default-members`) and is never built for a host target, and `cortex-m-rt` only
 links for the `thumb*` triples.
 
+## Why a separate crate, not tests inside `multicalc`
+
+These smoke tests cannot live next to the code they check. This is a full
+program for a bare chip, not a normal test. It brings its own start-up code, its
+own crash handler, and a custom link step, and it needs chip-only crates (like
+`cortex-m-rt`) that only build for the chip targets. Pulling those into
+`multicalc` would break it on a normal computer and drag chip-only dependencies
+and build settings into a library that ships to `crates.io`. Keeping the two apart lets `multicalc`
+stay small, safe, and portable, while this crate stays dev-only and never ships.
+
 ## Checks
 
 `src/checks.rs` runs four cases against the public API. Each asserts a
