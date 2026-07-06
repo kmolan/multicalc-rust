@@ -1,0 +1,28 @@
+"""Entry point: seed the RNG and run each module's generator in a fixed order.
+
+Writes fixtures under `<out>/v1/**`. Run inside the pinned container so the
+library versions recorded in each fixture match the committed ones.
+"""
+
+import argparse
+
+import numpy as np
+
+from generators import linalg, optimization, quadrature
+
+SEED = 20260706
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Generate oracle fixtures.")
+    parser.add_argument("--out", required=True, help="output directory (holds v1/)")
+    args = parser.parse_args()
+
+    rng = np.random.default_rng(SEED)
+    linalg.run(args.out, rng, SEED)
+    optimization.run(args.out, SEED)
+    quadrature.run(args.out, SEED)
+
+
+if __name__ == "__main__":
+    main()
