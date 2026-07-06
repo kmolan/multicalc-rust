@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-06
+
+A feature release adding automatic differentiation, a linear-algebra core, nonlinear
+optimization, and root finding, while staying strict `no_std`.
+
+### Added
+
+- **Automatic differentiation.** New `scalar` module with dual, hyper-dual, and Jet
+  number types built on a shared numeric-traits abstraction. Autodiff is now the
+  default backend for derivatives, gradients, Jacobians, and Hessians, with finite
+  differences still available.
+- **Linear algebra.** Fixed-size, const-generic `Vector` and `Matrix` types plus
+  small-matrix solves: inverse, LU, Cholesky, QR, and SVD.
+- **Optimization.** A nonlinear least-squares `optimization` module with Gauss-Newton,
+  Levenberg-Marquardt, and trust-region solvers.
+- **Root finding.** A `root_finding` module with bisection, Newton's method, and Newton
+  for systems of equations.
+- Pairwise summation utility for numerically stable sums, applied across iterative
+  integration and approximation.
+- An embedded curve-fitting example and an `embedded` feature marker that keeps the
+  firmware example off host builds.
+- A README for every source module, and benchmark suites split by area (calculus,
+  linear algebra, optimization, root finding).
+
+### Changed
+
+- Autodiff replaces finite differences as the default differentiation method.
+- Public integration tests moved from `src/**/test.rs` into top-level `tests/`, and
+  `BENCHMARKS.md` was split into per-area files under `benches/`.
+
 ## [0.6.0] - 2026-06-28
 
 A breaking rewrite focused on real-time latency, ease of use, maintainability, and strict `no_std`.
@@ -53,5 +83,6 @@ A breaking rewrite focused on real-time latency, ease of use, maintainability, a
 
 - The `num-complex` dependency, the `ComplexFloat` generic, and `f32` / complex-number support.
 
-[Unreleased]: https://github.com/kmolan/multicalc-rust/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/kmolan/multicalc-rust/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/kmolan/multicalc-rust/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/kmolan/multicalc-rust/releases/tag/v0.6.0
