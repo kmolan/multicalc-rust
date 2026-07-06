@@ -22,6 +22,14 @@ criterion = "0.5"
 [features]
 default = []
 alloc = []
+embedded = []    # marker only, keeps the firmware example off host builds
+
+[[example]]
+name = "embedded_curve_fit"
+required-features = ["embedded"]
+
+[target.'cfg(target_arch = "arm")'.dev-dependencies]
+cortex-m-rt = "0.7"  # ARM-only, not pulled in for host builds
 
 [[bench]]
 name = "calculus"
