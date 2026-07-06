@@ -1,0 +1,30 @@
+# Supply-chain checks for cargo-deny.
+
+[advisories]
+# Fail on known security advisories and yanked crates.
+version = 2
+yanked = "deny"
+
+[licenses]
+# Only these licenses are allowed in the dependency tree.
+version = 2
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "Unicode-3.0",
+  "Zlib",
+]
+confidence-threshold = 0.9
+
+[bans]
+# The dev tree (criterion) pulls many crates, so only warn on duplicates.
+multiple-versions = "warn"
+wildcards = "allow"
+
+[sources]
+# Only crates.io.
+unknown-registry = "deny"
+unknown-git = "deny"
