@@ -15,7 +15,7 @@ categories = ["mathematics", "science", "no-std"]
 [dependencies]
 libm = "0.2"
 
-[dev-dependencies]
+[target.'cfg(not(target_arch = "arm"))'.dev-dependencies]
 rand = "0.8"
 criterion = "0.5"
 

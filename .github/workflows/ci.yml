@@ -76,10 +76,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: thumbv7em-none-eabi
+          targets: thumbv7em-none-eabi, thumbv7em-none-eabihf
       - uses: Swatinem/rust-cache@v2
       - name: Build for bare metal (no default features)
         run: cargo build --no-default-features --target thumbv7em-none-eabi
+      - name: Build embedded example — soft-float (links a firmware image)
+        run: cargo build --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabi
+      - name: Build embedded example — hardware-FPU (links a firmware image)
+        run: cargo build --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabihf
 
   package:
     name: package + examples/benches
