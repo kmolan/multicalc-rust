@@ -1,8 +1,19 @@
 name: Target matrix
 
 # Reusable: called by CI on pull requests and by Release on a version bump.
+#
+# `full` selects the target set. false (default) = the per-PR representative set
+# (x86_64 host + both thumbv7em ABIs); true = the complete matrix, adding the
+# aarch64 host and the thumbv6m canary. The `setup` job turns that flag into the
+# JSON matrices the two build jobs consume, so representative and full share one
+# set of steps and differ only in target list.
 on:
   workflow_call:
+    inputs:
+      full:
+        description: Run the complete target matrix (adds aarch64 host + thumbv6m).
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -11,17 +22,35 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  setup:
+    name: resolve target matrix
+    runs-on: ubuntu-latest
+    outputs:
+      hosts: ${{ steps.m.outputs.hosts }}
+      bare: ${{ steps.m.outputs.bare }}
+    steps:
+      - id: m
+        shell: bash
+        run: |
+          if [ "${{ inputs.full }}" = "true" ]; then
+            hosts='[{"target":"x86_64-unknown-linux-gnu","runner":"ubuntu-latest"},{"target":"aarch64-unknown-linux-gnu","runner":"ubuntu-24.04-arm"}]'
+            bare='["thumbv7em-none-eabi","thumbv7em-none-eabihf","thumbv6m-none-eabi"]'
+          else
+            hosts='[{"target":"x86_64-unknown-linux-gnu","runner":"ubuntu-latest"}]'
+            bare='["thumbv7em-none-eabi","thumbv7em-none-eabihf"]'
+          fi
+          echo "hosts=$hosts" >> "$GITHUB_OUTPUT"
+          echo "bare=$bare" >> "$GITHUB_OUTPUT"
+          echo "full=${{ inputs.full }} -> hosts=$hosts bare=$bare"
+
   hosts:
     name: host ${{ matrix.target }}
+    needs: setup
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - target: x86_64-unknown-linux-gnu
-            runner: ubuntu-latest
-          - target: aarch64-unknown-linux-gnu
-            runner: ubuntu-24.04-arm
+        include: ${{ fromJSON(needs.setup.outputs.hosts) }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -33,11 +62,12 @@ jobs:
 
   bare-metal:
     name: bare-metal ${{ matrix.target }}
+    needs: setup
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        target: [thumbv7em-none-eabi, thumbv7em-none-eabihf, thumbv6m-none-eabi]
+        target: ${{ fromJSON(needs.setup.outputs.bare) }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

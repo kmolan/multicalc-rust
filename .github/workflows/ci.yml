@@ -22,6 +22,8 @@ jobs:
   matrix:
     name: target matrix
     uses: ./.github/workflows/matrix.yml
+    with:
+      full: true
 
   test:
     name: test (${{ matrix.rust }})
