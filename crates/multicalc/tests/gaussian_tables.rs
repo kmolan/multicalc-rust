@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use multicalc::gaussian_tables::{MAX_ORDER, nodes};
 use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
 

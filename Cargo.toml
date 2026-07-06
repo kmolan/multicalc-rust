@@ -17,3 +17,7 @@ unsafe_code = "forbid"
 [workspace.lints.clippy]
 # For `[&dyn Fn(&[f64; N]) -> f64; N]` field/transform arrays
 type_complexity = "allow"
+# No panics on library paths. Functions must return `CalcError` instead.
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"

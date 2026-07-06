@@ -3,6 +3,8 @@
 //!
 //! Run with: `cargo run --example approximation`
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use multicalc::approximation::linear_approximation::LinearApproximator;
 use multicalc::approximation::quadratic_approximation::QuadraticApproximator;
 use multicalc::scalar::{ScalarFnN, c};

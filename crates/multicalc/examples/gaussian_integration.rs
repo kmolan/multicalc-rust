@@ -6,6 +6,8 @@
 //!
 //! Run with: `cargo run --example gaussian_integration`
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use multicalc::numerical_integration::gaussian_integration::{GaussianMulti, GaussianSingle};
 use multicalc::numerical_integration::integrator::{
     IntegratorMultiVariable, IntegratorSingleVariable,

@@ -2,6 +2,8 @@
 //! topic modules are kept in the `linear_algebra/` subdirectory so they form one test binary
 //! rather than one per file.
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 #[path = "linear_algebra/helpers.rs"]
 mod helpers;
 
