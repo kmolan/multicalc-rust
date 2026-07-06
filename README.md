@@ -6,9 +6,9 @@
 [![Docs](https://docs.rs/multicalc/badge.svg)](https://docs.rs/multicalc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Scientific computing for single- and multi-variable calculus in pure, safe Rust — from
-derivatives and integrals to curve fitting and linear algebra, built and tested on five
-hardware targets every commit, from a 64-bit server CPU down to a bare-metal microcontroller.**
+**Scientific computing for single- and multi-variable calculus in pure, safe Rust. Numerical
+derivatives, integrals, curve fitting and linear algebra; built and tested on five
+hardware targets. Exercise the same code from a 64-bit server CPU down to a bare-metal microcontroller.**
 
 ## Highlights
 
