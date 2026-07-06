@@ -1,12 +1,12 @@
 [package]
 name = "multicalc"
-version = "0.7.0"
-authors = ["akathail <anmolkathail@gmail.com>"]
-edition = "2024"
-rust-version = "1.85"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 description = "Rust scientific computing for single and multi-variable calculus"
-repository = "https://github.com/kmolan/multicalc-rust"
-license = "MIT"
+repository.workspace = true
+license.workspace = true
 documentation = "https://docs.rs/multicalc"
 readme = "README.md"
 keywords = ["Math", "Science", "Calculus", "Differentiation", "Integration"]
@@ -47,9 +47,5 @@ harness = false
 name = "root_finding"
 harness = false
 
-[lints.rust]
-unsafe_code = "forbid"
-
-[lints.clippy]
-# For `[&dyn Fn(&[f64; N]) -> f64; N]` field/transform arrays
-type_complexity = "allow"
+[lints]
+workspace = true
