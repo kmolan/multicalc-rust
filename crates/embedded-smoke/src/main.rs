@@ -1,5 +1,27 @@
-//! Runs the math checks on a Cortex-M target under QEMU.
-//! A panic exits QEMU with a failure code. A clean finish exits with success.
+//! A tiny test program for very small chips.
+//!
+//! This crate is not part of the library. It is a stand-alone check. It runs
+//! real math from `multicalc` on three kinds of small chips inside a fake chip
+//! (an emulator). Each answer is compared to a value we already know. If every
+//! answer is right, the run ends cleanly and reports success. If any answer is
+//! wrong, or the program crashes, the run stops and reports a failure.
+//!
+//! Why we need it: the library is built to run on tiny chips that have no
+//! operating system and very little memory. The normal tests run on a big
+//! computer and cannot prove that. This program does, on real chip layouts.
+//! It also reports how much memory the math used, so we can catch it growing
+//! too large.
+//!
+//! How the memory measurement works: before the checks run, the program fills a
+//! block of free memory with one known byte. After the checks, it finds how far
+//! into that block the byte was overwritten. That distance is the most memory
+//! the math used at once. Three values control this:
+//! - `PAINT`: the known byte written into free memory. Anywhere this byte is
+//!   still present, the math never reached.
+//! - `WINDOW`: how many bytes of free memory to fill and watch. It must be
+//!   larger than the math ever needs, but small enough to fit the chip.
+//! - `GUARD`: a small gap just below the current spot that we leave untouched,
+//!   so filling never clobbers the memory the program is using right now.
 
 #![no_std]
 #![no_main]

@@ -14,6 +14,15 @@ rustflags = [
   "-L", ".",
 ]
 
+# Runs on netduinoplus2, not microbit, even though microbit is the natural M0
+# machine. cortex-m-rt's link.x does `INCLUDE memory.x`, and the linker resolves
+# INCLUDE from its CWD (the workspace root) before any -L path. The repo-root
+# memory.x (FLASH = 0x08000000, used by the thumbv7em targets and the
+# embedded_curve_fit example) therefore shadows any per-target override, so a
+# 0x0 map for microbit cannot win. netduinoplus2 (Cortex-M4, FPU) aliases flash
+# at 0x08000000, so the shared map works and this ARMv6-M binary runs on it
+# unchanged (ARMv6-M is a subset of ARMv7E-M). Reusing one machine avoids the
+# conflict without touching the shared linker inputs.
 [target.thumbv6m-none-eabi]       # Cortex-M0 build; runs on the Cortex-M4 machine (M0 is a subset of it)
 runner = "qemu-system-arm -machine netduinoplus2 -nographic -semihosting-config enable=on,target=native -kernel"
 rustflags = [
