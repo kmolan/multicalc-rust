@@ -47,6 +47,16 @@ jobs:
       - name: Every feature combination compiles
         run: cargo hack -p multicalc --feature-powerset --no-dev-deps check
 
+  oracle:
+    name: oracle fixtures (host-only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Reads committed fixtures only — never runs Python, never downloads MuJoCo.
+      - run: cargo test -p multicalc-oracle
+
   lint:
     name: fmt + clippy
     runs-on: ubuntu-latest
