@@ -1,0 +1,97 @@
+{
+  "case": "svd_4x3",
+  "expected": {
+    "pinv": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0xbfbf9c37dd125eed",
+        "0x3fd048ddca37a66a",
+        "0xbff052e62898746c",
+        "0xbfeca7143b4586ce",
+        "0x3fe7c96f3eff4534",
+        "0x3ffcc200956e10cf",
+        "0x3fee1ddf9a7ab396",
+        "0x3fd2878386445640",
+        "0x3feb042ca890877a",
+        "0x3fe6d5ed7554f67a",
+        "0x3fe6e6473112ff7d",
+        "0xbfd50b9eac1a2201"
+      ],
+      "rows": 3
+    },
+    "singular_values": {
+      "data": [
+        "0x3ff92277e3463cde",
+        "0x3fe83e8ba96ecfbf",
+        "0x3fd95b7f1c897983"
+      ],
+      "kind": "vector"
+    },
+    "x_ls": {
+      "data": [
+        "0x3fe802c23b09c6e9",
+        "0xbfdcfeb9e11bacd7",
+        "0x3fc2f5444083c122"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0xbfa2eab945008900",
+        "0xbfd2e51c729361e8",
+        "0x3feb32484881c702",
+        "0x3fd66d0269fc3e30",
+        "0x3fe6268dd1f4d2ee",
+        "0xbfdeb03fbc22c5e0",
+        "0xbfe0312c120f9be8",
+        "0xbfc3905248373150",
+        "0x3fdfc655ddfb7954",
+        "0xbfdbe0e33e57c744",
+        "0x3fda5733c55888f8",
+        "0xbfea36a1dd62a7c8"
+      ],
+      "rows": 4
+    },
+    "b": {
+      "data": [
+        "0xbfcd0302ac8f7cd0",
+        "0xbfaef1ad7a832520",
+        "0x3fba37ec90767c60",
+        "0xbfee1977d7e94bf8"
+      ],
+      "kind": "vector"
+    },
+    "decomp": {
+      "kind": "str",
+      "v": "svd"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "linalg",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "sampling": "entries uniform in [-1, 1], ill-conditioned draws rejected",
+    "seed": 20260706
+  },
+  "module": "linalg",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}

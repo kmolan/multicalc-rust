@@ -1,0 +1,74 @@
+{
+  "case": "qr_4x3",
+  "expected": {
+    "residual_norm": {
+      "kind": "scalar",
+      "v": "0x3fdb7810a4afaee9"
+    },
+    "x_ls": {
+      "data": [
+        "0x3fdaaebaf9df75f8",
+        "0xbfd9ad9293e27fe1",
+        "0x3fd55fa8e52ce48e"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fda2c475e874188",
+        "0xbfe638135a81ea42",
+        "0x3fe64587a5422ce2",
+        "0x3fc84cd74925fa78",
+        "0x3fe72a22d7ad865c",
+        "0xbfd2bf5196a6f8d0",
+        "0xbfe1e91bb31a248c",
+        "0xbfec57e6d37fe8e6",
+        "0xbfdac9ce44d704c8",
+        "0x3fe93dac645b52c4",
+        "0xbfef903ba006ce76",
+        "0xbfd859e22013bb58"
+      ],
+      "rows": 4
+    },
+    "b": {
+      "data": [
+        "0x3fde5091d1c87754",
+        "0xbfe458dc047da4b8",
+        "0xbfc88eead230d198",
+        "0x3fe521f0ec532f80"
+      ],
+      "kind": "vector"
+    },
+    "decomp": {
+      "kind": "str",
+      "v": "qr"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "linalg",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "sampling": "entries uniform in [-1, 1], ill-conditioned draws rejected",
+    "seed": 20260706
+  },
+  "module": "linalg",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}

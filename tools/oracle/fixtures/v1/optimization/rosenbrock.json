@@ -1,0 +1,49 @@
+{
+  "case": "rosenbrock",
+  "expected": {
+    "residual_norm": {
+      "kind": "scalar",
+      "v": "0x0000000000000000"
+    },
+    "solution": {
+      "data": [
+        "0x3ff0000000000000",
+        "0x3ff0000000000000"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "problem": {
+      "kind": "str",
+      "v": "rosenbrock"
+    },
+    "x0": {
+      "data": [
+        "0xbff3333333333333",
+        "0x3ff0000000000000"
+      ],
+      "kind": "vector"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "optimization",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "fixed starts; MINPACK Levenberg-Marquardt",
+    "seed": 20260706
+  },
+  "module": "optimization",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f64/host": {
+        "abs": 1e-07,
+        "rel": 1e-06
+      }
+    }
+  }
+}
