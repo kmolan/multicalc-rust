@@ -1,0 +1,70 @@
+{
+  "case": "qr_3x3",
+  "expected": {
+    "residual_norm": {
+      "kind": "scalar",
+      "v": "0x3cbb211b1c70d023"
+    },
+    "x_ls": {
+      "data": [
+        "0x3fe48e33eae52b9b",
+        "0x3fc45a1d1c83e81c",
+        "0xbfe830f5eb7850ff"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0xbfd0be8f8c140134",
+        "0x3fecde0d2b5dddca",
+        "0x3fd1c3416434ba8c",
+        "0xbfc5d5334ebcf380",
+        "0xbfe82b7b94208e1c",
+        "0x3fde181ef80337cc",
+        "0x3f745b2ae63d7a00",
+        "0x3fe081c9dcb4cec0",
+        "0x3fc67865a51cba20"
+      ],
+      "rows": 3
+    },
+    "b": {
+      "data": [
+        "0xbfce022ed8f51550",
+        "0xbfe2b9721cccbb84",
+        "0xbfa851df29179320"
+      ],
+      "kind": "vector"
+    },
+    "decomp": {
+      "kind": "str",
+      "v": "qr"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "linalg",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "sampling": "entries uniform in [-1, 1], ill-conditioned draws rejected",
+    "seed": 20260706
+  },
+  "module": "linalg",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}

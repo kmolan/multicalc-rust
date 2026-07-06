@@ -1,0 +1,122 @@
+{
+  "case": "lu_5x5",
+  "expected": {
+    "det": {
+      "kind": "scalar",
+      "v": "0xbfdb1ebe81975e63"
+    },
+    "inv": {
+      "cols": 5,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fe285c6e720ebaf",
+        "0xbff32f20b5f23c6e",
+        "0x3fb8988dffeaf0af",
+        "0xbfc01a982560ad98",
+        "0x3fd50abadbb17596",
+        "0xbfef805ac722feff",
+        "0x3feb33d354e59cb8",
+        "0x3fca2d4d1411701c",
+        "0x3ffa3c802d9782b7",
+        "0x3fd42041493faa8a",
+        "0xbfe557b66c82e423",
+        "0xbfee56c8491767e5",
+        "0x3fef86921b550dca",
+        "0xbfe120ef9a9f7498",
+        "0x3fcecd2a8cf55afb",
+        "0xbfdfbe4d1ed2409f",
+        "0xbfddcba1b11f1d25",
+        "0x3ff0ed5ced59e1a1",
+        "0xbfcbeb141e68b58c",
+        "0x3ff0fc21a1c88e41",
+        "0xbfd536a2cfe2a130",
+        "0xbff46188e0b1c08b",
+        "0xbfb56d744eb0f404",
+        "0xbfe1040b27ebee34",
+        "0x3fe2aabef41713c2"
+      ],
+      "rows": 5
+    },
+    "x": {
+      "data": [
+        "0x3fd664cf1cc48c0d",
+        "0x3fce30ac1b300b0d",
+        "0xbffcf8e90cf79294",
+        "0xbff8bfa819f2983e",
+        "0xbfe7aa7ec4aa8087"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 5,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fe72bbce9c53e96",
+        "0xbfcfe0b5fadc87d8",
+        "0xbfd9a44889756060",
+        "0x3fd36818f7bee6f0",
+        "0xbfe521e23c14e5ae",
+        "0xbfe208de0b5a708e",
+        "0xbfc94b593ffa3ef8",
+        "0xbfdae4d35aa5bf74",
+        "0x3fdd8985e0027554",
+        "0xbfcf0535c2197ad0",
+        "0x3fd7234f5c71a714",
+        "0xbfa0bda830339e00",
+        "0x3fe4003811815b02",
+        "0x3fd0deda9f41058c",
+        "0xbfed8eaae89b67d2",
+        "0x3fe694350f4163a4",
+        "0x3fe2753ab9965574",
+        "0x3fb62ed737d1c930",
+        "0xbfd1a1c2d94f565c",
+        "0xbfcf1b845ad50408",
+        "0xbfbfca040c672ed0",
+        "0xbfaa960655683a20",
+        "0xbfef403093174e56",
+        "0x3feeefe19a4eeb24",
+        "0x3fdd2b2bd96553d8"
+      ],
+      "rows": 5
+    },
+    "b": {
+      "data": [
+        "0x3fee102d8dc1514a",
+        "0xbf91f4e8207df4c0",
+        "0xbfe79a94232846bc",
+        "0x3fea9eec9c6ec012",
+        "0xbfbeab276bd356a0"
+      ],
+      "kind": "vector"
+    },
+    "decomp": {
+      "kind": "str",
+      "v": "lu"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "linalg",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "sampling": "entries uniform in [-1, 1], ill-conditioned draws rejected",
+    "seed": 20260706
+  },
+  "module": "linalg",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}

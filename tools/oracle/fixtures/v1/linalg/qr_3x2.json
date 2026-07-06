@@ -1,0 +1,66 @@
+{
+  "case": "qr_3x2",
+  "expected": {
+    "residual_norm": {
+      "kind": "scalar",
+      "v": "0x3ff66571cc2d7a0e"
+    },
+    "x_ls": {
+      "data": [
+        "0x3fcc81d341655f83",
+        "0x3ff6b2c7e1d5d09b"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0xbfe4e5ed2c5c0c86",
+        "0x3f99a263478f1280",
+        "0x3fce78e965a81c50",
+        "0x3fc57379ee59c2d8",
+        "0xbfefdb263f1b67aa",
+        "0x3fe357a47e587788"
+      ],
+      "rows": 3
+    },
+    "b": {
+      "data": [
+        "0xbfef8b23843e24de",
+        "0xbfe80d0f2a2548c2",
+        "0x3feec1033553fc8a"
+      ],
+      "kind": "vector"
+    },
+    "decomp": {
+      "kind": "str",
+      "v": "qr"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "linalg",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "sampling": "entries uniform in [-1, 1], ill-conditioned draws rejected",
+    "seed": 20260706
+  },
+  "module": "linalg",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}

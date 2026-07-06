@@ -1,0 +1,82 @@
+{
+  "case": "svd_3x2",
+  "expected": {
+    "pinv": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0xbff1e7ec8f9951e6",
+        "0xbfe2450ebc648890",
+        "0x3fe22e910f7f3b7e",
+        "0x3fd434ae5ef72dc4",
+        "0x3ffa887538984d23",
+        "0xbfe3a9d112f8fdb3"
+      ],
+      "rows": 2
+    },
+    "singular_values": {
+      "data": [
+        "0x3ff209f2b8abd551",
+        "0x3fdeb6f6a4e1b290"
+      ],
+      "kind": "vector"
+    },
+    "x_ls": {
+      "data": [
+        "0xbff6162319486540",
+        "0x3ff53e2a9bc330bc"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0xbfecf523ece430c2",
+        "0xbfd755ec7b415874",
+        "0x3fd0b88e2d5983a0",
+        "0x3fe4b72b154c7e0c",
+        "0x3fcebcd97e1e7390",
+        "0xbfb153b636286eb0"
+      ],
+      "rows": 3
+    },
+    "b": {
+      "data": [
+        "0x3fe4dc855aabbd1a",
+        "0x3fd9b3a0ee4bf9c8",
+        "0xbfe7bdd37c3be910"
+      ],
+      "kind": "vector"
+    },
+    "decomp": {
+      "kind": "str",
+      "v": "svd"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "linalg",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "sampling": "entries uniform in [-1, 1], ill-conditioned draws rejected",
+    "seed": 20260706
+  },
+  "module": "linalg",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}

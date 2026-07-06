@@ -1,0 +1,53 @@
+{
+  "case": "x_squared_hermite_o5",
+  "expected": {
+    "integral": {
+      "kind": "scalar",
+      "v": "0x3fec5bf891b4ef6b"
+    }
+  },
+  "inputs": {
+    "family": {
+      "kind": "str",
+      "v": "gaussian"
+    },
+    "integrand": {
+      "kind": "str",
+      "v": "x_squared"
+    },
+    "limits": {
+      "data": [
+        "0xfff0000000000000",
+        "0x7ff0000000000000"
+      ],
+      "kind": "vector"
+    },
+    "method": {
+      "kind": "str",
+      "v": "GaussHermite"
+    },
+    "param": {
+      "kind": "int",
+      "v": 5
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "quadrature",
+    "libraries": {
+      "mpmath": "1.3.0"
+    },
+    "sampling": "closed-form spot checks; mpmath goldens",
+    "seed": 20260706
+  },
+  "module": "quadrature",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f64/host": {
+        "abs": 1e-10,
+        "rel": 1e-10
+      }
+    }
+  }
+}

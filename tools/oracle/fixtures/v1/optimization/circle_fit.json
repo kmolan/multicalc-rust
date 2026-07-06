@@ -1,0 +1,51 @@
+{
+  "case": "circle_fit",
+  "expected": {
+    "residual_norm": {
+      "kind": "scalar",
+      "v": "0x3cdefbdeb14f4eda"
+    },
+    "solution": {
+      "data": [
+        "0x4000000000000000",
+        "0xbfefffffffffffff",
+        "0x4008000000000000"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "problem": {
+      "kind": "str",
+      "v": "circle_fit"
+    },
+    "x0": {
+      "data": [
+        "0x4003333333333333",
+        "0xbfe3333333333333",
+        "0x400c000000000000"
+      ],
+      "kind": "vector"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "optimization",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "fixed starts; MINPACK Levenberg-Marquardt",
+    "seed": 20260706
+  },
+  "module": "optimization",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f64/host": {
+        "abs": 1e-07,
+        "rel": 1e-06
+      }
+    }
+  }
+}

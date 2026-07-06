@@ -1,0 +1,74 @@
+{
+  "case": "cholesky_2x2",
+  "expected": {
+    "L": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff71adfe8dac449",
+        "0x0000000000000000",
+        "0xbfacb08db12165ff",
+        "0x3ffd734e829c3e9e"
+      ],
+      "rows": 2
+    },
+    "det": {
+      "kind": "scalar",
+      "v": "0x401c4297aeba01de"
+    },
+    "x": {
+      "data": [
+        "0xbfa15c93d3b8258d",
+        "0x3fc407d47d99eb3a"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x4000aeb870b399af",
+        "0xbfb4b6fe098f7cd7",
+        "0xbfb4b6fe098f7cd7",
+        "0x400b210bfb4a55e2"
+      ],
+      "rows": 2
+    },
+    "b": {
+      "data": [
+        "0xbfb55806d510d640",
+        "0x3fe111c5269a9bfc"
+      ],
+      "kind": "vector"
+    },
+    "decomp": {
+      "kind": "str",
+      "v": "cholesky"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "linalg",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "sampling": "entries uniform in [-1, 1], ill-conditioned draws rejected",
+    "seed": 20260706
+  },
+  "module": "linalg",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}

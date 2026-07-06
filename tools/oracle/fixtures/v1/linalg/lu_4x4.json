@@ -1,0 +1,102 @@
+{
+  "case": "lu_4x4",
+  "expected": {
+    "det": {
+      "kind": "scalar",
+      "v": "0xbfcf4f1d40f53917"
+    },
+    "inv": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0xbfe98bfbded5cded",
+        "0xbfee8da085210af4",
+        "0x4017ea5295403fbd",
+        "0x400c308c24c5d3c9",
+        "0x3fea912dede44433",
+        "0x3ff6b796b80ca41a",
+        "0xc012e113240268bf",
+        "0xc0041164524da1bc",
+        "0x3fd9b4fc162b07b5",
+        "0xbfebe46a039ff1cc",
+        "0x400d0fbcba71e706",
+        "0x3ffa86995e9435aa",
+        "0xbfcb249fe704458d",
+        "0xbff02ff822f005b1",
+        "0x3ff8a8bd78906be5",
+        "0x3ff90884f3cb5d51"
+      ],
+      "rows": 4
+    },
+    "x": {
+      "data": [
+        "0xbffc865a715a09fd",
+        "0x3fec0dc0ea5c5bd9",
+        "0xbffd42dabd2735f3",
+        "0x3fe13e1f1e0b081c"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0xbf921d24e5889840",
+        "0x3fea42f73675fd34",
+        "0x3fee3e8b9d16d69a",
+        "0x3fd6aa4758499610",
+        "0x3fed4137dcbcbc26",
+        "0x3feb1758561fb196",
+        "0xbfc8e3a7d6be1c20",
+        "0xbfdfb7600a91c554",
+        "0xbfb609566ce570b0",
+        "0xbfd5e20121640820",
+        "0x3fcc9c816ab54730",
+        "0xbfe2eafd51b1f2da",
+        "0x3fe58dc622900e68",
+        "0x3fefdaf80fb93072",
+        "0xbfcbe1a0a96ba448",
+        "0x3fee5e9717605302"
+      ],
+      "rows": 4
+    },
+    "b": {
+      "data": [
+        "0xbfe92c46ea1f6e34",
+        "0xbfe9920deaacd70e",
+        "0xbfebf4c633b0e8ce",
+        "0x3fe29cc3f64f6bba"
+      ],
+      "kind": "vector"
+    },
+    "decomp": {
+      "kind": "str",
+      "v": "lu"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "linalg",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "sampling": "entries uniform in [-1, 1], ill-conditioned draws rejected",
+    "seed": 20260706
+  },
+  "module": "linalg",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}
