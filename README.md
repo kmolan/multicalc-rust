@@ -7,25 +7,23 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Scientific computing for single- and multi-variable calculus in pure, safe Rust — from
-derivatives and integrals to curve fitting and linear algebra, running everywhere from your
-laptop to a bare-metal microcontroller.**
-
-`multicalc` gives you exact derivatives via forward-mode autodiff, numerical integration over
-finite and infinite domains, Jacobians and Hessians, vector-field operators, nonlinear
-least-squares solvers, root finding, and a small dense linear-algebra core (LU, QR, Cholesky,
-SVD) — all `no_std`, allocation-free, and panic-free by default.
+derivatives and integrals to curve fitting and linear algebra, built and tested on five
+hardware targets every commit, from a 64-bit server CPU down to a bare-metal microcontroller.**
 
 ## Highlights
 
-- **Pure, safe Rust** — `#![forbid(unsafe_code)]`, no C dependencies.
-- **Runs anywhere** — `no_std`, no heap, and no panics, so the same code works on a host or on
-  an embedded/bare-metal target. Transcendental functions come from [`libm`](https://crates.io/crates/libm).
+- **Pure, safe Rust**: `#![forbid(unsafe_code)]`, no C dependencies.
+- **Tested against multiple platforms**: Every commit is built and tested across **five targets**: the
+  `x86_64` and `aarch64` Linux hosts and three ARM Cortex-M bare-metal ABIs (`thumbv7em`
+  soft-float, `thumbv7em` hardware-FPU, and `thumbv6m`). `no_std`, no heap, and no panics rules apply to every platform build, and the transcendental functions come from
+  [`libm`](https://crates.io/crates/libm).
+- **Fast, and measured** — a derivative in **~1 ns**, a full Levenberg-Marquardt curve fit in
+  **microseconds**, and solvers that land on the answer to the **last few bits** (objectives near
+  `1e-30`, errors within ~1 ulp). Comprehensive benchmarks enforced for every commit across each supported platform, see the [benchmarks](crates/multicalc/benches).
 - **Exact by default** — differentiation, Jacobians, Hessians, and Newton steps use forward-mode
   automatic differentiation, not finite-difference approximations (which remain available for
   black-box functions).
 - **Generic over the scalar** — use `f32` or `f64` (defaults to `f64`).
-- **Honest error handling** — every fallible call returns a typed `CalcError`; convenience
-  wrappers fill in sensible defaults.
 - **Batteries included** — a runnable example for every module and a test suite covering each
   error path.
 
@@ -85,18 +83,17 @@ let report = LevenbergMarquardt::<AutoDiffMulti>::default()
 // report.solution ~ [100.0, -0.693]
 ```
 
-There's a walk-through like this for **every** module — integration, quadrature, Jacobians and
-Hessians, vector calculus, approximation, root finding, and linear solves — in the full guide
+There's a walk-through like this for **every** module in the full guide
 below.
 
 ## Documentation
 
-- **[Full guide](crates/multicalc/README.md)** — every feature with a runnable snippet, plus
+- **[Full guide](crates/multicalc/README.md)**: Every feature with a runnable snippet, plus
   notes on `no_std`, error handling, and heap allocation.
 - **[API docs](https://docs.rs/multicalc)** on docs.rs.
-- **[Examples](crates/multicalc/examples)** — self-contained programs for each module. Run one
+- **[Examples](crates/multicalc/examples)**: Self-contained programs for each module. Run one
   with `cargo run --example <name>`.
-- **[Benchmarks](crates/multicalc/benches)** — accuracy figures and measured latency.
+- **[Benchmarks](crates/multicalc/benches)**: Accuracy figures and measured latency.
 
 ## Repository layout
 
