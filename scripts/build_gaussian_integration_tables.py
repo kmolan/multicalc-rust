@@ -1,6 +1,6 @@
 """Generate Gaussian quadrature node/weight tables for orders 1..=MAX_ORDER.
 
-Requires numpy. Emits one module file per family into src/gaussian_tables/,
+Requires numpy. Emits one module file per family into crates/multicalc/src/gaussian_tables/,
 each holding `(weight, abscissa)` arrays plus a flat index table used by
 `gaussian_tables::nodes`.
 
@@ -14,7 +14,7 @@ from numpy.polynomial.laguerre import laggauss
 from numpy.polynomial.legendre import leggauss
 
 MAX_ORDER = 30
-OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "src", "gaussian_tables")
+OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "crates", "multicalc", "src", "gaussian_tables")
 
 FAMILIES = {
     "legendre": ("LEGENDRE", leggauss),
