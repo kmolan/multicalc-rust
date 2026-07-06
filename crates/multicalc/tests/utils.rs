@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use core::fmt::{self, Write};
 use multicalc::utils::error_codes::CalcError;
 

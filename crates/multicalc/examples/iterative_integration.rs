@@ -6,6 +6,8 @@
 //!
 //! Run with: `cargo run --example iterative_integration`
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use multicalc::numerical_integration::integrator::{
     IntegratorMultiVariable, IntegratorSingleVariable,
 };

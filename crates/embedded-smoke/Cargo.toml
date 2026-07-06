@@ -1,0 +1,19 @@
+[package]
+name = "embedded-smoke"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.85"
+publish = false
+
+[dependencies]
+multicalc = { path = "../multicalc", default-features = false }
+cortex-m-rt = "0.7"
+cortex-m-semihosting = "0.5"
+# With the "exit" feature a panic prints its message and exits QEMU with a failure code.
+panic-semihosting = { version = "0.6", features = ["exit"] }
+
+# This dev-only crate needs one small unsafe block to measure stack use, so it does
+# not inherit the core crate's "no unsafe" rule. It sets its own lints instead of
+# using `[lints] workspace = true`.
+[lints.rust]
+unsafe_code = "allow"

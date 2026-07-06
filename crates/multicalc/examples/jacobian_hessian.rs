@@ -2,6 +2,8 @@
 //!
 //! Run with: `cargo run --example jacobian_hessian`
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use multicalc::numerical_derivative::hessian::Hessian;
 use multicalc::numerical_derivative::jacobian::Jacobian;
 use multicalc::scalar::c;

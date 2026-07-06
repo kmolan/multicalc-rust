@@ -3,6 +3,8 @@
 //!
 //! Run with: `cargo run --example differentiation`
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::numerical_derivative::derivator::{DerivatorMultiVariable, DerivatorSingleVariable};
 use multicalc::scalar_fn;

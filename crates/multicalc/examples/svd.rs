@@ -5,6 +5,8 @@
 //! Latency is illustrative in a debug build; run with `--release` for representative numbers:
 //! `cargo run --release --example svd`
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use std::hint::black_box;
 use std::time::Instant;
 

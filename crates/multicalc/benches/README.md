@@ -28,5 +28,5 @@ Each suite sets a criterion sample size of 50, a 500 ms warm-up, and a 2 s measu
 
 The published latency figures were measured on: 12th Gen Intel Core i7-12650H · `rustc` 1.95.0
 (release, `opt-level = 3`) · criterion 0.5 · WSL2 (Ubuntu). Latency is wall-clock and therefore
-machine- and build-specific — re-run locally for numbers that match your hardware. Iterative
+machine- and build-specific; re-run locally for numbers that match your hardware. Iterative
 integrals use the default **120** intervals; Gaussian quadrature uses the listed order.

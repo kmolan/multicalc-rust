@@ -11,9 +11,20 @@ Jacobians and Hessians, vector-field operators, and Taylor approximation in a `n
 
 ## Why use it
 
-- Pure, safe Rust.
-- `no_std`, with no heap allocation and no panics — it runs on bare-metal and embedded targets.
-- Generic over the scalar type — use `f32` or `f64`, defaulting to `f64`.
+- **Tested across five hardware targets**: Every commit is built and tested on the `x86_64` and
+  `aarch64` Linux hosts and on three ARM Cortex-M bare-metal ABIs (`thumbv7em` soft-float,
+  `thumbv7em` hardware-FPU, and `thumbv6m`). The Cortex-M builds run the real math under QEMU on
+  each ABI and check the answers against known values, so the same code is exercised from a 64-bit
+  server CPU down to a microcontroller with no operating system. `no_std`, no-heap, and
+  no-panic rules hold on every one.
+- **Accurate to the last few bits**: differentiation, Jacobians, Hessians, and Newton steps use
+  forward-mode automatic differentiation, so derivatives are exact rather than finite-difference
+  estimates. The least-squares and root-finding solvers drive objectives down near `1e-30` and land
+  within about one unit in the last place (ulp) of the true answer.
+- **Fast, and measured**: a single derivative takes about **1 ns** and a full Levenberg-Marquardt
+  curve fit finishes in **microseconds**. Latency and accuracy are tracked by benchmarks that run
+  on every commit across each supported platform; see the [benchmarks](./benches).
+- Generic over the scalar type: use `f32` or `f64`, defaulting to `f64`.
 - Transcendental functions come from [`libm`](https://crates.io/crates/libm), so the math works
   without `std`.
 - Every fallible call returns a typed [`CalcError`](./src/utils/error_codes.rs); convenience
@@ -22,17 +33,17 @@ Jacobians and Hessians, vector-field operators, and Taylor approximation in a `n
 
 ## What it does
 
-- **Differentiation** of any order, total and partial — exact via forward-mode autodiff by default,
+- **Differentiation** of any order, total and partial: exact via forward-mode autodiff by default,
   with finite differences available for black-box functions.
 - **Integration** of any order:
-  - Iterative rules — Boole, Simpson, Trapezoidal — over finite, semi-infinite, and infinite limits.
-  - Gaussian quadrature — Gauss-Legendre, Gauss-Hermite, Gauss-Laguerre.
+  - Iterative rules (Boole, Simpson, Trapezoidal) over finite, semi-infinite, and infinite limits.
+  - Gaussian quadrature: Gauss-Legendre, Gauss-Hermite, Gauss-Laguerre.
 - **Jacobian** and **Hessian** matrices.
-- **Vector calculus** — line and flux integrals, curl, and divergence.
-- **Approximation** — linear and quadratic (Taylor) models, with goodness-of-fit metrics.
-- **Least-squares optimization** — Levenberg-Marquardt and Gauss-Newton solvers for nonlinear
+- **Vector calculus**: line and flux integrals, curl, and divergence.
+- **Approximation**: linear and quadratic (Taylor) models, with goodness-of-fit metrics.
+- **Least-squares optimization**: Levenberg-Marquardt and Gauss-Newton solvers for nonlinear
   curve fitting.
-- **Root finding** — bracketed bisection and Newton solvers for scalar equations and square
+- **Root finding**: bracketed bisection and Newton solvers for scalar equations and square
   systems, with exact derivatives by default and an optional damped (backtracking) line search.
 
 ## Install
@@ -46,7 +57,7 @@ Enable the `alloc` feature if you want the heap-based methods (see [Heap allocat
 ### A note on `no_std`
 
 Methods like `f64::sin` are only available with `std`. In a `no_std` crate, call the `libm` versions
-instead — for example `libm::sin(x)` in place of `x.sin()`. `multicalc` re-exports `libm`, so you can
+instead, for example `libm::sin(x)` in place of `x.sin()`. `multicalc` re-exports `libm`, so you can
 reach it as `multicalc::libm`. The examples below use `x.sin()` because they assume `std`.
 
 ## At a glance
@@ -112,7 +123,7 @@ let integrator = IterativeSingle::from_parameters(120, IterativeMethod::Simpsons
 
 ### Gaussian quadrature
 
-Each Gaussian rule integrates over a fixed domain. Pass the **bare** integrand `f(x)` — the weights
+Each Gaussian rule integrates over a fixed domain. Pass the **bare** integrand `f(x)`; the weights
 already carry the weighting factor.
 
 ```rust
@@ -292,7 +303,7 @@ let svd = a.svd().unwrap();
 let sigma = svd.singular_values();          // descending, non-negative
 let cond = svd.condition_number();          // σ_max / σ_min
 
-// Moore–Penrose pseudo-inverse — tall, square, or wide (M < N) inputs.
+// Moore-Penrose pseudo-inverse: tall, square, or wide (M < N) inputs.
 let a_pinv = a.pseudo_inverse().unwrap();
 
 // Minimum-norm least-squares solve of A·x = b, without forming A⁺.
@@ -314,7 +325,7 @@ returns a `Vec<Vec<T>>` of the scalar (`Vec<Vec<f64>>` by default).
 
 ## Examples
 
-Runnable, self-contained programs for each module live in [`examples/`](./examples) — see
+Runnable, self-contained programs for each module live in [`examples/`](./examples). See
 [examples/README.md](./examples/README.md). Run one with:
 
 ```sh

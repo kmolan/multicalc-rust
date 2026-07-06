@@ -17,28 +17,28 @@ hardware targets. Exercise the same code from a 64-bit server CPU down to a bare
   `x86_64` and `aarch64` Linux hosts and three ARM Cortex-M bare-metal ABIs (`thumbv7em`
   soft-float, `thumbv7em` hardware-FPU, and `thumbv6m`). `no_std`, no heap, and no panics rules apply to every platform build, and the transcendental functions come from
   [`libm`](https://crates.io/crates/libm).
-- **Fast, and measured** — a derivative in **~1 ns**, a full Levenberg-Marquardt curve fit in
+- **Fast, and measured**: a derivative in **~1 ns**, a full Levenberg-Marquardt curve fit in
   **microseconds**, and solvers that land on the answer to the **last few bits** (objectives near
   `1e-30`, errors within ~1 ulp). Comprehensive benchmarks enforced for every commit across each supported platform, see the [benchmarks](crates/multicalc/benches).
-- **Exact by default** — differentiation, Jacobians, Hessians, and Newton steps use forward-mode
+- **Exact by default**: differentiation, Jacobians, Hessians, and Newton steps use forward-mode
   automatic differentiation, not finite-difference approximations (which remain available for
   black-box functions).
-- **Generic over the scalar** — use `f32` or `f64` (defaults to `f64`).
-- **Batteries included** — a runnable example for every module and a test suite covering each
+- **Generic over the scalar**: use `f32` or `f64` (defaults to `f64`).
+- **Batteries included**: a runnable example for every module and a test suite covering each
   error path.
 
 ## What it does
 
 | Area | Capabilities |
 | --- | --- |
-| **Differentiation** | Any order, total and partial — exact via autodiff, or finite differences for black boxes |
+| **Differentiation** | Any order, total and partial: exact via autodiff, or finite differences for black boxes |
 | **Integration** | Iterative rules (Boole, Simpson, Trapezoidal) over finite/semi-infinite/infinite limits, plus Gauss-Legendre/Hermite/Laguerre quadrature |
 | **Multivariable** | Jacobian and Hessian matrices |
 | **Vector calculus** | Line and flux integrals, curl, divergence |
 | **Approximation** | Linear and quadratic (Taylor) models with goodness-of-fit metrics |
 | **Optimization** | Levenberg-Marquardt and Gauss-Newton nonlinear least-squares |
 | **Root finding** | Bracketed bisection, Newton, and Newton systems, with optional damped line search |
-| **Linear algebra** | Dense LU, QR, Cholesky, and SVD — solves, inverses, pseudo-inverse, rank, condition number |
+| **Linear algebra** | Dense LU, QR, Cholesky, and SVD: solves, inverses, pseudo-inverse, rank, condition number |
 
 ## Install
 
@@ -48,7 +48,7 @@ cargo add multicalc
 
 ## Quick look
 
-Exact derivatives of any order — `scalar_fn!` builds a function autodiff can differentiate:
+Exact derivatives of any order. `scalar_fn!` builds a function autodiff can differentiate:
 
 ```rust
 use multicalc::numerical_derivative::autodiff::AutoDiffSingle;
@@ -62,7 +62,7 @@ let first = d.get(1, &f, 2.0).unwrap();      // 12.0
 let third = d.get(3, &f, 2.0).unwrap();      //  6.0
 ```
 
-Fit `a·e^(b·t)` to data with Levenberg-Marquardt — author the residuals and the solver
+Fit `a·e^(b·t)` to data with Levenberg-Marquardt. Author the residuals and the solver
 differentiates them for you:
 
 ```rust
@@ -98,11 +98,14 @@ below.
 ## Repository layout
 
 The published library crate lives in [`crates/multicalc`](crates/multicalc); the repository
-root is a Cargo workspace.
+root is a Cargo workspace. A second, dev-only crate,
+[`crates/embedded-smoke`](crates/embedded-smoke), runs `multicalc` on the three bare-metal
+Cortex-M targets under QEMU so the results stay identical across every supported architecture.
+It is never published.
 
 ## Contributing
 
-Contributions are welcome — see [CONTRIBUTIONS.md](CONTRIBUTIONS.md).
+Contributions are welcome. See [CONTRIBUTIONS.md](CONTRIBUTIONS.md).
 
 ## Acknowledgements
 

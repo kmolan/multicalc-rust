@@ -4,6 +4,8 @@
 //!
 //! Run with: cargo run --example curve_fit   (or: cargo fit)
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use multicalc::LevenbergMarquardt;
 use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 use multicalc::scalar::{Numeric, VectorFn};

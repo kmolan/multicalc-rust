@@ -1,0 +1,35 @@
+# Supply-chain checks for cargo-deny.
+
+[advisories]
+# Fail on known security advisories and yanked crates.
+version = 2
+yanked = "deny"
+# bare-metal 0.2.x is deprecated (unmaintained), pulled in transitively by
+# cortex-m 0.7 for the dev-only embedded-smoke crate. No security impact and no
+# fix available upstream, so this one advisory is accepted by ID.
+ignore = ["RUSTSEC-2026-0110"]
+
+[licenses]
+# Only these licenses are allowed in the dependency tree. This list matches what
+# the tree actually uses; a genuinely new license fails the check so it gets
+# reviewed. Unicode-3.0 is kept for the newer unicode-ident that switched to it.
+version = 2
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Unicode-DFS-2016",
+  "Unicode-3.0",
+]
+confidence-threshold = 0.9
+# Ignore workspace crates that are not published (embedded-smoke has no license).
+private = { ignore = true }
+
+[bans]
+# The dev tree (criterion) pulls many crates, so only warn on duplicates.
+multiple-versions = "warn"
+wildcards = "allow"
+
+[sources]
+# Only crates.io.
+unknown-registry = "deny"
+unknown-git = "deny"

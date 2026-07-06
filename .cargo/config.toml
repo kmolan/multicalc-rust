@@ -1,18 +1,40 @@
-[target.thumbv7em-none-eabi]      # soft-float
+[target.thumbv7em-none-eabi]      # soft-float, runs on a Cortex-M4 machine
+runner = "qemu-system-arm -machine netduinoplus2 -nographic -semihosting-config enable=on,target=native -kernel"
 rustflags = [
   "-C", "link-arg=-Tlink.x",      # cortex-m-rt linker script (INCLUDEs memory.x)
   "-C", "link-arg=--nmagic",      # no page-alignment padding on bare metal
   "-L", ".",                      # repo root onto the linker search path so memory.x resolves
 ]
 
-[target.thumbv7em-none-eabihf]    # hardware-FPU — identical flags
+[target.thumbv7em-none-eabihf]    # hardware-FPU, same machine (it has an FPU)
+runner = "qemu-system-arm -machine netduinoplus2 -nographic -semihosting-config enable=on,target=native -kernel"
 rustflags = [
   "-C", "link-arg=-Tlink.x",
   "-C", "link-arg=--nmagic",
   "-L", ".",
 ]
 
+# Runs on netduinoplus2, not microbit, even though microbit is the natural M0
+# machine. cortex-m-rt's link.x does `INCLUDE memory.x`, and the linker resolves
+# INCLUDE from its CWD (the workspace root) before any -L path. The repo-root
+# memory.x (FLASH = 0x08000000, used by the thumbv7em targets and the
+# embedded_curve_fit example) therefore shadows any per-target override, so a
+# 0x0 map for microbit cannot win. netduinoplus2 (Cortex-M4, FPU) aliases flash
+# at 0x08000000, so the shared map works and this ARMv6-M binary runs on it
+# unchanged (ARMv6-M is a subset of ARMv7E-M). Reusing one machine avoids the
+# conflict without touching the shared linker inputs.
+[target.thumbv6m-none-eabi]       # Cortex-M0 build; runs on the Cortex-M4 machine (M0 is a subset of it)
+runner = "qemu-system-arm -machine netduinoplus2 -nographic -semihosting-config enable=on,target=native -kernel"
+rustflags = [
+  "-C", "link-arg=-Tlink.x",
+  "-C", "link-arg=--nmagic",
+  "-L", ".",                      # repo root onto the linker search path so memory.x resolves
+]
+
 [alias]
 fit        = "run -p multicalc --example curve_fit"
 fit-eabi   = "build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabi"
-fit-eabihf = "build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabihf"
+fit-eabihf   = "build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabihf"
+smoke-eabi   = "run -p embedded-smoke --release --target thumbv7em-none-eabi"
+smoke-eabihf = "run -p embedded-smoke --release --target thumbv7em-none-eabihf"
+smoke-m0     = "run -p embedded-smoke --release --target thumbv6m-none-eabi"

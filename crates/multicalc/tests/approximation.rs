@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use multicalc::approximation::linear_approximation::*;
 use multicalc::approximation::quadratic_approximation::*;
 use multicalc::numerical_derivative::autodiff::AutoDiffMulti;

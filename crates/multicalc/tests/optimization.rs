@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
 use multicalc::numerical_derivative::jacobian::Jacobian;

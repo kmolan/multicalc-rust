@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use multicalc::numerical_integration::mode::*;
 
 use multicalc::numerical_integration::gaussian_integration;

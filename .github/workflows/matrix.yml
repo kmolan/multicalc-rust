@@ -1,0 +1,57 @@
+name: Target matrix
+
+# Reusable: called by CI on pull requests and by Release on a version bump.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  hosts:
+    name: host ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Runs the library tests on each host. This overlaps the x86_64 `test` job on
+      # purpose so the matrix is one complete cross-target gate on its own.
+      - name: Build and test
+        run: cargo test -p multicalc
+
+  bare-metal:
+    name: bare-metal ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [thumbv7em-none-eabi, thumbv7em-none-eabihf, thumbv6m-none-eabi]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      # cargo-binutils provides `cargo size`, used by the budget check. It wraps
+      # the llvm-tools-preview component installed above.
+      - name: Install cargo-binutils
+        run: cargo install cargo-binutils
+      - name: Install QEMU
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-arm
+      - name: Run smoke test under QEMU
+        run: cargo run -p embedded-smoke --release --target ${{ matrix.target }} | tee smoke-${{ matrix.target }}.txt
+      - name: Check size and stack budget
+        run: bash ci/check_budgets.sh ${{ matrix.target }} smoke-${{ matrix.target }}.txt

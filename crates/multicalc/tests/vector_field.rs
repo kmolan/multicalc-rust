@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 use multicalc::scalar::c;
 use multicalc::scalar_fn_vec;
