@@ -2,9 +2,11 @@ name: Full CI
 
 # The complete suite, run where speed matters less than coverage: after a commit
 # lands on main (post-merge), nightly, and on demand. Per-PR runs use the trimmed
-# representative set in ci.yml; this workflow adds the aarch64 host, the thumbv6m
-# canary, the MSRV toolchain, the feature powerset, packaging, cargo-deny, and
-# coverage.
+# representative set in ci.yml; this workflow is a strict superset of it — it
+# re-runs host, thumbv7em, test, oracle, lint, docs,
+# no_std, semver and adds the aarch64 host, the thumbv6m canary, the MSRV
+# toolchain, the feature powerset, packaging, cargo-deny, and coverage. So a
+# direct push to main gets the same gates a PR would, plus the full matrix.
 #
 # Scheduled runs only fire from the default branch's copy of this file, and GitHub
 # disables schedules after 60 days of repository inactivity — a manual run or any
@@ -57,6 +59,75 @@ jobs:
         run: cargo test -p multicalc --features alloc
       - name: Doctests
         run: cargo test -p multicalc --doc
+
+  oracle:
+    name: oracle fixtures (host-only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Reads committed fixtures only — never runs Python, never downloads MuJoCo.
+      - run: cargo test -p multicalc-oracle
+
+  lint:
+    name: fmt + clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Formatting
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy -p multicalc --all-targets --features alloc -- -D warnings
+      - name: No nightly features
+        run: |
+          if grep -rnE '#!\[feature\(|generic_const_exprs' crates/*/src; then
+            echo "Nightly-only features are not allowed on stable."
+            exit 1
+          fi
+
+  docs:
+    name: doc build
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build docs (deny warnings, broken links)
+        run: cargo doc -p multicalc --no-deps --all-features
+
+  no_std:
+    name: bare-metal (thumbv7em-none-eabi)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv7em-none-eabi, thumbv7em-none-eabihf
+      - uses: Swatinem/rust-cache@v2
+      - name: Build for bare metal (no default features)
+        run: cargo build -p multicalc --no-default-features --target thumbv7em-none-eabi
+      - name: Build embedded example — soft-float (links a firmware image)
+        run: cargo build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabi
+      - name: Build embedded example — hardware-FPU (links a firmware image)
+        run: cargo build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabihf
+
+  semver:
+    name: semver-checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-semver-checks
+      - name: Check for unplanned breaking changes
+        run: cargo semver-checks --package multicalc
 
   feature-powerset:
     name: feature powerset
