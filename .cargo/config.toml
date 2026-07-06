@@ -1,18 +1,31 @@
-[target.thumbv7em-none-eabi]      # soft-float
+[target.thumbv7em-none-eabi]      # soft-float, runs on a Cortex-M4 machine
+runner = "qemu-system-arm -machine netduinoplus2 -nographic -semihosting-config enable=on,target=native -kernel"
 rustflags = [
   "-C", "link-arg=-Tlink.x",      # cortex-m-rt linker script (INCLUDEs memory.x)
   "-C", "link-arg=--nmagic",      # no page-alignment padding on bare metal
   "-L", ".",                      # repo root onto the linker search path so memory.x resolves
 ]
 
-[target.thumbv7em-none-eabihf]    # hardware-FPU — identical flags
+[target.thumbv7em-none-eabihf]    # hardware-FPU, same machine (it has an FPU)
+runner = "qemu-system-arm -machine netduinoplus2 -nographic -semihosting-config enable=on,target=native -kernel"
 rustflags = [
   "-C", "link-arg=-Tlink.x",
   "-C", "link-arg=--nmagic",
   "-L", ".",
 ]
 
+[target.thumbv6m-none-eabi]       # Cortex-M0, no compare-and-swap
+runner = "qemu-system-arm -machine microbit -nographic -semihosting-config enable=on,target=native -kernel"
+rustflags = [
+  "-C", "link-arg=-Tlink.x",
+  "-C", "link-arg=--nmagic",
+  "-L", "crates/embedded-smoke/nrf51",
+]
+
 [alias]
 fit        = "run -p multicalc --example curve_fit"
 fit-eabi   = "build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabi"
-fit-eabihf = "build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabihf"
+fit-eabihf   = "build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabihf"
+smoke-eabi   = "run -p embedded-smoke --release --target thumbv7em-none-eabi"
+smoke-eabihf = "run -p embedded-smoke --release --target thumbv7em-none-eabihf"
+smoke-m0     = "run -p embedded-smoke --release --target thumbv6m-none-eabi"
