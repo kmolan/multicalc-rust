@@ -17,7 +17,11 @@ fn assert_identity_f64<const N: usize>(m: &Matrix<N, N>, t: Tol, ctx: &str) {
     for i in 0..N {
         for j in 0..N {
             let want = if i == j { 1.0 } else { 0.0 };
-            assert!(close(m[(i, j)], want, t), "{ctx}: ({i},{j}) = {}", m[(i, j)]);
+            assert!(
+                close(m[(i, j)], want, t),
+                "{ctx}: ({i},{j}) = {}",
+                m[(i, j)]
+            );
         }
     }
 }
@@ -76,7 +80,11 @@ fn run_lu<const N: usize>(fx: &Fixture) {
     // f32 identity only.
     let a32 = to_matrix_f32::<N, N>(&fx.inputs["A"]);
     let inv32 = a32.lu().unwrap().inverse();
-    assert_identity_f32(&(a32 * inv32), fx.tolerances.get("f32", "host"), "A*inv f32");
+    assert_identity_f32(
+        &(a32 * inv32),
+        fx.tolerances.get("f32", "host"),
+        "A*inv f32",
+    );
 }
 
 #[test]
@@ -105,7 +113,12 @@ fn run_qr<const R: usize, const C: usize>(fx: &Fixture) {
     let qr = PivotedQr::decompose(a).unwrap();
     let x = qr.solve_least_squares(b).unwrap();
     assert_vector(&x, &fx.expected["x_ls"], t, "x_ls");
-    assert_scalar((a * x - b).norm(), &fx.expected["residual_norm"], t, "residual_norm");
+    assert_scalar(
+        (a * x - b).norm(),
+        &fx.expected["residual_norm"],
+        t,
+        "residual_norm",
+    );
 
     // Self-identities from multicalc's own factors.
     let (q, r, perm) = (qr.q(), qr.r(), qr.permutation());
@@ -118,7 +131,12 @@ fn run_qr<const R: usize, const C: usize>(fx: &Fixture) {
     let qr32 = PivotedQr::decompose(a32).unwrap();
     let (q32, r32, perm32) = (qr32.q(), qr32.r(), qr32.permutation());
     let ap32 = Matrix::<R, C, f32>::from_fn(|i, c| a32[(i, perm32[c])]);
-    assert_mat_close_f32(&(q32 * r32), &ap32, fx.tolerances.get("f32", "host"), "Q*R=A*P f32");
+    assert_mat_close_f32(
+        &(q32 * r32),
+        &ap32,
+        fx.tolerances.get("f32", "host"),
+        "Q*R=A*P f32",
+    );
 }
 
 #[test]
@@ -146,7 +164,12 @@ fn run_svd<const R: usize, const C: usize>(fx: &Fixture) {
     let t = fx.tolerances.get("f64", "host");
 
     let f = a.svd().unwrap();
-    assert_vector(&f.singular_values(), &fx.expected["singular_values"], t, "singular_values");
+    assert_vector(
+        &f.singular_values(),
+        &fx.expected["singular_values"],
+        t,
+        "singular_values",
+    );
     assert_vector(&f.solve(b), &fx.expected["x_ls"], t, "x_ls");
 
     let pinv = a.pseudo_inverse().unwrap();
@@ -169,9 +192,15 @@ fn run_svd<const R: usize, const C: usize>(fx: &Fixture) {
     let a32 = to_matrix_f32::<R, C>(&fx.inputs["A"]);
     let f32 = a32.svd().unwrap();
     let (u32, s32, v32) = (f32.u(), f32.singular_values(), f32.v());
-    let recon32 =
-        Matrix::<R, C, f32>::from_fn(|i, j| (0..C).map(|k| u32[(i, k)] * s32[k] * v32[(j, k)]).sum());
-    assert_mat_close_f32(&recon32, &a32, fx.tolerances.get("f32", "host"), "U*S*Vt f32");
+    let recon32 = Matrix::<R, C, f32>::from_fn(|i, j| {
+        (0..C).map(|k| u32[(i, k)] * s32[k] * v32[(j, k)]).sum()
+    });
+    assert_mat_close_f32(
+        &recon32,
+        &a32,
+        fx.tolerances.get("f32", "host"),
+        "U*S*Vt f32",
+    );
 }
 
 #[test]
@@ -208,7 +237,12 @@ fn run_cholesky<const N: usize>(fx: &Fixture) {
     // f32 identity only.
     let a32 = to_matrix_f32::<N, N>(&fx.inputs["A"]);
     let l32 = a32.cholesky().unwrap().l();
-    assert_mat_close_f32(&(l32 * l32.transpose()), &a32, fx.tolerances.get("f32", "host"), "L*Lt=A f32");
+    assert_mat_close_f32(
+        &(l32 * l32.transpose()),
+        &a32,
+        fx.tolerances.get("f32", "host"),
+        "L*Lt=A f32",
+    );
 }
 
 #[test]

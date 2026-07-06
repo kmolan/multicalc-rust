@@ -22,7 +22,12 @@ fn run_lm<F: VectorFn<N, M>, const N: usize, const M: usize>(problem: &F, fx: &F
         .unwrap();
     let t = fx.tolerances.get("f64", "host");
 
-    assert_vector(&Vector::new(report.solution), &fx.expected["solution"], t, "solution");
+    assert_vector(
+        &Vector::new(report.solution),
+        &fx.expected["solution"],
+        t,
+        "solution",
+    );
 
     let residual = problem.eval::<f64>(&report.solution);
     let norm = residual.iter().map(|v| v * v).sum::<f64>().sqrt();

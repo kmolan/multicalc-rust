@@ -42,10 +42,7 @@ pub struct Rosenbrock;
 
 impl VectorFn<2, 2> for Rosenbrock {
     fn eval<S: Numeric>(&self, x: &[S; 2]) -> [S; 2] {
-        [
-            S::from_f64(10.0) * (x[1] - x[0] * x[0]),
-            S::ONE - x[0],
-        ]
+        [S::from_f64(10.0) * (x[1] - x[0] * x[0]), S::ONE - x[0]]
     }
 }
 

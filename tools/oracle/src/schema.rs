@@ -243,10 +243,21 @@ mod tests {
             },
         );
         let mut expected = BTreeMap::new();
-        expected.insert("det".to_string(), Value::Scalar { v: F64::from_f64(2.5) });
+        expected.insert(
+            "det".to_string(),
+            Value::Scalar {
+                v: F64::from_f64(2.5),
+            },
+        );
 
         let mut table = BTreeMap::new();
-        table.insert("f64/host".to_string(), Tol { abs: 1e-11, rel: 1e-10 });
+        table.insert(
+            "f64/host".to_string(),
+            Tol {
+                abs: 1e-11,
+                rel: 1e-10,
+            },
+        );
 
         let mut libraries = BTreeMap::new();
         libraries.insert("numpy".to_string(), "2.1.3".to_string());

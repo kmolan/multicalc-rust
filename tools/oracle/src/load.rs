@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 use multicalc::linear_algebra::{Matrix, Vector};
 
-use crate::schema::{Fixture, Tol, Value, SCHEMA_VERSION};
+use crate::schema::{Fixture, SCHEMA_VERSION, Tol, Value};
 
 /// Reads every `*.json` fixture under `rel` (relative to the crate root),
 /// sorted by filename. Panics if the directory is missing, unreadable, holds a

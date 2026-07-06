@@ -44,12 +44,16 @@ fn quadrature() {
 
         let f = integrand_f64(integrand);
         let value = match family {
-            "iterative" => IterativeSingle::<f64>::from_parameters(param as u64, iterative_method(method))
-                .get_single(&f, &limits)
-                .unwrap(),
-            "gaussian" => GaussianSingle::<f64>::from_parameters(param as usize, gaussian_method(method))
-                .get_single(&f, &limits)
-                .unwrap(),
+            "iterative" => {
+                IterativeSingle::<f64>::from_parameters(param as u64, iterative_method(method))
+                    .get_single(&f, &limits)
+                    .unwrap()
+            }
+            "gaussian" => {
+                GaussianSingle::<f64>::from_parameters(param as usize, gaussian_method(method))
+                    .get_single(&f, &limits)
+                    .unwrap()
+            }
             other => panic!("unknown family {other}"),
         };
         let t = fx.tolerances.get("f64", "host");
