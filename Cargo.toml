@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/multicalc", "crates/embedded-smoke", "tools/oracle"]
+members = ["crates/multicalc", "crates/embedded-smoke", "tools/oracle", "showcase/viz"]
 default-members = ["crates/multicalc"]
 resolver = "3"
 
