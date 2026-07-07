@@ -90,7 +90,10 @@ jobs:
         with:
           packages: qemu-system-arm
           version: 1.0
-      - name: Run smoke test under QEMU
-        run: cargo run -p embedded-smoke --release --target ${{ matrix.target }} | tee smoke-${{ matrix.target }}.txt
-      - name: Check size and stack budget
-        run: bash ci/check_budgets.sh ${{ matrix.target }} smoke-${{ matrix.target }}.txt
+      - name: Run smoke tests + budget checks under QEMU
+        run: |
+          for bin in embedded-smoke; do
+            out="smoke-$bin-${{ matrix.target }}.txt"
+            cargo run -p "$bin" --release --target ${{ matrix.target }} | tee "$out"
+            bash ci/check_budgets.sh "$bin" ${{ matrix.target }} "$out"
+          done
