@@ -90,10 +90,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build for bare metal (no default features)
         run: cargo build -p multicalc --no-default-features --target thumbv7em-none-eabi
-      - name: Build embedded example — soft-float (links a firmware image)
-        run: cargo build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabi
-      - name: Build embedded example — hardware-FPU (links a firmware image)
-        run: cargo build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabihf
 
   semver:
     name: semver-checks

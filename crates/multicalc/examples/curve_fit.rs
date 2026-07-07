@@ -1,6 +1,5 @@
 //! Sensor-calibration curve fit: recover a and b in y = a·e^(b·t) from samples using
 //! Levenberg–Marquardt with exact autodiff Jacobians (no hand-derived derivatives), zero heap.
-//! The identical fit builds for bare-metal Cortex-M — see examples/embedded_curve_fit.rs.
 //!
 //! Run with: cargo run --example curve_fit   (or: cargo fit)
 
