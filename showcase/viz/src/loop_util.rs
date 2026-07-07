@@ -118,9 +118,33 @@ impl LatencyRing {
     }
 }
 
+/// Formats an integer with thousands separators, e.g. `61204` -> `"61,204"` (for hud counts).
+pub fn commas(n: u64) -> String {
+    let s = n.to_string();
+    let len = s.len();
+    let mut out = String::with_capacity(len + (len - 1) / 3);
+    for (i, ch) in s.chars().enumerate() {
+        if i > 0 && (len - i).is_multiple_of(3) {
+            out.push(',');
+        }
+        out.push(ch);
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn commas_groups_thousands() {
+        assert_eq!(commas(0), "0");
+        assert_eq!(commas(999), "999");
+        assert_eq!(commas(1000), "1,000");
+        assert_eq!(commas(61204), "61,204");
+        assert_eq!(commas(412000), "412,000");
+        assert_eq!(commas(1234567), "1,234,567");
+    }
 
     #[test]
     fn empty_ring_has_no_summary() {
