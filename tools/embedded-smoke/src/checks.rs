@@ -82,8 +82,9 @@ pub fn error_path_returns_err() {
 }
 
 /// Golden: singular values of a fixture matrix must match the host oracle golden
-/// (linalg/svd_3x3).
-pub fn svd_golden() {
+/// (linalg/svd_3x3). Returns the values so the caller can emit them for the
+/// cross-ABI divergence guard.
+pub fn svd_golden() -> [f64; 3] {
     let a: Matrix<3, 3> = Matrix::new(fixtures::SVD_3X3_INPUT);
     let sv = a.svd().expect("svd").singular_values();
     for i in 0..3 {
@@ -94,4 +95,5 @@ pub fn svd_golden() {
             fixtures::SVD_3X3_REL,
         ));
     }
+    [sv[0], sv[1], sv[2]]
 }

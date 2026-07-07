@@ -52,7 +52,7 @@ fn main() -> ! {
     // Canary set: runs on every target, including the thumbv6m M0. Covers the
     // portable (no-atomics) path, one golden, and the no-panic negative path.
     checks::portable_path();
-    checks::svd_golden();
+    let svd_sv = checks::svd_golden();
     checks::error_path_returns_err();
 
     // Full set: thumbv7em only (default features).
@@ -65,6 +65,13 @@ fn main() -> ! {
     let used = stack_used(bottom, top);
     // The size and stack gate reads this exact line from the run output.
     let _ = hprintln!("STACK_HWM_BYTES={}", used);
+
+    // Headline scalars for the cross-ABI divergence guard (ci/check_cross_abi.sh):
+    // soft-float (eabi) and hardware-FPU (eabihf) must agree here. Printed as f64
+    // in `{:e}` (shortest round-trip decimal).
+    let _ = hprintln!("SMOKE_VAL_svd_s0={:e}", svd_sv[0]);
+    let _ = hprintln!("SMOKE_VAL_svd_s1={:e}", svd_sv[1]);
+    let _ = hprintln!("SMOKE_VAL_svd_s2={:e}", svd_sv[2]);
 
     debug::exit(debug::EXIT_SUCCESS);
     loop {}
