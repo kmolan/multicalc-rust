@@ -58,8 +58,10 @@ impl VizSink for RerunSink {
     }
 
     fn points3d(&mut self, path: &str, xyz: &[[f64; 3]]) -> Result<(), VizError> {
-        let pts: Vec<[f32; 3]> =
-            xyz.iter().map(|p| [p[0] as f32, p[1] as f32, p[2] as f32]).collect();
+        let pts: Vec<[f32; 3]> = xyz
+            .iter()
+            .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .collect();
         self.stream
             .log(path, &rerun::Points3D::new(pts))
             .map_err(|e| VizError::Backend(e.to_string()))
