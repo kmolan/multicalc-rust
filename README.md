@@ -10,6 +10,15 @@
 derivatives, integrals, curve fitting and linear algebra; built and tested on five
 hardware targets. Exercise the same code from a 64-bit server CPU down to a bare-metal microcontroller.**
 
+<p align="center">
+  <img src="showcase/viz/examples/support/ik_servo_showcase.gif" width="49%" alt="1 kHz IK servo arm running a full Levenberg-Marquardt solve every millisecond">
+  <img src="showcase/viz/examples/support/newton_fractal_showcase.gif" width="49%" alt="Morphing Newton fractal, every pixel a full Newton solve">
+</p>
+
+*Two of four live [showcase demos](showcase/viz#showcases): a 1 kHz 3-link arm running a complete
+Levenberg-Marquardt solve every millisecond, and a Newton fractal at ~4 million solves/sec on one
+core — every number measured live.*
+
 ## Highlights
 
 - **Pure, safe Rust**: `#![forbid(unsafe_code)]`, no C dependencies.
@@ -93,6 +102,9 @@ below.
 - **[API docs](https://docs.rs/multicalc)** on docs.rs.
 - **[Examples](crates/multicalc/examples)**: Self-contained programs for each module. Run one
   with `cargo run --example <name>`.
+- **[Live showcases](showcase/viz#showcases)**: Four animated Rerun demos — a 1 kHz IK on a 3-link arm, a
+  Newton fractal, Fourier epicycles drawing Ferris, and gradient-driven marbles — each streaming
+  live-measured speed and accuracy.
 - **[Benchmarks](crates/multicalc/benches)**: Accuracy figures and measured latency.
 
 ## Repository layout
