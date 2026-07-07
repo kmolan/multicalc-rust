@@ -31,6 +31,7 @@ use cortex_m_semihosting::{debug, hprintln};
 use panic_semihosting as _;
 
 mod checks;
+mod fixtures;
 
 // Byte written across free stack so we can find how deep the stack went.
 const PAINT: u8 = 0xAA;
@@ -51,7 +52,7 @@ fn main() -> ! {
     checks::lm_fit();
     checks::autodiff_derivative();
     checks::portable_path();
-    checks::svd_kabsch();
+    checks::svd_golden();
 
     let used = stack_used(bottom, top);
     // The size and stack gate reads this exact line from the run output.

@@ -51,7 +51,11 @@ fn matrix_lit(rows: usize, cols: usize, data: &[f64]) -> String {
     for r in 0..rows {
         s.push_str("    [\n");
         for c in 0..cols {
-            let _ = writeln!(s, "        f64::from_bits(0x{:016x}),", data[r * cols + c].to_bits());
+            let _ = writeln!(
+                s,
+                "        f64::from_bits(0x{:016x}),",
+                data[r * cols + c].to_bits()
+            );
         }
         s.push_str("    ],\n");
     }
