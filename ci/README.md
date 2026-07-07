@@ -19,6 +19,21 @@ Do **not** raise `tolerance_pct` to get under a gate — that loosens every row 
 regressions. Budgets are per-binary and per-scalar precisely so one domain's growth never spends
 another's headroom; keep them tight and per-row.
 
+## Smoke-test harness
+
+The on-target smoke binary is a hand-rolled `cortex-m-rt` `#[entry]` runner. It runs every check
+in sequence in a single QEMU invocation, prints machine-readable result lines over semihosting
+(`hprintln!`, i.e. `SYS_WRITE0`), and exits QEMU with `debug::exit`. The budget gate and the
+cross-ABI guard parse those lines straight from QEMU stdout.
+
+`embedded-test`/`defmt-test` are not used. Their harness is driven by the `probe-rs` host runner:
+it enumerates test cases through a probe-rs-specific semihosting operation and resets the target to
+run each `#[test]` in its own invocation. Under the plain `qemu-system-arm -kernel` runner these
+smoke tests use, nothing drives that protocol, so the harness aborts before any test runs. The
+per-test reset model is also incompatible with the single-invocation stack high-watermark
+measurement the budget gate reads. `defmt` output is avoided for the same parsing reason: its RTT
+transport needs a host-side decoder, while the plain-text semihosting lines need none.
+
 ## Adding a binary or a scalar row
 
 - New smoke crate (v0.9+): add a `[<binary>.<target>]` section per target and add the package name
