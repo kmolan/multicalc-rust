@@ -15,7 +15,7 @@ hardware targets. Exercise the same code from a 64-bit server CPU down to a bare
   <img src="showcase/viz/examples/support/newton_fractal_showcase.gif" width="49%" alt="Morphing Newton fractal, every pixel a full Newton solve">
 </p>
 
-*Two of four live [showcase demos](showcase/viz#showcases): a 1 kHz IK arm running a complete
+*Two of four live [showcase demos](showcase/viz#showcases): a 1 kHz 3-link arm running a complete
 Levenberg-Marquardt solve every millisecond, and a Newton fractal at ~4 million solves/sec on one
 core — every number measured live.*
 

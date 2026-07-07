@@ -36,7 +36,6 @@ const TERRAIN_GRID: usize = 96;
 const RESPAWN_TICKS: i64 = 25_000; // watershed cascade every 25 s
 const RESPAWN_RADIUS: f64 = 4.5;
 const PROBE_COUNT: usize = 100;
-const SETTLE_SPEED: f64 = 0.05;
 const GEOM_EVERY: i64 = 16; // spatial cadence (~60 Hz) — mandatory (2000 pts/tick would flood)
 const HUD_EVERY: i64 = 1000;
 const WARMUP_TICKS: i64 = 500; // cold-start ticks excluded from timing stats
@@ -47,7 +46,6 @@ const BLUE_HI: [u8; 3] = [0x10, 0x42, 0x81]; // terrain height high
 const AMBER_LO: [u8; 3] = [0xff, 0xd9, 0xa0]; // |∇f| low
 const AMBER_HI: [u8; 3] = [0x7a, 0x51, 0x00]; // |∇f| high
 
-const HERO: Rgba = [0x39, 0x87, 0xe5, 0xff]; // grad_batch_us series
 const ERROR: Rgba = [0xe6, 0x67, 0x67, 0xff]; // ad_vs_analytic series
 
 /// The Himmelblau function as a `VectorFn<2, 1>`; its gradient is the Jacobian's single row.
@@ -187,9 +185,8 @@ fn main() -> Result<(), VizError> {
 
     let mut rr = RerunSink::live("multicalc-viz/gradient-marbles")?;
     rr.set_sequence("tick", 0);
-    rr.series_style("plots/grad_batch_us", HERO, "2000-gradient batch — multicalc math", 2.0)?;
     rr.series_style("plots/ad_vs_analytic", ERROR, "autodiff − analytic error", 2.0)?;
-    // Host-OS scheduling jitter is measured (for the hud percentiles) but not plotted.
+    // Gradient-batch time is summarized in the hud, not plotted.
 
     // Static terrain: a grid of styled points colored by height.
     {
@@ -212,12 +209,12 @@ fn main() -> Result<(), VizError> {
 
     let mut pacer = Pacer::new();
     let mut batch_ring = LatencyRing::new(1024);
-    let mut jitter_ring = LatencyRing::new(1024);
     let mut grads: Vec<Option<[f64; 2]>> = vec![None; N_MARBLES];
+    let mut total_gradients: u64 = 0; // cumulative, for the running hud counter
 
     let mut n: i64 = 0;
     loop {
-        let late_us = pacer.wait();
+        pacer.wait(); // pace to the next 1 ms boundary
         n += 1;
         rr.set_sequence("tick", n);
 
@@ -231,6 +228,7 @@ fn main() -> Result<(), VizError> {
             grads[i] = jac.get(&Himmelblau, &m.pos).ok().map(|j| j[0]);
         }
         let grad_batch_us = t0.elapsed().as_nanos() as f64 / 1000.0;
+        total_gradients += N_MARBLES as u64;
 
         // Dynamics: semi-implicit Euler with drag, speed clamp, and reflecting walls.
         for (i, m) in marbles.iter_mut().enumerate() {
@@ -257,9 +255,7 @@ fn main() -> Result<(), VizError> {
 
         if n > WARMUP_TICKS {
             batch_ring.push(grad_batch_us);
-            jitter_ring.push(late_us as f64);
         }
-        rr.scalar("plots/grad_batch_us", grad_batch_us)?;
 
         // Spatial geometry at ~60 Hz: all marbles, colored by gradient magnitude.
         if n % GEOM_EVERY == 0 {
@@ -286,28 +282,19 @@ fn main() -> Result<(), VizError> {
         if n % HUD_EVERY == 0 {
             let probe_err = probe_error(&jac, &probes);
             rr.scalar("plots/ad_vs_analytic", probe_err)?;
-            if let (Some(b), Some(j)) = (batch_ring.summary(), jitter_ring.summary()) {
-                let settled = marbles
-                    .iter()
-                    .filter(|m| (m.vel[0] * m.vel[0] + m.vel[1] * m.vel[1]).sqrt() < SETTLE_SPEED)
-                    .count();
-                let settled_pct = settled as f64 / N_MARBLES as f64 * 100.0;
+            if let Some(b) = batch_ring.summary() {
                 let grads_per_ms = N_MARBLES as f64 / (b.median / 1000.0);
                 let md = format!(
                     "## gradient_marbles — multicalc live demo\n\
-                     ### math (multicalc): {} exact ∇ in {:.0} µs/tick ({}/ms, one core) — {:.0}× headroom under the 1 ms budget\n\
+                     ### {} exact autodiff gradients: {:.0} µs/tick — {:.2} % of the 1 ms tick ({}/ms, one core)\n\
                      ### accuracy: max |∇f_AD − ∇f_analytic| = {:.1e}\n\
-                     ### host OS scheduling (not the library): jitter p50 {:.0} µs, p99 {:.0} µs\n\
-                     ### settled: {:.0} % of {} marbles",
+                     ### gradients computed: {} and counting",
                     commas(N_MARBLES as u64),
                     b.median,
+                    b.median / 10.0,
                     commas(grads_per_ms as u64),
-                    1000.0 / b.median.max(1e-3),
                     probe_err,
-                    j.median,
-                    j.p99,
-                    settled_pct,
-                    commas(N_MARBLES as u64),
+                    commas(total_gradients),
                 );
                 rr.text("hud/stats", &md)?;
             }

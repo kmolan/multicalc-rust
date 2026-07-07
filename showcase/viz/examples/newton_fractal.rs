@@ -44,7 +44,6 @@ const FILIGREE: [u8; 3] = [0x1c, 0x20, 0x23]; // near-surface dark for non-conve
 
 const HERO: Rgba = [0x39, 0x87, 0xe5, 0xff];
 const TARGET: Rgba = [0xc9, 0x85, 0x00, 0xff];
-const ERROR: Rgba = [0xe6, 0x67, 0x67, 0xff];
 
 /// The cubic `p(z) = Π (z − r_j)` as a 2-real system; the complex product is inlined generically,
 /// so autodiff yields the Cauchy-Riemann-consistent Jacobian.
@@ -99,7 +98,6 @@ fn main() -> Result<(), VizError> {
     rr.set_sequence("frame", 0);
     rr.series_style("plots/solves_per_sec", HERO, "Newton solves/s (one core)", 2.0)?;
     rr.series_style("plots/mean_iterations", TARGET, "mean iterations", 1.0)?;
-    rr.series_style("plots/mean_residual", ERROR, "mean residual ‖F‖", 2.0)?;
 
     // Built once; solve takes &self. Backtracking stays off (default) — it would smooth away the
     // wild Newton steps that make the filigree.
@@ -177,9 +175,8 @@ fn main() -> Result<(), VizError> {
 
         let conv = converged.max(1) as f64;
         let mean_iterations = iter_sum as f64 / conv;
-        let mean_residual = res_sum / conv;
+        let mean_residual = res_sum / conv; // shown in the hud, not plotted
         rr.scalar("plots/mean_iterations", mean_iterations)?;
-        rr.scalar("plots/mean_residual", mean_residual)?;
 
         let nonconverged_pct = (N * N - converged as usize) as f64 / (N * N) as f64 * 100.0;
         let md = format!(

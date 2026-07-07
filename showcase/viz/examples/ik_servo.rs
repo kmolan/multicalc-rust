@@ -136,11 +136,7 @@ fn main() -> Result<(), VizError> {
     rr.set_sequence("tick", 0);
     rr.line_strips2d("world/grid", &grid_strips(), &[CHROME], &[0.004])?;
     rr.line_strips2d("world/reach", &[reach_circle()], &[CHROME], &[0.006])?;
-    rr.series_style("plots/solve_us", HERO, "solve — multicalc math", 2.0)?;
-    rr.series_style("plots/residual_norm", ERROR, "residual ‖r‖", 2.0)?;
-    rr.series_style("plots/evaluations", TARGET, "LM evaluations", 1.0)?;
-    // Host-OS scheduling jitter is measured (for the hud percentiles) but not plotted — a spiky
-    // scheduling panel invites misreading the OS as the library.
+    rr.series_style("plots/residual_norm", ERROR, "position residual ‖r‖", 2.0)?;
 
     let lm = LevenbergMarquardt::<AutoDiffMulti>::default().with_patience(40);
     let mut problem = IkProblem {
@@ -150,16 +146,17 @@ fn main() -> Result<(), VizError> {
 
     let mut pacer = Pacer::new();
     let mut solve_ring = LatencyRing::new(1024);
-    let mut jitter_ring = LatencyRing::new(1024);
     let mut trail: VecDeque<[f64; 2]> = VecDeque::with_capacity(TRAIL_MAX);
 
     let mut last_residual_norm = 0.0; // sqrt(2*objective), full system
     let mut last_pos_residual = 0.0; // ||ee - target||, the accuracy readout
-    let mut last_evals = 0.0;
+    let mut evals_live: usize = 0; // residual evaluations on the latest solve
+    let mut evals_sum: u64 = 0; // running total for the average
+    let mut evals_n: u64 = 0;
 
     let mut n: i64 = 0;
     loop {
-        let late_us = pacer.wait();
+        pacer.wait(); // pace to the next 1 ms boundary
         n += 1;
         let t = n as f64 / 1000.0;
         rr.set_sequence("tick", n);
@@ -174,7 +171,9 @@ fn main() -> Result<(), VizError> {
         if let Ok(rep) = result {
             problem.prev = rep.solution;
             last_residual_norm = (2.0 * rep.objective_function).sqrt();
-            last_evals = rep.evaluations as f64;
+            evals_live = rep.evaluations;
+            evals_sum += rep.evaluations as u64;
+            evals_n += 1;
             let ee = fk_nodes(&rep.solution)[3];
             let dx = ee[0] - problem.target[0];
             let dy = ee[1] - problem.target[1];
@@ -183,14 +182,10 @@ fn main() -> Result<(), VizError> {
 
         if n > WARMUP_TICKS {
             solve_ring.push(solve_us);
-            jitter_ring.push(late_us as f64);
         }
 
-        // Scalars every tick — solve_us is multicalc's math cost. Jitter is not plotted; it only
-        // feeds the hud percentiles below.
-        rr.scalar("plots/solve_us", solve_us)?;
+        // Residual-norm series (solve time is summarized in the hud, not plotted).
         rr.scalar("plots/residual_norm", last_residual_norm)?;
-        rr.scalar("plots/evaluations", last_evals)?;
 
         // Spatial geometry at ~60 Hz.
         if n % GEOM_EVERY == 0 {
@@ -216,19 +211,19 @@ fn main() -> Result<(), VizError> {
 
         // Hud headline at 1 Hz.
         if n % HUD_EVERY == 0
-            && let (Some(s), Some(j)) = (solve_ring.summary(), jitter_ring.summary())
+            && let Some(s) = solve_ring.summary()
         {
+            let evals_avg = evals_sum as f64 / evals_n.max(1) as f64;
             let md = format!(
                 "## ik_servo — multicalc live demo\n\
-                 ### math (multicalc): median {:.0} µs/tick — {:.0}× headroom under the 1 ms budget (worst {:.0} µs)\n\
+                 ### full IK solve (Levenberg–Marquardt, exact autodiff Jacobian): median {:.0} µs — {:.2} % of the 1 ms tick\n\
                  ### accuracy: position residual ‖ee−target‖ = {:.1e}\n\
-                 ### host OS scheduling (not the library): jitter p50 {:.0} µs, p99 {:.0} µs",
+                 ### LM residual evaluations: {} this tick, {:.1} average",
                 s.median,
-                1000.0 / s.median.max(1e-3),
-                s.max,
+                s.median / 10.0,
                 last_pos_residual,
-                j.median,
-                j.p99,
+                evals_live,
+                evals_avg,
             );
             rr.text("hud/stats", &md)?;
         }

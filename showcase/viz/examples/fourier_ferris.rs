@@ -43,7 +43,6 @@ const HERO: Rgba = [0x39, 0x87, 0xe5, 0xff]; // trace, tip
 const SILHOUETTE: Rgba = [0xc9, 0x85, 0x00, 80]; // target outline
 const CIRCLES: Rgba = [0x90, 0x85, 0xe9, 120]; // epicycle circles
 const SPOKES: Rgba = [0x89, 0x87, 0x81, 0xff]; // chain spokes
-const TARGET: Rgba = [0xc9, 0x85, 0x00, 0xff]; // active_harmonics series
 const ERROR: Rgba = [0xe6, 0x67, 0x67, 0xff]; // coeff_error series
 
 /// A minimal complex number for the coefficient math and chain evaluation.
@@ -202,10 +201,8 @@ fn main() -> Result<(), VizError> {
 
     let mut rr = RerunSink::live("multicalc-viz/fourier-ferris")?;
     rr.set_sequence("tick", 0);
-    rr.series_style("plots/tick_us", HERO, "chain eval — multicalc math", 2.0)?;
-    rr.series_style("plots/active_harmonics", TARGET, "active harmonics", 1.0)?;
     rr.series_style("plots/coeff_error", ERROR, "coeff error (GL vs closed)", 2.0)?;
-    // Host-OS scheduling jitter is measured (for the hud percentiles) but not plotted.
+    // Chain-eval time, active-harmonic count, and host-OS jitter are shown in the hud, not plotted.
 
     // Static silhouette: the closed target outline.
     let mut silhouette: Vec<[f64; 2]> = FERRIS.to_vec();
@@ -214,14 +211,13 @@ fn main() -> Result<(), VizError> {
 
     let mut pacer = Pacer::new();
     let mut tick_ring = LatencyRing::new(1024);
-    let mut jitter_ring = LatencyRing::new(1024);
     let mut trace: VecDeque<[f64; 2]> = VecDeque::with_capacity(TRACE_MAX);
 
     let mut reveal_clock: u64 = 0;
     let mut prev_active = 0usize;
     let mut n: i64 = 0;
     loop {
-        let late_us = pacer.wait();
+        pacer.wait(); // pace to the next 1 ms boundary
         n += 1;
         rr.set_sequence("tick", n);
 
@@ -243,10 +239,7 @@ fn main() -> Result<(), VizError> {
 
         if n > WARMUP_TICKS {
             tick_ring.push(tick_us);
-            jitter_ring.push(late_us as f64);
         }
-        rr.scalar("plots/tick_us", tick_us)?;
-        rr.scalar("plots/active_harmonics", active as f64)?;
 
         // Spatial geometry at ~60 Hz: full chain (circles, spokes), trace, tip.
         if n % GEOM_EVERY == 0 {
@@ -283,22 +276,19 @@ fn main() -> Result<(), VizError> {
         // Coefficient error (constant) once per second, and the hud headline.
         if n % HUD_EVERY == 0 {
             rr.scalar("plots/coeff_error", coeff_error)?;
-            if let (Some(tk), Some(j)) = (tick_ring.summary(), jitter_ring.summary()) {
+            if let Some(tk) = tick_ring.summary() {
                 let md = format!(
                     "## fourier_ferris — multicalc live demo\n\
-                     ### math (multicalc): chain eval median {:.1} µs/tick — {:.0}× headroom under the 1 ms budget\n\
+                     ### Fourier epicycle chain evaluation: median {:.1} µs — {:.2} % of the 1 ms tick\n\
                      ### accuracy: max |c_k(GL) − closed| = {:.1e} ({} node evals in {:.0} ms at startup)\n\
-                     ### harmonics active: {} / {}\n\
-                     ### host OS scheduling (not the library): jitter p50 {:.0} µs, p99 {:.0} µs",
+                     ### harmonics active: {} / {}",
                     tk.median,
-                    1000.0 / tk.median.max(1e-3),
+                    tk.median / 10.0,
                     coeff_error,
                     commas(node_evals),
                     startup_ms,
                     active,
                     max_h,
-                    j.median,
-                    j.p99,
                 );
                 rr.text("hud/stats", &md)?;
             }
