@@ -11,8 +11,8 @@ derivatives, integrals, curve fitting and linear algebra; built and tested on fi
 hardware targets. Exercise the same code from a 64-bit server CPU down to a bare-metal microcontroller.**
 
 <p align="center">
-  <img src="showcase/viz/examples/support/ik_servo_showcase.gif" width="49%" alt="1 kHz IK servo arm running a full Levenberg-Marquardt solve every millisecond">
-  <img src="showcase/viz/examples/support/newton_fractal_showcase.gif" width="49%" alt="Morphing Newton fractal, every pixel a full Newton solve">
+  <img src="https://github.com/kmolan/multicalc-rust/blob/main/showcase/viz/examples/support/ik_servo_showcase.gif" width="75%" alt="1 kHz 3-link arm running a full Levenberg-Marquardt solve every millisecond">
+  <img src="https://github.com/kmolan/multicalc-rust/blob/main/showcase/viz/examples/support/newton_fractal_showcase.gif" width="75%" alt="Morphing Newton fractal, every pixel a full Newton solve">
 </p>
 
 *Two of four live [showcase demos](showcase/viz#showcases): a 1 kHz 3-link arm running a complete
