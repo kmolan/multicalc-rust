@@ -7,11 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-07-07
+
+A tooling and infrastructure release. The library API is unchanged; the repository
+is now a Cargo workspace with cross-validation, embedded, and visualization crates
+alongside the core `multicalc` crate.
+
+### Added
+
+- **Workspace layout.** The repository is now a Cargo workspace; the library lives in
+  `crates/multicalc`, with supporting crates and tools split out. (#90)
+- **Embedded smoke tests.** A `no_std` firmware crate (`crates/embedded-smoke`) that
+  builds and runs core APIs on Cortex-M targets, guarding embedded compatibility in CI.
+  (#92, #100)
+- **Oracle.** Cross-validation fixtures for linear algebra, optimization, and quadrature,
+  generated from reference implementations, with tests checking multicalc against them.
+  (#93)
+- **multicalc-viz showcase.** Rerun-based visualization examples under `showcase/viz`
+  (Fourier Ferris, gradient marbles, IK servo, Newton fractal, live/recorded curve fit),
+  plus demo reels in the README. (#97)
+- **Nightly CI and expanded build matrix.** A nightly workflow and additional target
+  builds. (#94)
+
 ### Changed
 
 - Benchmark suites are unified under a single `benchmarks` target: use criterion
-  substring filters (`cargo bench -- linear_algebra`) instead of `--bench <suite>`. 
-  @rtmongold
+  substring filters (`cargo bench -- linear_algebra`) instead of `--bench <suite>`.
+  @rtmongold (#96)
+- Improved the README project description and switched image sources to direct GitHub
+  links so they render off-crates.io. (#91, #98)
+- Miscellaneous CI cleanup. (#95)
 
 ## [0.7.0] - 2026-07-06
 
@@ -89,6 +114,7 @@ A breaking rewrite focused on real-time latency, ease of use, maintainability, a
 
 - The `num-complex` dependency, the `ComplexFloat` generic, and `f32` / complex-number support.
 
-[Unreleased]: https://github.com/kmolan/multicalc-rust/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/kmolan/multicalc-rust/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/kmolan/multicalc-rust/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/kmolan/multicalc-rust/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/kmolan/multicalc-rust/releases/tag/v0.6.0
