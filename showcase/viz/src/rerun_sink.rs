@@ -13,11 +13,20 @@ pub struct RerunSink {
 }
 
 impl RerunSink {
-    /// Spawns the external Rerun viewer and streams to it.
+    /// Opens a live viewer and streams to it.
+    ///
+    /// On a normal host this spawns a local viewer. When `RERUN_VIZ_URL` is set it connects to
+    /// that address instead; under WSL (where the virtualized GPU usually cannot launch the
+    /// viewer) it connects to the default `127.0.0.1:9876`, reaching a Windows-side viewer over
+    /// shared localhost. In the connecting cases the external viewer must already be running.
     pub fn live(app_id: &str) -> Result<Self, VizError> {
-        let stream = RecordingStreamBuilder::new(app_id.to_owned())
-            .spawn()
-            .map_err(|e| VizError::Backend(e.to_string()))?;
+        let builder = RecordingStreamBuilder::new(app_id.to_owned());
+        let stream = match std::env::var("RERUN_VIZ_URL") {
+            Ok(url) => builder.connect_grpc_opts(url),
+            Err(_) if std::env::var_os("WSL_DISTRO_NAME").is_some() => builder.connect_grpc(),
+            Err(_) => builder.spawn(),
+        }
+        .map_err(|e| VizError::Backend(e.to_string()))?;
         Ok(Self { stream })
     }
 
