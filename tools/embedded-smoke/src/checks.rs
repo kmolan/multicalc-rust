@@ -24,7 +24,8 @@ fn close(got: f64, want: f64, abs: f64, rel: f64) -> bool {
 
 /// Golden: the Rosenbrock least-squares minimizer must match the host oracle
 /// golden (optimization/rosenbrock). Residuals `[10 (y - x^2), 1 - x]` are zero
-/// at the minimum `(1, 1)`.
+/// at the minimum `(1, 1)`. Part of the full set only (thumbv7em).
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
 pub fn lm_fit() {
     struct Rosenbrock;
     impl VectorFn<2, 2> for Rosenbrock {
@@ -48,6 +49,8 @@ pub fn lm_fit() {
 }
 
 /// Identity: differentiate x^3 at x = 2 by autodiff. Exact derivative is 12.
+/// Part of the full set only (thumbv7em).
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
 pub fn autodiff_derivative() {
     let f = scalar_fn!(|x| x * x * x);
     let d = AutoDiffSingle::default();

@@ -49,11 +49,18 @@ fn main() -> ! {
     let bottom = top.saturating_sub(WINDOW);
     paint(bottom, top);
 
-    checks::lm_fit();
-    checks::autodiff_derivative();
+    // Canary set: runs on every target, including the thumbv6m M0. Covers the
+    // portable (no-atomics) path, one golden, and the no-panic negative path.
     checks::portable_path();
     checks::svd_golden();
     checks::error_path_returns_err();
+
+    // Full set: thumbv7em only (default features).
+    #[cfg(feature = "full-smoke")]
+    {
+        checks::lm_fit();
+        checks::autodiff_derivative();
+    }
 
     let used = stack_used(bottom, top);
     // The size and stack gate reads this exact line from the run output.

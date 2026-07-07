@@ -5,6 +5,12 @@ edition = "2024"
 rust-version = "1.85"
 publish = false
 
+# thumbv7em runs the full set (default). thumbv6m runs the reduced canary via
+# --no-default-features, keeping the M0 image small.
+[features]
+default = ["full-smoke"]
+full-smoke = []
+
 [dependencies]
 multicalc = { path = "../../crates/multicalc", default-features = false }
 cortex-m-rt = "0.7"
