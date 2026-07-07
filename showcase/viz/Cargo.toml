@@ -9,8 +9,9 @@ publish = false
 
 [dependencies]
 multicalc = { path = "../../crates/multicalc" }
-# Pinned to match the paired Rerun viewer version.
-rerun = { version = "=0.33.1", default-features = false }
+# Pinned to match the paired Rerun viewer version. Only the logging SDK is needed: `spawn()`
+# launches the external viewer on PATH, so the in-process `native_viewer` is not compiled in.
+rerun = { version = "=0.33.1", default-features = false, features = ["sdk"] }
 
 [lints]
 workspace = true
