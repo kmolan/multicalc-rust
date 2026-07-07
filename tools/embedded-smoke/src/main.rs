@@ -53,6 +53,7 @@ fn main() -> ! {
     checks::autodiff_derivative();
     checks::portable_path();
     checks::svd_golden();
+    checks::error_path_returns_err();
 
     let used = stack_used(bottom, top);
     // The size and stack gate reads this exact line from the run output.

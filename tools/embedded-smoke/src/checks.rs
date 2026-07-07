@@ -12,6 +12,7 @@ use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::numerical_derivative::derivator::DerivatorSingleVariable;
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc::scalar_fn;
+use multicalc::utils::error_codes::CalcError;
 
 use crate::fixtures;
 
@@ -60,6 +61,21 @@ pub fn portable_path() {
     let v = [1.0_f64, 2.0, 3.0, 4.0];
     let sum: f64 = v.iter().copied().fold(0.0, |a, b| a + b);
     assert!((sum - 10.0).abs() < 1e-12);
+}
+
+/// No-panic negative path: a fallible decomposition returns a typed `Err` on bad
+/// input instead of crashing. A singular (all-zero) matrix has no LU
+/// factorization; an indefinite matrix has no Cholesky factorization.
+pub fn error_path_returns_err() {
+    assert!(matches!(
+        Matrix::<3, 3>::zeros().lu(),
+        Err(CalcError::SingularMatrix)
+    ));
+    let indefinite = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 1.0]]);
+    assert!(matches!(
+        indefinite.cholesky(),
+        Err(CalcError::NotPositiveDefinite)
+    ));
 }
 
 /// Golden: singular values of a fixture matrix must match the host oracle golden
