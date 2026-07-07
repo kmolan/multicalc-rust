@@ -22,7 +22,7 @@ use multicalc::LevenbergMarquardt;
 use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc_viz::loop_util::{LatencyRing, Pacer};
-use multicalc_viz::{Rgba, RerunSink, VizError, VizSink};
+use multicalc_viz::{RerunSink, Rgba, VizError, VizSink};
 use std::collections::VecDeque;
 use std::f64::consts::TAU;
 use std::time::Instant;
@@ -204,7 +204,12 @@ fn main() -> Result<(), VizError> {
                 &[0.06, 0.05, 0.05, 0.04],
             )?;
             rr.points2d_styled("world/target", &[problem.target], &[TARGET], &[0.07])?;
-            rr.line_strips2d("world/target/path", &[target_path(t)], &[TARGET_PATH], &[0.008])?;
+            rr.line_strips2d(
+                "world/target/path",
+                &[target_path(t)],
+                &[TARGET_PATH],
+                &[0.008],
+            )?;
             let trail_pts: Vec<[f64; 2]> = trail.iter().copied().collect();
             rr.line_strips2d("world/trail", &[trail_pts], &[ACCENT], &[0.012])?;
         }

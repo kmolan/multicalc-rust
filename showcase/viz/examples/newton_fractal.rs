@@ -18,11 +18,11 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::root_finding::NewtonSystem;
 use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::root_finding::NewtonSystem;
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc_viz::loop_util::{LatencyRing, commas};
-use multicalc_viz::{Rgba, RerunSink, VizError, VizSink};
+use multicalc_viz::{RerunSink, Rgba, VizError, VizSink};
 use std::f64::consts::TAU;
 use std::time::Instant;
 
@@ -96,7 +96,12 @@ fn main() -> Result<(), VizError> {
 
     let mut rr = RerunSink::live("multicalc-viz/newton-fractal")?;
     rr.set_sequence("frame", 0);
-    rr.series_style("plots/solves_per_sec", HERO, "Newton solves/s (one core)", 2.0)?;
+    rr.series_style(
+        "plots/solves_per_sec",
+        HERO,
+        "Newton solves/s (one core)",
+        2.0,
+    )?;
     rr.series_style("plots/mean_iterations", TARGET, "mean iterations", 1.0)?;
 
     // Built once; solve takes &self. Backtracking stays off (default) — it would smooth away the
@@ -167,10 +172,17 @@ fn main() -> Result<(), VizError> {
         if frame > WARMUP_FRAMES {
             throughput_ring.push(solves_per_sec);
         }
-        let throughput_median = throughput_ring.summary().map_or(solves_per_sec, |s| s.median);
+        let throughput_median = throughput_ring
+            .summary()
+            .map_or(solves_per_sec, |s| s.median);
 
         rr.image_rgb8("world/fractal", N as u32, N as u32, &buf)?;
-        rr.points2d_styled("world/roots", &roots_px, &BASIN_RGBA, &[root_radius_px as f32])?;
+        rr.points2d_styled(
+            "world/roots",
+            &roots_px,
+            &BASIN_RGBA,
+            &[root_radius_px as f32],
+        )?;
         rr.scalar("plots/solves_per_sec", solves_per_sec)?;
 
         let conv = converged.max(1) as f64;

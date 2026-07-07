@@ -20,7 +20,7 @@ use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
 use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
 use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
 use multicalc_viz::loop_util::{LatencyRing, Pacer, commas};
-use multicalc_viz::{Rgba, RerunSink, VizError, VizSink};
+use multicalc_viz::{RerunSink, Rgba, VizError, VizSink};
 use std::collections::VecDeque;
 use std::f64::consts::TAU;
 use std::time::Instant;
@@ -64,7 +64,10 @@ impl Cx {
         Cx::new(self.re - o.re, self.im - o.im)
     }
     fn mul(self, o: Cx) -> Cx {
-        Cx::new(self.re * o.re - self.im * o.im, self.re * o.im + self.im * o.re)
+        Cx::new(
+            self.re * o.re - self.im * o.im,
+            self.re * o.im + self.im * o.re,
+        )
     }
     fn scale(self, s: f64) -> Cx {
         Cx::new(self.re * s, self.im * s)
@@ -201,7 +204,12 @@ fn main() -> Result<(), VizError> {
 
     let mut rr = RerunSink::live("multicalc-viz/fourier-ferris")?;
     rr.set_sequence("tick", 0);
-    rr.series_style("plots/coeff_error", ERROR, "coeff error (GL vs closed)", 2.0)?;
+    rr.series_style(
+        "plots/coeff_error",
+        ERROR,
+        "coeff error (GL vs closed)",
+        2.0,
+    )?;
     // Chain-eval time, active-harmonic count, and host-OS jitter are shown in the hud, not plotted.
 
     // Static silhouette: the closed target outline.

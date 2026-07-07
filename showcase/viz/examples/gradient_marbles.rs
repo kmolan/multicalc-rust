@@ -20,7 +20,7 @@ use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 use multicalc::numerical_derivative::jacobian::Jacobian;
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc_viz::loop_util::{LatencyRing, Pacer, commas};
-use multicalc_viz::{Rgba, RerunSink, VizError, VizSink};
+use multicalc_viz::{RerunSink, Rgba, VizError, VizSink};
 use std::f64::consts::TAU;
 use std::time::Instant;
 
@@ -122,7 +122,9 @@ fn ramp(lo: [u8; 3], hi: [u8; 3], t: f64) -> Rgba {
     let channel = |a: u8, b: u8| {
         let la = srgb_to_linear(a as f64 / 255.0);
         let lb = srgb_to_linear(b as f64 / 255.0);
-        (linear_to_srgb(la + (lb - la) * t) * 255.0).round().clamp(0.0, 255.0) as u8
+        (linear_to_srgb(la + (lb - la) * t) * 255.0)
+            .round()
+            .clamp(0.0, 255.0) as u8
     };
     [
         channel(lo[0], hi[0]),
@@ -149,7 +151,9 @@ fn probe_error(jac: &Jacobian, probes: &[[f64; 2]]) -> f64 {
     for p in probes {
         let ad = jac.get(&Himmelblau, p).expect("probe gradient")[0];
         let an = himmelblau_grad(p[0], p[1]);
-        max_err = max_err.max((ad[0] - an[0]).abs()).max((ad[1] - an[1]).abs());
+        max_err = max_err
+            .max((ad[0] - an[0]).abs())
+            .max((ad[1] - an[1]).abs());
     }
     max_err
 }
@@ -185,7 +189,12 @@ fn main() -> Result<(), VizError> {
 
     let mut rr = RerunSink::live("multicalc-viz/gradient-marbles")?;
     rr.set_sequence("tick", 0);
-    rr.series_style("plots/ad_vs_analytic", ERROR, "autodiff − analytic error", 2.0)?;
+    rr.series_style(
+        "plots/ad_vs_analytic",
+        ERROR,
+        "autodiff − analytic error",
+        2.0,
+    )?;
     // Gradient-batch time is summarized in the hud, not plotted.
 
     // Static terrain: a grid of styled points colored by height.
@@ -203,7 +212,10 @@ fn main() -> Result<(), VizError> {
             }
         }
         let zmax = zs.iter().copied().fold(0.0f64, f64::max).max(1e-9);
-        let cols: Vec<Rgba> = zs.iter().map(|&z| ramp(BLUE_LO, BLUE_HI, z / zmax)).collect();
+        let cols: Vec<Rgba> = zs
+            .iter()
+            .map(|&z| ramp(BLUE_LO, BLUE_HI, z / zmax))
+            .collect();
         rr.points3d_styled("world/terrain", &pts, &cols, &[0.03])?;
     }
 
