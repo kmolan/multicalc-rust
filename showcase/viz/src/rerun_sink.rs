@@ -3,9 +3,16 @@
 //! Both constructors are stock SDK calls; Rerun's own recording-stream thread does the live
 //! streaming. `live()` spawns the external viewer found on PATH (version-matched to the SDK).
 
-use crate::sink::{VizError, VizSink};
+use crate::sink::{Rgba, VizError, VizSink};
 use rerun::RecordingStreamBuilder;
 use std::path::Path;
+
+/// Maps our plain `Rgba` arrays to Rerun colors for a `with_colors` call.
+fn colors_iter(colors: &[Rgba]) -> impl Iterator<Item = rerun::Color> + '_ {
+    colors
+        .iter()
+        .map(|c| rerun::Color::from_unmultiplied_rgba(c[0], c[1], c[2], c[3]))
+}
 
 /// A sink backed by a Rerun recording stream.
 pub struct RerunSink {
@@ -75,6 +82,118 @@ impl VizSink for RerunSink {
         );
         self.stream
             .log(path, &rerun::Tensor::new(tensor_data))
+            .map_err(|e| VizError::Backend(e.to_string()))
+    }
+
+    fn points2d_styled(
+        &mut self,
+        path: &str,
+        xy: &[[f64; 2]],
+        colors: &[Rgba],
+        radii: &[f32],
+    ) -> Result<(), VizError> {
+        let pts: Vec<[f32; 2]> = xy.iter().map(|p| [p[0] as f32, p[1] as f32]).collect();
+        let arch = rerun::Points2D::new(pts)
+            .with_colors(colors_iter(colors))
+            .with_radii(radii.iter().copied());
+        self.stream
+            .log(path, &arch)
+            .map_err(|e| VizError::Backend(e.to_string()))
+    }
+
+    fn points3d_styled(
+        &mut self,
+        path: &str,
+        xyz: &[[f64; 3]],
+        colors: &[Rgba],
+        radii: &[f32],
+    ) -> Result<(), VizError> {
+        let pts: Vec<[f32; 3]> = xyz
+            .iter()
+            .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .collect();
+        let arch = rerun::Points3D::new(pts)
+            .with_colors(colors_iter(colors))
+            .with_radii(radii.iter().copied());
+        self.stream
+            .log(path, &arch)
+            .map_err(|e| VizError::Backend(e.to_string()))
+    }
+
+    fn line_strips2d(
+        &mut self,
+        path: &str,
+        strips: &[Vec<[f64; 2]>],
+        colors: &[Rgba],
+        widths: &[f32],
+    ) -> Result<(), VizError> {
+        let strips_f32: Vec<Vec<[f32; 2]>> = strips
+            .iter()
+            .map(|s| s.iter().map(|p| [p[0] as f32, p[1] as f32]).collect())
+            .collect();
+        let arch = rerun::LineStrips2D::new(strips_f32)
+            .with_colors(colors_iter(colors))
+            .with_radii(widths.iter().copied());
+        self.stream
+            .log(path, &arch)
+            .map_err(|e| VizError::Backend(e.to_string()))
+    }
+
+    fn line_strips3d(
+        &mut self,
+        path: &str,
+        strips: &[Vec<[f64; 3]>],
+        colors: &[Rgba],
+        widths: &[f32],
+    ) -> Result<(), VizError> {
+        let strips_f32: Vec<Vec<[f32; 3]>> = strips
+            .iter()
+            .map(|s| {
+                s.iter()
+                    .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+                    .collect()
+            })
+            .collect();
+        let arch = rerun::LineStrips3D::new(strips_f32)
+            .with_colors(colors_iter(colors))
+            .with_radii(widths.iter().copied());
+        self.stream
+            .log(path, &arch)
+            .map_err(|e| VizError::Backend(e.to_string()))
+    }
+
+    fn image_rgb8(
+        &mut self,
+        path: &str,
+        width: u32,
+        height: u32,
+        data: &[u8],
+    ) -> Result<(), VizError> {
+        let arch = rerun::Image::from_rgb24(data.to_vec(), [width, height]);
+        self.stream
+            .log(path, &arch)
+            .map_err(|e| VizError::Backend(e.to_string()))
+    }
+
+    fn text(&mut self, path: &str, markdown: &str) -> Result<(), VizError> {
+        self.stream
+            .log(path, &rerun::TextDocument::from_markdown(markdown))
+            .map_err(|e| VizError::Backend(e.to_string()))
+    }
+
+    fn series_style(
+        &mut self,
+        path: &str,
+        color: Rgba,
+        name: &str,
+        width: f32,
+    ) -> Result<(), VizError> {
+        let arch = rerun::SeriesLines::new()
+            .with_colors(colors_iter(&[color]))
+            .with_names([name])
+            .with_widths([width]);
+        self.stream
+            .log_static(path, &arch)
             .map_err(|e| VizError::Backend(e.to_string()))
     }
 

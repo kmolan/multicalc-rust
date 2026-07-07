@@ -12,7 +12,7 @@ mod sink;
 pub use convert::Plottable;
 pub use csv_sink::CsvSink;
 pub use rerun_sink::RerunSink;
-pub use sink::{VizError, VizSink, VizSinkExt};
+pub use sink::{Rgba, VizError, VizSink, VizSinkExt};
 
 #[cfg(test)]
 mod tests {

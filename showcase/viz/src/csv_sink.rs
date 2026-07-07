@@ -4,7 +4,7 @@
 //! order, with blanks where a row is missing one. Point and tensor logs are skipped with a
 //! warning — a dense grid is not a natural CSV time-series.
 
-use crate::sink::{VizError, VizSink};
+use crate::sink::{Rgba, VizError, VizSink};
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -71,6 +71,44 @@ impl VizSink for CsvSink {
 
     fn tensor(&mut self, path: &str, _shape: [usize; 2], _data: &[f64]) -> Result<(), VizError> {
         eprintln!("CsvSink: tensor('{path}') skipped (CSV is scalar-series only)");
+        Ok(())
+    }
+
+    fn line_strips2d(
+        &mut self,
+        path: &str,
+        _strips: &[Vec<[f64; 2]>],
+        _colors: &[Rgba],
+        _widths: &[f32],
+    ) -> Result<(), VizError> {
+        eprintln!("CsvSink: line_strips2d('{path}') skipped (CSV is scalar-series only)");
+        Ok(())
+    }
+
+    fn line_strips3d(
+        &mut self,
+        path: &str,
+        _strips: &[Vec<[f64; 3]>],
+        _colors: &[Rgba],
+        _widths: &[f32],
+    ) -> Result<(), VizError> {
+        eprintln!("CsvSink: line_strips3d('{path}') skipped (CSV is scalar-series only)");
+        Ok(())
+    }
+
+    fn image_rgb8(
+        &mut self,
+        path: &str,
+        _width: u32,
+        _height: u32,
+        _data: &[u8],
+    ) -> Result<(), VizError> {
+        eprintln!("CsvSink: image_rgb8('{path}') skipped (CSV is scalar-series only)");
+        Ok(())
+    }
+
+    fn text(&mut self, path: &str, _markdown: &str) -> Result<(), VizError> {
+        eprintln!("CsvSink: text('{path}') skipped (CSV is scalar-series only)");
         Ok(())
     }
 
