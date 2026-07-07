@@ -7,6 +7,7 @@ A few simple rules:
 2. Use `features/<features_to_improve>` branch. For example, if you want to improve `numerical_integration` then create `features/numerical_integration` on latest `main` branch & create pull request to `main` branch.
 3. Test before push. Use `cargo test --features <required_features>`
 4. Update the changelog in the same PR. Add an entry under `## [Unreleased]` in [CHANGELOG.md](./CHANGELOG.md), grouped under `Added` / `Changed` / `Fixed` / `Removed`, for any behavior-facing change.
+5. Size/stack budgets and the raise protocol live in [ci/README.md](ci/README.md).
 
 ## Releasing
 

@@ -1,34 +1,39 @@
-# Size and stack budgets per bare-metal target.
-# text_bytes: size of the .text section of the release smoke binary.
-# stack_bytes: peak stack use printed by the smoke run (STACK_HWM_BYTES).
-# tolerance_pct: allowed growth before the check fails.
+# Size and stack budgets, keyed by <binary>.<target>.
 #
-# Run the gate for one target (capture the run, then compare):
-#   cargo run -p embedded-smoke --release --target <triple> | tee smoke-<triple>.txt
-#   bash ci/check_budgets.sh <triple> smoke-<triple>.txt
-# where <triple> is one of the three sections below:
-#   thumbv7em-none-eabi     (Cortex-M4, soft-float)
-#   thumbv7em-none-eabihf   (Cortex-M4, hardware FPU)
-#   thumbv6m-none-eabi      (Cortex-M0 build)
+# Sections are [<binary>.<target>], where <binary> is the cargo package name of a
+# smoke crate (embedded-smoke today; per-domain smoke binaries are added at v0.9+,
+# each its own section) and <target> is one of the three bare-metal triples below.
+# Splitting budgets per binary keeps the gate fair: a heavy new domain grows its own
+# binary's budget and never spends another domain's headroom.
 #
-# Copy-paste form for each target:
-#   cargo run -p embedded-smoke --release --target thumbv7em-none-eabi   | tee smoke-thumbv7em-none-eabi.txt   && bash ci/check_budgets.sh thumbv7em-none-eabi   smoke-thumbv7em-none-eabi.txt
-#   cargo run -p embedded-smoke --release --target thumbv7em-none-eabihf | tee smoke-thumbv7em-none-eabihf.txt && bash ci/check_budgets.sh thumbv7em-none-eabihf smoke-thumbv7em-none-eabihf.txt
-#   cargo run -p embedded-smoke --release --target thumbv6m-none-eabi    | tee smoke-thumbv6m-none-eabi.txt    && bash ci/check_budgets.sh thumbv6m-none-eabi    smoke-thumbv6m-none-eabi.txt
+#   text_bytes            .text size of the release smoke binary.
+#   stack_bytes_<scalar>  peak stack for that scalar type, matched to a
+#                         STACK_HWM_BYTES_<SCALAR>=<n> line in the run output. The bare
+#                         STACK_HWM_BYTES=<n> line counts as the f64 measurement. Only
+#                         f64 is populated today; dual/hyperdual/jet rows are added per
+#                         (binary x scalar) as differentiated dynamics lands (v0.9+).
 #
-# Read just the raw .text size for a target:
-#   cargo size --release -p embedded-smoke --target <triple> -- -A
+# An absent or 0 budget is REPORT-ONLY (measured and printed, never gated).
+# tolerance_pct applies to every gated row. Raising a budget is a reviewed re-baseline
+# in the same PR — see ci/README.md. Never raise tolerance_pct to dodge a regression.
+#
+# Run the gate for one (binary, target):
+#   cargo run -p <binary> --release --target <triple> | tee smoke-<binary>-<triple>.txt
+#   bash ci/check_budgets.sh <binary> <triple> smoke-<binary>-<triple>.txt
+#
+# Read just the raw .text size:
+#   cargo size --release -p <binary> --target <triple> -- -A
 
 tolerance_pct = 10
 
-[thumbv7em-none-eabi]
+[embedded-smoke.thumbv7em-none-eabi]
 text_bytes = 30272
-stack_bytes = 1935
+stack_bytes_f64 = 1935
 
-[thumbv7em-none-eabihf]
+[embedded-smoke.thumbv7em-none-eabihf]
 text_bytes = 33372
-stack_bytes = 2195
+stack_bytes_f64 = 2195
 
-[thumbv6m-none-eabi]
+[embedded-smoke.thumbv6m-none-eabi]
 text_bytes = 29968
-stack_bytes = 2100
+stack_bytes_f64 = 2100

@@ -46,19 +46,20 @@ steps under `bash -eo pipefail`, so a panic still fails the job.
 
 ## Targets and QEMU machine
 
-| Target                  | Codegen                | QEMU machine   |
-|-------------------------|------------------------|----------------|
-| `thumbv7em-none-eabi`   | Cortex-M4, soft-float  | `netduinoplus2`|
-| `thumbv7em-none-eabihf` | Cortex-M4, hard-float  | `netduinoplus2`|
-| `thumbv6m-none-eabi`    | Cortex-M0, CAS-free    | `netduinoplus2`|
+| Target                  | Codegen                | QEMU machine   | RAM  |
+|-------------------------|------------------------|----------------|------|
+| `thumbv7em-none-eabi`   | Cortex-M4, soft-float  | `netduinoplus2`| 64K  |
+| `thumbv7em-none-eabihf` | Cortex-M4, hard-float  | `netduinoplus2`| 64K  |
+| `thumbv6m-none-eabi`    | Cortex-M0, CAS-free    | `microbit`     | 16K  |
 
-All three run on `netduinoplus2` (Cortex-M4, FPU, flash aliased at
-`0x08000000`). The thumbv6m ELF is ARMv6-M, a strict subset of ARMv7E-M, so it
-executes there unchanged. The CAS-free codegen under test lives in the binary,
-not the emulated core.
+The `thumbv7em` ABIs run on `netduinoplus2` (Cortex-M4, FPU, 64K RAM, flash at
+`0x08000000`). `thumbv6m` runs on `microbit` (Cortex-M0, nRF51, 16K RAM, flash
+at `0x0`) — a real M0 core, so the run now asserts both RAM-size and ISA
+fidelity: an oversized image or an out-of-ISA (ARMv7E-M) instruction faults just
+as it would on silicon. `build.rs` picks each target's memory map.
 
-The runners and `rustflags` (`-Tlink.x`, `--nmagic`, `-L .`) live in
-`.cargo/config.toml`.
+The runners and `rustflags` (`-Tlink.x`, `--nmagic`) live in
+`.cargo/config.toml`; the per-target memory map is supplied by `build.rs`.
 
 ## Stack high-water mark
 

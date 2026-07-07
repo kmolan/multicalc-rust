@@ -90,21 +90,19 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build for bare metal (no default features)
         run: cargo build -p multicalc --no-default-features --target thumbv7em-none-eabi
-      - name: Build embedded example — soft-float (links a firmware image)
-        run: cargo build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabi
-      - name: Build embedded example — hardware-FPU (links a firmware image)
-        run: cargo build -p multicalc --example embedded_curve_fit --no-default-features --features embedded --target thumbv7em-none-eabihf
 
-  semver:
-    name: semver-checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@cargo-semver-checks
-      - name: Check for unplanned breaking changes
-        run: cargo semver-checks --package multicalc
+  # Disabled until the library's public API stabilizes; re-enable once it has
+  # gained more maturity.
+  # semver:
+  #   name: semver-checks
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: dtolnay/rust-toolchain@stable
+  #     - uses: Swatinem/rust-cache@v2
+  #     - uses: taiki-e/install-action@cargo-semver-checks
+  #     - name: Check for unplanned breaking changes
+  #       run: cargo semver-checks --package multicalc
 
   # Green only if every representative job passed.
   # Branch protection points at this job, so adding or removing a job above never
@@ -112,7 +110,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs: [matrix, test, oracle, lint, docs, no_std, semver]
+    needs: [matrix, test, oracle, lint, docs, no_std]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any dependency failed or was cancelled

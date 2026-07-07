@@ -4,9 +4,6 @@ Runnable, self-contained examples for each module of `multicalc`. Every file has
 that prints its results against the known analytic value (with the `|err|`), so you can see
 the API in action and check accuracy at the same time:
 
-`embedded_curve_fit` is the exception: it is a bare-metal firmware target, built not run, and
-observed under a debugger.
-
 ```sh
 cargo run --example <name>
 ```
@@ -25,5 +22,4 @@ Several examples also reproduce the published accuracy figures in [`benches/`](.
 | [`linear_algebra`](linear_algebra.rs) | `linear_algebra` | LU and Cholesky factorizations, linear solves, and the direct 4x4 inverse under a latency + approximation-error stress test on well- and ill-conditioned inputs. Reproduces the LU / Cholesky / inverse accuracy tables in benches/linear_algebra.md. |
 | [`svd`](svd.rs) | `linear_algebra::svd` | Singular value decomposition and Moore-Penrose pseudo-inverse under a robotics stress test (Kabsch rotation recovery, a redundant-arm pseudo-inverse, a near-singular Jacobian, and an overdetermined fit) with latency + approximation error. Reproduces the SVD / pseudo-inverse accuracy table in benches/linear_algebra.md. |
 | [`root_finding`](root_finding.rs) | `root_finding` | Bracketed bisection, Newton with exact derivatives, damped (backtracking) Newton rescuing a far start, and a square-system Newton solve, each printed against its known root. |
-| [`curve_fit`](curve_fit.rs) | `optimization` | Levenberg-Marquardt fit of `y = a·e^(b·t)` to sensor samples with exact autodiff Jacobians; prints recovered `a`, `b`, and `\|err\|`. The identical fit builds for bare-metal Cortex-M; see `embedded_curve_fit`. |
-| [`embedded_curve_fit`](embedded_curve_fit.rs) | `optimization` (`no_std`/`no_main`) | The same `a·e^(b·t)` fit built for `thumbv7em-none-eabi` / `-eabihf` with zero heap. **Build-only** (no console on-chip); see the file header for `--target` build commands. |
+| [`curve_fit`](curve_fit.rs) | `optimization` | Levenberg-Marquardt fit of `y = a·e^(b·t)` to sensor samples with exact autodiff Jacobians; prints recovered `a`, `b`, and `\|err\|`. |
