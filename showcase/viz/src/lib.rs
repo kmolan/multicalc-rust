@@ -9,6 +9,9 @@ mod csv_sink;
 mod rerun_sink;
 mod sink;
 
+#[doc(hidden)]
+pub mod loop_util;
+
 pub use convert::Plottable;
 pub use csv_sink::CsvSink;
 pub use rerun_sink::RerunSink;
