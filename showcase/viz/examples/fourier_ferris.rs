@@ -5,6 +5,12 @@
 //! Every coefficient matches the exact closed-form antiderivative of the piecewise-linear outline
 //! to machine precision, which is the integration module's accuracy showcase.
 //!
+//! Timing model: the drawing advances on logical time (a fixed 1 ms per tick), so it is
+//! deterministic — the pacer only decides when a tick is displayed. `plots/tick_us` is multicalc's
+//! chain-evaluation math cost; host-OS scheduling lateness is measured too but shown only as a hud
+//! percentile (not a plot), since it is the OS, not the library. The headline is that math cost and
+//! its headroom under the 1 ms budget.
+//!
 //! Streams live to a Rerun viewer; see showcase/viz/README.md for the WSL setup.
 //! Run with: cargo run --release -p multicalc-viz --example fourier_ferris
 
@@ -30,6 +36,7 @@ const TRACE_MAX: usize = 720; // ~one revolution of tip positions at 60 Hz
 const CIRCLE_SEGS: usize = 32;
 const GEOM_EVERY: i64 = 16; // spatial cadence (~60 Hz)
 const HUD_EVERY: i64 = 1000; // text / coeff-error cadence (1 Hz)
+const WARMUP_TICKS: i64 = 500; // cold-start ticks excluded from timing stats
 
 // Palette (§2).
 const HERO: Rgba = [0x39, 0x87, 0xe5, 0xff]; // trace, tip
@@ -38,7 +45,6 @@ const CIRCLES: Rgba = [0x90, 0x85, 0xe9, 120]; // epicycle circles
 const SPOKES: Rgba = [0x89, 0x87, 0x81, 0xff]; // chain spokes
 const TARGET: Rgba = [0xc9, 0x85, 0x00, 0xff]; // active_harmonics series
 const ERROR: Rgba = [0xe6, 0x67, 0x67, 0xff]; // coeff_error series
-const CHROME: Rgba = [0x89, 0x87, 0x81, 0xff]; // jitter series
 
 /// A minimal complex number for the coefficient math and chain evaluation.
 #[derive(Clone, Copy)]
@@ -196,10 +202,10 @@ fn main() -> Result<(), VizError> {
 
     let mut rr = RerunSink::live("multicalc-viz/fourier-ferris")?;
     rr.set_sequence("tick", 0);
-    rr.series_style("plots/tick_us", HERO, "tick_us", 2.0)?;
-    rr.series_style("plots/jitter_us", CHROME, "jitter_us", 1.0)?;
-    rr.series_style("plots/active_harmonics", TARGET, "active_harmonics", 1.0)?;
-    rr.series_style("plots/coeff_error", ERROR, "coeff_error", 2.0)?;
+    rr.series_style("plots/tick_us", HERO, "chain eval — multicalc math", 2.0)?;
+    rr.series_style("plots/active_harmonics", TARGET, "active harmonics", 1.0)?;
+    rr.series_style("plots/coeff_error", ERROR, "coeff error (GL vs closed)", 2.0)?;
+    // Host-OS scheduling jitter is measured (for the hud percentiles) but not plotted.
 
     // Static silhouette: the closed target outline.
     let mut silhouette: Vec<[f64; 2]> = FERRIS.to_vec();
@@ -235,10 +241,11 @@ fn main() -> Result<(), VizError> {
         }
         let tick_us = t0.elapsed().as_nanos() as f64 / 1000.0;
 
-        tick_ring.push(tick_us);
-        jitter_ring.push(late_us as f64);
+        if n > WARMUP_TICKS {
+            tick_ring.push(tick_us);
+            jitter_ring.push(late_us as f64);
+        }
         rr.scalar("plots/tick_us", tick_us)?;
-        rr.scalar("plots/jitter_us", late_us as f64)?;
         rr.scalar("plots/active_harmonics", active as f64)?;
 
         // Spatial geometry at ~60 Hz: full chain (circles, spokes), trace, tip.
@@ -278,17 +285,19 @@ fn main() -> Result<(), VizError> {
             rr.scalar("plots/coeff_error", coeff_error)?;
             if let (Some(tk), Some(j)) = (tick_ring.summary(), jitter_ring.summary()) {
                 let md = format!(
-                    "### fourier_ferris — multicalc live demo\n\
-                     - harmonics active: {} / {}\n\
-                     - accuracy: max |c_k(GL) − closed| = {:.1e}\n\
-                     - quadrature: {} node evals in {:.0} ms (startup)\n\
-                     - loop: 1000 Hz, tick median {:.1} µs, jitter p99 {:.0} µs",
-                    active,
-                    max_h,
+                    "## fourier_ferris — multicalc live demo\n\
+                     ### math (multicalc): chain eval median {:.1} µs/tick — {:.0}× headroom under the 1 ms budget\n\
+                     ### accuracy: max |c_k(GL) − closed| = {:.1e} ({} node evals in {:.0} ms at startup)\n\
+                     ### harmonics active: {} / {}\n\
+                     ### host OS scheduling (not the library): jitter p50 {:.0} µs, p99 {:.0} µs",
+                    tk.median,
+                    1000.0 / tk.median.max(1e-3),
                     coeff_error,
                     commas(node_evals),
                     startup_ms,
-                    tk.median,
+                    active,
+                    max_h,
+                    j.median,
                     j.p99,
                 );
                 rr.text("hud/stats", &md)?;

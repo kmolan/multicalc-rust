@@ -5,6 +5,12 @@
 //! known in closed form, so the demo shows the autodiff-vs-analytic error pinned at machine zero
 //! while the marbles cascade into the four basins and settle.
 //!
+//! Timing model: the physics advances on logical time (a fixed dt = 1 ms per tick), so cycles are
+//! deterministic — the pacer only decides when a tick is displayed, and an OS stall never perturbs
+//! the marbles. `plots/grad_batch_us` is multicalc's gradient-batch math cost; host-OS scheduling
+//! lateness is measured too but shown only as a hud percentile (not a plot), since it is the OS,
+//! not the library. The headline is that math cost and its headroom under the 1 ms budget.
+//!
 //! Streams live to a Rerun viewer; see showcase/viz/README.md for the WSL setup.
 //! Run with: cargo run --release -p multicalc-viz --example gradient_marbles
 
@@ -33,6 +39,7 @@ const PROBE_COUNT: usize = 100;
 const SETTLE_SPEED: f64 = 0.05;
 const GEOM_EVERY: i64 = 16; // spatial cadence (~60 Hz) — mandatory (2000 pts/tick would flood)
 const HUD_EVERY: i64 = 1000;
+const WARMUP_TICKS: i64 = 500; // cold-start ticks excluded from timing stats
 
 // Sequential ramps (§2), linear-sRGB lerp between endpoints.
 const BLUE_LO: [u8; 3] = [0x86, 0xb6, 0xef]; // terrain height low
@@ -42,7 +49,6 @@ const AMBER_HI: [u8; 3] = [0x7a, 0x51, 0x00]; // |∇f| high
 
 const HERO: Rgba = [0x39, 0x87, 0xe5, 0xff]; // grad_batch_us series
 const ERROR: Rgba = [0xe6, 0x67, 0x67, 0xff]; // ad_vs_analytic series
-const CHROME: Rgba = [0x89, 0x87, 0x81, 0xff]; // jitter series
 
 /// The Himmelblau function as a `VectorFn<2, 1>`; its gradient is the Jacobian's single row.
 struct Himmelblau;
@@ -181,9 +187,9 @@ fn main() -> Result<(), VizError> {
 
     let mut rr = RerunSink::live("multicalc-viz/gradient-marbles")?;
     rr.set_sequence("tick", 0);
-    rr.series_style("plots/grad_batch_us", HERO, "grad_batch_us", 2.0)?;
-    rr.series_style("plots/ad_vs_analytic", ERROR, "ad_vs_analytic", 2.0)?;
-    rr.series_style("plots/jitter_us", CHROME, "jitter_us", 1.0)?;
+    rr.series_style("plots/grad_batch_us", HERO, "2000-gradient batch — multicalc math", 2.0)?;
+    rr.series_style("plots/ad_vs_analytic", ERROR, "autodiff − analytic error", 2.0)?;
+    // Host-OS scheduling jitter is measured (for the hud percentiles) but not plotted.
 
     // Static terrain: a grid of styled points colored by height.
     {
@@ -249,10 +255,11 @@ fn main() -> Result<(), VizError> {
             }
         }
 
-        batch_ring.push(grad_batch_us);
-        jitter_ring.push(late_us as f64);
+        if n > WARMUP_TICKS {
+            batch_ring.push(grad_batch_us);
+            jitter_ring.push(late_us as f64);
+        }
         rr.scalar("plots/grad_batch_us", grad_batch_us)?;
-        rr.scalar("plots/jitter_us", late_us as f64)?;
 
         // Spatial geometry at ~60 Hz: all marbles, colored by gradient magnitude.
         if n % GEOM_EVERY == 0 {
@@ -287,16 +294,17 @@ fn main() -> Result<(), VizError> {
                 let settled_pct = settled as f64 / N_MARBLES as f64 * 100.0;
                 let grads_per_ms = N_MARBLES as f64 / (b.median / 1000.0);
                 let md = format!(
-                    "### gradient_marbles — multicalc live demo\n\
-                     - gradients: {} exact ∇ / tick in {:.0} µs ({}/ms, one core)\n\
-                     - accuracy: max |∇f_AD − ∇f_analytic| = {:.1e}\n\
-                     - loop: 1000 Hz, batch median {:.0} µs, jitter p99 {:.0} µs\n\
-                     - settled: {:.0} % of {} marbles",
+                    "## gradient_marbles — multicalc live demo\n\
+                     ### math (multicalc): {} exact ∇ in {:.0} µs/tick ({}/ms, one core) — {:.0}× headroom under the 1 ms budget\n\
+                     ### accuracy: max |∇f_AD − ∇f_analytic| = {:.1e}\n\
+                     ### host OS scheduling (not the library): jitter p50 {:.0} µs, p99 {:.0} µs\n\
+                     ### settled: {:.0} % of {} marbles",
                     commas(N_MARBLES as u64),
                     b.median,
                     commas(grads_per_ms as u64),
+                    1000.0 / b.median.max(1e-3),
                     probe_err,
-                    b.median,
+                    j.median,
                     j.p99,
                     settled_pct,
                     commas(N_MARBLES as u64),

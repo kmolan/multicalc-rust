@@ -1,10 +1,17 @@
 //! 1 kHz IK servo arm (optimization showcase).
 //!
-//! A planar 3-link arm chases a moving target. Every millisecond it runs a complete
-//! Levenberg-Marquardt solve with exact autodiff Jacobians, and the budget panel shows the solve
-//! consuming a few percent of the 1 ms tick. Two position residuals plus three posture
-//! regularizers keep the system over-determined (LM needs M >= N) and resolve the arm's redundant
-//! degree of freedom, so the pose is unique and chatter-free.
+//! A planar 3-link arm chases a moving target. Every tick it runs a complete Levenberg-Marquardt
+//! solve with exact autodiff Jacobians, and the panel shows that math costing a few percent of the
+//! 1 ms budget. Two position residuals plus three posture regularizers keep the system
+//! over-determined (LM needs M >= N) and resolve the arm's redundant degree of freedom, so the
+//! pose is unique and chatter-free.
+//!
+//! Timing model: the simulation advances on logical time (a fixed 1 ms per tick), so the numbers
+//! are deterministic — the pacer only decides *when* a tick is displayed. `plots/solve_us` is
+//! multicalc's math cost; host-OS scheduling lateness is measured too but shown only as a hud
+//! percentile (not a plot), since it is the OS, not the library, and never perturbs the computed
+//! result. The headline is the math cost and its headroom under the 1 ms budget, not a claim of
+//! hard real-time on a desktop OS.
 //!
 //! Streams live to a Rerun viewer; see showcase/viz/README.md for the WSL setup.
 //! Run with: cargo run --release -p multicalc-viz --example ik_servo
@@ -14,7 +21,7 @@
 use multicalc::LevenbergMarquardt;
 use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 use multicalc::scalar::{Numeric, VectorFn};
-use multicalc_viz::loop_util::{LatencyRing, Pacer, commas};
+use multicalc_viz::loop_util::{LatencyRing, Pacer};
 use multicalc_viz::{Rgba, RerunSink, VizError, VizSink};
 use std::collections::VecDeque;
 use std::f64::consts::TAU;
@@ -33,6 +40,7 @@ const REG: f64 = 0.05; // sqrt of posture weight
 
 const GEOM_EVERY: i64 = 16; // spatial cadence (~60 Hz)
 const HUD_EVERY: i64 = 1000; // text cadence (1 Hz)
+const WARMUP_TICKS: i64 = 500; // cold-start ticks excluded from timing stats
 const TRAIL_MAX: usize = 187; // ~3 s of ee positions at 60 Hz
 const PATH_PTS: usize = 200; // decimated upcoming-path samples
 const PATH_HORIZON: f64 = 2.0; // seconds of target path drawn ahead
@@ -128,10 +136,11 @@ fn main() -> Result<(), VizError> {
     rr.set_sequence("tick", 0);
     rr.line_strips2d("world/grid", &grid_strips(), &[CHROME], &[0.004])?;
     rr.line_strips2d("world/reach", &[reach_circle()], &[CHROME], &[0.006])?;
-    rr.series_style("plots/solve_us", HERO, "solve_us", 2.0)?;
-    rr.series_style("plots/residual_norm", ERROR, "residual_norm", 2.0)?;
-    rr.series_style("plots/jitter_us", CHROME, "jitter_us", 1.0)?;
-    rr.series_style("plots/evaluations", TARGET, "evaluations", 1.0)?;
+    rr.series_style("plots/solve_us", HERO, "solve — multicalc math", 2.0)?;
+    rr.series_style("plots/residual_norm", ERROR, "residual ‖r‖", 2.0)?;
+    rr.series_style("plots/evaluations", TARGET, "LM evaluations", 1.0)?;
+    // Host-OS scheduling jitter is measured (for the hud percentiles) but not plotted — a spiky
+    // scheduling panel invites misreading the OS as the library.
 
     let lm = LevenbergMarquardt::<AutoDiffMulti>::default().with_patience(40);
     let mut problem = IkProblem {
@@ -144,7 +153,6 @@ fn main() -> Result<(), VizError> {
     let mut jitter_ring = LatencyRing::new(1024);
     let mut trail: VecDeque<[f64; 2]> = VecDeque::with_capacity(TRAIL_MAX);
 
-    let mut misses: u64 = 0;
     let mut last_residual_norm = 0.0; // sqrt(2*objective), full system
     let mut last_pos_residual = 0.0; // ||ee - target||, the accuracy readout
     let mut last_evals = 0.0;
@@ -162,25 +170,25 @@ fn main() -> Result<(), VizError> {
         let result = lm.minimize(&problem, &x0);
         let solve_us = t0.elapsed().as_micros() as f64;
 
-        match result {
-            Ok(rep) => {
-                problem.prev = rep.solution;
-                last_residual_norm = (2.0 * rep.objective_function).sqrt();
-                last_evals = rep.evaluations as f64;
-                let ee = fk_nodes(&rep.solution)[3];
-                let dx = ee[0] - problem.target[0];
-                let dy = ee[1] - problem.target[1];
-                last_pos_residual = (dx * dx + dy * dy).sqrt();
-            }
-            Err(_) => misses += 1, // hold last pose; never panic
+        // On Err, hold the last pose (never panic); Ok updates the pose and readouts.
+        if let Ok(rep) = result {
+            problem.prev = rep.solution;
+            last_residual_norm = (2.0 * rep.objective_function).sqrt();
+            last_evals = rep.evaluations as f64;
+            let ee = fk_nodes(&rep.solution)[3];
+            let dx = ee[0] - problem.target[0];
+            let dy = ee[1] - problem.target[1];
+            last_pos_residual = (dx * dx + dy * dy).sqrt();
         }
 
-        solve_ring.push(solve_us);
-        jitter_ring.push(late_us as f64);
+        if n > WARMUP_TICKS {
+            solve_ring.push(solve_us);
+            jitter_ring.push(late_us as f64);
+        }
 
-        // Scalars every tick — this 1 kHz stream is the proof.
+        // Scalars every tick — solve_us is multicalc's math cost. Jitter is not plotted; it only
+        // feeds the hud percentiles below.
         rr.scalar("plots/solve_us", solve_us)?;
-        rr.scalar("plots/jitter_us", late_us as f64)?;
         rr.scalar("plots/residual_norm", last_residual_norm)?;
         rr.scalar("plots/evaluations", last_evals)?;
 
@@ -211,18 +219,16 @@ fn main() -> Result<(), VizError> {
             && let (Some(s), Some(j)) = (solve_ring.summary(), jitter_ring.summary())
         {
             let md = format!(
-                "### ik_servo — multicalc live demo\n\
-                 - loop: 1000 Hz, jitter p99: {:.0} µs\n\
-                 - solve: median {:.0} µs ({:.1} % of tick), worst {:.0} µs\n\
-                 - accuracy: position residual ‖ee−target‖ = {:.1e}\n\
-                 - misses: {} / {} ticks",
-                j.p99,
+                "## ik_servo — multicalc live demo\n\
+                 ### math (multicalc): median {:.0} µs/tick — {:.0}× headroom under the 1 ms budget (worst {:.0} µs)\n\
+                 ### accuracy: position residual ‖ee−target‖ = {:.1e}\n\
+                 ### host OS scheduling (not the library): jitter p50 {:.0} µs, p99 {:.0} µs",
                 s.median,
-                s.median / 10.0,
+                1000.0 / s.median.max(1e-3),
                 s.max,
                 last_pos_residual,
-                commas(misses),
-                commas(n as u64),
+                j.median,
+                j.p99,
             );
             rr.text("hud/stats", &md)?;
         }

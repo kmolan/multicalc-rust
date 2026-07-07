@@ -7,6 +7,12 @@
 //! filigree along the basin boundaries is where Newton fails to converge (a singular Jacobian or
 //! an exhausted budget) — handled as pixels, never as errors.
 //!
+//! Timing model: the morph advances on logical time (a fixed `DTAU` per frame), so cycles are
+//! deterministic. Throughput is measured single-core compute (the solve loop is timed tightly, no
+//! logging inside), so a transient OS stall inflates one frame's wall time and dips the
+//! *instantaneous* `plots/solves_per_sec` — the hud headline reports the robust median over recent
+//! frames instead, which is the library's real rate.
+//!
 //! Streams live to a Rerun viewer; see showcase/viz/README.md for the WSL setup.
 //! Run with: cargo run --release -p multicalc-viz --example newton_fractal
 
@@ -15,7 +21,7 @@
 use multicalc::root_finding::NewtonSystem;
 use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 use multicalc::scalar::{Numeric, VectorFn};
-use multicalc_viz::loop_util::commas;
+use multicalc_viz::loop_util::{LatencyRing, commas};
 use multicalc_viz::{Rgba, RerunSink, VizError, VizSink};
 use std::f64::consts::TAU;
 use std::time::Instant;
@@ -24,6 +30,7 @@ use std::time::Instant;
 const N: usize = 256;
 const DOMAIN: f64 = 2.0; // half-width: the grid covers [-2, 2]^2
 const DTAU: f64 = 0.02; // root-orbit advance per completed frame
+const WARMUP_FRAMES: i64 = 3; // cold-start frames excluded from the throughput median
 
 // Basin colors: the validated mutually-CVD-safe trio (§2). RGB for the image, RGBA for the roots.
 const BASIN_RGB: [[u8; 3]; 3] = [[0x39, 0x87, 0xe5], [0xc9, 0x85, 0x00], [0xe6, 0x67, 0x67]];
@@ -90,9 +97,9 @@ fn main() -> Result<(), VizError> {
 
     let mut rr = RerunSink::live("multicalc-viz/newton-fractal")?;
     rr.set_sequence("frame", 0);
-    rr.series_style("plots/solves_per_sec", HERO, "solves_per_sec", 2.0)?;
-    rr.series_style("plots/mean_iterations", TARGET, "mean_iterations", 1.0)?;
-    rr.series_style("plots/mean_residual", ERROR, "mean_residual", 2.0)?;
+    rr.series_style("plots/solves_per_sec", HERO, "Newton solves/s (one core)", 2.0)?;
+    rr.series_style("plots/mean_iterations", TARGET, "mean iterations", 1.0)?;
+    rr.series_style("plots/mean_residual", ERROR, "mean residual ‖F‖", 2.0)?;
 
     // Built once; solve takes &self. Backtracking stays off (default) — it would smooth away the
     // wild Newton steps that make the filigree.
@@ -107,6 +114,7 @@ fn main() -> Result<(), VizError> {
     let step = 2.0 * DOMAIN / N as f64; // world units per pixel
     let root_radius_px = 0.05 / step; // spec's 0.05 scene-unit radius, in pixels
 
+    let mut throughput_ring = LatencyRing::new(256); // recent per-frame solves/s, for a stable median
     let mut tau = 0.0;
     let mut frame: i64 = 0;
     loop {
@@ -158,6 +166,11 @@ fn main() -> Result<(), VizError> {
             .map(|r| [(r[0] + DOMAIN) / step, (DOMAIN - r[1]) / step])
             .collect();
 
+        if frame > WARMUP_FRAMES {
+            throughput_ring.push(solves_per_sec);
+        }
+        let throughput_median = throughput_ring.summary().map_or(solves_per_sec, |s| s.median);
+
         rr.image_rgb8("world/fractal", N as u32, N as u32, &buf)?;
         rr.points2d_styled("world/roots", &roots_px, &BASIN_RGBA, &[root_radius_px as f32])?;
         rr.scalar("plots/solves_per_sec", solves_per_sec)?;
@@ -170,12 +183,12 @@ fn main() -> Result<(), VizError> {
 
         let nonconverged_pct = (N * N - converged as usize) as f64 / (N * N) as f64 * 100.0;
         let md = format!(
-            "### newton_fractal — multicalc live demo\n\
-             - throughput: {} Newton solves/s (one core, no-std math)\n\
-             - per frame: {}×{} = {} solves in {:.0} ms\n\
-             - mean iterations: {:.1}, non-converged: {:.2} %\n\
-             - accuracy: mean residual ‖F‖ = {:.1e}",
-            commas(solves_per_sec as u64),
+            "## newton_fractal — multicalc live demo\n\
+             ### throughput: {} Newton solves/s (one core, no-std math; median over recent frames)\n\
+             ### per frame: {}×{} = {} full solves in {:.0} ms\n\
+             ### mean iterations: {:.1}, non-converged: {:.2} %\n\
+             ### accuracy: mean residual ‖F‖ = {:.1e}",
+            commas(throughput_median as u64),
             N,
             N,
             commas((N * N) as u64),
