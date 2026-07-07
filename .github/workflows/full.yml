@@ -69,6 +69,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       # Reads committed fixtures only — never runs Python, never downloads MuJoCo.
       - run: cargo test -p multicalc-oracle
+      - name: Smoke fixtures are up to date
+        run: |
+          cargo run -p multicalc-oracle --bin gen_smoke_fixtures
+          git diff --exit-code tools/embedded-smoke/src/fixtures.rs
 
   lint:
     name: fmt + clippy

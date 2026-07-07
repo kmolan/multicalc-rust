@@ -31,6 +31,7 @@ use cortex_m_semihosting::{debug, hprintln};
 use panic_semihosting as _;
 
 mod checks;
+mod fixtures;
 
 // Byte written across free stack so we can find how deep the stack went.
 const PAINT: u8 = 0xAA;
@@ -48,14 +49,29 @@ fn main() -> ! {
     let bottom = top.saturating_sub(WINDOW);
     paint(bottom, top);
 
-    checks::lm_fit();
-    checks::autodiff_derivative();
+    // Canary set: runs on every target, including the thumbv6m M0. Covers the
+    // portable (no-atomics) path, one golden, and the no-panic negative path.
     checks::portable_path();
-    checks::svd_kabsch();
+    let svd_sv = checks::svd_golden();
+    checks::error_path_returns_err();
+
+    // Full set: thumbv7em only (default features).
+    #[cfg(feature = "full-smoke")]
+    {
+        checks::lm_fit();
+        checks::autodiff_derivative();
+    }
 
     let used = stack_used(bottom, top);
     // The size and stack gate reads this exact line from the run output.
     let _ = hprintln!("STACK_HWM_BYTES={}", used);
+
+    // Headline scalars for the cross-ABI divergence guard (ci/check_cross_abi.sh):
+    // soft-float (eabi) and hardware-FPU (eabihf) must agree here. Printed as f64
+    // in `{:e}` (shortest round-trip decimal).
+    let _ = hprintln!("SMOKE_VAL_svd_s0={:e}", svd_sv[0]);
+    let _ = hprintln!("SMOKE_VAL_svd_s1={:e}", svd_sv[1]);
+    let _ = hprintln!("SMOKE_VAL_svd_s2={:e}", svd_sv[2]);
 
     debug::exit(debug::EXIT_SUCCESS);
     loop {}

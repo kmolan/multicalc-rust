@@ -3,10 +3,10 @@ name: Target matrix
 # Reusable: called by CI on pull requests and by Release on a version bump.
 #
 # `full` selects the target set. false (default) = the per-PR representative set
-# (x86_64 host + both thumbv7em ABIs); true = the complete matrix, adding the
-# aarch64 host and the thumbv6m canary. The `setup` job turns that flag into the
-# JSON matrices the two build jobs consume, so representative and full share one
-# set of steps and differ only in target list.
+# (x86_64 host + all three bare-metal ABIs, thumbv6m as a reduced canary); true =
+# the complete matrix, adding the aarch64 host. The `setup` job turns that flag into
+# the JSON matrices the build jobs consume, so representative and full share one set
+# of steps and differ only in the host list.
 on:
   workflow_call:
     inputs:
@@ -32,12 +32,14 @@ jobs:
       - id: m
         shell: bash
         run: |
+          # thumbv6m runs the reduced canary (--no-default-features) on every PR; the
+          # thumbv7em ABIs run the full set. The bare set is the same for representative
+          # and full runs — full only adds the aarch64 host.
+          bare='[{"target":"thumbv7em-none-eabi","args":""},{"target":"thumbv7em-none-eabihf","args":""},{"target":"thumbv6m-none-eabi","args":"--no-default-features"}]'
           if [ "${{ inputs.full }}" = "true" ]; then
             hosts='[{"target":"x86_64-unknown-linux-gnu","runner":"ubuntu-latest"},{"target":"aarch64-unknown-linux-gnu","runner":"ubuntu-24.04-arm"}]'
-            bare='["thumbv7em-none-eabi","thumbv7em-none-eabihf","thumbv6m-none-eabi"]'
           else
             hosts='[{"target":"x86_64-unknown-linux-gnu","runner":"ubuntu-latest"}]'
-            bare='["thumbv7em-none-eabi","thumbv7em-none-eabihf"]'
           fi
           echo "hosts=$hosts" >> "$GITHUB_OUTPUT"
           echo "bare=$bare" >> "$GITHUB_OUTPUT"
@@ -67,7 +69,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: ${{ fromJSON(needs.setup.outputs.bare) }}
+        include: ${{ fromJSON(needs.setup.outputs.bare) }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -94,6 +96,32 @@ jobs:
         run: |
           for bin in embedded-smoke; do
             out="smoke-$bin-${{ matrix.target }}.txt"
-            cargo run -p "$bin" --release --target ${{ matrix.target }} | tee "$out"
+            cargo run -p "$bin" --release --target ${{ matrix.target }} ${{ matrix.args }} | tee "$out"
             bash ci/check_budgets.sh "$bin" ${{ matrix.target }} "$out"
           done
+      # The cross-abi job compares the two thumbv7em outputs, produced in separate
+      # matrix legs, so each leg's output is uploaded for it to fetch.
+      - name: Upload smoke output
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-output-${{ matrix.target }}
+          path: smoke-embedded-smoke-${{ matrix.target }}.txt
+          if-no-files-found: error
+
+  cross-abi:
+    name: cross-ABI divergence guard
+    needs: bare-metal
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download soft-float (eabi) output
+        uses: actions/download-artifact@v4
+        with:
+          name: smoke-output-thumbv7em-none-eabi
+      - name: Download hardware-FPU (eabihf) output
+        uses: actions/download-artifact@v4
+        with:
+          name: smoke-output-thumbv7em-none-eabihf
+      # Fails if soft-float (libm) and the hardware FPU disagree beyond tolerance.
+      - name: Soft-float vs hardware-FPU agreement
+        run: bash ci/check_cross_abi.sh smoke-embedded-smoke-thumbv7em-none-eabi.txt smoke-embedded-smoke-thumbv7em-none-eabihf.txt
