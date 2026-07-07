@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, black_box, criterion_group};
 
 use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 use multicalc::optimization::{GaussNewton, LevenbergMarquardt};
@@ -70,7 +70,7 @@ impl VectorFn<3, 40> for CircleFit {
 
 fn levenberg_marquardt(crit: &mut Criterion) {
     let rosenbrock = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
-    crit.bench_function("lm/rosenbrock", |b| {
+    crit.bench_function("optimization/lm/rosenbrock", |b| {
         b.iter(|| {
             LevenbergMarquardt::<AutoDiffMulti>::default()
                 .minimize(black_box(&rosenbrock), black_box(&[-1.2, 1.0]))
@@ -84,7 +84,7 @@ fn levenberg_marquardt(crit: &mut Criterion) {
         c(-50.0) + v[0] * v[1].exp(),
         c(-25.0) + v[0] * (c(2.0) * v[1]).exp(),
     ]);
-    crit.bench_function("lm/exponential_decay", |b| {
+    crit.bench_function("optimization/lm/exponential_decay", |b| {
         b.iter(|| {
             LevenbergMarquardt::<AutoDiffMulti>::default()
                 .minimize(black_box(&decay), black_box(&[80.0, -0.3]))
@@ -100,7 +100,7 @@ fn levenberg_marquardt(crit: &mut Criterion) {
     let start = [
         1.15, 0.55, 2.05, 0.2, 0.6, 0.18, 5.08, 1.2, 1.45, 0.72, 8.42, -0.65,
     ];
-    crit.bench_function("lm/damped_sinusoids_12p", |b| {
+    crit.bench_function("optimization/lm/damped_sinusoids_12p", |b| {
         b.iter(|| {
             LevenbergMarquardt::<AutoDiffMulti>::default()
                 .minimize(black_box(&sinusoids), black_box(&start))
@@ -109,7 +109,7 @@ fn levenberg_marquardt(crit: &mut Criterion) {
     });
 
     // 6-variable MGH trigonometric function to its global minimum.
-    crit.bench_function("lm/trigonometric_6v", |b| {
+    crit.bench_function("optimization/lm/trigonometric_6v", |b| {
         b.iter(|| {
             LevenbergMarquardt::<AutoDiffMulti>::default()
                 .minimize(black_box(&Trigonometric::<6>), black_box(&[1.0 / 6.0; 6]))
@@ -125,7 +125,7 @@ fn gauss_newton(crit: &mut Criterion) {
         c(-3.0) + v[0] + v[1],
         c(-5.0) + c(2.0) * v[0] + v[1],
     ]);
-    crit.bench_function("gn/linear_least_squares", |b| {
+    crit.bench_function("optimization/gn/linear_least_squares", |b| {
         b.iter(|| {
             GaussNewton::<AutoDiffMulti>::default()
                 .minimize(black_box(&linear), black_box(&[0.0, 0.0]))
@@ -134,7 +134,7 @@ fn gauss_newton(crit: &mut Criterion) {
     });
 
     let rosenbrock = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
-    crit.bench_function("gn/rosenbrock", |b| {
+    crit.bench_function("optimization/gn/rosenbrock", |b| {
         b.iter(|| {
             GaussNewton::<AutoDiffMulti>::default()
                 .minimize(black_box(&rosenbrock), black_box(&[0.9, 0.9]))
@@ -147,7 +147,7 @@ fn gauss_newton(crit: &mut Criterion) {
     let px = core::array::from_fn(|i| 2.0 + 3.0 * angle(i).cos());
     let py = core::array::from_fn(|i| -1.0 + 3.0 * angle(i).sin());
     let circle = CircleFit { px, py };
-    crit.bench_function("gn/circle_fit_3p", |b| {
+    crit.bench_function("optimization/gn/circle_fit_3p", |b| {
         b.iter(|| {
             GaussNewton::<AutoDiffMulti>::default()
                 .minimize(black_box(&circle), black_box(&[2.4, -0.6, 3.5]))
@@ -157,11 +157,10 @@ fn gauss_newton(crit: &mut Criterion) {
 }
 
 criterion_group! {
-    name = benches;
+    name = optimization_benches;
     config = Criterion::default()
         .sample_size(50)
         .warm_up_time(Duration::from_millis(500))
         .measurement_time(Duration::from_secs(2));
     targets = levenberg_marquardt, gauss_newton
 }
-criterion_main!(benches);

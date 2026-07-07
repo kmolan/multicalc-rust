@@ -11,6 +11,7 @@ documentation = "https://docs.rs/multicalc"
 readme = "README.md"
 keywords = ["Math", "Science", "Calculus", "Differentiation", "Integration"]
 categories = ["mathematics", "science", "no-std"]
+autobenches = false
 
 [dependencies]
 libm = "0.2"
@@ -24,19 +25,7 @@ default = []
 alloc = []
 
 [[bench]]
-name = "calculus"
-harness = false
-
-[[bench]]
-name = "linear_algebra"
-harness = false
-
-[[bench]]
-name = "optimization"
-harness = false
-
-[[bench]]
-name = "root_finding"
+name = "benchmarks"
 harness = false
 
 [lints]

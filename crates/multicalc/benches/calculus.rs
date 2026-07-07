@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, black_box, criterion_group};
 
 use multicalc::approximation::linear_approximation::LinearApproximator;
 use multicalc::approximation::quadratic_approximation::QuadraticApproximator;
@@ -23,13 +23,13 @@ fn differentiation(crit: &mut Criterion) {
     let cube = scalar_fn!(|x| x * x * x);
     let derivator: AutoDiffSingle = AutoDiffSingle::default();
 
-    crit.bench_function("derivative/single_order_1", |b| {
+    crit.bench_function("calculus/derivative/single_order_1", |b| {
         b.iter(|| derivator.get(black_box(1), &cube, black_box(2.0)).unwrap())
     });
-    crit.bench_function("derivative/single_order_2", |b| {
+    crit.bench_function("calculus/derivative/single_order_2", |b| {
         b.iter(|| derivator.get(black_box(2), &cube, black_box(2.0)).unwrap())
     });
-    crit.bench_function("derivative/single_order_3", |b| {
+    crit.bench_function("calculus/derivative/single_order_3", |b| {
         b.iter(|| derivator.get(black_box(3), &cube, black_box(2.0)).unwrap())
     });
 
@@ -39,21 +39,21 @@ fn differentiation(crit: &mut Criterion) {
         scalar_fn!(|a: &[f64; 3]| a[1] * a[0].sin() + a[0] * a[1].cos() + a[0] * a[1] * a[2].exp());
     let point = [1.0, 2.0, 3.0];
 
-    crit.bench_function("derivative/multi_single_partial", |b| {
+    crit.bench_function("calculus/derivative/multi_single_partial", |b| {
         b.iter(|| {
             multi
                 .get_single_partial(&func, black_box(0), black_box(&point))
                 .unwrap()
         })
     });
-    crit.bench_function("derivative/multi_mixed_partial_2", |b| {
+    crit.bench_function("calculus/derivative/multi_mixed_partial_2", |b| {
         b.iter(|| {
             multi
                 .get(&func, black_box(&[0usize, 1]), black_box(&point))
                 .unwrap()
         })
     });
-    crit.bench_function("derivative/multi_mixed_partial_3", |b| {
+    crit.bench_function("calculus/derivative/multi_mixed_partial_3", |b| {
         b.iter(|| {
             multi
                 .get(&func, black_box(&[0usize, 1, 2]), black_box(&point))
@@ -71,13 +71,13 @@ fn iterative_integration(crit: &mut Criterion) {
     let trapezoidal = IterativeSingle::from_parameters(120, IterativeMethod::Trapezoidal);
 
     let finite = [0.0, 2.0];
-    crit.bench_function("iterative/boole_single", |b| {
+    crit.bench_function("calculus/iterative/boole_single", |b| {
         b.iter(|| boole.get_single(&poly, black_box(&finite)).unwrap())
     });
-    crit.bench_function("iterative/simpson_single", |b| {
+    crit.bench_function("calculus/iterative/simpson_single", |b| {
         b.iter(|| simpson.get_single(&poly, black_box(&finite)).unwrap())
     });
-    crit.bench_function("iterative/trapezoidal_single", |b| {
+    crit.bench_function("calculus/iterative/trapezoidal_single", |b| {
         b.iter(|| trapezoidal.get_single(&poly, black_box(&finite)).unwrap())
     });
 
@@ -85,15 +85,15 @@ fn iterative_integration(crit: &mut Criterion) {
     // be paid only on the infinite domain (the finite fast path)
     let finite_decay = [-5.0, 5.0];
     let infinite = [f64::NEG_INFINITY, f64::INFINITY];
-    crit.bench_function("iterative/boole_decay_finite", |b| {
+    crit.bench_function("calculus/iterative/boole_decay_finite", |b| {
         b.iter(|| boole.get_single(&decay, black_box(&finite_decay)).unwrap())
     });
-    crit.bench_function("iterative/boole_decay_infinite", |b| {
+    crit.bench_function("calculus/iterative/boole_decay_infinite", |b| {
         b.iter(|| boole.get_single(&decay, black_box(&infinite)).unwrap())
     });
 
     let double = [[0.0, 1.0], [0.0, 1.0]];
-    crit.bench_function("iterative/boole_double_fold", |b| {
+    crit.bench_function("calculus/iterative/boole_double_fold", |b| {
         b.iter(|| boole.get(&poly, black_box(&double)).unwrap())
     });
 }
@@ -105,16 +105,16 @@ fn gaussian_integration(crit: &mut Criterion) {
     let legendre_4 = GaussianSingle::from_parameters(4, GaussianQuadratureMethod::GaussLegendre);
     let legendre_16 = GaussianSingle::from_parameters(16, GaussianQuadratureMethod::GaussLegendre);
     let finite = [0.0, 2.0];
-    crit.bench_function("gaussian/legendre_order_4", |b| {
+    crit.bench_function("calculus/gaussian/legendre_order_4", |b| {
         b.iter(|| legendre_4.get_single(&poly, black_box(&finite)).unwrap())
     });
-    crit.bench_function("gaussian/legendre_order_16", |b| {
+    crit.bench_function("calculus/gaussian/legendre_order_16", |b| {
         b.iter(|| legendre_16.get_single(&poly, black_box(&finite)).unwrap())
     });
 
     let hermite = GaussianSingle::from_parameters(5, GaussianQuadratureMethod::GaussHermite);
     let hermite_limit = [f64::NEG_INFINITY, f64::INFINITY];
-    crit.bench_function("gaussian/hermite_order_5", |b| {
+    crit.bench_function("calculus/gaussian/hermite_order_5", |b| {
         b.iter(|| {
             hermite
                 .get_single(&square, black_box(&hermite_limit))
@@ -124,7 +124,7 @@ fn gaussian_integration(crit: &mut Criterion) {
 
     let laguerre = GaussianSingle::from_parameters(5, GaussianQuadratureMethod::GaussLaguerre);
     let laguerre_limit = [0.0, f64::INFINITY];
-    crit.bench_function("gaussian/laguerre_order_5", |b| {
+    crit.bench_function("calculus/gaussian/laguerre_order_5", |b| {
         b.iter(|| {
             laguerre
                 .get_single(&square, black_box(&laguerre_limit))
@@ -138,14 +138,14 @@ fn jacobian_hessian(crit: &mut Criterion) {
     let point = [1.0, 2.0, 3.0];
 
     let jacobian: Jacobian = Jacobian::default();
-    crit.bench_function("jacobian/2_funcs_3_vars", |b| {
+    crit.bench_function("calculus/jacobian/2_funcs_3_vars", |b| {
         b.iter(|| jacobian.get(&f, black_box(&point)).unwrap())
     });
 
     let func =
         scalar_fn!(|a: &[f64; 3]| a[1] * a[0].sin() + c(2.0) * a[0] * a[1].exp() + a[2] * a[2]);
     let hessian: Hessian = Hessian::default();
-    crit.bench_function("hessian/3_vars", |b| {
+    crit.bench_function("calculus/hessian/3_vars", |b| {
         b.iter(|| hessian.get(&func, black_box(&point)).unwrap())
     });
 }
@@ -154,10 +154,10 @@ fn vector_field(crit: &mut Criterion) {
     let field = scalar_fn_vec!(|a: &[f64; 3]| [a[1], -a[0], c(2.0) * a[2]]);
     let point = [1.0, 2.0, 3.0];
 
-    crit.bench_function("vector_field/curl_3d", |b| {
+    crit.bench_function("calculus/vector_field/curl_3d", |b| {
         b.iter(|| curl::get_3d(AutoDiffMulti::default(), &field, black_box(&point)).unwrap())
     });
-    crit.bench_function("vector_field/divergence_3d", |b| {
+    crit.bench_function("calculus/vector_field/divergence_3d", |b| {
         b.iter(|| divergence::get_3d(AutoDiffMulti::default(), &field, black_box(&point)).unwrap())
     });
 
@@ -167,7 +167,7 @@ fn vector_field(crit: &mut Criterion) {
     let transforms: [&dyn Fn(f64) -> f64; 2] = [&(|t: f64| t.cos()), &(|t: f64| t.sin())];
     let limit = [0.0, std::f64::consts::TAU];
 
-    crit.bench_function("vector_field/line_integral_2d", |b| {
+    crit.bench_function("calculus/vector_field/line_integral_2d", |b| {
         b.iter(|| {
             line_integral::get_2d(
                 black_box(&line_field),
@@ -177,7 +177,7 @@ fn vector_field(crit: &mut Criterion) {
             .unwrap()
         })
     });
-    crit.bench_function("vector_field/flux_integral_2d", |b| {
+    crit.bench_function("calculus/vector_field/flux_integral_2d", |b| {
         b.iter(|| {
             flux_integral::get_2d(
                 black_box(&line_field),
@@ -194,26 +194,26 @@ fn approximation(crit: &mut Criterion) {
     let point = [1.0, 2.0, 3.0];
 
     let linear = LinearApproximator::<AutoDiffMulti>::default();
-    crit.bench_function("approximation/linear_build", |b| {
+    crit.bench_function("calculus/approximation/linear_build", |b| {
         b.iter(|| linear.get(&func, black_box(&point)).unwrap())
     });
     let linear_result = linear.get(&func, &point).unwrap();
-    crit.bench_function("approximation/linear_predict", |b| {
+    crit.bench_function("calculus/approximation/linear_predict", |b| {
         b.iter(|| linear_result.predict(black_box(&point)))
     });
 
     let quadratic = QuadraticApproximator::<AutoDiffMulti>::default();
-    crit.bench_function("approximation/quadratic_build", |b| {
+    crit.bench_function("calculus/approximation/quadratic_build", |b| {
         b.iter(|| quadratic.get(&func, black_box(&point)).unwrap())
     });
     let quadratic_result = quadratic.get(&func, &point).unwrap();
-    crit.bench_function("approximation/quadratic_predict", |b| {
+    crit.bench_function("calculus/approximation/quadratic_predict", |b| {
         b.iter(|| quadratic_result.predict(black_box(&point)))
     });
 }
 
 criterion_group! {
-    name = benches;
+    name = calculus_benches;
     config = Criterion::default()
         .sample_size(50)
         .warm_up_time(Duration::from_millis(500))
@@ -226,4 +226,3 @@ criterion_group! {
         vector_field,
         approximation
 }
-criterion_main!(benches);

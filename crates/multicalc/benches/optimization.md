@@ -1,6 +1,6 @@
 # Optimization benchmarks
 
-Results for the [`optimization`](optimization.rs) suite (`cargo bench --bench optimization`).
+Results for the [`optimization`](optimization.rs) suite (`cargo bench -- optimization`).
 The accuracy table reports how close each solver lands to the known solution; the latency table
 reports wall-clock medians on the machine noted in [README.md](README.md).
 

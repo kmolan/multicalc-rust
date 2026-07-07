@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, black_box, criterion_group};
 
 use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::numerical_derivative::finite_difference::FiniteDifferenceSingle;
@@ -67,7 +67,7 @@ impl VectorFn<2, 2> for TwoLinkArm {
 fn bisection(crit: &mut Criterion) {
     // Wien's displacement law on [1, 10].
     let wien = scalar_fn!(|x| c(-5.0) + x + c(5.0) * (-x).exp());
-    crit.bench_function("bisection/wien", |b| {
+    crit.bench_function("root_finding/bisection/wien", |b| {
         b.iter(|| {
             Bisection::default()
                 .solve(black_box(&wien), black_box(1.0_f64), black_box(10.0))
@@ -79,7 +79,7 @@ fn bisection(crit: &mut Criterion) {
     let e = 0.8_f64;
     let m = 1.0 - e * 1.0_f64.sin();
     let kepler = Kepler { e, m };
-    crit.bench_function("bisection/kepler", |b| {
+    crit.bench_function("root_finding/bisection/kepler", |b| {
         b.iter(|| {
             Bisection::default()
                 .solve(
@@ -94,7 +94,7 @@ fn bisection(crit: &mut Criterion) {
 
 fn newton(crit: &mut Criterion) {
     let wien = scalar_fn!(|x| c(-5.0) + x + c(5.0) * (-x).exp());
-    crit.bench_function("newton/wien", |b| {
+    crit.bench_function("root_finding/newton/wien", |b| {
         b.iter(|| {
             Newton::<AutoDiffSingle>::default()
                 .solve(black_box(&wien), black_box(5.0_f64))
@@ -105,7 +105,7 @@ fn newton(crit: &mut Criterion) {
     let e = 0.8_f64;
     let m = 1.0 - e * 1.0_f64.sin();
     let kepler = Kepler { e, m };
-    crit.bench_function("newton/kepler", |b| {
+    crit.bench_function("root_finding/newton/kepler", |b| {
         b.iter(|| {
             Newton::<AutoDiffSingle>::default()
                 .solve(black_box(&kepler), black_box(m))
@@ -117,7 +117,7 @@ fn newton(crit: &mut Criterion) {
         reynolds: 1.0e5,
         rel_roughness: 1.0e-4,
     };
-    crit.bench_function("newton/colebrook", |b| {
+    crit.bench_function("root_finding/newton/colebrook", |b| {
         b.iter(|| {
             Newton::<AutoDiffSingle>::default()
                 .solve(black_box(&colebrook), black_box(0.02_f64))
@@ -126,7 +126,7 @@ fn newton(crit: &mut Criterion) {
     });
 
     // Finite-difference derivative in place of exact autodiff, on the Wien root.
-    crit.bench_function("newton_fd/wien", |b| {
+    crit.bench_function("root_finding/newton_fd/wien", |b| {
         b.iter(|| {
             Newton::from_derivator(FiniteDifferenceSingle::<f64>::default())
                 .solve(black_box(&wien), black_box(5.0_f64))
@@ -139,7 +139,7 @@ fn damped_newton(crit: &mut Criterion) {
     // f(x) = x / sqrt(1 + x²), root at 0. Plain Newton diverges from x0 = 2; the
     // backtracking line search halves the step until |f| decreases.
     let sigmoid = scalar_fn!(|x| x / (c(1.0) + x * x).sqrt());
-    crit.bench_function("damped_newton/sigmoid", |b| {
+    crit.bench_function("root_finding/damped_newton/sigmoid", |b| {
         b.iter(|| {
             Newton::<AutoDiffSingle>::default()
                 .with_backtracking(true)
@@ -156,7 +156,7 @@ fn newton_system(crit: &mut Criterion) {
     let px = l1 * t1.cos() + l2 * (t1 + t2).cos();
     let py = l1 * t1.sin() + l2 * (t1 + t2).sin();
     let arm = TwoLinkArm { l1, l2, px, py };
-    crit.bench_function("newton_system/two_link_ik", |b| {
+    crit.bench_function("root_finding/newton_system/two_link_ik", |b| {
         b.iter(|| {
             NewtonSystem::<AutoDiffMulti>::default()
                 .solve(black_box(&arm), black_box(&[0.4_f64, 0.9]))
@@ -169,7 +169,7 @@ fn newton_system(crit: &mut Criterion) {
         scalar_fn_vec!(
             |v: &[f64; 2]| [c(-4.0) + v[0] * v[0] + v[1] * v[1], c(-1.0) + v[0] * v[1],]
         );
-    crit.bench_function("newton_system/circle_intersection", |b| {
+    crit.bench_function("root_finding/newton_system/circle_intersection", |b| {
         b.iter(|| {
             NewtonSystem::<AutoDiffMulti>::default()
                 .solve(black_box(&circle), black_box(&[1.5_f64, 0.8]))
@@ -183,7 +183,7 @@ fn newton_system(crit: &mut Criterion) {
         v[1] - c(1.25) * v[0] * v[0],
         v[2] - c(5.0) * v[0] * v[1],
     ]);
-    crit.bench_function("newton_system/equilibrium_3x3", |b| {
+    crit.bench_function("root_finding/newton_system/equilibrium_3x3", |b| {
         b.iter(|| {
             NewtonSystem::<AutoDiffMulti>::default()
                 .solve(black_box(&equilibrium), black_box(&[0.5_f64, 0.25, 0.25]))
@@ -193,11 +193,10 @@ fn newton_system(crit: &mut Criterion) {
 }
 
 criterion_group! {
-    name = benches;
+    name = root_finding_benches;
     config = Criterion::default()
         .sample_size(50)
         .warm_up_time(Duration::from_millis(500))
         .measurement_time(Duration::from_secs(2));
     targets = bisection, newton, damped_newton, newton_system
 }
-criterion_main!(benches);

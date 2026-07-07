@@ -1,6 +1,6 @@
 # Root-finding benchmarks
 
-Results for the [`root_finding`](root_finding.rs) suite (`cargo bench --bench root_finding`).
+Results for the [`root_finding`](root_finding.rs) suite (`cargo bench -- root_finding`).
 The accuracy tables report how close each solver lands to the known root; the latency table
 reports wall-clock medians on the machine noted in [README.md](README.md).
 

@@ -1,7 +1,7 @@
 # Linear algebra benchmarks
 
 Results for the [`linear_algebra`](linear_algebra.rs) suite
-(`cargo bench --bench linear_algebra`). The accuracy tables report approximation error
+(`cargo bench -- linear_algebra`). The accuracy tables report approximation error
 (reconstruction, solve residual, identity, and Moore–Penrose conditions); the latency tables
 report wall-clock medians on the machine noted in [README.md](README.md).
 
