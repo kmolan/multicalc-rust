@@ -6,7 +6,7 @@ rust-version = "1.85"
 publish = false
 
 [dependencies]
-multicalc = { path = "../multicalc", default-features = false }
+multicalc = { path = "../../crates/multicalc", default-features = false }
 cortex-m-rt = "0.7"
 cortex-m-semihosting = "0.5"
 # With the "exit" feature a panic prints its message and exits QEMU with a failure code.

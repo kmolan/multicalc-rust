@@ -111,7 +111,7 @@ below.
 
 The published library crate lives in [`crates/multicalc`](crates/multicalc); the repository
 root is a Cargo workspace. A second, dev-only crate,
-[`crates/embedded-smoke`](crates/embedded-smoke), runs `multicalc` on the three bare-metal
+[`tools/embedded-smoke`](tools/embedded-smoke), runs `multicalc` on the three bare-metal
 Cortex-M targets under QEMU so the results stay identical across every supported architecture.
 It is never published.
 

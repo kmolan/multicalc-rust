@@ -1,6 +1,6 @@
 # Bare-metal runners and linker inputs for the embedded-smoke firmware.
 #
-# Each firmware binary gets its memory map from crates/embedded-smoke/build.rs, which
+# Each firmware binary gets its memory map from tools/embedded-smoke/build.rs, which
 # copies the target-correct map to OUT_DIR/memory.x and adds OUT_DIR to the linker
 # search path; cortex-m-rt's link.x resolves `INCLUDE memory.x` from there. There is
 # deliberately NO memory.x at the repo root — a CWD file wins INCLUDE resolution over
