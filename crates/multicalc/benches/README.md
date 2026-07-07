@@ -19,7 +19,8 @@ report accuracy (how close the result lands to the known value). The examples in
 
 ```sh
 cargo bench                       # all suites
-cargo bench --bench calculus      # one suite
+cargo bench -- calculus           # one suite (criterion group filter)
+cargo bench -- derivative         # one benchmark family within calculus
 ```
 
 Each suite sets a criterion sample size of 50, a 500 ms warm-up, and a 2 s measurement window.

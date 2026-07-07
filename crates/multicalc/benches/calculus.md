@@ -1,6 +1,6 @@
 # Calculus benchmarks
 
-Results for the [`calculus`](calculus.rs) suite (`cargo bench --bench calculus`). The accuracy
+Results for the [`calculus`](calculus.rs) suite (`cargo bench -- calculus`). The accuracy
 tables report approximation error against the analytic value; the latency tables report
 wall-clock medians on the machine noted in [README.md](README.md). See that index for how the
 suites fit together and how to run them.

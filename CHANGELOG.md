@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Benchmark suites are unified under a single `benchmarks` target: use criterion
+  substring filters (`cargo bench -- linear_algebra`) instead of `--bench <suite>`. 
+  @rtmongold
+
 ## [0.7.0] - 2026-07-06
 
 A feature release adding automatic differentiation, a linear-algebra core, nonlinear
