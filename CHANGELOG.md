@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **f32 pseudo-inverse identity tests.** The SVD pseudo-inverse is now checked against
+  the Moore–Penrose conditions in f32, complementing the existing f64 coverage.
+  @KSHITIZ6341 (#110)
+- **Gauss-Newton example.** A runnable walkthrough (`examples/optimization_solvers.rs`)
+  and accompanying docs for the Gauss-Newton solver. @tapheret2 (#108)
+- A pull-request template and a workflow that greets first-time issue and PR authors.
+- Two showcase demo GIFs (1 kHz IK servo, Newton fractal) in the crate README.
+
+### Changed
+
+- Refreshed crates.io metadata (description, keywords, categories) for discoverability.
+- Renamed `CONTRIBUTIONS.md` to `CONTRIBUTING.md` and rewrote it with a host-only
+  quickstart and contribution workflow.
+
 ## [0.7.1] - 2026-07-07
 
 A tooling and infrastructure release. The library API is unchanged; the repository
