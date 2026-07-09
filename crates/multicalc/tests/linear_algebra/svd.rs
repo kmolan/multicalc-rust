@@ -1,4 +1,6 @@
-use crate::helpers::{assert_close, assert_identity, svd_moore_penrose, svd_reconstructs};
+use crate::helpers::{
+    assert_close, assert_identity, svd_moore_penrose, svd_moore_penrose_f32, svd_reconstructs,
+};
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::utils::error_codes::CalcError;
 
@@ -102,6 +104,31 @@ fn svd_pseudo_inverse_conditions() {
         }),
         1e-10,
     );
+}
+
+#[test]
+fn svd_f32_pseudo_inverse_conditions() {
+    svd_moore_penrose_f32(Matrix::<3, 3, f32>::new([
+        [4.0, 1.0, 2.0],
+        [1.0, 5.0, 3.0],
+        [2.0, 3.0, 6.0],
+    ]));
+    svd_moore_penrose_f32(Matrix::<4, 2, f32>::new([
+        [1.0, 0.0],
+        [2.0, -1.0],
+        [0.5, 3.0],
+        [-1.0, 2.0],
+    ]));
+    svd_moore_penrose_f32(Matrix::<2, 4, f32>::new([
+        [1.0, 0.0, 2.0, -1.0],
+        [0.0, 1.0, 1.0, 3.0],
+    ]));
+    // The second column is twice the first, and the third is their sum.
+    svd_moore_penrose_f32(Matrix::<3, 3, f32>::new([
+        [1.0, 2.0, 3.0],
+        [2.0, 4.0, 6.0],
+        [3.0, 6.0, 9.0],
+    ]));
 }
 
 #[test]
