@@ -4,13 +4,13 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Rust scientific computing for single and multi-variable calculus"
+description = "Calculus, autodiff, nonlinear least squares and linear algebra in pure safe no_std Rust"
 repository.workspace = true
 license.workspace = true
 documentation = "https://docs.rs/multicalc"
 readme = "README.md"
-keywords = ["Math", "Science", "Calculus", "Differentiation", "Integration"]
-categories = ["mathematics", "science", "no-std"]
+keywords = ["no-std", "autodiff", "calculus", "embedded", "robotics"]
+categories = ["mathematics", "no-std", "no-std::no-alloc", "embedded", "robotics"]
 autobenches = false
 
 [dependencies]
