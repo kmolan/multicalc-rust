@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-07-09
+
 ### Added
 
 - **f32 pseudo-inverse identity tests.** The SVD pseudo-inverse is now checked against
