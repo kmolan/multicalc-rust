@@ -321,6 +321,15 @@ impl Numeric for Counted {
     fn ln(self) -> Self {
         Counted(libm::log(self.0))
     }
+    fn atan2(self, other: Self) -> Self {
+        Counted(libm::atan2(self.0, other.0))
+    }
+    fn copysign(self, sign: Self) -> Self {
+        Counted(libm::copysign(self.0, sign.0))
+    }
+    fn floor(self) -> Self {
+        Counted(libm::floor(self.0))
+    }
 
     fn is_nan(self) -> bool {
         self.0.is_nan()
