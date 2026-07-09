@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `vector!` and `matrix!` macros for building [`Vector`] and [`Matrix`] literals,
+  e.g. `vector![1.0, 2.0, 3.0]` and `matrix![[1.0, 2.0], [3.0, 4.0]]`. @rtmongold (#37)
+
 ## [0.7.2] - 2026-07-09
 
 ### Added

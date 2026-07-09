@@ -11,6 +11,8 @@ mod helpers;
 mod cholesky;
 #[path = "linear_algebra/lu.rs"]
 mod lu;
+#[path = "linear_algebra/macros.rs"]
+mod macros;
 #[path = "linear_algebra/matrix.rs"]
 mod matrix;
 #[path = "linear_algebra/qr.rs"]
