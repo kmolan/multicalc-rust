@@ -9,7 +9,7 @@ repository.workspace = true
 license.workspace = true
 documentation = "https://docs.rs/multicalc"
 readme = "README.md"
-keywords = ["no-std", "autodiff", "calculus", "embedded", "science::robotics"]
+keywords = ["no-std", "autodiff", "calculus", "embedded", "numerical-methods"]
 categories = ["mathematics", "no-std", "no-std::no-alloc", "embedded", "science::robotics"]
 autobenches = false
 
