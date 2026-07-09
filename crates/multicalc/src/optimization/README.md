@@ -29,3 +29,8 @@ let report = LevenbergMarquardt::<AutoDiffMulti>::default()
 Credits: the Levenberg-Marquardt driver ports MINPACK's `lmder`/`lmpar` (Moré, Garbow, Hillstrom;
 public domain, netlib), following Moré (1978), "The Levenberg-Marquardt algorithm: Implementation and
 theory", and Nocedal & Wright, *Numerical Optimization*, chapters 4 and 10.
+
+## Runnable examples
+
+- [xamples/curve_fit.rs](../../examples/curve_fit.rs) — Levenberg-Marquardt on an exponential model.
+- [xamples/optimization_solvers.rs](../../examples/optimization_solvers.rs) — Gauss-Newton on a linear residual (when GN is enough vs LM).
