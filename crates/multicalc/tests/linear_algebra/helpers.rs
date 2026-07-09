@@ -96,3 +96,35 @@ pub(crate) fn svd_moore_penrose<const M: usize, const N: usize, T: Numeric>(
     let apa = ap * a;
     assert_close(apa, apa.transpose(), tol);
 }
+
+fn max_abs<const R: usize, const C: usize>(m: Matrix<R, C, f32>) -> f32 {
+    let mut max = 0.0_f32;
+    for r in 0..R {
+        for c in 0..C {
+            max = max.max(m[(r, c)].abs());
+        }
+    }
+    max
+}
+
+fn f32_scaled_tol(scale: f32, dim: usize) -> f32 {
+    512.0 * f32::EPSILON * dim as f32 * scale.max(1.0)
+}
+
+/// Verifies the four Moore-Penrose conditions for an f32 pseudo-inverse with
+/// tolerances scaled by matrix magnitude and dimension.
+pub(crate) fn svd_moore_penrose_f32<const M: usize, const N: usize>(a: Matrix<M, N, f32>) {
+    let ap = a.pseudo_inverse().unwrap();
+
+    let aap_a = a * ap * a;
+    assert_close(aap_a, a, f32_scaled_tol(max_abs(a), M.max(N)));
+
+    let apa_ap = ap * a * ap;
+    assert_close(apa_ap, ap, f32_scaled_tol(max_abs(ap), M.max(N)));
+
+    let aap = a * ap;
+    assert_close(aap, aap.transpose(), f32_scaled_tol(max_abs(aap), M));
+
+    let apa = ap * a;
+    assert_close(apa, apa.transpose(), f32_scaled_tol(max_abs(apa), N));
+}
