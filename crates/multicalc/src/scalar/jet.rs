@@ -310,6 +310,51 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
         Jet { coeffs: u }
     }
 
+    /// Four-quadrant arctangent. `u = atan2(y, x)` satisfies `(x²+y²)·u′ = x·y′ − y·x′`,
+    /// which gives a coefficient recurrence (like `ln`/`exp`): `u₀ = atan2(y₀, x₀)`, and each
+    /// higher `uₖ` is solved from that relation. `w₀ = x₀²+y₀²` is zero only at the origin.
+    #[inline]
+    fn atan2(self, other: Self) -> Self {
+        let y = self.coeffs;
+        let x = other.coeffs;
+        // w = x² + y², via the existing jet operators.
+        let w = (other * other + self * self).coeffs;
+        let mut u = [T::ZERO; N];
+        u[0] = y[0].atan2(x[0]);
+        for k in 1..N {
+            let mut acc = T::ZERO;
+            for i in 0..k {
+                let m = T::from_usize(k - i);
+                acc += m * (x[i] * y[k - i] - y[i] * x[k - i]);
+            }
+            for i in 1..k {
+                acc -= w[i] * T::from_usize(k - i) * u[k - i];
+            }
+            u[k] = acc / (T::from_usize(k) * w[0]);
+        }
+        Jet { coeffs: u }
+    }
+
+    /// Magnitude of `self` with the sign of `sign`. Away from a sign flip the whole series is
+    /// scaled by `s = ±1`; the value coefficient is set by `copysign` so signed zero is exact.
+    #[inline]
+    fn copysign(self, sign: Self) -> Self {
+        let s = if (self.coeffs[0] < T::ZERO) == (sign.coeffs[0] < T::ZERO) {
+            T::ONE
+        } else {
+            -T::ONE
+        };
+        let mut coeffs = core::array::from_fn(|k| s * self.coeffs[k]);
+        coeffs[0] = self.coeffs[0].copysign(sign.coeffs[0]);
+        Jet { coeffs }
+    }
+
+    /// Largest integer `<= self`; all higher coefficients (the derivatives) are zero.
+    #[inline]
+    fn floor(self) -> Self {
+        Jet::constant(self.coeffs[0].floor())
+    }
+
     /// Reflects the value only; the higher coefficients are not inspected.
     #[inline]
     fn is_nan(self) -> bool {
