@@ -24,11 +24,18 @@ jobs:
     uses: ./.github/workflows/matrix.yml
 
   test:
-    name: test (stable)
+    name: test (${{ matrix.rust }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # "1.85" is the MSRV and must match Cargo.toml `rust-version`
+        rust: [stable, "1.85"]
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
       - uses: Swatinem/rust-cache@v2
       - name: Test (default, no_std-shaped)
         run: cargo test -p multicalc
@@ -108,13 +115,35 @@ jobs:
   #     - name: Check for unplanned breaking changes
   #       run: cargo semver-checks --package multicalc
 
+  package:
+    name: package + examples/benches
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build examples
+        run: cargo build -p multicalc --examples
+      - name: Build benches
+        run: cargo build -p multicalc --benches
+      # runs a clean `cargo package` build — the same packaging the Step 15
+      # release workflow relies on, so a release can't fail at publish time
+      - name: Packaging dry-run
+        run: cargo publish -p multicalc --dry-run
+      - name: Build timings
+        run: cargo build -p multicalc --timings
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cargo-timings
+          path: target/cargo-timings/*.html
+
   # Green only if every representative job passed.
   # Branch protection points at this job, so adding or removing a job above never
   # needs a settings change.
   ci-success:
     name: CI success
     if: always()
-    needs: [matrix, test, oracle, lint, docs, no_std]
+    needs: [matrix, test, oracle, lint, docs, no_std, package]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any dependency failed or was cancelled
