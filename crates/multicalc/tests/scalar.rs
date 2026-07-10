@@ -8,7 +8,13 @@ mod numeric_methods {
     #[test]
     fn f64_value_goldens() {
         // atan2 across quadrants and the axes, vs std.
-        for &(y, x) in &[(-2.0_f64, 3.0), (1.0, -1.0), (0.0, 1.0), (1.0, 0.0), (-1.0, 0.0)] {
+        for &(y, x) in &[
+            (-2.0_f64, 3.0),
+            (1.0, -1.0),
+            (0.0, 1.0),
+            (1.0, 0.0),
+            (-1.0, 0.0),
+        ] {
             assert!((Numeric::atan2(y, x) - y.atan2(x)).abs() < TOL);
         }
         assert_eq!(Numeric::copysign(3.0_f64, -1.0), -3.0);
