@@ -350,7 +350,7 @@ accuracy figures and measured latency.
 
 ## Contributing
 
-See [CONTRIBUTIONS.md](../../CONTRIBUTING.md).
+See [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Acknowledgements
 
