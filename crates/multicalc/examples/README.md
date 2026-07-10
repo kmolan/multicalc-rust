@@ -14,6 +14,7 @@ Several examples also reproduce the published accuracy figures in [`benches/`](.
 | Example | Module(s) | What it shows |
 | --- | --- | --- |
 | [`differentiation`](differentiation.rs) | `numerical_derivative` | Single- and multi-variable finite-difference derivatives (orders 1-3, partials, mixed partials). Reproduces the differentiation accuracy tables in benches/calculus.md. |
+| [`autodiff_scalars`](autodiff_scalars.rs) | `scalar` | Use `Dual` and `HyperDual` directly: evaluate a generic `Numeric` function and read f, f′, f″ from the result fields (no derivator). |
 | [`jacobian_hessian`](jacobian_hessian.rs) | `numerical_derivative::{jacobian, hessian}` | Jacobian of a vector of functions and the Hessian of a scalar function. |
 | [`iterative_integration`](iterative_integration.rs) | `numerical_integration::iterative_integration` | Boole / Simpson / Trapezoidal rules, multi-variable partial integrals, and infinite / semi-infinite limits. Reproduces the iterative-integration accuracy table in benches/calculus.md. |
 | [`gaussian_integration`](gaussian_integration.rs) | `numerical_integration::gaussian_integration` | Gauss-Legendre (finite), Gauss-Hermite and Gauss-Laguerre (infinite), with the bare-integrand convention. Reproduces the Gaussian-quadrature accuracy table in benches/calculus.md. |
