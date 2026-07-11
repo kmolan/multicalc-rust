@@ -679,7 +679,7 @@ proptest! {
         let scaled_tol = tolerance_from_coeffs(&coeffs, integration_limit);
 
         let iterator =
-            iterative_integration::IterativeSingle::from_parameters(300, IterativeMethod::Simpsons);
+            iterative_integration::IterativeSingle::from_parameters(120, IterativeMethod::Simpsons);
 
         let val = iterator.get_single(&func, &integration_limit).unwrap();
 
