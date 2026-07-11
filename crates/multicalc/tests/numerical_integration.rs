@@ -724,7 +724,7 @@ fn gauss_legendre_coeffs() -> impl Strategy<Value = (usize, Vec<f64>)> {
 
 proptest! {
     #[test]
-    fn proptest_gausse_legendre_integration_f64(
+    fn proptest_gauss_legendre_integration_f64(
         a in -10.0..10.0f64,
         length in 0.1..5.0f64,
         (n, coeffs) in gauss_legendre_coeffs(),
