@@ -393,13 +393,18 @@ impl<T: Numeric> Quaternion<T> {
     pub fn to_euler_zyx(self) -> (T, T, T) {
         let (w, x, y, z) = (self.w, self.x, self.y, self.z);
         let two = T::TWO;
-        let roll = (two * (w * x + y * z)).atan2(T::ONE - two * (x * x + y * y));
         let sinp = two * (w * y - z * x);
-        let pitch = if sinp.abs() >= T::ONE {
-            (T::PI * T::HALF).copysign(sinp)
-        } else {
-            sinp.asin()
-        };
+        if sinp.abs() >= T::ONE - small_angle_sq::<T>() {
+            // Gimbal lock: at pitch = ±π/2 the standard roll/yaw formulas divide 0/0. Snap pitch
+            // to the pole, fix roll = 0, and fold the whole rotation into yaw (sign set by the
+            // pole). Reconstruction still matches; only the roll/yaw split is not unique here.
+            let pitch = (T::PI * T::HALF).copysign(sinp);
+            let a = two * x.atan2(w);
+            let yaw = if sinp > T::ZERO { -a } else { a };
+            return (T::ZERO, pitch, yaw);
+        }
+        let roll = (two * (w * x + y * z)).atan2(T::ONE - two * (x * x + y * y));
+        let pitch = sinp.asin();
         let yaw = (two * (w * z + x * y)).atan2(T::ONE - two * (y * y + z * z));
         (roll, pitch, yaw)
     }
