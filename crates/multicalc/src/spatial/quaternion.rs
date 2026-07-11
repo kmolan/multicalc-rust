@@ -9,7 +9,7 @@
 //! [`Quaternion::transform_point`], [`Quaternion::to_euler_zyx`], [`Quaternion::to_axis_angle`],
 //! [`Quaternion::to_scaled_axis`]) assume unit input — call [`Quaternion::normalized`] first if a
 //! quaternion has drifted.
-//! 
+//!
 //! Conventions (pinned crate-wide): the Hamilton product (matches Eigen/ROS/Sophus/Pinocchio,
 //! not JPL), storage scalar-first as `[w, x, y, z]`, ZYX intrinsic Euler angles (yaw-pitch-roll),
 //! and the shortest-path rule (a quaternion with a negative scalar part is negated before an
@@ -256,7 +256,10 @@ impl<T: Numeric> Quaternion<T> {
         let theta_sq = rotvec.dot(rotvec);
         let (w, scale) = if theta_sq < small_angle_sq::<T>() {
             // Taylor in θ²; avoids `sqrt(0)`, whose derivative is NaN.
-            (T::ONE - theta_sq / T::from_f64(8.0), T::HALF - theta_sq / T::from_f64(48.0))
+            (
+                T::ONE - theta_sq / T::from_f64(8.0),
+                T::HALF - theta_sq / T::from_f64(48.0),
+            )
         } else {
             let theta = theta_sq.sqrt();
             let half = theta * T::HALF;

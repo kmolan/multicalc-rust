@@ -1,4 +1,4 @@
-//! Quaternion tests: comparison against offline-generated scipy values, algebraic identities, exp/ln round trips, 
+//! Quaternion tests: comparison against offline-generated scipy values, algebraic identities, exp/ln round trips,
 //! AD-vs-FD (including a finite-derivative regression at zero rotation), and f32 identity coverage.
 
 use std::f64::consts::PI;
@@ -131,7 +131,11 @@ fn euler_gimbal_lock_poles() {
 fn hamilton_associative() {
     let mut rng = StdRng::seed_from_u64(1);
     for _ in 0..2000 {
-        let (a, b, c) = (rand_quat(&mut rng), rand_quat(&mut rng), rand_quat(&mut rng));
+        let (a, b, c) = (
+            rand_quat(&mut rng),
+            rand_quat(&mut rng),
+            rand_quat(&mut rng),
+        );
         assert_close_q((a * b) * c, a * (b * c), 1e-11);
     }
 }
@@ -187,11 +191,19 @@ fn scaled_axis_roundtrip() {
     for _ in 0..2000 {
         let theta = rng.gen_range(0.0..0.99 * PI);
         let phi = rand_unit_vec(&mut rng) * theta;
-        assert_close_v(Quaternion::from_scaled_axis(phi).to_scaled_axis(), phi, 1e-10);
+        assert_close_v(
+            Quaternion::from_scaled_axis(phi).to_scaled_axis(),
+            phi,
+            1e-10,
+        );
     }
     // Small-angle branch.
     let tiny = Vector::new([1e-8, -2e-8, 0.5e-8]);
-    assert_close_v(Quaternion::from_scaled_axis(tiny).to_scaled_axis(), tiny, 1e-18);
+    assert_close_v(
+        Quaternion::from_scaled_axis(tiny).to_scaled_axis(),
+        tiny,
+        1e-18,
+    );
 }
 
 #[test]
