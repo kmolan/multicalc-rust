@@ -1,17 +1,15 @@
 //! Quaternions for 3D rotation.
 //!
 //! [`Quaternion`] is a single quaternion type in the Hamilton convention, following the model of
-//! Eigen, glam, and ROS `tf2`: one type carries both the raw quaternion algebra and the rotation
+//! Eigen, glam, and ROS `tf2`: contains both the raw quaternion algebra and the rotation
 //! helpers. A quaternion represents a rotation only when it has unit norm. The rotation
 //! *constructors* ([`Quaternion::from_axis_angle`], [`Quaternion::from_scaled_axis`],
 //! [`Quaternion::from_euler_zyx`], [`Quaternion::try_from_rotation_matrix`]) return unit output;
 //! the rotation *queries* ([`Quaternion::to_rotation_matrix`], [`Quaternion::slerp`],
 //! [`Quaternion::transform_point`], [`Quaternion::to_euler_zyx`], [`Quaternion::to_axis_angle`],
 //! [`Quaternion::to_scaled_axis`]) assume unit input — call [`Quaternion::normalized`] first if a
-//! quaternion has drifted. This is Eigen's contract: keeping a rotation quaternion normalized is
-//! the caller's job. The compile-time "this is a rotation" guarantee is provided by `SO3` (a
-//! later item), which wraps a normalized quaternion; this type is the raw primitive underneath it.
-//!
+//! quaternion has drifted.
+//! 
 //! Conventions (pinned crate-wide): the Hamilton product (matches Eigen/ROS/Sophus/Pinocchio,
 //! not JPL), storage scalar-first as `[w, x, y, z]`, ZYX intrinsic Euler angles (yaw-pitch-roll),
 //! and the shortest-path rule (a quaternion with a negative scalar part is negated before an

@@ -32,6 +32,9 @@ pub use scalar::{ScalarFn, ScalarFnN, VectorFn};
 /// Fixed-size, stack-allocated vector and matrix types.
 pub use linear_algebra::{Matrix, Vector};
 
+/// Quaternion
+pub use spatial::Quaternion;
+
 /// The Levenberg-Marquardt and Gauss-Newton least-squares solvers and their result types.
 pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
 
@@ -46,5 +49,6 @@ pub mod numerical_integration;
 pub mod optimization;
 pub mod root_finding;
 pub mod scalar;
+pub mod spatial;
 pub mod utils;
 pub mod vector_field;
