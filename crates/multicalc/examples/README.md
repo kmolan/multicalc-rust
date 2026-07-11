@@ -24,4 +24,4 @@ Several examples also reproduce the published accuracy figures in [`benches/`](.
 | [`svd`](svd.rs) | `linear_algebra::svd` | Singular value decomposition and Moore-Penrose pseudo-inverse under a robotics stress test (Kabsch rotation recovery, a redundant-arm pseudo-inverse, a near-singular Jacobian, and an overdetermined fit) with latency + approximation error. Reproduces the SVD / pseudo-inverse accuracy table in benches/linear_algebra.md. |
 | [`root_finding`](root_finding.rs) | `root_finding` | Bracketed bisection, Newton with exact derivatives, damped (backtracking) Newton rescuing a far start, and a square-system Newton solve, each printed against its known root. |
 | [`curve_fit`](curve_fit.rs) | `optimization` | Levenberg-Marquardt fit of `y = a·e^(b·t)` to sensor samples with exact autodiff Jacobians; prints recovered `a`, `b`, and `\|err\|`. |
-- `optimization_solvers` — Gauss-Newton linear residual walkthrough
+| [`optimization_solvers`](optimization_solvers.rs) | `optimization` | Gauss-Newton on a well-conditioned linear residual (`y = a + b·t`); when GN is enough vs LM (`curve_fit`). |

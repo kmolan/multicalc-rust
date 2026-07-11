@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   e.g. `vector![1.0, 2.0, 3.0]` and `matrix![[1.0, 2.0], [3.0, 4.0]]`. @rtmongold (#37)
 - **Autodiff scalars example.** A runnable walkthrough (`examples/autodiff_scalars.rs`)
   that uses `Dual` and `HyperDual` directly (no derivator). @rtmongold (#106)
+- Fixed `examples/README.md` table entry for `optimization_solvers` (was an orphan 
+  bullet). @rtmongold (#117)
 
 ### Fixed
 
