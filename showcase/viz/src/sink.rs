@@ -2,9 +2,9 @@
 //!
 //! [`VizSink`] is kept object-safe so callers can hold a `&mut dyn VizSink` and swap backends at
 //! runtime; that is why `scalar` takes a plain `f64`. The generic convenience form that accepts
-//! any [`Plottable`] scalar lives on the blanket [`VizSinkExt`].
+//! any [`Primal`] scalar lives on the blanket [`VizSinkExt`].
 
-use multicalc::scalar::primal::Primal;
+use multicalc::scalar::Primal;
 
 use core::fmt;
 

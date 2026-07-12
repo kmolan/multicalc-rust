@@ -12,7 +12,7 @@ mod sink;
 pub mod loop_util;
 
 pub use csv_sink::CsvSink;
-pub use multicalc::scalar::primal::Primal;
+pub use multicalc::scalar::Primal;
 pub use rerun_sink::RerunSink;
 pub use sink::{Rgba, VizError, VizSink, VizSinkExt};
 

@@ -1,13 +1,19 @@
 //! One-way scalar-to-f64 and scalar-to-f32 projections.
 //!
-//! `multicalc::scalar::Numeric` provides `from_f64` but no `to_f64`, so this crate defines its
-//! own projection. It covers the float scalars and the autodiff scalars, projecting each to its
+//! This module covers the float scalars and the autodiff scalars, projecting each to its
 //! primal (value) part so a differentiated quantity plots as its underlying value. The autodiff
 //! impls delegate through the primal, so nested scalars such as `Dual<HyperDual<f64>>` work.
 
 use crate::{Dual, HyperDual, Jet, Numeric};
 
 /// A scalar that can be projected to `f64` and `f32`.
+///
+/// ```
+/// use multicalc::scalar::{Dual, Primal};
+///
+/// let x = Dual::new(2.0, 99.0);
+/// assert_eq!(x.to_f64(), 2.0);
+/// ```
 pub trait Primal {
     /// Returns the value as an `f64` (the primal part, for autodiff scalars).
     fn to_f64(&self) -> f64;

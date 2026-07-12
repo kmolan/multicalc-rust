@@ -16,3 +16,4 @@ pub use function::{ScalarFn, ScalarFnN, VectorFn, c};
 pub use hyper_dual::HyperDual;
 pub use jet::Jet;
 pub use numeric::Numeric;
+pub use primal::Primal;
