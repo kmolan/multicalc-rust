@@ -1,8 +1,7 @@
-//! One-way scalar-to-f64 and scalar-to-f32 projections.
+//! Edge-only projection to `f64` / `f32` (the reverse of [`Numeric::from_f64`]).
 //!
-//! This module covers the float scalars and the autodiff scalars, projecting each to its
-//! primal (value) part so a differentiated quantity plots as its underlying value. The autodiff
-//! impls delegate through the primal, so nested scalars such as `Dual<HyperDual<f64>>` work.
+//! Kept separate from [`Numeric`] so generic algorithms cannot strip autodiff.
+//! Autodiff types return their value part; nesting such as `Dual<HyperDual<f64>>` works.
 
 use crate::{Dual, HyperDual, Jet, Numeric};
 

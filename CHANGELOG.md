@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that uses `Dual` and `HyperDual` directly (no derivator). @rtmongold (#106)
 - Fixed `examples/README.md` table entry for `optimization_solvers` (was an orphan 
   bullet). @rtmongold (#117)
-- `Primal` trait with `to_f64` and `to_f32` conversions. @ProtoFN (#131)
+- **`Primal` scalar projection.** New `to_f64` / `to_f32` trait for edge use (viz, logging, etc.), kept separate from
+  `Numeric`. `showcase/viz` now uses it instead of its private `Plottable` trait. @ProtoFN (#131)
 
 ### Fixed
 
