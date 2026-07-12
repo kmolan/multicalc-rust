@@ -48,6 +48,7 @@ core — every number measured live.*
 | **Optimization** | Levenberg-Marquardt and Gauss-Newton nonlinear least-squares |
 | **Root finding** | Bracketed bisection, Newton, and Newton systems, with optional damped line search |
 | **Linear algebra** | Dense LU, QR, Cholesky, and SVD: solves, inverses, pseudo-inverse, rank, condition number |
+| **Spatial** | Quaternions and SO(2)/SE(2)/SO(3)/SE(3) Lie groups: compose, act, exp/log, adjoint, geodesic interpolation |
 
 ## Install
 

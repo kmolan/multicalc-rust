@@ -25,6 +25,8 @@ use core::ops::{Add, Mul, Neg, Sub};
 use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
 
+use crate::spatial::{small_angle, small_angle_sq};
+
 /// A quaternion `w + x·i + y·j + z·k`, stored scalar-first.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Quaternion<T: Numeric> {
@@ -515,20 +517,4 @@ impl<T: Numeric> Mul for Quaternion<T> {
             z: self.w * r.z + self.x * r.y - self.y * r.x + self.z * r.w,
         }
     }
-}
-
-/// The angle threshold below which trig ratios switch to their Taylor series, keeping values
-/// finite and derivatives continuous. Chosen well above where `sin(a)/a` loses precision. This is
-/// a fixed absolute cutoff (not `EPSILON`-relative); it behaves correctly for both f32 and f64.
-#[inline]
-fn small_angle<T: Numeric>() -> T {
-    T::from_f64(1e-6)
-}
-
-/// The squared small-angle threshold, for branches taken on a squared magnitude (`θ²`, `‖v‖²`)
-/// before any `sqrt`. Branching pre-`sqrt` keeps the AD derivative finite at exactly zero, where
-/// `sqrt`'s derivative `1/(2·0)` is NaN.
-#[inline]
-fn small_angle_sq<T: Numeric>() -> T {
-    T::from_f64(1e-12)
 }

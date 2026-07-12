@@ -35,6 +35,9 @@ pub use linear_algebra::{Matrix, Vector};
 /// Quaternion
 pub use spatial::Quaternion;
 
+/// SO(2)/SE(2)/SO(3)/SE(3) Lie groups for 2D and 3D rotations and rigid-body transforms.
+pub use spatial::{SE2, SE3, SO2, SO3};
+
 /// The Levenberg-Marquardt and Gauss-Newton least-squares solvers and their result types.
 pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
 
