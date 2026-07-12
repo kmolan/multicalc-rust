@@ -6,9 +6,10 @@ use multicalc::numerical_derivative::finite_difference::*;
 use multicalc::numerical_derivative::hessian::Hessian;
 use multicalc::numerical_derivative::jacobian::Jacobian;
 use multicalc::numerical_derivative::mode::*;
-use multicalc::scalar::{Numeric, VectorFn, c};
+use multicalc::scalar::{Numeric, ScalarFn, ScalarFnN, VectorFn, c};
 use multicalc::utils::error_codes::*;
 use multicalc::{scalar_fn, scalar_fn_vec};
+use proptest::prelude::*;
 
 // ----- autodiff (the default backend): exact derivatives -----
 
@@ -210,4 +211,116 @@ fn fd_step_size_zero_error() {
         d.get(&func, &[0], &[1.0, 2.0, 3.0]).unwrap_err(),
         CalcError::StepSizeZero
     );
+}
+
+fn eval_poly<S: Numeric>(coeffs: &[f64], x: S) -> S {
+    let mut acc = S::from_f64(0.0);
+    let mut x_pow = S::from_f64(1.0);
+    for &a in coeffs {
+        acc += S::from_f64(a) * x_pow;
+        x_pow *= x;
+    }
+    acc
+}
+
+struct PolyComp {
+    inner: Vec<f64>,
+    outer: Vec<f64>,
+}
+
+impl ScalarFn for PolyComp {
+    fn eval<S: Numeric>(&self, x: S) -> S {
+        eval_poly(&self.outer, eval_poly(&self.inner, x))
+    }
+}
+
+struct BivariatePoly {
+    coeffs: Vec<f64>,
+}
+
+impl ScalarFnN<2> for BivariatePoly {
+    fn eval<S: Numeric>(&self, p: &[S; 2]) -> S {
+        let (x, y) = (p[0], p[1]);
+        let c = |i| S::from_f64(self.coeffs[i]);
+        c(0) + c(1) * x + c(2) * y + c(3) * x * x + c(4) * x * y + c(5) * y * y
+    }
+}
+
+fn coeff_l1(coeffs: &[f64]) -> f64 {
+    coeffs.iter().map(|c| c.abs()).sum()
+}
+
+fn ad_fd_tol(ad: f64, h: f64, order: i32, c: f64, coeff_scale: f64) -> f64 {
+    let scale = ad.abs().max(1.0) * coeff_scale.max(1.0);
+    c * h.powi(order) * scale
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    #[test]
+    fn proptest_ad_fd_single_first(
+        inner in prop::collection::vec(-5.0f64..5.0, 3..=5),
+        outer in prop::collection::vec(-5.0f64..5.0, 3..=5),
+        x in -2.0f64..2.0,
+    ) {
+        let scale = 1.0 + coeff_l1(&inner) + coeff_l1(&outer);
+        let f = PolyComp { inner, outer };
+        let h = DEFAULT_STEP_SIZE;
+        let ad = AutoDiffSingle::default().get(1, &f, x).unwrap();
+        let fd = FiniteDifferenceSingle::default();
+        let fd_val = fd.get(1, &f, x).unwrap();
+        let tol = ad_fd_tol(ad, h, 2, 1e3, scale);
+        prop_assert!(
+            (fd_val - ad).abs() < tol,
+            "fd={fd_val} ad={ad} tol={tol} x={x}"
+        );
+    }
+
+    // Nested FD is noisier than first-deriv; use a milder domain and larger step.
+    #[test]
+    fn proptest_ad_fd_single_second(
+        inner in prop::collection::vec(-2.0f64..2.0, 3..=4),
+        outer in prop::collection::vec(-2.0f64..2.0, 3..=4),
+        x in -2.0f64..2.0,
+    ) {
+        let scale = 1.0 + coeff_l1(&inner) + coeff_l1(&outer);
+        let f = PolyComp { inner, outer };
+        let h = 1e-4;
+        let ad = AutoDiffSingle::default().get(2, &f, x).unwrap();
+        let fd = FiniteDifferenceSingle::from_parameters(
+            h,
+            FiniteDifferenceMode::Central,
+            DEFAULT_STEP_SIZE_MULTIPLIER,
+        );
+        let fd_val = fd.get(2, &f, x).unwrap();
+        let tol = ad_fd_tol(ad, h, 2, 1e4, scale);
+        prop_assert!(
+            (fd_val -ad).abs() < tol,
+            "fd={fd_val} ad={ad} tol={tol}"
+        );
+    }
+
+    #[test]
+    fn proptest_ad_fd_multi_first_partial(
+        coeffs in prop::collection::vec(-5.0f64..5.0, 6),
+        x in -2.0f64..2.0,
+        y in -2.0f64..2.0,
+    ) {
+        let scale = 1.0 + coeff_l1(&coeffs);
+        let f = BivariatePoly { coeffs };
+        let point = [x, y];
+        let h = DEFAULT_STEP_SIZE;
+        let ad_d = AutoDiffMulti::default();
+        let fd_d = FiniteDifferenceMulti::default();
+        for idx in [0usize, 1] {
+            let ad = ad_d.get_single_partial(&f, idx, &point).unwrap();
+            let fd_val = fd_d.get_single_partial(&f, idx, &point).unwrap();
+            let tol = ad_fd_tol(ad, h, 2, 1e3, scale);
+            prop_assert!(
+                (fd_val -ad).abs() < tol,
+                "idx={idx} fd={fd_val} ad={ad} tol={tol}"
+            );
+        }
+    }
 }
