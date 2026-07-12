@@ -319,6 +319,22 @@ let a_pinv = a.pseudo_inverse().unwrap();
 let x = svd.solve(Vector::new([1.0, 2.0, 3.0]));
 ```
 
+### Rigid-body rotations and transforms
+
+`Quaternion` plus the `SO2`/`SE2`/`SO3`/`SE3` Lie groups cover 2D and 3D rotations and rigid-body
+transforms — compose, act on points, `exp`/`log`, `adjoint`, and geodesic interpolation, all generic
+over the scalar so autodiff flows straight through.
+
+```rust
+use multicalc::spatial::{SE3, SO3};
+use multicalc::linear_algebra::Vector;
+
+let r = SO3::<f64>::exp(Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2])); // 90° about z
+let g = SE3::from_parts(r, Vector::new([1.0, 2.0, 3.0]));
+let p = g.act(Vector::new([1.0, 0.0, 0.0]));   // rotate then translate → (1, 3, 3)
+let xi = g.log();                              // 6-vector twist [v; ω]
+```
+
 ## Error handling
 
 Where a sensible default exists, a "safe" wrapper (such as `get_single` or `get_double`) returns the
