@@ -18,13 +18,19 @@ impl<T: Numeric> SO2<T> {
     /// The zero rotation.
     #[inline]
     pub fn identity() -> Self {
-        SO2 { c: T::ONE, s: T::ZERO }
+        SO2 {
+            c: T::ONE,
+            s: T::ZERO,
+        }
     }
 
     /// The rotation by `theta` radians.
     #[inline]
     pub fn from_angle(theta: T) -> Self {
-        SO2 { c: theta.cos(), s: theta.sin() }
+        SO2 {
+            c: theta.cos(),
+            s: theta.sin(),
+        }
     }
 
     /// The `(cos, sin)` components.
@@ -45,7 +51,10 @@ impl<T: Numeric> SO2<T> {
     /// The inverse rotation.
     #[inline]
     pub fn inverse(self) -> Self {
-        SO2 { c: self.c, s: -self.s }
+        SO2 {
+            c: self.c,
+            s: -self.s,
+        }
     }
 
     /// Rotates a 2D point.

@@ -4,7 +4,7 @@ use core::ops::Mul;
 
 use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
-use crate::spatial::lie::{inverse_left_jacobian_so3, left_jacobian_so3, skew3, SO3};
+use crate::spatial::lie::{SO3, inverse_left_jacobian_so3, left_jacobian_so3, skew3};
 
 /// A 3D rigid-body transform: a rotation and a translation. The tangent is `[vx, vy, vz, ωx, ωy, ωz]`.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -18,13 +18,19 @@ impl<T: Numeric> SE3<T> {
     /// The identity transform.
     #[inline]
     pub fn identity() -> Self {
-        SE3 { rotation: SO3::identity(), translation: Vector::zeros() }
+        SE3 {
+            rotation: SO3::identity(),
+            translation: Vector::zeros(),
+        }
     }
 
     /// A transform from a rotation and translation.
     #[inline]
     pub fn from_parts(rotation: SO3<T>, translation: Vector<3, T>) -> Self {
-        SE3 { rotation, translation }
+        SE3 {
+            rotation,
+            translation,
+        }
     }
 
     /// The rotation part.
@@ -52,7 +58,10 @@ impl<T: Numeric> SE3<T> {
     #[inline]
     pub fn inverse(self) -> Self {
         let r_inv = self.rotation.inverse();
-        SE3 { rotation: r_inv, translation: -r_inv.act(self.translation) }
+        SE3 {
+            rotation: r_inv,
+            translation: -r_inv.act(self.translation),
+        }
     }
 
     /// Applies the transform to a 3D point.
@@ -111,7 +120,14 @@ impl<T: Numeric> SE3<T> {
     /// The inverse of [`SE3::hat`].
     #[inline]
     pub fn vee(m: Matrix<4, 4, T>) -> Vector<6, T> {
-        Vector::new([m[(0, 3)], m[(1, 3)], m[(2, 3)], m[(2, 1)], m[(0, 2)], m[(1, 0)]])
+        Vector::new([
+            m[(0, 3)],
+            m[(1, 3)],
+            m[(2, 3)],
+            m[(2, 1)],
+            m[(0, 2)],
+            m[(1, 0)],
+        ])
     }
 
     /// The 4×4 homogeneous transform matrix.
@@ -140,7 +156,10 @@ impl<T: Numeric> SE3<T> {
             }
         }
         let rotation = SO3::try_from_matrix(r)?;
-        Some(SE3 { rotation, translation: Vector::new([m[(0, 3)], m[(1, 3)], m[(2, 3)]]) })
+        Some(SE3 {
+            rotation,
+            translation: Vector::new([m[(0, 3)], m[(1, 3)], m[(2, 3)]]),
+        })
     }
 
     /// Geodesic (screw-motion) interpolation; `t = 0` gives `self`, `t = 1` gives `other`.

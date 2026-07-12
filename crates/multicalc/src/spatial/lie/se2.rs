@@ -19,13 +19,19 @@ impl<T: Numeric> SE2<T> {
     /// The identity transform.
     #[inline]
     pub fn identity() -> Self {
-        SE2 { rotation: SO2::identity(), translation: Vector::zeros() }
+        SE2 {
+            rotation: SO2::identity(),
+            translation: Vector::zeros(),
+        }
     }
 
     /// A transform from a rotation and translation.
     #[inline]
     pub fn from_parts(rotation: SO2<T>, translation: Vector<2, T>) -> Self {
-        SE2 { rotation, translation }
+        SE2 {
+            rotation,
+            translation,
+        }
     }
 
     /// The rotation part.
@@ -53,7 +59,10 @@ impl<T: Numeric> SE2<T> {
     #[inline]
     pub fn inverse(self) -> Self {
         let r_inv = self.rotation.inverse();
-        SE2 { rotation: r_inv, translation: -r_inv.act(self.translation) }
+        SE2 {
+            rotation: r_inv,
+            translation: -r_inv.act(self.translation),
+        }
     }
 
     /// Applies the transform to a 2D point.
@@ -77,7 +86,10 @@ impl<T: Numeric> SE2<T> {
             (omega.sin() / omega, (T::ONE - omega.cos()) / omega)
         };
         let translation = Vector::new([a * xi[0] - b * xi[1], b * xi[0] + a * xi[1]]);
-        SE2 { rotation: SO2::exp(omega), translation }
+        SE2 {
+            rotation: SO2::exp(omega),
+            translation,
+        }
     }
 
     /// The logarithm, the inverse of [`SE2::exp`], returning `[vx, vy, ω]`.
@@ -92,7 +104,11 @@ impl<T: Numeric> SE2<T> {
             (half * (half.cos() / half.sin()), half)
         };
         let t = self.translation;
-        Vector::new([alpha * t[0] + beta * t[1], -beta * t[0] + alpha * t[1], omega])
+        Vector::new([
+            alpha * t[0] + beta * t[1],
+            -beta * t[0] + alpha * t[1],
+            omega,
+        ])
     }
 
     /// The 3×3 adjoint for the `[v; ω]` ordering.
@@ -100,11 +116,7 @@ impl<T: Numeric> SE2<T> {
     pub fn adjoint(self) -> Matrix<3, 3, T> {
         let (c, s) = self.rotation.cos_sin();
         let (tx, ty) = (self.translation[0], self.translation[1]);
-        Matrix::new([
-            [c, -s, ty],
-            [s, c, -tx],
-            [T::ZERO, T::ZERO, T::ONE],
-        ])
+        Matrix::new([[c, -s, ty], [s, c, -tx], [T::ZERO, T::ZERO, T::ONE]])
     }
 
     /// The Lie-algebra element for a `[vx, vy, ω]` twist.
@@ -141,7 +153,10 @@ impl<T: Numeric> SE2<T> {
             [m[(0, 0)], m[(0, 1)]],
             [m[(1, 0)], m[(1, 1)]],
         ]))?;
-        Some(SE2 { rotation: r, translation: Vector::new([m[(0, 2)], m[(1, 2)]]) })
+        Some(SE2 {
+            rotation: r,
+            translation: Vector::new([m[(0, 2)], m[(1, 2)]]),
+        })
     }
 
     /// Geodesic interpolation; `t = 0` gives `self`, `t = 1` gives `other`.

@@ -4,8 +4,8 @@ use core::ops::Mul;
 
 use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
-use crate::spatial::lie::{left_jacobian_so3, skew3};
 use crate::spatial::Quaternion;
+use crate::spatial::lie::{left_jacobian_so3, skew3};
 
 /// A 3D rotation. Wraps a unit [`Quaternion`] and carries the unit-rotation invariant. Composition
 /// uses the Hamilton product; call [`SO3::normalized`] to remove drift after long chains. The
@@ -29,7 +29,9 @@ impl<T: Numeric> SO3<T> {
     /// The zero rotation.
     #[inline]
     pub fn identity() -> Self {
-        SO3 { q: Quaternion::identity() }
+        SO3 {
+            q: Quaternion::identity(),
+        }
     }
 
     /// From a quaternion, normalized to unit norm. Yields NaN components for a zero quaternion, as
@@ -60,7 +62,9 @@ impl<T: Numeric> SO3<T> {
     /// The inverse rotation.
     #[inline]
     pub fn inverse(self) -> Self {
-        SO3 { q: self.q.conjugate() }
+        SO3 {
+            q: self.q.conjugate(),
+        }
     }
 
     /// Rotates a 3D point.
@@ -73,7 +77,9 @@ impl<T: Numeric> SO3<T> {
     /// uses a Taylor series, so the derivative stays finite at φ = 0.
     #[inline]
     pub fn exp(phi: Vector<3, T>) -> Self {
-        SO3 { q: Quaternion::from_scaled_axis(phi) }
+        SO3 {
+            q: Quaternion::from_scaled_axis(phi),
+        }
     }
 
     /// The logarithm, returning `φ` with `‖φ‖ ≤ π` (shortest path). Well-defined across θ = π.
@@ -115,13 +121,17 @@ impl<T: Numeric> SO3<T> {
     /// Geodesic interpolation (slerp); `t = 0` gives `self`, `t = 1` gives `other`.
     #[inline]
     pub fn interpolate(self, other: Self, t: T) -> Self {
-        SO3 { q: self.q.slerp(other.q, t) }
+        SO3 {
+            q: self.q.slerp(other.q, t),
+        }
     }
 
     /// This rotation renormalized, removing drift accumulated over long composition chains.
     #[inline]
     pub fn normalized(self) -> Self {
-        SO3 { q: self.q.normalized() }
+        SO3 {
+            q: self.q.normalized(),
+        }
     }
 
     /// The SO(3) left Jacobian `J_l(φ)`, relating a tangent perturbation to the resulting rotation.
