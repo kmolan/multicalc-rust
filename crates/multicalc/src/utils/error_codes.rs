@@ -30,6 +30,8 @@ pub enum CalcError {
     NonFiniteValue,
     /// The bracket endpoints did not enclose a sign change.
     InvalidBracket,
+    /// The adaptive step size fell below the configured minimum.
+    StepSizeTooSmall,
 }
 
 impl core::fmt::Display for CalcError {
@@ -53,6 +55,7 @@ impl core::fmt::Display for CalcError {
             }
             CalcError::NonFiniteValue => "residual or Jacobian contained a non-finite value",
             CalcError::InvalidBracket => "bracket endpoints must enclose a sign change",
+            CalcError::StepSizeTooSmall => "adaptive step size fell below the minimum",
         })
     }
 }
