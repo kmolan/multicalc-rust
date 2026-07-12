@@ -595,8 +595,15 @@ fn test_gauss_legendre_integration_f32() {
     assert!(f32::abs(val - 8.0) < 1e-2, "got {val}");
 }
 
-fn polynomial_coeffs(len: usize) -> impl Strategy<Value = Vec<f64>> {
-    prop::collection::vec(-10.0..10.0, len)
+fn polynomial_coeffs(deg: usize) -> impl Strategy<Value = Vec<f64>> {
+    prop::collection::vec(-10.0..10.0, deg + 1)
+}
+
+fn integration_limit() -> impl Strategy<Value = [f64; 2]> {
+    (-10.0..10.0f64, 0.1..5.0f64).prop_map(|(a, length)| {
+        let b = a + length;
+        [a, b]
+    })
 }
 
 fn func_from_coeffs(coefficients: &[f64]) -> impl Fn(f64) -> f64 {
@@ -635,115 +642,76 @@ fn tolerance_from_coeffs(coefficients: &[f64], interval: [f64; 2]) -> f64 {
     1e-6 * bound.max(1.0)
 }
 
-proptest! {
-    #[test]
-    fn proptest_trapezoid_integration_f64(
-            a in -10.0..10.0f64,
-            length in 0.1..5.0f64,
-            coeffs in polynomial_coeffs(2)
-            ) {
-
-        let b = a + length;
-        let integration_limit = [a, b];
-
+fn iterative_integration_proptest(
+    degree: usize,
+    integrator: impl IntegratorSingleVariable<Scalar = f64>,
+) {
+    proptest!(|(
+        limit in integration_limit(),
+        coeffs in polynomial_coeffs(degree)
+        )| {
         let func = func_from_coeffs(&coeffs);
+        let closed_form = closed_form_from_coeffs(&coeffs, limit);
+        let scaled_tol = tolerance_from_coeffs(&coeffs, limit);
 
-        let closed_form = closed_form_from_coeffs(&coeffs, integration_limit);
-
-        let scaled_tol = tolerance_from_coeffs(&coeffs, integration_limit);
-
-        let iterator =
-            iterative_integration::IterativeSingle::from_parameters(100, IterativeMethod::Trapezoidal);
-
-        let val = iterator.get_single(&func, &integration_limit).unwrap();
-
+        let val = integrator.get_single(&func, &limit).unwrap();
         prop_assert!(f64::abs(val - closed_form) < scaled_tol);
-    }
+    });
 }
 
-proptest! {
-    #[test]
-    fn proptest_simpsons_integration_f64(
-            a in -10.0..10.0f64,
-            length in 0.1..5.0f64,
-            coeffs in polynomial_coeffs(4)
-            ) {
-
-        let b = a + length;
-        let integration_limit = [a, b];
-
-        let func = func_from_coeffs(&coeffs);
-
-        let closed_form = closed_form_from_coeffs(&coeffs, integration_limit);
-
-        let scaled_tol = tolerance_from_coeffs(&coeffs, integration_limit);
-
-        let iterator =
-            iterative_integration::IterativeSingle::from_parameters(120, IterativeMethod::Simpsons);
-
-        let val = iterator.get_single(&func, &integration_limit).unwrap();
-
-        prop_assert!(f64::abs(val - closed_form) < scaled_tol);
-    }
+#[test]
+fn proptest_trapezoid_integration_f64() {
+    let iterator =
+        iterative_integration::IterativeSingle::from_parameters(100, IterativeMethod::Trapezoidal);
+    iterative_integration_proptest(1, iterator);
 }
 
-proptest! {
-    #[test]
-    fn proptest_booles_integration_f64(
-            a in -10.0..10.0f64,
-            length in 0.1..5.0f64,
-            coeffs in polynomial_coeffs(6)
-            ) {
-
-        let b = a + length;
-        let integration_limit = [a, b];
-
-        let func = func_from_coeffs(&coeffs);
-
-        let closed_form = closed_form_from_coeffs(&coeffs, integration_limit);
-
-        let scaled_tol = tolerance_from_coeffs(&coeffs, integration_limit);
-
-        let iterator =
-            iterative_integration::IterativeSingle::from_parameters(100, IterativeMethod::Booles);
-
-        let val = iterator.get_single(&func, &integration_limit).unwrap();
-
-        prop_assert!(f64::abs(val - closed_form) < scaled_tol);
-    }
-
-
+#[test]
+fn proptest_simpsons_integration_f64() {
+    let iterator =
+        iterative_integration::IterativeSingle::from_parameters(120, IterativeMethod::Simpsons);
+    iterative_integration_proptest(3, iterator);
 }
 
-fn gauss_legendre_coeffs() -> impl Strategy<Value = (usize, Vec<f64>)> {
-    (1..=10usize).prop_flat_map(|n| {
-        let degree = 2 * n - 1;
-        (Just(n), polynomial_coeffs(degree + 1))
-    })
+#[test]
+fn proptest_booles_integration_f64() {
+    let iterator =
+        iterative_integration::IterativeSingle::from_parameters(100, IterativeMethod::Booles);
+    iterative_integration_proptest(5, iterator);
+}
+
+fn gauss_coeffs() -> impl Strategy<Value = (usize, Vec<f64>)> {
+    (0..10usize).prop_flat_map(|n| (Just(n), polynomial_coeffs(2 * n - 1)))
+}
+
+fn gauss_integration_proptest(
+    degree: usize,
+    integrator: impl IntegratorSingleVariable<Scalar = f64>,
+) {
+    proptest!(|(
+        limit in integration_limit(),
+        (n, coeffs) in gauss_coeffs(),
+        )| {
+
+        let func = func_from_coeffs(&coeffs);
+        let closed_form = closed_form_from_coeffs(&coeffs, limit);
+        let scaled_tol = tolerance_from_coeffs(&coeffs, limit);
+
+        let val = integrator.get_single(&func, &limit).unwrap();
+        prop_assert!(f64::abs(val - closed_form) < scaled_tol);
+    });
 }
 
 proptest! {
     #[test]
     fn proptest_gauss_legendre_integration_f64(
-        a in -10.0..10.0f64,
-        length in 0.1..5.0f64,
-        (n, coeffs) in gauss_legendre_coeffs(),
+        n in 1..=10usize
     ) {
-        let b = a + length;
-        let integration_limit = [a,b];
-
-        let func = func_from_coeffs(&coeffs);
-        let closed_form = closed_form_from_coeffs(&coeffs, integration_limit);
-        let scaled_tol = tolerance_from_coeffs(&coeffs, integration_limit);
-
+        let degree = 2 * n - 1;
         let integrator = gaussian_integration::GaussianSingle::<f64>::from_parameters(
         n,
         GaussianQuadratureMethod::GaussLegendre,
         );
-
-
-        let val = integrator.get_single(&func, &integration_limit).unwrap();
-        prop_assert!(f64::abs(val - closed_form) < scaled_tol);
-
+        gauss_integration_proptest(degree, integrator);
     }
 }
