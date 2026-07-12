@@ -76,7 +76,12 @@ fn assert_mat_close<const R: usize, const C: usize>(
 ) {
     for i in 0..R {
         for j in 0..C {
-            assert!((a[(i, j)] - b[(i, j)]).abs() < tol, "({i},{j}): {} vs {}", a[(i, j)], b[(i, j)]);
+            assert!(
+                (a[(i, j)] - b[(i, j)]).abs() < tol,
+                "({i},{j}): {} vs {}",
+                a[(i, j)],
+                b[(i, j)]
+            );
         }
     }
 }
@@ -96,7 +101,11 @@ fn so3_group_laws() {
         let (a, b, c) = (rand_so3(&mut rng), rand_so3(&mut rng), rand_so3(&mut rng));
         assert_mat_close(((a * b) * c).to_matrix(), (a * (b * c)).to_matrix(), TOL);
         assert_mat_close((a * SO3::identity()).to_matrix(), a.to_matrix(), TOL);
-        assert_mat_close((a * a.inverse()).to_matrix(), SO3::identity().to_matrix(), TOL);
+        assert_mat_close(
+            (a * a.inverse()).to_matrix(),
+            SO3::identity().to_matrix(),
+            TOL,
+        );
     }
 }
 
@@ -176,7 +185,11 @@ fn se3_group_laws() {
         let (a, b, c) = (rand_se3(&mut rng), rand_se3(&mut rng), rand_se3(&mut rng));
         assert_mat_close(((a * b) * c).to_matrix(), (a * (b * c)).to_matrix(), 1e-9);
         assert_mat_close((a * SE3::identity()).to_matrix(), a.to_matrix(), TOL);
-        assert_mat_close((a * a.inverse()).to_matrix(), SE3::identity().to_matrix(), 1e-9);
+        assert_mat_close(
+            (a * a.inverse()).to_matrix(),
+            SE3::identity().to_matrix(),
+            1e-9,
+        );
     }
 }
 
@@ -188,8 +201,12 @@ fn se3_exp_log_roundtrip() {
         for &angle in &[1e-9, 1e-4, 0.7, 2.0, PI - 1e-6] {
             let v = rand_vec3(&mut rng);
             let xi = Vector::new([
-                v[0], v[1], v[2],
-                axis[0] * angle, axis[1] * angle, axis[2] * angle,
+                v[0],
+                v[1],
+                v[2],
+                axis[0] * angle,
+                axis[1] * angle,
+                axis[2] * angle,
             ]);
             assert_vec_close(SE3::exp(xi).log(), xi, 1e-6);
         }
@@ -257,7 +274,11 @@ fn so2_group_and_roundtrip() {
     for _ in 0..200 {
         let (a, b, c) = (rand_so2(&mut rng), rand_so2(&mut rng), rand_so2(&mut rng));
         assert_mat_close(((a * b) * c).to_matrix(), (a * (b * c)).to_matrix(), TOL);
-        assert_mat_close((a * a.inverse()).to_matrix(), SO2::identity().to_matrix(), TOL);
+        assert_mat_close(
+            (a * a.inverse()).to_matrix(),
+            SO2::identity().to_matrix(),
+            TOL,
+        );
         for &th in &[1e-9, 0.3, PI - 1e-6] {
             assert!((SO2::exp(th).log() - th).abs() < 1e-9);
         }
@@ -272,7 +293,11 @@ fn se2_group_and_roundtrip() {
     for _ in 0..300 {
         let (a, b, c) = (rand_se2(&mut rng), rand_se2(&mut rng), rand_se2(&mut rng));
         assert_mat_close(((a * b) * c).to_matrix(), (a * (b * c)).to_matrix(), TOL);
-        assert_mat_close((a * a.inverse()).to_matrix(), SE2::identity().to_matrix(), TOL);
+        assert_mat_close(
+            (a * a.inverse()).to_matrix(),
+            SE2::identity().to_matrix(),
+            TOL,
+        );
         for &th in &[1e-9, 0.4, PI - 1e-6] {
             let xi = Vector::new([rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), th]);
             assert_vec_close(SE2::exp(xi).log(), xi, 1e-7);
@@ -310,11 +335,27 @@ fn so3_exp_ad_vs_fd() {
     let h = 1e-6;
     for k in 0..3 {
         let phi = Vector::new([
-            if k == 0 { Dual::variable(phi0[0]) } else { Dual::constant(phi0[0]) },
-            if k == 1 { Dual::variable(phi0[1]) } else { Dual::constant(phi0[1]) },
-            if k == 2 { Dual::variable(phi0[2]) } else { Dual::constant(phi0[2]) },
+            if k == 0 {
+                Dual::variable(phi0[0])
+            } else {
+                Dual::constant(phi0[0])
+            },
+            if k == 1 {
+                Dual::variable(phi0[1])
+            } else {
+                Dual::constant(phi0[1])
+            },
+            if k == 2 {
+                Dual::variable(phi0[2])
+            } else {
+                Dual::constant(phi0[2])
+            },
         ]);
-        let pv = Vector::new([Dual::constant(p[0]), Dual::constant(p[1]), Dual::constant(p[2])]);
+        let pv = Vector::new([
+            Dual::constant(p[0]),
+            Dual::constant(p[1]),
+            Dual::constant(p[2]),
+        ]);
         let out = SO3::exp(phi).act(pv);
 
         let mut phi_p = phi0;
@@ -325,7 +366,12 @@ fn so3_exp_ad_vs_fd() {
         let fm = SO3::exp(Vector::new(phi_m)).act(Vector::new(p));
         for i in 0..3 {
             let fd = (fp[i] - fm[i]) / (2.0 * h);
-            assert!((out[i].deriv - fd).abs() < 1e-6, "k={k} i={i}: {} vs {}", out[i].deriv, fd);
+            assert!(
+                (out[i].deriv - fd).abs() < 1e-6,
+                "k={k} i={i}: {} vs {}",
+                out[i].deriv,
+                fd
+            );
         }
     }
 }
@@ -333,8 +379,16 @@ fn so3_exp_ad_vs_fd() {
 #[test]
 fn so3_exp_derivative_finite_at_zero() {
     // At φ = 0 the exp map is smooth; a naive sqrt-based path would give a NaN derivative here.
-    let phi = Vector::new([Dual::variable(0.0), Dual::constant(0.0), Dual::constant(0.0)]);
-    let pv = Vector::new([Dual::constant(1.0), Dual::constant(0.0), Dual::constant(0.0)]);
+    let phi = Vector::new([
+        Dual::variable(0.0),
+        Dual::constant(0.0),
+        Dual::constant(0.0),
+    ]);
+    let pv = Vector::new([
+        Dual::constant(1.0),
+        Dual::constant(0.0),
+        Dual::constant(0.0),
+    ]);
     let out = SO3::exp(phi).act(pv);
     for i in 0..3 {
         assert!(out[i].deriv.is_finite());
