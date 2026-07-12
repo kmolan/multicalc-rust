@@ -25,3 +25,4 @@ Several examples also reproduce the published accuracy figures in [`benches/`](.
 | [`root_finding`](root_finding.rs) | `root_finding` | Bracketed bisection, Newton with exact derivatives, damped (backtracking) Newton rescuing a far start, and a square-system Newton solve, each printed against its known root. |
 | [`curve_fit`](curve_fit.rs) | `optimization` | Levenberg-Marquardt fit of `y = a·e^(b·t)` to sensor samples with exact autodiff Jacobians; prints recovered `a`, `b`, and `\|err\|`. |
 | [`optimization_solvers`](optimization_solvers.rs) | `optimization` | Gauss-Newton on a well-conditioned linear residual (`y = a + b·t`); when GN is enough vs LM (`curve_fit`). |
+| [`lie_groups`](lie_groups.rs) | `spatial` | SO(3)/SE(3) compose, act on a point, exp/log round trips, geodesic interpolation, and a one-`Dual` autodiff derivative pushed through `exp` ∘ `act`. |
