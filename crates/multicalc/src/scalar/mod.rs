@@ -9,6 +9,7 @@ pub mod function;
 pub mod hyper_dual;
 pub mod jet;
 pub mod numeric;
+pub mod primal;
 
 pub use dual::Dual;
 pub use function::{ScalarFn, ScalarFnN, VectorFn, c};
