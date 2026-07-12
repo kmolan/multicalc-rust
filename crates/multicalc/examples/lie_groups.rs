@@ -51,7 +51,11 @@ fn main() {
     // (5) Autodiff: d/dtheta of exp(theta*z).act(x) at theta = 0 is (0, 1, 0) — one Dual pushed
     //     through exp and the rotation, no hand-derived Jacobian.
     let theta = Dual::variable(0.0);
-    let rot = SO3::exp(Vector::new([Dual::constant(0.0), Dual::constant(0.0), theta]));
+    let rot = SO3::exp(Vector::new([
+        Dual::constant(0.0),
+        Dual::constant(0.0),
+        theta,
+    ]));
     let out = rot.act(Vector::new([
         Dual::constant(1.0),
         Dual::constant(0.0),
