@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bullet). @rtmongold (#117)
 - Property tests for linear/quadratic approximation invariants (exactness on
   matching-degree polynomials, metrics consistency). @rtmongold (#130)
+- Property tests that autodiff and central finite-difference derivatives agree on random
+  polynomial compositions. @rtmongold (#129)
 
 ### Fixed
 
