@@ -1,4 +1,9 @@
-//! Blocked pairwise (cascade) summation for the long running sums.
+//! Running-sum accumulators for long numeric series.
+//!
+//! - [`PairwiseSum`] — blocked pairwise (cascade) summation; the default in iterative
+//!   integration and approximation metrics (O(log n · eps) error growth).
+//! - [`KahanSum`] — classic compensated summation; opt-in via
+//!   `.with_kahan_summation()` on the iterative integrators / approximators.
 
 use crate::scalar::Numeric;
 
@@ -81,6 +86,82 @@ impl<T: Numeric> PairwiseSum<T> {
     }
 }
 
+/// Which running-sum algorithm the iterative integrators / metrics use.
+///
+/// [`SummationMethod::Pairwise`] is the default. Enable Kahan with
+/// `.with_kahan_summation()` on the integrator or approximator.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SummationMethod {
+    /// Blocked pairwise (cascade) summation - the historical default.
+    #[default]
+    Pairwise,
+    /// Classic Kahan compensated summation.
+    Kahan,
+}
+
+/// Classic Kahan compensated summation.
+///
+/// Tracks a running compensation term so each add recovers the low-order bits that
+/// would otherwise be lost when adding a small value into a large partial sum.
+pub(crate) struct KahanSum<T: Numeric> {
+    sum: T,
+    compensation: T,
+}
+
+impl<T: Numeric> KahanSum<T> {
+    #[inline]
+    pub(crate) fn new() -> Self {
+        Self {
+            sum: T::ZERO,
+            compensation: T::ZERO,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn add(&mut self, value: T) {
+        let y = value - self.compensation;
+        let t = self.sum + y;
+        self.compensation = (t - self.sum) - y;
+        self.sum = t;
+    }
+
+    #[inline]
+    pub(crate) fn total(&self) -> T {
+        self.sum
+    }
+}
+
+pub(crate) enum Acc<T: Numeric> {
+    Pairwise(PairwiseSum<T>),
+    Kahan(KahanSum<T>),
+}
+
+impl<T: Numeric> Acc<T> {
+    #[inline]
+    pub(crate) fn new(method: SummationMethod) -> Self {
+        match method {
+            SummationMethod::Pairwise => Acc::Pairwise(PairwiseSum::new()),
+            SummationMethod::Kahan => Acc::Kahan(KahanSum::new()),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn add(&mut self, v: T) {
+        match self {
+            Acc::Pairwise(a) => a.add(v),
+            Acc::Kahan(a) => a.add(v),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn total(self) -> T {
+        match self {
+            Acc::Pairwise(a) => a.total(),
+            Acc::Kahan(a) => a.total(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -150,6 +231,32 @@ mod tests {
         assert!(
             pairwise_err < naive_err,
             "pairwise ({pairwise_err:e}) should be strictly closer than naive ({naive_err:e})"
+        );
+    }
+
+    #[test]
+    fn kahan_beats_naive_on_long_sum() {
+        // 1.0 then N tiny terms (half-ulp at 1.0). Naive stays at 1.0; Kahan recovers the mass.
+        let tiny = 2f64.powi(-53);
+        let n: u64 = 1 << 24;
+        let analytic = 1.0 + (n as f64) * tiny; //1.0 + 2^-29
+
+        let mut kahan = KahanSum::new();
+        kahan.add(1.0);
+        let mut naive = 1.0f64;
+        for _ in 0..n {
+            kahan.add(tiny);
+            naive += tiny;
+        }
+        let got = kahan.total();
+
+        assert_eq!(naive, 1.0, "naive should lose every tiny term");
+        let kahan_err = (got - analytic).abs();
+        let naive_err = (naive - analytic).abs();
+        assert!(kahan_err < 1e-12, "kahan error {kahan_err:e} too large");
+        assert!(
+            kahan_err < naive_err,
+            "kahan ({kahan_err:e}) should be strictly closer than naive ({naive_err:e})"
         );
     }
 }

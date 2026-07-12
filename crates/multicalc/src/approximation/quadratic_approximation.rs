@@ -3,6 +3,7 @@ use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
 use crate::utils::error_codes::CalcError;
+use crate::utils::summation::SummationMethod;
 
 /// A second-order (quadratic) Taylor approximation of a function about a base point:
 /// `f(x) ≈ value + Σ gradient[i]·dx[i] + ½ Σ_i Σ_j hessian[i][j]·dx[i]·dx[j]`,
@@ -13,6 +14,7 @@ pub struct QuadraticApproximation<const NUM_VARS: usize, T = f64> {
     value: T,
     gradient: [T; NUM_VARS],
     hessian: [[T; NUM_VARS]; NUM_VARS],
+    summation: SummationMethod,
 }
 
 /// Goodness-of-fit metrics for a [`QuadraticApproximation`] over a set of sample points.
@@ -57,6 +59,10 @@ impl<const NUM_VARS: usize, T: Numeric> QuadraticApproximation<NUM_VARS, T> {
 
     /// Computes goodness-of-fit metrics against `original_function` over `points`.
     ///
+    /// Uses the summation method chosen when the approximator was built
+    /// (pairwise by default; Kahan if [`QuadraticApproximator::with_kahan_summation`]
+    /// was used).
+    ///
     /// `r_squared` is `NaN` when the truth is constant over `points`;
     /// `adjusted_r_squared` is `NaN` when there are too few points.
     pub fn get_prediction_metrics<O: ScalarFnN<NUM_VARS>, const NUM_POINTS: usize>(
@@ -64,14 +70,12 @@ impl<const NUM_VARS: usize, T: Numeric> QuadraticApproximation<NUM_VARS, T> {
         points: &[[T; NUM_VARS]; NUM_POINTS],
         original_function: &O,
     ) -> QuadraticApproximationPredictionMetrics<T> {
-        // p = N gradient terms + N(N+1)/2 distinct (symmetric) Hessian terms
-        let num_predictors = NUM_VARS + NUM_VARS * (NUM_VARS + 1) / 2;
-
         let (mae, mse, rmse, r_squared, adjusted_r_squared) = crate::approximation::compute_metrics(
             |x| self.predict(x),
             points,
             &|x: &[T; NUM_VARS]| original_function.eval(x),
-            num_predictors,
+            NUM_VARS + NUM_VARS * (NUM_VARS + 1) / 2, // p = N gradient terms + N(N+1)/2 distinct (symmetric) Hessian terms
+            self.summation,
         );
 
         QuadraticApproximationPredictionMetrics {
@@ -88,12 +92,14 @@ impl<const NUM_VARS: usize, T: Numeric> QuadraticApproximation<NUM_VARS, T> {
 /// autodiff ([`AutoDiffMulti`]); pass a finite-difference derivator explicitly to use that instead.
 pub struct QuadraticApproximator<D: DerivatorMultiVariable = AutoDiffMulti> {
     derivator: D,
+    summation: SummationMethod,
 }
 
 impl<D: DerivatorMultiVariable + Default> Default for QuadraticApproximator<D> {
     fn default() -> Self {
         QuadraticApproximator {
             derivator: D::default(),
+            summation: SummationMethod::Pairwise,
         }
     }
 }
@@ -101,7 +107,19 @@ impl<D: DerivatorMultiVariable + Default> Default for QuadraticApproximator<D> {
 impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
     /// Builds an approximator from an explicit derivator.
     pub fn from_derivator(derivator: D) -> Self {
-        QuadraticApproximator { derivator }
+        QuadraticApproximator {
+            derivator,
+            summation: SummationMethod::Pairwise,
+        }
+    }
+
+    /// Opt in to Kahan compensated summation for prediction metrics.
+    ///
+    /// Pairwise summation remains the default. Call this before [`Self::get`] so the
+    /// resulting [`QuadraticApproximation`] accumulates metrics with Kahan.
+    pub fn with_kahan_summation(mut self) -> Self {
+        self.summation = SummationMethod::Kahan;
+        self
     }
 
     /// Builds a quadratic (second-order Taylor) approximation of `function` about `point`.
@@ -158,6 +176,7 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
             value,
             gradient,
             hessian,
+            summation: self.summation,
         })
     }
 }
