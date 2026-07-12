@@ -60,6 +60,7 @@ fn main() -> ! {
     {
         checks::lm_fit();
         checks::autodiff_derivative();
+        checks::lie_group_identity();
     }
 
     let used = stack_used(bottom, top);

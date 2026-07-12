@@ -97,3 +97,32 @@ pub fn svd_golden() -> [f64; 3] {
     }
     [sv[0], sv[1], sv[2]]
 }
+
+/// Identity: SO(3)/SE(3) exp/log round trips and one known rotation. No fixture — the answers are
+/// exact or self-inverse. Part of the full set only (thumbv7em).
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn lie_group_identity() {
+    use multicalc::linear_algebra::Vector;
+    use multicalc::spatial::{SE3, SO3};
+
+    // A 90° rotation about z maps x -> y.
+    let rz = SO3::<f64>::exp(Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2]));
+    let p = rz.act(Vector::new([1.0, 0.0, 0.0]));
+    assert!(p[0].abs() < 1e-12);
+    assert!((p[1] - 1.0).abs() < 1e-12);
+    assert!(p[2].abs() < 1e-12);
+
+    // SO(3) exp/log round trip.
+    let phi = Vector::new([0.3, -0.6, 0.2]);
+    let back = SO3::exp(phi).log();
+    for i in 0..3 {
+        assert!((back[i] - phi[i]).abs() < 1e-9);
+    }
+
+    // SE(3) exp/log round trip (exercises the left Jacobian and its inverse).
+    let xi = Vector::new([0.5, -0.2, 0.1, 0.3, -0.6, 0.2]);
+    let back6 = SE3::exp(xi).log();
+    for i in 0..6 {
+        assert!((back6[i] - xi[i]).abs() < 1e-9);
+    }
+}

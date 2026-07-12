@@ -4,3 +4,6 @@
 
 #[path = "spatial/quaternion.rs"]
 mod quaternion;
+
+#[path = "spatial/lie.rs"]
+mod lie;
