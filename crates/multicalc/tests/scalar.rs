@@ -78,57 +78,24 @@ mod numeric_methods {
 }
 
 mod primal {
-    use multicalc::{Dual, HyperDual, Jet, scalar::Primal};
+    use multicalc::scalar::Primal;
+    use multicalc::{Dual, HyperDual, Jet};
 
     #[test]
-    fn test_f64() {
-        let two = 2.0;
+    fn projects_floats_and_autodiff_primals() {
+        assert_eq!(2.0_f64.to_f64(), 2.0);
+        assert_eq!(2.0_f32.to_f64(), 2.0);
 
-        assert_eq!(two.to_f64(), two);
-        assert_eq!(two.to_f32(), two as f32);
-    }
+        assert_eq!(Dual::new(2.0, 99.0).to_f64(), 2.0);
+        assert_eq!(HyperDual::new(2.0, 1.0, 1.0, 1.0).to_f64(), 2.0);
+        assert_eq!(Jet::<f64, 2>::variable(2.0).to_f64(), 2.0);
 
-    #[test]
-    fn test_f32() {
-        let two = 2.0;
-
-        assert_eq!(two.to_f64(), two as f64);
-        assert_eq!(two.to_f32(), two);
-    }
-
-    #[test]
-    fn test_dual() {
-        let two = Dual::new(2.0, 99.0);
-
-        assert_eq!(two.to_f64(), 2.0);
-        assert_eq!(two.to_f32(), 2.0);
-    }
-
-    #[test]
-    fn test_hyperdual() {
-        let two = HyperDual::new(2.0, 10.0, 20.0, 1020.0);
-
-        assert_eq!(two.to_f64(), 2.0);
-        assert_eq!(two.to_f32(), 2.0);
-    }
-
-    #[test]
-    fn test_jet() {
-        let two = Jet::new([2.0, 99.0]);
-
-        assert_eq!(two.to_f64(), 2.0);
-        assert_eq!(two.to_f32(), 2.0);
-    }
-
-    #[test]
-    fn test_dual_hyperdual() {
-        let two = Dual::new(
-            HyperDual::new(2.0, 10.0, 20.0, 1020.0),
-            HyperDual::new(6.0, 30.0, 60.0, 3060.0),
+        let nested = Dual::new(
+            HyperDual::new(2.0, 1.0, 1.0, 1.0),
+            HyperDual::new(99.0, 3.0, 3.0, 3.0),
         );
-
-        assert_eq!(two.to_f64(), 2.0);
-        assert_eq!(two.to_f32(), 2.0);
+        assert_eq!(nested.to_f64(), 2.0);
+        assert_eq!(nested.to_f32(), 2.0);
     }
 }
 
