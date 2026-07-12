@@ -4,7 +4,6 @@
 //! ([`RerunSink`], live or recorded) and a CSV backend ([`CsvSink`]) for the `plot.py` fallback.
 //! A satellite crate: never a dependency of the core, excluded from bare-metal builds.
 
-mod convert;
 mod csv_sink;
 mod rerun_sink;
 mod sink;
@@ -12,8 +11,8 @@ mod sink;
 #[doc(hidden)]
 pub mod loop_util;
 
-pub use convert::Plottable;
 pub use csv_sink::CsvSink;
+pub use multicalc::scalar::Primal;
 pub use rerun_sink::RerunSink;
 pub use sink::{Rgba, VizError, VizSink, VizSinkExt};
 

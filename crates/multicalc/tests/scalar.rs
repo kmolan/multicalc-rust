@@ -77,6 +77,28 @@ mod numeric_methods {
     }
 }
 
+mod primal {
+    use multicalc::scalar::Primal;
+    use multicalc::{Dual, HyperDual, Jet};
+
+    #[test]
+    fn projects_floats_and_autodiff_primals() {
+        assert_eq!(2.0_f64.to_f64(), 2.0);
+        assert_eq!(2.0_f32.to_f64(), 2.0);
+
+        assert_eq!(Dual::new(2.0, 99.0).to_f64(), 2.0);
+        assert_eq!(HyperDual::new(2.0, 1.0, 1.0, 1.0).to_f64(), 2.0);
+        assert_eq!(Jet::<f64, 2>::variable(2.0).to_f64(), 2.0);
+
+        let nested = Dual::new(
+            HyperDual::new(2.0, 1.0, 1.0, 1.0),
+            HyperDual::new(99.0, 3.0, 3.0, 3.0),
+        );
+        assert_eq!(nested.to_f64(), 2.0);
+        assert_eq!(nested.to_f32(), 2.0);
+    }
+}
+
 mod dual {
     use multicalc::scalar::Dual;
     use multicalc::scalar::Numeric;

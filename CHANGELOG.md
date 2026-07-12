@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that uses `Dual` and `HyperDual` directly (no derivator). @rtmongold (#106)
 - Fixed `examples/README.md` table entry for `optimization_solvers` (was an orphan 
   bullet). @rtmongold (#117)
+- **`Primal` scalar projection.** New `to_f64` / `to_f32` trait for edge use (viz, logging, etc.), kept separate from
+  `Numeric`. `showcase/viz` now uses it instead of its private `Plottable` trait. @ProtoFN (#131)
 - Property tests for linear/quadratic approximation invariants (exactness on
   matching-degree polynomials, metrics consistency). @rtmongold (#130)
 - Property tests that autodiff and central finite-difference derivatives agree on random
