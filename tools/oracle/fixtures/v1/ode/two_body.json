@@ -1,0 +1,111 @@
+{
+  "case": "two_body",
+  "expected": {
+    "states": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x3fe9e3779b97e795",
+        "0x3fe2cf2304755b5a",
+        "0xbfe2cf23047571b4",
+        "0x3fe9e3779b97f300",
+        "0x3fd3c6ef372f97e7",
+        "0x3fee6f0e134448af",
+        "0xbfee6f0e13448034",
+        "0x3fd3c6ef372fac61",
+        "0xbfd3c6ef37305eff",
+        "0x3fee6f0e13443509",
+        "0xbfee6f0e1344590b",
+        "0xbfd3c6ef3730583e",
+        "0xbfe9e3779b98228b",
+        "0x3fe2cf230475182e",
+        "0xbfe2cf2304754264",
+        "0xbfe9e3779b98192b",
+        "0xbff0000000000c77",
+        "0xbd82b84180000000",
+        "0x3d53eb7c00000000",
+        "0xbfeffffffffff7f7",
+        "0xbfe9e3779b980d90",
+        "0xbfe2cf2304759597",
+        "0x3fe2cf230475308f",
+        "0xbfe9e3779b97e74d",
+        "0xbfd3c6ef373044b9",
+        "0xbfee6f0e13448e89",
+        "0x3fee6f0e13441cc4",
+        "0xbfd3c6ef373022a4",
+        "0x3fd3c6ef372f4f95",
+        "0xbfee6f0e1344c8db",
+        "0x3fee6f0e13443f3d",
+        "0x3fd3c6ef372ee620",
+        "0x3fe9e3779b97bcf5",
+        "0xbfe2cf2304762b12",
+        "0x3fe2cf230475e62d",
+        "0x3fe9e3779b975551",
+        "0x3ff00000000021d7",
+        "0xbda0eb2ac0000000",
+        "0x3da0ead9e0000000",
+        "0x3fefffffffffde19"
+      ],
+      "rows": 11
+    }
+  },
+  "inputs": {
+    "problem": {
+      "kind": "str",
+      "v": "two_body"
+    },
+    "t0": {
+      "kind": "scalar",
+      "v": "0x0000000000000000"
+    },
+    "times": {
+      "data": [
+        "0x0000000000000000",
+        "0x3fe41b2f769cf0e0",
+        "0x3ff41b2f769cf0e0",
+        "0x3ffe28c731eb6950",
+        "0x40041b2f769cf0e0",
+        "0x400921fb54442d18",
+        "0x400e28c731eb6950",
+        "0x401197c987c952c4",
+        "0x40141b2f769cf0e0",
+        "0x40169e9565708efc",
+        "0x401921fb54442d18"
+      ],
+      "kind": "vector"
+    },
+    "y0": {
+      "data": [
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000"
+      ],
+      "kind": "vector"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "ode",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "scipy solve_ivp goldens, RK45 rtol=1e-12",
+    "seed": 20260706
+  },
+  "module": "ode",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f64/host": {
+        "abs": 1e-07,
+        "rel": 1e-07
+      }
+    }
+  }
+}
