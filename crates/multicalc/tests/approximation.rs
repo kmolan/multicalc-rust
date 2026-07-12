@@ -3,8 +3,9 @@
 use multicalc::approximation::linear_approximation::*;
 use multicalc::approximation::quadratic_approximation::*;
 use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
-use multicalc::scalar::{ScalarFnN, c};
+use multicalc::scalar::{Numeric, ScalarFnN, c};
 use multicalc::scalar_fn;
+use proptest::prelude::*;
 use rand::Rng;
 
 #[test]
@@ -183,4 +184,127 @@ fn test_linear_approximation_f32() {
         f32::abs(truth.eval(&nearby) - predicted) < 1e-4,
         "got {predicted}"
     );
+}
+
+struct Affine2 {
+    b: f64,
+    a: [f64; 2],
+}
+impl ScalarFnN<2> for Affine2 {
+    fn eval<S: Numeric>(&self, p: &[S; 2]) -> S {
+        S::from_f64(self.b) + S::from_f64(self.a[0]) * p[0] + S::from_f64(self.a[1]) * p[1]
+    }
+}
+
+struct Quad2 {
+    c: f64,
+    g: [f64; 2],
+    h: [[f64; 2]; 2],
+}
+impl ScalarFnN<2> for Quad2 {
+    fn eval<S: Numeric>(&self, p: &[S; 2]) -> S {
+        let (x, y) = (p[0], p[1]);
+        let c = |v| S::from_f64(v);
+        c(self.c)
+            + c(self.g[0]) * x
+            + c(self.g[1]) * y
+            + S::HALF
+                * (c(self.h[0][0]) * x * x
+                    + c(self.h[0][1]) * x * y
+                    + c(self.h[1][0]) * y * x
+                    + c(self.h[1][1]) * y * y)
+    }
+}
+
+fn approx_tol(scale: f64, mag: f64) -> f64 {
+    1e-9 * scale.max(1.0) * mag.abs().max(1.0)
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    #[test]
+    fn proptest_linear_exact_on_affine(
+        b in -5.0f64..5.0,
+        a0 in -5.0f64..5.0, a1 in -5.0f64..5.0,
+        px in -2.0f64..2.0, py in -2.0f64..2.0,
+        samples in prop::collection::vec((-2.0f64..2.0, -2.0f64..2.0), 8),
+    ) {
+        let f = Affine2 { b, a: [a0, a1] };
+        let point = [px, py];
+        let scale = 1.0 + b.abs() + a0.abs() + a1.abs();
+        let tol = approx_tol(scale, 1.0);
+        let model = LinearApproximator::<AutoDiffMulti>::default()
+            .get(&f, &point).unwrap();
+
+        let mut points = [[0.0; 2]; 8];
+        for (dst, &(x, y)) in points.iter_mut().zip(samples.iter()) {
+            *dst = [x, y];
+        }
+
+        for p in &points {
+            let err = (model.predict(p) - f.eval(p)).abs();
+            prop_assert!(err < approx_tol(scale, f.eval(p)));
+        }
+
+        let metrics = model.get_prediction_metrics(&points, &f);
+        prop_assert!(metrics.mean_absolute_error < tol);
+        prop_assert!(metrics.root_mean_squared_error < tol);
+        prop_assert!(
+            metrics.r_squared.is_nan()
+                || (metrics.r_squared - 1.0).abs() < 1e-9 * scale
+        );
+        prop_assert!((metrics.root_mean_squared_error
+            - metrics.mean_squared_error.sqrt()).abs() < 1e-12 * scale);
+    }
+
+    #[test]
+    fn proptest_quadratic_exact_on_quadratic(
+        c in -5.0f64..5.0,
+        g0 in -5.0f64..5.0, g1 in -5.0f64..5.0,
+        h00 in -5.0f64..5.0, h01 in -5.0f64..5.0, h11 in -5.0f64..5.0,
+        px in -2.0f64..2.0, py in -2.0f64..2.0,
+        samples in prop::collection::vec((-2.0f64..2.0, -2.0f64..2.0), 8),
+    ) {
+        let f = Quad2 {
+            c,
+            g: [g0, g1],
+            h: [[h00, h01], [h01, h11]],
+        };
+        let point = [px, py];
+        let scale = 1.0
+            + c.abs()
+            + g0.abs()
+            + g1.abs()
+            + h00.abs()
+            + h01.abs()
+            + h11.abs();
+        let tol = approx_tol(scale, 1.0);
+
+        let model = QuadraticApproximator::<AutoDiffMulti>::default()
+            .get(&f, &point)
+            .unwrap();
+
+        let mut points = [[0.0; 2]; 8];
+        for (dst, &(x, y)) in points.iter_mut().zip(samples.iter()) {
+            *dst = [x, y];
+        }
+
+        for p in &points {
+            let err = (model.predict(p) - f.eval(p)).abs();
+            prop_assert!(err < approx_tol(scale, f.eval(p)));
+        }
+
+        let metrics = model.get_prediction_metrics(&points, &f);
+        prop_assert!(metrics.mean_absolute_error < tol);
+        prop_assert!(metrics.root_mean_squared_error < tol);
+        prop_assert!(
+            metrics.r_squared.is_nan()
+                || (metrics.r_squared - 1.0).abs() < 1e-9 * scale
+        );
+        prop_assert!(
+            (metrics.root_mean_squared_error - metrics.mean_squared_error.sqrt()).abs()
+                < 1e-12 * scale
+        );
+    }
 }
