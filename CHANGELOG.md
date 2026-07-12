@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that uses `Dual` and `HyperDual` directly (no derivator). @rtmongold (#106)
 - Fixed `examples/README.md` table entry for `optimization_solvers` (was an orphan 
   bullet). @rtmongold (#117)
+- `Primal` trait with `to_f64` and `to_f32` conversions.
 
 ### Fixed
 
