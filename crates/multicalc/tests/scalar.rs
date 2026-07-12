@@ -33,6 +33,11 @@ mod numeric_methods {
         assert_eq!(Numeric::recip(4.0_f64), 0.25);
         assert_eq!(Numeric::signum(-3.0_f64), -1.0);
         assert!(Numeric::signum(f64::NAN).is_nan());
+        assert_eq!(Numeric::max(2.0_f64, 5.0), 5.0);
+        assert_eq!(Numeric::min(2.0_f64, 5.0), 2.0);
+        // max/min return the non-NaN operand, matching the primitive f64 methods.
+        assert_eq!(Numeric::max(f64::NAN, 5.0), 5.0);
+        assert_eq!(Numeric::min(5.0, f64::NAN), 5.0);
     }
 
     #[test]
@@ -188,6 +193,17 @@ mod dual {
         let neg = Dual::variable(-2.0_f64).abs();
         assert!(f64::abs(neg.value - 2.0) < TOL);
         assert!(f64::abs(neg.deriv - (-1.0)) < TOL);
+    }
+
+    #[test]
+    fn test_max_min_select_branch_derivative() {
+        // max/min pick a branch by value and carry that branch's derivative.
+        let a = Dual::variable(3.0_f64); // value 3, deriv 1
+        let b = Dual::constant(5.0_f64); // value 5, deriv 0
+        let hi = a.max(b);
+        assert!(f64::abs(hi.value - 5.0) < TOL && f64::abs(hi.deriv) < TOL);
+        let lo = a.min(b);
+        assert!(f64::abs(lo.value - 3.0) < TOL && f64::abs(lo.deriv - 1.0) < TOL);
     }
 
     #[test]

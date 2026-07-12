@@ -108,6 +108,34 @@ pub trait Numeric:
         }
     }
 
+    /// The larger of `self` and `other`, compared with `>`.
+    ///
+    /// On the autodiff scalars this selects the larger operand together with its full
+    /// derivative payload. The `f32`/`f64` impls override to match the primitive `max`,
+    /// which returns the non-NaN operand.
+    #[inline]
+    fn max(self, other: Self) -> Self {
+        if self > other {
+            self
+        } else {
+            other
+        }
+    }
+
+    /// The smaller of `self` and `other`, compared with `<`.
+    ///
+    /// On the autodiff scalars this selects the smaller operand together with its full
+    /// derivative payload. The `f32`/`f64` impls override to match the primitive `min`,
+    /// which returns the non-NaN operand.
+    #[inline]
+    fn min(self, other: Self) -> Self {
+        if self < other {
+            self
+        } else {
+            other
+        }
+    }
+
     /// Arctangent, in radians.
     #[inline]
     fn atan(self) -> Self {
@@ -275,6 +303,14 @@ impl Numeric for f64 {
         libm::floor(self)
     }
     #[inline]
+    fn max(self, other: Self) -> Self {
+        libm::fmax(self, other)
+    }
+    #[inline]
+    fn min(self, other: Self) -> Self {
+        libm::fmin(self, other)
+    }
+    #[inline]
     fn signum(self) -> Self {
         if f64::is_nan(self) {
             f64::NAN
@@ -399,6 +435,14 @@ impl Numeric for f32 {
     #[inline]
     fn floor(self) -> Self {
         libm::floorf(self)
+    }
+    #[inline]
+    fn max(self, other: Self) -> Self {
+        libm::fmaxf(self, other)
+    }
+    #[inline]
+    fn min(self, other: Self) -> Self {
+        libm::fminf(self, other)
     }
     #[inline]
     fn signum(self) -> Self {
