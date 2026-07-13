@@ -369,6 +369,19 @@ impl<T: Numeric> Rk45<T> {
     /// # Errors
     /// [`IntegrationLimitsIllDefined`](CalcError::IntegrationLimitsIllDefined) if `times.len() !=
     /// out.len()` or a time is out of range / out of order; otherwise as [`for_each_step`].
+    ///
+    /// ```
+    /// use multicalc::ode::Rk45;
+    /// use multicalc::linear_algebra::Vector;
+    /// // Sample y' = -y at t = 0.5 and t = 1 by cubic-Hermite dense output.
+    /// let times = [0.5, 1.0];
+    /// let mut out = [Vector::<1, f64>::zeros(); 2];
+    /// Rk45::default()
+    ///     .solve_on_grid(&|_t, y: &Vector<1, f64>| -*y, 0.0, &Vector::new([1.0]), &times, &mut out)
+    ///     .unwrap();
+    /// assert!((out[0][0] - (-0.5_f64).exp()).abs() < 1e-6);
+    /// assert!((out[1][0] - (-1.0_f64).exp()).abs() < 1e-6);
+    /// ```
     pub fn solve_on_grid<const N: usize, F>(
         &self,
         f: &F,
