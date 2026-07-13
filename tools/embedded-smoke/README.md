@@ -42,6 +42,7 @@ every target including the Cortex-M0; the full set adds the heavier checks on th
 | `error_path_returns_err` | all (incl. `thumbv6m`) | Negative path: a singular matrix's `lu()` and an indefinite matrix's `cholesky()` return a typed `Err`, not a panic. |
 | `lm_fit` | `thumbv7em` only | Golden: Levenberg-Marquardt Rosenbrock least-squares minimizer vs the `rosenbrock` oracle golden. |
 | `autodiff_derivative` | `thumbv7em` only | Identity: forward-mode autodiff of `x³` at `x = 2`, expects 12. |
+| `ode_identity` | `thumbv7em` only | Identity: RK4 harmonic oscillator round trip and RK45 `y' = -y` to `e^{-1}`. |
 
 ## Pass/fail contract
 

@@ -78,3 +78,33 @@ def residual(key):
     if key not in table:
         raise KeyError(f"unknown problem key {key!r}")
     return table[key]
+
+
+# --- ODE right-hand sides y' = f(t, y), mirroring ../src/problems.rs ---
+
+
+def ode_rhs(key):
+    def exp_decay(t, y):
+        return np.array([-y[0]])
+
+    def harmonic(t, y):
+        return np.array([y[1], -y[0]])
+
+    def two_body(t, y):
+        r = np.hypot(y[0], y[1])
+        r3 = r**3
+        return np.array([y[2], y[3], -y[0] / r3, -y[1] / r3])
+
+    def van_der_pol_mild(t, y):
+        mu = 1.0
+        return np.array([y[1], mu * (1 - y[0] ** 2) * y[1] - y[0]])
+
+    table = {
+        "exp_decay": exp_decay,
+        "harmonic": harmonic,
+        "two_body": two_body,
+        "van_der_pol_mild": van_der_pol_mild,
+    }
+    if key not in table:
+        raise KeyError(f"unknown ode key {key!r}")
+    return table[key]

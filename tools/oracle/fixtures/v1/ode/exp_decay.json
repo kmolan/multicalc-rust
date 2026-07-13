@@ -1,0 +1,75 @@
+{
+  "case": "exp_decay",
+  "expected": {
+    "states": {
+      "cols": 1,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff0000000000000",
+        "0x3fe368b2fc6f9350",
+        "0x3fd78b56362cf499",
+        "0x3fcc8f87724b5edb",
+        "0x3fc152aaa3bf86ad",
+        "0x3fb50385c094fd1d",
+        "0x3fa97db0cccebbf5",
+        "0x3f9eec1018e51036",
+        "0x3f92c155b8214f79",
+        "0x3f86c0504695dc72",
+        "0x3f7b993fe00d7bf2"
+      ],
+      "rows": 11
+    }
+  },
+  "inputs": {
+    "problem": {
+      "kind": "str",
+      "v": "exp_decay"
+    },
+    "t0": {
+      "kind": "scalar",
+      "v": "0x0000000000000000"
+    },
+    "times": {
+      "data": [
+        "0x0000000000000000",
+        "0x3fe0000000000000",
+        "0x3ff0000000000000",
+        "0x3ff8000000000000",
+        "0x4000000000000000",
+        "0x4004000000000000",
+        "0x4008000000000000",
+        "0x400c000000000000",
+        "0x4010000000000000",
+        "0x4012000000000000",
+        "0x4014000000000000"
+      ],
+      "kind": "vector"
+    },
+    "y0": {
+      "data": [
+        "0x3ff0000000000000"
+      ],
+      "kind": "vector"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "ode",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "scipy solve_ivp goldens, RK45 rtol=1e-12",
+    "seed": 20260706
+  },
+  "module": "ode",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f64/host": {
+        "abs": 1e-08,
+        "rel": 1e-08
+      }
+    }
+  }
+}

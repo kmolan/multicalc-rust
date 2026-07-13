@@ -126,3 +126,27 @@ pub fn lie_group_identity() {
         assert!((back6[i] - xi[i]).abs() < 1e-9);
     }
 }
+
+/// Identity: the core ODE solvers hit known answers. RK4 integrates the harmonic
+/// oscillator over one period back to its start; RK45 integrates y' = -y to e^{-1}.
+/// Heavier than the canary checks, so it is part of the full set only (thumbv7em).
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn ode_identity() {
+    use multicalc::linear_algebra::Vector;
+    use multicalc::ode::{Rk4, Rk45};
+
+    // RK4: harmonic oscillator y'' = -y over one period returns to its start.
+    let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+    let steps = 2000;
+    let dt = core::f64::consts::TAU / steps as f64;
+    let yf = Rk4::integrate(&f, 0.0, &Vector::new([1.0, 0.0]), dt, steps, |_, _| {});
+    assert!((yf[0] - 1.0).abs() < 1e-4);
+    assert!(yf[1].abs() < 1e-4);
+
+    // RK45: y' = -y to t = 1 matches e^{-1} (libm exp — no std float methods on target).
+    let g = |_t: f64, y: &Vector<1, f64>| -*y;
+    let e = Rk45::default()
+        .solve(&g, 0.0, &Vector::new([1.0]), 1.0)
+        .expect("rk45 solve");
+    assert!((e[0] - multicalc::libm::exp(-1.0)).abs() < 1e-6);
+}
