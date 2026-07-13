@@ -37,7 +37,10 @@ fn harmonic_oscillator() {
     });
     println!("Harmonic oscillator y'' = -y");
     println!("  RK4  {steps} steps over [0, 2*pi]");
-    println!("    y(2*pi) = [{:.12}, {:.12}]  max|err| = {max_err:.2e}", yf[0], yf[1]);
+    println!(
+        "    y(2*pi) = [{:.12}, {:.12}]  max|err| = {max_err:.2e}",
+        yf[0], yf[1]
+    );
 
     // RK45: adaptive solve to t = 2*pi, then dense-output sampling.
     let solver = Rk45::default().with_rtol(1e-9).with_atol(1e-12);
@@ -53,7 +56,9 @@ fn harmonic_oscillator() {
 
     let times = [0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
     let mut out = [Vector::<2, f64>::zeros(); 7];
-    solver.solve_on_grid(&f, 0.0, &y0, &times, &mut out).unwrap();
+    solver
+        .solve_on_grid(&f, 0.0, &y0, &times, &mut out)
+        .unwrap();
     let grid_err = times
         .iter()
         .zip(out.iter())
@@ -80,7 +85,14 @@ where
 }
 
 // Largest drift of the invariant `inv` over the accepted steps of an RK45 solve.
-fn rk45_drift<const N: usize, F, I>(f: &F, y0: &Vector<N, f64>, tf: f64, rtol: f64, atol: f64, inv: I) -> f64
+fn rk45_drift<const N: usize, F, I>(
+    f: &F,
+    y0: &Vector<N, f64>,
+    tf: f64,
+    rtol: f64,
+    atol: f64,
+    inv: I,
+) -> f64
 where
     F: Fn(f64, &Vector<N, f64>) -> Vector<N, f64>,
     I: Fn(&Vector<N, f64>) -> f64,
@@ -280,7 +292,9 @@ fn solar_system_nbody() {
     let e0 = nbody_energy(&y0).abs();
     let rk4 = rk4_drift(&nbody_rhs, &y0, tf / steps as f64, steps, nbody_energy) / e0;
     let rk45 = rk45_drift(&nbody_rhs, &y0, tf, 1e-10, 1e-12, nbody_energy) / e0;
-    println!("\nSolar-system N-body (Sun + 4 outer planets, N=20): relative energy drift over 100 yr");
+    println!(
+        "\nSolar-system N-body (Sun + 4 outer planets, N=20): relative energy drift over 100 yr"
+    );
     println!("  RK4  (dt = 0.05)   max|E - E0|/|E0| = {rk4:.2e}");
     println!("  RK45 (rtol 1e-10)  max|E - E0|/|E0| = {rk45:.2e}");
 }

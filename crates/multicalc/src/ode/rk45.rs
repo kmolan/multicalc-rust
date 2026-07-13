@@ -174,7 +174,10 @@ impl<T: Numeric> Rk45<T> {
 
         let k2 = f(t + c2 * h, &(*y + k1.scale(a21)));
         let k3 = f(t + c3 * h, &(*y + k1.scale(a31) + k2.scale(a32)));
-        let k4 = f(t + c4 * h, &(*y + k1.scale(a41) + k2.scale(a42) + k3.scale(a43)));
+        let k4 = f(
+            t + c4 * h,
+            &(*y + k1.scale(a41) + k2.scale(a42) + k3.scale(a43)),
+        );
         let k5 = f(
             t + c5 * h,
             &(*y + k1.scale(a51) + k2.scale(a52) + k3.scale(a53) + k4.scale(a54)),
@@ -241,7 +244,9 @@ impl<T: Numeric> Rk45<T> {
         } else {
             (T::from_f64(0.01) / d1.max(d2)).powf(T::ONE / T::from_f64(6.0))
         };
-        let h = (T::from_f64(100.0) * h0).min(h1).min(span.min(self.max_step));
+        let h = (T::from_f64(100.0) * h0)
+            .min(h1)
+            .min(span.min(self.max_step));
         dir * h
     }
 

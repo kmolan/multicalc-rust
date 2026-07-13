@@ -115,11 +115,7 @@ pub trait Numeric:
     /// which returns the non-NaN operand.
     #[inline]
     fn max(self, other: Self) -> Self {
-        if self > other {
-            self
-        } else {
-            other
-        }
+        if self > other { self } else { other }
     }
 
     /// The smaller of `self` and `other`, compared with `<`.
@@ -129,11 +125,7 @@ pub trait Numeric:
     /// which returns the non-NaN operand.
     #[inline]
     fn min(self, other: Self) -> Self {
-        if self < other {
-            self
-        } else {
-            other
-        }
+        if self < other { self } else { other }
     }
 
     /// Arctangent, in radians.

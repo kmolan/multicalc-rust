@@ -28,7 +28,14 @@ fn harmonic_matches_closed_form() {
     let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
     let tf = core::f64::consts::TAU;
     let steps = 2000;
-    let yf = Rk4::integrate(&f, 0.0, &Vector::new([1.0, 0.0]), tf / steps as f64, steps, |_, _| {});
+    let yf = Rk4::integrate(
+        &f,
+        0.0,
+        &Vector::new([1.0, 0.0]),
+        tf / steps as f64,
+        steps,
+        |_, _| {},
+    );
     assert!((yf[0] - tf.cos()).abs() < 1e-7);
     assert!((yf[1] - (-tf.sin())).abs() < 1e-7);
 }
@@ -62,7 +69,14 @@ fn ad_through_rk4_matches_fd() {
 
     let y0 = Vector::new([Dual::variable(a)]);
     let dt = Dual::constant(tf / steps as f64);
-    let yf = Rk4::integrate(&decay::<Dual<f64>>, Dual::constant(0.0), &y0, dt, steps, |_, _| {});
+    let yf = Rk4::integrate(
+        &decay::<Dual<f64>>,
+        Dual::constant(0.0),
+        &y0,
+        dt,
+        steps,
+        |_, _| {},
+    );
     let ad = yf[0].deriv;
     assert!((ad - (-tf).exp()).abs() < 1e-6);
 
@@ -87,7 +101,14 @@ fn f32_energy_round_trip() {
     let f = |_t: f32, y: &Vector<2, f32>| Vector::new([y[1], -y[0]]);
     let tf = core::f32::consts::TAU;
     let steps = 2000;
-    let yf = Rk4::integrate(&f, 0.0_f32, &Vector::new([1.0, 0.0]), tf / steps as f32, steps, |_, _| {});
+    let yf = Rk4::integrate(
+        &f,
+        0.0_f32,
+        &Vector::new([1.0, 0.0]),
+        tf / steps as f32,
+        steps,
+        |_, _| {},
+    );
     let energy = yf[0] * yf[0] + yf[1] * yf[1];
     assert!((energy - 1.0).abs() < 1e-3);
 }
