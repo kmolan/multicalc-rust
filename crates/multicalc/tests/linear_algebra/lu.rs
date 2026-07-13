@@ -1,6 +1,6 @@
 use crate::helpers::{assert_close, assert_identity, lu_reconstructs};
+use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, Vector};
-use multicalc::utils::error_codes::CalcError;
 
 // ----- LU decomposition (Doolittle, partial pivoting) -----
 
@@ -47,11 +47,11 @@ fn lu_determinant_matches_direct() {
 fn lu_rejects_singular() {
     // A zero column: the pivot search turns up only zeros.
     let zero_col = Matrix::<3, 3>::new([[1.0, 0.0, 2.0], [3.0, 0.0, 4.0], [5.0, 0.0, 6.0]]);
-    assert_eq!(zero_col.lu().err(), Some(CalcError::SingularMatrix));
+    assert_eq!(zero_col.lu().err(), Some(LinalgError::Singular));
 
     // Dependent rows drive a pivot to zero during elimination.
     let dependent = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 4.0]]);
-    assert_eq!(dependent.lu().err(), Some(CalcError::SingularMatrix));
+    assert_eq!(dependent.lu().err(), Some(LinalgError::Singular));
 }
 
 #[test]

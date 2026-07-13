@@ -1,13 +1,13 @@
 //! Newton and damped Newton solvers for square systems.
 
+use crate::error::SolveError;
 use crate::linear_algebra::qr::enorm;
 use crate::linear_algebra::{Matrix, Vector};
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::numerical_derivative::jacobian::Jacobian;
 use crate::root_finding::{RootReportN, RootTermination, all_finite};
-use crate::scalar::{Numeric, VectorFn};
-use crate::utils::error_codes::CalcError;
+use crate::scalar::{Numeric, Primal, VectorFn};
 
 /// Maximum step halvings per iteration when backtracking is enabled.
 const MAX_BACKTRACK: usize = 20;
@@ -101,16 +101,18 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
     /// Finds a root of the square system `F` starting from `x0`.
     ///
     /// Returns the root estimate and termination reason, or an error:
-    /// [`NonFiniteValue`](CalcError::NonFiniteValue) if `F` or its Jacobian is non-finite,
-    /// [`SingularMatrix`](CalcError::SingularMatrix) if the Jacobian is singular at a step, or
-    /// [`DidNotConverge`](CalcError::DidNotConverge) if the budget is exhausted.
+    /// [`NonFinite`](SolveError::NonFinite) if `F` or its Jacobian is non-finite,
+    /// [`Linalg`](SolveError::Linalg) wrapping [`Singular`](crate::error::LinalgError::Singular) if
+    /// the Jacobian is singular at a step, or [`DidNotConverge`](SolveError::DidNotConverge) if the
+    /// budget is exhausted.
     pub fn solve<F, const N: usize>(
         &self,
         f: &F,
         x0: &[D::Scalar; N],
-    ) -> Result<RootReportN<N, D::Scalar>, CalcError>
+    ) -> Result<RootReportN<N, D::Scalar>, SolveError>
     where
         D: Clone,
+        D::Scalar: Primal,
         F: VectorFn<N, N>,
     {
         let one = D::Scalar::ONE;
@@ -121,7 +123,7 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
         let mut x = *x0;
         let mut r = f.eval(&x);
         if !all_finite(&r) {
-            return Err(CalcError::NonFiniteValue);
+            return Err(SolveError::NonFinite);
         }
         let mut fnorm = enorm(&r);
 
@@ -137,7 +139,7 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
 
             let jac = jacobian.get(f, &x)?;
             if jac.iter().any(|row| !all_finite(row)) {
-                return Err(CalcError::NonFiniteValue);
+                return Err(SolveError::NonFinite);
             }
 
             let j: Matrix<N, N, D::Scalar> = Matrix::from_fn(|ri, c| jac[ri][c]);
@@ -161,13 +163,13 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
 
                 if !self.backtracking {
                     if !trial_finite {
-                        return Err(CalcError::NonFiniteValue);
+                        return Err(SolveError::NonFinite);
                     }
                     break (candidate, trial, trial_fnorm);
                 }
                 if (trial_finite && trial_fnorm < fnorm) || tries >= MAX_BACKTRACK {
                     if !trial_finite {
-                        return Err(CalcError::NonFiniteValue);
+                        return Err(SolveError::NonFinite);
                     }
                     break (candidate, trial, trial_fnorm);
                 }
@@ -191,6 +193,9 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
             }
         }
 
-        Err(CalcError::DidNotConverge)
+        Err(SolveError::DidNotConverge {
+            iters: self.max_iterations,
+            residual: fnorm.to_f64(),
+        })
     }
 }

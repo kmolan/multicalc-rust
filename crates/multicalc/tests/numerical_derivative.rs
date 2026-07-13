@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use multicalc::error::DiffError;
 use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::numerical_derivative::derivator::*;
 use multicalc::numerical_derivative::finite_difference::*;
@@ -7,9 +8,9 @@ use multicalc::numerical_derivative::hessian::Hessian;
 use multicalc::numerical_derivative::jacobian::Jacobian;
 use multicalc::numerical_derivative::mode::*;
 use multicalc::scalar::{Numeric, ScalarFn, ScalarFnN, VectorFn, c};
-use multicalc::utils::error_codes::*;
 use multicalc::{scalar_fn, scalar_fn_vec};
 use proptest::prelude::*;
+use proptest::test_runner::{RngAlgorithm, TestRng, TestRunner};
 
 // ----- autodiff (the default backend): exact derivatives -----
 
@@ -145,7 +146,7 @@ fn ad_error_index_out_of_range() {
     let func = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] + v[2]);
     let d = AutoDiffMulti::default();
     let result = d.get_single_partial(&func, 5, &[1.0, 2.0, 3.0]);
-    assert_eq!(result.unwrap_err(), CalcError::IndexOutOfRange);
+    assert_eq!(result.unwrap_err(), DiffError::IndexOutOfRange);
 }
 
 #[test]
@@ -155,7 +156,7 @@ fn ad_error_order_zero() {
     let idx: [usize; 0] = [];
     assert_eq!(
         d.get(&func, &idx, &[1.0, 2.0, 3.0]).unwrap_err(),
-        CalcError::DerivativeOrderZero
+        DiffError::OrderZero
     );
 }
 
@@ -166,7 +167,7 @@ fn ad_error_order_unsupported() {
     let d = AutoDiffMulti::default();
     assert_eq!(
         d.get(&func, &[0, 1, 2, 0], &[1.0, 2.0, 3.0]).unwrap_err(),
-        CalcError::DerivativeOrderUnsupported
+        DiffError::OrderUnsupported
     );
 }
 
@@ -182,7 +183,7 @@ fn ad_jacobian_empty_error() {
 
     let jacobian: Jacobian = Jacobian::default();
     let result = jacobian.get(&EmptyVectorFn, &[1.0, 2.0, 3.0]);
-    assert_eq!(result.unwrap_err(), CalcError::EmptyFunctionSet);
+    assert_eq!(result.unwrap_err(), DiffError::EmptyFunctionSet);
 }
 
 // ----- finite differences: kept as a sparse fallback for the engine and the cases autodiff
@@ -209,7 +210,7 @@ fn fd_step_size_zero_error() {
     let d = FiniteDifferenceMulti::from_parameters(0.0, FiniteDifferenceMode::Central, 1.0);
     assert_eq!(
         d.get(&func, &[0], &[1.0, 2.0, 3.0]).unwrap_err(),
-        CalcError::StepSizeZero
+        DiffError::StepSizeZero
     );
 }
 
@@ -277,30 +278,6 @@ proptest! {
         );
     }
 
-    // Nested FD is noisier than first-deriv; use a milder domain and larger step.
-    #[test]
-    fn proptest_ad_fd_single_second(
-        inner in prop::collection::vec(-2.0f64..2.0, 3..=4),
-        outer in prop::collection::vec(-2.0f64..2.0, 3..=4),
-        x in -2.0f64..2.0,
-    ) {
-        let scale = 1.0 + coeff_l1(&inner) + coeff_l1(&outer);
-        let f = PolyComp { inner, outer };
-        let h = 1e-4;
-        let ad = AutoDiffSingle::default().get(2, &f, x).unwrap();
-        let fd = FiniteDifferenceSingle::from_parameters(
-            h,
-            FiniteDifferenceMode::Central,
-            DEFAULT_STEP_SIZE_MULTIPLIER,
-        );
-        let fd_val = fd.get(2, &f, x).unwrap();
-        let tol = ad_fd_tol(ad, h, 2, 1e4, scale);
-        prop_assert!(
-            (fd_val -ad).abs() < tol,
-            "fd={fd_val} ad={ad} tol={tol}"
-        );
-    }
-
     #[test]
     fn proptest_ad_fd_multi_first_partial(
         coeffs in prop::collection::vec(-5.0f64..5.0, 6),
@@ -323,4 +300,37 @@ proptest! {
             );
         }
     }
+}
+
+// Nested FD is noisier than first-deriv; use a milder domain and larger step. A fixed RNG seed
+// keeps the sampled cases identical across runs, so a pass or failure is reproducible rather than
+// dependent on the run's entropy.
+#[test]
+fn proptest_ad_fd_single_second() {
+    let strategy = (
+        prop::collection::vec(-2.0f64..2.0, 3..=4),
+        prop::collection::vec(-2.0f64..2.0, 3..=4),
+        -2.0f64..2.0,
+    );
+    let mut runner = TestRunner::new_with_rng(
+        ProptestConfig::with_cases(256),
+        TestRng::deterministic_rng(RngAlgorithm::default()),
+    );
+    runner
+        .run(&strategy, |(inner, outer, x)| {
+            let scale = 1.0 + coeff_l1(&inner) + coeff_l1(&outer);
+            let f = PolyComp { inner, outer };
+            let h = 1e-4;
+            let ad = AutoDiffSingle::default().get(2, &f, x).unwrap();
+            let fd = FiniteDifferenceSingle::from_parameters(
+                h,
+                FiniteDifferenceMode::Central,
+                DEFAULT_STEP_SIZE_MULTIPLIER,
+            );
+            let fd_val = fd.get(2, &f, x).unwrap();
+            let tol = ad_fd_tol(ad, h, 2, 1e4, scale);
+            prop_assert!((fd_val - ad).abs() < tol, "fd={fd_val} ad={ad} tol={tol}");
+            Ok(())
+        })
+        .unwrap();
 }

@@ -1,9 +1,9 @@
 use core::marker::PhantomData;
 
+use crate::error::IntegrateError;
 use crate::numerical_integration::integrator::*;
 use crate::numerical_integration::mode::IterativeMethod;
 use crate::scalar::Numeric;
-use crate::utils::error_codes::CalcError;
 use crate::utils::summation::{Acc, SummationMethod};
 
 /// Default interval count. A multiple of 12 so Boole (needs a multiple of 4) and
@@ -44,13 +44,13 @@ impl IterativeConfig {
 
     /// Checks that the iteration count is non-zero and every limit is well-defined.
     /// The iteration count is checked before the limits so a zero count reports
-    /// [`CalcError::IterationsZero`] regardless of the limits.
+    /// [`IntegrateError::IterationsZero`] regardless of the limits.
     fn check_for_errors<T: Numeric, const NUM_INTEGRATIONS: usize>(
         &self,
         integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
-    ) -> Result<(), CalcError> {
+    ) -> Result<(), IntegrateError> {
         if self.total_iterations == 0 {
-            return Err(CalcError::IterationsZero);
+            return Err(IntegrateError::IterationsZero);
         }
 
         for limit in integration_limit {
@@ -278,8 +278,8 @@ impl<T: Numeric> IntegratorSingleVariable for IterativeSingle<T> {
     /// * `integration_limit` - the `[lower, upper]` limit for each level of integration.
     ///
     /// # Errors
-    /// [`CalcError::IterationsZero`] if the configured iteration count is zero, or
-    /// [`CalcError::IntegrationLimitsIllDefined`] if any limit is ill-defined.
+    /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero, or
+    /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined.
     ///
     /// # Examples
     /// ```
@@ -305,7 +305,7 @@ impl<T: Numeric> IntegratorSingleVariable for IterativeSingle<T> {
         &self,
         func: &F,
         integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
-    ) -> Result<T, CalcError> {
+    ) -> Result<T, IntegrateError> {
         self.config.check_for_errors(integration_limit)?;
         Ok(self.integrate(NUM_INTEGRATIONS, func, integration_limit))
     }
@@ -461,8 +461,8 @@ impl<T: Numeric> IntegratorMultiVariable for IterativeMulti<T> {
     ///   upper limit; a variable held constant holds that constant.
     ///
     /// # Errors
-    /// [`CalcError::IterationsZero`] if the configured iteration count is zero, or
-    /// [`CalcError::IntegrationLimitsIllDefined`] if any limit is ill-defined.
+    /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero, or
+    /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined.
     ///
     /// # Examples
     /// ```
@@ -483,7 +483,7 @@ impl<T: Numeric> IntegratorMultiVariable for IterativeMulti<T> {
         func: &F,
         integration_limits: &[[T; 2]; NUM_INTEGRATIONS],
         point: &[T; NUM_VARS],
-    ) -> Result<T, CalcError> {
+    ) -> Result<T, IntegrateError> {
         self.config.check_for_errors(integration_limits)?;
         Ok(self.integrate(
             NUM_INTEGRATIONS,

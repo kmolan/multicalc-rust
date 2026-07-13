@@ -7,12 +7,12 @@
 //! QEMU exit.
 
 use multicalc::LevenbergMarquardt;
+use multicalc::error::LinalgError;
 use multicalc::linear_algebra::Matrix;
 use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::numerical_derivative::derivator::DerivatorSingleVariable;
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc::scalar_fn;
-use multicalc::utils::error_codes::CalcError;
 
 use crate::fixtures;
 
@@ -72,12 +72,12 @@ pub fn portable_path() {
 pub fn error_path_returns_err() {
     assert!(matches!(
         Matrix::<3, 3>::zeros().lu(),
-        Err(CalcError::SingularMatrix)
+        Err(LinalgError::Singular)
     ));
     let indefinite = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 1.0]]);
     assert!(matches!(
         indefinite.cholesky(),
-        Err(CalcError::NotPositiveDefinite)
+        Err(LinalgError::NotPositiveDefinite)
     ));
 }
 

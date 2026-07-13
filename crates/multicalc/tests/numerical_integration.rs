@@ -2,10 +2,10 @@
 
 use multicalc::numerical_integration::mode::*;
 
+use multicalc::error::IntegrateError;
 use multicalc::numerical_integration::gaussian_integration;
 use multicalc::numerical_integration::integrator::*;
 use multicalc::numerical_integration::iterative_integration;
-use multicalc::utils::error_codes::*;
 
 #[test]
 fn test_booles_integration_1() {
@@ -315,7 +315,7 @@ fn test_error_checking_1() {
     //expect failure because integration interval is ill-defined (lower limit is higher than the upper limit)
     let result = integrator.get_single(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == CalcError::IntegrationLimitsIllDefined);
+    assert!(result.unwrap_err() == IntegrateError::LimitsIllDefined);
 }
 
 #[test]
@@ -331,7 +331,7 @@ fn test_error_checking_2() {
     //expect failure because number of steps is 0
     let result = integrator.get_single(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == CalcError::IterationsZero);
+    assert!(result.unwrap_err() == IntegrateError::IterationsZero);
 }
 
 //TODO: add more tests
@@ -350,7 +350,7 @@ fn test_error_checking_3() {
     );
     let result = integrator.get_single(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == CalcError::QuadratureOrderOutOfRange);
+    assert!(result.unwrap_err() == IntegrateError::QuadratureOrderOutOfRange);
 }
 
 #[test]
@@ -367,7 +367,7 @@ fn test_error_checking_4() {
     );
     let result = integrator.get_single(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == CalcError::QuadratureOrderOutOfRange);
+    assert!(result.unwrap_err() == IntegrateError::QuadratureOrderOutOfRange);
 }
 
 #[test]

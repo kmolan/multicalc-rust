@@ -1,6 +1,6 @@
 use crate::helpers::{assert_close, assert_identity};
+use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, Vector};
-use multicalc::utils::error_codes::CalcError;
 
 // ----- matrix arithmetic, multiply, transpose -----
 
@@ -86,10 +86,10 @@ fn matrix_inverse() {
 
     // singular -> Err(SingularMatrix)
     let singular2 = Matrix::new([[1.0, 2.0], [2.0, 4.0]]);
-    assert_eq!(singular2.inverse(), Err(CalcError::SingularMatrix));
+    assert_eq!(singular2.inverse(), Err(LinalgError::Singular));
     let singular3 = Matrix::new([[1.0, 2.0, 3.0], [2.0, 4.0, 6.0], [1.0, 1.0, 1.0]]);
     assert_eq!(singular3.determinant(), 0.0);
-    assert_eq!(singular3.inverse(), Err(CalcError::SingularMatrix));
+    assert_eq!(singular3.inverse(), Err(LinalgError::Singular));
 }
 
 #[test]
@@ -157,7 +157,7 @@ fn matrix_4x4_determinant_and_inverse() {
         [13.0, 14.0, 15.0, 16.0],
     ]);
     assert_eq!(singular.determinant(), 0.0);
-    assert_eq!(singular.inverse(), Err(CalcError::SingularMatrix));
+    assert_eq!(singular.inverse(), Err(LinalgError::Singular));
 
     // The same code at f32 round-trips to the identity.
     let af = Matrix::<4, 4, f32>::new([
@@ -186,7 +186,7 @@ fn matrix_solve_agrees_with_lu() {
     let singular = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 4.0]]);
     assert_eq!(
         singular.solve(Vector::new([1.0, 2.0])).err(),
-        Some(CalcError::SingularMatrix)
+        Some(LinalgError::Singular)
     );
 }
 

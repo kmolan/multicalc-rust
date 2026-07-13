@@ -1,8 +1,8 @@
+use crate::error::DiffError;
 use crate::linear_algebra::Vector;
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
-use crate::utils::error_codes::CalcError;
 use crate::utils::summation::SummationMethod;
 
 /// A first-order (linear) Taylor approximation of a function about a base point:
@@ -126,7 +126,7 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D> {
     /// Builds a linear (first-order Taylor) approximation of `function` about `point`.
     ///
     /// # Errors
-    /// [`CalcError::StepSizeZero`] if the derivator's step size is zero.
+    /// [`DiffError::StepSizeZero`] if the derivator's step size is zero.
     ///
     /// # Examples
     /// ```
@@ -148,7 +148,7 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D> {
         &self,
         function: &F,
         point: &[D::Scalar; NUM_VARS],
-    ) -> Result<LinearApproximation<NUM_VARS, D::Scalar>, CalcError> {
+    ) -> Result<LinearApproximation<NUM_VARS, D::Scalar>, DiffError> {
         let value = function.eval(point);
 
         let mut gradient = [<D::Scalar as Numeric>::ZERO; NUM_VARS];

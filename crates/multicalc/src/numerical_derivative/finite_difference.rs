@@ -4,10 +4,10 @@
 //! error (roughly as the inverse of the step size raised to the order). For third
 //! derivatives and higher, tune `step_size` and `step_size_multiplier` per problem.
 
+use crate::error::DiffError;
 use crate::numerical_derivative::derivator::{DerivatorMultiVariable, DerivatorSingleVariable};
 use crate::numerical_derivative::mode::{self, FiniteDifferenceMode};
 use crate::scalar::{Numeric, ScalarFn, ScalarFnN};
-use crate::utils::error_codes::CalcError;
 
 /// Low and high sample offsets (in units of the step size) and the divisor factor
 /// for each finite-difference mode.
@@ -53,10 +53,10 @@ impl<T: Numeric> FiniteDifferenceConfig<T> {
         }
     }
 
-    /// Returns [`CalcError::StepSizeZero`] if the step size is zero.
-    fn check_step_size(&self) -> Result<(), CalcError> {
+    /// Returns [`DiffError::StepSizeZero`] if the step size is zero.
+    fn check_step_size(&self) -> Result<(), DiffError> {
         if self.step_size == T::ZERO {
-            return Err(CalcError::StepSizeZero);
+            return Err(DiffError::StepSizeZero);
         }
         Ok(())
     }
@@ -104,9 +104,9 @@ impl<T: Numeric> FiniteDifferenceSingle<T> {
 impl<T: Numeric> DerivatorSingleVariable for FiniteDifferenceSingle<T> {
     type Scalar = T;
 
-    fn get<F: ScalarFn>(&self, order: usize, func: &F, point: T) -> Result<T, CalcError> {
+    fn get<F: ScalarFn>(&self, order: usize, func: &F, point: T) -> Result<T, DiffError> {
         if order == 0 {
-            return Err(CalcError::DerivativeOrderZero);
+            return Err(DiffError::OrderZero);
         }
         self.config.check_step_size()?;
         Ok(self.diff(order, func, point, self.config.step_size))
@@ -171,14 +171,14 @@ impl<T: Numeric> DerivatorMultiVariable for FiniteDifferenceMulti<T> {
         func: &F,
         idx_to_differentiate: &[usize; NUM_ORDER],
         point: &[T; NUM_VARS],
-    ) -> Result<T, CalcError> {
+    ) -> Result<T, DiffError> {
         if NUM_ORDER == 0 {
-            return Err(CalcError::DerivativeOrderZero);
+            return Err(DiffError::OrderZero);
         }
         self.config.check_step_size()?;
         for &idx in idx_to_differentiate {
             if idx >= NUM_VARS {
-                return Err(CalcError::IndexOutOfRange);
+                return Err(DiffError::IndexOutOfRange);
             }
         }
         Ok(self.diff(
