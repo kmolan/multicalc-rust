@@ -23,7 +23,7 @@ proptest! {
         prop_assert_eq!(
             nodes(GaussianQuadratureMethod::GaussLegendre, order)
                 .unwrap()
-                .len(), 
+                .len(),
             order
         );
     }
