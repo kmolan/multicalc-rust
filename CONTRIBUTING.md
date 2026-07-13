@@ -33,8 +33,8 @@ locally anyway, the setup lives in [ci/README.md](ci/README.md) (optional).
 
 ## What makes a PR easy to merge
 
-- **No panics on library paths** — fallible ops return typed errors (`CalcError`), never
-  `unwrap`. Clippy enforces this.
+- **No panics on library paths** — fallible ops return typed per-module errors (`LinalgError`,
+  `DiffError`, `IntegrateError`, `SolveError`), never `unwrap`. Clippy enforces this.
 - **Stay generic over the scalar** — inside generic code, never call an `f64`-only
   function (it silently drops the autodiff payload). Use the `Numeric` trait surface.
 - **Tests**: f64 assertions may use golden values; f32 correctness is asserted via
