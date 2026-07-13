@@ -105,6 +105,32 @@ fn test_linear_approximation_exact() {
 }
 
 #[test]
+fn kahan_metrics_exact_on_affine() {
+    // Same affine truth as the pairwise exactness test: Kahan path must also report
+    // a perfect fit so the opt-in wire-in is exercised without changing defaults.
+    let truth = scalar_fn!(|v: &[f64; 3]| c(5.0) + c(2.0) * v[0] + c(3.0) * v[1] - v[2]);
+    let point = [1.0, 2.0, 3.0];
+
+    let model = LinearApproximator::<AutoDiffMulti>::default()
+        .with_kahan_summation()
+        .get(&truth, &point)
+        .unwrap();
+
+    let mut points = [[0.0; 3]; 10];
+    for (i, p) in points.iter_mut().enumerate() {
+        let s = i as f64;
+        *p = [1.0 + s, 2.0 - s, 3.0 + 0.5 * s];
+    }
+
+    let metrics = model.get_prediction_metrics(&points, &truth);
+
+    assert!(metrics.mean_absolute_error < 1e-9);
+    assert!(metrics.root_mean_squared_error < 1e-9);
+    assert!((metrics.r_squared - 1.0).abs() < 1e-9);
+    assert!((metrics.adjusted_r_squared - 1.0).abs() < 1e-9);
+}
+
+#[test]
 fn metrics_are_accurate_on_large_point_set() {
     //truth is x^2, so a linear approximation about `a` has the exact residual -(x - a)^2.
     //over a large point set this exercises the four running sums inside the metrics; assert the
