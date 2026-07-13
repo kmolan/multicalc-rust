@@ -2,9 +2,10 @@
 //!
 //! [`VizSink`] is kept object-safe so callers can hold a `&mut dyn VizSink` and swap backends at
 //! runtime; that is why `scalar` takes a plain `f64`. The generic convenience form that accepts
-//! any [`Plottable`] scalar lives on the blanket [`VizSinkExt`].
+//! any [`Primal`] scalar lives on the blanket [`VizSinkExt`].
 
-use crate::convert::Plottable;
+use multicalc::scalar::Primal;
+
 use core::fmt;
 
 /// An error from a sink backend.
@@ -136,9 +137,9 @@ pub trait VizSink {
 
 /// Convenience extensions kept off the object-safe [`VizSink`].
 pub trait VizSinkExt: VizSink {
-    /// Logs any [`Plottable`] scalar without an explicit `to_plot_f64`.
-    fn scalar_of(&mut self, path: &str, value: impl Plottable) -> Result<(), VizError> {
-        self.scalar(path, value.to_plot_f64())
+    /// Logs any [`Primal`] scalar without an explicit `to_f64`.
+    fn scalar_of(&mut self, path: &str, value: impl Primal) -> Result<(), VizError> {
+        self.scalar(path, value.to_f64())
     }
 }
 
