@@ -737,7 +737,9 @@ fn gauss_tolerance(quadrature: GaussianQuadratureMethod, coeffs: &[f64], limit: 
         GaussianQuadratureMethod::GaussLaguerre => laguerre_moment,
     };
 
-    let term_sum_abs: f64 = coeffs.iter().enumerate()
+    let term_sum_abs: f64 = coeffs
+        .iter()
+        .enumerate()
         .map(|(k, &c)| (c * moment_fn(k)).abs())
         .sum();
 
