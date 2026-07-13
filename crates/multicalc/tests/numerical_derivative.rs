@@ -7,7 +7,7 @@ use multicalc::numerical_derivative::hessian::Hessian;
 use multicalc::numerical_derivative::jacobian::Jacobian;
 use multicalc::numerical_derivative::mode::*;
 use multicalc::scalar::{Numeric, ScalarFn, ScalarFnN, VectorFn, c};
-use multicalc::utils::error_codes::*;
+use multicalc::error::DiffError;
 use multicalc::{scalar_fn, scalar_fn_vec};
 use proptest::prelude::*;
 
@@ -145,7 +145,7 @@ fn ad_error_index_out_of_range() {
     let func = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] + v[2]);
     let d = AutoDiffMulti::default();
     let result = d.get_single_partial(&func, 5, &[1.0, 2.0, 3.0]);
-    assert_eq!(result.unwrap_err(), CalcError::IndexOutOfRange);
+    assert_eq!(result.unwrap_err(), DiffError::IndexOutOfRange);
 }
 
 #[test]
@@ -155,7 +155,7 @@ fn ad_error_order_zero() {
     let idx: [usize; 0] = [];
     assert_eq!(
         d.get(&func, &idx, &[1.0, 2.0, 3.0]).unwrap_err(),
-        CalcError::DerivativeOrderZero
+        DiffError::OrderZero
     );
 }
 
@@ -166,7 +166,7 @@ fn ad_error_order_unsupported() {
     let d = AutoDiffMulti::default();
     assert_eq!(
         d.get(&func, &[0, 1, 2, 0], &[1.0, 2.0, 3.0]).unwrap_err(),
-        CalcError::DerivativeOrderUnsupported
+        DiffError::OrderUnsupported
     );
 }
 
@@ -182,7 +182,7 @@ fn ad_jacobian_empty_error() {
 
     let jacobian: Jacobian = Jacobian::default();
     let result = jacobian.get(&EmptyVectorFn, &[1.0, 2.0, 3.0]);
-    assert_eq!(result.unwrap_err(), CalcError::EmptyFunctionSet);
+    assert_eq!(result.unwrap_err(), DiffError::EmptyFunctionSet);
 }
 
 // ----- finite differences: kept as a sparse fallback for the engine and the cases autodiff
@@ -209,7 +209,7 @@ fn fd_step_size_zero_error() {
     let d = FiniteDifferenceMulti::from_parameters(0.0, FiniteDifferenceMode::Central, 1.0);
     assert_eq!(
         d.get(&func, &[0], &[1.0, 2.0, 3.0]).unwrap_err(),
-        CalcError::StepSizeZero
+        DiffError::StepSizeZero
     );
 }
 

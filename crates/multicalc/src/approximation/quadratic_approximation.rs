@@ -2,7 +2,7 @@ use crate::linear_algebra::{Matrix, Vector};
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
-use crate::utils::error_codes::CalcError;
+use crate::error::DiffError;
 
 /// A second-order (quadratic) Taylor approximation of a function about a base point:
 /// `f(x) ≈ value + Σ gradient[i]·dx[i] + ½ Σ_i Σ_j hessian[i][j]·dx[i]·dx[j]`,
@@ -107,7 +107,7 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
     /// Builds a quadratic (second-order Taylor) approximation of `function` about `point`.
     ///
     /// # Errors
-    /// [`CalcError::StepSizeZero`] if the derivator's step size is zero.
+    /// [`DiffError::StepSizeZero`] if the derivator's step size is zero.
     ///
     /// # Examples
     /// ```
@@ -130,7 +130,7 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
         &self,
         function: &F,
         point: &[D::Scalar; NUM_VARS],
-    ) -> Result<QuadraticApproximation<NUM_VARS, D::Scalar>, CalcError> {
+    ) -> Result<QuadraticApproximation<NUM_VARS, D::Scalar>, DiffError> {
         let value = function.eval(point);
 
         let mut gradient = [<D::Scalar as Numeric>::ZERO; NUM_VARS];

@@ -3,7 +3,7 @@
 use crate::linear_algebra::Vector;
 use crate::ode::tableau::*;
 use crate::scalar::Numeric;
-use crate::utils::error_codes::CalcError;
+use crate::error::IntegrateError;
 
 /// One accepted RK45 step, carrying the data for cubic-Hermite interpolation inside `[t0, t1]`.
 #[derive(Debug, Clone, Copy)]
@@ -82,7 +82,7 @@ impl<T: Numeric> Rk45<T> {
         self.first_step = h;
         self
     }
-    /// Sets the minimum step magnitude; falling below it returns [`CalcError::StepSizeTooSmall`].
+    /// Sets the minimum step magnitude; falling below it returns [`IntegrateError::StepSizeTooSmall`].
     /// `0` (the default) disables the floor.
     pub fn with_min_step(mut self, h: T) -> Self {
         self.min_step = h;
@@ -93,7 +93,7 @@ impl<T: Numeric> Rk45<T> {
         self.max_step = h;
         self
     }
-    /// Sets the maximum number of step attempts before [`CalcError::DidNotConverge`]
+    /// Sets the maximum number of step attempts before [`IntegrateError::DidNotConverge`]
     /// (default `100_000`).
     pub fn with_max_steps(mut self, n: usize) -> Self {
         self.max_steps = n;
@@ -254,10 +254,10 @@ impl<T: Numeric> Rk45<T> {
     /// the final state.
     ///
     /// # Errors
-    /// [`IntegrationLimitsIllDefined`](CalcError::IntegrationLimitsIllDefined) for a NaN or
-    /// zero-length span; [`NonFiniteValue`](CalcError::NonFiniteValue) if `f` or the state goes
-    /// non-finite; [`StepSizeTooSmall`](CalcError::StepSizeTooSmall) if the step drops below
-    /// `min_step`; [`DidNotConverge`](CalcError::DidNotConverge) if `max_steps` is exhausted.
+    /// [`LimitsIllDefined`](IntegrateError::LimitsIllDefined) for a NaN or
+    /// zero-length span; [`NonFinite`](IntegrateError::NonFinite) if `f` or the state goes
+    /// non-finite; [`StepSizeTooSmall`](IntegrateError::StepSizeTooSmall) if the step drops below
+    /// `min_step`; [`DidNotConverge`](IntegrateError::DidNotConverge) if `max_steps` is exhausted.
     ///
     /// ```
     /// use multicalc::ode::Rk45;
@@ -275,13 +275,13 @@ impl<T: Numeric> Rk45<T> {
         y0: &Vector<N, T>,
         tf: T,
         mut obs: O,
-    ) -> Result<Vector<N, T>, CalcError>
+    ) -> Result<Vector<N, T>, IntegrateError>
     where
         F: Fn(T, &Vector<N, T>) -> Vector<N, T>,
         O: FnMut(&Step<N, T>),
     {
         if !t0.is_finite() || !tf.is_finite() || t0 == tf {
-            return Err(CalcError::IntegrationLimitsIllDefined);
+            return Err(IntegrateError::LimitsIllDefined);
         }
         let span = (tf - t0).abs();
         let dir = if tf > t0 { T::ONE } else { -T::ONE };
@@ -290,13 +290,15 @@ impl<T: Numeric> Rk45<T> {
         let mut y = *y0;
         let mut k1 = f(t, &y);
         if !y.is_finite() || !k1.is_finite() {
-            return Err(CalcError::NonFiniteValue);
+            return Err(IntegrateError::NonFinite);
         }
         let mut h = self.select_initial_step(f, t0, &y, &k1, dir, span);
         let mut err_prev = T::from_f64(1e-4);
         let mut kahan_c = T::ZERO;
+        let mut steps = 0usize;
 
         for _ in 0..self.max_steps {
+            steps += 1;
             // Do not overshoot tf (compare signed remaining against signed h).
             let remaining = tf - t;
             if h.abs() > remaining.abs() {
@@ -305,7 +307,7 @@ impl<T: Numeric> Rk45<T> {
 
             let (y5, err_vec, k7) = self.dopri_step(f, t, &y, h, k1);
             if !y5.is_finite() || !err_vec.is_finite() {
-                return Err(CalcError::NonFiniteValue);
+                return Err(IntegrateError::NonFinite);
             }
             let err = error_norm(&err_vec, &y, &y5, self.atol, self.rtol);
             let accept = err <= T::ONE;
@@ -348,10 +350,10 @@ impl<T: Numeric> Rk45<T> {
                 err_prev = err.max(T::from_f64(1e-4));
             }
             if self.min_step > T::ZERO && h.abs() < self.min_step {
-                return Err(CalcError::StepSizeTooSmall);
+                return Err(IntegrateError::StepSizeTooSmall);
             }
         }
-        Err(CalcError::DidNotConverge)
+        Err(IntegrateError::DidNotConverge { steps })
     }
 
     /// Integrates from `t0` to `tf` and returns the final state (no per-step callback).
@@ -361,7 +363,7 @@ impl<T: Numeric> Rk45<T> {
         t0: T,
         y0: &Vector<N, T>,
         tf: T,
-    ) -> Result<Vector<N, T>, CalcError>
+    ) -> Result<Vector<N, T>, IntegrateError>
     where
         F: Fn(T, &Vector<N, T>) -> Vector<N, T>,
     {
@@ -372,7 +374,7 @@ impl<T: Numeric> Rk45<T> {
     /// within `[t0, tf]`), writing to `out` via cubic-Hermite dense output. No allocation.
     ///
     /// # Errors
-    /// [`IntegrationLimitsIllDefined`](CalcError::IntegrationLimitsIllDefined) if `times.len() !=
+    /// [`LimitsIllDefined`](IntegrateError::LimitsIllDefined) if `times.len() !=
     /// out.len()` or a time is out of range / out of order; otherwise as
     /// [`for_each_step`](Rk45::for_each_step).
     ///
@@ -395,12 +397,12 @@ impl<T: Numeric> Rk45<T> {
         y0: &Vector<N, T>,
         times: &[T],
         out: &mut [Vector<N, T>],
-    ) -> Result<(), CalcError>
+    ) -> Result<(), IntegrateError>
     where
         F: Fn(T, &Vector<N, T>) -> Vector<N, T>,
     {
         if times.len() != out.len() {
-            return Err(CalcError::IntegrationLimitsIllDefined);
+            return Err(IntegrateError::LimitsIllDefined);
         }
         if times.is_empty() {
             return Ok(());
@@ -426,7 +428,7 @@ impl<T: Numeric> Rk45<T> {
         })?;
         if next != times.len() {
             // A requested time was out of range or out of order.
-            return Err(CalcError::IntegrationLimitsIllDefined);
+            return Err(IntegrateError::LimitsIllDefined);
         }
         Ok(())
     }

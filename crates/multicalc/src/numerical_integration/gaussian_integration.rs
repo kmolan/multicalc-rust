@@ -4,7 +4,7 @@ use crate::gaussian_tables::nodes;
 use crate::numerical_integration::integrator::{IntegratorMultiVariable, IntegratorSingleVariable};
 use crate::numerical_integration::mode::GaussianQuadratureMethod;
 use crate::scalar::Numeric;
-use crate::utils::error_codes::CalcError;
+use crate::error::IntegrateError;
 
 /// Default quadrature order (number of nodes).
 pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;
@@ -46,7 +46,7 @@ impl GaussianConfig {
     fn check_limits<T: Numeric, const NUM_INTEGRATIONS: usize>(
         &self,
         integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
-    ) -> Result<(), CalcError> {
+    ) -> Result<(), IntegrateError> {
         for limit in integration_limit {
             let ok = match self.integration_method {
                 GaussianQuadratureMethod::GaussLegendre => {
@@ -61,7 +61,7 @@ impl GaussianConfig {
             };
 
             if !ok {
-                return Err(CalcError::IntegrationLimitsIllDefined);
+                return Err(IntegrateError::LimitsIllDefined);
             }
         }
 
@@ -172,8 +172,8 @@ impl<T: Numeric> IntegratorSingleVariable for GaussianSingle<T> {
     ///   method's fixed domain.
     ///
     /// # Errors
-    /// [`CalcError::QuadratureOrderOutOfRange`] if the configured order is unsupported, or
-    /// [`CalcError::IntegrationLimitsIllDefined`] if any limit does not match the method's domain.
+    /// [`IntegrateError::QuadratureOrderOutOfRange`] if the configured order is unsupported, or
+    /// [`IntegrateError::LimitsIllDefined`] if any limit does not match the method's domain.
     ///
     /// # Examples
     /// ```
@@ -190,7 +190,7 @@ impl<T: Numeric> IntegratorSingleVariable for GaussianSingle<T> {
         &self,
         func: &F,
         integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
-    ) -> Result<T, CalcError> {
+    ) -> Result<T, IntegrateError> {
         let table = nodes(self.config.integration_method, self.config.order)?;
         self.config.check_limits(integration_limit)?;
 
@@ -333,8 +333,8 @@ impl<T: Numeric> IntegratorMultiVariable for GaussianMulti<T> {
     ///   upper limit; a variable held constant holds that constant.
     ///
     /// # Errors
-    /// [`CalcError::QuadratureOrderOutOfRange`] if the configured order is unsupported, or
-    /// [`CalcError::IntegrationLimitsIllDefined`] if any limit does not match the method's domain.
+    /// [`IntegrateError::QuadratureOrderOutOfRange`] if the configured order is unsupported, or
+    /// [`IntegrateError::LimitsIllDefined`] if any limit does not match the method's domain.
     ///
     /// # Examples
     /// ```
@@ -355,7 +355,7 @@ impl<T: Numeric> IntegratorMultiVariable for GaussianMulti<T> {
         func: &F,
         integration_limits: &[[T; 2]; NUM_INTEGRATIONS],
         point: &[T; NUM_VARS],
-    ) -> Result<T, CalcError> {
+    ) -> Result<T, IntegrateError> {
         let table = nodes(self.config.integration_method, self.config.order)?;
         self.config.check_limits(integration_limits)?;
 

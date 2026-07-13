@@ -1,6 +1,6 @@
 use crate::helpers::{assert_close, assert_identity, cholesky_reconstructs};
 use multicalc::linear_algebra::{Matrix, Vector};
-use multicalc::utils::error_codes::CalcError;
+use multicalc::error::LinalgError;
 
 #[test]
 fn cholesky_reconstructs_spd() {
@@ -45,21 +45,21 @@ fn cholesky_rejects_non_pd() {
     let indefinite = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 1.0]]);
     assert_eq!(
         indefinite.cholesky().err(),
-        Some(CalcError::NotPositiveDefinite)
+        Some(LinalgError::NotPositiveDefinite)
     );
 
     // Negative leading diagonal entry.
     let negative = Matrix::<2, 2>::new([[-4.0, 0.0], [0.0, 1.0]]);
     assert_eq!(
         negative.cholesky().err(),
-        Some(CalcError::NotPositiveDefinite)
+        Some(LinalgError::NotPositiveDefinite)
     );
 
     // Singular: the second radicand collapses to zero.
     let singular = Matrix::<2, 2>::new([[1.0, 1.0], [1.0, 1.0]]);
     assert_eq!(
         singular.cholesky().err(),
-        Some(CalcError::NotPositiveDefinite)
+        Some(LinalgError::NotPositiveDefinite)
     );
 }
 

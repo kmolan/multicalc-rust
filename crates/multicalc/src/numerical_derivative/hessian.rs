@@ -2,7 +2,7 @@ use crate::linear_algebra::Matrix;
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
-use crate::utils::error_codes::CalcError;
+use crate::error::DiffError;
 
 /// Computes the Hessian matrix of a scalar multi-variable function. The differentiation backend
 /// defaults to autodiff ([`AutoDiffMulti`]); pass a finite-difference derivator explicitly to use
@@ -37,7 +37,7 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     /// * `vector_of_points` - the point at which the derivatives are taken.
     ///
     /// # Errors
-    /// [`CalcError::StepSizeZero`] if the derivator's step size is zero.
+    /// [`DiffError::StepSizeZero`] if the derivator's step size is zero.
     ///
     /// # Examples
     /// ```
@@ -58,7 +58,7 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
         &self,
         function: &F,
         vector_of_points: &[D::Scalar; NUM_VARS],
-    ) -> Result<[[D::Scalar; NUM_VARS]; NUM_VARS], CalcError> {
+    ) -> Result<[[D::Scalar; NUM_VARS]; NUM_VARS], DiffError> {
         let mut result: Matrix<NUM_VARS, NUM_VARS, D::Scalar> =
             Matrix::from_fn(|_, _| <D::Scalar as Numeric>::NAN);
 

@@ -7,8 +7,8 @@ use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::numerical_derivative::jacobian::Jacobian;
 use crate::optimization::trust_region::determine_lambda_and_parameter_update;
 use crate::optimization::{MinimizationReport, TerminationReason, is_finite, report};
-use crate::scalar::{Numeric, VectorFn};
-use crate::utils::error_codes::CalcError;
+use crate::error::SolveError;
+use crate::scalar::{Numeric, Primal, VectorFn};
 
 /// Safety cap on the trust-region retries within one outer iteration; the `xtol` test ends the
 /// retries long before this on any real problem.
@@ -109,16 +109,18 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
     /// Minimizes `‖f(x)‖²` starting from `x0`.
     ///
     /// Returns the converged point and which test stopped it, or a
-    /// [`CalcError`]: [`NonFiniteValue`](CalcError::NonFiniteValue) if a residual or Jacobian is
-    /// non-finite, [`Underdetermined`](CalcError::Underdetermined) if there are fewer residuals
-    /// than parameters, or [`DidNotConverge`](CalcError::DidNotConverge) if the budget runs out.
+    /// [`SolveError`]: [`NonFinite`](SolveError::NonFinite) if a residual or Jacobian is
+    /// non-finite, [`Linalg`](SolveError::Linalg) wrapping [`Underdetermined`](crate::error::LinalgError::Underdetermined)
+    /// if there are fewer residuals than parameters, or [`DidNotConverge`](SolveError::DidNotConverge)
+    /// if the budget runs out.
     pub fn minimize<F, const N: usize, const M: usize>(
         &self,
         f: &F,
         x0: &[D::Scalar; N],
-    ) -> Result<MinimizationReport<N, D::Scalar>, CalcError>
+    ) -> Result<MinimizationReport<N, D::Scalar>, SolveError>
     where
         D: Clone,
+        D::Scalar: Primal,
         F: VectorFn<N, M>,
     {
         let zero = D::Scalar::ZERO;
@@ -134,7 +136,7 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
         let mut x = *x0;
         let mut residuals = f.eval(&x);
         if !is_finite(&residuals) {
-            return Err(CalcError::NonFiniteValue);
+            return Err(SolveError::NonFinite);
         }
         let mut fnorm = enorm(&residuals);
 
@@ -148,7 +150,7 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
         for _ in 0..self.patience {
             let jac = jacobian.get(f, &x)?;
             if !jac.iter().all(is_finite) {
-                return Err(CalcError::NonFiniteValue);
+                return Err(SolveError::NonFinite);
             }
             let dls = PivotedQr::decompose(Matrix::from_fn(|r, c| jac[r][c]))?
                 .into_damped(Vector::new(residuals));
@@ -194,7 +196,7 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
                 let residuals_new = f.eval(&x_new);
                 evaluations += 1;
                 if !is_finite(&residuals_new) {
-                    return Err(CalcError::NonFiniteValue);
+                    return Err(SolveError::NonFinite);
                 }
                 let fnorm1 = enorm(&residuals_new);
 
@@ -262,6 +264,9 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
             }
         }
 
-        Err(CalcError::DidNotConverge)
+        Err(SolveError::DidNotConverge {
+            iters: evaluations,
+            residual: fnorm.to_f64(),
+        })
     }
 }

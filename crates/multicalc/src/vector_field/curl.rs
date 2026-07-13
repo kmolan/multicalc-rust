@@ -1,7 +1,7 @@
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::function::Component;
 use crate::scalar::{Numeric, VectorFn};
-use crate::utils::error_codes::CalcError;
+use crate::error::DiffError;
 
 /// Computes the curl of a 3D vector field at a point.
 ///
@@ -14,7 +14,7 @@ use crate::utils::error_codes::CalcError;
 /// * `point` - the point at which the curl is evaluated.
 ///
 /// # Errors
-/// [`CalcError::StepSizeZero`] if the derivator's step size is zero.
+/// [`DiffError::StepSizeZero`] if the derivator's step size is zero.
 ///
 /// # Examples
 /// ```
@@ -35,7 +35,7 @@ pub fn get_3d<D: DerivatorMultiVariable, F: VectorFn<NUM_VARS, 3>, const NUM_VAR
     derivator: D,
     vector_field: &F,
     point: &[D::Scalar; NUM_VARS],
-) -> Result<[D::Scalar; 3], CalcError> {
+) -> Result<[D::Scalar; 3], DiffError> {
     let vx = Component::new(vector_field, 0);
     let vy = Component::new(vector_field, 1);
     let vz = Component::new(vector_field, 2);
@@ -61,7 +61,7 @@ pub fn get_3d<D: DerivatorMultiVariable, F: VectorFn<NUM_VARS, 3>, const NUM_VAR
 /// * `point` - the point at which the curl is evaluated.
 ///
 /// # Errors
-/// [`CalcError::StepSizeZero`] if the derivator's step size is zero.
+/// [`DiffError::StepSizeZero`] if the derivator's step size is zero.
 ///
 /// # Examples
 /// ```
@@ -82,7 +82,7 @@ pub fn get_2d<D: DerivatorMultiVariable, F: VectorFn<NUM_VARS, 2>, const NUM_VAR
     derivator: D,
     vector_field: &F,
     point: &[D::Scalar; NUM_VARS],
-) -> Result<D::Scalar, CalcError> {
+) -> Result<D::Scalar, DiffError> {
     let vx = Component::new(vector_field, 0);
     let vy = Component::new(vector_field, 1);
 

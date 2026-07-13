@@ -6,7 +6,7 @@
 
 use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
-use crate::utils::error_codes::CalcError;
+use crate::error::LinalgError;
 
 /// A Cholesky factorization `A = L·Lᵀ`, as produced by [`Matrix::cholesky`].
 ///
@@ -23,7 +23,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// Factorizes `self` as `L·Lᵀ` by the Cholesky–Banachiewicz algorithm.
     ///
     /// Only the lower triangle is read; `self` is assumed symmetric. Returns
-    /// [`CalcError::NotPositiveDefinite`] if a diagonal radicand is not strictly positive — the
+    /// [`LinalgError::NotPositiveDefinite`] if a diagonal radicand is not strictly positive — the
     /// matrix is not positive definite — rather than taking a root of it.
     ///
     /// ```
@@ -38,7 +38,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     ///     }
     /// }
     /// ```
-    pub fn cholesky(self) -> Result<Cholesky<N, T>, CalcError> {
+    pub fn cholesky(self) -> Result<Cholesky<N, T>, LinalgError> {
         let mut l = Matrix::zeros();
 
         for j in 0..N {
@@ -48,7 +48,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
                 d -= l[(j, k)] * l[(j, k)];
             }
             if d <= T::ZERO {
-                return Err(CalcError::NotPositiveDefinite);
+                return Err(LinalgError::NotPositiveDefinite);
             }
             let ljj = d.sqrt();
             l[(j, j)] = ljj;

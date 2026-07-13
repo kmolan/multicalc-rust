@@ -6,7 +6,7 @@
 
 use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
-use crate::utils::error_codes::CalcError;
+use crate::error::LinalgError;
 
 /// A thin singular value decomposition `A = U · diag(σ) · Vᵀ` for a matrix with `M ≥ N`.
 ///
@@ -27,8 +27,8 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
     /// Decomposes `self` as `U · diag(σ) · Vᵀ` by one-sided Jacobi (thin form, `M ≥ N`).
     ///
     /// `U` has orthonormal columns, the σ are non-negative and descending, and `V` has orthonormal
-    /// columns. Returns [`CalcError::Underdetermined`] for a wide matrix (`M < N`) — transpose it
-    /// first — or [`CalcError::NonFiniteValue`] if any entry is not finite.
+    /// columns. Returns [`LinalgError::Underdetermined`] for a wide matrix (`M < N`) — transpose it
+    /// first — or [`LinalgError::NonFinite`] if any entry is not finite.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
@@ -68,14 +68,14 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
     ///     }
     /// }
     /// ```
-    pub fn svd(self) -> Result<Svd<M, N, T>, CalcError> {
+    pub fn svd(self) -> Result<Svd<M, N, T>, LinalgError> {
         if M < N {
-            return Err(CalcError::Underdetermined);
+            return Err(LinalgError::Underdetermined);
         }
         for r in 0..M {
             for c in 0..N {
                 if !self[(r, c)].is_finite() {
-                    return Err(CalcError::NonFiniteValue);
+                    return Err(LinalgError::NonFinite);
                 }
             }
         }
@@ -198,7 +198,7 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
     /// The Moore–Penrose pseudo-inverse of `self`, for any shape.
     ///
     /// Tall or square inputs go straight through [`Matrix::svd`]; a wide input (`M < N`) is handled
-    /// as `((Aᵀ)⁺)ᵀ`. Returns [`CalcError::NonFiniteValue`] if any entry is not finite.
+    /// as `((Aᵀ)⁺)ᵀ`. Returns [`LinalgError::NonFinite`] if any entry is not finite.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
@@ -212,7 +212,7 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
     ///     }
     /// }
     /// ```
-    pub fn pseudo_inverse(self) -> Result<Matrix<N, M, T>, CalcError> {
+    pub fn pseudo_inverse(self) -> Result<Matrix<N, M, T>, LinalgError> {
         if M >= N {
             Ok(self.svd()?.pseudo_inverse())
         } else {

@@ -6,7 +6,7 @@
 
 use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
-use crate::utils::error_codes::CalcError;
+use crate::error::LinalgError;
 
 /// Euclidean norm of `v`, computed so it neither overflows on large components nor
 /// underflows on small ones.
@@ -101,7 +101,7 @@ pub struct PivotedQr<const M: usize, const N: usize, T = f64> {
 impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
     /// Factorizes `a` by column-pivoted Householder QR.
     ///
-    /// Returns [`CalcError::Underdetermined`] if `M < N`. Never panics: a zero pivot column
+    /// Returns [`LinalgError::Underdetermined`] if `M < N`. Never panics: a zero pivot column
     /// leaves the corresponding `r_diag` entry at zero rather than dividing by it, so a
     /// rank-deficient matrix factorizes without error (the deficiency surfaces in a solve).
     ///
@@ -116,9 +116,9 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
     /// assert!((x[0] - 1.0).abs() < 1e-12);
     /// assert!((x[1] - 2.0).abs() < 1e-12);
     /// ```
-    pub fn decompose(a: Matrix<M, N, T>) -> Result<Self, CalcError> {
+    pub fn decompose(a: Matrix<M, N, T>) -> Result<Self, LinalgError> {
         if M < N {
-            return Err(CalcError::Underdetermined);
+            return Err(LinalgError::Underdetermined);
         }
 
         let mut qr = a;
@@ -268,7 +268,7 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
     /// Solves the least-squares problem `min ‖A x − b‖`, reusing this factorization. When `A`
     /// is square and full rank this is the exact solve of `A x = b`.
     ///
-    /// Returns [`CalcError::SingularMatrix`] if `A` is rank-deficient — a diagonal entry of `R`
+    /// Returns [`LinalgError::Singular`] if `A` is rank-deficient — a diagonal entry of `R`
     /// at or below `EPSILON * max(M, N)` times the largest — rather than dividing by a tiny pivot.
     ///
     /// ```
@@ -281,7 +281,7 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
     /// assert!((x[1] - 1.0).abs() < 1e-12);
     /// assert!((x[2] - 1.0).abs() < 1e-12);
     /// ```
-    pub fn solve_least_squares(&self, b: Vector<M, T>) -> Result<Vector<N, T>, CalcError> {
+    pub fn solve_least_squares(&self, b: Vector<M, T>) -> Result<Vector<N, T>, LinalgError> {
         // Apply the reflectors to b, leaving Qᵀb in the first N entries.
         let mut qtb = b;
         for j in 0..N {
@@ -310,7 +310,7 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
         let mut y = [T::ZERO; N];
         for row in (0..N).rev() {
             if self.r_diag[row].abs() <= threshold {
-                return Err(CalcError::SingularMatrix);
+                return Err(LinalgError::Singular);
             }
             let mut acc = qtb[row];
             for (col, &y_value) in y.iter().enumerate().skip(row + 1) {

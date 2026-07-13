@@ -4,7 +4,7 @@
 //! `scripts/build_gaussian_integration_tables.py`.
 
 use crate::numerical_integration::mode::GaussianQuadratureMethod;
-use crate::utils::error_codes::CalcError;
+use crate::error::IntegrateError;
 
 pub mod hermite;
 pub mod laguerre;
@@ -17,7 +17,7 @@ pub const MAX_ORDER: usize = 30;
 pub fn nodes(
     method: GaussianQuadratureMethod,
     order: usize,
-) -> Result<&'static [(f64, f64)], CalcError> {
+) -> Result<&'static [(f64, f64)], IntegrateError> {
     let table: &[&[(f64, f64)]] = match method {
         GaussianQuadratureMethod::GaussLegendre => &legendre::LEGENDRE,
         GaussianQuadratureMethod::GaussHermite => &hermite::HERMITE,
@@ -28,5 +28,5 @@ pub fn nodes(
         .get(order)
         .filter(|pairs| !pairs.is_empty())
         .copied()
-        .ok_or(CalcError::QuadratureOrderOutOfRange)
+        .ok_or(IntegrateError::QuadratureOrderOutOfRange)
 }

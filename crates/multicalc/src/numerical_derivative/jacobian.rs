@@ -3,7 +3,7 @@ use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::VectorFn;
 use crate::scalar::function::Component;
-use crate::utils::error_codes::CalcError;
+use crate::error::DiffError;
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
@@ -40,8 +40,8 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     /// * `vector_of_points` - the point at which the derivatives are taken.
     ///
     /// # Errors
-    /// [`CalcError::EmptyFunctionSet`] if `function` has no outputs, or
-    /// [`CalcError::StepSizeZero`] if the derivator's step size is zero.
+    /// [`DiffError::EmptyFunctionSet`] if `function` has no outputs, or
+    /// [`DiffError::StepSizeZero`] if the derivator's step size is zero.
     ///
     /// # Examples
     /// ```
@@ -61,9 +61,9 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
         &self,
         function: &F,
         vector_of_points: &[D::Scalar; NUM_VARS],
-    ) -> Result<[[D::Scalar; NUM_VARS]; NUM_FUNCS], CalcError> {
+    ) -> Result<[[D::Scalar; NUM_VARS]; NUM_FUNCS], DiffError> {
         if NUM_FUNCS == 0 {
-            return Err(CalcError::EmptyFunctionSet);
+            return Err(DiffError::EmptyFunctionSet);
         }
 
         let mut result: Matrix<NUM_FUNCS, NUM_VARS, D::Scalar> = Matrix::zeros();
@@ -91,8 +91,8 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     /// * `vector_of_points` - the point at which the derivatives are taken.
     ///
     /// # Errors
-    /// [`CalcError::EmptyFunctionSet`] if `function` has no outputs, or
-    /// [`CalcError::StepSizeZero`] if the derivator's step size is zero.
+    /// [`DiffError::EmptyFunctionSet`] if `function` has no outputs, or
+    /// [`DiffError::StepSizeZero`] if the derivator's step size is zero.
     #[cfg(feature = "alloc")]
     pub fn get_on_heap<
         F: VectorFn<NUM_VARS, NUM_FUNCS>,
@@ -102,9 +102,9 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
         &self,
         function: &F,
         vector_of_points: &[D::Scalar; NUM_VARS],
-    ) -> Result<Vec<Vec<D::Scalar>>, CalcError> {
+    ) -> Result<Vec<Vec<D::Scalar>>, DiffError> {
         if NUM_FUNCS == 0 {
-            return Err(CalcError::EmptyFunctionSet);
+            return Err(DiffError::EmptyFunctionSet);
         }
 
         let mut result: Vec<Vec<D::Scalar>> = Vec::new();

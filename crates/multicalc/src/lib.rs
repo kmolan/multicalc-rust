@@ -3,7 +3,8 @@
 //!
 //! Operations are generic over the [`Numeric`] scalar trait — implemented for `f32` and `f64`,
 //! defaulting to `f64` — with transcendentals from [`libm`] so it works without `std`.
-//! Fallible operations return [`utils::error_codes::CalcError`].
+//! Each module returns its own family error enum ([`LinalgError`], [`DiffError`],
+//! [`IntegrateError`], [`SolveError`]), all convertible into the [`CalcError`] umbrella.
 #![no_std]
 
 #[cfg(feature = "alloc")]
@@ -47,7 +48,11 @@ pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, Term
 /// Bracketed and Newton root finders for scalar equations and square systems.
 pub use root_finding::{Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination};
 
+/// Per-module-family error enums and the umbrella they convert into.
+pub use error::{CalcError, DiffError, IntegrateError, LinalgError, SolveError};
+
 pub mod approximation;
+pub mod error;
 pub mod gaussian_tables;
 pub mod linear_algebra;
 pub mod numerical_derivative;

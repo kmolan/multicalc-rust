@@ -3,8 +3,8 @@
 use crate::numerical_derivative::autodiff::AutoDiffSingle;
 use crate::numerical_derivative::derivator::DerivatorSingleVariable;
 use crate::root_finding::{RootReport, RootTermination};
-use crate::scalar::{Numeric, ScalarFn};
-use crate::utils::error_codes::CalcError;
+use crate::error::{LinalgError, SolveError};
+use crate::scalar::{Numeric, Primal, ScalarFn};
 
 /// Maximum step halvings per iteration when backtracking is enabled.
 const MAX_BACKTRACK: usize = 20;
@@ -94,21 +94,24 @@ impl<D: DerivatorSingleVariable> Newton<D> {
     /// Finds a root of `f` starting from `x0`.
     ///
     /// Returns the root estimate and termination reason, or an error:
-    /// [`NonFiniteValue`](CalcError::NonFiniteValue) if `f` or its derivative is non-finite,
-    /// [`SingularMatrix`](CalcError::SingularMatrix) if the derivative is zero, or
-    /// [`DidNotConverge`](CalcError::DidNotConverge) if the budget is exhausted.
+    /// [`NonFinite`](SolveError::NonFinite) if `f` or its derivative is non-finite,
+    /// [`Linalg`](SolveError::Linalg) wrapping [`Singular`](LinalgError::Singular) if the derivative
+    /// is zero, or [`DidNotConverge`](SolveError::DidNotConverge) if the budget is exhausted.
     pub fn solve<F: ScalarFn>(
         &self,
         f: &F,
         x0: D::Scalar,
-    ) -> Result<RootReport<D::Scalar>, CalcError> {
+    ) -> Result<RootReport<D::Scalar>, SolveError>
+    where
+        D::Scalar: Primal,
+    {
         let one = D::Scalar::ONE;
         let half = D::Scalar::HALF;
 
         let mut x = x0;
         let mut fx = f.eval(x);
         if !fx.is_finite() {
-            return Err(CalcError::NonFiniteValue);
+            return Err(SolveError::NonFinite);
         }
 
         for iter in 1..=self.max_iterations {
@@ -123,10 +126,10 @@ impl<D: DerivatorSingleVariable> Newton<D> {
 
             let dfx = self.derivator.get_single(f, x)?;
             if !dfx.is_finite() {
-                return Err(CalcError::NonFiniteValue);
+                return Err(SolveError::NonFinite);
             }
             if dfx == D::Scalar::ZERO {
-                return Err(CalcError::SingularMatrix);
+                return Err(SolveError::Linalg(LinalgError::Singular));
             }
 
             let step = fx / dfx;
@@ -140,13 +143,13 @@ impl<D: DerivatorSingleVariable> Newton<D> {
                 let trial = f.eval(candidate);
                 if !self.backtracking {
                     if !trial.is_finite() {
-                        return Err(CalcError::NonFiniteValue);
+                        return Err(SolveError::NonFinite);
                     }
                     break (candidate, trial);
                 }
                 if (trial.is_finite() && trial.abs() < fx.abs()) || tries >= MAX_BACKTRACK {
                     if !trial.is_finite() {
-                        return Err(CalcError::NonFiniteValue);
+                        return Err(SolveError::NonFinite);
                     }
                     break (candidate, trial);
                 }
@@ -168,6 +171,9 @@ impl<D: DerivatorSingleVariable> Newton<D> {
             }
         }
 
-        Err(CalcError::DidNotConverge)
+        Err(SolveError::DidNotConverge {
+            iters: self.max_iterations,
+            residual: fx.abs().to_f64(),
+        })
     }
 }

@@ -1,6 +1,6 @@
 use multicalc::linear_algebra::Vector;
 use multicalc::ode::{Rk45, Step};
-use multicalc::utils::error_codes::CalcError;
+use multicalc::error::IntegrateError;
 use proptest::prelude::*;
 
 // No AD-through-RK45 test: adaptive step control is not cleanly differentiable, since
@@ -84,7 +84,7 @@ fn min_step_floor_errors() {
     let res = Rk45::default()
         .with_min_step(1e9)
         .solve(&decay, 0.0, &Vector::new([1.0]), 1.0);
-    assert_eq!(res.unwrap_err(), CalcError::StepSizeTooSmall);
+    assert_eq!(res.unwrap_err(), IntegrateError::StepSizeTooSmall);
 }
 
 #[test]
@@ -94,21 +94,21 @@ fn max_steps_budget_errors() {
     let res = Rk45::default()
         .with_max_steps(1)
         .solve(&decay, 0.0, &Vector::new([1.0]), 100.0);
-    assert_eq!(res.unwrap_err(), CalcError::DidNotConverge);
+    assert!(matches!(res.unwrap_err(), IntegrateError::DidNotConverge { .. }));
 }
 
 #[test]
 fn zero_span_errors() {
     let decay = |_t: f64, y: &Vector<1, f64>| -*y;
     let res = Rk45::default().solve(&decay, 1.0, &Vector::new([1.0]), 1.0);
-    assert_eq!(res.unwrap_err(), CalcError::IntegrationLimitsIllDefined);
+    assert_eq!(res.unwrap_err(), IntegrateError::LimitsIllDefined);
 }
 
 #[test]
 fn non_finite_rhs_errors() {
     let f = |_t: f64, _y: &Vector<1, f64>| Vector::new([f64::NAN]);
     let res = Rk45::default().solve(&f, 0.0, &Vector::new([1.0]), 1.0);
-    assert_eq!(res.unwrap_err(), CalcError::NonFiniteValue);
+    assert_eq!(res.unwrap_err(), IntegrateError::NonFinite);
 }
 
 #[test]
@@ -117,7 +117,7 @@ fn grid_length_mismatch_errors() {
     let times = [0.5, 1.0];
     let mut out = [Vector::<1, f64>::zeros(); 1];
     let res = Rk45::default().solve_on_grid(&decay, 0.0, &Vector::new([1.0]), &times, &mut out);
-    assert_eq!(res.unwrap_err(), CalcError::IntegrationLimitsIllDefined);
+    assert_eq!(res.unwrap_err(), IntegrateError::LimitsIllDefined);
 }
 
 proptest! {

@@ -9,7 +9,7 @@ use multicalc::vector_field::divergence;
 use multicalc::vector_field::flux_integral;
 use multicalc::vector_field::line_integral;
 
-use multicalc::utils::error_codes::*;
+use multicalc::error::IntegrateError;
 
 #[test]
 fn test_line_integral_1() {
@@ -66,7 +66,7 @@ fn test_line_integral_error_1() {
         0,
     );
     assert!(val.is_err());
-    assert!(val.unwrap_err() == CalcError::IterationsZero);
+    assert!(val.unwrap_err() == IntegrateError::IterationsZero);
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn test_line_integral_error_2() {
         100,
     );
     assert!(val.is_err());
-    assert!(val.unwrap_err() == CalcError::IntegrationLimitsIllDefined);
+    assert!(val.unwrap_err() == IntegrateError::LimitsIllDefined);
 }
 
 #[test]

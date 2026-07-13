@@ -8,7 +8,7 @@ use multicalc::optimization::{
 };
 use multicalc::scalar::{Numeric, VectorFn, c};
 use multicalc::scalar_fn_vec;
-use multicalc::utils::error_codes::CalcError;
+use multicalc::error::{LinalgError, SolveError};
 
 // ----- Levenberg-Marquardt solver -----
 
@@ -75,7 +75,7 @@ fn lm_rejects_underdetermined() {
     // Two residuals, three parameters.
     let f = scalar_fn_vec!(|v: &[f64; 3]| [c(-1.0) + v[0] + v[1], c(-2.0) + v[2]]);
     let result = LevenbergMarquardt::<AutoDiffMulti>::default().minimize(&f, &[0.0, 0.0, 0.0]);
-    assert!(matches!(result, Err(CalcError::Underdetermined)));
+    assert!(matches!(result, Err(SolveError::Linalg(LinalgError::Underdetermined))));
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn lm_reports_non_finite() {
     // The residual is infinite at the starting point.
     let f = scalar_fn_vec!(|v: &[f64; 1]| [c(1.0) / v[0], v[0]]);
     let result = LevenbergMarquardt::<AutoDiffMulti>::default().minimize(&f, &[0.0]);
-    assert!(matches!(result, Err(CalcError::NonFiniteValue)));
+    assert!(matches!(result, Err(SolveError::NonFinite)));
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn lm_reports_did_not_converge() {
     let result = LevenbergMarquardt::<AutoDiffMulti>::default()
         .with_patience(1)
         .minimize(&f, &[-1.2, 1.0]);
-    assert!(matches!(result, Err(CalcError::DidNotConverge)));
+    assert!(matches!(result, Err(SolveError::DidNotConverge { .. })));
 }
 
 // Sum of three damped sinusoids sampled at 60 points, with parameters [A, lambda, omega, phi]
@@ -219,21 +219,21 @@ fn gn_reports_singular() {
         c(-2.0) + c(2.0) * v[0] - c(2.0) * v[1],
     ]);
     let result = GaussNewton::<AutoDiffMulti>::default().minimize(&f, &[0.0, 0.0]);
-    assert!(matches!(result, Err(CalcError::SingularMatrix)));
+    assert!(matches!(result, Err(SolveError::Linalg(LinalgError::Singular))));
 }
 
 #[test]
 fn gn_rejects_underdetermined() {
     let f = scalar_fn_vec!(|v: &[f64; 3]| [c(-1.0) + v[0] + v[1], c(-2.0) + v[2]]);
     let result = GaussNewton::<AutoDiffMulti>::default().minimize(&f, &[0.0, 0.0, 0.0]);
-    assert!(matches!(result, Err(CalcError::Underdetermined)));
+    assert!(matches!(result, Err(SolveError::Linalg(LinalgError::Underdetermined))));
 }
 
 #[test]
 fn gn_reports_non_finite() {
     let f = scalar_fn_vec!(|v: &[f64; 1]| [c(1.0) / v[0], v[0]]);
     let result = GaussNewton::<AutoDiffMulti>::default().minimize(&f, &[0.0]);
-    assert!(matches!(result, Err(CalcError::NonFiniteValue)));
+    assert!(matches!(result, Err(SolveError::NonFinite)));
 }
 
 // Fit a circle (center cx, cy, radius r) to points, minimizing the geometric distance residual

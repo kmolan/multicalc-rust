@@ -8,18 +8,18 @@ use multicalc::root_finding::{
 use multicalc::scalar::{Numeric, ScalarFn, VectorFn, c};
 use multicalc::scalar_fn;
 use multicalc::scalar_fn_vec;
-use multicalc::utils::error_codes::CalcError;
+use multicalc::error::{LinalgError, SolveError};
 
-fn bisect<F: ScalarFn>(f: &F, a: f64, b: f64) -> Result<RootReport<f64>, CalcError> {
+fn bisect<F: ScalarFn>(f: &F, a: f64, b: f64) -> Result<RootReport<f64>, SolveError> {
     Bisection::default().solve(f, a, b)
 }
 
-fn newton<F: ScalarFn>(f: &F, x0: f64) -> Result<RootReport<f64>, CalcError> {
+fn newton<F: ScalarFn>(f: &F, x0: f64) -> Result<RootReport<f64>, SolveError> {
     let s: Newton = Newton::default();
     s.solve(f, x0)
 }
 
-fn nsystem<F: VectorFn<2, 2>>(f: &F, x0: &[f64; 2]) -> Result<RootReportN<2>, CalcError> {
+fn nsystem<F: VectorFn<2, 2>>(f: &F, x0: &[f64; 2]) -> Result<RootReportN<2>, SolveError> {
     let s: NewtonSystem = NewtonSystem::default();
     s.solve(f, x0)
 }
@@ -89,7 +89,7 @@ fn bisection_invalid_bracket() {
     let f = scalar_fn!(|x| c(-2.0) + x * x);
     assert!(matches!(
         bisect(&f, 2.0_f64, 3.0),
-        Err(CalcError::InvalidBracket)
+        Err(SolveError::InvalidBracket)
     ));
 }
 
@@ -99,7 +99,7 @@ fn bisection_non_finite() {
     let f = scalar_fn!(|x| c(1.0) / x);
     assert!(matches!(
         bisect(&f, -1.0_f64, 1.0),
-        Err(CalcError::NonFiniteValue)
+        Err(SolveError::NonFinite)
     ));
 }
 
@@ -109,7 +109,7 @@ fn bisection_budget_exhausted() {
     let result = Bisection::default()
         .with_max_iterations(2)
         .solve(&f, 0.0_f64, 2.0);
-    assert!(matches!(result, Err(CalcError::DidNotConverge)));
+    assert!(matches!(result, Err(SolveError::DidNotConverge { .. })));
 }
 
 #[test]
@@ -167,7 +167,7 @@ fn newton_vanishing_derivative() {
     let f = scalar_fn!(|x| c(-2.0) + x * x);
     assert!(matches!(
         newton(&f, 0.0_f64),
-        Err(CalcError::SingularMatrix)
+        Err(SolveError::Linalg(LinalgError::Singular))
     ));
 }
 
@@ -178,7 +178,7 @@ fn newton_budget_exhausted() {
     // One step from x0=2 is not enough to satisfy either tolerance.
     assert!(matches!(
         s.solve(&f, 2.0_f64),
-        Err(CalcError::DidNotConverge)
+        Err(SolveError::DidNotConverge { .. })
     ));
 }
 
@@ -250,7 +250,7 @@ fn newton_system_singular_jacobian() {
     ]);
     assert!(matches!(
         nsystem(&f, &[0.0_f64, 0.0]),
-        Err(CalcError::SingularMatrix)
+        Err(SolveError::Linalg(LinalgError::Singular))
     ));
 }
 
@@ -260,7 +260,7 @@ fn newton_system_non_finite() {
     let f = scalar_fn_vec!(|v: &[f64; 2]| [c(1.0) / v[0], v[1]]);
     assert!(matches!(
         nsystem(&f, &[0.0_f64, 0.0]),
-        Err(CalcError::NonFiniteValue)
+        Err(SolveError::NonFinite)
     ));
 }
 
@@ -269,7 +269,7 @@ fn newton_system_budget_exhausted() {
     let s: NewtonSystem = NewtonSystem::default().with_max_iterations(1);
     assert!(matches!(
         s.solve(&CircleHyperbola, &[1.5_f64, 0.8]),
-        Err(CalcError::DidNotConverge)
+        Err(SolveError::DidNotConverge { .. })
     ));
 }
 

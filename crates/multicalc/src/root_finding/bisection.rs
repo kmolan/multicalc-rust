@@ -1,8 +1,8 @@
 //! Bracketed scalar bisection solver.
 
 use crate::root_finding::{RootReport, RootTermination, same_sign};
-use crate::scalar::{Numeric, ScalarFn};
-use crate::utils::error_codes::CalcError;
+use crate::error::SolveError;
+use crate::scalar::{Numeric, Primal, ScalarFn};
 
 /// A bracketed scalar root solver using bisection.
 ///
@@ -66,15 +66,18 @@ impl<T: Numeric> Bisection<T> {
     /// Finds a root of `f` in the bracket `[a, b]`.
     ///
     /// Returns the root estimate and termination reason, or an error:
-    /// [`NonFiniteValue`](CalcError::NonFiniteValue) if `f` returns a non-finite value,
-    /// [`InvalidBracket`](CalcError::InvalidBracket) if `f(a)` and `f(b)` share a sign, or
-    /// [`DidNotConverge`](CalcError::DidNotConverge) if the budget is exhausted.
-    pub fn solve<F: ScalarFn>(&self, f: &F, a: T, b: T) -> Result<RootReport<T>, CalcError> {
+    /// [`NonFinite`](SolveError::NonFinite) if `f` returns a non-finite value,
+    /// [`InvalidBracket`](SolveError::InvalidBracket) if `f(a)` and `f(b)` share a sign, or
+    /// [`DidNotConverge`](SolveError::DidNotConverge) if the budget is exhausted.
+    pub fn solve<F: ScalarFn>(&self, f: &F, a: T, b: T) -> Result<RootReport<T>, SolveError>
+    where
+        T: Primal,
+    {
         let fa = f.eval(a);
         let fb = f.eval(b);
 
         if !fa.is_finite() || !fb.is_finite() {
-            return Err(CalcError::NonFiniteValue);
+            return Err(SolveError::NonFinite);
         }
         if fa == T::ZERO {
             return Ok(RootReport {
@@ -93,19 +96,21 @@ impl<T: Numeric> Bisection<T> {
             });
         }
         if same_sign(fa, fb) {
-            return Err(CalcError::InvalidBracket);
+            return Err(SolveError::InvalidBracket);
         }
 
         // Order so lo < hi numerically; the midpoint formula lo + (hi - lo)/2 then
         // always lands strictly inside the interval.
         let (mut lo, mut flo, mut hi) = if a <= b { (a, fa, b) } else { (b, fb, a) };
+        let mut last_residual = fa;
 
         for iter in 1..=self.max_iterations {
             let mid = lo + (hi - lo) * T::HALF;
             let fmid = f.eval(mid);
             if !fmid.is_finite() {
-                return Err(CalcError::NonFiniteValue);
+                return Err(SolveError::NonFinite);
             }
+            last_residual = fmid;
             if fmid.abs() <= self.ftol {
                 return Ok(RootReport {
                     root: mid,
@@ -132,6 +137,9 @@ impl<T: Numeric> Bisection<T> {
             }
         }
 
-        Err(CalcError::DidNotConverge)
+        Err(SolveError::DidNotConverge {
+            iters: self.max_iterations,
+            residual: last_residual.abs().to_f64(),
+        })
     }
 }

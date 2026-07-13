@@ -6,8 +6,8 @@ use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::numerical_derivative::jacobian::Jacobian;
 use crate::optimization::{MinimizationReport, TerminationReason, is_finite, report};
-use crate::scalar::{Numeric, VectorFn};
-use crate::utils::error_codes::CalcError;
+use crate::error::SolveError;
+use crate::scalar::{Numeric, Primal, VectorFn};
 
 /// Maximum step halvings per iteration when backtracking is enabled.
 const MAX_BACKTRACK: usize = 20;
@@ -104,17 +104,19 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
 
     /// Minimizes `‖f(x)‖²` starting from `x0`.
     ///
-    /// Errors: [`NonFiniteValue`](CalcError::NonFiniteValue) on a non-finite residual or Jacobian,
-    /// [`Underdetermined`](CalcError::Underdetermined) if there are fewer residuals than parameters,
-    /// [`SingularMatrix`](CalcError::SingularMatrix) if a step hits a rank-deficient Jacobian, or
-    /// [`DidNotConverge`](CalcError::DidNotConverge) if the budget runs out.
+    /// Errors: [`NonFinite`](SolveError::NonFinite) on a non-finite residual or Jacobian,
+    /// [`Linalg`](SolveError::Linalg) wrapping [`Underdetermined`](crate::error::LinalgError::Underdetermined)
+    /// if there are fewer residuals than parameters, [`Linalg`](SolveError::Linalg) wrapping
+    /// [`Singular`](crate::error::LinalgError::Singular) if a step hits a rank-deficient Jacobian, or
+    /// [`DidNotConverge`](SolveError::DidNotConverge) if the budget runs out.
     pub fn minimize<F, const N: usize, const M: usize>(
         &self,
         f: &F,
         x0: &[D::Scalar; N],
-    ) -> Result<MinimizationReport<N, D::Scalar>, CalcError>
+    ) -> Result<MinimizationReport<N, D::Scalar>, SolveError>
     where
         D: Clone,
+        D::Scalar: Primal,
         F: VectorFn<N, M>,
     {
         let zero = D::Scalar::ZERO;
@@ -125,7 +127,7 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
         let mut x = *x0;
         let mut residuals = f.eval(&x);
         if !is_finite(&residuals) {
-            return Err(CalcError::NonFiniteValue);
+            return Err(SolveError::NonFinite);
         }
         let mut fnorm = enorm(&residuals);
         let mut evaluations = 1usize;
@@ -133,7 +135,7 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
         for _ in 0..self.patience {
             let jac = jacobian.get(f, &x)?;
             if !jac.iter().all(is_finite) {
-                return Err(CalcError::NonFiniteValue);
+                return Err(SolveError::NonFinite);
             }
             let j: Matrix<M, N, D::Scalar> = Matrix::from_fn(|r, c| jac[r][c]);
             let qr = PivotedQr::decompose(j)?;
@@ -175,13 +177,13 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
 
                 if !self.backtracking {
                     if !finite {
-                        return Err(CalcError::NonFiniteValue);
+                        return Err(SolveError::NonFinite);
                     }
                     break (candidate, trial, candidate_fnorm);
                 }
                 if (finite && candidate_fnorm < fnorm) || tries >= MAX_BACKTRACK {
                     if !finite {
-                        return Err(CalcError::NonFiniteValue);
+                        return Err(SolveError::NonFinite);
                     }
                     break (candidate, trial, candidate_fnorm);
                 }
@@ -205,6 +207,9 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
             }
         }
 
-        Err(CalcError::DidNotConverge)
+        Err(SolveError::DidNotConverge {
+            iters: evaluations,
+            residual: fnorm.to_f64(),
+        })
     }
 }
