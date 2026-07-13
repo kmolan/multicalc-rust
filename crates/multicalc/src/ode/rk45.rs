@@ -373,7 +373,8 @@ impl<T: Numeric> Rk45<T> {
     ///
     /// # Errors
     /// [`IntegrationLimitsIllDefined`](CalcError::IntegrationLimitsIllDefined) if `times.len() !=
-    /// out.len()` or a time is out of range / out of order; otherwise as [`for_each_step`].
+    /// out.len()` or a time is out of range / out of order; otherwise as
+    /// [`for_each_step`](Rk45::for_each_step).
     ///
     /// ```
     /// use multicalc::ode::Rk45;
