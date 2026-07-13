@@ -681,13 +681,10 @@ fn proptest_booles_integration_f64() {
 }
 
 fn gauss_coeffs() -> impl Strategy<Value = (usize, Vec<f64>)> {
-    (0..10usize).prop_flat_map(|n| (Just(n), polynomial_coeffs(2 * n - 1)))
+    (1..10usize).prop_flat_map(|n| (Just(n), polynomial_coeffs(2 * n - 1)))
 }
 
-fn gauss_integration_proptest(
-    degree: usize,
-    integrator: impl IntegratorSingleVariable<Scalar = f64>,
-) {
+fn gauss_integration_proptest(quadrature: GaussianQuadratureMethod) {
     proptest!(|(
         limit in integration_limit(),
         (n, coeffs) in gauss_coeffs(),
@@ -697,21 +694,27 @@ fn gauss_integration_proptest(
         let closed_form = closed_form_from_coeffs(&coeffs, limit);
         let scaled_tol = tolerance_from_coeffs(&coeffs, limit);
 
+        let integrator = gaussian_integration::GaussianSingle::<f64>::from_parameters(
+        n,
+        quadrature,
+        );
+
         let val = integrator.get_single(&func, &limit).unwrap();
         prop_assert!(f64::abs(val - closed_form) < scaled_tol);
     });
 }
 
-proptest! {
-    #[test]
-    fn proptest_gauss_legendre_integration_f64(
-        n in 1..=10usize
-    ) {
-        let degree = 2 * n - 1;
-        let integrator = gaussian_integration::GaussianSingle::<f64>::from_parameters(
-        n,
-        GaussianQuadratureMethod::GaussLegendre,
-        );
-        gauss_integration_proptest(degree, integrator);
-    }
+#[test]
+fn proptest_gauss_legendre_integration_f64() {
+    gauss_integration_proptest(GaussianQuadratureMethod::GaussLegendre);
+}
+
+#[test]
+fn proptest_gauss_hermite_integration_f64() {
+    gauss_integration_proptest(GaussianQuadratureMethod::GaussHermite);
+}
+
+#[test]
+fn proptest_gauss_laguerre_integration_f64() {
+    gauss_integration_proptest(GaussianQuadratureMethod::GaussLaguerre);
 }
