@@ -1,12 +1,12 @@
 //! The Gauss-Newton least-squares solver.
 
+use crate::error::SolveError;
 use crate::linear_algebra::qr::{PivotedQr, enorm, max};
 use crate::linear_algebra::{Matrix, Vector};
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::numerical_derivative::jacobian::Jacobian;
 use crate::optimization::{MinimizationReport, TerminationReason, is_finite, report};
-use crate::error::SolveError;
 use crate::scalar::{Numeric, Primal, VectorFn};
 
 /// Maximum step halvings per iteration when backtracking is enabled.

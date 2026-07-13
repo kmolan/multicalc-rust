@@ -1,9 +1,9 @@
+use crate::error::DiffError;
 use crate::linear_algebra::Matrix;
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::VectorFn;
 use crate::scalar::function::Component;
-use crate::error::DiffError;
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;

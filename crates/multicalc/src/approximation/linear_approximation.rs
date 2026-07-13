@@ -1,8 +1,8 @@
+use crate::error::DiffError;
 use crate::linear_algebra::Vector;
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
-use crate::error::DiffError;
 
 /// A first-order (linear) Taylor approximation of a function about a base point:
 /// `f(x) ≈ value + Σ gradient[i] * (x[i] - point[i])`.

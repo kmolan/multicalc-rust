@@ -1,7 +1,7 @@
+use crate::error::DiffError;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::function::Component;
 use crate::scalar::{Numeric, VectorFn};
-use crate::error::DiffError;
 
 /// Computes the curl of a 3D vector field at a point.
 ///

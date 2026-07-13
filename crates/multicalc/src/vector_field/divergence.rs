@@ -1,7 +1,7 @@
+use crate::error::DiffError;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::VectorFn;
 use crate::scalar::function::Component;
-use crate::error::DiffError;
 
 /// Computes the divergence of a 3D vector field at a point.
 ///

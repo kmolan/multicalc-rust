@@ -160,7 +160,9 @@ impl core::fmt::Display for IntegrateError {
             IntegrateError::DidNotConverge { steps } => {
                 write!(f, "integrator did not converge within {steps} steps")
             }
-            IntegrateError::NonFinite => f.write_str("integrand or state contained a non-finite value"),
+            IntegrateError::NonFinite => {
+                f.write_str("integrand or state contained a non-finite value")
+            }
         }
     }
 }
@@ -169,10 +171,17 @@ impl core::fmt::Display for SolveError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             SolveError::DidNotConverge { iters, residual } => {
-                write!(f, "solver did not converge after {iters} iterations (residual {residual})")
+                write!(
+                    f,
+                    "solver did not converge after {iters} iterations (residual {residual})"
+                )
             }
-            SolveError::NonFinite => f.write_str("residual or Jacobian contained a non-finite value"),
-            SolveError::InvalidBracket => f.write_str("bracket endpoints must enclose a sign change"),
+            SolveError::NonFinite => {
+                f.write_str("residual or Jacobian contained a non-finite value")
+            }
+            SolveError::InvalidBracket => {
+                f.write_str("bracket endpoints must enclose a sign change")
+            }
             SolveError::Linalg(e) => write!(f, "{e}"),
             SolveError::Diff(e) => write!(f, "{e}"),
         }

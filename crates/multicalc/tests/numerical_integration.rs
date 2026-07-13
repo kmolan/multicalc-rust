@@ -2,10 +2,10 @@
 
 use multicalc::numerical_integration::mode::*;
 
+use multicalc::error::IntegrateError;
 use multicalc::numerical_integration::gaussian_integration;
 use multicalc::numerical_integration::integrator::*;
 use multicalc::numerical_integration::iterative_integration;
-use multicalc::error::IntegrateError;
 
 #[test]
 fn test_booles_integration_1() {

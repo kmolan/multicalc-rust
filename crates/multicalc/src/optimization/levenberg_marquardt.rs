@@ -1,5 +1,6 @@
 //! The Levenberg-Marquardt least-squares solver (MINPACK `lmder` driver).
 
+use crate::error::SolveError;
 use crate::linear_algebra::qr::{PivotedQr, enorm, max, min};
 use crate::linear_algebra::{Matrix, Vector};
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
@@ -7,7 +8,6 @@ use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::numerical_derivative::jacobian::Jacobian;
 use crate::optimization::trust_region::determine_lambda_and_parameter_update;
 use crate::optimization::{MinimizationReport, TerminationReason, is_finite, report};
-use crate::error::SolveError;
 use crate::scalar::{Numeric, Primal, VectorFn};
 
 /// Safety cap on the trust-region retries within one outer iteration; the `xtol` test ends the

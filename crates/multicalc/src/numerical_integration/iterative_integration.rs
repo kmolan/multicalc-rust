@@ -1,9 +1,9 @@
 use core::marker::PhantomData;
 
+use crate::error::IntegrateError;
 use crate::numerical_integration::integrator::*;
 use crate::numerical_integration::mode::IterativeMethod;
 use crate::scalar::Numeric;
-use crate::error::IntegrateError;
 use crate::utils::summation::PairwiseSum;
 
 /// Default interval count. A multiple of 12 so Boole (needs a multiple of 4) and

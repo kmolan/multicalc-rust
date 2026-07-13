@@ -6,9 +6,9 @@
 
 use core::marker::PhantomData;
 
+use crate::error::DiffError;
 use crate::numerical_derivative::derivator::{DerivatorMultiVariable, DerivatorSingleVariable};
 use crate::scalar::{Dual, HyperDual, Jet, Numeric, ScalarFn, ScalarFnN};
-use crate::error::DiffError;
 
 /// Highest single-variable derivative order an [`AutoDiffSingle`] supports through its [`Jet`].
 const MAX_ORDER: usize = 6;

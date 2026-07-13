@@ -4,9 +4,9 @@
 //! algorithm on this crate's own [`Vector`] and [`Matrix`] types; results are checked against
 //! numpy/LAPACK reference values.
 
+use crate::error::LinalgError;
 use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
-use crate::error::LinalgError;
 
 /// A Cholesky factorization `A = L·Lᵀ`, as produced by [`Matrix::cholesky`].
 ///

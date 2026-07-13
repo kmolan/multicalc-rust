@@ -4,10 +4,10 @@
 //! error (roughly as the inverse of the step size raised to the order). For third
 //! derivatives and higher, tune `step_size` and `step_size_multiplier` per problem.
 
+use crate::error::DiffError;
 use crate::numerical_derivative::derivator::{DerivatorMultiVariable, DerivatorSingleVariable};
 use crate::numerical_derivative::mode::{self, FiniteDifferenceMode};
 use crate::scalar::{Numeric, ScalarFn, ScalarFnN};
-use crate::error::DiffError;
 
 /// Low and high sample offsets (in units of the step size) and the divisor factor
 /// for each finite-difference mode.

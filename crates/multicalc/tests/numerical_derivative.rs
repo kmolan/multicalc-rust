@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use multicalc::error::DiffError;
 use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::numerical_derivative::derivator::*;
 use multicalc::numerical_derivative::finite_difference::*;
@@ -7,7 +8,6 @@ use multicalc::numerical_derivative::hessian::Hessian;
 use multicalc::numerical_derivative::jacobian::Jacobian;
 use multicalc::numerical_derivative::mode::*;
 use multicalc::scalar::{Numeric, ScalarFn, ScalarFnN, VectorFn, c};
-use multicalc::error::DiffError;
 use multicalc::{scalar_fn, scalar_fn_vec};
 use proptest::prelude::*;
 

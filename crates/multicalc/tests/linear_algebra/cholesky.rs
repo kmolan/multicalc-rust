@@ -1,6 +1,6 @@
 use crate::helpers::{assert_close, assert_identity, cholesky_reconstructs};
-use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::error::LinalgError;
+use multicalc::linear_algebra::{Matrix, Vector};
 
 #[test]
 fn cholesky_reconstructs_spd() {

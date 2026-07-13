@@ -1,6 +1,6 @@
 use crate::helpers::{assert_close, assert_identity};
-use multicalc::linear_algebra::{Matrix, PivotedQr, Vector};
 use multicalc::error::LinalgError;
+use multicalc::linear_algebra::{Matrix, PivotedQr, Vector};
 
 // ----- column-pivoted QR (decompose, accessors, solve) -----
 

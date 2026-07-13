@@ -47,12 +47,18 @@ fn linalg_display_strings() {
 
 #[test]
 fn diff_display_strings() {
-    assert!(renders_as(DiffError::OrderZero, "derivative order cannot be zero"));
+    assert!(renders_as(
+        DiffError::OrderZero,
+        "derivative order cannot be zero"
+    ));
     assert!(renders_as(
         DiffError::OrderUnsupported,
         "derivative order is not supported"
     ));
-    assert!(renders_as(DiffError::StepSizeZero, "step size cannot be zero"));
+    assert!(renders_as(
+        DiffError::StepSizeZero,
+        "step size cannot be zero"
+    ));
     assert!(renders_as(
         DiffError::IndexOutOfRange,
         "variable index out of range"

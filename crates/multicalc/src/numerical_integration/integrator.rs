@@ -1,5 +1,5 @@
-use crate::scalar::Numeric;
 use crate::error::IntegrateError;
+use crate::scalar::Numeric;
 
 /// Classification of an integration interval, distinguishing finite domains from the
 /// three infinite/semi-infinite shapes that need a domain transform.

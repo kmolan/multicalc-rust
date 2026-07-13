@@ -1,7 +1,7 @@
 //! Bracketed scalar bisection solver.
 
-use crate::root_finding::{RootReport, RootTermination, same_sign};
 use crate::error::SolveError;
+use crate::root_finding::{RootReport, RootTermination, same_sign};
 use crate::scalar::{Numeric, Primal, ScalarFn};
 
 /// A bracketed scalar root solver using bisection.

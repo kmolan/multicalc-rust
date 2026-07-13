@@ -1,5 +1,5 @@
-use crate::scalar::{Numeric, ScalarFn, ScalarFnN};
 use crate::error::DiffError;
+use crate::scalar::{Numeric, ScalarFn, ScalarFnN};
 
 /// Base trait for single-variable differentiation.
 pub trait DerivatorSingleVariable {

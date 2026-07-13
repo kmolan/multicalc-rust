@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use multicalc::error::{LinalgError, SolveError};
 use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::numerical_derivative::finite_difference::FiniteDifferenceSingle;
 use multicalc::root_finding::{
@@ -8,7 +9,6 @@ use multicalc::root_finding::{
 use multicalc::scalar::{Numeric, ScalarFn, VectorFn, c};
 use multicalc::scalar_fn;
 use multicalc::scalar_fn_vec;
-use multicalc::error::{LinalgError, SolveError};
 
 fn bisect<F: ScalarFn>(f: &F, a: f64, b: f64) -> Result<RootReport<f64>, SolveError> {
     Bisection::default().solve(f, a, b)

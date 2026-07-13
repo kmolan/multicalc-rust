@@ -1,8 +1,8 @@
+use crate::error::DiffError;
 use crate::linear_algebra::{Matrix, Vector};
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
-use crate::error::DiffError;
 
 /// A second-order (quadratic) Taylor approximation of a function about a base point:
 /// `f(x) ≈ value + Σ gradient[i]·dx[i] + ½ Σ_i Σ_j hessian[i][j]·dx[i]·dx[j]`,

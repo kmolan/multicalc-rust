@@ -1,6 +1,6 @@
+use multicalc::error::IntegrateError;
 use multicalc::linear_algebra::Vector;
 use multicalc::ode::{Rk45, Step};
-use multicalc::error::IntegrateError;
 use proptest::prelude::*;
 
 // No AD-through-RK45 test: adaptive step control is not cleanly differentiable, since
@@ -94,7 +94,10 @@ fn max_steps_budget_errors() {
     let res = Rk45::default()
         .with_max_steps(1)
         .solve(&decay, 0.0, &Vector::new([1.0]), 100.0);
-    assert!(matches!(res.unwrap_err(), IntegrateError::DidNotConverge { .. }));
+    assert!(matches!(
+        res.unwrap_err(),
+        IntegrateError::DidNotConverge { .. }
+    ));
 }
 
 #[test]

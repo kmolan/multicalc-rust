@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use multicalc::error::{LinalgError, SolveError};
 use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
 use multicalc::numerical_derivative::jacobian::Jacobian;
@@ -8,7 +9,6 @@ use multicalc::optimization::{
 };
 use multicalc::scalar::{Numeric, VectorFn, c};
 use multicalc::scalar_fn_vec;
-use multicalc::error::{LinalgError, SolveError};
 
 // ----- Levenberg-Marquardt solver -----
 
@@ -75,7 +75,10 @@ fn lm_rejects_underdetermined() {
     // Two residuals, three parameters.
     let f = scalar_fn_vec!(|v: &[f64; 3]| [c(-1.0) + v[0] + v[1], c(-2.0) + v[2]]);
     let result = LevenbergMarquardt::<AutoDiffMulti>::default().minimize(&f, &[0.0, 0.0, 0.0]);
-    assert!(matches!(result, Err(SolveError::Linalg(LinalgError::Underdetermined))));
+    assert!(matches!(
+        result,
+        Err(SolveError::Linalg(LinalgError::Underdetermined))
+    ));
 }
 
 #[test]
@@ -219,14 +222,20 @@ fn gn_reports_singular() {
         c(-2.0) + c(2.0) * v[0] - c(2.0) * v[1],
     ]);
     let result = GaussNewton::<AutoDiffMulti>::default().minimize(&f, &[0.0, 0.0]);
-    assert!(matches!(result, Err(SolveError::Linalg(LinalgError::Singular))));
+    assert!(matches!(
+        result,
+        Err(SolveError::Linalg(LinalgError::Singular))
+    ));
 }
 
 #[test]
 fn gn_rejects_underdetermined() {
     let f = scalar_fn_vec!(|v: &[f64; 3]| [c(-1.0) + v[0] + v[1], c(-2.0) + v[2]]);
     let result = GaussNewton::<AutoDiffMulti>::default().minimize(&f, &[0.0, 0.0, 0.0]);
-    assert!(matches!(result, Err(SolveError::Linalg(LinalgError::Underdetermined))));
+    assert!(matches!(
+        result,
+        Err(SolveError::Linalg(LinalgError::Underdetermined))
+    ));
 }
 
 #[test]

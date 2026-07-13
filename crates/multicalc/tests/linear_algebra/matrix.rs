@@ -1,6 +1,6 @@
 use crate::helpers::{assert_close, assert_identity};
-use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::error::LinalgError;
+use multicalc::linear_algebra::{Matrix, Vector};
 
 // ----- matrix arithmetic, multiply, transpose -----
 

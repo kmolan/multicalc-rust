@@ -1,10 +1,10 @@
 use core::marker::PhantomData;
 
+use crate::error::IntegrateError;
 use crate::gaussian_tables::nodes;
 use crate::numerical_integration::integrator::{IntegratorMultiVariable, IntegratorSingleVariable};
 use crate::numerical_integration::mode::GaussianQuadratureMethod;
 use crate::scalar::Numeric;
-use crate::error::IntegrateError;
 
 /// Default quadrature order (number of nodes).
 pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;

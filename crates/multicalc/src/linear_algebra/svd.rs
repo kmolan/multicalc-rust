@@ -4,9 +4,9 @@
 //! relative accuracy — a fixed-size `no_std` implementation on this crate's own
 //! [`Vector`] and [`Matrix`] types. Reference values for the tests come from numpy/LAPACK.
 
+use crate::error::LinalgError;
 use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
-use crate::error::LinalgError;
 
 /// A thin singular value decomposition `A = U · diag(σ) · Vᵀ` for a matrix with `M ≥ N`.
 ///

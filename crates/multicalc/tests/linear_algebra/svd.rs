@@ -1,8 +1,8 @@
 use crate::helpers::{
     assert_close, assert_identity, svd_moore_penrose, svd_moore_penrose_f32, svd_reconstructs,
 };
-use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::error::LinalgError;
+use multicalc::linear_algebra::{Matrix, Vector};
 
 #[test]
 fn svd_reconstructs_various() {

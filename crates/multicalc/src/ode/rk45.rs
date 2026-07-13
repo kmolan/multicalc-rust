@@ -1,9 +1,9 @@
 //! Adaptive Dormand–Prince 5(4) with PI step control and cubic-Hermite dense output.
 
+use crate::error::IntegrateError;
 use crate::linear_algebra::Vector;
 use crate::ode::tableau::*;
 use crate::scalar::Numeric;
-use crate::error::IntegrateError;
 
 /// One accepted RK45 step, carrying the data for cubic-Hermite interpolation inside `[t0, t1]`.
 #[derive(Debug, Clone, Copy)]

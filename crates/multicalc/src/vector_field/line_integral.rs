@@ -1,6 +1,6 @@
+use crate::error::IntegrateError;
 use crate::numerical_integration::iterative_integration::DEFAULT_TOTAL_ITERATIONS;
 use crate::scalar::Numeric;
-use crate::error::IntegrateError;
 
 /// Builds the curve position [transformations[0](t), ..., transformations[N-1](t)].
 fn curve_point<T: Numeric, const N: usize>(transformations: &[&dyn Fn(T) -> T; N], t: T) -> [T; N] {

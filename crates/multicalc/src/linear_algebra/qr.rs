@@ -4,9 +4,9 @@
 //! Garbow, Hillstrom; public domain, netlib) — a clean-room, fixed-size `no_std` reimplementation
 //! on this crate's own [`Vector`] and [`Matrix`] types.
 
+use crate::error::LinalgError;
 use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
-use crate::error::LinalgError;
 
 /// Euclidean norm of `v`, computed so it neither overflows on large components nor
 /// underflows on small ones.

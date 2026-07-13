@@ -1,8 +1,8 @@
+use crate::error::DiffError;
 use crate::linear_algebra::Matrix;
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
-use crate::error::DiffError;
 
 /// Computes the Hessian matrix of a scalar multi-variable function. The differentiation backend
 /// defaults to autodiff ([`AutoDiffMulti`]); pass a finite-difference derivator explicitly to use

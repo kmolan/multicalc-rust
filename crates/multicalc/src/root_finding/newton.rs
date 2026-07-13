@@ -1,9 +1,9 @@
 //! Scalar Newton and damped Newton solvers.
 
+use crate::error::{LinalgError, SolveError};
 use crate::numerical_derivative::autodiff::AutoDiffSingle;
 use crate::numerical_derivative::derivator::DerivatorSingleVariable;
 use crate::root_finding::{RootReport, RootTermination};
-use crate::error::{LinalgError, SolveError};
 use crate::scalar::{Numeric, Primal, ScalarFn};
 
 /// Maximum step halvings per iteration when backtracking is enabled.

@@ -1,12 +1,12 @@
 //! Newton and damped Newton solvers for square systems.
 
+use crate::error::SolveError;
 use crate::linear_algebra::qr::enorm;
 use crate::linear_algebra::{Matrix, Vector};
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::numerical_derivative::jacobian::Jacobian;
 use crate::root_finding::{RootReportN, RootTermination, all_finite};
-use crate::error::SolveError;
 use crate::scalar::{Numeric, Primal, VectorFn};
 
 /// Maximum step halvings per iteration when backtracking is enabled.

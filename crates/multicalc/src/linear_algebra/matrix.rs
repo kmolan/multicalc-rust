@@ -2,9 +2,9 @@
 
 use core::ops::{Add, AddAssign, Index, IndexMut, Mul, Neg, Sub, SubAssign};
 
+use crate::error::LinalgError;
 use crate::linear_algebra::Vector;
 use crate::scalar::Numeric;
-use crate::error::LinalgError;
 
 /// A `ROWS`×`COLS` matrix stored inline on the stack in row-major order.
 ///

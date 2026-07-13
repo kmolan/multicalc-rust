@@ -7,12 +7,12 @@
 //! QEMU exit.
 
 use multicalc::LevenbergMarquardt;
+use multicalc::error::LinalgError;
 use multicalc::linear_algebra::Matrix;
 use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::numerical_derivative::derivator::DerivatorSingleVariable;
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc::scalar_fn;
-use multicalc::error::LinalgError;
 
 use crate::fixtures;
 
