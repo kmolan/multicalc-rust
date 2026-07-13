@@ -592,3 +592,27 @@ fn test_gauss_legendre_integration_f32() {
     let val = integrator.get_single(&func, &[0.0, 2.0]).unwrap();
     assert!(f32::abs(val - 8.0) < 1e-2, "got {val}");
 }
+
+#[test]
+fn kahan_integration_beats_naive_on_long_sum() {
+    let func = |x: f64| -> f64 { 1.0 / (1.0 + x * x) };
+    let exact = core::f64::consts::PI / 4.0;
+    let iterations: u64 = 1 << 23;
+
+    let integrator = iterative_integration::IterativeSingle::from_parameters(
+        iterations,
+        IterativeMethod::Trapezoidal,
+    )
+    .with_kahan_summation();
+
+    let kahan = integrator.get_single(&func, &[0.0, 1.0]).unwrap();
+    let naive = naive_trapezoidal(iterations, 0.0, 1.0, func);
+
+    let kahan_err = f64::abs(kahan - exact);
+    let naive_err = f64::abs(naive - exact);
+    assert!(kahan_err < 1e-12, "kahan error {kahan_err:e} too large");
+    assert!(
+        kahan_err < naive_err,
+        "kahan ({kahan_err:e}) should be closer than naive ({naive_err:e})"
+    );
+}

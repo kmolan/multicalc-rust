@@ -3,6 +3,7 @@ use crate::linear_algebra::Vector;
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
+use crate::utils::summation::SummationMethod;
 
 /// A first-order (linear) Taylor approximation of a function about a base point:
 /// `f(x) ≈ value + Σ gradient[i] * (x[i] - point[i])`.
@@ -11,6 +12,7 @@ pub struct LinearApproximation<const NUM_VARS: usize, T = f64> {
     point: [T; NUM_VARS],
     value: T,
     gradient: [T; NUM_VARS],
+    summation: SummationMethod,
 }
 
 /// Goodness-of-fit metrics for a [`LinearApproximation`] over a set of sample points.
@@ -58,6 +60,10 @@ impl<const NUM_VARS: usize, T: Numeric> LinearApproximation<NUM_VARS, T> {
 
     /// Computes goodness-of-fit metrics against `original_function` over `points`.
     ///
+    /// Uses the summation method chosen when the approximator was built
+    /// (pairwise by default; Kahan if [`LinearApproximator::with_kahan_summation`]
+    /// was used).
+    ///
     /// `r_squared` is `NaN` when the truth is constant over `points`;
     /// `adjusted_r_squared` is `NaN` when there are too few points.
     pub fn get_prediction_metrics<O: ScalarFnN<NUM_VARS>, const NUM_POINTS: usize>(
@@ -70,6 +76,7 @@ impl<const NUM_VARS: usize, T: Numeric> LinearApproximation<NUM_VARS, T> {
             points,
             &|x: &[T; NUM_VARS]| original_function.eval(x),
             NUM_VARS, // p = N linear coefficients
+            self.summation,
         );
 
         LinearApproximationPredictionMetrics {
@@ -86,12 +93,14 @@ impl<const NUM_VARS: usize, T: Numeric> LinearApproximation<NUM_VARS, T> {
 /// ([`AutoDiffMulti`]); pass a finite-difference derivator explicitly to use that instead.
 pub struct LinearApproximator<D: DerivatorMultiVariable = AutoDiffMulti> {
     derivator: D,
+    summation: SummationMethod,
 }
 
 impl<D: DerivatorMultiVariable + Default> Default for LinearApproximator<D> {
     fn default() -> Self {
         LinearApproximator {
             derivator: D::default(),
+            summation: SummationMethod::Pairwise,
         }
     }
 }
@@ -99,7 +108,19 @@ impl<D: DerivatorMultiVariable + Default> Default for LinearApproximator<D> {
 impl<D: DerivatorMultiVariable> LinearApproximator<D> {
     /// Builds an approximator from an explicit derivator.
     pub fn from_derivator(derivator: D) -> Self {
-        LinearApproximator { derivator }
+        LinearApproximator {
+            derivator,
+            summation: SummationMethod::Pairwise,
+        }
+    }
+
+    /// Opt in to Kahan compensated summation for prediction metrics.
+    ///
+    /// Pairwise summation remains the default. Call this before [`Self::get`] so the
+    /// resulting [`LinearApproximation`] accumulates metrics with Kahan.
+    pub fn with_kahan_summation(mut self) -> Self {
+        self.summation = SummationMethod::Kahan;
+        self
     }
 
     /// Builds a linear (first-order Taylor) approximation of `function` about `point`.
@@ -139,6 +160,7 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D> {
             point: *point,
             value,
             gradient,
+            summation: self.summation,
         })
     }
 }
