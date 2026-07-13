@@ -684,14 +684,25 @@ fn gauss_coeffs() -> impl Strategy<Value = (usize, Vec<f64>)> {
     (1..10usize).prop_flat_map(|n| (Just(n), polynomial_coeffs(2 * n - 1)))
 }
 
-fn gauss_integration_proptest(quadrature: GaussianQuadratureMethod) {
+fn gauss_closed_form(quadrature: GaussianQuadratureMethod, coefficients: &[f64], interval: [f64;2]) -> f64 {
+    match quadrature {
+        GaussianQuadratureMethod::GaussLegendre => closed_form_from_coeffs(coefficients, interval),
+        GaussianQuadratureMethod::GaussHermite => todo!(),
+        GaussianQuadratureMethod::GaussLaguerre => todo!(),
+        }
+}
+
+fn gauss_integration_proptest(
+    quadrature: GaussianQuadratureMethod,
+    limit_strat: impl Strategy<Value = [f64; 2]>,
+) {
     proptest!(|(
-        limit in integration_limit(),
+        limit in limit_strat,
         (n, coeffs) in gauss_coeffs(),
         )| {
 
         let func = func_from_coeffs(&coeffs);
-        let closed_form = closed_form_from_coeffs(&coeffs, limit);
+        let closed_form = gauss_closed_form(quadrature, &coeffs, limit);
         let scaled_tol = tolerance_from_coeffs(&coeffs, limit);
 
         let integrator = gaussian_integration::GaussianSingle::<f64>::from_parameters(
@@ -706,15 +717,15 @@ fn gauss_integration_proptest(quadrature: GaussianQuadratureMethod) {
 
 #[test]
 fn proptest_gauss_legendre_integration_f64() {
-    gauss_integration_proptest(GaussianQuadratureMethod::GaussLegendre);
-}
-
-#[test]
-fn proptest_gauss_hermite_integration_f64() {
-    gauss_integration_proptest(GaussianQuadratureMethod::GaussHermite);
+    gauss_integration_proptest(GaussianQuadratureMethod::GaussLegendre, integration_limit());
 }
 
 #[test]
 fn proptest_gauss_laguerre_integration_f64() {
-    gauss_integration_proptest(GaussianQuadratureMethod::GaussLaguerre);
+    gauss_integration_proptest(GaussianQuadratureMethod::GaussLaguerre, Just([0.0, f64::INFINITY]));
+}
+
+#[test]
+fn proptest_gauss_hermite_integration_f64() {
+    gauss_integration_proptest(GaussianQuadratureMethod::GaussHermite, Just([-f64::INFINITY, f64::INFINITY]));
 }
