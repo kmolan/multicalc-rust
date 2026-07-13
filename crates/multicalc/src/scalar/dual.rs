@@ -271,6 +271,35 @@ impl<T: Numeric> Numeric for Dual<T> {
         }
     }
 
+    /// Four-quadrant arctangent. With `y = self` and `x = other`, the derivative is
+    /// `(x·y′ − y·x′) / (x² + y²)`.
+    #[inline]
+    fn atan2(self, other: Self) -> Self {
+        let denom = self.value * self.value + other.value * other.value;
+        Dual {
+            value: self.value.atan2(other.value),
+            deriv: (other.value * self.deriv - self.value * other.deriv) / denom,
+        }
+    }
+    /// Magnitude of `self` with the sign of `sign`. The derivative follows `self`, flipping
+    /// sign when `self` and `sign` disagree; the sign argument carries no derivative.
+    #[inline]
+    fn copysign(self, sign: Self) -> Self {
+        let same = (self.value < T::ZERO) == (sign.value < T::ZERO);
+        Dual {
+            value: self.value.copysign(sign.value),
+            deriv: if same { self.deriv } else { -self.deriv },
+        }
+    }
+    /// Largest integer `<= self`. A step function, so the derivative is zero.
+    #[inline]
+    fn floor(self) -> Self {
+        Dual {
+            value: self.value.floor(),
+            deriv: T::ZERO,
+        }
+    }
+
     /// Reflects the value only; the derivative is not inspected.
     #[inline]
     fn is_nan(self) -> bool {

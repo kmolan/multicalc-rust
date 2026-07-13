@@ -32,6 +32,15 @@ pub use scalar::{ScalarFn, ScalarFnN, VectorFn};
 /// Fixed-size, stack-allocated vector and matrix types.
 pub use linear_algebra::{Matrix, Vector};
 
+/// Fixed-step RK4 and adaptive RK45 (Dormand–Prince) ODE integrators.
+pub use ode::{Rk4, Rk45};
+
+/// Quaternion
+pub use spatial::Quaternion;
+
+/// SO(2)/SE(2)/SO(3)/SE(3) Lie groups for 2D and 3D rotations and rigid-body transforms.
+pub use spatial::{SE2, SE3, SO2, SO3};
+
 /// The Levenberg-Marquardt and Gauss-Newton least-squares solvers and their result types.
 pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
 
@@ -43,8 +52,10 @@ pub mod gaussian_tables;
 pub mod linear_algebra;
 pub mod numerical_derivative;
 pub mod numerical_integration;
+pub mod ode;
 pub mod optimization;
 pub mod root_finding;
 pub mod scalar;
+pub mod spatial;
 pub mod utils;
 pub mod vector_field;

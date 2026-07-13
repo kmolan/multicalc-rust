@@ -54,6 +54,8 @@ core — every number measured live.*
   curve fitting.
 - **Root finding**: bracketed bisection and Newton solvers for scalar equations and square
   systems, with exact derivatives by default and an optional damped (backtracking) line search.
+- **ODE integrators**: fixed-step RK4 and adaptive RK45 (Dormand-Prince 5(4)) solvers for
+  `y' = f(t, y)` systems, with PI step control and cubic-Hermite dense output.
 
 ## Install
 
@@ -319,6 +321,42 @@ let a_pinv = a.pseudo_inverse().unwrap();
 let x = svd.solve(Vector::new([1.0, 2.0, 3.0]));
 ```
 
+### Rigid-body rotations and transforms
+
+`Quaternion` plus the `SO2`/`SE2`/`SO3`/`SE3` Lie groups cover 2D and 3D rotations and rigid-body
+transforms — compose, act on points, `exp`/`log`, `adjoint`, and geodesic interpolation, all generic
+over the scalar so autodiff flows straight through.
+
+```rust
+use multicalc::spatial::{SE3, SO3};
+use multicalc::linear_algebra::Vector;
+
+let r = SO3::<f64>::exp(Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2])); // 90° about z
+let g = SE3::from_parts(r, Vector::new([1.0, 2.0, 3.0]));
+let p = g.act(Vector::new([1.0, 0.0, 0.0]));   // rotate then translate → (1, 3, 3)
+let xi = g.log();                              // 6-vector twist [v; ω]
+```
+
+### ODE integrators
+
+`Rk4` (fixed-step) and `Rk45` (adaptive Dormand–Prince 5(4) with PI step control and cubic-Hermite
+dense output).
+
+```rust
+use multicalc::ode::{Rk4, Rk45};
+use multicalc::linear_algebra::Vector;
+
+// Harmonic oscillator y'' = -y as the first-order system [position, velocity].
+let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+let y0 = Vector::new([1.0, 0.0]);
+
+let y1 = Rk4::step(&f, 0.0, &y0, 0.1);                                  // one fixed step of size 0.1
+
+// Adaptive solve over one full period returns to the start [1, 0].
+let yf = Rk45::default().solve(&f, 0.0, &y0, core::f64::consts::TAU).unwrap();
+assert!((yf[0] - 1.0).abs() < 1e-6 && yf[1].abs() < 1e-6);
+```
+
 ## Error handling
 
 Where a sensible default exists, a "safe" wrapper (such as `get_single` or `get_double`) returns the
@@ -350,7 +388,7 @@ accuracy figures and measured latency.
 
 ## Contributing
 
-See [CONTRIBUTIONS.md](../../CONTRIBUTIONS.md).
+See [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Acknowledgements
 

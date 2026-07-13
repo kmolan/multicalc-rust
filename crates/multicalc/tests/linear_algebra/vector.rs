@@ -92,6 +92,15 @@ fn vector_dot_and_norm() {
     assert!(Vector::new([f64::INFINITY, 0.0]).norm().is_infinite());
 }
 
+#[test]
+fn vector_is_finite() {
+    assert!(Vector::new([1.0, -2.0, 3.0]).is_finite());
+    assert!(Vector::<0>::zeros().is_finite()); // vacuously true
+    assert!(!Vector::new([1.0, f64::NAN]).is_finite());
+    assert!(!Vector::new([f64::INFINITY, 0.0]).is_finite());
+    assert!(!Vector::new([0.0, f64::NEG_INFINITY]).is_finite());
+}
+
 // ----- cross products & scalar triple -----
 
 #[test]
