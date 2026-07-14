@@ -1,0 +1,52 @@
+[package]
+name = "multicalc-demos"
+version.workspace = true
+edition.workspace = true
+# Rerun requires Rust 1.92, above the workspace 1.85 floor, so this crate sets its own.
+rust-version = "1.92"
+license.workspace = true
+publish = false
+autoexamples = false
+
+[features]
+default = ["rerun"]
+rerun = ["dep:rerun"]
+
+[dependencies]
+multicalc = { path = "../crates/multicalc" }
+# Pinned to match the paired Rerun viewer version. Only the logging SDK is needed: `spawn()`
+# launches the external viewer on PATH, so the in-process `native_viewer` is not compiled in.
+rerun = { version = "=0.33.1", default-features = false, features = ["sdk"], optional = true }
+
+[lints]
+workspace = true
+
+[[example]]
+name = "curve_fit_live"
+path = "examples/showcase/curve_fit_live.rs"
+required-features = ["rerun"]
+
+[[example]]
+name = "curve_fit_record"
+path = "examples/showcase/curve_fit_record.rs"
+required-features = ["rerun"]
+
+[[example]]
+name = "fourier_ferris"
+path = "examples/showcase/fourier_ferris.rs"
+required-features = ["rerun"]
+
+[[example]]
+name = "gradient_marbles"
+path = "examples/showcase/gradient_marbles.rs"
+required-features = ["rerun"]
+
+[[example]]
+name = "ik_servo"
+path = "examples/showcase/ik_servo.rs"
+required-features = ["rerun"]
+
+[[example]]
+name = "newton_fractal"
+path = "examples/showcase/newton_fractal.rs"
+required-features = ["rerun"]

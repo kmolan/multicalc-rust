@@ -197,8 +197,8 @@ jobs:
             lcov.info
             target/llvm-cov/html
 
-  viz:
-    name: viz adapter (host-only, non-PR)
+  demos:
+    name: demos crate (host-only, non-PR)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -206,9 +206,15 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-      - name: Build (lib + examples)
-        run: cargo build -p multicalc-viz --examples
-      - name: Clippy
-        run: cargo clippy -p multicalc-viz --all-targets -- -D warnings
+      - name: Build (lib + examples, default features)
+        run: cargo build -p multicalc-demos --examples
+      - name: Check headless (no default features)
+        run: cargo check -p multicalc-demos --no-default-features
+      - name: Clippy (default features)
+        run: cargo clippy -p multicalc-demos --all-targets -- -D warnings
+      - name: Clippy (headless)
+        run: cargo clippy -p multicalc-demos --all-targets --no-default-features -- -D warnings
+      - name: No Rerun in the headless tree
+        run: "! cargo tree -p multicalc-demos --no-default-features -i rerun"
       - name: Headless record smoke test
-        run: cargo test -p multicalc-viz
+        run: cargo test -p multicalc-demos

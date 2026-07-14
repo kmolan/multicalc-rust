@@ -1,13 +1,14 @@
-//! Records a Levenberg-Marquardt curve fit (`y = a·e^(b·t)`) to a `.rrd` and a `.csv`.
+//! Streams a Levenberg-Marquardt curve fit (`y = a·e^(b·t)`) to a live Rerun viewer.
 //!
-//! Run with: cargo run -p multicalc-viz --example curve_fit_record
+//! Requires the `rerun` viewer (version 0.33.1) on PATH; see demos/README.md.
+//! Run with: cargo run -p multicalc-demos --example curve_fit_live
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use multicalc::LevenbergMarquardt;
 use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 use multicalc::scalar::{Numeric, VectorFn};
-use multicalc_viz::{CsvSink, RerunSink, VizError, VizSink};
+use multicalc_demos::{RerunSink, VizError, VizSink};
 
 const A_TRUE: f64 = 100.0;
 const B_TRUE: f64 = -0.5;
@@ -37,12 +38,9 @@ fn main() -> Result<(), VizError> {
     let (a, b) = (report.solution[0], report.solution[1]);
     let fit = |tt: f64| a * (b * tt).exp();
 
-    let dir = std::env::temp_dir();
-    let rrd = dir.join("curve_fit.rrd");
-    let csv = dir.join("curve_fit.csv");
+    // Spawns the viewer and streams data scatter, fitted curve, and residual series.
+    let mut rr = RerunSink::live("multicalc-demos/curve-fit")?;
 
-    // Rerun recording: data scatter, dense fitted curve, per-sample residual series.
-    let mut rr = RerunSink::record("multicalc-viz/curve-fit", &rrd)?;
     let data_pts: Vec<[f64; 2]> = (0..M).map(|i| [t[i], y[i]]).collect();
     rr.points2d("data", &data_pts)?;
 
@@ -62,22 +60,5 @@ fn main() -> Result<(), VizError> {
     }
     rr.scalar("objective", report.objective_function)?;
     rr.flush()?;
-    drop(rr);
-
-    // CSV for the plot.py fallback: sample, t, y_data, y_fit.
-    let mut cs = CsvSink::new(&csv)?;
-    for i in 0..M {
-        cs.set_sequence("sample", i as i64);
-        cs.scalar("t", t[i])?;
-        cs.scalar("y_data", y[i])?;
-        cs.scalar("y_fit", fit(t[i]))?;
-    }
-    cs.flush()?;
-
-    println!("wrote {} and {}", rrd.display(), csv.display());
-    println!(
-        "  open the .rrd in the rerun viewer, or: python showcase/viz/plot.py {} --x t",
-        csv.display()
-    );
     Ok(())
 }

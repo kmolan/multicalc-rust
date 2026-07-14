@@ -11,16 +11,16 @@
 //! lateness is measured too but shown only as a hud percentile (not a plot), since it is the OS,
 //! not the library. The headline is that math cost and its headroom under the 1 ms budget.
 //!
-//! Streams live to a Rerun viewer; see showcase/viz/README.md for the WSL setup.
-//! Run with: cargo run --release -p multicalc-viz --example gradient_marbles
+//! Streams live to a Rerun viewer; see demos/README.md for the WSL setup.
+//! Run with: cargo run --release -p multicalc-demos --example gradient_marbles
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 use multicalc::numerical_derivative::jacobian::Jacobian;
 use multicalc::scalar::{Numeric, VectorFn};
-use multicalc_viz::loop_util::{LatencyRing, Pacer, commas};
-use multicalc_viz::{RerunSink, Rgba, VizError, VizSink};
+use multicalc_demos::loop_util::{LatencyRing, Pacer, commas};
+use multicalc_demos::{RerunSink, Rgba, VizError, VizSink};
 use std::f64::consts::TAU;
 use std::time::Instant;
 
@@ -162,7 +162,7 @@ fn main() -> Result<(), VizError> {
     if cfg!(debug_assertions) {
         eprintln!(
             "WARNING: debug build — timing numbers are meaningless. \
-             Re-run with: cargo run --release -p multicalc-viz --example gradient_marbles"
+             Re-run with: cargo run --release -p multicalc-demos --example gradient_marbles"
         );
     }
 
@@ -187,7 +187,7 @@ fn main() -> Result<(), VizError> {
         .collect();
     respawn(&mut marbles, &mut rng);
 
-    let mut rr = RerunSink::live("multicalc-viz/gradient-marbles")?;
+    let mut rr = RerunSink::live("multicalc-demos/gradient-marbles")?;
     rr.set_sequence("tick", 0);
     rr.series_style(
         "plots/ad_vs_analytic",

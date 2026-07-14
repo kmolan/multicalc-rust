@@ -13,16 +13,16 @@
 //! *instantaneous* `plots/solves_per_sec` — the hud headline reports the robust median over recent
 //! frames instead, which is the library's real rate.
 //!
-//! Streams live to a Rerun viewer; see showcase/viz/README.md for the WSL setup.
-//! Run with: cargo run --release -p multicalc-viz --example newton_fractal
+//! Streams live to a Rerun viewer; see demos/README.md for the WSL setup.
+//! Run with: cargo run --release -p multicalc-demos --example newton_fractal
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 use multicalc::root_finding::NewtonSystem;
 use multicalc::scalar::{Numeric, VectorFn};
-use multicalc_viz::loop_util::{LatencyRing, commas};
-use multicalc_viz::{RerunSink, Rgba, VizError, VizSink};
+use multicalc_demos::loop_util::{LatencyRing, commas};
+use multicalc_demos::{RerunSink, Rgba, VizError, VizSink};
 use std::f64::consts::TAU;
 use std::time::Instant;
 
@@ -90,11 +90,11 @@ fn main() -> Result<(), VizError> {
     if cfg!(debug_assertions) {
         eprintln!(
             "WARNING: debug build — throughput numbers are meaningless. \
-             Re-run with: cargo run --release -p multicalc-viz --example newton_fractal"
+             Re-run with: cargo run --release -p multicalc-demos --example newton_fractal"
         );
     }
 
-    let mut rr = RerunSink::live("multicalc-viz/newton-fractal")?;
+    let mut rr = RerunSink::live("multicalc-demos/newton-fractal")?;
     rr.set_sequence("frame", 0);
     rr.series_style(
         "plots/solves_per_sec",

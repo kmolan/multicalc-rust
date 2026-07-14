@@ -11,16 +11,16 @@
 //! percentile (not a plot), since it is the OS, not the library. The headline is that math cost and
 //! its headroom under the 1 ms budget.
 //!
-//! Streams live to a Rerun viewer; see showcase/viz/README.md for the WSL setup.
-//! Run with: cargo run --release -p multicalc-viz --example fourier_ferris
+//! Streams live to a Rerun viewer; see demos/README.md for the WSL setup.
+//! Run with: cargo run --release -p multicalc-demos --example fourier_ferris
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
 use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
 use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
-use multicalc_viz::loop_util::{LatencyRing, Pacer, commas};
-use multicalc_viz::{RerunSink, Rgba, VizError, VizSink};
+use multicalc_demos::loop_util::{LatencyRing, Pacer, commas};
+use multicalc_demos::{RerunSink, Rgba, VizError, VizSink};
 use std::collections::VecDeque;
 use std::f64::consts::TAU;
 use std::time::Instant;
@@ -187,7 +187,7 @@ fn main() -> Result<(), VizError> {
     if cfg!(debug_assertions) {
         eprintln!(
             "WARNING: debug build — timing numbers are meaningless. \
-             Re-run with: cargo run --release -p multicalc-viz --example fourier_ferris"
+             Re-run with: cargo run --release -p multicalc-demos --example fourier_ferris"
         );
     }
 
@@ -202,7 +202,7 @@ fn main() -> Result<(), VizError> {
         commas(node_evals)
     );
 
-    let mut rr = RerunSink::live("multicalc-viz/fourier-ferris")?;
+    let mut rr = RerunSink::live("multicalc-demos/fourier-ferris")?;
     rr.set_sequence("tick", 0);
     rr.series_style(
         "plots/coeff_error",
