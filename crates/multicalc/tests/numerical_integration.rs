@@ -743,7 +743,7 @@ fn gauss_tolerance(quadrature: GaussianQuadratureMethod, coeffs: &[f64], limit: 
         .map(|(k, &c)| (c * moment_fn(k)).abs())
         .sum();
 
-    (term_sum_abs * 1e-9).max(1.0)
+    (term_sum_abs).max(1.0) * 1e-9
 }
 
 fn gauss_integration_proptest(
