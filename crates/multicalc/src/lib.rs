@@ -33,6 +33,9 @@ pub use scalar::{ScalarFn, ScalarFnN, VectorFn};
 /// Fixed-size, stack-allocated vector and matrix types.
 pub use linear_algebra::{Matrix, Vector};
 
+/// Zero-order-hold, Van Loan, and white-noise discretization of continuous-time linear systems.
+pub use discretization::{q_discrete_white_noise, van_loan, zoh};
+
 /// Fixed-step RK4 and adaptive RK45 (Dormand–Prince) ODE integrators.
 pub use ode::{Rk4, Rk45};
 
@@ -52,6 +55,7 @@ pub use root_finding::{Bisection, Newton, NewtonSystem, RootReport, RootReportN,
 pub use error::{CalcError, DiffError, IntegrateError, LinalgError, SolveError};
 
 pub mod approximation;
+pub mod discretization;
 pub mod error;
 pub mod gaussian_tables;
 pub mod linear_algebra;
