@@ -7,10 +7,10 @@ report wall-clock medians on the machine noted in [README.md](README.md).
 
 ## Accuracy
 
-Measured by the [`linear_algebra`](../examples/linear_algebra.rs) and [`svd`](../examples/svd.rs)
-stress-test examples on well- and ill-conditioned inputs. Unlike latency, these are deterministic
-numerical errors and reproduce on any machine. Reconstruction is the entrywise error of the
-factorization; the solve residual is $$\lVert Ax - b\rVert$$ for a known solution.
+Measured by the [`linear_algebra`](../../../demos) and [`svd`](../../../demos) stress-test demos
+on well- and ill-conditioned inputs. Unlike latency, these are deterministic numerical errors and
+reproduce on any machine. Reconstruction is the entrywise error of the factorization; the solve
+residual is $$\lVert Ax - b\rVert$$ for a known solution.
 
 ### LU and Cholesky (decompose + solve)
 

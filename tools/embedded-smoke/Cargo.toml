@@ -13,6 +13,7 @@ full-smoke = []
 
 [dependencies]
 multicalc = { path = "../../crates/multicalc", default-features = false }
+multicalc-testkit = { path = "../testkit" }
 cortex-m-rt = "0.7"
 cortex-m-semihosting = "0.5"
 # With the "exit" feature a panic prints its message and exits QEMU with a failure code.

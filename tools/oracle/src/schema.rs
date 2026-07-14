@@ -163,6 +163,15 @@ pub struct Tol {
     pub rel: f64,
 }
 
+impl From<Tol> for multicalc_testkit::tol::Tol {
+    fn from(t: Tol) -> Self {
+        multicalc_testkit::tol::Tol {
+            abs: t.abs,
+            rel: t.rel,
+        }
+    }
+}
+
 /// Per-`<scalar>/<target>` tolerance table, e.g. `"f64/host"` or `"f32/host"`.
 /// Reserved targets: `host`, `aarch64`, `thumbv7em-eabi`, `thumbv7em-eabihf`,
 /// `thumbv6m`. v0.7 populates only the `host` entries.

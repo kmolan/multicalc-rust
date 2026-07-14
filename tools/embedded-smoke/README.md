@@ -13,6 +13,37 @@ ABIs under QEMU. It is a dev-only crate (`publish = false`, not in
 `default-members`) and is never built for a host target, and `cortex-m-rt` only
 links for the `thumb*` triples.
 
+## Running
+
+```sh
+rustup target add thumbv7em-none-eabi thumbv7em-none-eabihf thumbv6m-none-eabi
+sudo apt-get install -y qemu-system-arm   # provides qemu-system-arm
+cargo install cargo-binutils              # provides cargo size, for the gate
+
+cargo run -p embedded-smoke --release --target thumbv7em-none-eabi
+cargo run -p embedded-smoke --release --target thumbv7em-none-eabihf
+cargo run -p embedded-smoke --release --target thumbv6m-none-eabi
+```
+
+Aliases: `cargo smoke-eabi`, `cargo smoke-eabihf`, `cargo smoke-m0`.
+
+## Targets and QEMU machine
+
+| Target                  | Codegen                | QEMU machine   | RAM  |
+|-------------------------|------------------------|----------------|------|
+| `thumbv7em-none-eabi`   | Cortex-M4, soft-float  | `netduinoplus2`| 64K  |
+| `thumbv7em-none-eabihf` | Cortex-M4, hard-float  | `netduinoplus2`| 64K  |
+| `thumbv6m-none-eabi`    | Cortex-M0, CAS-free    | `microbit`     | 16K  |
+
+The `thumbv7em` ABIs run on `netduinoplus2` (Cortex-M4, FPU, 64K RAM, flash at
+`0x08000000`). `thumbv6m` runs on `microbit` (Cortex-M0, nRF51, 16K RAM, flash
+at `0x0`) — a real M0 core, so the run now asserts both RAM-size and ISA
+fidelity: an oversized image or an out-of-ISA (ARMv7E-M) instruction faults just
+as it would on silicon. `build.rs` picks each target's memory map.
+
+The runners and `rustflags` (`-Tlink.x`, `--nmagic`) live in
+`.cargo/config.toml`; the per-target memory map is supplied by `build.rs`.
+
 ## Why a separate crate, not tests inside `multicalc`
 
 These smoke tests cannot live next to the code they check. This is a full
@@ -55,23 +86,6 @@ The binary runs under QEMU semihosting:
 > Note: `cargo run … | tee` masks the exit code unless `pipefail` is set. CI runs
 steps under `bash -eo pipefail`, so a panic still fails the job.
 
-## Targets and QEMU machine
-
-| Target                  | Codegen                | QEMU machine   | RAM  |
-|-------------------------|------------------------|----------------|------|
-| `thumbv7em-none-eabi`   | Cortex-M4, soft-float  | `netduinoplus2`| 64K  |
-| `thumbv7em-none-eabihf` | Cortex-M4, hard-float  | `netduinoplus2`| 64K  |
-| `thumbv6m-none-eabi`    | Cortex-M0, CAS-free    | `microbit`     | 16K  |
-
-The `thumbv7em` ABIs run on `netduinoplus2` (Cortex-M4, FPU, 64K RAM, flash at
-`0x08000000`). `thumbv6m` runs on `microbit` (Cortex-M0, nRF51, 16K RAM, flash
-at `0x0`) — a real M0 core, so the run now asserts both RAM-size and ISA
-fidelity: an oversized image or an out-of-ISA (ARMv7E-M) instruction faults just
-as it would on silicon. `build.rs` picks each target's memory map.
-
-The runners and `rustflags` (`-Tlink.x`, `--nmagic`) live in
-`.cargo/config.toml`; the per-target memory map is supplied by `build.rs`.
-
 ## Stack high-water mark
 
 `main.rs` measures peak stack by painting free stack below the entry frame with
@@ -88,20 +102,6 @@ return. It emits one line, `STACK_HWM_BYTES=<n>`, read by the size/stack gate.
 This is a fixed-window scan below the SP, so it needs no linker symbol and is
 identical across machines. If a target cannot yield a stable number, drop its
 `STACK_HWM_BYTES` line and leave that ABI `.text`-gated only.
-
-## Running
-
-```sh
-rustup target add thumbv7em-none-eabi thumbv7em-none-eabihf thumbv6m-none-eabi
-sudo apt-get install -y qemu-system-arm   # provides qemu-system-arm
-cargo install cargo-binutils              # provides cargo size, for the gate
-
-cargo run -p embedded-smoke --release --target thumbv7em-none-eabi
-cargo run -p embedded-smoke --release --target thumbv7em-none-eabihf
-cargo run -p embedded-smoke --release --target thumbv6m-none-eabi
-```
-
-Aliases: `cargo smoke-eabi`, `cargo smoke-eabihf`, `cargo smoke-m0`.
 
 ## Size and stack gate
 

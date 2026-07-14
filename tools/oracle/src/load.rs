@@ -74,7 +74,7 @@ pub fn to_vector_f32<const N: usize>(v: &Value) -> Vector<N, f32> {
 /// True when `got` is within `t` of `want`, using a combined absolute and
 /// relative bound: `|got - want| <= abs + rel * max(|got|, |want|)`.
 pub fn close(got: f64, want: f64, t: Tol) -> bool {
-    (got - want).abs() <= t.abs + t.rel * got.abs().max(want.abs())
+    multicalc_testkit::tol::close(got, want, t.into())
 }
 
 /// Asserts a scalar matches the expected value within `t`.

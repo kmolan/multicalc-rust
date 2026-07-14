@@ -20,6 +20,7 @@ libm = "0.2"
 rand = "0.8"
 criterion = "0.5"
 proptest = "1.11"
+multicalc-testkit = { path = "../../tools/testkit" }
 
 [features]
 default = []

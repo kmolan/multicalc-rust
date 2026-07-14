@@ -14,8 +14,9 @@ figures (wall-clock time per call).
 
 Accuracy vs latency: every suite doc reports latency (wall-clock time per call); all five also
 report accuracy (how close the result lands to the known value, or the drift of a conserved
-quantity for the ODE systems). The examples in [`examples/`](../examples) reproduce those accuracy
-tables, so the published figures stay honest.
+quantity for the ODE systems). These docs are illustrative snapshots, not verified claims:
+verified accuracy lives in the golden fixtures under [`tools/oracle`](../../../tools/oracle), and
+runnable, self-checking demos live in [`demos/`](../../../demos).
 
 ## Running
 

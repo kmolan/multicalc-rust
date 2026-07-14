@@ -1,0 +1,115 @@
+[package]
+name = "multicalc-demos"
+version.workspace = true
+edition.workspace = true
+# Rerun requires Rust 1.92, above the workspace 1.85 floor, so this crate sets its own.
+rust-version = "1.92"
+license.workspace = true
+publish = false
+autoexamples = false
+
+[features]
+default = ["rerun"]
+rerun = ["dep:rerun"]
+
+[dependencies]
+multicalc = { path = "../crates/multicalc" }
+# Pinned to match the paired Rerun viewer version. Only the logging SDK is needed: `spawn()`
+# launches the external viewer on PATH, so the in-process `native_viewer` is not compiled in.
+rerun = { version = "=0.33.1", default-features = false, features = ["sdk"], optional = true }
+
+[lints]
+workspace = true
+
+# Basics: headless, self-checking, multicalc-only. No required-features, so they
+# build and run with the rerun feature off.
+[[example]]
+name = "approximation"
+path = "examples/basics/approximation.rs"
+
+[[example]]
+name = "autodiff_scalars"
+path = "examples/basics/autodiff_scalars.rs"
+
+[[example]]
+name = "curve_fit"
+path = "examples/basics/curve_fit.rs"
+
+[[example]]
+name = "differentiation"
+path = "examples/basics/differentiation.rs"
+
+[[example]]
+name = "discretization"
+path = "examples/basics/discretization.rs"
+
+[[example]]
+name = "gaussian_integration"
+path = "examples/basics/gaussian_integration.rs"
+
+[[example]]
+name = "iterative_integration"
+path = "examples/basics/iterative_integration.rs"
+
+[[example]]
+name = "jacobian_hessian"
+path = "examples/basics/jacobian_hessian.rs"
+
+[[example]]
+name = "lie_groups"
+path = "examples/basics/lie_groups.rs"
+
+[[example]]
+name = "linear_algebra"
+path = "examples/basics/linear_algebra.rs"
+
+[[example]]
+name = "ode"
+path = "examples/basics/ode.rs"
+
+[[example]]
+name = "optimization_solvers"
+path = "examples/basics/optimization_solvers.rs"
+
+[[example]]
+name = "root_finding"
+path = "examples/basics/root_finding.rs"
+
+[[example]]
+name = "svd"
+path = "examples/basics/svd.rs"
+
+[[example]]
+name = "vector_field"
+path = "examples/basics/vector_field.rs"
+
+# Showcases: live Rerun demos, require the rerun feature.
+[[example]]
+name = "curve_fit_live"
+path = "examples/showcase/curve_fit_live.rs"
+required-features = ["rerun"]
+
+[[example]]
+name = "curve_fit_record"
+path = "examples/showcase/curve_fit_record.rs"
+required-features = ["rerun"]
+
+[[example]]
+name = "fourier_ferris"
+path = "examples/showcase/fourier_ferris.rs"
+required-features = ["rerun"]
+
+[[example]]
+name = "gradient_marbles"
+path = "examples/showcase/gradient_marbles.rs"
+required-features = ["rerun"]
+
+[[example]]
+name = "ik_servo"
+path = "examples/showcase/ik_servo.rs"
+required-features = ["rerun"]
+
+[[example]]
+name = "newton_fractal"
+path = "examples/showcase/newton_fractal.rs"
+required-features = ["rerun"]

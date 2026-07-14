@@ -1,0 +1,19 @@
+[package]
+name = "multicalc-testkit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+multicalc = { path = "../../crates/multicalc", default-features = false }
+
+# Test-support crate: assert helpers panic by design and the structural checkers
+# unwrap on known-good factorizations, so opt out of the workspace no-panic lints
+# (mirrors what tests/ and embedded-smoke already do).
+[lints.rust]
+unsafe_code = "forbid"
+[lints.clippy]
+unwrap_used = "allow"
+expect_used = "allow"
+panic = "allow"

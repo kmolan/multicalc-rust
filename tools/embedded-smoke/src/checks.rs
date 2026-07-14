@@ -11,29 +11,18 @@ use multicalc::error::LinalgError;
 use multicalc::linear_algebra::Matrix;
 use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::numerical_derivative::derivator::DerivatorSingleVariable;
-use multicalc::scalar::{Numeric, VectorFn};
+use multicalc::scalar::Numeric;
 use multicalc::scalar_fn;
+use multicalc_testkit::problems::Rosenbrock;
+use multicalc_testkit::tol::{Tol, close};
 
 use crate::fixtures;
-
-/// Combined absolute/relative closeness, matching `close` in
-/// tools/oracle/src/load.rs: `|got - want| <= abs + rel * max(|got|, |want|)`.
-fn close(got: f64, want: f64, abs: f64, rel: f64) -> bool {
-    (got - want).abs() <= abs + rel * got.abs().max(want.abs())
-}
 
 /// Golden: the Rosenbrock least-squares minimizer must match the host oracle
 /// golden (optimization/rosenbrock). Residuals `[10 (y - x^2), 1 - x]` are zero
 /// at the minimum `(1, 1)`. Part of the full set only (thumbv7em).
 #[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
 pub fn lm_fit() {
-    struct Rosenbrock;
-    impl VectorFn<2, 2> for Rosenbrock {
-        fn eval<S: Numeric>(&self, p: &[S; 2]) -> [S; 2] {
-            let (x, y) = (p[0], p[1]);
-            [S::from_f64(10.0) * (y - x * x), S::from_f64(1.0) - x]
-        }
-    }
     let solver = LevenbergMarquardt::<AutoDiffMulti>::default().with_patience(100);
     let report = solver
         .minimize(&Rosenbrock, &fixtures::ROSENBROCK_X0)
@@ -42,8 +31,10 @@ pub fn lm_fit() {
         assert!(close(
             report.solution[i],
             fixtures::ROSENBROCK_SOLUTION[i],
-            fixtures::ROSENBROCK_ABS,
-            fixtures::ROSENBROCK_REL,
+            Tol {
+                abs: fixtures::ROSENBROCK_ABS,
+                rel: fixtures::ROSENBROCK_REL,
+            },
         ));
     }
 }
@@ -91,8 +82,10 @@ pub fn svd_golden() -> [f64; 3] {
         assert!(close(
             sv[i],
             fixtures::SVD_3X3_SINGULAR_VALUES[i],
-            fixtures::SVD_3X3_ABS,
-            fixtures::SVD_3X3_REL,
+            Tol {
+                abs: fixtures::SVD_3X3_ABS,
+                rel: fixtures::SVD_3X3_REL,
+            },
         ));
     }
     [sv[0], sv[1], sv[2]]

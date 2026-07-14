@@ -33,7 +33,7 @@ rustflags = [
 ]
 
 [alias]
-fit          = "run -p multicalc --example curve_fit"
+fit          = "run -p multicalc-demos --example curve_fit"
 smoke-eabi   = "run -p embedded-smoke --release --target thumbv7em-none-eabi"
 smoke-eabihf = "run -p embedded-smoke --release --target thumbv7em-none-eabihf"
 smoke-m0     = "run -p embedded-smoke --release --no-default-features --target thumbv6m-none-eabi"

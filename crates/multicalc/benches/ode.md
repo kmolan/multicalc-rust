@@ -17,8 +17,8 @@ reports wall-clock medians on the machine noted in [README.md](README.md).
 ## Accuracy
 
 None of these systems has a closed-form solution, so accuracy is the drift of a conserved
-quantity: `max |Q(t) − Q(0)|` over the trajectory (relative, for the N-body energy). The figures
-below are reproduced by [`examples/ode.rs`](../examples/ode.rs) (`cargo run --example ode`).
+quantity: `max |Q(t) − Q(0)|` over the trajectory (relative, for the N-body energy). The same
+systems run in the [`ode`](../../../demos) demo (`cargo run -p multicalc-demos --example ode`).
 
 | System                         | Invariant             | RK4 drift | RK45 drift | Notes                                                       |
 | ------------------------------ | --------------------- | --------- | ---------- | ----------------------------------------------------------- |
