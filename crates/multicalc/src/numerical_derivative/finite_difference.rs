@@ -7,7 +7,7 @@
 use crate::error::DiffError;
 use crate::numerical_derivative::derivator::{DerivatorMultiVariable, DerivatorSingleVariable};
 use crate::numerical_derivative::mode::{self, FiniteDifferenceMode};
-use crate::scalar::{Numeric, ScalarFn, ScalarFnN};
+use crate::scalar::{Numeric, ScalarFn, ScalarFnN, VectorFn};
 
 /// Low and high sample offsets (in units of the step size) and the divisor factor
 /// for each finite-difference mode.
@@ -188,5 +188,39 @@ impl<T: Numeric> DerivatorMultiVariable for FiniteDifferenceMulti<T> {
             point,
             self.config.step_size,
         ))
+    }
+
+    /// Evaluates the whole vector function at the low and high
+    /// sample points, reading every output's difference quotient from those two passes,
+    /// getting the whole Jacobian column in two evaluations.
+    fn jacobian_column<
+        F: VectorFn<NUM_VARS, NUM_FUNCS>,
+        const NUM_VARS: usize,
+        const NUM_FUNCS: usize,
+    >(
+        &self,
+        func: &F,
+        col: usize,
+        point: &[T; NUM_VARS],
+    ) -> Result<[T; NUM_FUNCS], DiffError> {
+        self.config.check_step_size()?;
+        if col >= NUM_VARS {
+            return Err(DiffError::IndexOutOfRange);
+        }
+
+        let (lo, hi, denom) = offsets::<T>(self.config.method);
+        let step = self.config.step_size;
+
+        let mut low_point = *point;
+        low_point[col] += lo * step;
+        let mut high_point = *point;
+        high_point[col] += hi * step;
+
+        let low = func.eval(&low_point);
+        let high = func.eval(&high_point);
+
+        Ok(core::array::from_fn(|m| {
+            (high[m] - low[m]) / (denom * step)
+        }))
     }
 }

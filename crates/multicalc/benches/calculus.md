@@ -136,7 +136,8 @@ Gauss-Laguerre, order 5                                          | 4.4 ns      |
 
 Operation                                                        | Median time |
 ---------------------------------------------------------------- | ----------- |
-Jacobian, 2 functions × 3 variables                              | 2.7 ns      |
+Jacobian, 2 functions × 3 variables                              | 10 ns       |
+Jacobian, 6 functions × 6 variables                              | 87 ns       |
 Hessian, 3 variables                                             | 0.15 µs     |
 Curl, 3D                                                         | 6.2 ns      |
 Divergence, 3D                                                   | 0.37 ns     |

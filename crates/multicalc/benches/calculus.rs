@@ -142,6 +142,21 @@ fn jacobian_hessian(crit: &mut Criterion) {
         b.iter(|| jacobian.get(&f, black_box(&point)).unwrap())
     });
 
+    // Larger case: the column-seeded harness runs one pass per input (6) instead of one per
+    // cell (36), so this shows the scaling the 2x3 case is too small to reveal.
+    let big = scalar_fn_vec!(|a: &[f64; 6]| [
+        a[0] * a[1] + a[2],
+        a[1] * a[2] + a[3],
+        a[2] * a[3] + a[4],
+        a[3] * a[4] + a[5],
+        a[4] * a[5] + a[0],
+        a[5] * a[0] + a[1],
+    ]);
+    let big_point = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+    crit.bench_function("calculus/jacobian/6_funcs_6_vars", |b| {
+        b.iter(|| jacobian.get(&big, black_box(&big_point)).unwrap())
+    });
+
     let func =
         scalar_fn!(|a: &[f64; 3]| a[1] * a[0].sin() + c(2.0) * a[0] * a[1].exp() + a[2] * a[2]);
     let hessian: Hessian = Hessian::default();
