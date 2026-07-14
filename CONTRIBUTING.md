@@ -42,6 +42,25 @@ locally anyway, the setup lives in [ci/README.md](ci/README.md) (optional).
 - **Docs**: public APIs get a doc example; behavior notes (NaN policy, iteration
   budgets) live on the item.
 
+## Where does a check go?
+
+The workspace has several test and demo layers. Each has one job; adding a check means picking
+the layer that matches and not duplicating another's.
+
+| Layer | Purpose | Must not |
+|---|---|---|
+| doctests | one minimal runnable demo per public item | become the correctness suite |
+| `src/**/test.rs` inline | white-box tests of `pub(crate)` internals only (LU/lmpar) | test public API |
+| `tests/suite/` | **the** correctness suite: public API, edge cases, proptests | re-declare problems/helpers inline |
+| `demos/examples/basics/` | copy-pasteable, headless, terminating demos; multicalc-only imports | exit 0 without ≥1 sanity `assert!`; touch a sink |
+| `demos/examples/showcase/` | live Rerun demos; measured numbers only | panic on edge cases (errors render as demo states); hardcode a perf claim |
+| `benches/` | timing; `.md` tables are labeled illustrative snapshots | present tables as verified claims |
+| `tools/oracle` | cross-implementation goldens (numpy/mpmath/MINPACK) only | duplicate self-consistency tests |
+| `tools/embedded-smoke` | on-target FP-path + stack/text budgets; goldens only via generated `fixtures.rs` | hand-write golden values |
+
+Shared problem definitions and tolerance helpers live in `tools/testkit`, so a problem is
+declared once and reused across `tests/suite/`, the oracle, and embedded-smoke.
+
 ## Releasing
 
 Releases are automated from `main`:
