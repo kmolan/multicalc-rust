@@ -26,7 +26,10 @@ fn main() {
     let f = |x: f64| 2.0 * x;
     let integrator = IterativeSingle::default(); // Boole's rule, 120 intervals
     let two_x = integrator.get_single(&f, &[0.0, 2.0]).unwrap();
-    assert!((two_x - 4.0).abs() < 1e-9, "Boole is exact for a linear integrand");
+    assert!(
+        (two_x - 4.0).abs() < 1e-9,
+        "Boole is exact for a linear integrand"
+    );
     println!("int_0^2 2x dx = {two_x:.8}   (exact 4)");
 
     // ---- compare the three rules on the same integrand ----

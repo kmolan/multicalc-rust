@@ -41,7 +41,10 @@ fn harmonic_oscillator() {
         "    y(2*pi) = [{:.12}, {:.12}]  max|err| = {max_err:.2e}",
         yf[0], yf[1]
     );
-    assert!(max_err < 1e-3, "RK4 should track the exact harmonic solution");
+    assert!(
+        max_err < 1e-3,
+        "RK4 should track the exact harmonic solution"
+    );
 
     // RK45: adaptive solve to t = 2*pi, then dense-output sampling.
     let solver = Rk45::default().with_rtol(1e-9).with_atol(1e-12);

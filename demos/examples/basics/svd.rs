@@ -87,7 +87,10 @@ fn kabsch() {
     }
     let rot_err = max_abs(rhat, rot);
     let ortho_err = max_abs(rhat.transpose() * rhat, Matrix::<3, 3>::identity());
-    assert!(rot_err < 1e-9 && ortho_err < 1e-9, "SVD should recover the rotation");
+    assert!(
+        rot_err < 1e-9 && ortho_err < 1e-9,
+        "SVD should recover the rotation"
+    );
     let label = "Kabsch 3x3";
     println!("  {label:<20} {ns:>8.1} ns   R-error {rot_err:.1e}   orthogonality {ortho_err:.1e}");
 }

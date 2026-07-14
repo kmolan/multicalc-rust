@@ -31,7 +31,10 @@ fn main() {
     let poly: f64 = legendre
         .get_single(&|x| 4.0 * x * x * x - 3.0 * x * x, &[0.0, 2.0])
         .unwrap();
-    assert!((poly - 8.0).abs() < 1e-9, "Legendre is exact for polynomials");
+    assert!(
+        (poly - 8.0).abs() < 1e-9,
+        "Legendre is exact for polynomials"
+    );
     report("int_0^2 4x^3-3x^2", poly, 8.0);
     // non-polynomial integrand: accuracy falls
     report(

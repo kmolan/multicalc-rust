@@ -67,7 +67,10 @@ fn main() {
         .solve(&system, &[1.5, 0.8])
         .unwrap();
     let err = (r.root[0] - x_true).abs().max((r.root[1] - y_true).abs());
-    assert!(err < 1e-9, "Newton system should converge to the intersection");
+    assert!(
+        err < 1e-9,
+        "Newton system should converge to the intersection"
+    );
     println!("\nNewton system  x^2 + y^2 = 4 and x*y = 1");
     println!("  root = [{:.12}, {:.12}]", r.root[0], r.root[1]);
     println!(
