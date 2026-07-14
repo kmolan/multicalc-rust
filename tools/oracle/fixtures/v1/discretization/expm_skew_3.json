@@ -1,0 +1,67 @@
+{
+  "case": "expm_skew_3",
+  "expected": {
+    "expm": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fedf1b40ea4ea17",
+        "0xbfd21f5fed4001fc",
+        "0x3fcae78fd3797532",
+        "0x3fd3633fe43cfbc8",
+        "0x3fee6b280b43c7c3",
+        "0xbfb16a80171023c4",
+        "0xbfc71befee8287d3",
+        "0x3fc04c7fd575eca1",
+        "0x3fef359405a1e3e1"
+      ],
+      "rows": 3
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x0000000000000000",
+        "0xbfd3333333333333",
+        "0x3fc999999999999a",
+        "0x3fd3333333333333",
+        "0x0000000000000000",
+        "0xbfb999999999999a",
+        "0xbfc999999999999a",
+        "0x3fb999999999999a",
+        "0x0000000000000000"
+      ],
+      "rows": 3
+    },
+    "kind": {
+      "kind": "str",
+      "v": "expm"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "discretization",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "entries uniform in [-0.8, 0.8]; SPD Qc = M M\u1d40",
+    "seed": 20260706
+  },
+  "module": "discretization",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}

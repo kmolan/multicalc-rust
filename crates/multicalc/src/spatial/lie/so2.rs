@@ -117,6 +117,30 @@ impl<T: Numeric> SO2<T> {
     pub fn interpolate(self, other: Self, t: T) -> Self {
         self.compose(Self::exp(self.inverse().compose(other).log() * t))
     }
+
+    /// The SO(2) left Jacobian, which is `1` (SO(2) is abelian).
+    #[inline]
+    pub fn left_jacobian(_theta: T) -> T {
+        T::ONE
+    }
+
+    /// The SO(2) right Jacobian, which is `1` (SO(2) is abelian).
+    #[inline]
+    pub fn right_jacobian(_theta: T) -> T {
+        T::ONE
+    }
+
+    /// The inverse SO(2) left Jacobian, which is `1` (SO(2) is abelian).
+    #[inline]
+    pub fn left_jacobian_inverse(_theta: T) -> T {
+        T::ONE
+    }
+
+    /// The inverse SO(2) right Jacobian, which is `1` (SO(2) is abelian).
+    #[inline]
+    pub fn right_jacobian_inverse(_theta: T) -> T {
+        T::ONE
+    }
 }
 
 impl<T: Numeric> Mul for SO2<T> {

@@ -1,0 +1,79 @@
+{
+  "case": "zoh_2x1",
+  "expected": {
+    "F": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff03b7f955aedd7",
+        "0x3f9c35d08f71ddf1",
+        "0xbfae08e77535d3e0",
+        "0x3ff1247f6923739d"
+      ],
+      "rows": 2
+    },
+    "G": {
+      "cols": 1,
+      "kind": "matrix",
+      "row_major": [
+        "0xbfb1027d3a1ddf61",
+        "0x3fa61b58c2db9004"
+      ],
+      "rows": 2
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fc36d77404ec508",
+        "0x3fd0e69c8083b274",
+        "0xbfe1fe7230a13cdd",
+        "0x3fe64e44184e5e60"
+      ],
+      "rows": 2
+    },
+    "B": {
+      "cols": 1,
+      "kind": "matrix",
+      "row_major": [
+        "0xbfe547470790ae57",
+        "0x3fd97fe04a693cc8"
+      ],
+      "rows": 2
+    },
+    "dt": {
+      "kind": "scalar",
+      "v": "0x3fb999999999999a"
+    },
+    "kind": {
+      "kind": "str",
+      "v": "zoh"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "discretization",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "entries uniform in [-0.8, 0.8]; SPD Qc = M M\u1d40",
+    "seed": 20260706
+  },
+  "module": "discretization",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}
