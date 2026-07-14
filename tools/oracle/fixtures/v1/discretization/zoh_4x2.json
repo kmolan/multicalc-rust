@@ -1,0 +1,115 @@
+{
+  "case": "zoh_4x2",
+  "expected": {
+    "F": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff0091bdc24e30e",
+        "0xbf929001b15caaae",
+        "0xbfa992dbb276a792",
+        "0x3f95400db7d15be4",
+        "0xbf963ce867ae13c8",
+        "0x3ff059d0a1fd4e91",
+        "0xbfa2d711697a8021",
+        "0xbfb106b614216135",
+        "0x3face393d403a6ef",
+        "0x3fb1819de3a9b391",
+        "0x3ff0663097d1e343",
+        "0xbfb05e4391b8cf78",
+        "0x3f5f54f80d74f526",
+        "0xbfb24e5d4424cc99",
+        "0xbfae7b9bdcd5b4df",
+        "0x3fef87565edb1fa2"
+      ],
+      "rows": 4
+    },
+    "G": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fb047155bc4cf5f",
+        "0xbf9f3f1b06b650a5",
+        "0x3fb412995c3bfaa0",
+        "0xbfaf2877502d9da2",
+        "0x3fb2420e36cfe418",
+        "0xbf4faa8236c7185d",
+        "0xbfaa1f3a6edc7351",
+        "0x3fae4c622a25890f"
+      ],
+      "rows": 4
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fa17aded7448100",
+        "0xbfc3fd8c9c90d048",
+        "0xbfdf58933798d634",
+        "0x3fc80fee82cbe314",
+        "0xbfca00169cd29c08",
+        "0x3fca2a64eb071458",
+        "0xbfd89c560aefb5d4",
+        "0xbfe59028ddb1f66a",
+        "0x3fe20be18e8554de",
+        "0x3fe4d6f61e4bf5be",
+        "0x3fd03fa9975dff88",
+        "0xbfe3d96dcb507360",
+        "0x3f9db613f4e45400",
+        "0xbfe6339409db1d28",
+        "0xbfe362309a267d70",
+        "0xbfc88234504505cc"
+      ],
+      "rows": 4
+    },
+    "B": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fe5329386c6181e",
+        "0xbfd423a5baeb20c0",
+        "0x3fe8ef4867eb804e",
+        "0xbfe2bdc6d1ff42ac",
+        "0x3fe4a719c724ae8e",
+        "0x3fa2cd347a02a9a0",
+        "0xbfddf0da11e9f490",
+        "0x3fe2781ff3a4c502"
+      ],
+      "rows": 4
+    },
+    "dt": {
+      "kind": "scalar",
+      "v": "0x3fb999999999999a"
+    },
+    "kind": {
+      "kind": "str",
+      "v": "zoh"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "discretization",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "entries uniform in [-0.8, 0.8]; SPD Qc = M M\u1d40",
+    "seed": 20260706
+  },
+  "module": "discretization",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}

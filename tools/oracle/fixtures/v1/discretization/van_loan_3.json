@@ -1,0 +1,103 @@
+{
+  "case": "van_loan_3",
+  "expected": {
+    "F": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff0c588d0db9ac4",
+        "0xbfae6a96bd4c4174",
+        "0xbfb18ca5bafde191",
+        "0x3f7086c41ec3a0f2",
+        "0x3fefe59ef683c46a",
+        "0x3f6b79064e4ccc48",
+        "0x3fa12b9de2ba8deb",
+        "0xbf81f2c5511c9f74",
+        "0x3fee3841202561a0"
+      ],
+      "rows": 3
+    },
+    "Qd": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fb43b90f17df1bc",
+        "0x3fb3020520e01f8d",
+        "0x3fae6b72d424ce9c",
+        "0x3fb3020520e01f8e",
+        "0x3fb45ed6a430b455",
+        "0x3fa9cc35bac658bb",
+        "0x3fae6b72d424ce9c",
+        "0x3fa9cc35bac658b8",
+        "0x3fa8d1f04c67d787"
+      ],
+      "rows": 3
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fdeee646f22f2a4",
+        "0xbfe2ad44cd7a4b3c",
+        "0xbfe5fcbafefa23e0",
+        "0x3fa3e68a6f9815a0",
+        "0xbf9fb133f6dc23c0",
+        "0x3fa264a4885c0550",
+        "0x3fd58e1f46a58038",
+        "0xbfb4885d767c6430",
+        "0xbfe1eda722477792"
+      ],
+      "rows": 3
+    },
+    "Qc": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3feac4a73b9d1807",
+        "0x3fe86e273519c0ac",
+        "0x3fe3c1d43baf5e0f",
+        "0x3fe86e273519c0ac",
+        "0x3fe963f981cfdd82",
+        "0x3fe03be0b769f70d",
+        "0x3fe3c1d43baf5e0f",
+        "0x3fe03be0b769f70d",
+        "0x3fdfbd0ee91e0fac"
+      ],
+      "rows": 3
+    },
+    "dt": {
+      "kind": "scalar",
+      "v": "0x3fb999999999999a"
+    },
+    "kind": {
+      "kind": "str",
+      "v": "van_loan"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "discretization",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "entries uniform in [-0.8, 0.8]; SPD Qc = M M\u1d40",
+    "seed": 20260706
+  },
+  "module": "discretization",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}

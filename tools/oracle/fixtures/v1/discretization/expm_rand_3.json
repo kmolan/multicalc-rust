@@ -1,0 +1,67 @@
+{
+  "case": "expm_rand_3",
+  "expected": {
+    "expm": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff2aff538459287",
+        "0xbfd78a979e1b999a",
+        "0xbfd4cc6d3eef4b58",
+        "0xbfd6d80414b81656",
+        "0x3ffc961e12e6ab76",
+        "0xbfe89044aff9e200",
+        "0x3fd1b86cdf0777f2",
+        "0xbfd2927da7f1f161",
+        "0x3fe50b4d778d49fa"
+      ],
+      "rows": 3
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fc6e03decd7eb8c",
+        "0xbfd3503a6cc70f84",
+        "0xbfe0068be9484b8c",
+        "0xbfc560b9696c64a8",
+        "0x3fdf7096bfd43d34",
+        "0xbfe844e9caaae810",
+        "0x3fd2318dd13c6b2c",
+        "0xbfccfb732ca9ba40",
+        "0xbfdd92c255f09850"
+      ],
+      "rows": 3
+    },
+    "kind": {
+      "kind": "str",
+      "v": "expm"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "discretization",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "entries uniform in [-0.8, 0.8]; SPD Qc = M M\u1d40",
+    "seed": 20260706
+  },
+  "module": "discretization",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}
