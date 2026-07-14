@@ -3,7 +3,6 @@ use crate::linear_algebra::Matrix;
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::VectorFn;
-use crate::scalar::function::Component;
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
@@ -68,12 +67,12 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
 
         let mut result: Matrix<NUM_FUNCS, NUM_VARS, D::Scalar> = Matrix::zeros();
 
-        for m in 0..NUM_FUNCS {
-            let component = Component::new(function, m);
-            for n in 0..NUM_VARS {
-                result[(m, n)] =
-                    self.derivator
-                        .get_single_partial(&component, n, vector_of_points)?;
+        for n in 0..NUM_VARS {
+            let column = self
+                .derivator
+                .jacobian_column(function, n, vector_of_points)?;
+            for (m, &value) in column.iter().enumerate() {
+                result[(m, n)] = value;
             }
         }
 
@@ -107,19 +106,18 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
             return Err(DiffError::EmptyFunctionSet);
         }
 
-        let mut result: Vec<Vec<D::Scalar>> = Vec::new();
+        let mut result: Vec<Vec<D::Scalar>> = Vec::with_capacity(NUM_FUNCS);
+        for _ in 0..NUM_FUNCS {
+            result.push(Vec::with_capacity(NUM_VARS));
+        }
 
-        for m in 0..NUM_FUNCS {
-            let component = Component::new(function, m);
-            let mut cur_row: Vec<D::Scalar> = Vec::new();
-            for col_index in 0..NUM_VARS {
-                cur_row.push(self.derivator.get_single_partial(
-                    &component,
-                    col_index,
-                    vector_of_points,
-                )?);
+        for n in 0..NUM_VARS {
+            let column = self
+                .derivator
+                .jacobian_column(function, n, vector_of_points)?;
+            for (m, &value) in column.iter().enumerate() {
+                result[m].push(value);
             }
-            result.push(cur_row);
         }
 
         Ok(result)
