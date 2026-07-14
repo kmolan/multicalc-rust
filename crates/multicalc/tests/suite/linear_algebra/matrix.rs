@@ -1,6 +1,6 @@
-use crate::helpers::{assert_close, assert_identity};
 use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc_testkit::tol::{assert_identity, assert_matrix_close};
 
 // ----- matrix arithmetic, multiply, transpose -----
 
@@ -113,7 +113,7 @@ fn matrix_4x4_determinant_and_inverse() {
     assert_eq!(a.determinant(), 20.0);
 
     let inv = a.inverse().unwrap();
-    assert_close(
+    assert_matrix_close(
         inv,
         Matrix::new([
             [0.6, -0.5, 0.0, 0.1],
@@ -136,7 +136,7 @@ fn matrix_4x4_determinant_and_inverse() {
     assert_eq!(b.determinant(), -20.0);
 
     let b_inv = b.inverse().unwrap();
-    assert_close(
+    assert_matrix_close(
         b_inv,
         Matrix::new([
             [-0.15, 0.45, -0.05, 0.25],

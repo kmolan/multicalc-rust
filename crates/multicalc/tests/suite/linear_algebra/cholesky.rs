@@ -1,6 +1,6 @@
-use crate::helpers::{assert_close, assert_identity, cholesky_reconstructs};
 use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc_testkit::tol::{assert_identity, assert_matrix_close, cholesky_reconstructs};
 
 #[test]
 fn cholesky_reconstructs_spd() {
@@ -13,7 +13,7 @@ fn cholesky_reconstructs_spd() {
         [-16.0, -43.0, 98.0],
     ]);
     cholesky_reconstructs(a, 1e-12);
-    assert_close(
+    assert_matrix_close(
         a.cholesky().unwrap().l(),
         Matrix::new([[2.0, 0.0, 0.0], [6.0, 1.0, 0.0], [-8.0, 5.0, 3.0]]),
         1e-12,
@@ -84,7 +84,7 @@ fn cholesky_solves() {
     let f = s.cholesky().unwrap();
     let rhs = Matrix::<2, 3>::new([[8.0, 6.0, 4.0], [8.0, 5.0, 3.0]]);
     let xm = f.solve_matrix(rhs);
-    assert_close(s * xm, rhs, 1e-12);
+    assert_matrix_close(s * xm, rhs, 1e-12);
     for c in 0..3 {
         let single = f.solve(rhs.column(c));
         for r in 0..2 {
@@ -113,5 +113,5 @@ fn cholesky_inverse_matches_lu() {
     let inv = a.cholesky().unwrap().inverse();
     assert_identity(inv * a, 1e-12);
     assert_identity(a * inv, 1e-12);
-    assert_close(inv, a.lu().unwrap().inverse(), 1e-12);
+    assert_matrix_close(inv, a.lu().unwrap().inverse(), 1e-12);
 }

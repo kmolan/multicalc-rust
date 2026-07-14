@@ -9,6 +9,7 @@ use multicalc::numerical_derivative::jacobian::Jacobian;
 use multicalc::numerical_derivative::mode::*;
 use multicalc::scalar::{Numeric, ScalarFn, ScalarFnN, VectorFn, c};
 use multicalc::{scalar_fn, scalar_fn_vec};
+use multicalc_testkit::problems::G;
 use proptest::prelude::*;
 use proptest::test_runner::{RngAlgorithm, TestRng, TestRunner};
 use std::cell::Cell;
@@ -40,9 +41,7 @@ fn ad_first_partials() {
 #[test]
 fn ad_first_partials_transcendental() {
     // f(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z
-    let func = scalar_fn!(|v: &[f64; 3]| {
-        v[1] * v[0].sin() + v[0] * v[1].cos() + v[0] * v[1] * v[2].exp()
-    });
+    let func = G;
     let d = AutoDiffMulti::default();
     let point = [1.0, 2.0, 3.0];
 
@@ -58,9 +57,7 @@ fn ad_first_partials_transcendental() {
 #[test]
 fn ad_second_partials() {
     // f(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z
-    let func = scalar_fn!(|v: &[f64; 3]| {
-        v[1] * v[0].sin() + v[0] * v[1].cos() + v[0] * v[1] * v[2].exp()
-    });
+    let func = G;
     let d = AutoDiffMulti::default();
     let point = [1.0, 2.0, 3.0];
 

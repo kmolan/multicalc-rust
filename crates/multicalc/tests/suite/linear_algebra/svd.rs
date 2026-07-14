@@ -1,8 +1,9 @@
-use crate::helpers::{
-    assert_close, assert_identity, svd_moore_penrose, svd_moore_penrose_f32, svd_reconstructs,
-};
 use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc_testkit::tol::{
+    assert_identity, assert_matrix_close, svd_moore_penrose, svd_moore_penrose_f32,
+    svd_reconstructs,
+};
 
 #[test]
 fn svd_reconstructs_various() {
@@ -215,7 +216,7 @@ fn svd_kabsch_rotation_recovery() {
         rhat = uf * v.transpose();
     }
     // Recovered rotation matches, is orthonormal, and has determinant +1.
-    assert_close(rhat, rot, 1e-9);
+    assert_matrix_close(rhat, rot, 1e-9);
     assert_identity(rhat.transpose() * rhat, 1e-12);
     assert!((rhat.determinant() - 1.0).abs() < 1e-9);
 }
@@ -237,9 +238,9 @@ fn svd_redundant_jacobian_pseudo_inverse() {
     let jp = j.pseudo_inverse().unwrap();
 
     // Moore–Penrose: J·J⁺·J == J and J·J⁺ symmetric.
-    assert_close(j * jp * j, j, 1e-9);
+    assert_matrix_close(j * jp * j, j, 1e-9);
     let jjp = j * jp;
-    assert_close(jjp, jjp.transpose(), 1e-12);
+    assert_matrix_close(jjp, jjp.transpose(), 1e-12);
 
     // Minimum-norm resolution: J⁺·v beats any other solution of J·x = v.
     let vtwist = Vector::<6>::from_fn(|i| i as f64 - 2.5);

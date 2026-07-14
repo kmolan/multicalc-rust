@@ -1,0 +1,14 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod approximation;
+mod discretization;
+mod gaussian_tables;
+mod linear_algebra;
+mod numerical_derivative;
+mod numerical_integration;
+mod ode;
+mod optimization;
+mod root_finding;
+mod scalar;
+mod spatial;
+mod utils;
+mod vector_field;

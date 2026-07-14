@@ -1,6 +1,6 @@
-use crate::helpers::{assert_close, assert_identity};
 use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, PivotedQr, Vector};
+use multicalc_testkit::tol::{assert_identity, assert_matrix_close};
 
 // ----- column-pivoted QR (decompose, accessors, solve) -----
 
@@ -177,7 +177,7 @@ fn qr_factorizes_hilbert_stably() {
     // The factorization stays backward-stable regardless of conditioning.
     assert_identity(q.transpose() * q, 1e-12);
     let ap = Matrix::<8, 8>::from_fn(|i, c| hilbert[(i, perm[c])]);
-    assert_close(q * r, ap, 1e-12);
+    assert_matrix_close(q * r, ap, 1e-12);
 
     // Solving is backward-stable (tiny residual) though the solution itself degrades.
     let x_true = [1.0; 8];

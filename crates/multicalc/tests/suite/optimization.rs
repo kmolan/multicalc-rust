@@ -9,12 +9,13 @@ use multicalc::optimization::{
 };
 use multicalc::scalar::{Numeric, VectorFn, c};
 use multicalc::scalar_fn_vec;
+use multicalc_testkit::problems::Rosenbrock;
 
 // ----- Levenberg-Marquardt solver -----
 
 #[test]
 fn lm_solves_rosenbrock() {
-    let f = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
+    let f = Rosenbrock;
     let report: MinimizationReport<2> = LevenbergMarquardt::<AutoDiffMulti>::default()
         .minimize(&f, &[-1.2, 1.0])
         .unwrap();
@@ -62,7 +63,7 @@ fn lm_fits_exponential_decay() {
 #[test]
 fn lm_solves_rosenbrock_f32() {
     // One residual definition drives both precisions; eval is generic over the scalar.
-    let f = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
+    let f = Rosenbrock;
     let report = LevenbergMarquardt::<AutoDiffMulti<f32>>::default()
         .minimize(&f, &[-1.2_f32, 1.0])
         .unwrap();
@@ -92,7 +93,7 @@ fn lm_reports_non_finite() {
 #[test]
 fn lm_reports_did_not_converge() {
     // A one-iteration budget is too small for Rosenbrock, so the solver runs out.
-    let f = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
+    let f = Rosenbrock;
     let result = LevenbergMarquardt::<AutoDiffMulti>::default()
         .with_patience(1)
         .minimize(&f, &[-1.2, 1.0]);
@@ -205,7 +206,7 @@ fn gn_recovers_linear_least_squares() {
 #[test]
 fn gn_solves_rosenbrock() {
     // From a near guess, Gauss-Newton converges quadratically on this zero-residual problem.
-    let f = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
+    let f = Rosenbrock;
     let report = GaussNewton::<AutoDiffMulti>::default()
         .minimize(&f, &[0.9, 0.9])
         .unwrap();
@@ -406,7 +407,7 @@ fn check_jacobian<F: VectorFn<N, M>, const N: usize, const M: usize>(f: &F, x: &
 #[test]
 fn autodiff_jacobian_matches_finite_differences() {
     // Rosenbrock residual: a low-degree polynomial, so central differences are near exact.
-    let rosenbrock = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
+    let rosenbrock = Rosenbrock;
     assert!(check_jacobian(&rosenbrock, &[-1.2, 1.0]) < 1e-6);
 
     // A transcendental residual exercises the sin and exp derivatives.
@@ -418,7 +419,7 @@ fn autodiff_jacobian_matches_finite_differences() {
 fn solvers_accept_a_finite_difference_backend() {
     // Swap the autodiff default for a finite-difference Jacobian; both solvers still converge on
     // the zero-residual Rosenbrock problem.
-    let f = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
+    let f = Rosenbrock;
 
     let lm = LevenbergMarquardt::from_derivator(FiniteDifferenceMulti::<f64>::default())
         .minimize(&f, &[-1.2, 1.0])

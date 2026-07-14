@@ -1,6 +1,6 @@
-use crate::helpers::{assert_close, assert_identity, lu_reconstructs};
 use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc_testkit::tol::{assert_identity, assert_matrix_close, lu_reconstructs};
 
 // ----- LU decomposition (Doolittle, partial pivoting) -----
 
@@ -70,7 +70,7 @@ fn lu_solves() {
     // Multiple RHS: A·X == B, and each column agrees with a single-RHS solve.
     let rhs = Matrix::<3, 2>::new([[7.0, 4.0], [19.0, 10.0], [49.0, 26.0]]);
     let xm = f.solve_matrix(rhs);
-    assert_close(a * xm, rhs, 1e-12);
+    assert_matrix_close(a * xm, rhs, 1e-12);
     for c in 0..2 {
         let single = f.solve(rhs.column(c));
         for r in 0..3 {
@@ -93,7 +93,7 @@ fn lu_inverse_matches_reference_5x5() {
     assert!((a.lu().unwrap().determinant() - 10406.0).abs() < 1e-9);
 
     let inv = a.lu().unwrap().inverse();
-    assert_close(
+    assert_matrix_close(
         inv,
         Matrix::new([
             [
