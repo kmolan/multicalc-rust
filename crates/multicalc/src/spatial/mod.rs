@@ -4,9 +4,13 @@ use crate::scalar::Numeric;
 
 pub mod lie;
 pub mod quaternion;
+pub mod twist;
+pub mod wrench;
 
 pub use lie::{SE2, SE3, SO2, SO3};
 pub use quaternion::Quaternion;
+pub use twist::Twist;
+pub use wrench::Wrench;
 
 /// The angle threshold below which trig ratios switch to their Taylor series, keeping values
 /// finite and derivatives continuous. A fixed absolute cutoff (not `EPSILON`-relative); correct for
