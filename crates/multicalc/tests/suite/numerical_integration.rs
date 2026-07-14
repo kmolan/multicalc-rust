@@ -7,6 +7,8 @@ use multicalc::numerical_integration::gaussian_integration;
 use multicalc::numerical_integration::integrator::*;
 use multicalc::numerical_integration::iterative_integration;
 
+use proptest::prelude::*;
+
 #[test]
 fn test_booles_integration_1() {
     //equation is 2.0*x
@@ -591,6 +593,201 @@ fn test_gauss_legendre_integration_f32() {
 
     let val = integrator.get_single(&func, &[0.0, 2.0]).unwrap();
     assert!(f32::abs(val - 8.0) < 1e-2, "got {val}");
+}
+
+fn polynomial_coeffs(deg: usize) -> impl Strategy<Value = Vec<f64>> {
+    prop::collection::vec(-10.0..10.0, deg + 1)
+}
+
+fn integration_limit() -> impl Strategy<Value = [f64; 2]> {
+    (-10.0..10.0f64, 0.1..5.0f64).prop_map(|(a, length)| {
+        let b = a + length;
+        [a, b]
+    })
+}
+
+fn func_from_coeffs(coefficients: &[f64]) -> impl Fn(f64) -> f64 {
+    move |x| {
+        coefficients
+            .iter()
+            .enumerate()
+            .map(|(deg, c)| c * x.powf(deg as f64))
+            .sum()
+    }
+}
+
+fn closed_form_from_coeffs(coefficients: &[f64], interval: [f64; 2]) -> f64 {
+    let [a, b] = interval;
+    coefficients
+        .iter()
+        .enumerate()
+        .map(|(deg, c)| {
+            let exp = (deg + 1) as f64;
+            (b.powf(exp) - a.powf(exp)) * c / exp
+        })
+        .sum()
+}
+
+fn tolerance_from_coeffs(coefficients: &[f64], interval: [f64; 2]) -> f64 {
+    let [a, b] = interval;
+    let bound: f64 = coefficients
+        .iter()
+        .enumerate()
+        .map(|(deg, c)| {
+            let exp = (deg + 1) as f64;
+            a.powf(exp).abs().max(b.powf(exp).abs()) * c.abs() / exp
+        })
+        .sum();
+
+    1e-6 * bound.max(1.0)
+}
+
+fn iterative_integration_proptest(
+    degree: usize,
+    integrator: impl IntegratorSingleVariable<Scalar = f64>,
+) {
+    proptest!(|(
+        limit in integration_limit(),
+        coeffs in polynomial_coeffs(degree)
+        )| {
+        let func = func_from_coeffs(&coeffs);
+        let closed_form = closed_form_from_coeffs(&coeffs, limit);
+        let scaled_tol = tolerance_from_coeffs(&coeffs, limit);
+
+        let val = integrator.get_single(&func, &limit).unwrap();
+        prop_assert!(f64::abs(val - closed_form) < scaled_tol);
+    });
+}
+
+#[test]
+fn proptest_trapezoid_integration_f64() {
+    let iterator =
+        iterative_integration::IterativeSingle::from_parameters(100, IterativeMethod::Trapezoidal);
+    iterative_integration_proptest(1, iterator);
+}
+
+#[test]
+fn proptest_simpsons_integration_f64() {
+    let iterator =
+        iterative_integration::IterativeSingle::from_parameters(120, IterativeMethod::Simpsons);
+    iterative_integration_proptest(3, iterator);
+}
+
+#[test]
+fn proptest_booles_integration_f64() {
+    let iterator =
+        iterative_integration::IterativeSingle::from_parameters(100, IterativeMethod::Booles);
+    iterative_integration_proptest(5, iterator);
+}
+
+fn gauss_coeffs() -> impl Strategy<Value = (usize, Vec<f64>)> {
+    (1..10usize).prop_flat_map(|n| (Just(n), polynomial_coeffs(2 * n - 1)))
+}
+
+fn double_factorial(n: u64) -> f64 {
+    let mut result = 1.0;
+    let mut k = n;
+    while k > 1 {
+        result *= k as f64;
+        k -= 2;
+    }
+    result
+}
+
+fn legendre_moment(k: usize, [a, b]: [f64; 2]) -> f64 {
+    (b.powi(k as i32 + 1) - a.powi(k as i32 + 1)) / (k as f64 + 1.0)
+}
+
+fn hermite_moment(deg: usize) -> f64 {
+    if deg % 2 == 1 {
+        0.0
+    } else {
+        let m = deg / 2;
+        let df = if m == 0 {
+            1.0
+        } else {
+            double_factorial(2 * m as u64 - 1)
+        };
+        df * std::f64::consts::PI.sqrt() / 2f64.powi(m as i32)
+    }
+}
+
+fn laguerre_moment(k: usize) -> f64 {
+    (1..=k as u64).map(|i| i as f64).product::<f64>().max(1.0)
+}
+
+fn gauss_closed_form(quadrature: GaussianQuadratureMethod, coeffs: &[f64], limit: [f64; 2]) -> f64 {
+    coeffs
+        .iter()
+        .enumerate()
+        .map(|(deg, c)| {
+            c * match quadrature {
+                GaussianQuadratureMethod::GaussLegendre => legendre_moment(deg, limit),
+                GaussianQuadratureMethod::GaussHermite => hermite_moment(deg),
+                GaussianQuadratureMethod::GaussLaguerre => laguerre_moment(deg),
+            }
+        })
+        .sum()
+}
+
+fn gauss_tolerance(quadrature: GaussianQuadratureMethod, coeffs: &[f64], limit: [f64; 2]) -> f64 {
+    let moment_fn = match quadrature {
+        GaussianQuadratureMethod::GaussLegendre => return tolerance_from_coeffs(coeffs, limit),
+        GaussianQuadratureMethod::GaussHermite => hermite_moment,
+        GaussianQuadratureMethod::GaussLaguerre => laguerre_moment,
+    };
+
+    let term_sum_abs: f64 = coeffs
+        .iter()
+        .enumerate()
+        .map(|(k, &c)| (c * moment_fn(k)).abs())
+        .sum();
+
+    (term_sum_abs).max(1.0) * 1e-9
+}
+
+fn gauss_integration_proptest(
+    quadrature: GaussianQuadratureMethod,
+    limit_strat: impl Strategy<Value = [f64; 2]>,
+) {
+    proptest!(|(
+        limit in limit_strat,
+        (n, coeffs) in gauss_coeffs(),
+        )| {
+
+        let func = func_from_coeffs(&coeffs);
+        let closed_form = gauss_closed_form(quadrature, &coeffs, limit);
+        let scaled_tol = gauss_tolerance(quadrature, &coeffs, limit);
+
+        let integrator = gaussian_integration::GaussianSingle::<f64>::from_parameters(
+        n,
+        quadrature,
+        );
+
+        let val = integrator.get_single(&func, &limit).unwrap();
+        prop_assert!(f64::abs(val - closed_form) < scaled_tol);
+    });
+}
+
+#[test]
+fn proptest_gauss_legendre_integration_f64() {
+    gauss_integration_proptest(GaussianQuadratureMethod::GaussLegendre, integration_limit());
+}
+
+#[test]
+fn proptest_gauss_hermite_integration_f64() {
+    gauss_integration_proptest(
+        GaussianQuadratureMethod::GaussHermite,
+        Just([-f64::INFINITY, f64::INFINITY]),
+    );
+}
+
+#[test]
+fn proptest_gauss_laguerre_integration_f64() {
+    gauss_integration_proptest(
+        GaussianQuadratureMethod::GaussLaguerre,
+        Just([0.0, f64::INFINITY]),
+    );
 }
 
 #[test]
