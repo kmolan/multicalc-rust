@@ -91,9 +91,24 @@ fn qdwn_cases() {
         let var = fx.inputs["variance"].as_scalar();
         let t = fx.tolerances.get("f64", "host");
         match fx.inputs["dim"].as_int() {
-            2 => assert_matrix(&q_discrete_white_noise::<2, f64>(dt, var), &fx.expected["Q"], t, "Q2"),
-            3 => assert_matrix(&q_discrete_white_noise::<3, f64>(dt, var), &fx.expected["Q"], t, "Q3"),
-            4 => assert_matrix(&q_discrete_white_noise::<4, f64>(dt, var), &fx.expected["Q"], t, "Q4"),
+            2 => assert_matrix(
+                &q_discrete_white_noise::<2, f64>(dt, var),
+                &fx.expected["Q"],
+                t,
+                "Q2",
+            ),
+            3 => assert_matrix(
+                &q_discrete_white_noise::<3, f64>(dt, var),
+                &fx.expected["Q"],
+                t,
+                "Q3",
+            ),
+            4 => assert_matrix(
+                &q_discrete_white_noise::<4, f64>(dt, var),
+                &fx.expected["Q"],
+                t,
+                "Q4",
+            ),
             d => panic!("unregistered qdwn dim {d}"),
         }
     }
