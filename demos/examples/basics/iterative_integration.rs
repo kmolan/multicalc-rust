@@ -4,7 +4,7 @@
 //! Also reproduces the iterative-integration accuracy figures in benches/calculus.md: Boole is
 //! the highest-order rule and most accurate, Simpson is intermediate, Trapezoidal is lowest order.
 //!
-//! Run with: `cargo run --example iterative_integration`
+//! Run with: `cargo run -p multicalc-demos --example iterative_integration`
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -25,10 +25,9 @@ fn main() {
     // ---- single variable: int_0^2 2x dx = 4 ----
     let f = |x: f64| 2.0 * x;
     let integrator = IterativeSingle::default(); // Boole's rule, 120 intervals
-    println!(
-        "int_0^2 2x dx = {:.8}   (exact 4)",
-        integrator.get_single(&f, &[0.0, 2.0]).unwrap()
-    );
+    let two_x = integrator.get_single(&f, &[0.0, 2.0]).unwrap();
+    assert!((two_x - 4.0).abs() < 1e-9, "Boole is exact for a linear integrand");
+    println!("int_0^2 2x dx = {two_x:.8}   (exact 4)");
 
     // ---- compare the three rules on the same integrand ----
     // int_0^1 (yz x^2 e^x) dx folded three times, with y*z = 6  ->  6*(e - 2)

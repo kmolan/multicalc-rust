@@ -4,7 +4,7 @@
 //! are exact (to machine precision) for polynomial integrands, and lose accuracy fast on
 //! non-polynomial ones.
 //!
-//! Run with: `cargo run --example gaussian_integration`
+//! Run with: `cargo run -p multicalc-demos --example gaussian_integration`
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -28,13 +28,11 @@ fn main() {
     let legendre = GaussianSingle::from_parameters(5, GaussianQuadratureMethod::GaussLegendre);
     println!("Gauss-Legendre (finite limits):");
     // int_0^2 (4x^3 - 3x^2) dx = 8  (exact: order 5 handles degree <= 9)
-    report(
-        "int_0^2 4x^3-3x^2",
-        legendre
-            .get_single(&|x| 4.0 * x * x * x - 3.0 * x * x, &[0.0, 2.0])
-            .unwrap(),
-        8.0,
-    );
+    let poly: f64 = legendre
+        .get_single(&|x| 4.0 * x * x * x - 3.0 * x * x, &[0.0, 2.0])
+        .unwrap();
+    assert!((poly - 8.0).abs() < 1e-9, "Legendre is exact for polynomials");
+    report("int_0^2 4x^3-3x^2", poly, 8.0);
     // non-polynomial integrand: accuracy falls
     report(
         "int_0^1 (sinx-sqrtx)e^-x",

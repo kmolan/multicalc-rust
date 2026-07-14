@@ -5,7 +5,7 @@
 //! - **Levenberg-Marquardt** (see curve_fit.rs): damped / trust-region style; prefer when
 //!   far from the solution or the Jacobian is poorly conditioned.
 //!
-//! Run: cargo run -p multicalc --example optimization_solvers
+//! Run: cargo run -p multicalc-demos --example optimization_solvers
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 

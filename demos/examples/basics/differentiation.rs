@@ -1,7 +1,7 @@
 //! Single- and multi-variable differentiation.
 //! The derivative order for a partial is just the number of indices passed.
 //!
-//! Run with: `cargo run --example differentiation`
+//! Run with: `cargo run -p multicalc-demos --example differentiation`
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -10,6 +10,7 @@ use multicalc::numerical_derivative::derivator::{DerivatorMultiVariable, Derivat
 use multicalc::scalar_fn;
 
 fn report(label: &str, value: f64, exact: f64) {
+    assert!((value - exact).abs() < 1e-6, "{label}: |err| too large");
     println!(
         "  {label:<18} = {value:>13.8}   (exact {exact:>13.8}, |err| {:.0e})",
         (value - exact).abs()

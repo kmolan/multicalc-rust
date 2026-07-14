@@ -1,7 +1,7 @@
 //! SO(3) and SE(3) Lie groups: compose, act on a point, exp/log round trips, geodesic
 //! interpolation, and a one-`Dual` autodiff derivative through the whole composition.
 //!
-//! Run with: `cargo run --example lie_groups`
+//! Run with: `cargo run -p multicalc-demos --example lie_groups`
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -12,6 +12,7 @@ use multicalc::scalar::Dual;
 use multicalc::spatial::{SE3, SO3};
 
 fn report(label: &str, value: f64, exact: f64) {
+    assert!((value - exact).abs() < 1e-9, "{label}: |err| too large");
     println!(
         "  {label:<20} = {value:>12.8}   (exact {exact:>12.8}, |err| {:.0e})",
         (value - exact).abs()

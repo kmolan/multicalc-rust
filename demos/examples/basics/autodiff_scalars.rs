@@ -1,6 +1,6 @@
 //! Using autodiff scalar types directly (`Dual`, `HyperDual`).
 //!
-//! Run with: `cargo run --example autodiff_scalars`
+//! Run with: `cargo run -p multicalc-demos --example autodiff_scalars`
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 

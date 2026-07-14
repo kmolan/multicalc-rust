@@ -1,6 +1,6 @@
 //! Vector-field calculus: curl, divergence, line integrals and flux integrals.
 //!
-//! Run with: `cargo run --example vector_field`
+//! Run with: `cargo run -p multicalc-demos --example vector_field`
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -16,6 +16,8 @@ fn main() {
 
     let curl_2d = curl::get_2d(AutoDiffMulti::default(), &field, &point).unwrap();
     let div_2d = divergence::get_2d(AutoDiffMulti::default(), &field, &point).unwrap();
+    assert!((curl_2d + 2.0).abs() < 1e-9, "curl");
+    assert!((div_2d - std::f64::consts::TAU).abs() < 1e-9, "divergence");
     println!("field (2xy, 3cos y) at {point:?}");
     println!("  curl       = {curl_2d:.4}   (exact -2)");
     println!(

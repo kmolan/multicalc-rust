@@ -1,7 +1,7 @@
 //! Sensor-calibration curve fit: recover a and b in y = a·e^(b·t) from samples using
 //! Levenberg–Marquardt with exact autodiff Jacobians (no hand-derived derivatives), zero heap.
 //!
-//! Run with: cargo run --example curve_fit   (or: cargo fit)
+//! Run with: cargo run -p multicalc-demos --example curve_fit   (or: cargo fit)
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 

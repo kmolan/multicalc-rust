@@ -1,7 +1,7 @@
 //! Discretization: zero-order hold on a double integrator, Van Loan process noise, the discrete
 //! white-noise model, and a one-`Dual` derivative through `expm`.
 //!
-//! Run with: `cargo run --example discretization`
+//! Run with: `cargo run -p multicalc-demos --example discretization`
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -10,6 +10,7 @@ use multicalc::linear_algebra::Matrix;
 use multicalc::scalar::Dual;
 
 fn report(label: &str, value: f64, exact: f64) {
+    assert!((value - exact).abs() < 1e-9, "{label}: |err| too large");
     println!(
         "  {label:<22} = {value:>12.8}   (exact {exact:>12.8}, |err| {:.0e})",
         (value - exact).abs()

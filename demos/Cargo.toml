@@ -21,6 +21,69 @@ rerun = { version = "=0.33.1", default-features = false, features = ["sdk"], opt
 [lints]
 workspace = true
 
+# Basics: headless, self-checking, multicalc-only. No required-features, so they
+# build and run with the rerun feature off.
+[[example]]
+name = "approximation"
+path = "examples/basics/approximation.rs"
+
+[[example]]
+name = "autodiff_scalars"
+path = "examples/basics/autodiff_scalars.rs"
+
+[[example]]
+name = "curve_fit"
+path = "examples/basics/curve_fit.rs"
+
+[[example]]
+name = "differentiation"
+path = "examples/basics/differentiation.rs"
+
+[[example]]
+name = "discretization"
+path = "examples/basics/discretization.rs"
+
+[[example]]
+name = "gaussian_integration"
+path = "examples/basics/gaussian_integration.rs"
+
+[[example]]
+name = "iterative_integration"
+path = "examples/basics/iterative_integration.rs"
+
+[[example]]
+name = "jacobian_hessian"
+path = "examples/basics/jacobian_hessian.rs"
+
+[[example]]
+name = "lie_groups"
+path = "examples/basics/lie_groups.rs"
+
+[[example]]
+name = "linear_algebra"
+path = "examples/basics/linear_algebra.rs"
+
+[[example]]
+name = "ode"
+path = "examples/basics/ode.rs"
+
+[[example]]
+name = "optimization_solvers"
+path = "examples/basics/optimization_solvers.rs"
+
+[[example]]
+name = "root_finding"
+path = "examples/basics/root_finding.rs"
+
+[[example]]
+name = "svd"
+path = "examples/basics/svd.rs"
+
+[[example]]
+name = "vector_field"
+path = "examples/basics/vector_field.rs"
+
+# Showcases: live Rerun demos, require the rerun feature.
 [[example]]
 name = "curve_fit_live"
 path = "examples/showcase/curve_fit_live.rs"

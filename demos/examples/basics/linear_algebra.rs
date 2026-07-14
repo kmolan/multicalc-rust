@@ -3,7 +3,7 @@
 //! residual, and inverse identity error) on well- and ill-conditioned inputs.
 //!
 //! Latency is illustrative in a debug build; run with `--release` for representative numbers:
-//! `cargo run --release --example linear_algebra`
+//! `cargo run -p multicalc-demos --release --example linear_algebra`
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -96,6 +96,15 @@ fn inverse4_report(a: Matrix<4, 4>, label: &str) {
 }
 
 fn main() {
+    // Sanity: the LU solve residual on a well-conditioned system is tiny.
+    {
+        let a = general::<4>();
+        let x_true = Vector::<4>::from_fn(|i| 1.0 + i as f64);
+        let b = a * x_true;
+        let x = a.lu().unwrap().solve(b);
+        assert!((a * x - b).norm() < 1e-9, "LU solve residual too large");
+    }
+
     println!("LU (any invertible matrix) - decompose + solve:");
     lu_report(general::<4>(), "general 4x4");
     lu_report(general::<8>(), "general 8x8");

@@ -1,7 +1,7 @@
 //! Linear and quadratic (Taylor) approximation of a function about a point, plus
 //! goodness-of-fit metrics.
 //!
-//! Run with: `cargo run --example approximation`
+//! Run with: `cargo run -p multicalc-demos --example approximation`
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -17,6 +17,8 @@ fn main() {
 
     let linear: LinearApproximator = LinearApproximator::default();
     let model = linear.get(&f, &base).unwrap();
+    // A first-order model is exact at its own expansion point.
+    assert!((model.predict(&base) - f.eval(&base)).abs() < 1e-9);
 
     println!("Linear model of x + y^2 + z^3 about {base:?}");
     println!(

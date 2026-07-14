@@ -1,7 +1,7 @@
 //! Root finding: bracketed bisection, Newton with exact derivatives, damped Newton, and a
 //! square-system Newton solve. Each result prints against its known root with the `|err|`.
 //!
-//! Run with: `cargo run --example root_finding`
+//! Run with: `cargo run -p multicalc-demos --example root_finding`
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -67,6 +67,7 @@ fn main() {
         .solve(&system, &[1.5, 0.8])
         .unwrap();
     let err = (r.root[0] - x_true).abs().max((r.root[1] - y_true).abs());
+    assert!(err < 1e-9, "Newton system should converge to the intersection");
     println!("\nNewton system  x^2 + y^2 = 4 and x*y = 1");
     println!("  root = [{:.12}, {:.12}]", r.root[0], r.root[1]);
     println!(

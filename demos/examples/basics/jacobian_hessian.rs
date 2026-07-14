@@ -1,6 +1,6 @@
 //! Jacobian and Hessian matrices of multi-variable functions.
 //!
-//! Run with: `cargo run --example jacobian_hessian`
+//! Run with: `cargo run -p multicalc-demos --example jacobian_hessian`
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -22,6 +22,12 @@ fn main() {
         println!("  [{:.4}, {:.4}, {:.4}]", row[0], row[1], row[2]);
     }
     println!("  (exact [[6, 3, 2], [2, 4, 0]])");
+    let exact = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
+    for i in 0..2 {
+        for j in 0..3 {
+            assert!((result[i][j] - exact[i][j]).abs() < 1e-9);
+        }
+    }
 
     // ---- Hessian of f(x, y) = y*sin(x) + 2*x*e^y ----
     let g = scalar_fn!(|v: &[f64; 2]| v[1] * v[0].sin() + c(2.0) * v[0] * v[1].exp());

@@ -3,7 +3,7 @@
 //! recovery, a redundant-arm pseudo-inverse, a near-singular Jacobian, and an overdetermined fit.
 //!
 //! Latency is illustrative in a debug build; run with `--release` for representative numbers:
-//! `cargo run --release --example svd`
+//! `cargo run -p multicalc-demos --release --example svd`
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -87,6 +87,7 @@ fn kabsch() {
     }
     let rot_err = max_abs(rhat, rot);
     let ortho_err = max_abs(rhat.transpose() * rhat, Matrix::<3, 3>::identity());
+    assert!(rot_err < 1e-9 && ortho_err < 1e-9, "SVD should recover the rotation");
     let label = "Kabsch 3x3";
     println!("  {label:<20} {ns:>8.1} ns   R-error {rot_err:.1e}   orthogonality {ortho_err:.1e}");
 }
