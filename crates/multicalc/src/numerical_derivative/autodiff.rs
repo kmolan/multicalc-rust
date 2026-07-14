@@ -8,7 +8,7 @@ use core::marker::PhantomData;
 
 use crate::error::DiffError;
 use crate::numerical_derivative::derivator::{DerivatorMultiVariable, DerivatorSingleVariable};
-use crate::scalar::{Dual, HyperDual, Jet, Numeric, ScalarFn, ScalarFnN};
+use crate::scalar::{Dual, HyperDual, Jet, Numeric, ScalarFn, ScalarFnN, VectorFn};
 
 /// Highest single-variable derivative order an [`AutoDiffSingle`] supports through its [`Jet`].
 const MAX_ORDER: usize = 6;
@@ -155,5 +155,29 @@ impl<T: Numeric> DerivatorMultiVariable for AutoDiffMulti<T> {
             }
             _ => Err(DiffError::OrderUnsupported),
         }
+    }
+
+    /// Computes input `col` on a single [`Dual`] direction and evaluates `func` once, reading the
+    /// derivative of every output from that one pass.
+    /// The whole Jacobian column in O(1) evaluations.
+    fn jacobian_column<
+        F: VectorFn<NUM_VARS, NUM_FUNCS>,
+        const NUM_VARS: usize,
+        const NUM_FUNCS: usize,
+    >(
+        &self,
+        func: &F,
+        col: usize,
+        point: &[T; NUM_VARS],
+    ) -> Result<[T; NUM_FUNCS], DiffError> {
+        if col >= NUM_VARS {
+            return Err(DiffError::IndexOutOfRange);
+        }
+
+        let mut seed: [Dual<T>; NUM_VARS] = core::array::from_fn(|k| Dual::constant(point[k]));
+        seed[col] = Dual::variable(point[col]);
+
+        let outputs = func.eval(&seed);
+        Ok(core::array::from_fn(|m| outputs[m].deriv))
     }
 }

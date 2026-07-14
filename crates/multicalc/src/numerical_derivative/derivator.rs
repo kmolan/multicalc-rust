@@ -1,5 +1,5 @@
 use crate::error::DiffError;
-use crate::scalar::{Numeric, ScalarFn, ScalarFnN};
+use crate::scalar::{Numeric, ScalarFn, ScalarFnN, VectorFn};
 
 /// Base trait for single-variable differentiation.
 pub trait DerivatorSingleVariable {
@@ -107,4 +107,24 @@ pub trait DerivatorMultiVariable {
     ) -> Result<Self::Scalar, DiffError> {
         self.get(func, idx_to_differentiate, point)
     }
+
+    /// Returns one column of a vector function's Jacobian: the partial derivative of every
+    /// output with respect to input `col`, at `point`.
+    ///
+    /// Implementations compute the whole column at once — forward-mode from a
+    /// single seeded pass, finite difference from two full-vector evaluations.
+    ///
+    /// # Errors
+    /// [`DiffError::IndexOutOfRange`] if `col >= NUM_VARS`, plus whatever error the underlying
+    /// evaluation returns.
+    fn jacobian_column<
+        F: VectorFn<NUM_VARS, NUM_FUNCS>,
+        const NUM_VARS: usize,
+        const NUM_FUNCS: usize,
+    >(
+        &self,
+        func: &F,
+        col: usize,
+        point: &[Self::Scalar; NUM_VARS],
+    ) -> Result<[Self::Scalar; NUM_FUNCS], DiffError>;
 }
