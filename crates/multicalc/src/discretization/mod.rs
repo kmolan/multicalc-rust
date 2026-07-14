@@ -98,8 +98,16 @@ pub fn van_loan<const N: usize, const N2: usize, T: Numeric>(
 /// let q = q_discrete_white_noise::<2, f64>(0.1, 2.0);
 /// assert!((q[(1, 1)] - 2.0 * 0.1 * 0.1).abs() < 1e-15); // var · dt²
 /// ```
-pub fn q_discrete_white_noise<const DIM: usize, T: Numeric>(dt: T, variance: T) -> Matrix<DIM, DIM, T> {
-    const { assert!(DIM >= 2 && DIM <= 4, "q_discrete_white_noise: DIM must be 2, 3, or 4") };
+pub fn q_discrete_white_noise<const DIM: usize, T: Numeric>(
+    dt: T,
+    variance: T,
+) -> Matrix<DIM, DIM, T> {
+    const {
+        assert!(
+            DIM >= 2 && DIM <= 4,
+            "q_discrete_white_noise: DIM must be 2, 3, or 4"
+        )
+    };
     let dt2 = dt * dt;
     let dt3 = dt2 * dt;
     let dt4 = dt3 * dt;

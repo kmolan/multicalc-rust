@@ -4,7 +4,10 @@ use core::ops::Mul;
 
 use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
-use crate::spatial::lie::{SO3, inverse_left_jacobian_so3, left_jacobian_so3, skew3};
+use crate::spatial::lie::{
+    SO3, inverse_left_jacobian_se3, inverse_left_jacobian_so3, left_jacobian_se3,
+    left_jacobian_so3, skew3,
+};
 
 /// A 3D rigid-body transform: a rotation and a translation. The tangent is `[vx, vy, vz, ωx, ωy, ωz]`.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -166,6 +169,38 @@ impl<T: Numeric> SE3<T> {
     #[inline]
     pub fn interpolate(self, other: Self, t: T) -> Self {
         self.compose(Self::exp(self.inverse().compose(other).log() * t))
+    }
+
+    /// The SE(3) left Jacobian `J_l(ξ)` for the `[v; ω]` twist ordering.
+    ///
+    /// ```
+    /// use multicalc::spatial::SE3;
+    /// use multicalc::linear_algebra::Vector;
+    /// let xi = Vector::new([0.1_f64, -0.2, 0.3, 0.2, -0.1, 0.4]);
+    /// let prod = SE3::left_jacobian(xi) * SE3::left_jacobian_inverse(xi);
+    /// for i in 0..6 { assert!((prod[(i, i)] - 1.0).abs() < 1e-10); }
+    /// ```
+    #[inline]
+    pub fn left_jacobian(xi: Vector<6, T>) -> Matrix<6, 6, T> {
+        left_jacobian_se3(xi)
+    }
+
+    /// The SE(3) right Jacobian `J_r(ξ) = J_l(−ξ)`.
+    #[inline]
+    pub fn right_jacobian(xi: Vector<6, T>) -> Matrix<6, 6, T> {
+        left_jacobian_se3(-xi)
+    }
+
+    /// The inverse SE(3) left Jacobian `J_l⁻¹(ξ)`.
+    #[inline]
+    pub fn left_jacobian_inverse(xi: Vector<6, T>) -> Matrix<6, 6, T> {
+        inverse_left_jacobian_se3(xi)
+    }
+
+    /// The inverse SE(3) right Jacobian `J_r⁻¹(ξ) = J_l⁻¹(−ξ)`.
+    #[inline]
+    pub fn right_jacobian_inverse(xi: Vector<6, T>) -> Matrix<6, 6, T> {
+        inverse_left_jacobian_se3(-xi)
     }
 }
 

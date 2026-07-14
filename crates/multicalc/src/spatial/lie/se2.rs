@@ -164,6 +164,88 @@ impl<T: Numeric> SE2<T> {
     pub fn interpolate(self, other: Self, t: T) -> Self {
         self.compose(Self::exp(self.inverse().compose(other).log() * t))
     }
+
+    /// The SE(2) left Jacobian `J_l(ξ) = [[V(θ), dV/dθ·ρ], [0, 1]]` for the `[vx, vy, ω]` ordering.
+    ///
+    /// ```
+    /// use multicalc::spatial::SE2;
+    /// use multicalc::linear_algebra::Vector;
+    /// let xi = Vector::new([0.4_f64, -0.2, 0.3]);
+    /// let prod = SE2::left_jacobian(xi) * SE2::left_jacobian_inverse(xi);
+    /// for i in 0..3 { assert!((prod[(i, i)] - 1.0).abs() < 1e-12); }
+    /// ```
+    #[inline]
+    pub fn left_jacobian(xi: Vector<3, T>) -> Matrix<3, 3, T> {
+        let omega = xi[2];
+        let theta_sq = omega * omega;
+        let (a, b, ap, bp) = if theta_sq < small_angle_sq::<T>() {
+            (
+                T::ONE - theta_sq / T::from_f64(6.0),
+                omega * (T::HALF - theta_sq / T::from_f64(24.0)),
+                -omega / T::from_f64(3.0),
+                T::HALF - theta_sq / T::from_f64(8.0),
+            )
+        } else {
+            let (s, c) = (omega.sin(), omega.cos());
+            (
+                s / omega,
+                (T::ONE - c) / omega,
+                (omega * c - s) / theta_sq,
+                (omega * s - (T::ONE - c)) / theta_sq,
+            )
+        };
+        let (rx, ry) = (xi[0], xi[1]);
+        let dx = ap * rx - bp * ry;
+        let dy = bp * rx + ap * ry;
+        Matrix::new([[a, -b, dx], [b, a, dy], [T::ZERO, T::ZERO, T::ONE]])
+    }
+
+    /// The SE(2) right Jacobian `J_r(ξ) = J_l(−ξ)`.
+    #[inline]
+    pub fn right_jacobian(xi: Vector<3, T>) -> Matrix<3, 3, T> {
+        Self::left_jacobian(-xi)
+    }
+
+    /// The inverse SE(2) left Jacobian `J_l⁻¹(ξ) = [[V⁻¹, −V⁻¹·(dV/dθ·ρ)], [0, 1]]`.
+    #[inline]
+    pub fn left_jacobian_inverse(xi: Vector<3, T>) -> Matrix<3, 3, T> {
+        let omega = xi[2];
+        let theta_sq = omega * omega;
+        let (ap, bp) = if theta_sq < small_angle_sq::<T>() {
+            (
+                -omega / T::from_f64(3.0),
+                T::HALF - theta_sq / T::from_f64(8.0),
+            )
+        } else {
+            let (s, c) = (omega.sin(), omega.cos());
+            (
+                (omega * c - s) / theta_sq,
+                (omega * s - (T::ONE - c)) / theta_sq,
+            )
+        };
+        let (rx, ry) = (xi[0], xi[1]);
+        let dx = ap * rx - bp * ry;
+        let dy = bp * rx + ap * ry;
+        let (alpha, beta) = if theta_sq < small_angle_sq::<T>() {
+            (T::ONE - theta_sq / T::from_f64(12.0), omega * T::HALF)
+        } else {
+            let half = omega * T::HALF;
+            (half * (half.cos() / half.sin()), half)
+        };
+        let cx = -(alpha * dx + beta * dy);
+        let cy = -(-beta * dx + alpha * dy);
+        Matrix::new([
+            [alpha, beta, cx],
+            [-beta, alpha, cy],
+            [T::ZERO, T::ZERO, T::ONE],
+        ])
+    }
+
+    /// The inverse SE(2) right Jacobian `J_r⁻¹(ξ) = J_l⁻¹(−ξ)`.
+    #[inline]
+    pub fn right_jacobian_inverse(xi: Vector<3, T>) -> Matrix<3, 3, T> {
+        Self::left_jacobian_inverse(-xi)
+    }
 }
 
 impl<T: Numeric> Mul for SE2<T> {
