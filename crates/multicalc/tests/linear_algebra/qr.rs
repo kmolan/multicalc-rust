@@ -1,6 +1,6 @@
 use crate::helpers::{assert_close, assert_identity};
+use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, PivotedQr, Vector};
-use multicalc::utils::error_codes::CalcError;
 
 // ----- column-pivoted QR (decompose, accessors, solve) -----
 
@@ -9,7 +9,7 @@ fn qr_rejects_underdetermined() {
     let a = Matrix::<2, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
     assert!(matches!(
         PivotedQr::decompose(a),
-        Err(CalcError::Underdetermined)
+        Err(LinalgError::Underdetermined)
     ));
 }
 
@@ -50,7 +50,7 @@ fn qr_solve_rejects_rank_deficient() {
         PivotedQr::decompose(zero_col)
             .unwrap()
             .solve_least_squares(b),
-        Err(CalcError::SingularMatrix)
+        Err(LinalgError::Singular)
     ));
 
     // col2 = col0 + col1: dependent columns leave a tiny (not exactly zero) diagonal, which the
@@ -60,7 +60,7 @@ fn qr_solve_rejects_rank_deficient() {
         PivotedQr::decompose(dependent)
             .unwrap()
             .solve_least_squares(b),
-        Err(CalcError::SingularMatrix)
+        Err(LinalgError::Singular)
     ));
 }
 

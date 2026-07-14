@@ -5,7 +5,7 @@ use core::ops::Mul;
 use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
 use crate::spatial::Quaternion;
-use crate::spatial::lie::{left_jacobian_so3, skew3};
+use crate::spatial::lie::{inverse_left_jacobian_so3, left_jacobian_so3, skew3};
 
 /// A 3D rotation. Wraps a unit [`Quaternion`] and carries the unit-rotation invariant. Composition
 /// uses the Hamilton product; call [`SO3::normalized`] to remove drift after long chains. The
@@ -144,6 +144,26 @@ impl<T: Numeric> SO3<T> {
     #[inline]
     pub fn right_jacobian(phi: Vector<3, T>) -> Matrix<3, 3, T> {
         left_jacobian_so3(-phi)
+    }
+
+    /// The inverse SO(3) left Jacobian `J_l⁻¹(φ)`.
+    ///
+    /// ```
+    /// use multicalc::spatial::SO3;
+    /// use multicalc::linear_algebra::{Matrix, Vector};
+    /// let phi = Vector::new([0.2_f64, -0.1, 0.4]);
+    /// let prod = SO3::left_jacobian(phi) * SO3::left_jacobian_inverse(phi);
+    /// for i in 0..3 { assert!((prod[(i, i)] - 1.0).abs() < 1e-12); }
+    /// ```
+    #[inline]
+    pub fn left_jacobian_inverse(phi: Vector<3, T>) -> Matrix<3, 3, T> {
+        inverse_left_jacobian_so3(phi)
+    }
+
+    /// The inverse SO(3) right Jacobian `J_r⁻¹(φ) = J_l⁻¹(−φ)`.
+    #[inline]
+    pub fn right_jacobian_inverse(phi: Vector<3, T>) -> Matrix<3, 3, T> {
+        inverse_left_jacobian_so3(-phi)
     }
 }
 

@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   matching-degree polynomials, metrics consistency). @rtmongold (#130)
 - Property tests that autodiff and central finite-difference derivatives agree on random
   polynomial compositions. @rtmongold (#129)
+- Opt-in Kahan compensated summation for iterative integration and approximation metrics
+  via `.with_kahan_summation()`; pairwise remains the default. @rtmongold (#134)
 
 ### Fixed
 

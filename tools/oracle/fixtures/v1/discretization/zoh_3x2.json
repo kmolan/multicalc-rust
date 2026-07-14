@@ -1,0 +1,97 @@
+{
+  "case": "zoh_3x2",
+  "expected": {
+    "F": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3feefeea299c36aa",
+        "0x3fa4ee54e5335510",
+        "0x3fa5251196d8ec2c",
+        "0xbfafd29e98af5978",
+        "0x3ff1189fdaa80872",
+        "0x3fb1c711a19fbcd2",
+        "0xbfa8b90e56be4b0b",
+        "0x3fa5cd0decfde01a",
+        "0x3fefed985067faf3"
+      ],
+      "rows": 3
+    },
+    "G": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3faabbaae0d4da5d",
+        "0x3f7ac742fb04322d",
+        "0xbfaf437f9c11c5eb",
+        "0x3fa91cb9f6a31df6",
+        "0x3fac674aaaac42ba",
+        "0xbf8c967d4b3c2d7a"
+      ],
+      "rows": 3
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0xbfd2fb7061825f54",
+        "0x3fd924f7b9d118e4",
+        "0x3fd9fbab7098b1c8",
+        "0xbfe3020d72ac62b0",
+        "0x3fe5209bf53854ee",
+        "0x3fe5e89663f83b74",
+        "0xbfde97227c39ba4d",
+        "0x3fdafdf3f54bc3b0",
+        "0xbf9bea3f782f40a0"
+      ],
+      "rows": 3
+    },
+    "B": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fe0f8bcbf812c26",
+        "0x3fae88ff6e3aa230",
+        "0xbfe304d8d4f26a9d",
+        "0x3fdecb2be8e8fcbc",
+        "0x3fe29625bc8faf3e",
+        "0xbfc3037b5b692fec"
+      ],
+      "rows": 3
+    },
+    "dt": {
+      "kind": "scalar",
+      "v": "0x3fb999999999999a"
+    },
+    "kind": {
+      "kind": "str",
+      "v": "zoh"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "discretization",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "entries uniform in [-0.8, 0.8]; SPD Qc = M M\u1d40",
+    "seed": 20260706
+  },
+  "module": "discretization",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}

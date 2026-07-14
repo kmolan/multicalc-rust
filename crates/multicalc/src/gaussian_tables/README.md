@@ -4,7 +4,7 @@ Precomputed Gauss-Legendre, Gauss-Hermite, and Gauss-Laguerre quadrature nodes a
 order `MAX_ORDER` (30). These back [`gaussian_integration`](../numerical_integration).
 
 - `nodes(method, order)` returns the `(weight, abscissa)` pairs as `&'static [(f64, f64)]`, or
-  [`CalcError::QuadratureOrderOutOfRange`](../utils/error_codes.rs) if the order is unavailable.
+  [`IntegrateError::QuadratureOrderOutOfRange`](../error.rs) if the order is unavailable.
 - Per-family data lives in [`legendre`](legendre.rs), [`hermite`](hermite.rs),
   [`laguerre`](laguerre.rs).
 

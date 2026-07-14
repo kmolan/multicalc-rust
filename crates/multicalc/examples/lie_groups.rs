@@ -65,4 +65,9 @@ fn main() {
     report("d x / d theta", out[0].deriv, 0.0);
     report("d y / d theta", out[1].deriv, 1.0);
     report("d z / d theta", out[2].deriv, 0.0);
+
+    // (6) Left Jacobian: J_l(phi) times its inverse is the identity.
+    let jjinv = SO3::left_jacobian(phi) * SO3::left_jacobian_inverse(phi);
+    println!("\nSO(3): left Jacobian times its inverse is the identity");
+    report("(J_l * J_l^-1)[0,0]", jjinv[(0, 0)], 1.0);
 }

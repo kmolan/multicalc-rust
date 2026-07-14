@@ -2,10 +2,10 @@
 
 use multicalc::numerical_integration::mode::*;
 
+use multicalc::error::IntegrateError;
 use multicalc::numerical_integration::gaussian_integration;
 use multicalc::numerical_integration::integrator::*;
 use multicalc::numerical_integration::iterative_integration;
-use multicalc::utils::error_codes::*;
 
 use proptest::prelude::*;
 
@@ -317,7 +317,7 @@ fn test_error_checking_1() {
     //expect failure because integration interval is ill-defined (lower limit is higher than the upper limit)
     let result = integrator.get_single(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == CalcError::IntegrationLimitsIllDefined);
+    assert!(result.unwrap_err() == IntegrateError::LimitsIllDefined);
 }
 
 #[test]
@@ -333,7 +333,7 @@ fn test_error_checking_2() {
     //expect failure because number of steps is 0
     let result = integrator.get_single(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == CalcError::IterationsZero);
+    assert!(result.unwrap_err() == IntegrateError::IterationsZero);
 }
 
 //TODO: add more tests
@@ -352,7 +352,7 @@ fn test_error_checking_3() {
     );
     let result = integrator.get_single(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == CalcError::QuadratureOrderOutOfRange);
+    assert!(result.unwrap_err() == IntegrateError::QuadratureOrderOutOfRange);
 }
 
 #[test]
@@ -369,7 +369,7 @@ fn test_error_checking_4() {
     );
     let result = integrator.get_single(&func, &integration_limit);
     assert!(result.is_err());
-    assert!(result.unwrap_err() == CalcError::QuadratureOrderOutOfRange);
+    assert!(result.unwrap_err() == IntegrateError::QuadratureOrderOutOfRange);
 }
 
 #[test]
@@ -787,5 +787,29 @@ fn proptest_gauss_laguerre_integration_f64() {
     gauss_integration_proptest(
         GaussianQuadratureMethod::GaussLaguerre,
         Just([0.0, f64::INFINITY]),
+    );
+}
+
+#[test]
+fn kahan_integration_beats_naive_on_long_sum() {
+    let func = |x: f64| -> f64 { 1.0 / (1.0 + x * x) };
+    let exact = core::f64::consts::PI / 4.0;
+    let iterations: u64 = 1 << 23;
+
+    let integrator = iterative_integration::IterativeSingle::from_parameters(
+        iterations,
+        IterativeMethod::Trapezoidal,
+    )
+    .with_kahan_summation();
+
+    let kahan = integrator.get_single(&func, &[0.0, 1.0]).unwrap();
+    let naive = naive_trapezoidal(iterations, 0.0, 1.0, func);
+
+    let kahan_err = f64::abs(kahan - exact);
+    let naive_err = f64::abs(naive - exact);
+    assert!(kahan_err < 1e-12, "kahan error {kahan_err:e} too large");
+    assert!(
+        kahan_err < naive_err,
+        "kahan ({kahan_err:e}) should be closer than naive ({naive_err:e})"
     );
 }

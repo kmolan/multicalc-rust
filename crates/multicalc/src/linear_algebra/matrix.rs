@@ -2,9 +2,9 @@
 
 use core::ops::{Add, AddAssign, Index, IndexMut, Mul, Neg, Sub, SubAssign};
 
+use crate::error::LinalgError;
 use crate::linear_algebra::Vector;
 use crate::scalar::Numeric;
-use crate::utils::error_codes::CalcError;
 
 /// A `ROWS`×`COLS` matrix stored inline on the stack in row-major order.
 ///
@@ -284,7 +284,7 @@ impl<T: Numeric> Matrix<2, 2, T> {
         self[(0, 0)] * self[(1, 1)] - self[(0, 1)] * self[(1, 0)]
     }
 
-    /// The inverse, or [`CalcError::SingularMatrix`] if the matrix is singular
+    /// The inverse, or [`LinalgError::Singular`] if the matrix is singular
     /// (`determinant() == 0`).
     ///
     /// ```
@@ -295,10 +295,10 @@ impl<T: Numeric> Matrix<2, 2, T> {
     /// assert!(Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 4.0]]).inverse().is_err());
     /// ```
     #[inline]
-    pub fn inverse(self) -> Result<Self, CalcError> {
+    pub fn inverse(self) -> Result<Self, LinalgError> {
         let det = self.determinant();
         if det == T::ZERO {
-            return Err(CalcError::SingularMatrix);
+            return Err(LinalgError::Singular);
         }
         let inv = T::ONE / det;
         let m = self;
@@ -326,7 +326,7 @@ impl<T: Numeric> Matrix<3, 3, T> {
             + m[(0, 2)] * (m[(1, 0)] * m[(2, 1)] - m[(1, 1)] * m[(2, 0)])
     }
 
-    /// The inverse, or [`CalcError::SingularMatrix`] if the matrix is singular
+    /// The inverse, or [`LinalgError::Singular`] if the matrix is singular
     /// (`determinant() == 0`).
     ///
     /// ```
@@ -335,10 +335,10 @@ impl<T: Numeric> Matrix<3, 3, T> {
     /// assert_eq!(i.inverse().unwrap().into_array(), i.into_array());
     /// ```
     #[inline]
-    pub fn inverse(self) -> Result<Self, CalcError> {
+    pub fn inverse(self) -> Result<Self, LinalgError> {
         let det = self.determinant();
         if det == T::ZERO {
-            return Err(CalcError::SingularMatrix);
+            return Err(LinalgError::Singular);
         }
         let inv = T::ONE / det;
         let m = self;
@@ -409,7 +409,7 @@ impl<T: Numeric> Matrix<4, 4, T> {
         s[0] * c[5] - s[1] * c[4] + s[2] * c[3] + s[3] * c[2] - s[4] * c[1] + s[5] * c[0]
     }
 
-    /// The inverse, or [`CalcError::SingularMatrix`] if the matrix is singular
+    /// The inverse, or [`LinalgError::Singular`] if the matrix is singular
     /// (`determinant() == 0`).
     ///
     /// Built from the adjugate, the transpose of the cofactor matrix, scaled by `1/det`.
@@ -431,11 +431,11 @@ impl<T: Numeric> Matrix<4, 4, T> {
     /// }
     /// ```
     #[inline]
-    pub fn inverse(self) -> Result<Self, CalcError> {
+    pub fn inverse(self) -> Result<Self, LinalgError> {
         let (s, c) = self.row_pair_minors();
         let det = s[0] * c[5] - s[1] * c[4] + s[2] * c[3] + s[3] * c[2] - s[4] * c[1] + s[5] * c[0];
         if det == T::ZERO {
-            return Err(CalcError::SingularMatrix);
+            return Err(LinalgError::Singular);
         }
         let inv = T::ONE / det;
         let m = self;

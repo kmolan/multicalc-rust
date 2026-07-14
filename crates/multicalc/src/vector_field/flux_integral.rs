@@ -1,6 +1,6 @@
+use crate::error::IntegrateError;
 use crate::numerical_integration::iterative_integration::DEFAULT_TOTAL_ITERATIONS;
 use crate::scalar::Numeric;
-use crate::utils::error_codes::CalcError;
 
 use crate::vector_field::line_integral;
 
@@ -16,7 +16,7 @@ use crate::vector_field::line_integral;
 /// * `integration_limit` - the `[lower, upper]` range of the parameter `t`.
 ///
 /// # Errors
-/// [`CalcError::IntegrationLimitsIllDefined`] if the lower limit is not strictly less than the
+/// [`IntegrateError::LimitsIllDefined`] if the lower limit is not strictly less than the
 /// upper limit.
 ///
 /// # Examples
@@ -37,7 +37,7 @@ pub fn get_2d<T: Numeric>(
     vector_field: &[&dyn Fn(&[T; 2]) -> T; 2],
     transformations: &[&dyn Fn(T) -> T; 2],
     integration_limit: &[T; 2],
-) -> Result<T, CalcError> {
+) -> Result<T, IntegrateError> {
     get_2d_custom(
         vector_field,
         transformations,
@@ -49,15 +49,15 @@ pub fn get_2d<T: Numeric>(
 /// Same as [`get_2d`] but with an explicit iteration count for finer control.
 ///
 /// # Errors
-/// [`CalcError::IterationsZero`] if `total_iterations` is zero, or
-/// [`CalcError::IntegrationLimitsIllDefined`] if the lower limit is not strictly less than the
+/// [`IntegrateError::IterationsZero`] if `total_iterations` is zero, or
+/// [`IntegrateError::LimitsIllDefined`] if the lower limit is not strictly less than the
 /// upper limit.
 pub fn get_2d_custom<T: Numeric>(
     vector_field: &[&dyn Fn(&[T; 2]) -> T; 2],
     transformations: &[&dyn Fn(T) -> T; 2],
     integration_limit: &[T; 2],
     total_iterations: u64,
-) -> Result<T, CalcError> {
+) -> Result<T, IntegrateError> {
     Ok(line_integral::get_partial_2d(
         vector_field,
         transformations,

@@ -27,8 +27,9 @@ Jacobians and Hessians, vector-field operators, and Taylor approximation in a `n
 - Generic over the scalar type: use `f32` or `f64`, defaulting to `f64`.
 - Transcendental functions come from [`libm`](https://crates.io/crates/libm), so the math works
   without `std`.
-- Every fallible call returns a typed [`CalcError`](./src/utils/error_codes.rs); convenience
-  wrappers fill in sensible defaults.
+- Every fallible call returns its module family's typed error (`LinalgError`, `DiffError`,
+  `IntegrateError`, `SolveError`), each convertible into the [`CalcError`](./src/error.rs) umbrella;
+  convenience wrappers fill in sensible defaults.
 - A runnable example for every module, and a test suite covering each error path.
 
 <p align="center">
@@ -360,9 +361,9 @@ assert!((yf[0] - 1.0).abs() < 1e-6 && yf[1].abs() < 1e-6);
 ## Error handling
 
 Where a sensible default exists, a "safe" wrapper (such as `get_single` or `get_double`) returns the
-answer directly. Otherwise the call returns `Result<T, CalcError>` for the working scalar `T` (`f64`
-by default), so you decide how to handle bad input. All variants are listed in
-[error_codes.rs](./src/utils/error_codes.rs).
+answer directly. Otherwise the call returns a `Result` whose error is the module family's own enum —
+`LinalgError`, `DiffError`, `IntegrateError`, or `SolveError` — each convertible into the `CalcError`
+umbrella. All variants are listed in [error.rs](./src/error.rs).
 
 ## Heap allocation
 

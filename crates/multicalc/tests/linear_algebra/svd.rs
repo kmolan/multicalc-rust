@@ -1,8 +1,8 @@
 use crate::helpers::{
     assert_close, assert_identity, svd_moore_penrose, svd_moore_penrose_f32, svd_reconstructs,
 };
+use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, Vector};
-use multicalc::utils::error_codes::CalcError;
 
 #[test]
 fn svd_reconstructs_various() {
@@ -161,15 +161,15 @@ fn svd_rank_deficient() {
 fn svd_error_paths() {
     // A wide matrix is rejected by the raw svd().
     let wide = Matrix::<2, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
-    assert_eq!(wide.svd().err(), Some(CalcError::Underdetermined));
+    assert_eq!(wide.svd().err(), Some(LinalgError::Underdetermined));
 
     // Non-finite entries are rejected.
     let mut nan = Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
     nan[(2, 1)] = f64::NAN;
-    assert_eq!(nan.svd().err(), Some(CalcError::NonFiniteValue));
+    assert_eq!(nan.svd().err(), Some(LinalgError::NonFinite));
     let mut inf = Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
     inf[(0, 0)] = f64::INFINITY;
-    assert_eq!(inf.svd().err(), Some(CalcError::NonFiniteValue));
+    assert_eq!(inf.svd().err(), Some(LinalgError::NonFinite));
 }
 
 #[test]

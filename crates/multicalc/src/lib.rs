@@ -3,7 +3,8 @@
 //!
 //! Operations are generic over the [`Numeric`] scalar trait — implemented for `f32` and `f64`,
 //! defaulting to `f64` — with transcendentals from [`libm`] so it works without `std`.
-//! Fallible operations return [`utils::error_codes::CalcError`].
+//! Each module returns its own family error enum ([`LinalgError`], [`DiffError`],
+//! [`IntegrateError`], [`SolveError`]), all convertible into the [`CalcError`] umbrella.
 #![no_std]
 
 #[cfg(feature = "alloc")]
@@ -32,6 +33,9 @@ pub use scalar::{ScalarFn, ScalarFnN, VectorFn};
 /// Fixed-size, stack-allocated vector and matrix types.
 pub use linear_algebra::{Matrix, Vector};
 
+/// Zero-order-hold, Van Loan, and white-noise discretization of continuous-time linear systems.
+pub use discretization::{q_discrete_white_noise, van_loan, zoh};
+
 /// Fixed-step RK4 and adaptive RK45 (Dormand–Prince) ODE integrators.
 pub use ode::{Rk4, Rk45};
 
@@ -41,13 +45,21 @@ pub use spatial::Quaternion;
 /// SO(2)/SE(2)/SO(3)/SE(3) Lie groups for 2D and 3D rotations and rigid-body transforms.
 pub use spatial::{SE2, SE3, SO2, SO3};
 
+/// Typed spatial velocity and force in the linear-first `[v; ω]` / `[force; torque]` ordering.
+pub use spatial::{Twist, Wrench};
+
 /// The Levenberg-Marquardt and Gauss-Newton least-squares solvers and their result types.
 pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
 
 /// Bracketed and Newton root finders for scalar equations and square systems.
 pub use root_finding::{Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination};
 
+/// Per-module-family error enums and the umbrella they convert into.
+pub use error::{CalcError, DiffError, IntegrateError, LinalgError, SolveError};
+
 pub mod approximation;
+pub mod discretization;
+pub mod error;
 pub mod gaussian_tables;
 pub mod linear_algebra;
 pub mod numerical_derivative;

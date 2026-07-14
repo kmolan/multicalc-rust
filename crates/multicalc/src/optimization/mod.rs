@@ -5,7 +5,7 @@
 //! [`TerminationReason`] says which test converged. The Jacobian is taken by exact autodiff by
 //! default, or by finite differences if a finite-difference derivator is supplied. Failures
 //! (non-finite values, an underdetermined system, no convergence within the budget) come back as a
-//! [`CalcError`](crate::utils::error_codes::CalcError).
+//! [`SolveError`](crate::error::SolveError).
 //!
 //! The Levenberg-Marquardt driver ports MINPACK's `lmder`/`lmpar` (Moré, Garbow, Hillstrom; public
 //! domain, netlib), following Moré (1978), "The Levenberg-Marquardt algorithm: Implementation and

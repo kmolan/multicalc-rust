@@ -4,9 +4,9 @@
 //! partial pivoting on this crate's own [`Vector`] and [`Matrix`] types; results are checked
 //! against numpy/LAPACK reference values.
 
+use crate::error::LinalgError;
 use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
-use crate::utils::error_codes::CalcError;
 
 /// An LU factorization with partial pivoting, as produced by [`Matrix::lu`].
 ///
@@ -28,7 +28,7 @@ pub struct Lu<const N: usize, T = f64> {
 impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// Factorizes `self` by Doolittle LU with partial pivoting.
     ///
-    /// Returns [`CalcError::SingularMatrix`] if a pivot column is entirely zero — the largest
+    /// Returns [`LinalgError::Singular`] if a pivot column is entirely zero — the largest
     /// available pivot is zero — rather than dividing by it.
     ///
     /// ```
@@ -45,7 +45,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     ///     }
     /// }
     /// ```
-    pub fn lu(self) -> Result<Lu<N, T>, CalcError> {
+    pub fn lu(self) -> Result<Lu<N, T>, LinalgError> {
         let mut a = self;
         let mut perm: [usize; N] = core::array::from_fn(|i| i);
         let mut sign = T::ONE;
@@ -62,7 +62,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
                 }
             }
             if a[(p, k)] == T::ZERO {
-                return Err(CalcError::SingularMatrix);
+                return Err(LinalgError::Singular);
             }
             if p != k {
                 for c in 0..N {
@@ -90,7 +90,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// Solves `A·x = b` for `x`, factorizing `self` by LU.
     ///
     /// A one-call convenience over [`Matrix::lu`] followed by [`Lu::solve`]. Returns
-    /// [`CalcError::SingularMatrix`] if `self` is singular. To solve several right-hand sides,
+    /// [`LinalgError::Singular`] if `self` is singular. To solve several right-hand sides,
     /// factor once with [`Matrix::lu`] and reuse the result. For a symmetric positive-definite
     /// matrix, [`Matrix::cholesky`] is faster.
     ///
@@ -102,7 +102,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// assert!((x[1] - 2.0).abs() < 1e-12);
     /// assert!((x[2] - 3.0).abs() < 1e-12);
     /// ```
-    pub fn solve(self, b: Vector<N, T>) -> Result<Vector<N, T>, CalcError> {
+    pub fn solve(self, b: Vector<N, T>) -> Result<Vector<N, T>, LinalgError> {
         Ok(self.lu()?.solve(b))
     }
 }

@@ -26,3 +26,4 @@ Several examples also reproduce the published accuracy figures in [`benches/`](.
 | [`curve_fit`](curve_fit.rs) | `optimization` | Levenberg-Marquardt fit of `y = a·e^(b·t)` to sensor samples with exact autodiff Jacobians; prints recovered `a`, `b`, and `\|err\|`. |
 | [`optimization_solvers`](optimization_solvers.rs) | `optimization` | Gauss-Newton on a well-conditioned linear residual (`y = a + b·t`); when GN is enough vs LM (`curve_fit`). |
 | [`lie_groups`](lie_groups.rs) | `spatial` | SO(3)/SE(3) compose, act on a point, exp/log round trips, geodesic interpolation, and a one-`Dual` autodiff derivative pushed through `exp` ∘ `act`. |
+| [`discretization`](discretization.rs) | `discretization`, `linear_algebra::expm` | ZOH on a double integrator, Van Loan process-noise discretization, the filterpy `q_discrete_white_noise` model, and a one-`Dual` derivative pushed through the matrix exponential. |

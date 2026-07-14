@@ -447,6 +447,126 @@ fn so3_exp_goldens() {
     );
 }
 
+// ---- Lie Jacobians (added) --------------------------------------------------
+
+#[test]
+fn so3_jacobian_inverse_roundtrip() {
+    let mut rng = StdRng::seed_from_u64(20);
+    for _ in 0..200 {
+        let axis = rand_unit_vec3(&mut rng);
+        for &angle in &[1e-9, 1e-4, 0.5, 2.0, PI - 1e-6] {
+            let phi = axis * angle;
+            assert_mat_close(
+                SO3::left_jacobian(phi) * SO3::left_jacobian_inverse(phi),
+                Matrix::identity(),
+                1e-9,
+            );
+            assert_mat_close(
+                SO3::right_jacobian(phi) * SO3::right_jacobian_inverse(phi),
+                Matrix::identity(),
+                1e-9,
+            );
+        }
+    }
+}
+
+#[test]
+fn se3_jacobian_identities() {
+    let mut rng = StdRng::seed_from_u64(21);
+    for _ in 0..200 {
+        let xi = rand_twist6(&mut rng);
+        // J_l · J_l⁻¹ = I and J_r = J_l(−ξ).
+        assert_mat_close(
+            SE3::left_jacobian(xi) * SE3::left_jacobian_inverse(xi),
+            Matrix::identity(),
+            1e-8,
+        );
+        assert_mat_close(SE3::right_jacobian(xi), SE3::left_jacobian(-xi), TOL);
+        // Adjoint identity: Ad_{exp(ξ)} = J_l(ξ) · J_r(ξ)⁻¹.
+        assert_mat_close(
+            SE3::exp(xi).adjoint(),
+            SE3::left_jacobian(xi) * SE3::right_jacobian_inverse(xi),
+            1e-8,
+        );
+    }
+}
+
+#[test]
+fn se3_left_jacobian_matches_finite_difference() {
+    // Defining property: log(exp(ξ + h·eᵢ) · exp(ξ)⁻¹)/h → column i of J_l(ξ).
+    let xi = Vector::new([0.2_f64, -0.1, 0.3, 0.25, -0.15, 0.4]);
+    let jl = SE3::left_jacobian(xi);
+    let h = 1e-6;
+    for col in 0..6 {
+        let mut plus = xi;
+        plus[col] += h;
+        let d = (SE3::exp(plus) * SE3::exp(xi).inverse()).log() * (1.0 / h);
+        for row in 0..6 {
+            assert!((d[row] - jl[(row, col)]).abs() < 1e-4, "({row},{col})");
+        }
+    }
+}
+
+#[test]
+fn se3_left_jacobian_finite_at_zero_under_dual() {
+    let xi = Vector::new([
+        Dual::variable(0.0),
+        Dual::constant(0.0),
+        Dual::constant(0.0),
+        Dual::constant(0.0),
+        Dual::constant(0.0),
+        Dual::constant(0.0),
+    ]);
+    let jl = SE3::left_jacobian(xi);
+    for i in 0..6 {
+        for j in 0..6 {
+            assert!(jl[(i, j)].value.is_finite() && jl[(i, j)].deriv.is_finite());
+        }
+    }
+}
+
+#[test]
+fn se2_jacobian_identities_and_fd() {
+    let mut rng = StdRng::seed_from_u64(22);
+    for _ in 0..200 {
+        let xi = Vector::new([
+            rng.gen_range(-1.0..1.0),
+            rng.gen_range(-1.0..1.0),
+            rng.gen_range(-2.5..2.5),
+        ]);
+        assert_mat_close(
+            SE2::left_jacobian(xi) * SE2::left_jacobian_inverse(xi),
+            Matrix::identity(),
+            1e-9,
+        );
+        assert_mat_close(
+            SE2::exp(xi).adjoint(),
+            SE2::left_jacobian(xi) * SE2::right_jacobian_inverse(xi),
+            1e-8,
+        );
+    }
+    // Finite-difference ground truth on one configuration.
+    let xi = Vector::new([0.3_f64, -0.4, 0.5]);
+    let jl = SE2::left_jacobian(xi);
+    let h = 1e-6;
+    for col in 0..3 {
+        let mut plus = xi;
+        plus[col] += h;
+        let d = (SE2::exp(plus) * SE2::exp(xi).inverse()).log() * (1.0 / h);
+        for row in 0..3 {
+            assert!((d[row] - jl[(row, col)]).abs() < 1e-4, "({row},{col})");
+        }
+    }
+}
+
+#[test]
+fn so2_jacobians_are_one() {
+    assert!((SO2::left_jacobian(0.7_f64) - 1.0).abs() < 1e-15);
+    assert!((SO2::right_jacobian(0.7_f64) - 1.0).abs() < 1e-15);
+    assert!((SO2::left_jacobian_inverse(-0.3_f64) - 1.0).abs() < 1e-15);
+    assert!((SO2::right_jacobian_inverse(-0.3_f64) - 1.0).abs() < 1e-15);
+}
+
 #[test]
 fn se3_to_matrix_goldens() {
     // Pure translation: identity rotation, translation (1, 2, 3).
