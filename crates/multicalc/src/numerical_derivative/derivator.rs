@@ -1,5 +1,5 @@
+use crate::error::DiffError;
 use crate::scalar::{Numeric, ScalarFn, ScalarFnN};
-use crate::utils::error_codes::CalcError;
 
 /// Base trait for single-variable differentiation.
 pub trait DerivatorSingleVariable {
@@ -9,8 +9,8 @@ pub trait DerivatorSingleVariable {
     /// Computes the `order`-th derivative of `func` at `point`.
     ///
     /// # Errors
-    /// [`CalcError::DerivativeOrderZero`] if `order` is zero, or
-    /// [`CalcError::StepSizeZero`] if the configured step size is zero.
+    /// [`DiffError::OrderZero`] if `order` is zero, or
+    /// [`DiffError::StepSizeZero`] if the configured step size is zero.
     ///
     /// # Examples
     /// ```
@@ -31,14 +31,14 @@ pub trait DerivatorSingleVariable {
         order: usize,
         func: &F,
         point: Self::Scalar,
-    ) -> Result<Self::Scalar, CalcError>;
+    ) -> Result<Self::Scalar, DiffError>;
 
     /// Convenience wrapper for the first derivative.
     fn get_single<F: ScalarFn>(
         &self,
         func: &F,
         point: Self::Scalar,
-    ) -> Result<Self::Scalar, CalcError> {
+    ) -> Result<Self::Scalar, DiffError> {
         self.get(1, func, point)
     }
 
@@ -47,7 +47,7 @@ pub trait DerivatorSingleVariable {
         &self,
         func: &F,
         point: Self::Scalar,
-    ) -> Result<Self::Scalar, CalcError> {
+    ) -> Result<Self::Scalar, DiffError> {
         self.get(2, func, point)
     }
 }
@@ -62,9 +62,9 @@ pub trait DerivatorMultiVariable {
     /// derivative order equals the length of that array.
     ///
     /// # Errors
-    /// [`CalcError::DerivativeOrderZero`] if `idx_to_differentiate` is empty,
-    /// [`CalcError::StepSizeZero`] if the step size is zero, or
-    /// [`CalcError::IndexOutOfRange`] if any index is `>= NUM_VARS`.
+    /// [`DiffError::OrderZero`] if `idx_to_differentiate` is empty,
+    /// [`DiffError::StepSizeZero`] if the step size is zero, or
+    /// [`DiffError::IndexOutOfRange`] if any index is `>= NUM_VARS`.
     ///
     /// # Examples
     /// ```
@@ -86,7 +86,7 @@ pub trait DerivatorMultiVariable {
         func: &F,
         idx_to_differentiate: &[usize; NUM_ORDER],
         point: &[Self::Scalar; NUM_VARS],
-    ) -> Result<Self::Scalar, CalcError>;
+    ) -> Result<Self::Scalar, DiffError>;
 
     /// Convenience wrapper for a single partial derivative.
     fn get_single_partial<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
@@ -94,7 +94,7 @@ pub trait DerivatorMultiVariable {
         func: &F,
         idx_to_differentiate: usize,
         point: &[Self::Scalar; NUM_VARS],
-    ) -> Result<Self::Scalar, CalcError> {
+    ) -> Result<Self::Scalar, DiffError> {
         self.get(func, &[idx_to_differentiate], point)
     }
 
@@ -104,7 +104,7 @@ pub trait DerivatorMultiVariable {
         func: &F,
         idx_to_differentiate: &[usize; 2],
         point: &[Self::Scalar; NUM_VARS],
-    ) -> Result<Self::Scalar, CalcError> {
+    ) -> Result<Self::Scalar, DiffError> {
         self.get(func, idx_to_differentiate, point)
     }
 }

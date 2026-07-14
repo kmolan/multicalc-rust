@@ -1,0 +1,58 @@
+{
+  "case": "qdwn_2",
+  "expected": {
+    "Q": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3f10624dd2f1a9fd",
+        "0x3f547ae147ae147c",
+        "0x3f547ae147ae147c",
+        "0x3f9999999999999b"
+      ],
+      "rows": 2
+    }
+  },
+  "inputs": {
+    "dim": {
+      "kind": "int",
+      "v": 2
+    },
+    "dt": {
+      "kind": "scalar",
+      "v": "0x3fb999999999999a"
+    },
+    "kind": {
+      "kind": "str",
+      "v": "qdwn"
+    },
+    "variance": {
+      "kind": "scalar",
+      "v": "0x4004000000000000"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "discretization",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "entries uniform in [-0.8, 0.8]; SPD Qc = M M\u1d40",
+    "seed": 20260706
+  },
+  "module": "discretization",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}

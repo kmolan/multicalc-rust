@@ -170,6 +170,19 @@ impl<const N: usize, T: Numeric> Vector<N, T> {
     pub fn norm(self) -> T {
         self.norm_squared().sqrt()
     }
+
+    /// Returns `true` when every component is neither infinite nor NaN.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// assert!(Vector::new([1.0, -2.0]).is_finite());
+    /// assert!(!Vector::new([1.0, f64::NAN]).is_finite());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn is_finite(self) -> bool {
+        self.data.iter().all(|x| x.is_finite())
+    }
 }
 
 impl<const N: usize, T> From<[T; N]> for Vector<N, T> {

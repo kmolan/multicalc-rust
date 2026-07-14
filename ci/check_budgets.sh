@@ -106,7 +106,13 @@ check() {
 }
 
 # ---- Measure .text ---------------------------------------------------------
-if ! size_out=$(cargo size --release -p "$binary" --target "$target" -- -A 2>&1); then
+# The thumbv6m M0 canary is built with default features off, so measure that same
+# lean image; the thumbv7em full-set targets keep default features.
+size_features=""
+if [ "$target" = "thumbv6m-none-eabi" ]; then
+  size_features="--no-default-features"
+fi
+if ! size_out=$(cargo size --release $size_features -p "$binary" --target "$target" -- -A 2>&1); then
   echo "$size_out" >&2
   die "'cargo size' failed for $binary/$target (its output is above)." \
       "Install the tool:       cargo install cargo-binutils" \

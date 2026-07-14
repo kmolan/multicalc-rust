@@ -1,5 +1,6 @@
 use crate::scalar::Numeric;
-use crate::utils::summation::PairwiseSum;
+use crate::utils::summation::Acc;
+pub use crate::utils::summation::SummationMethod;
 
 pub mod linear_approximation;
 pub mod quadratic_approximation;
@@ -15,6 +16,7 @@ pub(crate) fn compute_metrics<T, P, O, const NUM_VARS: usize, const NUM_POINTS: 
     points: &[[T; NUM_VARS]; NUM_POINTS],
     original_function: &O,
     num_predictors: usize,
+    summation: SummationMethod,
 ) -> (T, T, T, T, T)
 where
     T: Numeric,
@@ -23,15 +25,15 @@ where
 {
     let n = T::from_usize(NUM_POINTS);
 
-    let mut mean_y = PairwiseSum::new();
+    let mut mean_y = Acc::new(summation);
     for point in points {
         mean_y.add(original_function(point));
     }
     let mean_y = mean_y.total() / n;
 
-    let mut sum_abs = PairwiseSum::new();
-    let mut ss_res = PairwiseSum::new();
-    let mut ss_tot = PairwiseSum::new();
+    let mut sum_abs = Acc::new(summation);
+    let mut ss_res = Acc::new(summation);
+    let mut ss_tot = Acc::new(summation);
     for point in points {
         let y = original_function(point);
         let residual = predict(point) - y;

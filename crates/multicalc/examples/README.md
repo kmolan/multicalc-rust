@@ -14,6 +14,7 @@ Several examples also reproduce the published accuracy figures in [`benches/`](.
 | Example | Module(s) | What it shows |
 | --- | --- | --- |
 | [`differentiation`](differentiation.rs) | `numerical_derivative` | Single- and multi-variable finite-difference derivatives (orders 1-3, partials, mixed partials). Reproduces the differentiation accuracy tables in benches/calculus.md. |
+| [`autodiff_scalars`](autodiff_scalars.rs) | `scalar` | Use `Dual` and `HyperDual` directly: evaluate a generic `Numeric` function and read f, f′, f″ from the result fields (no derivator). |
 | [`jacobian_hessian`](jacobian_hessian.rs) | `numerical_derivative::{jacobian, hessian}` | Jacobian of a vector of functions and the Hessian of a scalar function. |
 | [`iterative_integration`](iterative_integration.rs) | `numerical_integration::iterative_integration` | Boole / Simpson / Trapezoidal rules, multi-variable partial integrals, and infinite / semi-infinite limits. Reproduces the iterative-integration accuracy table in benches/calculus.md. |
 | [`gaussian_integration`](gaussian_integration.rs) | `numerical_integration::gaussian_integration` | Gauss-Legendre (finite), Gauss-Hermite and Gauss-Laguerre (infinite), with the bare-integrand convention. Reproduces the Gaussian-quadrature accuracy table in benches/calculus.md. |
@@ -23,4 +24,6 @@ Several examples also reproduce the published accuracy figures in [`benches/`](.
 | [`svd`](svd.rs) | `linear_algebra::svd` | Singular value decomposition and Moore-Penrose pseudo-inverse under a robotics stress test (Kabsch rotation recovery, a redundant-arm pseudo-inverse, a near-singular Jacobian, and an overdetermined fit) with latency + approximation error. Reproduces the SVD / pseudo-inverse accuracy table in benches/linear_algebra.md. |
 | [`root_finding`](root_finding.rs) | `root_finding` | Bracketed bisection, Newton with exact derivatives, damped (backtracking) Newton rescuing a far start, and a square-system Newton solve, each printed against its known root. |
 | [`curve_fit`](curve_fit.rs) | `optimization` | Levenberg-Marquardt fit of `y = a·e^(b·t)` to sensor samples with exact autodiff Jacobians; prints recovered `a`, `b`, and `\|err\|`. |
-- `optimization_solvers` — Gauss-Newton linear residual walkthrough
+| [`optimization_solvers`](optimization_solvers.rs) | `optimization` | Gauss-Newton on a well-conditioned linear residual (`y = a + b·t`); when GN is enough vs LM (`curve_fit`). |
+| [`lie_groups`](lie_groups.rs) | `spatial` | SO(3)/SE(3) compose, act on a point, exp/log round trips, geodesic interpolation, and a one-`Dual` autodiff derivative pushed through `exp` ∘ `act`. |
+| [`discretization`](discretization.rs) | `discretization`, `linear_algebra::expm` | ZOH on a double integrator, Van Loan process-noise discretization, the filterpy `q_discrete_white_noise` model, and a one-`Dual` derivative pushed through the matrix exponential. |

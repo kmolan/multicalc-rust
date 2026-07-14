@@ -8,6 +8,7 @@ metrics.
   captures curvature.
 - `get` builds the model; `predict` evaluates it; `get_prediction_metrics` returns MAE, MSE, RMSE,
   R², and adjusted R² against sample points.
+- Metrics use pairwise summation by default; chain `.with_kahan_summation()` to opt into Kahan.
 
 ```rust
 use multicalc::approximation::linear_approximation::LinearApproximator;

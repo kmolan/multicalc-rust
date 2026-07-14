@@ -1,0 +1,99 @@
+{
+  "case": "expm_rand_5",
+  "expected": {
+    "expm": {
+      "cols": 5,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff45d516599be96",
+        "0xbff451e599d4c440",
+        "0x3ff03966b8cc6cc9",
+        "0xbfe84d9c9d5ac712",
+        "0xbfe4d23407ffa11d",
+        "0xbfdfeeb09018dff2",
+        "0x40068b7e98a02a10",
+        "0xbff49e19d9109e44",
+        "0x3fe998629bcb185e",
+        "0xbfc18c87284e049c",
+        "0xbfbc5ffe0439bd74",
+        "0xbfee0a9f40748413",
+        "0x3ff240cbd5246314",
+        "0xbfe424ca546d1ddc",
+        "0x3fb0bf8613fb8dbc",
+        "0x3fcdc3207d7362b6",
+        "0x3fcccfcfdfadf014",
+        "0xbfed6fb1ec734b6f",
+        "0x3ffb585371ead8fd",
+        "0x3fe66b058c211e95",
+        "0x3fdef6c8e50211e2",
+        "0xbfe0366564a10673",
+        "0xbfe13fd5d750c3f1",
+        "0x3fdcd35aba07677b",
+        "0x3fed40fee300e5cf"
+      ],
+      "rows": 5
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 5,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fd0968ee5372cd4",
+        "0xbfe57ea1af7bcdc8",
+        "0x3fd306f236e128d4",
+        "0xbfcc9afcf0bfdd34",
+        "0xbfe311d7d56edfc4",
+        "0xbfd4a13bae98408d",
+        "0x3fe80fa48aa23248",
+        "0xbfe8078332bf8fa0",
+        "0x3fd103364266d888",
+        "0xbfcee9f782916b2c",
+        "0xbfccc9d027a394a0",
+        "0xbfe4aef9400e1b78",
+        "0xbfd0ff8db44ed6e4",
+        "0xbfde2ed45840b127",
+        "0x3fbdbf70f8dcb7f0",
+        "0x3fa3acfadcd639d0",
+        "0x3fb62574e5d38868",
+        "0xbfe207827de98994",
+        "0x3fd3b2c04b752888",
+        "0x3fe584525a913638",
+        "0x3fd2b5ae8b75a240",
+        "0xbfdbad2cdb29915a",
+        "0xbfe8c5f0ee8b0f10",
+        "0x3fd75f03b47c4058",
+        "0xbfc0f2cbe09fcc40"
+      ],
+      "rows": 5
+    },
+    "kind": {
+      "kind": "str",
+      "v": "expm"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "discretization",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "entries uniform in [-0.8, 0.8]; SPD Qc = M M\u1d40",
+    "seed": 20260706
+  },
+  "module": "discretization",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}

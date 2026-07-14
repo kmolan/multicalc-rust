@@ -8,7 +8,7 @@ import argparse
 
 import numpy as np
 
-from generators import linalg, optimization, quadrature
+from generators import discretization, linalg, ode, optimization, quadrature
 
 SEED = 20260706
 
@@ -20,8 +20,10 @@ def main():
 
     rng = np.random.default_rng(SEED)
     linalg.run(args.out, rng, SEED)
+    discretization.run(args.out, rng, SEED)
     optimization.run(args.out, SEED)
     quadrature.run(args.out, SEED)
+    ode.run(args.out, SEED)
 
 
 if __name__ == "__main__":

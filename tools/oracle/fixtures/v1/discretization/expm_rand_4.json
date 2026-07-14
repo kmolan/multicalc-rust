@@ -1,0 +1,81 @@
+{
+  "case": "expm_rand_4",
+  "expected": {
+    "expm": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ffb5754eb399764",
+        "0x3fc19819221c8ef5",
+        "0xbfc5fda5383a627d",
+        "0xbfdd4658bc34db3f",
+        "0x3fe753f0d7408bb8",
+        "0x3fe2933c4c80c37a",
+        "0x3fa71b6ef017479a",
+        "0xbfd3bd516b97874d",
+        "0xbff075572eda1378",
+        "0xbfc80ba92f548ce4",
+        "0x3fea6848a5e10d97",
+        "0xbfea3989569990e8",
+        "0x3fd5cecd115471d3",
+        "0xbfd928cb86e3a2f2",
+        "0xbfe63f67303c78c0",
+        "0x4003aeeb478aaca4"
+      ],
+      "rows": 4
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fde11c4a2faf440",
+        "0x3f9e27399f7a20c0",
+        "0xbfd032460c6ced16",
+        "0xbfd290414a273766",
+        "0x3fe916246fd8befe",
+        "0xbfe39bef4d85d68f",
+        "0x3fc02f7c794fee80",
+        "0xbfbcd523a41fb6a8",
+        "0xbfe89c5a779f73ec",
+        "0xbfdfd5032c7f7f2a",
+        "0xbfe1e949209343d5",
+        "0xbfe8ffbb2dbd648a",
+        "0x3fbfddf178c5c6a8",
+        "0xbfdad25a1417cce7",
+        "0xbfe040e3ea11e91d",
+        "0x3fe8b7ed0988ce0e"
+      ],
+      "rows": 4
+    },
+    "kind": {
+      "kind": "str",
+      "v": "expm"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "discretization",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "entries uniform in [-0.8, 0.8]; SPD Qc = M M\u1d40",
+    "seed": 20260706
+  },
+  "module": "discretization",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}

@@ -1,5 +1,5 @@
+use crate::error::IntegrateError;
 use crate::scalar::Numeric;
-use crate::utils::error_codes::CalcError;
 
 /// Classification of an integration interval, distinguishing finite domains from the
 /// three infinite/semi-infinite shapes that need a domain transform.
@@ -14,17 +14,17 @@ pub(crate) enum Domain<T: Numeric> {
 ///
 /// Rejects `NaN` limits, equal/reversed finite limits, and infinite limits whose
 /// finite end points the wrong way (e.g. `(a, -inf)` or `(+inf, b)`).
-pub(crate) fn classify<T: Numeric>(limit: &[T; 2]) -> Result<Domain<T>, CalcError> {
+pub(crate) fn classify<T: Numeric>(limit: &[T; 2]) -> Result<Domain<T>, IntegrateError> {
     let (a, b) = (limit[0], limit[1]);
     if a.is_nan() || b.is_nan() {
-        return Err(CalcError::IntegrationLimitsIllDefined);
+        return Err(IntegrateError::LimitsIllDefined);
     }
     match (a.is_finite(), b.is_finite()) {
         (true, true) if a < b => Ok(Domain::Finite(a, b)),
         (true, false) if b > T::ZERO => Ok(Domain::LowerToInf(a)), // (a, +inf); rejects (a, -inf)
         (false, true) if a < T::ZERO => Ok(Domain::UpperToInf(b)), // (-inf, b); rejects (+inf, b)
         (false, false) if a < T::ZERO && b > T::ZERO => Ok(Domain::BothInf), // (-inf, +inf)
-        _ => Err(CalcError::IntegrationLimitsIllDefined),
+        _ => Err(IntegrateError::LimitsIllDefined),
     }
 }
 
@@ -71,20 +71,20 @@ pub trait IntegratorSingleVariable {
     /// integrations equals the length of `integration_limit`.
     ///
     /// # Errors
-    /// [`CalcError::IterationsZero`] if the configured iteration count is zero, or
-    /// [`CalcError::IntegrationLimitsIllDefined`] if any limit is ill-defined.
+    /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero, or
+    /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined.
     fn get<F: Fn(Self::Scalar) -> Self::Scalar, const NUM_INTEGRATIONS: usize>(
         &self,
         func: &F,
         integration_limit: &[[Self::Scalar; 2]; NUM_INTEGRATIONS],
-    ) -> Result<Self::Scalar, CalcError>;
+    ) -> Result<Self::Scalar, IntegrateError>;
 
     /// Convenience wrapper for a single integral of a single variable function.
     fn get_single<F: Fn(Self::Scalar) -> Self::Scalar>(
         &self,
         func: &F,
         integration_limit: &[Self::Scalar; 2],
-    ) -> Result<Self::Scalar, CalcError> {
+    ) -> Result<Self::Scalar, IntegrateError> {
         self.get(func, &[*integration_limit])
     }
 
@@ -93,7 +93,7 @@ pub trait IntegratorSingleVariable {
         &self,
         func: &F,
         integration_limit: &[[Self::Scalar; 2]; 2],
-    ) -> Result<Self::Scalar, CalcError> {
+    ) -> Result<Self::Scalar, IntegrateError> {
         self.get(func, integration_limit)
     }
 }
@@ -114,8 +114,8 @@ pub trait IntegratorMultiVariable {
     ///   upper limit; a variable held constant holds that constant.
     ///
     /// # Errors
-    /// [`CalcError::IterationsZero`] if the configured iteration count is zero, or
-    /// [`CalcError::IntegrationLimitsIllDefined`] if any limit is ill-defined.
+    /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero, or
+    /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined.
     fn get<
         F: Fn(&[Self::Scalar; NUM_VARS]) -> Self::Scalar,
         const NUM_VARS: usize,
@@ -126,7 +126,7 @@ pub trait IntegratorMultiVariable {
         func: &F,
         integration_limits: &[[Self::Scalar; 2]; NUM_INTEGRATIONS],
         point: &[Self::Scalar; NUM_VARS],
-    ) -> Result<Self::Scalar, CalcError>;
+    ) -> Result<Self::Scalar, IntegrateError>;
 
     /// Convenience wrapper for a single partial integral of a multi variable function.
     fn get_single_partial<
@@ -138,7 +138,7 @@ pub trait IntegratorMultiVariable {
         idx_to_integrate: usize,
         integration_limits: &[Self::Scalar; 2],
         point: &[Self::Scalar; NUM_VARS],
-    ) -> Result<Self::Scalar, CalcError> {
+    ) -> Result<Self::Scalar, IntegrateError> {
         self.get([idx_to_integrate], func, &[*integration_limits], point)
     }
 
@@ -152,7 +152,7 @@ pub trait IntegratorMultiVariable {
         idx_to_integrate: [usize; 2],
         integration_limits: &[[Self::Scalar; 2]; 2],
         point: &[Self::Scalar; NUM_VARS],
-    ) -> Result<Self::Scalar, CalcError> {
+    ) -> Result<Self::Scalar, IntegrateError> {
         self.get(idx_to_integrate, func, integration_limits, point)
     }
 }

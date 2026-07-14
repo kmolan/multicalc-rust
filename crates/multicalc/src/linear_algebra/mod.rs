@@ -11,7 +11,9 @@
 //! ```
 
 pub mod cholesky;
+pub mod expm;
 pub mod lu;
+pub mod macros;
 pub mod matrix;
 pub mod qr;
 pub mod svd;

@@ -1,0 +1,83 @@
+{
+  "case": "van_loan_2",
+  "expected": {
+    "F": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3feefd1c88c681f4",
+        "0x3f924e99aba31cc2",
+        "0x3fab7665228c49f6",
+        "0x3ff03ff1dc141ca3"
+      ],
+      "rows": 2
+    },
+    "Qd": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fa16bc2a25188f9",
+        "0x3fa34f168522e024",
+        "0x3fa34f168522e023",
+        "0x3fb004e1768f283b"
+      ],
+      "rows": 2
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0xbfd4de8802d51700",
+        "0x3fc71480e994cf74",
+        "0x3fe14fb081ab32c6",
+        "0x3fc336c63f87bc94"
+      ],
+      "rows": 2
+    },
+    "Qc": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fd60ef7d7832c03",
+        "0x3fd76648db6cb65b",
+        "0x3fd76648db6cb65b",
+        "0x3fe314f22cd2f083"
+      ],
+      "rows": 2
+    },
+    "dt": {
+      "kind": "scalar",
+      "v": "0x3fb999999999999a"
+    },
+    "kind": {
+      "kind": "str",
+      "v": "van_loan"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "discretization",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "entries uniform in [-0.8, 0.8]; SPD Qc = M M\u1d40",
+    "seed": 20260706
+  },
+  "module": "discretization",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-11,
+        "rel": 1e-10
+      }
+    }
+  }
+}

@@ -323,6 +323,55 @@ impl<T: Numeric> Numeric for HyperDual<T> {
         )
     }
 
+    /// Four-quadrant arctangent carried to second order. With `Y = self.real`,
+    /// `X = other.real`, `r² = X² + Y²`, the partials are `f_Y = X/r²`, `f_X = −Y/r²`,
+    /// `f_YY = −2XY/r⁴`, `f_XX = 2XY/r⁴`, `f_XY = (Y² − X²)/r⁴`. The `r²` denominator is
+    /// nonzero off the origin, so the `x = 0` axis is handled; only `X = Y = 0` degenerates,
+    /// as for float `atan2`.
+    #[inline]
+    fn atan2(self, other: Self) -> Self {
+        let (y, x) = (self, other);
+        let (yr, xr) = (y.real, x.real);
+        let r2 = xr * xr + yr * yr;
+        let r4 = r2 * r2;
+        let f_y = xr / r2;
+        let f_x = -yr / r2;
+        let f_yy = -(T::TWO * xr * yr) / r4;
+        let f_xx = (T::TWO * xr * yr) / r4;
+        let f_xy = (yr * yr - xr * xr) / r4;
+        HyperDual {
+            real: yr.atan2(xr),
+            eps1: f_y * y.eps1 + f_x * x.eps1,
+            eps2: f_y * y.eps2 + f_x * x.eps2,
+            eps1eps2: f_y * y.eps1eps2
+                + f_x * x.eps1eps2
+                + f_yy * y.eps1 * y.eps2
+                + f_xx * x.eps1 * x.eps2
+                + f_xy * (y.eps1 * x.eps2 + y.eps2 * x.eps1),
+        }
+    }
+    /// Magnitude of `self` with the sign of `sign`: a linear scaling by `±1`, so it rides the
+    /// univariate `chain` helper with slope `s` and zero curvature.
+    #[inline]
+    fn copysign(self, sign: Self) -> Self {
+        let s = if (self.real < T::ZERO) == (sign.real < T::ZERO) {
+            T::ONE
+        } else {
+            -T::ONE
+        };
+        self.chain(self.real.copysign(sign.real), s, T::ZERO)
+    }
+    /// Largest integer `<= self`; the derivatives of a step function are zero.
+    #[inline]
+    fn floor(self) -> Self {
+        HyperDual {
+            real: self.real.floor(),
+            eps1: T::ZERO,
+            eps2: T::ZERO,
+            eps1eps2: T::ZERO,
+        }
+    }
+
     /// Reflects the real part only; the derivatives are not inspected.
     #[inline]
     fn is_nan(self) -> bool {

@@ -6,9 +6,9 @@
 
 use core::marker::PhantomData;
 
+use crate::error::DiffError;
 use crate::numerical_derivative::derivator::{DerivatorMultiVariable, DerivatorSingleVariable};
 use crate::scalar::{Dual, HyperDual, Jet, Numeric, ScalarFn, ScalarFnN};
-use crate::utils::error_codes::CalcError;
 
 /// Highest single-variable derivative order an [`AutoDiffSingle`] supports through its [`Jet`].
 const MAX_ORDER: usize = 6;
@@ -46,16 +46,16 @@ impl<T: Numeric> DerivatorSingleVariable for AutoDiffSingle<T> {
     type Scalar = T;
 
     /// Orders 1 and 2 use [`Dual`]/[`HyperDual`]; orders 3..=`MAX_ORDER` use a [`Jet`]. Higher
-    /// orders return [`CalcError::DerivativeOrderUnsupported`].
-    fn get<F: ScalarFn>(&self, order: usize, func: &F, point: T) -> Result<T, CalcError> {
+    /// orders return [`DiffError::OrderUnsupported`].
+    fn get<F: ScalarFn>(&self, order: usize, func: &F, point: T) -> Result<T, DiffError> {
         match order {
-            0 => Err(CalcError::DerivativeOrderZero),
+            0 => Err(DiffError::OrderZero),
             1 => Ok(func.eval(Dual::variable(point)).deriv),
             2 => Ok(func.eval(HyperDual::variable(point)).eps1eps2),
             o if o <= MAX_ORDER => Ok(func
                 .eval(Jet::<T, { MAX_ORDER + 1 }>::variable(point))
                 .derivative(o)),
-            _ => Err(CalcError::DerivativeOrderUnsupported),
+            _ => Err(DiffError::OrderUnsupported),
         }
     }
 }
@@ -100,20 +100,20 @@ impl<T: Numeric> DerivatorMultiVariable for AutoDiffMulti<T> {
 
     /// First partials use [`Dual`], second (mixed) use [`HyperDual`], and third use a nested
     /// `Dual<HyperDual>` (three independent directions). Orders beyond 3 return
-    /// [`CalcError::DerivativeOrderUnsupported`] (use [`AutoDiffSingle`] for high single-variable
+    /// [`DiffError::OrderUnsupported`] (use [`AutoDiffSingle`] for high single-variable
     /// orders, or a finite-difference differentiator).
     fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize, const NUM_ORDER: usize>(
         &self,
         func: &F,
         idx_to_differentiate: &[usize; NUM_ORDER],
         point: &[T; NUM_VARS],
-    ) -> Result<T, CalcError> {
+    ) -> Result<T, DiffError> {
         if NUM_ORDER == 0 {
-            return Err(CalcError::DerivativeOrderZero);
+            return Err(DiffError::OrderZero);
         }
         for &idx in idx_to_differentiate {
             if idx >= NUM_VARS {
-                return Err(CalcError::IndexOutOfRange);
+                return Err(DiffError::IndexOutOfRange);
             }
         }
 
@@ -153,7 +153,7 @@ impl<T: Numeric> DerivatorMultiVariable for AutoDiffMulti<T> {
                 });
                 Ok(func.eval(&seed).deriv.eps1eps2)
             }
-            _ => Err(CalcError::DerivativeOrderUnsupported),
+            _ => Err(DiffError::OrderUnsupported),
         }
     }
 }
