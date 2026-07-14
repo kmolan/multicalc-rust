@@ -11,6 +11,7 @@ use multicalc::scalar::{Numeric, ScalarFn, ScalarFnN, VectorFn, c};
 use multicalc::{scalar_fn, scalar_fn_vec};
 use proptest::prelude::*;
 use proptest::test_runner::{RngAlgorithm, TestRng, TestRunner};
+use std::cell::Cell;
 
 // ----- autodiff (the default backend): exact derivatives -----
 
@@ -184,6 +185,88 @@ fn ad_jacobian_empty_error() {
     let jacobian: Jacobian = Jacobian::default();
     let result = jacobian.get(&EmptyVectorFn, &[1.0, 2.0, 3.0]);
     assert_eq!(result.unwrap_err(), DiffError::EmptyFunctionSet);
+}
+
+// ----- column-seeded Jacobian -----
+
+// A VectorFn that counts how many times it is evaluated, to prove the column-seeded harness
+// runs one pass per input column (N) rather than one per matrix cell (M*N).
+struct CountingVectorFn {
+    calls: Cell<usize>,
+}
+
+impl VectorFn<3, 2> for CountingVectorFn {
+    fn eval<S: Numeric>(&self, p: &[S; 3]) -> [S; 2] {
+        self.calls.set(self.calls.get() + 1);
+        // (x*y*z, x^2 + y^2)
+        [p[0] * p[1] * p[2], p[0] * p[0] + p[1] * p[1]]
+    }
+}
+
+#[test]
+fn ad_jacobian_is_column_seeded() {
+    let f = CountingVectorFn {
+        calls: Cell::new(0),
+    };
+    let jacobian: Jacobian = Jacobian::default();
+    let result = jacobian.get(&f, &[1.0, 2.0, 3.0]).unwrap();
+
+    // values are unchanged from the old harness
+    let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
+    for i in 0..2 {
+        for j in 0..3 {
+            assert!(f64::abs(result[i][j] - expected[i][j]) < 1e-12);
+        }
+    }
+
+    // one evaluation per input column (3), not per cell (2*3 = 6)
+    assert_eq!(f.calls.get(), 3);
+}
+
+#[test]
+fn ad_jacobian_column_reads_all_outputs() {
+    // one seeded pass on input 0 gives d/dx of both outputs: [y*z, 2x] = [6, 2]
+    let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    let d = AutoDiffMulti::default();
+    let column = d.jacobian_column(&f, 0, &[1.0, 2.0, 3.0]).unwrap();
+    assert!(f64::abs(column[0] - 6.0) < 1e-12);
+    assert!(f64::abs(column[1] - 2.0) < 1e-12);
+}
+
+#[test]
+fn ad_jacobian_column_index_out_of_range() {
+    let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    let d = AutoDiffMulti::default();
+    let result = d.jacobian_column(&f, 5, &[1.0, 2.0, 3.0]);
+    assert_eq!(result.unwrap_err(), DiffError::IndexOutOfRange);
+}
+
+#[test]
+fn fd_jacobian_column_matches() {
+    // the finite-difference implementation produces the right matrix, matching the analytic
+    // values to finite-difference tolerance (unchanged from the per-Component path it replaces)
+    let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    let jacobian = Jacobian::from_derivator(FiniteDifferenceMulti::default());
+    let result = jacobian.get(&f, &[1.0, 2.0, 3.0]).unwrap();
+
+    let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
+    for i in 0..2 {
+        for j in 0..3 {
+            assert!(f64::abs(result[i][j] - expected[i][j]) < 1e-5);
+        }
+    }
+}
+
+#[test]
+fn fd_jacobian_is_column_seeded() {
+    // central difference evaluates the full function twice per input column (2*3 = 6), not twice
+    // per matrix cell (2*M*N = 12)
+    let f = CountingVectorFn {
+        calls: Cell::new(0),
+    };
+    let jacobian = Jacobian::from_derivator(FiniteDifferenceMulti::default());
+    let _ = jacobian.get(&f, &[1.0, 2.0, 3.0]).unwrap();
+    assert_eq!(f.calls.get(), 6);
 }
 
 // ----- finite differences: kept as a sparse fallback for the engine and the cases autodiff
