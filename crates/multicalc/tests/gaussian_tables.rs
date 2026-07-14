@@ -26,5 +26,17 @@ proptest! {
                 .len(),
             order
         );
+        prop_assert_eq!(
+            nodes(GaussianQuadratureMethod::GaussHermite, order)
+                .unwrap()
+                .len(),
+            order
+        );
+        prop_assert_eq!(
+            nodes(GaussianQuadratureMethod::GaussLaguerre, order)
+                .unwrap()
+                .len(),
+            order
+        );
     }
 }
