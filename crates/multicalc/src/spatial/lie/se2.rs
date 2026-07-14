@@ -165,7 +165,9 @@ impl<T: Numeric> SE2<T> {
         self.compose(Self::exp(self.inverse().compose(other).log() * t))
     }
 
-    /// The SE(2) left Jacobian `J_l(ξ) = [[V(θ), dV/dθ·ρ], [0, 1]]` for the `[vx, vy, ω]` ordering.
+    /// The SE(2) left Jacobian `J_l(ξ) = [[V(θ), q], [0, 1]]` for the `[vx, vy, ω]` ordering. The
+    /// coupling column `q` comes from the se(2) adjoint series; `p` and `r` use a Taylor series in
+    /// θ² near ω = 0 so the value and its derivative stay finite.
     ///
     /// ```
     /// use multicalc::spatial::SE2;
@@ -178,26 +180,27 @@ impl<T: Numeric> SE2<T> {
     pub fn left_jacobian(xi: Vector<3, T>) -> Matrix<3, 3, T> {
         let omega = xi[2];
         let theta_sq = omega * omega;
-        let (a, b, ap, bp) = if theta_sq < small_angle_sq::<T>() {
+        // a = sinθ/θ, b = (1−cosθ)/θ (the V(θ) block); p = (1−cosθ)/θ², r = (θ−sinθ)/θ² (q).
+        let (a, b, p, r) = if theta_sq < small_angle_sq::<T>() {
             (
                 T::ONE - theta_sq / T::from_f64(6.0),
                 omega * (T::HALF - theta_sq / T::from_f64(24.0)),
-                -omega / T::from_f64(3.0),
-                T::HALF - theta_sq / T::from_f64(8.0),
+                T::HALF - theta_sq / T::from_f64(24.0),
+                omega * (T::ONE / T::from_f64(6.0) - theta_sq / T::from_f64(120.0)),
             )
         } else {
             let (s, c) = (omega.sin(), omega.cos());
             (
                 s / omega,
                 (T::ONE - c) / omega,
-                (omega * c - s) / theta_sq,
-                (omega * s - (T::ONE - c)) / theta_sq,
+                (T::ONE - c) / theta_sq,
+                (omega - s) / theta_sq,
             )
         };
         let (rx, ry) = (xi[0], xi[1]);
-        let dx = ap * rx - bp * ry;
-        let dy = bp * rx + ap * ry;
-        Matrix::new([[a, -b, dx], [b, a, dy], [T::ZERO, T::ZERO, T::ONE]])
+        let qx = p * ry + r * rx;
+        let qy = r * ry - p * rx;
+        Matrix::new([[a, -b, qx], [b, a, qy], [T::ZERO, T::ZERO, T::ONE]])
     }
 
     /// The SE(2) right Jacobian `J_r(ξ) = J_l(−ξ)`.
@@ -206,34 +209,33 @@ impl<T: Numeric> SE2<T> {
         Self::left_jacobian(-xi)
     }
 
-    /// The inverse SE(2) left Jacobian `J_l⁻¹(ξ) = [[V⁻¹, −V⁻¹·(dV/dθ·ρ)], [0, 1]]`.
+    /// The inverse SE(2) left Jacobian `J_l⁻¹(ξ) = [[V⁻¹, −V⁻¹·q], [0, 1]]`, with `q` the same
+    /// coupling column as [`SE2::left_jacobian`] and `V⁻¹` the `alpha, beta` block from [`SE2::log`].
     #[inline]
     pub fn left_jacobian_inverse(xi: Vector<3, T>) -> Matrix<3, 3, T> {
         let omega = xi[2];
         let theta_sq = omega * omega;
-        let (ap, bp) = if theta_sq < small_angle_sq::<T>() {
+        // p = (1−cosθ)/θ², r = (θ−sinθ)/θ²: the coupling coefficients of the forward Jacobian.
+        let (p, r) = if theta_sq < small_angle_sq::<T>() {
             (
-                -omega / T::from_f64(3.0),
-                T::HALF - theta_sq / T::from_f64(8.0),
+                T::HALF - theta_sq / T::from_f64(24.0),
+                omega * (T::ONE / T::from_f64(6.0) - theta_sq / T::from_f64(120.0)),
             )
         } else {
             let (s, c) = (omega.sin(), omega.cos());
-            (
-                (omega * c - s) / theta_sq,
-                (omega * s - (T::ONE - c)) / theta_sq,
-            )
+            ((T::ONE - c) / theta_sq, (omega - s) / theta_sq)
         };
         let (rx, ry) = (xi[0], xi[1]);
-        let dx = ap * rx - bp * ry;
-        let dy = bp * rx + ap * ry;
+        let qx = p * ry + r * rx;
+        let qy = r * ry - p * rx;
         let (alpha, beta) = if theta_sq < small_angle_sq::<T>() {
             (T::ONE - theta_sq / T::from_f64(12.0), omega * T::HALF)
         } else {
             let half = omega * T::HALF;
             (half * (half.cos() / half.sin()), half)
         };
-        let cx = -(alpha * dx + beta * dy);
-        let cy = -(-beta * dx + alpha * dy);
+        let cx = -(alpha * qx + beta * qy);
+        let cy = -(-beta * qx + alpha * qy);
         Matrix::new([
             [alpha, beta, cx],
             [-beta, alpha, cy],
