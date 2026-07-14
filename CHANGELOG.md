@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   polynomial compositions. @rtmongold (#129)
 - Opt-in Kahan compensated summation for iterative integration and approximation metrics
   via `.with_kahan_summation()`; pairwise remains the default. @rtmongold (#134)
+- **RISC-V embedded smoke.** `embedded-smoke` runs on `riscv32imc-unknown-none-elf`
+  under QEMU `virt`, gated with its own flash/stack budgets. @rtmongold (#140)
 
 ### Fixed
 

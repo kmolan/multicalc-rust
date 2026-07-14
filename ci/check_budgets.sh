@@ -12,6 +12,7 @@
 #                       `cargo size`), e.g. embedded-smoke. Must match the "<binary>."
 #                       prefix of a [<binary>.<target>] section in ci/budgets.toml.
 #   <target-triple>     thumbv7em-none-eabi | thumbv7em-none-eabihf | thumbv6m-none-eabi
+#                       | riscv32imc-unknown-none-elf
 #   <smoke-output-file> captured stdout of the run; contains a STACK_HWM_BYTES[...]=<n>
 #                       line. Produce it with:
 #                         cargo run -p <binary> --release --target <triple> | tee <file>
@@ -20,7 +21,7 @@
 set -euo pipefail
 
 budgets="ci/budgets.toml"
-valid_targets="thumbv7em-none-eabi thumbv7em-none-eabihf thumbv6m-none-eabi"
+valid_targets="thumbv7em-none-eabi thumbv7em-none-eabihf thumbv6m-none-eabi riscv32imc-unknown-none-elf"
 
 die() {
   echo ">>> ERROR: $1" >&2
@@ -120,7 +121,7 @@ if ! size_out=$(cargo size --release $size_features -p "$binary" --target "$targ
       "Add the target:         rustup target add $target" \
       "Build it at least once: cargo build -p $binary --release --target $target"
 fi
-text_now=$(printf '%s\n' "$size_out" | awk '/^\.text/ { print $2 }')
+text_now=$(printf '%s\n' "$size_out" | awk '$1 == ".text" { print $2; exit }')
 printf '%s' "$text_now" | grep -qE '^[0-9]+$' || { echo "$size_out" >&2; die \
   "could not parse a numeric .text size for $binary/$target (got '$text_now')." \
   "Look for a '.text' row in the 'cargo size ... -- -A' output above."; }

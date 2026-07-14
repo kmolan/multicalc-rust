@@ -3,7 +3,7 @@ name: Target matrix
 # Reusable: called by CI on pull requests and by Release on a version bump.
 #
 # `full` selects the target set. false (default) = the per-PR representative set
-# (x86_64 host + all three bare-metal ABIs, thumbv6m as a reduced canary); true =
+# (x86_64 host + all four bare-metal ABIs, thumbv6m as a reduced canary); true =
 # the complete matrix, adding the aarch64 host. The `setup` job turns that flag into
 # the JSON matrices the build jobs consume, so representative and full share one set
 # of steps and differ only in the host list.
@@ -33,9 +33,9 @@ jobs:
         shell: bash
         run: |
           # thumbv6m runs the reduced canary (--no-default-features) on every PR; the
-          # thumbv7em ABIs run the full set. The bare set is the same for representative
-          # and full runs — full only adds the aarch64 host.
-          bare='[{"target":"thumbv7em-none-eabi","args":""},{"target":"thumbv7em-none-eabihf","args":""},{"target":"thumbv6m-none-eabi","args":"--no-default-features"}]'
+          # thumbv7em ABIs and riscv32  run the full set. The bare set is the same for
+          # representative and full runs — full only adds the aarch64 host.
+          bare='[{"target":"thumbv7em-none-eabi","args":""},{"target":"thumbv7em-none-eabihf","args":""},{"target":"thumbv6m-none-eabi","args":"--no-default-features"},{"target":"riscv32imc-unknown-none-elf","args":""}]'
           if [ "${{ inputs.full }}" = "true" ]; then
             hosts='[{"target":"x86_64-unknown-linux-gnu","runner":"ubuntu-latest"},{"target":"aarch64-unknown-linux-gnu","runner":"ubuntu-24.04-arm"}]'
           else
@@ -92,6 +92,11 @@ jobs:
         with:
           packages: qemu-system-arm
           version: 1.0
+      - name: Install QEMU (RISC-V)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-misc
+          command -v qemu-system-riscv32
       - name: Run smoke tests + budget checks under QEMU
         run: |
           for bin in embedded-smoke; do

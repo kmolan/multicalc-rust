@@ -2,7 +2,7 @@
 #
 # Sections are [<binary>.<target>], where <binary> is the cargo package name of a
 # smoke crate (embedded-smoke today; per-domain smoke binaries are added at v0.9+,
-# each its own section) and <target> is one of the three bare-metal triples below.
+# each its own section) and <target> is one of the four bare-metal triples below.
 # Splitting budgets per binary keeps the gate fair: a heavy new domain grows its own
 # binary's budget and never spends another domain's headroom.
 #
@@ -37,3 +37,7 @@ stack_bytes_f64 = 1548
 [embedded-smoke.thumbv6m-none-eabi]
 text_bytes = 43424
 stack_bytes_f64 = 296
+
+[embedded-smoke.riscv32imc-unknown-none-elf]
+text_bytes = 78914
+stack_bytes_f64 = 1220

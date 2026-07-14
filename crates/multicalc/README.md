@@ -11,12 +11,12 @@ Jacobians and Hessians, vector-field operators, and Taylor approximation in a `n
 
 ## Why use it
 
-- **Tested across five hardware targets**: Every commit is built and tested on the `x86_64` and
-  `aarch64` Linux hosts and on three ARM Cortex-M bare-metal ABIs (`thumbv7em` soft-float,
-  `thumbv7em` hardware-FPU, and `thumbv6m`). The Cortex-M builds run the real math under QEMU on
-  each ABI and check the answers against known values, so the same code is exercised from a 64-bit
-  server CPU down to a microcontroller with no operating system. `no_std`, no-heap, and
-  no-panic rules hold on every one.
+- **Tested across six hardware targets**: Every commit is built and tested on the `x86_64` and
+  `aarch64` Linux hosts and on four bare-metal ABIs (three ARM Cortex-M: `thumbv7em` soft-float,
+  `thumbv7em` hardware-FPU, and `thumbv6m`; plus `riscv32imc-unknown-none-elf`). The bare-metal builds
+  run the real math under QEMU on each ABI and check the answers against known values, so the same
+  code is exercised from a 64-bit server CPU down to a microcontroller with no operating system.
+  `no_std`, no-heap, and no-panic rules hold on every one.
 - **Accurate to the last few bits**: differentiation, Jacobians, Hessians, and Newton steps use
   forward-mode automatic differentiation, so derivatives are exact rather than finite-difference
   estimates. The least-squares and root-finding solvers drive objectives down near `1e-30` and land
