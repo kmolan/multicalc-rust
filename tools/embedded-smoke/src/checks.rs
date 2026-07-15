@@ -39,7 +39,11 @@ macro_rules! assert_close {
         if !ok {
             let _ = crate::hprintln!(
                 "CHECK {} FAIL got={:e} want={:e} abs={:e} rel={:e}",
-                $name, got, want, $abs as f64, $rel as f64
+                $name,
+                got,
+                want,
+                $abs as f64,
+                $rel as f64
             );
         }
         assert!(ok, "{}", $name);
@@ -140,7 +144,11 @@ pub fn lie_group_identity() -> f64 {
     use multicalc::spatial::{SE3, SO3};
 
     // A 90° rotation about z maps x -> y.
-    let rz = SO3::<f64>::exp(black_box(Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2])));
+    let rz = SO3::<f64>::exp(black_box(Vector::new([
+        0.0,
+        0.0,
+        core::f64::consts::FRAC_PI_2,
+    ])));
     let p = rz.act(black_box(Vector::new([1.0, 0.0, 0.0])));
     assert_close!("lie_rot_x", black_box(p[0]), 0.0, 1e-12, 0.0);
     assert_close!("lie_rot_y", black_box(p[1]), 1.0, 1e-12, 0.0);
@@ -172,7 +180,14 @@ pub fn ode_identity() {
     let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
     let steps = 2000;
     let dt = core::f64::consts::TAU / steps as f64;
-    let yf = Rk4::integrate(&f, 0.0, &black_box(Vector::new([1.0, 0.0])), dt, steps, |_, _| {});
+    let yf = Rk4::integrate(
+        &f,
+        0.0,
+        &black_box(Vector::new([1.0, 0.0])),
+        dt,
+        steps,
+        |_, _| {},
+    );
     assert_close!("ode_rk4_x", black_box(yf[0]), 1.0, 1e-4, 0.0);
     assert_close!("ode_rk4_v", black_box(yf[1]), 0.0, 1e-4, 0.0);
 
@@ -180,7 +195,13 @@ pub fn ode_identity() {
     let e = Rk45::default()
         .solve(&g, 0.0, &black_box(Vector::new([1.0])), 1.0)
         .expect("rk45 solve");
-    assert_close!("ode_rk45", black_box(e[0]), multicalc::libm::exp(-1.0), 1e-6, 0.0);
+    assert_close!(
+        "ode_rk45",
+        black_box(e[0]),
+        multicalc::libm::exp(-1.0),
+        1e-6,
+        0.0
+    );
 }
 
 /// Identity: Gauss-Legendre order 4 integrates `2x` on `[0, 2]` to `4`. Returns the value for
@@ -189,7 +210,9 @@ pub fn ode_identity() {
 pub fn quadrature_identity() -> f64 {
     let f = |x: f64| 2.0 * x;
     let quad = GaussianSingle::<f64>::from_parameters(4, GaussianQuadratureMethod::GaussLegendre);
-    let value = quad.get_single(&f, &black_box([0.0, 2.0])).expect("quadrature");
+    let value = quad
+        .get_single(&f, &black_box([0.0, 2.0]))
+        .expect("quadrature");
     assert_close!("quadrature", black_box(value), 4.0, 1e-12, 0.0);
     black_box(value)
 }

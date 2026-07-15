@@ -27,21 +27,18 @@
 #![no_main]
 
 #[cfg(target_arch = "arm")]
+pub(crate) use cortex_m_semihosting::hprintln;
+#[cfg(target_arch = "arm")]
 use {
     cortex_m_rt::{ExceptionFrame, entry, exception},
     cortex_m_semihosting::debug,
     panic_semihosting as _,
 };
-#[cfg(target_arch = "arm")]
-pub(crate) use cortex_m_semihosting::hprintln;
 
 #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
-use {
-    riscv_rt::entry,
-    riscv_semihosting::debug,
-};
-#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
 pub(crate) use riscv_semihosting::hprintln;
+#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+use {riscv_rt::entry, riscv_semihosting::debug};
 
 #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
 #[panic_handler]
@@ -99,7 +96,10 @@ fn main() -> ! {
     let used = stack_used(bottom, top);
     // A saturated window (used == WINDOW) means the scan clipped: the number is a floor,
     // not the peak. Fail rather than gate on a false-low value. Raise WINDOW if this trips.
-    assert!(used < WINDOW, "stack window saturated at {WINDOW} bytes; raise WINDOW");
+    assert!(
+        used < WINDOW,
+        "stack window saturated at {WINDOW} bytes; raise WINDOW"
+    );
     // The size and stack gate reads this exact line from the run output.
     let _ = hprintln!("STACK_HWM_BYTES={}", used);
 
