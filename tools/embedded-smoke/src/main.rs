@@ -29,15 +29,19 @@
 #[cfg(target_arch = "arm")]
 use {
     cortex_m_rt::{ExceptionFrame, entry, exception},
-    cortex_m_semihosting::{debug, hprintln},
+    cortex_m_semihosting::debug,
     panic_semihosting as _,
 };
+#[cfg(target_arch = "arm")]
+pub(crate) use cortex_m_semihosting::hprintln;
 
 #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
 use {
     riscv_rt::entry,
-    riscv_semihosting::{debug, hprintln},
+    riscv_semihosting::debug,
 };
+#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+pub(crate) use riscv_semihosting::hprintln;
 
 #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
 #[panic_handler]

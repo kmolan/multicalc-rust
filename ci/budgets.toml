@@ -36,8 +36,8 @@ stack_bytes_f64 = 1628
 
 [embedded-smoke.thumbv6m-none-eabi]
 text_bytes = 43424
-stack_bytes_f64 = 296
+stack_bytes_f64 = 672
 
 [embedded-smoke.riscv32imc-unknown-none-elf]
-text_bytes = 78914
-stack_bytes_f64 = 1220
+text_bytes = 88822
+stack_bytes_f64 = 1380
