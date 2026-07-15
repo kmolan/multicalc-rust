@@ -52,9 +52,9 @@ echo "== budget check for $binary on $target =="
   "Capture the run first: cargo run -p $binary --release --target $target | tee $smoke_out"
 
 if ! grep -Fxq "$section" "$budgets"; then
-  echo ">>> WARNING: no '$section' section in $budgets; nothing will be gated." >&2
-  echo ">>> FIX:     add a $section section to $budgets, or fix the binary/target spelling." >&2
-  echo ">>> FIX:     valid targets: $valid_targets" >&2
+  die "no '$section' section in $budgets; nothing would be gated." \
+      "Add a $section section to $budgets, or fix the binary/target spelling." \
+      "Valid targets: $valid_targets"
 fi
 
 # Read one key's value from this binary+target section.

@@ -89,6 +89,9 @@ fn main() -> ! {
     };
 
     let used = stack_used(bottom, top);
+    // A saturated window (used == WINDOW) means the scan clipped: the number is a floor,
+    // not the peak. Fail rather than gate on a false-low value. Raise WINDOW if this trips.
+    assert!(used < WINDOW, "stack window saturated at {WINDOW} bytes; raise WINDOW");
     // The size and stack gate reads this exact line from the run output.
     let _ = hprintln!("STACK_HWM_BYTES={}", used);
 

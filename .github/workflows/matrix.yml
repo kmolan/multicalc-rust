@@ -21,6 +21,10 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   setup:
     name: resolve target matrix
