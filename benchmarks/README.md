@@ -1,4 +1,9 @@
-# Accuracy benchmarks
+# Benchmarks
+
+Generated tables of multicalc's behavior: **accuracy** (correctness against external references)
+and **latency** (criterion measurements).
+
+## Accuracy
 
 Per-module tables showing multicalc's numerics tested against established external libraries
 (numpy, scipy, mpmath). Each row lists the operation, the equation, the tolerance it must match
@@ -15,3 +20,12 @@ within, and which library it is checked against. The tables are generated from t
 
 Regenerate with `cargo run -p multicalc-qa --bin gen_accuracy_tables`; CI fails if a regenerated
 table differs from the committed doc. Runnable, self-checking demos live in [`demos/`](../demos).
+
+## Latency
+
+[`latency.md`](latency.md) —
+Measured with criterion in the optimized bench profile. Each row lists the operation, the equation
+it evaluates, and the median / mean time. Timings are machine-dependent, so this table is **not**
+CI-guarded (unlike the accuracy tables), and the file records the machine it was measured on.
+
+Regenerate with `cargo bench -p multicalc-qa`.
