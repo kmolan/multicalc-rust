@@ -57,6 +57,10 @@ jobs:
         run: |
           cargo run -p multicalc-qa --bin gen_smoke_fixtures
           git diff --exit-code tools/embedded-smoke/src/fixtures.rs
+      - name: Accuracy tables are up to date
+        run: |
+          cargo run -p multicalc-qa --bin gen_accuracy_tables
+          git diff --exit-code benchmarks/*.md
 
   lint:
     name: fmt + clippy
@@ -116,7 +120,7 @@ jobs:
   #       run: cargo semver-checks --package multicalc
 
   package:
-    name: package + examples/benches
+    name: package + examples
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -126,8 +130,6 @@ jobs:
         run: cargo build -p multicalc-demos --examples --no-default-features
       - name: Run basics
         run: bash scripts/run_examples.sh
-      - name: Build benches
-        run: cargo build -p multicalc-qa --benches
       # runs a clean `cargo package` build — the same packaging the Step 15
       # release workflow relies on, so a release can't fail at publish time
       - name: Packaging dry-run

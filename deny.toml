@@ -30,7 +30,7 @@ confidence-threshold = 0.9
 private = { ignore = true }
 
 [bans]
-# The dev tree (criterion) pulls many crates, so only warn on duplicates.
+# The dev/demo tree (rerun, proptest) pulls many crates, so only warn on duplicates.
 multiple-versions = "warn"
 wildcards = "allow"
 

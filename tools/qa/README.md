@@ -1,16 +1,14 @@
 # multicalc-qa
 
-The project's quality-assurance crate. It owns four jobs:
+The project's quality-assurance crate. It owns three jobs:
 
 - **Accuracy** — golden-fixture correctness tests that check multicalc's numerics
   against trusted references: numpy/LAPACK for linear algebra, SciPy/MINPACK for
-  nonlinear least squares, and mpmath for quadrature and closed-form goldens. Run
-  with `cargo test -p multicalc-qa`; CI-enforced.
-- **Latency** — the criterion timing benches under `benches/`, run with
-  `cargo bench -p multicalc-qa`. Illustrative and machine-specific, not CI-gated.
-- **Accuracy docs** — the `gen_accuracy_tables` bin renders the benches' accuracy
-  tables from the fixtures, held in sync by a CI `git diff --exit-code` guard so the
-  numbers cannot drift from what the fixtures verify.
+  nonlinear least squares and root finding, and mpmath for quadrature and
+  closed-form goldens. Run with `cargo test -p multicalc-qa`; CI-enforced.
+- **Accuracy docs** — the `gen_accuracy_tables` bin renders the per-module accuracy
+  tables under `benchmarks/` (repo root) from the fixtures, held in sync by a CI
+  `git diff --exit-code` guard so the numbers cannot drift from what the fixtures verify.
 - **Cross-target** — the `gen_smoke_fixtures` bin emits the embedded-smoke goldens
   (`tools/embedded-smoke/src/fixtures.rs`) bit-exact from the committed fixtures.
 
@@ -29,9 +27,10 @@ src/        schema, loader, and the named-problem registry
 src/bin/    generators for the smoke goldens and the accuracy-doc tables
 fixtures/   committed goldens, versioned as v1, v2, …
 gen/        Python generators and their pinned container
-tests/      one suite per module (linalg, optimization, quadrature)
-benches/    criterion timing suites and their per-module docs
+tests/      one suite per module (calculus, linalg, optimization, root_finding, …)
 ```
+
+The generated accuracy tables live in `benchmarks/` at the repo root.
 
 ## Fixture schema
 

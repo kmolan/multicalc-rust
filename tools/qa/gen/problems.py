@@ -19,9 +19,92 @@ def integrand(key):
         "x_squared": lambda x: x**2,
         "inv_1px2": lambda x: 1 / (1 + x**2),
         "exp_neg": lambda x: mpmath.e ** (-x),
+        "exp_neg_sq": lambda x: mpmath.e ** (-(x**2)),
     }
     if key not in table:
         raise KeyError(f"unknown integrand key {key!r}")
+    return table[key]
+
+
+# --- differentiation, root-finding, and system problems ---
+#
+# Each key mirrors a struct in ../../testkit/src/problems.rs with the identical
+# formula. Parametrized problems (Kepler, Colebrook, the two-link arm) read their
+# parameters from the fixture inputs, so the numbers are shared, not duplicated.
+# The calculus keys use mpmath (high-precision analytic derivatives); the root
+# keys use numpy (evaluated by scipy solvers).
+
+
+def scalar1(key, **params):
+    """A single-variable `f(x)`. Raises KeyError on an unknown key."""
+    table = {
+        "cube": lambda x: x**3,
+        "root_wien": lambda x: -5.0 + x + 5.0 * np.exp(-x),
+        "root_sigmoid": lambda x: x / np.sqrt(1.0 + x * x),
+        "root_kepler": lambda x: x
+        - params["e"] * np.sin(x)
+        - params["m"],
+        "root_colebrook": lambda f: 1.0 / np.sqrt(f)
+        + 2.0
+        * np.log10(
+            params["rel_roughness"] / 3.7
+            + 2.51 / (params["reynolds"] * np.sqrt(f))
+        ),
+    }
+    if key not in table:
+        raise KeyError(f"unknown scalar1 key {key!r}")
+    return table[key]
+
+
+def scalarn(key):
+    """A multi-variable scalar `f(v)` over an mpmath vector. Raises KeyError."""
+    table = {
+        "g_transcendental": lambda v: v[1] * mpmath.sin(v[0])
+        + v[0] * mpmath.cos(v[1])
+        + v[0] * v[1] * mpmath.e ** v[2],
+        "hessian_target": lambda v: v[1] * mpmath.sin(v[0])
+        + 2 * v[0] * mpmath.e ** v[1]
+        + v[2] ** 2,
+        "approx_target": lambda v: v[0] + v[1] ** 2 + v[2] ** 3,
+    }
+    if key not in table:
+        raise KeyError(f"unknown scalarn key {key!r}")
+    return table[key]
+
+
+def vectorfn(key, **params):
+    """A vector-to-vector `f(v)`. Raises KeyError on an unknown key."""
+    table = {
+        "jac_23": lambda v: [v[0] * v[1] * v[2], v[0] ** 2 + v[1] ** 2],
+        "jac_66": lambda v: [
+            v[0] * v[1] + v[2],
+            v[1] * v[2] + v[3],
+            v[2] * v[3] + v[4],
+            v[3] * v[4] + v[5],
+            v[4] * v[5] + v[0],
+            v[5] * v[0] + v[1],
+        ],
+        "vfield_3d": lambda v: [v[1], -v[0], 2 * v[2]],
+        "sys_two_link": lambda v: [
+            params["l1"] * np.cos(v[0])
+            + params["l2"] * np.cos(v[0] + v[1])
+            - params["px"],
+            params["l1"] * np.sin(v[0])
+            + params["l2"] * np.sin(v[0] + v[1])
+            - params["py"],
+        ],
+        "sys_circle_hyperbola": lambda v: [
+            v[0] ** 2 + v[1] ** 2 - 4.0,
+            v[0] * v[1] - 1.0,
+        ],
+        "sys_equilibrium": lambda v: [
+            v[0] + v[1] + v[2] - 1.0,
+            v[1] - 1.25 * v[0] ** 2,
+            v[2] - 5.0 * v[0] * v[1],
+        ],
+    }
+    if key not in table:
+        raise KeyError(f"unknown vectorfn key {key!r}")
     return table[key]
 
 

@@ -95,6 +95,11 @@ def metadata(generator, seed, sampling, libraries=("numpy", "scipy", "mpmath")):
 
 def write_fixture(out, module, case, meta, tolerances, inputs, expected):
     """Writes `{out}/v1/{module}/{case}.json`, creating directories as needed."""
+    # A missing f64/host key would make the loader fall back to an exact-match
+    # (zero) tolerance, silently demanding bit-exact equality. Fail loudly instead.
+    assert "f64/host" in tolerances, (
+        f"fixture {module}/{case} has no f64/host tolerance"
+    )
     obj = {
         "schema_version": SCHEMA_VERSION,
         "metadata": meta,

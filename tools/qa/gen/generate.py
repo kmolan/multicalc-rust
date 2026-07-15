@@ -8,7 +8,15 @@ import argparse
 
 import numpy as np
 
-from generators import discretization, linalg, ode, optimization, quadrature
+from generators import (
+    calculus,
+    discretization,
+    linalg,
+    ode,
+    optimization,
+    quadrature,
+    root_finding,
+)
 
 SEED = 20260706
 
@@ -24,6 +32,10 @@ def main():
     optimization.run(args.out, SEED)
     quadrature.run(args.out, SEED)
     ode.run(args.out, SEED)
+    # These take only SEED (never the shared rng) and register last, so they
+    # cannot perturb the linalg/discretization streams above.
+    calculus.run(args.out, SEED)
+    root_finding.run(args.out, SEED)
 
 
 if __name__ == "__main__":

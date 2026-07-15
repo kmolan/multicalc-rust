@@ -23,6 +23,11 @@ CASES = [
     ("inv_1px2_trapezoidal_2p20", "inv_1px2", "iterative", "Trapezoidal", 2**20, [0.0, 1.0], (1e-3, 1e-3), None),
     ("x_squared_hermite_o5", "x_squared", "gaussian", "GaussHermite", 5, [-INF, INF], (1e-10, 1e-10), None),
     ("x_squared_laguerre_o5", "x_squared", "gaussian", "GaussLaguerre", 5, [0.0, INF], (1e-10, 1e-10), None),
+    ("two_x_booles_120", "two_x", "iterative", "Booles", 120, [0.0, 2.0], (1e-10, 1e-10), (1e-4, 1e-4)),
+    ("two_x_simpsons_120", "two_x", "iterative", "Simpsons", 120, [0.0, 2.0], (1e-10, 1e-10), (1e-4, 1e-4)),
+    ("two_x_trapezoidal_120", "two_x", "iterative", "Trapezoidal", 120, [0.0, 2.0], (1e-10, 1e-10), (1e-4, 1e-4)),
+    ("exp_neg_sq_booles_120", "exp_neg_sq", "iterative", "Booles", 120, [-5.0, 5.0], (1e-6, 1e-6), None),
+    ("quartic_legendre_o16", "quartic", "gaussian", "GaussLegendre", 16, [0.0, 2.0], (1e-12, 1e-12), (1e-4, 1e-4)),
 ]
 
 

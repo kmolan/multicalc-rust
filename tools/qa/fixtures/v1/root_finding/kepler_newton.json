@@ -1,0 +1,59 @@
+{
+  "case": "kepler_newton",
+  "expected": {
+    "f_at_probe": {
+      "kind": "scalar",
+      "v": "0xbfd06fe22381dd7d"
+    },
+    "root": {
+      "kind": "scalar",
+      "v": "0x3fefffffffffffff"
+    }
+  },
+  "inputs": {
+    "e": {
+      "kind": "scalar",
+      "v": "0x3fe999999999999a"
+    },
+    "m": {
+      "kind": "scalar",
+      "v": "0x3fd4eaabe7f184e8"
+    },
+    "probe": {
+      "kind": "scalar",
+      "v": "0x3fd4eaabe7f184e8"
+    },
+    "problem": {
+      "kind": "str",
+      "v": "root_kepler"
+    },
+    "solver": {
+      "kind": "str",
+      "v": "newton"
+    },
+    "start": {
+      "kind": "scalar",
+      "v": "0x3fd4eaabe7f184e8"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "root_finding",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "reference roots from scipy.optimize",
+    "seed": 20260706
+  },
+  "module": "root_finding",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f64/host": {
+        "abs": 1e-09,
+        "rel": 1e-09
+      }
+    }
+  }
+}

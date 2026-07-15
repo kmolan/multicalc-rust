@@ -1,0 +1,62 @@
+{
+  "case": "hessian_3x3",
+  "expected": {
+    "f_at_probe": {
+      "kind": "scalar",
+      "v": "0x40397607a55affa6"
+    },
+    "hessian": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0xbffaed548f090cee",
+        "0x402ea30739d02e17",
+        "0x0000000000000000",
+        "0x402ea30739d02e17",
+        "0x402d8e64b8d4ddae",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x4000000000000000"
+      ],
+      "rows": 3
+    }
+  },
+  "inputs": {
+    "func": {
+      "kind": "str",
+      "v": "hessian_target"
+    },
+    "op": {
+      "kind": "str",
+      "v": "hessian"
+    },
+    "point": {
+      "data": [
+        "0x3ff0000000000000",
+        "0x4000000000000000",
+        "0x4008000000000000"
+      ],
+      "kind": "vector"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "calculus",
+    "libraries": {
+      "mpmath": "1.3.0"
+    },
+    "sampling": "closed-form analytic; mpmath high-precision derivatives",
+    "seed": 20260706
+  },
+  "module": "calculus",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f64/host": {
+        "abs": 1e-10,
+        "rel": 1e-10
+      }
+    }
+  }
+}

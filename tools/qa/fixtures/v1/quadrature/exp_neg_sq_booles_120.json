@@ -1,0 +1,53 @@
+{
+  "case": "exp_neg_sq_booles_120",
+  "expected": {
+    "integral": {
+      "kind": "scalar",
+      "v": "0x3ffc5bf891b4bf7a"
+    }
+  },
+  "inputs": {
+    "family": {
+      "kind": "str",
+      "v": "iterative"
+    },
+    "integrand": {
+      "kind": "str",
+      "v": "exp_neg_sq"
+    },
+    "limits": {
+      "data": [
+        "0xc014000000000000",
+        "0x4014000000000000"
+      ],
+      "kind": "vector"
+    },
+    "method": {
+      "kind": "str",
+      "v": "Booles"
+    },
+    "param": {
+      "kind": "int",
+      "v": 120
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "quadrature",
+    "libraries": {
+      "mpmath": "1.3.0"
+    },
+    "sampling": "closed-form spot checks; mpmath goldens",
+    "seed": 20260706
+  },
+  "module": "quadrature",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f64/host": {
+        "abs": 1e-06,
+        "rel": 1e-06
+      }
+    }
+  }
+}
