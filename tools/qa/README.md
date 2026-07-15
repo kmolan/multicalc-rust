@@ -1,6 +1,6 @@
 # multicalc-qa
 
-The project's quality-assurance crate. It owns three jobs:
+The project's quality-assurance crate. It owns four jobs:
 
 - **Accuracy** — golden-fixture correctness tests that check multicalc's numerics
   against trusted references: numpy/LAPACK for linear algebra, SciPy/MINPACK for
@@ -9,6 +9,8 @@ The project's quality-assurance crate. It owns three jobs:
 - **Accuracy docs** — the `gen_accuracy_tables` bin renders the per-module accuracy
   tables under `benchmarks/` (repo root) from the fixtures, held in sync by a CI
   `git diff --exit-code` guard so the numbers cannot drift from what the fixtures verify.
+- **Latency** — the `latency` bench (criterion) runs latency measurements and regenerates `benchmarks/latency.md`. Run with
+  `cargo bench -p multicalc-qa`. Timings are machine-dependent, so this is not CI-enforced.
 - **Cross-target** — the `gen_smoke_fixtures` bin emits the embedded-smoke goldens
   (`tools/embedded-smoke/src/fixtures.rs`) bit-exact from the committed fixtures.
 
@@ -25,6 +27,7 @@ multicalc-qa`).
 ```
 src/        schema, loader, and the named-problem registry
 src/bin/    generators for the smoke goldens and the accuracy-doc tables
+benches/    the latency bench (criterion), regenerates benchmarks/latency.md
 fixtures/   committed goldens, versioned as v1, v2, …
 gen/        Python generators and their pinned container
 tests/      one suite per module (calculus, linalg, optimization, root_finding, …)
