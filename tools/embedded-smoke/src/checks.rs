@@ -76,6 +76,22 @@ pub fn autodiff_derivative() -> f64 {
     black_box(value)
 }
 
+/// Identity in f32: differentiate x^3 at x = 2, exact derivative 12. f32 arithmetic is where
+/// soft-float (eabi) and the hardware FPU (eabihf) diverge. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn autodiff_derivative_f32() -> f32 {
+    let f = scalar_fn!(|x| x * x * x);
+    let d = AutoDiffSingle::default();
+    let value: f32 = d.get(1, &f, black_box(2.0_f32)).expect("derivative f32");
+    // f32 tolerance is looser than f64; assert in f32 space directly.
+    let ok = (value - 12.0_f32).abs() <= 1e-4;
+    if !ok {
+        let _ = crate::hprintln!("CHECK autodiff_f32 FAIL got={:e}", value);
+    }
+    assert!(ok, "autodiff_derivative_f32");
+    black_box(value)
+}
+
 /// Real portable-path library call for the Cortex-M0 canary: a vector dot product through
 /// `multicalc`. `[1,2,3,4] · [4,3,2,1] = 20`. Exercises a no-atomics, no-alloc library symbol
 /// (unlike a plain array fold, which touches no `multicalc` code).

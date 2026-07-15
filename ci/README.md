@@ -71,7 +71,7 @@ change in the same PR — like a budget re-baseline, never loosened to dodge a r
 
 ## Adding a binary or a scalar row
 
-- New smoke crate (v0.9+): add a `[<binary>.<target>]` section per target and add the package name
+- New smoke crate: add a `[<binary>.<target>]` section per target and add the package name
   to the loop in `.github/workflows/matrix.yml`.
 - New scalar row: add `stack_bytes_<scalar>` to the section and make the smoke binary print
   `STACK_HWM_BYTES_<SCALAR>=<n>`. An absent or `0` row is report-only.

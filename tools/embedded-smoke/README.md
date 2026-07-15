@@ -1,12 +1,14 @@
 # embedded-smoke
 
-Runs smoke tests for all supported platforms for `multicalc`. Must return identical
-numbers on every target it supports: x86_64 and aarch64 Linux hosts, plus four
-bare-metal ABIs (Cortex-M4 soft-float, Cortex-M4 hard-float, Cortex-M0, and
-`riscv32imc`). Host tests cover the first two. Nothing but real on-target execution
-can cover the bare-metal set, and that is this crate. It exercises `multicalc` on
-each ABI and holds each to the same known answers, so a divergence on any supported
-architecture fails the build.
+Runs smoke tests across the platforms `multicalc` supports: x86_64 and aarch64 Linux
+hosts, plus four bare-metal ABIs (Cortex-M4 soft-float, Cortex-M4 hard-float,
+Cortex-M0, and `riscv32imc`). Host tests cover the first two. Nothing but real
+on-target execution can cover the bare-metal set, and that is this crate. Each result
+must agree with a known answer to a tolerance — fixture abs/rel bands on-target, 1e-9
+relative between ABIs — not bit-for-bit, since soft-float paths round intermediates
+differently. The two Cortex-M4 ABIs and `riscv32imc` run the full check set; the
+Cortex-M0 runs a smaller canary (it builds with `--no-default-features`). A divergence
+beyond tolerance on any leg fails the build.
 
 It hosts a `no_std` / `no_main` smoke test that runs `multicalc` on bare-metal targets
 under QEMU. It is a dev-only crate (`publish = false`, not in `default-members`) and
@@ -71,7 +73,7 @@ every target including the Cortex-M0; the full set adds the heavier checks on th
 
 | Test | Targets | Details |
 |------|---------|---------|
-| `portable_path` | all (incl. `thumbv6m`) | Identity: plain `f64` fold, `Σ 1..=4 = 10` — the CAS-free path exercised on M0. |
+| `portable_path` | all (incl. `thumbv6m`) | Identity: `multicalc` vector dot product `[1,2,3,4]·[4,3,2,1] = 20` — a no-atomics library call exercised on M0. |
 | `svd_golden` | all (incl. `thumbv6m`) | Golden: singular values of a 3×3 fixture matrix vs the `svd_3x3` QA golden. Also emits `SMOKE_VAL_svd_s*` for the cross-ABI guard. |
 | `error_path_returns_err` | all (incl. `thumbv6m`) | Negative path: a singular matrix's `lu()` and an indefinite matrix's `cholesky()` return a typed `Err`, not a panic. |
 | `lm_fit` | `thumbv7em` only | Golden: Levenberg-Marquardt Rosenbrock least-squares minimizer vs the `rosenbrock` QA golden. |

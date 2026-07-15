@@ -30,7 +30,7 @@ def hex_f32(x):
     return "0x%08x" % struct.unpack("<I", struct.pack("<f", x))[0]
 
 
-# --- value builders (one per Rust `Value` variant that v0.7 uses) ---
+# --- value builders ---
 
 
 def scalar(x):

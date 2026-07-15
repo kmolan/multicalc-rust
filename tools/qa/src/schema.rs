@@ -69,7 +69,7 @@ impl<'de> Deserialize<'de> for F32 {
     }
 }
 
-/// One block of a manifold state (reserved for later phases; unused in v0.7).
+/// One block of a manifold state.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ManifoldBlock {
     pub kind: String,
@@ -77,8 +77,7 @@ pub struct ManifoldBlock {
 }
 
 /// A self-describing fixture value. Floats are hex; ints, strings, and bools are
-/// plain JSON. `Quaternion` and `ManifoldState` are reserved for later phases and
-/// carry no data in v0.7.
+/// plain JSON. `Quaternion` and `ManifoldState` are reserved for later phases.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Value {
@@ -174,7 +173,7 @@ impl From<Tol> for multicalc_testkit::tol::Tol {
 
 /// Per-`<scalar>/<target>` tolerance table, e.g. `"f64/host"` or `"f32/host"`.
 /// Reserved targets: `host`, `aarch64`, `thumbv7em-eabi`, `thumbv7em-eabihf`,
-/// `thumbv6m`. v0.7 populates only the `host` entries.
+/// `thumbv6m`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Tolerances {
     pub table: BTreeMap<String, Tol>,

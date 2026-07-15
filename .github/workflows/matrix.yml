@@ -107,7 +107,7 @@ jobs:
           for bin in embedded-smoke; do
             out="smoke-$bin-${{ matrix.target }}.txt"
             cargo run -p "$bin" --release --target ${{ matrix.target }} ${{ matrix.args }} | tee "$out"
-            bash ci/check_budgets.sh "$bin" ${{ matrix.target }} "$out"
+            bash ci/check_budgets.sh "$bin" ${{ matrix.target }} "$out" "${{ matrix.args }}"
           done
       # The cross-abi job compares the two thumbv7em outputs, produced in separate
       # matrix legs, so each leg's output is uploaded for it to fetch.
@@ -133,6 +133,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: smoke-output-thumbv7em-none-eabihf
+      - name: Download RISC-V (riscv32imc) output
+        uses: actions/download-artifact@v4
+        with:
+          name: smoke-output-riscv32imc-unknown-none-elf
+      - name: Download M0 (thumbv6m) output
+        uses: actions/download-artifact@v4
+        with:
+          name: smoke-output-thumbv6m-none-eabi
       # Fails if soft-float (libm) and the hardware FPU disagree beyond tolerance.
-      - name: Soft-float vs hardware-FPU agreement
-        run: bash ci/check_cross_abi.sh smoke-embedded-smoke-thumbv7em-none-eabi.txt smoke-embedded-smoke-thumbv7em-none-eabihf.txt
+      - name: Cross-ABI agreement (thumbv7em + riscv full-keyset, m0 subset)
+        run: bash ci/check_cross_abi.sh smoke-embedded-smoke-thumbv7em-none-eabi.txt smoke-embedded-smoke-thumbv7em-none-eabihf.txt smoke-embedded-smoke-riscv32imc-unknown-none-elf.txt --subset smoke-embedded-smoke-thumbv6m-none-eabi.txt

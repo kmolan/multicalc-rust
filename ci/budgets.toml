@@ -1,7 +1,7 @@
 # Size and stack budgets, keyed by <binary>.<target>.
 #
 # Sections are [<binary>.<target>], where <binary> is the cargo package name of a
-# smoke crate (embedded-smoke today; per-domain smoke binaries are added at v0.9+,
+# smoke crate (embedded-smoke today; per-domain smoke binaries to come later
 # each its own section) and <target> is one of the four bare-metal triples below.
 # Splitting budgets per binary keeps the gate fair: a heavy new domain grows its own
 # binary's budget and never spends another domain's headroom.
@@ -9,9 +9,7 @@
 #   text_bytes            .text size of the release smoke binary.
 #   stack_bytes_<scalar>  peak stack for that scalar type, matched to a
 #                         STACK_HWM_BYTES_<SCALAR>=<n> line in the run output. The bare
-#                         STACK_HWM_BYTES=<n> line counts as the f64 measurement. Only
-#                         f64 is populated today; dual/hyperdual/jet rows are added per
-#                         (binary x scalar) as differentiated dynamics lands (v0.9+).
+#                         STACK_HWM_BYTES=<n> line counts as the f64 measurement.
 #
 # An absent or 0 budget is REPORT-ONLY (measured and printed, never gated).
 # tolerance_pct applies to every gated row. Raising a budget is a reviewed re-baseline
@@ -27,11 +25,11 @@
 tolerance_pct = 10
 
 [embedded-smoke.thumbv7em-none-eabi]
-text_bytes = 75148
+text_bytes = 84072
 stack_bytes_f64 = 1344
 
 [embedded-smoke.thumbv7em-none-eabihf]
-text_bytes = 83460
+text_bytes = 92284
 stack_bytes_f64 = 1628
 
 [embedded-smoke.thumbv6m-none-eabi]
