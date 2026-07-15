@@ -28,7 +28,7 @@
 
 #[cfg(target_arch = "arm")]
 use {
-    cortex_m_rt::entry,
+    cortex_m_rt::{ExceptionFrame, entry, exception},
     cortex_m_semihosting::{debug, hprintln},
     panic_semihosting as _,
 };
@@ -111,6 +111,34 @@ fn main() -> ! {
     }
 
     debug::exit(debug::EXIT_SUCCESS);
+    loop {}
+}
+
+/// A fault must fail the run loudly, not spin until CI times out.
+#[cfg(target_arch = "arm")]
+#[exception]
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
+    let _ = hprintln!("HARDFAULT: {:#?}", ef);
+    debug::exit(debug::EXIT_FAILURE);
+    loop {}
+}
+
+/// Any other unhandled exception (bus/usage fault, illegal-instruction trap on the M0
+/// machine) exits non-zero the same way instead of hanging.
+#[cfg(target_arch = "arm")]
+#[exception]
+unsafe fn DefaultHandler(irqn: i16) {
+    let _ = hprintln!("EXCEPTION: irqn={}", irqn);
+    debug::exit(debug::EXIT_FAILURE);
+}
+
+/// Same contract as the ARM handlers: a trap exits QEMU non-zero, not into riscv-rt's
+/// default abort loop.
+#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+#[unsafe(export_name = "ExceptionHandler")]
+fn exception_handler(frame: &riscv_rt::TrapFrame) -> ! {
+    let _ = hprintln!("TRAP: {:#x?}", frame);
+    debug::exit(debug::EXIT_FAILURE);
     loop {}
 }
 

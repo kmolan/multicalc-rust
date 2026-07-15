@@ -66,6 +66,7 @@ jobs:
     name: bare-metal ${{ matrix.target }}
     needs: setup
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -117,6 +118,7 @@ jobs:
     name: cross-ABI divergence guard
     needs: bare-metal
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Download soft-float (eabi) output
