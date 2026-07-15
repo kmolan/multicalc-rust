@@ -6,7 +6,7 @@
 # counts as f64). On any problem it prints ">>> ERROR" / ">>> FIX" and exits non-zero.
 #
 # Usage:
-#   bash ci/check_budgets.sh <binary> <target-triple> <smoke-output-file>
+#   bash ci/check_budgets.sh <binary> <target-triple> <smoke-output-file> [<build-args>]
 #
 #   <binary>            cargo package name of the smoke crate (also the -p arg to
 #                       `cargo size`), e.g. embedded-smoke. Must match the "<binary>."
@@ -16,6 +16,8 @@
 #   <smoke-output-file> captured stdout of the run; contains a STACK_HWM_BYTES[...]=<n>
 #                       line. Produce it with:
 #                         cargo run -p <binary> --release --target <triple> | tee <file>
+#   <build-args>        optional; the same cargo build args the run used (e.g.
+#                       --no-default-features), so `cargo size` measures the same image.
 #
 # Run from the repository root: it reads ci/budgets.toml by that relative path.
 set -euo pipefail
@@ -31,15 +33,16 @@ die() {
 }
 
 # ---- Argument checks -------------------------------------------------------
-if [ "$#" -ne 3 ]; then
-  die "expected exactly 3 arguments, got $#." \
-      "Invoke as: bash ci/check_budgets.sh <binary> <target-triple> <smoke-output-file>" \
+if [ "$#" -lt 3 ] || [ "$#" -gt 4 ]; then
+  die "expected 3 or 4 arguments, got $#." \
+      "Invoke as: bash ci/check_budgets.sh <binary> <target-triple> <smoke-output-file> [<build-args>]" \
       "Valid targets: $valid_targets"
 fi
 
 binary="$1"
 target="$2"
 smoke_out="$3"
+size_features="${4:-}"
 section="[$binary.$target]"
 echo "== budget check for $binary on $target =="
 
@@ -52,9 +55,9 @@ echo "== budget check for $binary on $target =="
   "Capture the run first: cargo run -p $binary --release --target $target | tee $smoke_out"
 
 if ! grep -Fxq "$section" "$budgets"; then
-  echo ">>> WARNING: no '$section' section in $budgets; nothing will be gated." >&2
-  echo ">>> FIX:     add a $section section to $budgets, or fix the binary/target spelling." >&2
-  echo ">>> FIX:     valid targets: $valid_targets" >&2
+  die "no '$section' section in $budgets; nothing would be gated." \
+      "Add a $section section to $budgets, or fix the binary/target spelling." \
+      "Valid targets: $valid_targets"
 fi
 
 # Read one key's value from this binary+target section.
@@ -107,12 +110,8 @@ check() {
 }
 
 # ---- Measure .text ---------------------------------------------------------
-# The thumbv6m M0 canary is built with default features off, so measure that same
-# lean image; the thumbv7em full-set targets keep default features.
-size_features=""
-if [ "$target" = "thumbv6m-none-eabi" ]; then
-  size_features="--no-default-features"
-fi
+# Measured with the same build args the run used (forwarded as the 4th argument), so
+# `cargo size` always sees exactly the image that ran.
 if ! size_out=$(cargo size --release $size_features -p "$binary" --target "$target" -- -A 2>&1); then
   echo "$size_out" >&2
   die "'cargo size' failed for $binary/$target (its output is above)." \

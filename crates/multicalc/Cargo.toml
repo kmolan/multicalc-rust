@@ -11,24 +11,18 @@ documentation = "https://docs.rs/multicalc"
 readme = "README.md"
 keywords = ["no-std", "autodiff", "calculus", "embedded", "numerical-methods"]
 categories = ["mathematics", "no-std", "no-std::no-alloc", "embedded", "science::robotics"]
-autobenches = false
 
 [dependencies]
 libm = "0.2"
 
 [target.'cfg(not(target_arch = "arm"))'.dev-dependencies]
 rand = "0.8"
-criterion = "0.5"
 proptest = "1.11"
 multicalc-testkit = { path = "../../tools/testkit" }
 
 [features]
 default = []
 alloc = []
-
-[[bench]]
-name = "benchmarks"
-harness = false
 
 [lints]
 workspace = true

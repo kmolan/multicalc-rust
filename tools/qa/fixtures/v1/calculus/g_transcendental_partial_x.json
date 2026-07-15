@@ -1,0 +1,54 @@
+{
+  "case": "g_transcendental_partial_x",
+  "expected": {
+    "f_at_probe": {
+      "kind": "scalar",
+      "v": "0x4044b80c17395289"
+    },
+    "partial": {
+      "kind": "scalar",
+      "v": "0x40446af2b33eb256"
+    }
+  },
+  "inputs": {
+    "axes": {
+      "kind": "str",
+      "v": "0"
+    },
+    "func": {
+      "kind": "str",
+      "v": "g_transcendental"
+    },
+    "op": {
+      "kind": "str",
+      "v": "partial"
+    },
+    "point": {
+      "data": [
+        "0x3ff0000000000000",
+        "0x4000000000000000",
+        "0x4008000000000000"
+      ],
+      "kind": "vector"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "calculus",
+    "libraries": {
+      "mpmath": "1.3.0"
+    },
+    "sampling": "closed-form analytic; mpmath high-precision derivatives",
+    "seed": 20260706
+  },
+  "module": "calculus",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f64/host": {
+        "abs": 1e-10,
+        "rel": 1e-10
+      }
+    }
+  }
+}

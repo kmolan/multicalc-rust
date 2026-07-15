@@ -1,0 +1,54 @@
+{
+  "case": "wien_bisection",
+  "expected": {
+    "f_at_probe": {
+      "kind": "scalar",
+      "v": "0xc00148ea1e23ea7d"
+    },
+    "root": {
+      "kind": "scalar",
+      "v": "0x4013dc46e7b8fbbb"
+    }
+  },
+  "inputs": {
+    "bracket": {
+      "data": [
+        "0x3ff0000000000000",
+        "0x4024000000000000"
+      ],
+      "kind": "vector"
+    },
+    "probe": {
+      "kind": "scalar",
+      "v": "0x3ff0000000000000"
+    },
+    "problem": {
+      "kind": "str",
+      "v": "root_wien"
+    },
+    "solver": {
+      "kind": "str",
+      "v": "bisection"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "root_finding",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "reference roots from scipy.optimize",
+    "seed": 20260706
+  },
+  "module": "root_finding",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f64/host": {
+        "abs": 1e-09,
+        "rel": 1e-09
+      }
+    }
+  }
+}

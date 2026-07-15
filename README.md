@@ -28,7 +28,7 @@ core — every number measured live.*
   [`libm`](https://crates.io/crates/libm).
 - **Fast, and measured**: a derivative in **~1 ns**, a full Levenberg-Marquardt curve fit in
   **microseconds**, and solvers that land on the answer to the **last few bits** (objectives near
-  `1e-30`, errors within ~1 ulp). Comprehensive benchmarks enforced for every commit across each supported platform, see the [benchmarks](crates/multicalc/benches).
+  `1e-30`, errors within ~1 ulp). Accuracy is enforced against proven external libraries like `numpy` and `scipy`. See the [benchmarks](benchmarks).
 - **Exact by default**: differentiation, Jacobians, Hessians, and Newton steps use forward-mode
   automatic differentiation, not finite-difference approximations (which remain available for
   black-box functions).
@@ -107,7 +107,7 @@ below.
 - **[Live showcases](demos#live-showcases)**: Four animated Rerun demos — a 1 kHz IK on a 3-link arm, a
   Newton fractal, Fourier epicycles drawing Ferris, and gradient-driven marbles — each streaming
   live-measured speed and accuracy.
-- **[Benchmarks](crates/multicalc/benches)**: Accuracy figures and measured latency.
+- **[QA crate](tools/qa)**: `multicalc-qa` holds the CI-enforced accuracy fixtures and generates the [benchmarks](benchmarks) tables from them.
 
 ## Repository layout
 
@@ -118,7 +118,7 @@ four bare-metal targets (three Cortex-M targets + `riscv32imc`) under QEMU every
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTIONS.md](CONTRIBUTIONS.md).
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Acknowledgements
 

@@ -3,7 +3,7 @@ name: Full CI
 # The complete suite, run where speed matters less than coverage: after a commit
 # lands on main (post-merge), nightly, and on demand. Per-PR runs use the trimmed
 # representative set in ci.yml; this workflow is a strict superset of it — it
-# re-runs host, thumbv7em, test, oracle, lint, docs,
+# re-runs host, thumbv7em, test, qa, lint, docs,
 # no_std and adds the aarch64 host, the thumbv6m canary, the MSRV
 # toolchain, the feature powerset, packaging, cargo-deny, and coverage. So a
 # direct push to main gets the same gates a PR would, plus the full matrix.
@@ -31,6 +31,10 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   matrix:
@@ -60,19 +64,23 @@ jobs:
       - name: Doctests
         run: cargo test -p multicalc --doc
 
-  oracle:
-    name: oracle fixtures (host-only)
+  qa:
+    name: qa fixtures (host-only)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       # Reads committed fixtures only — never runs Python, never downloads MuJoCo.
-      - run: cargo test -p multicalc-oracle
+      - run: cargo test -p multicalc-qa
       - name: Smoke fixtures are up to date
         run: |
-          cargo run -p multicalc-oracle --bin gen_smoke_fixtures
+          cargo run -p multicalc-qa --bin gen_smoke_fixtures
           git diff --exit-code tools/embedded-smoke/src/fixtures.rs
+      - name: Accuracy tables are up to date
+        run: |
+          cargo run -p multicalc-qa --bin gen_accuracy_tables
+          git diff --exit-code benchmarks/*.md
 
   lint:
     name: fmt + clippy
@@ -143,7 +151,7 @@ jobs:
         run: cargo hack -p multicalc --feature-powerset --no-dev-deps check
 
   package:
-    name: package + examples/benches
+    name: package + examples
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -153,8 +161,6 @@ jobs:
         run: cargo build -p multicalc-demos --examples --no-default-features
       - name: Run basics
         run: bash scripts/run_examples.sh
-      - name: Build benches
-        run: cargo build -p multicalc --benches
       # runs a clean `cargo package` build — the same packaging the Step 15
       # release workflow relies on, so a release can't fail at publish time
       - name: Packaging dry-run

@@ -6,7 +6,7 @@
 //! with the identical formula. Adding a problem means adding it on both sides
 //! under the same key.
 
-use multicalc::scalar::{Numeric, ScalarFnN, VectorFn};
+use multicalc::scalar::{Numeric, ScalarFn, ScalarFnN, VectorFn};
 
 /// Returns the `f64` integrand for a quadrature key. Panics on an unknown key.
 ///
@@ -20,6 +20,7 @@ pub fn integrand_f64(key: &str) -> fn(f64) -> f64 {
         "x_squared" => |x| x * x,
         "inv_1px2" => |x| 1.0 / (1.0 + x * x),
         "exp_neg" => |x| Numeric::exp(-x),
+        "exp_neg_sq" => |x| Numeric::exp(-(x * x)),
         other => unreachable!("unknown integrand key {other:?}"),
     }
 }
@@ -33,6 +34,7 @@ pub fn integrand_f32(key: &str) -> fn(f32) -> f32 {
         "x_squared" => |x| x * x,
         "inv_1px2" => |x| 1.0 / (1.0 + x * x),
         "exp_neg" => |x| Numeric::exp(-x),
+        "exp_neg_sq" => |x| Numeric::exp(-(x * x)),
         other => unreachable!("unknown integrand key {other:?}"),
     }
 }
@@ -142,6 +144,155 @@ impl VectorFn<6, GAUSS_POINTS> for GaussianPeaks {
             }
             model - S::from_f64(gauss_y(i))
         })
+    }
+}
+
+/// Hessian target `f(x, y, z) = y·sin x + 2·x·eʸ + z²`.
+pub struct HessianTarget;
+
+impl ScalarFnN<3> for HessianTarget {
+    fn eval<S: Numeric>(&self, v: &[S; 3]) -> S {
+        v[1] * v[0].sin() + S::from_f64(2.0) * v[0] * v[1].exp() + v[2] * v[2]
+    }
+}
+
+/// Jacobian target `[x·y·z, x² + y²]`, 3 inputs and 2 outputs.
+pub struct Jac23;
+
+impl VectorFn<3, 2> for Jac23 {
+    fn eval<S: Numeric>(&self, v: &[S; 3]) -> [S; 2] {
+        [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]
+    }
+}
+
+/// Jacobian target with cyclic coupling `aᵢ·aᵢ₊₁ + aᵢ₊₂`, 6 inputs and 6 outputs.
+pub struct Jac66;
+
+impl VectorFn<6, 6> for Jac66 {
+    fn eval<S: Numeric>(&self, a: &[S; 6]) -> [S; 6] {
+        [
+            a[0] * a[1] + a[2],
+            a[1] * a[2] + a[3],
+            a[2] * a[3] + a[4],
+            a[3] * a[4] + a[5],
+            a[4] * a[5] + a[0],
+            a[5] * a[0] + a[1],
+        ]
+    }
+}
+
+/// Vector field `[y, -x, 2z]`; curl is `[0, 0, -2]` and divergence is `2`.
+pub struct VField3d;
+
+impl VectorFn<3, 3> for VField3d {
+    fn eval<S: Numeric>(&self, v: &[S; 3]) -> [S; 3] {
+        [v[1], -v[0], S::from_f64(2.0) * v[2]]
+    }
+}
+
+/// Approximation target `f(x, y, z) = x + y² + z³`.
+pub struct ApproxTarget;
+
+impl ScalarFnN<3> for ApproxTarget {
+    fn eval<S: Numeric>(&self, v: &[S; 3]) -> S {
+        v[0] + v[1] * v[1] + v[2] * v[2] * v[2]
+    }
+}
+
+/// Wien's displacement equation `-5 + x + 5·e^{-x}`; the nonzero root is near 4.965.
+pub struct Wien;
+
+impl ScalarFn for Wien {
+    fn eval<S: Numeric>(&self, x: S) -> S {
+        S::from_f64(-5.0) + x + S::from_f64(5.0) * (-x).exp()
+    }
+}
+
+/// Kepler's equation `E - e·sin E - M`, relating the mean anomaly `M` to the
+/// eccentric anomaly `E` of an orbit with eccentricity `e`.
+pub struct Kepler {
+    pub e: f64,
+    pub m: f64,
+}
+
+impl ScalarFn for Kepler {
+    fn eval<S: Numeric>(&self, big_e: S) -> S {
+        big_e - S::from_f64(self.e) * big_e.sin() - S::from_f64(self.m)
+    }
+}
+
+/// Colebrook-White equation for the Darcy friction factor `f` of turbulent pipe
+/// flow: `1/√f + 2·log₁₀(rel_roughness/3.7 + 2.51/(Re·√f))`.
+pub struct Colebrook {
+    pub reynolds: f64,
+    pub rel_roughness: f64,
+}
+
+impl ScalarFn for Colebrook {
+    fn eval<S: Numeric>(&self, f: S) -> S {
+        let re = S::from_f64(self.reynolds);
+        let eps = S::from_f64(self.rel_roughness);
+        let root_f = f.sqrt();
+        let inner = eps / S::from_f64(3.7) + S::from_f64(2.51) / (re * root_f);
+        let log10 = inner.ln() / S::from_f64(10.0).ln();
+        S::ONE / root_f + S::TWO * log10
+    }
+}
+
+/// Sigmoid `x / √(1 + x²)`; the only root is `x = 0`.
+pub struct Sigmoid;
+
+impl ScalarFn for Sigmoid {
+    fn eval<S: Numeric>(&self, x: S) -> S {
+        x / (S::ONE + x * x).sqrt()
+    }
+}
+
+/// Two-link planar arm forward kinematics; the root recovers the joint angles
+/// that place the tip at the target `(px, py)`.
+pub struct TwoLinkArm {
+    pub l1: f64,
+    pub l2: f64,
+    pub px: f64,
+    pub py: f64,
+}
+
+impl VectorFn<2, 2> for TwoLinkArm {
+    fn eval<S: Numeric>(&self, v: &[S; 2]) -> [S; 2] {
+        let l1 = S::from_f64(self.l1);
+        let l2 = S::from_f64(self.l2);
+        let px = S::from_f64(self.px);
+        let py = S::from_f64(self.py);
+        [
+            l1 * v[0].cos() + l2 * (v[0] + v[1]).cos() - px,
+            l1 * v[0].sin() + l2 * (v[0] + v[1]).sin() - py,
+        ]
+    }
+}
+
+/// Circle `x² + y² = 4` intersected with hyperbola `xy = 1`, as a 2×2 system.
+pub struct CircleHyperbola;
+
+impl VectorFn<2, 2> for CircleHyperbola {
+    fn eval<S: Numeric>(&self, v: &[S; 2]) -> [S; 2] {
+        [
+            v[0] * v[0] + v[1] * v[1] - S::from_f64(4.0),
+            v[0] * v[1] - S::ONE,
+        ]
+    }
+}
+
+/// Chemical equilibrium mass balance, a 3×3 system:
+/// `[x + y + z - 1, y - 1.25·x², z - 5·x·y]`.
+pub struct Equilibrium;
+
+impl VectorFn<3, 3> for Equilibrium {
+    fn eval<S: Numeric>(&self, v: &[S; 3]) -> [S; 3] {
+        [
+            v[0] + v[1] + v[2] - S::ONE,
+            v[1] - S::from_f64(1.25) * v[0] * v[0],
+            v[2] - S::from_f64(5.0) * v[0] * v[1],
+        ]
     }
 }
 

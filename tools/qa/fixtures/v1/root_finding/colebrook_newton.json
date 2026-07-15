@@ -1,0 +1,59 @@
+{
+  "case": "colebrook_newton",
+  "expected": {
+    "f_at_probe": {
+      "kind": "scalar",
+      "v": "0xbfd3ae12ac7a8df0"
+    },
+    "root": {
+      "kind": "scalar",
+      "v": "0x3f92f54c854d1225"
+    }
+  },
+  "inputs": {
+    "probe": {
+      "kind": "scalar",
+      "v": "0x3f947ae147ae147b"
+    },
+    "problem": {
+      "kind": "str",
+      "v": "root_colebrook"
+    },
+    "rel_roughness": {
+      "kind": "scalar",
+      "v": "0x3f1a36e2eb1c432d"
+    },
+    "reynolds": {
+      "kind": "scalar",
+      "v": "0x40f86a0000000000"
+    },
+    "solver": {
+      "kind": "str",
+      "v": "newton"
+    },
+    "start": {
+      "kind": "scalar",
+      "v": "0x3f947ae147ae147b"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "root_finding",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "sampling": "reference roots from scipy.optimize",
+    "seed": 20260706
+  },
+  "module": "root_finding",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f64/host": {
+        "abs": 1e-09,
+        "rel": 1e-09
+      }
+    }
+  }
+}

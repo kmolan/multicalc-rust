@@ -35,15 +35,15 @@ the harness aborts before any test runs. The per-test reset model is also incomp
 for the same parsing reason: its RTT transport needs a host-side decoder, while the plain-text 
 semihosting lines need none.
 
-## Smoke fixtures (shared with the oracle)
+## Smoke fixtures (shared with the QA crate)
 
-The smoke checks assert against goldens taken from the host oracle fixtures, so the target and the
-host share one source of truth. `tools/oracle/src/bin/gen_smoke_fixtures.rs` reads the committed
-fixtures under `tools/oracle/fixtures/v1` and writes `tools/embedded-smoke/src/fixtures.rs` as
+The smoke checks assert against goldens taken from the host QA fixtures, so the target and the
+host share one source of truth. `tools/qa/src/bin/gen_smoke_fixtures.rs` reads the committed
+fixtures under `tools/qa/fixtures/v1` and writes `tools/embedded-smoke/src/fixtures.rs` as
 bit-exact `f64::from_bits` consts. Regenerate with:
 
 ```
-cargo run -p multicalc-oracle --bin gen_smoke_fixtures
+cargo run -p multicalc-qa --bin gen_smoke_fixtures
 ```
 
 The output is deterministic. CI regenerates it and runs `git diff --exit-code` on `fixtures.rs`, so
@@ -71,7 +71,7 @@ change in the same PR — like a budget re-baseline, never loosened to dodge a r
 
 ## Adding a binary or a scalar row
 
-- New smoke crate (v0.9+): add a `[<binary>.<target>]` section per target and add the package name
+- New smoke crate: add a `[<binary>.<target>]` section per target and add the package name
   to the loop in `.github/workflows/matrix.yml`.
 - New scalar row: add `stack_bytes_<scalar>` to the section and make the smoke binary print
   `STACK_HWM_BYTES_<SCALAR>=<n>`. An absent or `0` row is report-only.

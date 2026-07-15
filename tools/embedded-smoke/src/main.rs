@@ -27,17 +27,18 @@
 #![no_main]
 
 #[cfg(target_arch = "arm")]
+pub(crate) use cortex_m_semihosting::hprintln;
+#[cfg(target_arch = "arm")]
 use {
-    cortex_m_rt::entry,
-    cortex_m_semihosting::{debug, hprintln},
+    cortex_m_rt::{ExceptionFrame, entry, exception},
+    cortex_m_semihosting::debug,
     panic_semihosting as _,
 };
 
 #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
-use {
-    riscv_rt::entry,
-    riscv_semihosting::{debug, hprintln},
-};
+pub(crate) use riscv_semihosting::hprintln;
+#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+use {riscv_rt::entry, riscv_semihosting::debug};
 
 #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
 #[panic_handler]
@@ -72,16 +73,33 @@ fn main() -> ! {
     let svd_sv = checks::svd_golden();
     checks::error_path_returns_err();
 
-    // Full set: thumbv7em only (default features).
+    // Full set: thumbv7em only (default features). Each check returns its headline
+    // scalar, captured now and emitted below (after the stack is measured).
     #[cfg(feature = "full-smoke")]
-    {
-        checks::lm_fit();
-        checks::autodiff_derivative();
-        checks::lie_group_identity();
+    let full = {
+        let lm0 = checks::lm_fit();
+        let ad = checks::autodiff_derivative();
+        let lie = checks::lie_group_identity();
         checks::ode_identity();
-    }
+        (
+            checks::quadrature_identity(),
+            checks::jacobian_identity(),
+            checks::vector_field_identity(),
+            checks::root_finding_golden(),
+            lm0,
+            ad,
+            lie,
+            checks::autodiff_derivative_f32(),
+        )
+    };
 
     let used = stack_used(bottom, top);
+    // A saturated window (used == WINDOW) means the scan clipped: the number is a floor,
+    // not the peak. Fail rather than gate on a false-low value. Raise WINDOW if this trips.
+    assert!(
+        used < WINDOW,
+        "stack window saturated at {WINDOW} bytes; raise WINDOW"
+    );
     // The size and stack gate reads this exact line from the run output.
     let _ = hprintln!("STACK_HWM_BYTES={}", used);
 
@@ -92,17 +110,64 @@ fn main() -> ! {
     let _ = hprintln!("SMOKE_VAL_svd_s1={:e}", svd_sv[1]);
     let _ = hprintln!("SMOKE_VAL_svd_s2={:e}", svd_sv[2]);
 
+    // Full-set headlines. Both thumbv7em ABIs build the full set, so the key set
+    // matches across them; the thumbv6m canary emits neither and is not compared.
+    #[cfg(feature = "full-smoke")]
+    {
+        let (quad, jac00, div3d, wien_root, lm0, ad, lie, ad_f32) = full;
+        let _ = hprintln!("SMOKE_VAL_quad={:e}", quad);
+        let _ = hprintln!("SMOKE_VAL_jac00={:e}", jac00);
+        let _ = hprintln!("SMOKE_VAL_div3d={:e}", div3d);
+        let _ = hprintln!("SMOKE_VAL_wien_root={:e}", wien_root);
+        let _ = hprintln!("SMOKE_VAL_lm0={:e}", lm0);
+        let _ = hprintln!("SMOKE_VAL_ad={:e}", ad);
+        let _ = hprintln!("SMOKE_VAL_lie={:e}", lie);
+        let _ = hprintln!("SMOKE_VAL_ad_f32={:e}", ad_f32);
+    }
+
     debug::exit(debug::EXIT_SUCCESS);
     loop {}
 }
 
+/// A fault must fail the run loudly, not spin until CI times out.
+#[cfg(target_arch = "arm")]
+#[exception]
+unsafe fn HardFault(ef: &ExceptionFrame) -> ! {
+    let _ = hprintln!("HARDFAULT: {:#?}", ef);
+    debug::exit(debug::EXIT_FAILURE);
+    loop {}
+}
+
+/// Any other unhandled exception (bus/usage fault, illegal-instruction trap on the M0
+/// machine) exits non-zero the same way instead of hanging.
+#[cfg(target_arch = "arm")]
+#[exception]
+unsafe fn DefaultHandler(irqn: i16) {
+    let _ = hprintln!("EXCEPTION: irqn={}", irqn);
+    debug::exit(debug::EXIT_FAILURE);
+}
+
+/// Same contract as the ARM handlers: a trap exits QEMU non-zero, not into riscv-rt's
+/// default abort loop.
+#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+#[unsafe(export_name = "ExceptionHandler")]
+fn exception_handler(frame: &riscv_rt::TrapFrame) -> ! {
+    let _ = hprintln!("TRAP: {:#x?}", frame);
+    debug::exit(debug::EXIT_FAILURE);
+    loop {}
+}
+
 /// Address of a local, close to the current stack pointer.
+/// `#[inline(never)]` keeps this frame small so `GUARD` reliably covers it.
+#[inline(never)]
 fn sp() -> usize {
     let x = 0u8;
     core::ptr::addr_of!(x) as usize
 }
 
-/// Fill [bottom, top) with PAINT.
+/// Fill [bottom, top) with PAINT. `#[inline(never)]` bounds this frame so painting
+/// starts safely below the live stack (see `GUARD`).
+#[inline(never)]
 fn paint(bottom: usize, top: usize) {
     let mut a = bottom;
     while a < top {
