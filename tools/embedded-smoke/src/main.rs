@@ -158,12 +158,16 @@ fn exception_handler(frame: &riscv_rt::TrapFrame) -> ! {
 }
 
 /// Address of a local, close to the current stack pointer.
+/// `#[inline(never)]` keeps this frame small so `GUARD` reliably covers it.
+#[inline(never)]
 fn sp() -> usize {
     let x = 0u8;
     core::ptr::addr_of!(x) as usize
 }
 
-/// Fill [bottom, top) with PAINT.
+/// Fill [bottom, top) with PAINT. `#[inline(never)]` bounds this frame so painting
+/// starts safely below the live stack (see `GUARD`).
+#[inline(never)]
 fn paint(bottom: usize, top: usize) {
     let mut a = bottom;
     while a < top {
