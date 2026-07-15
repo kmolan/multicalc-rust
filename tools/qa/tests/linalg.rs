@@ -10,8 +10,8 @@
 //! checks a mathematical identity only.
 
 use multicalc::linear_algebra::{Matrix, PivotedQr};
-use multicalc_oracle::load::*;
-use multicalc_oracle::schema::*;
+use multicalc_qa::load::*;
+use multicalc_qa::schema::*;
 
 fn assert_identity_f64<const N: usize>(m: &Matrix<N, N>, t: Tol, ctx: &str) {
     for i in 0..N {

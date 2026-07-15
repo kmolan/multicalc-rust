@@ -14,7 +14,7 @@ SEED = 20260706
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate oracle fixtures.")
+    parser = argparse.ArgumentParser(description="Generate QA fixtures.")
     parser.add_argument("--out", required=True, help="output directory (holds v1/)")
     args = parser.parse_args()
 

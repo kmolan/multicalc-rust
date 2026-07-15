@@ -3,8 +3,8 @@
 //! Checks expm / ZOH / Van Loan / q_discrete_white_noise against scipy goldens.
 
 use multicalc::discretization::{q_discrete_white_noise, van_loan, zoh};
-use multicalc_oracle::load::*;
-use multicalc_oracle::schema::*;
+use multicalc_qa::load::*;
+use multicalc_qa::schema::*;
 
 fn run_expm<const N: usize>(fx: &Fixture) {
     let a = to_matrix::<N, N>(&fx.inputs["A"]);

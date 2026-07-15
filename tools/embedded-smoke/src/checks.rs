@@ -1,6 +1,6 @@
 //! Tiny on-target math checks. Each asserts a known answer to a tolerance.
 //!
-//! Golden checks assert against values taken from the host oracle fixtures (see
+//! Golden checks assert against values taken from the host QA fixtures (see
 //! `fixtures.rs`), so the target and the host share one source of truth. Identity
 //! checks assert a mathematical identity that needs no fixture. Every assertion is
 //! a hard failure: a wrong answer panics, which the runner turns into a non-zero
@@ -18,7 +18,7 @@ use multicalc_testkit::tol::{Tol, close};
 
 use crate::fixtures;
 
-/// Golden: the Rosenbrock least-squares minimizer must match the host oracle
+/// Golden: the Rosenbrock least-squares minimizer must match the host QA
 /// golden (optimization/rosenbrock). Residuals `[10 (y - x^2), 1 - x]` are zero
 /// at the minimum `(1, 1)`. Part of the full set only (thumbv7em).
 #[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
@@ -72,7 +72,7 @@ pub fn error_path_returns_err() {
     ));
 }
 
-/// Golden: singular values of a fixture matrix must match the host oracle golden
+/// Golden: singular values of a fixture matrix must match the host QA golden
 /// (linalg/svd_3x3). Returns the values so the caller can emit them for the
 /// cross-ABI divergence guard.
 pub fn svd_golden() -> [f64; 3] {

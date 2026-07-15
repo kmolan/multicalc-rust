@@ -3,7 +3,7 @@ name: Full CI
 # The complete suite, run where speed matters less than coverage: after a commit
 # lands on main (post-merge), nightly, and on demand. Per-PR runs use the trimmed
 # representative set in ci.yml; this workflow is a strict superset of it — it
-# re-runs host, thumbv7em, test, oracle, lint, docs,
+# re-runs host, thumbv7em, test, qa, lint, docs,
 # no_std and adds the aarch64 host, the thumbv6m canary, the MSRV
 # toolchain, the feature powerset, packaging, cargo-deny, and coverage. So a
 # direct push to main gets the same gates a PR would, plus the full matrix.
@@ -60,18 +60,18 @@ jobs:
       - name: Doctests
         run: cargo test -p multicalc --doc
 
-  oracle:
-    name: oracle fixtures (host-only)
+  qa:
+    name: qa fixtures (host-only)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       # Reads committed fixtures only — never runs Python, never downloads MuJoCo.
-      - run: cargo test -p multicalc-oracle
+      - run: cargo test -p multicalc-qa
       - name: Smoke fixtures are up to date
         run: |
-          cargo run -p multicalc-oracle --bin gen_smoke_fixtures
+          cargo run -p multicalc-qa --bin gen_smoke_fixtures
           git diff --exit-code tools/embedded-smoke/src/fixtures.rs
 
   lint:

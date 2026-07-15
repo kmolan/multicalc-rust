@@ -59,7 +59,7 @@ stay small, safe, and portable, while this crate stays dev-only and never ships.
 `src/checks.rs` holds the on-target cases against the public API. Each asserts a
 known answer to a tolerance, so a wrong result panics instead of passing, and
 every check stays `no_std`. Golden checks assert against values taken from the
-host oracle fixtures (`src/fixtures.rs`, generated from `tools/oracle`); identity
+host QA fixtures (`src/fixtures.rs`, generated from `tools/qa`); identity
 checks assert a mathematical identity that needs no fixture.
 
 The set is tiered by the `full-smoke` feature (on by default): the canary runs on
@@ -69,9 +69,9 @@ every target including the Cortex-M0; the full set adds the heavier checks on th
 | Test | Targets | Details |
 |------|---------|---------|
 | `portable_path` | all (incl. `thumbv6m`) | Identity: plain `f64` fold, `Σ 1..=4 = 10` — the CAS-free path exercised on M0. |
-| `svd_golden` | all (incl. `thumbv6m`) | Golden: singular values of a 3×3 fixture matrix vs the `svd_3x3` oracle golden. Also emits `SMOKE_VAL_svd_s*` for the cross-ABI guard. |
+| `svd_golden` | all (incl. `thumbv6m`) | Golden: singular values of a 3×3 fixture matrix vs the `svd_3x3` QA golden. Also emits `SMOKE_VAL_svd_s*` for the cross-ABI guard. |
 | `error_path_returns_err` | all (incl. `thumbv6m`) | Negative path: a singular matrix's `lu()` and an indefinite matrix's `cholesky()` return a typed `Err`, not a panic. |
-| `lm_fit` | `thumbv7em` only | Golden: Levenberg-Marquardt Rosenbrock least-squares minimizer vs the `rosenbrock` oracle golden. |
+| `lm_fit` | `thumbv7em` only | Golden: Levenberg-Marquardt Rosenbrock least-squares minimizer vs the `rosenbrock` QA golden. |
 | `autodiff_derivative` | `thumbv7em` only | Identity: forward-mode autodiff of `x³` at `x = 2`, expects 12. |
 | `ode_identity` | `thumbv7em` only | Identity: RK4 harmonic oscillator round trip and RK45 `y' = -y` to `e^{-1}`. |
 

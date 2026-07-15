@@ -11,9 +11,9 @@ use multicalc::linear_algebra::Vector;
 use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
 use multicalc::optimization::LevenbergMarquardt;
 use multicalc::scalar::VectorFn;
-use multicalc_oracle::load::*;
-use multicalc_oracle::problems::{CircleFit, GaussianPeaks, Rosenbrock, Trigonometric6};
-use multicalc_oracle::schema::*;
+use multicalc_qa::load::*;
+use multicalc_qa::problems::{CircleFit, GaussianPeaks, Rosenbrock, Trigonometric6};
+use multicalc_qa::schema::*;
 
 fn run_lm<F: VectorFn<N, M>, const N: usize, const M: usize>(problem: &F, fx: &Fixture) {
     let x0 = to_vector::<N>(&fx.inputs["x0"]).into_array();

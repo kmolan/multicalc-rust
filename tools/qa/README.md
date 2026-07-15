@@ -1,8 +1,18 @@
-# multicalc-oracle
+# multicalc-qa
 
-Golden-value tests that check multicalc's numerics against trusted references:
-numpy/LAPACK for linear algebra, MINPACK (via SciPy) for nonlinear least squares,
-and mpmath for quadrature.
+The project's quality-assurance crate. It owns four jobs:
+
+- **Accuracy** — golden-fixture correctness tests that check multicalc's numerics
+  against trusted references: numpy/LAPACK for linear algebra, SciPy/MINPACK for
+  nonlinear least squares, and mpmath for quadrature and closed-form goldens. Run
+  with `cargo test -p multicalc-qa`; CI-enforced.
+- **Latency** — the criterion timing benches under `benches/`, run with
+  `cargo bench -p multicalc-qa`. Illustrative and machine-specific, not CI-gated.
+- **Accuracy docs** — the `gen_accuracy_tables` bin renders the benches' accuracy
+  tables from the fixtures, held in sync by a CI `git diff --exit-code` guard so the
+  numbers cannot drift from what the fixtures verify.
+- **Cross-target** — the `gen_smoke_fixtures` bin emits the embedded-smoke goldens
+  (`tools/embedded-smoke/src/fixtures.rs`) bit-exact from the committed fixtures.
 
 The reference values live as committed JSON fixtures under `fixtures/`. The Rust
 tests load them, run multicalc on the same inputs, and compare within per-fixture
@@ -10,15 +20,17 @@ tolerances. Fixtures are produced by containerized Python generators in `gen/`.
 
 **Generation is maintainer-run under Linux/WSL. CI never runs Python and never
 downloads anything — it only reads the committed fixtures** (`cargo test -p
-multicalc-oracle`).
+multicalc-qa`).
 
 ## Layout
 
 ```
 src/        schema, loader, and the named-problem registry
+src/bin/    generators for the smoke goldens and the accuracy-doc tables
 fixtures/   committed goldens, versioned as v1, v2, …
 gen/        Python generators and their pinned container
 tests/      one suite per module (linalg, optimization, quadrature)
+benches/    criterion timing suites and their per-module docs
 ```
 
 ## Fixture schema
@@ -132,10 +144,10 @@ byte-for-byte, set `SOURCE_DATE_EPOCH` to the instant frozen in the fixtures'
 With Docker (run from the repo root):
 
 ```bash
-docker build -t mc-oracle-gen tools/oracle/gen
+docker build -t mc-qa-gen tools/qa/gen
 docker run --rm --user "$(id -u):$(id -g)" \
   -e SOURCE_DATE_EPOCH=1783296000 \
-  -v "$PWD/tools/oracle/fixtures:/out" mc-oracle-gen
+  -v "$PWD/tools/qa/fixtures:/out" mc-qa-gen
 ```
 
 `--user` keeps the written files owned by you rather than root.
@@ -145,8 +157,8 @@ repo root):
 
 ```bash
 python -m venv .venv
-.venv/bin/pip install -r tools/oracle/gen/requirements.txt
-SOURCE_DATE_EPOCH=1783296000 .venv/bin/python tools/oracle/gen/generate.py --out tools/oracle/fixtures
+.venv/bin/pip install -r tools/qa/gen/requirements.txt
+SOURCE_DATE_EPOCH=1783296000 .venv/bin/python tools/qa/gen/generate.py --out tools/qa/fixtures
 ```
 
 Byte-stability holds for the same image/build. A different numpy/BLAS build may

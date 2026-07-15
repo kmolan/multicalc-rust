@@ -11,8 +11,8 @@ use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
 use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
 use multicalc::numerical_integration::iterative_integration::IterativeSingle;
 use multicalc::numerical_integration::mode::{GaussianQuadratureMethod, IterativeMethod};
-use multicalc_oracle::load::*;
-use multicalc_oracle::problems::{integrand_f32, integrand_f64};
+use multicalc_qa::load::*;
+use multicalc_qa::problems::{integrand_f32, integrand_f64};
 
 fn iterative_method(s: &str) -> IterativeMethod {
     match s {

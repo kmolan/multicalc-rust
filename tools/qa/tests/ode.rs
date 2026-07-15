@@ -4,9 +4,9 @@
 
 use multicalc::linear_algebra::Vector;
 use multicalc::ode::Rk45;
-use multicalc_oracle::load::*;
-use multicalc_oracle::problems::{ode_exp_decay, ode_harmonic, ode_two_body, ode_van_der_pol_mild};
-use multicalc_oracle::schema::Fixture;
+use multicalc_qa::load::*;
+use multicalc_qa::problems::{ode_exp_decay, ode_harmonic, ode_two_body, ode_van_der_pol_mild};
+use multicalc_qa::schema::Fixture;
 
 fn run_case<const N: usize>(fx: &Fixture, f: &dyn Fn(f64, &Vector<N>) -> Vector<N>) {
     let problem = fx.inputs["problem"].as_str();

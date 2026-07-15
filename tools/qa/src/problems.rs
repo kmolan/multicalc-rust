@@ -1,9 +1,9 @@
 //! Named-problem registry.
 //!
 //! The generic integrands and least-squares residuals live in `multicalc-testkit`
-//! so the host oracle and the bare-metal smoke firmware share one definition; they
+//! so the host QA tests and the bare-metal smoke firmware share one definition; they
 //! are re-exported here so fixtures and tests still name them under
-//! `multicalc_oracle::problems`. The ODE right-hand sides stay local because they
+//! `multicalc_qa::problems`. The ODE right-hand sides stay local because they
 //! carry the integrator's concrete `f64`/`Vector` signature.
 
 pub use multicalc_testkit::problems::*;
@@ -11,7 +11,7 @@ pub use multicalc_testkit::problems::*;
 use multicalc::linear_algebra::Vector;
 
 // ODE right-hand sides `y' = f(t, y)`, with the integrator's exact signature so the
-// oracle test can pass `&fn`. Each key is mirrored in the Python generator.
+// QA test can pass `&fn`. Each key is mirrored in the Python generator.
 
 /// `y' = -y`; reference `y(t) = e^{-t}`.
 pub fn ode_exp_decay(_t: f64, y: &Vector<1>) -> Vector<1> {

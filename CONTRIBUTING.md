@@ -55,11 +55,11 @@ the layer that matches and not duplicating another's.
 | `demos/examples/basics/` | copy-pasteable, headless, terminating demos; multicalc-only imports | exit 0 without ≥1 sanity `assert!`; touch a sink |
 | `demos/examples/showcase/` | live Rerun demos; measured numbers only | panic on edge cases (errors render as demo states); hardcode a perf claim |
 | `benches/` | timing; `.md` tables are labeled illustrative snapshots | present tables as verified claims |
-| `tools/oracle` | cross-implementation goldens (numpy/mpmath/MINPACK) only | duplicate self-consistency tests |
+| `tools/qa` | cross-implementation goldens (numpy/mpmath/MINPACK) only | duplicate self-consistency tests |
 | `tools/embedded-smoke` | on-target FP-path + stack/text budgets; goldens only via generated `fixtures.rs` | hand-write golden values |
 
 Shared problem definitions and tolerance helpers live in `tools/testkit`, so a problem is
-declared once and reused across `tests/suite/`, the oracle, and embedded-smoke.
+declared once and reused across `tests/suite/`, the QA crate, and embedded-smoke.
 
 ## Releasing
 

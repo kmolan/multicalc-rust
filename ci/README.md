@@ -34,15 +34,15 @@ per-test reset model is also incompatible with the single-invocation stack high-
 measurement the budget gate reads. `defmt` output is avoided for the same parsing reason: its RTT
 transport needs a host-side decoder, while the plain-text semihosting lines need none.
 
-## Smoke fixtures (shared with the oracle)
+## Smoke fixtures (shared with the QA crate)
 
-The smoke checks assert against goldens taken from the host oracle fixtures, so the target and the
-host share one source of truth. `tools/oracle/src/bin/gen_smoke_fixtures.rs` reads the committed
-fixtures under `tools/oracle/fixtures/v1` and writes `tools/embedded-smoke/src/fixtures.rs` as
+The smoke checks assert against goldens taken from the host QA fixtures, so the target and the
+host share one source of truth. `tools/qa/src/bin/gen_smoke_fixtures.rs` reads the committed
+fixtures under `tools/qa/fixtures/v1` and writes `tools/embedded-smoke/src/fixtures.rs` as
 bit-exact `f64::from_bits` consts. Regenerate with:
 
 ```
-cargo run -p multicalc-oracle --bin gen_smoke_fixtures
+cargo run -p multicalc-qa --bin gen_smoke_fixtures
 ```
 
 The output is deterministic. CI regenerates it and runs `git diff --exit-code` on `fixtures.rs`, so

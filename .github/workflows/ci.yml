@@ -44,18 +44,18 @@ jobs:
       - name: Doctests
         run: cargo test -p multicalc --doc
 
-  oracle:
-    name: oracle fixtures (host-only)
+  qa:
+    name: qa fixtures (host-only)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       # Reads committed fixtures only — never runs Python, never downloads MuJoCo.
-      - run: cargo test -p multicalc-oracle
+      - run: cargo test -p multicalc-qa
       - name: Smoke fixtures are up to date
         run: |
-          cargo run -p multicalc-oracle --bin gen_smoke_fixtures
+          cargo run -p multicalc-qa --bin gen_smoke_fixtures
           git diff --exit-code tools/embedded-smoke/src/fixtures.rs
 
   lint:
@@ -145,7 +145,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs: [matrix, test, oracle, lint, docs, no_std, package]
+    needs: [matrix, test, qa, lint, docs, no_std, package]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any dependency failed or was cancelled
