@@ -21,9 +21,9 @@ runnable, self-checking demos live in [`demos/`](../../../demos).
 ## Running
 
 ```sh
-cargo bench                       # all suites
-cargo bench -- calculus           # one suite (criterion group filter)
-cargo bench -- derivative         # one benchmark family within calculus
+cargo bench -p multicalc-qa                  # all suites
+cargo bench -p multicalc-qa -- calculus      # one suite (criterion group filter)
+cargo bench -p multicalc-qa -- derivative    # one benchmark family within calculus
 ```
 
 Each suite sets a criterion sample size of 50, a 500 ms warm-up, and a 2 s measurement window.

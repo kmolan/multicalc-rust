@@ -127,7 +127,7 @@ jobs:
       - name: Run basics
         run: bash scripts/run_examples.sh
       - name: Build benches
-        run: cargo build -p multicalc --benches
+        run: cargo build -p multicalc-qa --benches
       # runs a clean `cargo package` build — the same packaging the Step 15
       # release workflow relies on, so a release can't fail at publish time
       - name: Packaging dry-run

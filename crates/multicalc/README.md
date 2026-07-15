@@ -22,8 +22,9 @@ Jacobians and Hessians, vector-field operators, and Taylor approximation in a `n
   estimates. The least-squares and root-finding solvers drive objectives down near `1e-30` and land
   within about one unit in the last place (ulp) of the true answer.
 - **Fast, and measured**: a single derivative takes about **1 ns** and a full Levenberg-Marquardt
-  curve fit finishes in **microseconds**. Latency and accuracy are tracked by benchmarks that run
-  on every commit across each supported platform; see the [benchmarks](./benches).
+  curve fit finishes in **microseconds**. Accuracy is enforced against proven external libraries 
+  like `numpy` and `scipy`. See the
+  [benchmarks](https://github.com/kmolan/multicalc-rust/tree/main/tools/qa/benches).
 - Generic over the scalar type: use `f32` or `f64`, defaulting to `f64`.
 - Transcendental functions come from [`libm`](https://crates.io/crates/libm), so the math works
   without `std`.
@@ -382,10 +383,15 @@ cargo run -p multicalc-demos --example <name>
 
 ## Benchmarks
 
-See [benches/README.md](./benches/README.md) for the index, or go straight to
-[calculus](./benches/calculus.md), [linear_algebra](./benches/linear_algebra.md),
-[optimization](./benches/optimization.md), or [root_finding](./benches/root_finding.md) for
-accuracy figures and measured latency.
+The timing suites live in the `multicalc-qa` crate; run them with
+`cargo bench -p multicalc-qa`. See
+[benches/README.md](https://github.com/kmolan/multicalc-rust/tree/main/tools/qa/benches/README.md)
+for the index, or go straight to
+[calculus](https://github.com/kmolan/multicalc-rust/tree/main/tools/qa/benches/calculus.md),
+[linear_algebra](https://github.com/kmolan/multicalc-rust/tree/main/tools/qa/benches/linear_algebra.md),
+[optimization](https://github.com/kmolan/multicalc-rust/tree/main/tools/qa/benches/optimization.md),
+or [root_finding](https://github.com/kmolan/multicalc-rust/tree/main/tools/qa/benches/root_finding.md)
+for accuracy figures and measured latency.
 
 ## Contributing
 
