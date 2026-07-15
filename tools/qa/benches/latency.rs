@@ -85,8 +85,11 @@ fn bench_gauss_quad(c: &mut Criterion) {
     let quad = GaussianSingle::from_parameters(16, GaussianQuadratureMethod::GaussLegendre);
     c.bench_function("gauss_quad", |b| {
         b.iter(|| {
-            quad.get_single(&|x: f64| (x.sin() - x.sqrt()) * (-x).exp(), black_box(&[0.0, 1.0]))
-                .unwrap()
+            quad.get_single(
+                &|x: f64| (x.sin() - x.sqrt()) * (-x).exp(),
+                black_box(&[0.0, 1.0]),
+            )
+            .unwrap()
         })
     });
 }
@@ -168,10 +171,10 @@ fn bench_lev_marq(c: &mut Criterion) {
 
 fn bench_newton_system(crit: &mut Criterion) {
     // x^2 + y^2 = 4 and x*y = 1 (circle ∩ hyperbola).
-    let system = scalar_fn_vec!(|v: &[f64; 2]| [
-        c(-4.0) + v[0] * v[0] + v[1] * v[1],
-        c(-1.0) + v[0] * v[1],
-    ]);
+    let system =
+        scalar_fn_vec!(
+            |v: &[f64; 2]| [c(-4.0) + v[0] * v[0] + v[1] * v[1], c(-1.0) + v[0] * v[1],]
+        );
     crit.bench_function("newton_system", |b| {
         b.iter(|| {
             NewtonSystem::<AutoDiffMulti>::default()
@@ -202,7 +205,6 @@ fn main() {
 }
 
 // =================== latency.md rendering ===================
-
 
 /// (bench id, equation) — decides which estimates.json files are read and the table rows.
 const BENCHES: &[(&str, &str)] = &[
