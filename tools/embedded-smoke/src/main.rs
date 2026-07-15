@@ -55,14 +55,21 @@ fn main() -> ! {
     let svd_sv = checks::svd_golden();
     checks::error_path_returns_err();
 
-    // Full set: thumbv7em only (default features).
+    // Full set: thumbv7em only (default features). Each check returns its headline
+    // scalar, captured now and emitted below (after the stack is measured).
     #[cfg(feature = "full-smoke")]
-    {
+    let full = {
         checks::lm_fit();
         checks::autodiff_derivative();
         checks::lie_group_identity();
         checks::ode_identity();
-    }
+        (
+            checks::quadrature_identity(),
+            checks::jacobian_identity(),
+            checks::vector_field_identity(),
+            checks::root_finding_golden(),
+        )
+    };
 
     let used = stack_used(bottom, top);
     // The size and stack gate reads this exact line from the run output.
@@ -74,6 +81,17 @@ fn main() -> ! {
     let _ = hprintln!("SMOKE_VAL_svd_s0={:e}", svd_sv[0]);
     let _ = hprintln!("SMOKE_VAL_svd_s1={:e}", svd_sv[1]);
     let _ = hprintln!("SMOKE_VAL_svd_s2={:e}", svd_sv[2]);
+
+    // Full-set headlines. Both thumbv7em ABIs build the full set, so the key set
+    // matches across them; the thumbv6m canary emits neither and is not compared.
+    #[cfg(feature = "full-smoke")]
+    {
+        let (quad, jac00, div3d, wien_root) = full;
+        let _ = hprintln!("SMOKE_VAL_quad={:e}", quad);
+        let _ = hprintln!("SMOKE_VAL_jac00={:e}", jac00);
+        let _ = hprintln!("SMOKE_VAL_div3d={:e}", div3d);
+        let _ = hprintln!("SMOKE_VAL_wien_root={:e}", wien_root);
+    }
 
     debug::exit(debug::EXIT_SUCCESS);
     loop {}

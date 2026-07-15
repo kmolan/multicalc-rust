@@ -74,6 +74,11 @@ every target including the Cortex-M0; the full set adds the heavier checks on th
 | `lm_fit` | `thumbv7em` only | Golden: Levenberg-Marquardt Rosenbrock least-squares minimizer vs the `rosenbrock` QA golden. |
 | `autodiff_derivative` | `thumbv7em` only | Identity: forward-mode autodiff of `x³` at `x = 2`, expects 12. |
 | `ode_identity` | `thumbv7em` only | Identity: RK4 harmonic oscillator round trip and RK45 `y' = -y` to `e^{-1}`. |
+| `lie_group_identity` | `thumbv7em` only | Identity: SO(3)/SE(3) exp/log round trips and one known rotation. |
+| `quadrature_identity` | `thumbv7em` only | Identity: Gauss-Legendre order 4 of `2x` on `[0,2]`, expects 4. Emits `SMOKE_VAL_quad`. |
+| `jacobian_identity` | `thumbv7em` only | Identity: Jacobian of `[x·y·z, x²+y²]` at `(1,2,3)` = `[[6,3,2],[2,4,0]]`. Emits `SMOKE_VAL_jac00`. |
+| `vector_field_identity` | `thumbv7em` only | Identity: curl of `[y,-x,2z]` = `[0,0,-2]` and divergence = 2. Emits `SMOKE_VAL_div3d`. |
+| `root_finding_golden` | `thumbv7em` only | Golden: Newton on Wien's equation vs the `wien_newton` QA golden. Emits `SMOKE_VAL_wien_root`. |
 
 ## Pass/fail contract
 

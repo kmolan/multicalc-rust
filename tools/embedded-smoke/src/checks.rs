@@ -11,9 +11,15 @@ use multicalc::error::LinalgError;
 use multicalc::linear_algebra::Matrix;
 use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::numerical_derivative::derivator::DerivatorSingleVariable;
+use multicalc::numerical_derivative::jacobian::Jacobian;
+use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
+use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
+use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
+use multicalc::root_finding::Newton;
 use multicalc::scalar::Numeric;
 use multicalc::scalar_fn;
-use multicalc_testkit::problems::Rosenbrock;
+use multicalc::vector_field::{curl, divergence};
+use multicalc_testkit::problems::{Jac23, Rosenbrock, VField3d, Wien};
 use multicalc_testkit::tol::{Tol, close};
 
 use crate::fixtures;
@@ -142,4 +148,69 @@ pub fn ode_identity() {
         .solve(&g, 0.0, &Vector::new([1.0]), 1.0)
         .expect("rk45 solve");
     assert!((e[0] - multicalc::libm::exp(-1.0)).abs() < 1e-6);
+}
+
+/// Identity: Gauss-Legendre order 4 integrates `2x` on `[0, 2]` to exactly `4`
+/// (exact for degree <= 7). Returns the value for the cross-ABI guard. Part of the
+/// full set only (thumbv7em).
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn quadrature_identity() -> f64 {
+    let f = |x: f64| 2.0 * x;
+    let quad = GaussianSingle::<f64>::from_parameters(4, GaussianQuadratureMethod::GaussLegendre);
+    let value = quad.get_single(&f, &[0.0, 2.0]).expect("quadrature");
+    assert!((value - 4.0).abs() < 1e-12);
+    value
+}
+
+/// Identity: the Jacobian of `[x*y*z, x^2 + y^2]` at `(1, 2, 3)` is the closed form
+/// `[[6, 3, 2], [2, 4, 0]]`. Returns the `(0, 0)` entry for the cross-ABI guard.
+/// Part of the full set only (thumbv7em).
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn jacobian_identity() -> f64 {
+    let j = Jacobian::<AutoDiffMulti>::default()
+        .get(&Jac23, &[1.0, 2.0, 3.0])
+        .expect("jacobian");
+    let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
+    for r in 0..2 {
+        for c in 0..3 {
+            assert!((j[r][c] - expected[r][c]).abs() < 1e-12);
+        }
+    }
+    j[0][0]
+}
+
+/// Identity: the field `[y, -x, 2z]` at `(1, 2, 3)` has curl `[0, 0, -2]` and
+/// divergence `2`. Returns the divergence for the cross-ABI guard. Part of the full
+/// set only (thumbv7em).
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn vector_field_identity() -> f64 {
+    let point = [1.0, 2.0, 3.0];
+    let c = curl::get_3d(AutoDiffMulti::default(), &VField3d, &point).expect("curl");
+    let expected_curl = [0.0, 0.0, -2.0];
+    for i in 0..3 {
+        assert!((c[i] - expected_curl[i]).abs() < 1e-12);
+    }
+    let d = divergence::get_3d(AutoDiffMulti::default(), &VField3d, &point).expect("divergence");
+    assert!((d - 2.0).abs() < 1e-12);
+    d
+}
+
+/// Golden: Newton on Wien's displacement equation `-5 + x + 5 e^{-x}` from the host
+/// start must match the host QA golden root (root_finding/wien_newton). The root is
+/// transcendental, so it comes from a fixture. Returns the root for the cross-ABI
+/// guard. Part of the full set only (thumbv7em).
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn root_finding_golden() -> f64 {
+    let report = Newton::<AutoDiffSingle>::default()
+        .solve(&Wien, fixtures::ROOT_WIEN_X0)
+        .expect("newton solve");
+    assert!(close(
+        report.root,
+        fixtures::ROOT_WIEN_ROOT,
+        Tol {
+            abs: fixtures::ROOT_WIEN_ABS,
+            rel: fixtures::ROOT_WIEN_REL,
+        },
+    ));
+    report.root
 }
