@@ -1,45 +1,48 @@
 # embedded-smoke
 
-Runs smoke tests for all five supported platforms for `multicalc`. Must return identical numbers on 
-every target it supports: x86_64 and
-aarch64 Linux hosts, plus three bare-metal Cortex-M ABIs (Cortex-M4 soft-float,
-Cortex-M4 hard-float, and Cortex-M0). Host tests cover the first two. Nothing but
-real on-target execution can cover the last three, and that is this crate. It
-exercises the `multicalc` code on every Cortex-M ABI and holds each to the same known
-answers, so a divergence on any supported architecture fails the build.
+Runs smoke tests for all supported platforms for `multicalc`. Must return identical
+numbers on every target it supports: x86_64 and aarch64 Linux hosts, plus four
+bare-metal ABIs (Cortex-M4 soft-float, Cortex-M4 hard-float, Cortex-M0, and
+`riscv32imc`). Host tests cover the first two. Nothing but real on-target execution
+can cover the bare-metal set, and that is this crate. It exercises `multicalc` on
+each ABI and holds each to the same known answers, so a divergence on any supported
+architecture fails the build.
 
-It hosts  `no_std` / `no_main` smoke test that runs `multicalc` on bare-metal Cortex-M
-ABIs under QEMU. It is a dev-only crate (`publish = false`, not in
-`default-members`) and is never built for a host target, and `cortex-m-rt` only
-links for the `thumb*` triples.
+It hosts a `no_std` / `no_main` smoke test that runs `multicalc` on bare-metal targets
+under QEMU. It is a dev-only crate (`publish = false`, not in `default-members`) and
+is never built for a host target. `cortex-m-rt` links for `thumb*` triples; `riscv-rt`
+links for `riscv32*`.
 
 ## Running
 
 ```sh
-rustup target add thumbv7em-none-eabi thumbv7em-none-eabihf thumbv6m-none-eabi
-sudo apt-get install -y qemu-system-arm   # provides qemu-system-arm
-cargo install cargo-binutils              # provides cargo size, for the gate
+rustup target add thumbv7em-none-eabi thumbv7em-none-eabihf thumbv6m-none-eabi riscv32imc-unknown-none-elf
+sudo apt-get install -y qemu-system-arm qemu-system-misc  # provides qemu-system-arm
+cargo install cargo-binutils                              # provides cargo size, for the gate
 
 cargo run -p embedded-smoke --release --target thumbv7em-none-eabi
 cargo run -p embedded-smoke --release --target thumbv7em-none-eabihf
-cargo run -p embedded-smoke --release --target thumbv6m-none-eabi
+cargo run -p embedded-smoke --release --target thumbv6m-none-eabi --no-default-features
+cargo run -p embedded-smoke --release --target riscv32imc-unknown-none-elf
 ```
 
-Aliases: `cargo smoke-eabi`, `cargo smoke-eabihf`, `cargo smoke-m0`.
+Aliases: `cargo smoke-eabi`, `cargo smoke-eabihf`, `cargo smoke-m0`, `cargo smoke-riscv`.
 
 ## Targets and QEMU machine
 
-| Target                  | Codegen                | QEMU machine   | RAM  |
-|-------------------------|------------------------|----------------|------|
-| `thumbv7em-none-eabi`   | Cortex-M4, soft-float  | `netduinoplus2`| 64K  |
-| `thumbv7em-none-eabihf` | Cortex-M4, hard-float  | `netduinoplus2`| 64K  |
-| `thumbv6m-none-eabi`    | Cortex-M0, CAS-free    | `microbit`     | 16K  |
+| Target                        | Codegen                | QEMU machine          | RAM  |
+|-------------------------------|------------------------|-----------------------|------|
+| `thumbv7em-none-eabi`         | Cortex-M4, soft-float  | `netduinoplus2`       | 64K  |
+| `thumbv7em-none-eabihf`       | Cortex-M4, hard-float  | `netduinoplus2`       | 64K  |
+| `thumbv6m-none-eabi`          | Cortex-M0, CAS-free    | `microbit`            | 16K  |
+| `riscv32imc-unknown-none-elf` | RV32IMC, soft-float    | `virt` (`-bios none`) | 256K |
 
 The `thumbv7em` ABIs run on `netduinoplus2` (Cortex-M4, FPU, 64K RAM, flash at
 `0x08000000`). `thumbv6m` runs on `microbit` (Cortex-M0, nRF51, 16K RAM, flash
 at `0x0`) — a real M0 core, so the run now asserts both RAM-size and ISA
 fidelity: an oversized image or an out-of-ISA (ARMv7E-M) instruction faults just
-as it would on silicon. `build.rs` picks each target's memory map.
+as it would on silicon. `riscv32imc` runs on QEMU `virt` with `-bios none`
+(DRAM at `0x80000000`). `build.rs` picks each target's memory map.
 
 The runners and `rustflags` (`-Tlink.x`, `--nmagic`) live in
 `.cargo/config.toml`; the per-target memory map is supplied by `build.rs`.
@@ -64,7 +67,7 @@ checks assert a mathematical identity that needs no fixture.
 
 The set is tiered by the `full-smoke` feature (on by default): the canary runs on
 every target including the Cortex-M0; the full set adds the heavier checks on the
-`thumbv7em` ABIs only. `thumbv6m` builds with `--no-default-features`.
+`thumbv7em` ABIs and `riscv32imc`. `thumbv6m` builds with `--no-default-features`.
 
 | Test | Targets | Details |
 |------|---------|---------|
@@ -72,16 +75,17 @@ every target including the Cortex-M0; the full set adds the heavier checks on th
 | `svd_golden` | all (incl. `thumbv6m`) | Golden: singular values of a 3×3 fixture matrix vs the `svd_3x3` oracle golden. Also emits `SMOKE_VAL_svd_s*` for the cross-ABI guard. |
 | `error_path_returns_err` | all (incl. `thumbv6m`) | Negative path: a singular matrix's `lu()` and an indefinite matrix's `cholesky()` return a typed `Err`, not a panic. |
 | `lm_fit` | `thumbv7em` only | Golden: Levenberg-Marquardt Rosenbrock least-squares minimizer vs the `rosenbrock` oracle golden. |
-| `autodiff_derivative` | `thumbv7em` only | Identity: forward-mode autodiff of `x³` at `x = 2`, expects 12. |
-| `ode_identity` | `thumbv7em` only | Identity: RK4 harmonic oscillator round trip and RK45 `y' = -y` to `e^{-1}`. |
+| `autodiff_derivative` | `thumbv7em` + `riscv32imc`  | Identity: forward-mode autodiff of `x³` at `x = 2`, expects 12. |
+| `ode_identity` | `thumbv7em` + `riscv32imc`  | Identity: RK4 harmonic oscillator round trip and RK45 `y' = -y` to `e^{-1}`. |
 
 ## Pass/fail contract
 
 The binary runs under QEMU semihosting:
 
 - Clean finish → `debug::exit(EXIT_SUCCESS)` → QEMU exits 0.
-- Panic (failed `assert!`/`expect`) → `panic-semihosting` (with the `exit`
-  feature) prints the message and exits QEMU non-zero.
+- Panic (failed `assert!`/`expect`) → on ARM, `panic-semihosting` (with the `exit`
+  feature) prints and exits QEMU non-zero; on RISC-V, the crate's `#[panic_handler]`
+  does the same via `riscv-semihosting`.
 
 > Note: `cargo run … | tee` masks the exit code unless `pipefail` is set. CI runs
 steps under `bash -eo pipefail`, so a panic still fails the job.
@@ -112,7 +116,7 @@ parses `STACK_HWM_BYTES` from the run output, and fails if either exceeds
 
 ```sh
 cargo run -p embedded-smoke --release --target thumbv6m-none-eabi | tee smoke.txt
-bash ci/check_budgets.sh thumbv6m-none-eabi smoke.txt
+bash ci/check_budgets.sh embedded-smoke thumbv6m-none-eabi smoke.txt
 ```
 
 Intentional growth must bump `ci/budgets.toml` in the same PR so it is visible

@@ -10,6 +10,7 @@
 #   thumbv6m-none-eabi            -> Cortex-M0, microbit/nRF51 (flash @ 0x0, 16K RAM); a real
 #                                    M0 machine, so the canary catches both RAM overflow and
 #                                    out-of-ISA (ARMv7E-M) contamination that faults on silicon.
+#   riscv32imc-unknown-none-elf   -> QEMU virt DRAM @ 0x80000000 (-bios none)
 
 [target.thumbv7em-none-eabi]      # soft-float
 runner = "qemu-system-arm -machine netduinoplus2 -nographic -semihosting-config enable=on,target=native -kernel"
@@ -32,8 +33,17 @@ rustflags = [
   "-C", "link-arg=--nmagic",
 ]
 
+[target.riscv32imc-unknown-none-elf]
+runner = "qemu-system-riscv32 -machine virt -nographic -semihosting-config enable=on,target=native -bios none -kernel"
+rustflags = [
+  "-C", "link-arg=-Tmemory.x",     # must come before link x for riscv-rt
+  "-C", "link-arg=-Tlink.x",
+  "-C", "link-arg=--nmagic",
+]
+
 [alias]
 fit          = "run -p multicalc-demos --example curve_fit"
 smoke-eabi   = "run -p embedded-smoke --release --target thumbv7em-none-eabi"
 smoke-eabihf = "run -p embedded-smoke --release --target thumbv7em-none-eabihf"
 smoke-m0     = "run -p embedded-smoke --release --no-default-features --target thumbv6m-none-eabi"
+smoke-riscv  = "run -p embedded-smoke --release --target riscv32imc-unknown-none-elf"
