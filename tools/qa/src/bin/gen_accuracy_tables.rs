@@ -52,21 +52,81 @@ const DOCS: &[Doc] = &[
         modules: &[Module {
             dir: "fixtures/v1/linalg",
             rows: &[
-                Row { case: "lu_3x3", operation: "LU decompose + solve, 3×3", equation: "det(A)" },
-                Row { case: "lu_4x4", operation: "LU decompose + solve, 4×4", equation: "det(A)" },
-                Row { case: "lu_5x5", operation: "LU decompose + solve, 5×5", equation: "det(A)" },
-                Row { case: "cholesky_2x2", operation: "Cholesky decompose + solve, 2×2", equation: "det(A)" },
-                Row { case: "cholesky_3x3", operation: "Cholesky decompose + solve, 3×3", equation: "det(A)" },
-                Row { case: "cholesky_4x4", operation: "Cholesky decompose + solve, 4×4", equation: "det(A)" },
-                Row { case: "qr_3x2", operation: "QR least-squares, 3×2", equation: "‖Ax − b‖" },
-                Row { case: "qr_3x3", operation: "QR least-squares, 3×3", equation: "‖Ax − b‖" },
-                Row { case: "qr_4x3", operation: "QR least-squares, 4×3", equation: "‖Ax − b‖" },
-                Row { case: "qr_20x7", operation: "QR least-squares, 20×7", equation: "‖Ax − b‖" },
-                Row { case: "svd_3x2", operation: "SVD, 3×2", equation: "σ(A)" },
-                Row { case: "svd_3x3", operation: "SVD, 3×3", equation: "σ(A)" },
-                Row { case: "svd_4x3", operation: "SVD, 4×3", equation: "σ(A)" },
-                Row { case: "svd_12x6", operation: "SVD, 12×6", equation: "σ(A)" },
-                Row { case: "svd_20x6", operation: "SVD, 20×6", equation: "σ(A)" },
+                Row {
+                    case: "lu_3x3",
+                    operation: "LU decompose + solve, 3×3",
+                    equation: "det(A)",
+                },
+                Row {
+                    case: "lu_4x4",
+                    operation: "LU decompose + solve, 4×4",
+                    equation: "det(A)",
+                },
+                Row {
+                    case: "lu_5x5",
+                    operation: "LU decompose + solve, 5×5",
+                    equation: "det(A)",
+                },
+                Row {
+                    case: "cholesky_2x2",
+                    operation: "Cholesky decompose + solve, 2×2",
+                    equation: "det(A)",
+                },
+                Row {
+                    case: "cholesky_3x3",
+                    operation: "Cholesky decompose + solve, 3×3",
+                    equation: "det(A)",
+                },
+                Row {
+                    case: "cholesky_4x4",
+                    operation: "Cholesky decompose + solve, 4×4",
+                    equation: "det(A)",
+                },
+                Row {
+                    case: "qr_3x2",
+                    operation: "QR least-squares, 3×2",
+                    equation: "‖Ax − b‖",
+                },
+                Row {
+                    case: "qr_3x3",
+                    operation: "QR least-squares, 3×3",
+                    equation: "‖Ax − b‖",
+                },
+                Row {
+                    case: "qr_4x3",
+                    operation: "QR least-squares, 4×3",
+                    equation: "‖Ax − b‖",
+                },
+                Row {
+                    case: "qr_20x7",
+                    operation: "QR least-squares, 20×7",
+                    equation: "‖Ax − b‖",
+                },
+                Row {
+                    case: "svd_3x2",
+                    operation: "SVD, 3×2",
+                    equation: "σ(A)",
+                },
+                Row {
+                    case: "svd_3x3",
+                    operation: "SVD, 3×3",
+                    equation: "σ(A)",
+                },
+                Row {
+                    case: "svd_4x3",
+                    operation: "SVD, 4×3",
+                    equation: "σ(A)",
+                },
+                Row {
+                    case: "svd_12x6",
+                    operation: "SVD, 12×6",
+                    equation: "σ(A)",
+                },
+                Row {
+                    case: "svd_20x6",
+                    operation: "SVD, 20×6",
+                    equation: "σ(A)",
+                },
             ],
         }],
     },
@@ -75,10 +135,26 @@ const DOCS: &[Doc] = &[
         modules: &[Module {
             dir: "fixtures/v1/optimization",
             rows: &[
-                Row { case: "rosenbrock", operation: "Rosenbrock least-squares minimizer", equation: "min ‖[10(y − x²), 1 − x]‖²" },
-                Row { case: "circle_fit", operation: "Geometric circle fit, 40 points", equation: "rᵢ = √((xᵢ − cₓ)² + (yᵢ − cᵧ)²) − r" },
-                Row { case: "gaussian_peaks", operation: "Two Gaussian peaks fit, 50 samples", equation: "rᵢ = Σₖ aₖ·e^(−((tᵢ − μₖ)/σₖ)²) − yᵢ" },
-                Row { case: "trigonometric6", operation: "Trigonometric least-squares, 6 vars", equation: "rᵢ = n − Σⱼcos xⱼ + i(1 − cos xᵢ) − sin xᵢ" },
+                Row {
+                    case: "rosenbrock",
+                    operation: "Rosenbrock least-squares minimizer",
+                    equation: "min ‖[10(y − x²), 1 − x]‖²",
+                },
+                Row {
+                    case: "circle_fit",
+                    operation: "Geometric circle fit, 40 points",
+                    equation: "rᵢ = √((xᵢ − cₓ)² + (yᵢ − cᵧ)²) − r",
+                },
+                Row {
+                    case: "gaussian_peaks",
+                    operation: "Two Gaussian peaks fit, 50 samples",
+                    equation: "rᵢ = Σₖ aₖ·e^(−((tᵢ − μₖ)/σₖ)²) − yᵢ",
+                },
+                Row {
+                    case: "trigonometric6",
+                    operation: "Trigonometric least-squares, 6 vars",
+                    equation: "rᵢ = n − Σⱼcos xⱼ + i(1 − cos xᵢ) − sin xᵢ",
+                },
             ],
         }],
     },
@@ -88,36 +164,136 @@ const DOCS: &[Doc] = &[
             Module {
                 dir: "fixtures/v1/calculus",
                 rows: &[
-                    Row { case: "cube_diff_o1", operation: "1st derivative at x=2", equation: "x³" },
-                    Row { case: "cube_diff_o2", operation: "2nd derivative at x=2", equation: "x³" },
-                    Row { case: "cube_diff_o3", operation: "3rd derivative at x=2", equation: "x³" },
-                    Row { case: "g_transcendental_partial_x", operation: "∂/∂x at (1,2,3)", equation: "g = y·sin x + x·cos y + x·y·eᶻ" },
-                    Row { case: "g_transcendental_partial_xy", operation: "∂²/∂x∂y at (1,2,3)", equation: "g = y·sin x + x·cos y + x·y·eᶻ" },
-                    Row { case: "g_transcendental_partial_xxy", operation: "∂³/∂x²∂y at (1,2,3)", equation: "g = y·sin x + x·cos y + x·y·eᶻ" },
-                    Row { case: "jacobian_23", operation: "Jacobian at (1,2,3)", equation: "[x·y·z, x² + y²]" },
-                    Row { case: "hessian_3x3", operation: "Hessian at (1,2,3)", equation: "y·sin x + 2x·eʸ + z²" },
-                    Row { case: "vfield_curl_div", operation: "Curl at (1,2,3)", equation: "[y, -x, 2z]" },
-                    Row { case: "vfield_curl_div", operation: "Divergence at (1,2,3)", equation: "[y, -x, 2z]" },
-                    Row { case: "vfield_line_circle", operation: "Line integral on the unit circle", equation: "[y, -x]" },
-                    Row { case: "vfield_flux_circle", operation: "Flux integral on the unit circle", equation: "[y, -x]" },
-                    Row { case: "approx_taylor", operation: "Linear Taylor predict at (1.1,2.1,2.9)", equation: "x + y² + z³" },
-                    Row { case: "approx_taylor", operation: "Quadratic Taylor predict at (1.1,2.1,2.9)", equation: "x + y² + z³" },
+                    Row {
+                        case: "cube_diff_o1",
+                        operation: "1st derivative at x=2",
+                        equation: "x³",
+                    },
+                    Row {
+                        case: "cube_diff_o2",
+                        operation: "2nd derivative at x=2",
+                        equation: "x³",
+                    },
+                    Row {
+                        case: "cube_diff_o3",
+                        operation: "3rd derivative at x=2",
+                        equation: "x³",
+                    },
+                    Row {
+                        case: "g_transcendental_partial_x",
+                        operation: "∂/∂x at (1,2,3)",
+                        equation: "g = y·sin x + x·cos y + x·y·eᶻ",
+                    },
+                    Row {
+                        case: "g_transcendental_partial_xy",
+                        operation: "∂²/∂x∂y at (1,2,3)",
+                        equation: "g = y·sin x + x·cos y + x·y·eᶻ",
+                    },
+                    Row {
+                        case: "g_transcendental_partial_xxy",
+                        operation: "∂³/∂x²∂y at (1,2,3)",
+                        equation: "g = y·sin x + x·cos y + x·y·eᶻ",
+                    },
+                    Row {
+                        case: "jacobian_23",
+                        operation: "Jacobian at (1,2,3)",
+                        equation: "[x·y·z, x² + y²]",
+                    },
+                    Row {
+                        case: "hessian_3x3",
+                        operation: "Hessian at (1,2,3)",
+                        equation: "y·sin x + 2x·eʸ + z²",
+                    },
+                    Row {
+                        case: "vfield_curl_div",
+                        operation: "Curl at (1,2,3)",
+                        equation: "[y, -x, 2z]",
+                    },
+                    Row {
+                        case: "vfield_curl_div",
+                        operation: "Divergence at (1,2,3)",
+                        equation: "[y, -x, 2z]",
+                    },
+                    Row {
+                        case: "vfield_line_circle",
+                        operation: "Line integral on the unit circle",
+                        equation: "[y, -x]",
+                    },
+                    Row {
+                        case: "vfield_flux_circle",
+                        operation: "Flux integral on the unit circle",
+                        equation: "[y, -x]",
+                    },
+                    Row {
+                        case: "approx_taylor",
+                        operation: "Linear Taylor predict at (1.1,2.1,2.9)",
+                        equation: "x + y² + z³",
+                    },
+                    Row {
+                        case: "approx_taylor",
+                        operation: "Quadratic Taylor predict at (1.1,2.1,2.9)",
+                        equation: "x + y² + z³",
+                    },
                 ],
             },
             Module {
                 dir: "fixtures/v1/quadrature",
                 rows: &[
-                    Row { case: "two_x_legendre_o4", operation: "Gauss-Legendre order 4 on [0,2]", equation: "∫ 2x dx" },
-                    Row { case: "quartic_legendre_o4", operation: "Gauss-Legendre order 4 on [0,2]", equation: "∫ 4x³ − 3x² dx" },
-                    Row { case: "quartic_legendre_o16", operation: "Gauss-Legendre order 16 on [0,2]", equation: "∫ 4x³ − 3x² dx" },
-                    Row { case: "cube_booles_120", operation: "Boole's rule, 120 intervals on [0,2]", equation: "∫ x³ dx" },
-                    Row { case: "two_x_booles_120", operation: "Boole's rule, 120 intervals on [0,2]", equation: "∫ 2x dx" },
-                    Row { case: "two_x_simpsons_120", operation: "Simpson's rule, 120 intervals on [0,2]", equation: "∫ 2x dx" },
-                    Row { case: "two_x_trapezoidal_120", operation: "Trapezoidal, 120 intervals on [0,2]", equation: "∫ 2x dx" },
-                    Row { case: "exp_neg_sq_booles_120", operation: "Boole's rule, 120 intervals on [-5,5]", equation: "∫ e^{-x²} dx" },
-                    Row { case: "x_squared_hermite_o5", operation: "Gauss-Hermite order 5 on ℝ", equation: "∫ x²e^{-x²} dx" },
-                    Row { case: "x_squared_laguerre_o5", operation: "Gauss-Laguerre order 5 on [0,∞)", equation: "∫ x²e^{-x} dx" },
-                    Row { case: "inv_1px2_trapezoidal_2p20", operation: "Trapezoidal, 2²⁰ intervals on [0,1]", equation: "∫ 1/(1+x²) dx" },
+                    Row {
+                        case: "two_x_legendre_o4",
+                        operation: "Gauss-Legendre order 4 on [0,2]",
+                        equation: "∫ 2x dx",
+                    },
+                    Row {
+                        case: "quartic_legendre_o4",
+                        operation: "Gauss-Legendre order 4 on [0,2]",
+                        equation: "∫ 4x³ − 3x² dx",
+                    },
+                    Row {
+                        case: "quartic_legendre_o16",
+                        operation: "Gauss-Legendre order 16 on [0,2]",
+                        equation: "∫ 4x³ − 3x² dx",
+                    },
+                    Row {
+                        case: "cube_booles_120",
+                        operation: "Boole's rule, 120 intervals on [0,2]",
+                        equation: "∫ x³ dx",
+                    },
+                    Row {
+                        case: "two_x_booles_120",
+                        operation: "Boole's rule, 120 intervals on [0,2]",
+                        equation: "∫ 2x dx",
+                    },
+                    Row {
+                        case: "two_x_simpsons_120",
+                        operation: "Simpson's rule, 120 intervals on [0,2]",
+                        equation: "∫ 2x dx",
+                    },
+                    Row {
+                        case: "two_x_trapezoidal_120",
+                        operation: "Trapezoidal, 120 intervals on [0,2]",
+                        equation: "∫ 2x dx",
+                    },
+                    Row {
+                        case: "exp_neg_sq_booles_120",
+                        operation: "Boole's rule, 120 intervals on [-5,5]",
+                        equation: "∫ e^{-x²} dx",
+                    },
+                    Row {
+                        case: "x_squared_hermite_o5",
+                        operation: "Gauss-Hermite order 5 on ℝ",
+                        equation: "∫ x²e^{-x²} dx",
+                    },
+                    Row {
+                        case: "x_squared_laguerre_o5",
+                        operation: "Gauss-Laguerre order 5 on [0,∞)",
+                        equation: "∫ x²e^{-x} dx",
+                    },
+                    Row {
+                        case: "inv_1px2_trapezoidal_2p20",
+                        operation: "Trapezoidal, 2²⁰ intervals on [0,1]",
+                        equation: "∫ 1/(1+x²) dx",
+                    },
                 ],
             },
         ],
@@ -127,10 +303,26 @@ const DOCS: &[Doc] = &[
         modules: &[Module {
             dir: "fixtures/v1/ode",
             rows: &[
-                Row { case: "exp_decay", operation: "Exponential decay, RK45", equation: "y' = -y" },
-                Row { case: "harmonic", operation: "Harmonic oscillator, RK45", equation: "y' = [y₁, -y₀]" },
-                Row { case: "van_der_pol_mild", operation: "Van der Pol (μ=1), RK45", equation: "y' = [y₁, (1 - y₀²)·y₁ - y₀]" },
-                Row { case: "two_body", operation: "Two-body orbit, RK45", equation: "y' = [vₓ, vᵧ, -x/r³, -y/r³]" },
+                Row {
+                    case: "exp_decay",
+                    operation: "Exponential decay, RK45",
+                    equation: "y' = -y",
+                },
+                Row {
+                    case: "harmonic",
+                    operation: "Harmonic oscillator, RK45",
+                    equation: "y' = [y₁, -y₀]",
+                },
+                Row {
+                    case: "van_der_pol_mild",
+                    operation: "Van der Pol (μ=1), RK45",
+                    equation: "y' = [y₁, (1 - y₀²)·y₁ - y₀]",
+                },
+                Row {
+                    case: "two_body",
+                    operation: "Two-body orbit, RK45",
+                    equation: "y' = [vₓ, vᵧ, -x/r³, -y/r³]",
+                },
             ],
         }],
     },
@@ -139,15 +331,51 @@ const DOCS: &[Doc] = &[
         modules: &[Module {
             dir: "fixtures/v1/root_finding",
             rows: &[
-                Row { case: "wien_bisection", operation: "Bisection on [1,10]", equation: "−5 + x + 5e^{-x} = 0" },
-                Row { case: "wien_newton", operation: "Newton from x=5", equation: "−5 + x + 5e^{-x} = 0" },
-                Row { case: "kepler_bisection", operation: "Bisection on [0,π]", equation: "E − e·sin E − M = 0 (e=0.8)" },
-                Row { case: "kepler_newton", operation: "Newton", equation: "E − e·sin E − M = 0 (e=0.8)" },
-                Row { case: "colebrook_newton", operation: "Newton", equation: "1/√f + 2·log₁₀(ε/3.7 + 2.51/(Re√f)) = 0" },
-                Row { case: "sigmoid_damped_newton", operation: "Damped Newton", equation: "x/√(1+x²) = 0" },
-                Row { case: "two_link_ik", operation: "Newton system, 2×2", equation: "two-link IK: tip at (pₓ, pᵧ)" },
-                Row { case: "circle_hyperbola", operation: "Newton system, 2×2", equation: "[x²+y²−4, x·y−1] = 0" },
-                Row { case: "equilibrium_3x3", operation: "Newton system, 3×3", equation: "[x+y+z−1, y−1.25x², z−5x·y] = 0" },
+                Row {
+                    case: "wien_bisection",
+                    operation: "Bisection on [1,10]",
+                    equation: "−5 + x + 5e^{-x} = 0",
+                },
+                Row {
+                    case: "wien_newton",
+                    operation: "Newton from x=5",
+                    equation: "−5 + x + 5e^{-x} = 0",
+                },
+                Row {
+                    case: "kepler_bisection",
+                    operation: "Bisection on [0,π]",
+                    equation: "E − e·sin E − M = 0 (e=0.8)",
+                },
+                Row {
+                    case: "kepler_newton",
+                    operation: "Newton",
+                    equation: "E − e·sin E − M = 0 (e=0.8)",
+                },
+                Row {
+                    case: "colebrook_newton",
+                    operation: "Newton",
+                    equation: "1/√f + 2·log₁₀(ε/3.7 + 2.51/(Re√f)) = 0",
+                },
+                Row {
+                    case: "sigmoid_damped_newton",
+                    operation: "Damped Newton",
+                    equation: "x/√(1+x²) = 0",
+                },
+                Row {
+                    case: "two_link_ik",
+                    operation: "Newton system, 2×2",
+                    equation: "two-link IK: tip at (pₓ, pᵧ)",
+                },
+                Row {
+                    case: "circle_hyperbola",
+                    operation: "Newton system, 2×2",
+                    equation: "[x²+y²−4, x·y−1] = 0",
+                },
+                Row {
+                    case: "equilibrium_3x3",
+                    operation: "Newton system, 3×3",
+                    equation: "[x+y+z−1, y−1.25x², z−5x·y] = 0",
+                },
             ],
         }],
     },
@@ -205,9 +433,14 @@ fn build_table(doc: &Doc) -> String {
             let Some(fx) = fixtures.iter().find(|f| f.case == row.case) else {
                 continue;
             };
-            let tol = fx.tolerances.table.get("f64/host").copied().unwrap_or_else(|| {
-                unreachable!("fixture {:?} lacks an f64/host tolerance", fx.case)
-            });
+            let tol = fx
+                .tolerances
+                .table
+                .get("f64/host")
+                .copied()
+                .unwrap_or_else(|| {
+                    unreachable!("fixture {:?} lacks an f64/host tolerance", fx.case)
+                });
             let _ = write!(
                 body,
                 "\n| {} | {} | {} | {} |",
@@ -221,13 +454,14 @@ fn build_table(doc: &Doc) -> String {
     if body.is_empty() {
         return String::new();
     }
-    format!("| Operation | Equation | Tolerance | Tested Against |\n| --- | --- | --- | --- |{body}")
+    format!(
+        "| Operation | Equation | Tolerance | Tested Against |\n| --- | --- | --- | --- |{body}"
+    )
 }
 
 /// Replaces the marked region of `path` with `table`, leaving all else intact.
 fn rewrite_region(path: &Path, table: &str) {
-    let content =
-        fs::read_to_string(path).unwrap_or_else(|e| unreachable!("read {path:?}: {e}"));
+    let content = fs::read_to_string(path).unwrap_or_else(|e| unreachable!("read {path:?}: {e}"));
     let begin = content
         .find(BEGIN)
         .unwrap_or_else(|| unreachable!("no BEGIN marker in {path:?}"));

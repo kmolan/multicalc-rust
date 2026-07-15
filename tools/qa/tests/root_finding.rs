@@ -25,7 +25,10 @@ fn run_scalar<F: ScalarFn>(f: &F, fx: &Fixture) {
         }
         "newton" => {
             let x0 = fx.inputs["start"].as_scalar();
-            Newton::<AutoDiffSingle>::default().solve(f, x0).unwrap().root
+            Newton::<AutoDiffSingle>::default()
+                .solve(f, x0)
+                .unwrap()
+                .root
         }
         "damped_newton" => {
             let x0 = fx.inputs["start"].as_scalar();
@@ -39,13 +42,21 @@ fn run_scalar<F: ScalarFn>(f: &F, fx: &Fixture) {
     };
     assert_scalar(root, &fx.expected["root"], t, "root");
     let probe = fx.inputs["probe"].as_scalar();
-    assert_scalar(f.eval::<f64>(probe), &fx.expected["f_at_probe"], t, "f_at_probe");
+    assert_scalar(
+        f.eval::<f64>(probe),
+        &fx.expected["f_at_probe"],
+        t,
+        "f_at_probe",
+    );
 }
 
 fn run_system<F: VectorFn<N, N>, const N: usize>(f: &F, fx: &Fixture) {
     let t = fx.tolerances.get("f64", "host");
     let x0 = to_vector::<N>(&fx.inputs["start"]).into_array();
-    let root = NewtonSystem::<AutoDiffMulti>::default().solve(f, &x0).unwrap().root;
+    let root = NewtonSystem::<AutoDiffMulti>::default()
+        .solve(f, &x0)
+        .unwrap()
+        .root;
     assert_vector(&Vector::new(root), &fx.expected["root"], t, "root");
     let probe = to_vector::<N>(&fx.inputs["probe"]).into_array();
     assert_vector(

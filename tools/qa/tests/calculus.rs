@@ -42,7 +42,12 @@ fn calculus() {
                 let cube = scalar_fn!(|x| x * x * x);
                 let d = AutoDiffSingle::default().get(order, &cube, point).unwrap();
                 assert_scalar(d, &fx.expected["derivative"], t, "derivative");
-                assert_scalar(cube.eval::<f64>(point), &fx.expected["f_at_probe"], t, "f_at_probe");
+                assert_scalar(
+                    cube.eval::<f64>(point),
+                    &fx.expected["f_at_probe"],
+                    t,
+                    "f_at_probe",
+                );
             }
             "partial" => {
                 let point = to_vector::<3>(&fx.inputs["point"]).into_array();
@@ -60,13 +65,25 @@ fn calculus() {
                 }
                 .unwrap();
                 assert_scalar(val, &fx.expected["partial"], t, "partial");
-                assert_scalar(G.eval::<f64>(&point), &fx.expected["f_at_probe"], t, "f_at_probe");
+                assert_scalar(
+                    G.eval::<f64>(&point),
+                    &fx.expected["f_at_probe"],
+                    t,
+                    "f_at_probe",
+                );
             }
             "jacobian" => match fx.inputs["func"].as_str() {
                 "jac_23" => {
                     let p = to_vector::<3>(&fx.inputs["point"]).into_array();
-                    let j = Jacobian::<AutoDiffMulti>::default().get(&Jac23, &p).unwrap();
-                    assert_matrix(&Matrix::<2, 3>::new(j), &fx.expected["jacobian"], t, "jacobian");
+                    let j = Jacobian::<AutoDiffMulti>::default()
+                        .get(&Jac23, &p)
+                        .unwrap();
+                    assert_matrix(
+                        &Matrix::<2, 3>::new(j),
+                        &fx.expected["jacobian"],
+                        t,
+                        "jacobian",
+                    );
                     assert_vector(
                         &Vector::new(Jac23.eval::<f64>(&p)),
                         &fx.expected["f_at_probe"],
@@ -76,8 +93,15 @@ fn calculus() {
                 }
                 "jac_66" => {
                     let p = to_vector::<6>(&fx.inputs["point"]).into_array();
-                    let j = Jacobian::<AutoDiffMulti>::default().get(&Jac66, &p).unwrap();
-                    assert_matrix(&Matrix::<6, 6>::new(j), &fx.expected["jacobian"], t, "jacobian");
+                    let j = Jacobian::<AutoDiffMulti>::default()
+                        .get(&Jac66, &p)
+                        .unwrap();
+                    assert_matrix(
+                        &Matrix::<6, 6>::new(j),
+                        &fx.expected["jacobian"],
+                        t,
+                        "jacobian",
+                    );
                     assert_vector(
                         &Vector::new(Jac66.eval::<f64>(&p)),
                         &fx.expected["f_at_probe"],
@@ -89,8 +113,15 @@ fn calculus() {
             },
             "hessian" => {
                 let p = to_vector::<3>(&fx.inputs["point"]).into_array();
-                let h = Hessian::<AutoDiffMulti>::default().get(&HessianTarget, &p).unwrap();
-                assert_matrix(&Matrix::<3, 3>::new(h), &fx.expected["hessian"], t, "hessian");
+                let h = Hessian::<AutoDiffMulti>::default()
+                    .get(&HessianTarget, &p)
+                    .unwrap();
+                assert_matrix(
+                    &Matrix::<3, 3>::new(h),
+                    &fx.expected["hessian"],
+                    t,
+                    "hessian",
+                );
                 assert_scalar(
                     HessianTarget.eval::<f64>(&p),
                     &fx.expected["f_at_probe"],
@@ -137,7 +168,12 @@ fn calculus() {
                     .get(&ApproxTarget, &p)
                     .unwrap()
                     .predict(&q);
-                assert_scalar(quadratic, &fx.expected["quadratic_predict"], t, "quadratic_predict");
+                assert_scalar(
+                    quadratic,
+                    &fx.expected["quadratic_predict"],
+                    t,
+                    "quadratic_predict",
+                );
                 assert_scalar(
                     ApproxTarget.eval::<f64>(&p),
                     &fx.expected["f_at_probe"],
