@@ -8,8 +8,8 @@
    is CI-enforced, so run it before pushing.
 4. `cargo fmt`.
 
-That's it. **You do not need QEMU or ARM toolchains** for most contributions — CI runs
-the five-target embedded matrix on your PR for you. If you want the bare-metal targets
+That's it. **You do not need QEMU or bare-metal toolchains** for most contributions — CI runs
+the multi-target embedded matrix on your PR for you. If you want the bare-metal targets
 locally anyway, the setup lives in [ci/README.md](ci/README.md) (optional).
 
 ## Workflow
@@ -19,7 +19,7 @@ locally anyway, the setup lives in [ci/README.md](ci/README.md) (optional).
 - Every behavior-facing change adds a line under `## [Unreleased]` in
   [CHANGELOG.md](CHANGELOG.md) (grouped `Added`/`Changed`/`Fixed`/`Removed`), in the
   same PR.
-- CI must be green: host tests (x86_64 + aarch64), clippy, the three bare-metal QEMU
+- CI must be green: host tests (x86_64 + aarch64), clippy, the four bare-metal QEMU
   smoke runs, and the flash/stack budget gates. If a budget gate trips, see the raise
   protocol in [ci/README.md](ci/README.md) — never raise `tolerance_pct`.
 

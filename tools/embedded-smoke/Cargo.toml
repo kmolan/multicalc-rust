@@ -5,8 +5,8 @@ edition = "2024"
 rust-version = "1.85"
 publish = false
 
-# thumbv7em runs the full set (default). thumbv6m runs the reduced canary via
-# --no-default-features, keeping the M0 image small.
+# thumbv7em / riscv32 runs the full set (default). thumbv6m runs the reduced
+# canary via --no-default-features, keeping the M0 image small.
 [features]
 default = ["full-smoke"]
 full-smoke = []
@@ -14,10 +14,17 @@ full-smoke = []
 [dependencies]
 multicalc = { path = "../../crates/multicalc", default-features = false }
 multicalc-testkit = { path = "../testkit" }
+
+[target.'cfg(target_arch = "arm")'.dependencies]
 cortex-m-rt = "0.7"
 cortex-m-semihosting = "0.5"
 # With the "exit" feature a panic prints its message and exits QEMU with a failure code.
 panic-semihosting = { version = "0.6", features = ["exit"] }
+
+[target.'cfg(any(target_arch = "riscv32", target_arch = "riscv64"))'.dependencies]
+riscv-rt = "0.13"
+riscv-semihosting = "0.2"
+riscv = { version = "0.12", features = ["critical-section-single-hart"] }
 
 # This dev-only crate needs one small unsafe block to measure stack use, so it does
 # not inherit the core crate's "no unsafe" rule. It sets its own lints instead of

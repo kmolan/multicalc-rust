@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Scientific computing for single- and multi-variable calculus in pure, safe Rust. Numerical
-derivatives, integrals, curve fitting and linear algebra; built and tested on five
+derivatives, integrals, curve fitting and linear algebra; built and tested on six
 hardware targets. Exercise the same code from a 64-bit server CPU down to a bare-metal microcontroller.**
 
 <p align="center">
@@ -22,9 +22,9 @@ core — every number measured live.*
 ## Highlights
 
 - **Pure, safe Rust**: `#![forbid(unsafe_code)]`, no C dependencies.
-- **Tested against multiple platforms**: Every commit is built and tested across **five targets**: the
+- **Tested against multiple platforms**: Every commit is built and tested across **six targets**: the
   `x86_64` and `aarch64` Linux hosts and three ARM Cortex-M bare-metal ABIs (`thumbv7em`
-  soft-float, `thumbv7em` hardware-FPU, and `thumbv6m`). `no_std`, no heap, and no panics rules apply to every platform build, and the transcendental functions come from
+  soft-float, `thumbv7em` hardware-FPU, and `thumbv6m`), and `riscv32imc-unknown-none-elf`. `no_std`, no heap, and no panics rules apply to every platform build, and the transcendental functions come from
   [`libm`](https://crates.io/crates/libm).
 - **Fast, and measured**: a derivative in **~1 ns**, a full Levenberg-Marquardt curve fit in
   **microseconds**, and solvers that land on the answer to the **last few bits** (objectives near
@@ -114,7 +114,7 @@ below.
 The published library crate lives in [`crates/multicalc`](crates/multicalc); the repository
 root is a Cargo workspace. Runnable demos live in the dev-only [`demos/`](demos) crate (basics and
 live Rerun showcases), and [`tools/embedded-smoke`](tools/embedded-smoke) runs `multicalc` on the
-three bare-metal Cortex-M targets under QEMU every PR.
+four bare-metal targets (three Cortex-M targets + `riscv32imc`) under QEMU every PR.
 
 ## Contributing
 

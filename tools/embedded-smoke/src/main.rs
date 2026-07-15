@@ -26,9 +26,26 @@
 #![no_std]
 #![no_main]
 
-use cortex_m_rt::entry;
-use cortex_m_semihosting::{debug, hprintln};
-use panic_semihosting as _;
+#[cfg(target_arch = "arm")]
+use {
+    cortex_m_rt::entry,
+    cortex_m_semihosting::{debug, hprintln},
+    panic_semihosting as _,
+};
+
+#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+use {
+    riscv_rt::entry,
+    riscv_semihosting::{debug, hprintln},
+};
+
+#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+#[panic_handler]
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    let _ = hprintln!("{}", info);
+    debug::exit(debug::EXIT_FAILURE);
+    loop {}
+}
 
 mod checks;
 mod fixtures;

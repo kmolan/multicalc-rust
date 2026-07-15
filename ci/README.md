@@ -21,18 +21,19 @@ another's headroom; keep them tight and per-row.
 
 ## Smoke-test harness
 
-The on-target smoke binary is a hand-rolled `cortex-m-rt` `#[entry]` runner. It runs every check
-in sequence in a single QEMU invocation, prints machine-readable result lines over semihosting
-(`hprintln!`, i.e. `SYS_WRITE0`), and exits QEMU with `debug::exit`. The budget gate and the
-cross-ABI guard parse those lines straight from QEMU stdout.
+The on-target smoke binary is a hand-rolled `#[entry]` runner (`cortex-m-rt` on ARM,
+`riscv-rt` on RISC-V). It runs every check in sequence in a single QEMU invocation, prints
+machine-readable result lines over semihosting (`hprintln!`, i.e. `SYS_WRITE0`), and exits
+QEMU with `debug::exit`. The budget gate and the cross-ABI guard parse those lines straight
+from QEMU stdout.
 
 `embedded-test`/`defmt-test` are not used. Their harness is driven by the `probe-rs` host runner:
 it enumerates test cases through a probe-rs-specific semihosting operation and resets the target to
-run each `#[test]` in its own invocation. Under the plain `qemu-system-arm -kernel` runner these
-smoke tests use, nothing drives that protocol, so the harness aborts before any test runs. The
-per-test reset model is also incompatible with the single-invocation stack high-watermark
-measurement the budget gate reads. `defmt` output is avoided for the same parsing reason: its RTT
-transport needs a host-side decoder, while the plain-text semihosting lines need none.
+run each `#[test]` in its own invocation. Under the plain `qemu-system-arm` /
+`qemu-system-riscv32 -kernel` runners these smoke tests use, nothing drives that protocol, so
+the harness aborts before any test runs. The per-test reset model is also incompatible with the single-invocation stack high-watermark measurement the budget gate reads. `defmt` output is avoided 
+for the same parsing reason: its RTT transport needs a host-side decoder, while the plain-text 
+semihosting lines need none.
 
 ## Smoke fixtures (shared with the QA crate)
 
@@ -52,10 +53,11 @@ a stale checked-in copy fails the build. Change a fixture and rerun the generato
 ## Test-set tiering
 
 The `embedded-smoke` `full-smoke` feature (on by default) selects the check set. Both `thumbv7em`
-ABIs build with default features and run the full set; `thumbv6m` builds with `--no-default-features`
-and runs only the canary — the portable (no-atomics) path, one golden, and the no-panic negative
-path — which keeps the M0 image small while still smoke-running every PR. The target matrix threads
-`--no-default-features` into the `thumbv6m` run (see `.github/workflows/matrix.yml`).
+ABIs and `riscv32imc-unknown-none-elf` build with default features and run the full set;
+`thumbv6m` builds with `--no-default-features` and runs only the canary — the portable
+(no-atomics) path, one golden, and the no-panic negative path — which keeps the M0 image small
+while still smoke-running every PR. The target matrix threads `--no-default-features` into the
+`thumbv6m` run (see `.github/workflows/matrix.yml`).
 
 ## Cross-ABI divergence guard
 
