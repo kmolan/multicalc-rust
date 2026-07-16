@@ -1,10 +1,4 @@
-//! `multicalc` — single- and multi-variable calculus for `no_std` Rust: derivatives,
-//! integrals, Jacobians and Hessians, vector-field operators, and Taylor approximation.
-//!
-//! Operations are generic over the [`Numeric`] scalar trait — implemented for `f32` and `f64`,
-//! defaulting to `f64` — with transcendentals from [`libm`] so it works without `std`.
-//! Each module returns its own family error enum ([`LinalgError`], [`DiffError`],
-//! [`IntegrateError`], [`SolveError`]), all convertible into the [`CalcError`] umbrella.
+#![doc = include_str!("../README.md")]
 #![no_std]
 
 #[cfg(feature = "alloc")]
