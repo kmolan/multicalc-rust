@@ -276,7 +276,6 @@ fn main() -> Result<(), VizError> {
 
     let mut residual_pos = 0.0;
     let mut residual_ori = 0.0;
-    let mut misses: u64 = 0;
 
     let mut n: i64 = 0;
     loop {
@@ -301,14 +300,11 @@ fn main() -> Result<(), VizError> {
             }
             Err(SolveError::DidNotConverge { .. }) => {
                 // Hold the pose, then nudge deterministically to break a stuck configuration.
-                misses += 1;
                 for v in problem.prev.iter_mut() {
                     *v += 1e-3;
                 }
             }
-            Err(_) => {
-                misses += 1; // hold the pose
-            }
+            Err(_) => {} // hold the pose
         }
 
         if n > WARMUP_TICKS {
@@ -346,14 +342,13 @@ fn main() -> Result<(), VizError> {
         {
             let md = format!(
                 "## serpent_ik — multicalc live demo\n\
-                 ### full SE(3) IK solve (Levenberg–Marquardt, autodiff Lie Jacobian): median {:.0} µs — {:.2} % of the 1 ms tick\n\
-                 ### tracking: position residual {:.1e} m, orientation residual {:.1e} rad\n\
-                 ### misses: {}",
+                 ### full SE(3) IK solve (Levenberg–Marquardt, autodiff Lie Jacobian): median {:.0} µs · p99 {:.0} µs ({:.1} % of the 1 ms tick)\n\
+                 ### tracking: position error {:.3} µm, orientation error {:.3} µrad",
                 s.median,
-                s.median / 10.0,
-                residual_pos,
-                residual_ori,
-                misses,
+                s.p99,
+                s.p99 / 10.0,
+                residual_pos * 1e6,
+                residual_ori * 1e6,
             );
             rr.text("hud/stats", &md)?;
         }
