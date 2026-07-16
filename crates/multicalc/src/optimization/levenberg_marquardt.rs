@@ -51,14 +51,14 @@ impl<D: DerivatorMultiVariable + Default> Default for LevenbergMarquardt<D> {
 impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
     /// Builds a solver with a specific differentiation backend and default settings:
     /// tolerances of `30·EPSILON`, step bound `100`, patience `100`, column scaling on.
-    pub fn from_derivator(derivator: D) -> Self {
-        let tol = D::Scalar::EPSILON * D::Scalar::from_f64(30.0);
+    pub const fn from_derivator(derivator: D) -> Self {
+        let tol = D::Scalar::EPSILON_X30;
         LevenbergMarquardt {
             derivator,
             ftol: tol,
             xtol: tol,
             gtol: tol,
-            stepbound: D::Scalar::from_f64(100.0),
+            stepbound: D::Scalar::HUNDRED,
             patience: 100,
             scale_diag: true,
         }
@@ -66,42 +66,42 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
 
     /// Sets the relative tolerance on the sum of squared residuals.
     #[must_use]
-    pub fn with_ftol(mut self, ftol: D::Scalar) -> Self {
+    pub const fn with_ftol(mut self, ftol: D::Scalar) -> Self {
         self.ftol = ftol;
         self
     }
 
     /// Sets the relative tolerance on the parameter step.
     #[must_use]
-    pub fn with_xtol(mut self, xtol: D::Scalar) -> Self {
+    pub const fn with_xtol(mut self, xtol: D::Scalar) -> Self {
         self.xtol = xtol;
         self
     }
 
     /// Sets the tolerance on the scaled gradient norm.
     #[must_use]
-    pub fn with_gtol(mut self, gtol: D::Scalar) -> Self {
+    pub const fn with_gtol(mut self, gtol: D::Scalar) -> Self {
         self.gtol = gtol;
         self
     }
 
     /// Sets the factor bounding the initial trust-region radius.
     #[must_use]
-    pub fn with_stepbound(mut self, stepbound: D::Scalar) -> Self {
+    pub const fn with_stepbound(mut self, stepbound: D::Scalar) -> Self {
         self.stepbound = stepbound;
         self
     }
 
     /// Sets the maximum number of outer iterations.
     #[must_use]
-    pub fn with_patience(mut self, patience: usize) -> Self {
+    pub const fn with_patience(mut self, patience: usize) -> Self {
         self.patience = patience;
         self
     }
 
     /// Turns automatic column scaling on or off (off means an identity scaling).
     #[must_use]
-    pub fn with_scale_diag(mut self, scale_diag: bool) -> Self {
+    pub const fn with_scale_diag(mut self, scale_diag: bool) -> Self {
         self.scale_diag = scale_diag;
         self
     }

@@ -36,6 +36,20 @@ pub struct AutoDiffSingle<T = f64> {
 
 impl<T> Default for AutoDiffSingle<T> {
     fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T> AutoDiffSingle<T> {
+    /// Const constructor (same as [`Default::default`]).
+    ///
+    /// ```
+    /// use multicalc::numerical_derivative::autodiff::AutoDiffSingle;
+    ///
+    /// const D: AutoDiffSingle = AutoDiffSingle::new();
+    /// ```
+    #[inline]
+    pub const fn new() -> Self {
         AutoDiffSingle {
             _marker: PhantomData,
         }
@@ -89,6 +103,20 @@ pub struct AutoDiffMulti<T = f64> {
 
 impl<T> Default for AutoDiffMulti<T> {
     fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T> AutoDiffMulti<T> {
+    /// Const constructor (same as [`Default::default`]).
+    ///
+    /// ```
+    /// use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+    ///
+    /// const D: AutoDiffMulti = AutoDiffMulti::new();
+    /// ```
+    #[inline]
+    pub const fn new() -> Self {
         AutoDiffMulti {
             _marker: PhantomData,
         }

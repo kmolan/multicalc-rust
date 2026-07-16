@@ -168,12 +168,24 @@ impl<T: Numeric> Numeric for Dual<T> {
         value: T::HALF,
         deriv: T::ZERO,
     };
+    const HUNDRED: Self = Dual {
+        value: T::HUNDRED,
+        deriv: T::ZERO,
+    };
     const PI: Self = Dual {
         value: T::PI,
         deriv: T::ZERO,
     };
     const EPSILON: Self = Dual {
         value: T::EPSILON,
+        deriv: T::ZERO,
+    };
+    const EPSILON_X4: Self = Dual {
+        value: T::EPSILON_X4,
+        deriv: T::ZERO,
+    };
+    const EPSILON_X30: Self = Dual {
+        value: T::EPSILON_X30,
         deriv: T::ZERO,
     };
     const NAN: Self = Dual {
