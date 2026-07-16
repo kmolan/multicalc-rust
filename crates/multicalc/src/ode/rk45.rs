@@ -109,6 +109,9 @@ fn error_norm<const N: usize, T: Numeric>(
     atol: T,
     rtol: T,
 ) -> T {
+    if N == 0 {
+        return T::ZERO;
+    }
     let mut sum = T::ZERO;
     for ((e, a), b) in err.as_array().iter().zip(y0.as_array()).zip(y1.as_array()) {
         let scale = atol + rtol * a.abs().max(b.abs());
@@ -125,6 +128,9 @@ fn scaled_norm<const N: usize, T: Numeric>(
     atol: T,
     rtol: T,
 ) -> T {
+    if N == 0 {
+        return T::ZERO;
+    }
     let mut sum = T::ZERO;
     for (e, a) in v.as_array().iter().zip(y.as_array()) {
         let scale = atol + rtol * a.abs();
