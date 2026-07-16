@@ -49,7 +49,7 @@ pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, Term
 pub use root_finding::{Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination};
 
 /// Per-module-family error enums and the umbrella they convert into.
-pub use error::{CalcError, DiffError, IntegrateError, LinalgError, SolveError};
+pub use error::{CalcError, DiffError, IntegrateError, KinematicsError, LinalgError, SolveError};
 
 pub mod approximation;
 pub mod discretization;

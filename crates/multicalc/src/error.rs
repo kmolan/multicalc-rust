@@ -75,6 +75,16 @@ pub enum SolveError {
     Diff(DiffError),
 }
 
+/// Errors from the kinematics module (plant geometry and kinematic maps).
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
+pub enum KinematicsError {
+    /// A geometric parameter (wheel radius, track width) was not strictly positive.
+    NonPositiveParameter,
+    /// A geometric parameter was infinite or NaN.
+    NonFinite,
+}
+
 /// Umbrella over the per-module-family errors. Fallible operations return their family enum; this
 /// type collects them where one error type must span families.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -88,6 +98,8 @@ pub enum CalcError {
     Integrate(IntegrateError),
     /// A differentiation error.
     Differentiate(DiffError),
+    /// A kinematics error.
+    Kinematics(KinematicsError),
 }
 
 impl From<LinalgError> for SolveError {
@@ -118,6 +130,11 @@ impl From<IntegrateError> for CalcError {
 impl From<SolveError> for CalcError {
     fn from(e: SolveError) -> Self {
         CalcError::Solve(e)
+    }
+}
+impl From<KinematicsError> for CalcError {
+    fn from(e: KinematicsError) -> Self {
+        CalcError::Kinematics(e)
     }
 }
 
@@ -188,6 +205,17 @@ impl core::fmt::Display for SolveError {
     }
 }
 
+impl core::fmt::Display for KinematicsError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(match self {
+            KinematicsError::NonPositiveParameter => {
+                "geometric parameter must be strictly positive"
+            }
+            KinematicsError::NonFinite => "geometric parameter was not finite",
+        })
+    }
+}
+
 impl core::fmt::Display for CalcError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -195,6 +223,7 @@ impl core::fmt::Display for CalcError {
             CalcError::Solve(e) => write!(f, "{e}"),
             CalcError::Integrate(e) => write!(f, "{e}"),
             CalcError::Differentiate(e) => write!(f, "{e}"),
+            CalcError::Kinematics(e) => write!(f, "{e}"),
         }
     }
 }
@@ -202,6 +231,7 @@ impl core::fmt::Display for CalcError {
 impl core::error::Error for LinalgError {}
 impl core::error::Error for DiffError {}
 impl core::error::Error for IntegrateError {}
+impl core::error::Error for KinematicsError {}
 
 impl core::error::Error for SolveError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
@@ -220,6 +250,7 @@ impl core::error::Error for CalcError {
             CalcError::Solve(e) => Some(e),
             CalcError::Integrate(e) => Some(e),
             CalcError::Differentiate(e) => Some(e),
+            CalcError::Kinematics(e) => Some(e),
         }
     }
 }
