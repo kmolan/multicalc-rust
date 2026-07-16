@@ -10,9 +10,7 @@
 derivatives, integrals, curve fitting and linear algebra; built and tested on six
 hardware targets. Exercise the same code from a 64-bit server CPU down to a bare-metal microcontroller.**
 
-<p align="center">
-  <video src="https://github.com/kmolan/multicalc-rust/raw/main/combined_demo_reel.mp4" width="100%" controls muted loop></video>
-</p>
+https://github.com/user-attachments/assets/800e887d-b78b-488d-90bb-ff2dbdbb2960
 
 *A reel of the live [showcase demos](demos#live-showcases): the 3D and 2D arm IK solvers, then the
 Newton fractal and the gradient-driven marbles — every number on screen is measured live.*
