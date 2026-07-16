@@ -5,11 +5,10 @@ the errors it can return, and a pointer to a full demo. It is meant to be read s
 by someone new to the crate, or dipped into per module once you know your way around.
 
 Operations are generic over the [`Numeric`](#scalars-and-automatic-differentiation) scalar
-trait — implemented for `f32` and `f64`, defaulting to `f64` — with transcendental functions
+trait (implemented for `f32` and `f64`, defaulting to `f64`) with transcendental functions
 from `libm` so everything works without `std`. Methods like `f64::sin` need `std`; in a
 `no_std` crate call the `libm` versions (`libm::sin(x)` in place of `x.sin()`). `multicalc`
-re-exports `libm`, reachable as `multicalc::libm`. The snippets below use `x.sin()` because
-they assume `std`.
+re-exports `libm`, reachable as `multicalc::libm`.
 
 Where a sensible default exists, a "safe" wrapper (such as `get_single`) returns the answer
 directly. Otherwise a call returns a `Result` whose error is the module family's own enum;
@@ -37,10 +36,10 @@ see [Error handling](#error-handling).
 The scalar number system every calculus module is generic over: the `Numeric` trait plus the
 forward-mode automatic differentiation numbers that also implement it.
 
-- `Numeric` — the scalar trait, implemented for `f32` and `f64`.
-- `Dual`, `HyperDual`, `Jet<T, N>` — autodiff scalars (dual numbers) carrying exact first,
+- `Numeric`: the scalar trait, implemented for `f32` and `f64`.
+- `Dual`, `HyperDual`, `Jet<T, N>`: autodiff scalars (dual numbers) carrying exact first,
   second, and arbitrary nth-order derivatives (`Dual` is `Jet<T, 2>`).
-- `ScalarFn` / `ScalarFnN` / `VectorFn` — function traits whose `eval` is generic over the
+- `ScalarFn` / `ScalarFnN` / `VectorFn`: function traits whose `eval` is generic over the
   scalar, so one formula runs at `f64` or at any autodiff type.
 - The `scalar_fn!` / `scalar_fn_vec!` macros build those traits from closure syntax, and `c()`
   marks numeric constants inside the body (a bare `2.0 * x` cannot typecheck in a generic body).
@@ -66,11 +65,11 @@ Credits: standard forward-mode dual numbers. Full demo:
 
 ## Derivatives, Jacobians, and Hessians
 
-Derivatives of any order, total and partial — exact via forward-mode autodiff, or by finite
-differences for black-box functions — plus Jacobian and Hessian matrices.
+Derivatives of any order, total and partial (exact via forward-mode autodiff, or by finite
+differences for black-box functions), plus Jacobian and Hessian matrices.
 
-- `autodiff::{AutoDiffSingle, AutoDiffMulti}` — exact derivatives.
-- `finite_difference::{FiniteDifferenceSingle, FiniteDifferenceMulti}` — for functions you
+- `autodiff::{AutoDiffSingle, AutoDiffMulti}`: exact derivatives.
+- `finite_difference::{FiniteDifferenceSingle, FiniteDifferenceMulti}`: for functions you
   cannot author with `scalar_fn!`.
 - Both implement the `derivator::DerivatorSingleVariable` / `DerivatorMultiVariable` traits
   (`get`, `get_single`, `get_double`, `get_single_partial`).
@@ -119,7 +118,7 @@ let h = hessian.get(&g, &[1.0, 2.0]).unwrap();
 With the `alloc` feature, `Jacobian::get_on_heap` returns a `Vec<Vec<T>>` for inputs too large
 for the stack.
 
-Errors: these calls return [`DiffError`](#error-handling) — `OrderZero`, `OrderUnsupported`,
+Errors: these calls return [`DiffError`](#error-handling): `OrderZero`, `OrderUnsupported`,
 `StepSizeZero` (finite differences), or `IndexOutOfRange`. Full demos:
 [differentiation.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/differentiation.rs)
 and
@@ -130,10 +129,10 @@ and
 Definite integration of any order: iterative Newton-Cotes rules and Gaussian quadrature, over
 finite, semi-infinite, and infinite limits.
 
-- `iterative_integration::IterativeSingle` — Boole (default), Simpson, and Trapezoidal rules;
+- `iterative_integration::IterativeSingle`: Boole (default), Simpson, and Trapezoidal rules;
   pick the rule and interval count with `from_parameters`.
 - Pairwise summation is the default; chain `.with_kahan_summation()` to opt into Kahan.
-- `gaussian_integration::GaussianSingle` — Gauss-Legendre, Gauss-Hermite, and Gauss-Laguerre.
+- `gaussian_integration::GaussianSingle`: Gauss-Legendre, Gauss-Hermite, and Gauss-Laguerre.
   Pass the **bare** integrand; the weights already carry the weighting factor.
 - Both implement the `integrator::IntegratorSingleVariable` / `MultiVariable` traits
   (`get_single`, `get_double`, …); the rules live in `mode`.
@@ -184,7 +183,7 @@ let val = hermite
 
 Gaussian nodes and weights come from the [quadrature tables](#gaussian-quadrature-tables).
 
-Errors: integration calls return [`IntegrateError`](#error-handling) — `IterationsZero`,
+Errors: integration calls return [`IntegrateError`](#error-handling): `IterationsZero`,
 `LimitsIllDefined`, `QuadratureOrderOutOfRange`, or `NonFinite`. Full demos:
 [iterative_integration.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/iterative_integration.rs)
 and
@@ -216,11 +215,11 @@ Errors: an out-of-range order returns `IntegrateError::QuadratureOrderOutOfRange
 
 ## Taylor approximation
 
-Local Taylor models of a function around a point — linear and quadratic — with goodness-of-fit
+Local Taylor models of a function around a point (linear and quadratic) with goodness-of-fit
 metrics.
 
-- `linear_approximation::LinearApproximator` — first-order model.
-- `quadratic_approximation::QuadraticApproximator` — same API, also captures curvature.
+- `linear_approximation::LinearApproximator`: first-order model.
+- `quadratic_approximation::QuadraticApproximator`: same API, also captures curvature.
 - `get` builds the model; `predict` evaluates it; `get_prediction_metrics` returns MAE, MSE,
   RMSE, R², and adjusted R² against sample points.
 - Metrics use pairwise summation by default; chain `.with_kahan_summation()` to opt into Kahan.
@@ -247,10 +246,10 @@ Errors: the underlying derivatives return [`DiffError`](#error-handling). Full d
 Fixed-size, stack-allocated `Matrix` and `Vector`: dimensions are const generics (shape
 mismatches are compile errors), nothing is heap-allocated, and the math never panics.
 
-- `Matrix::lu` → `Lu` — partial-pivoting Doolittle LU; `solve`, `determinant`, `inverse`.
-- `Matrix::cholesky` → `Cholesky` — faster path for symmetric positive-definite matrices.
-- `PivotedQr` — column-pivoted Householder QR; `solve_least_squares`.
-- `Matrix::svd` → `Svd` — one-sided Jacobi SVD; `singular_values`, `condition_number`,
+- `Matrix::lu` → `Lu`: partial-pivoting Doolittle LU; `solve`, `determinant`, `inverse`.
+- `Matrix::cholesky` → `Cholesky`: faster path for symmetric positive-definite matrices.
+- `PivotedQr`: column-pivoted Householder QR; `solve_least_squares`.
+- `Matrix::svd` → `Svd`: one-sided Jacobi SVD; `singular_values`, `condition_number`,
   `pseudo_inverse`, minimum-norm `solve`.
 
 Direct linear solves via LU and Cholesky:
@@ -302,7 +301,7 @@ let b = Vector::new([1.0, 3.0, 5.0]);
 let x = PivotedQr::decompose(a).unwrap().solve_least_squares(b).unwrap();
 ```
 
-Errors: factorizations and solves return [`LinalgError`](#error-handling) — `Singular`,
+Errors: factorizations and solves return [`LinalgError`](#error-handling): `Singular`,
 `NotPositiveDefinite`, `Underdetermined` (a least-squares system with `M < N`), or `NonFinite`.
 
 Credits: the QR factorization, damped solve, and overflow-safe norm port MINPACK's `qrfac`,
@@ -318,8 +317,8 @@ and
 Nonlinear least-squares solvers: they minimize the sum of squared residuals of a
 `scalar_fn_vec!` function, differentiating it under autodiff by default.
 
-- `LevenbergMarquardt` — the robust, damped default.
-- `GaussNewton` — the faster undamped variant for well-conditioned problems.
+- `LevenbergMarquardt`: the robust, damped default.
+- `GaussNewton`: the faster undamped variant for well-conditioned problems.
 - `minimize` returns a `MinimizationReport` whose `TerminationReason` says which convergence
   test stopped the solver.
 
@@ -348,7 +347,7 @@ let report = LevenbergMarquardt::<AutoDiffMulti>::default()
 For a plain linear least-squares fit, use the QR factorization from
 [Linear algebra](#linear-algebra) instead.
 
-Errors: the solvers return [`SolveError`](#error-handling) — `DidNotConverge { iters, residual }`,
+Errors: the solvers return [`SolveError`](#error-handling): `DidNotConverge { iters, residual }`,
 `NonFinite`, or a wrapped `Linalg` / `Diff` error from a failed inner step.
 
 Credits: the Levenberg-Marquardt driver ports MINPACK's `lmder`/`lmpar` (Moré, Garbow,
@@ -364,12 +363,12 @@ and
 Root finders for scalar equations and square systems `F(x) = 0`. Each solver takes an iteration
 budget and reports why it stopped as a `RootTermination`.
 
-- `Bisection` — brackets a scalar root and halves the interval; guaranteed to converge within
+- `Bisection`: brackets a scalar root and halves the interval; guaranteed to converge within
   its budget.
-- `Newton` — Newton's method with a derivative from any `Derivator` (exact autodiff by default,
+- `Newton`: Newton's method with a derivative from any `Derivator` (exact autodiff by default,
   finite differences on request); `with_backtracking(true)` adds a damped line search that
   rescues far starts.
-- `NewtonSystem` — Newton for square systems `F: Rⁿ → Rⁿ` with the exact Jacobian and an
+- `NewtonSystem`: Newton for square systems `F: Rⁿ → Rⁿ` with the exact Jacobian and an
   optional backtracking line search on `‖F‖`.
 - The scalar solvers return a `RootReport`; the system solver returns a `RootReportN`.
 
@@ -396,7 +395,7 @@ let solved = NewtonSystem::<AutoDiffMulti>::default().solve(&system, &[1.5, 0.8]
 // solved.root ~ [1.9319, 0.5176]; solved.termination says which test converged
 ```
 
-Errors: root finders return [`SolveError`](#error-handling) — `DidNotConverge`, `InvalidBracket`
+Errors: root finders return [`SolveError`](#error-handling): `DidNotConverge`, `InvalidBracket`
 (bisection endpoints that do not enclose a sign change), `NonFinite`, or a wrapped `Linalg` /
 `Diff` error.
 
@@ -408,8 +407,8 @@ solve and overflow-safe `enorm` from [Linear algebra](#linear-algebra). Full dem
 
 Curl and divergence via autodiff, plus line and flux integrals sampled along a curve.
 
-- `curl::{get_2d, get_3d}` and `divergence::{get_2d, get_3d}` take an explicit derivator — pass
-  `AutoDiffMulti::default()` for exact results — and a `scalar_fn_vec!` field.
+- `curl::{get_2d, get_3d}` and `divergence::{get_2d, get_3d}` take an explicit derivator (pass
+  `AutoDiffMulti::default()` for exact results) and a `scalar_fn_vec!` field.
 - `line_integral` and `flux_integral` sample the field, so they take plain closures for the
   field and the parametric curve.
 
@@ -442,9 +441,9 @@ integrals return [`IntegrateError`](#error-handling). Full demo:
 
 Initial-value solvers for `y' = f(t, y)` systems, generic over the state dimension.
 
-- `Rk4` — fixed-step classical Runge–Kutta. `Rk4::step` advances one step; `Rk4::integrate`
+- `Rk4`: fixed-step classical Runge–Kutta. `Rk4::step` advances one step; `Rk4::integrate`
   runs a fixed number of steps with a per-step callback.
-- `Rk45` — adaptive Dormand–Prince 5(4) with PI step control and cubic-Hermite dense output.
+- `Rk45`: adaptive Dormand–Prince 5(4) with PI step control and cubic-Hermite dense output.
   `solve` integrates to a target time, `solve_on_grid` fills requested sample times via dense
   output, and `for_each_step` exposes each accepted step. Tolerances are set with `with_rtol`
   and `with_atol`.
@@ -480,7 +479,7 @@ let mut out = [Vector::<2, f64>::zeros(); 4];
 solver.solve_on_grid(&f, 0.0, &y0, &times, &mut out).unwrap();
 ```
 
-Errors: the adaptive solver returns [`IntegrateError`](#error-handling) — `StepSizeTooSmall`,
+Errors: the adaptive solver returns [`IntegrateError`](#error-handling): `StepSizeTooSmall`,
 `DidNotConverge { steps }`, or `NonFinite`. Full demo (harmonic oscillator plus an acrobot,
 a tumbling quadrotor, and an N-body model):
 [ode.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/ode.rs).
@@ -489,13 +488,13 @@ a tumbling quadrotor, and an N-body model):
 
 Turn a continuous-time linear system into its discrete-time equivalent over a step `dt`.
 
-- `zoh(a, b, dt)` — zero-order-hold discretization of `(A, B)`, returning the discrete `(F, G)`.
-- `van_loan(a, qc, dt)` — Van Loan discretization of continuous process noise, returning the
+- `zoh(a, b, dt)`: zero-order-hold discretization of `(A, B)`, returning the discrete `(F, G)`.
+- `van_loan(a, qc, dt)`: Van Loan discretization of continuous process noise, returning the
   discrete transition and process-noise covariance `(F, Q_d)`.
-- `q_discrete_white_noise(dt, var)` — the filterpy-compatible discrete white-noise model.
+- `q_discrete_white_noise(dt, var)`: the filterpy-compatible discrete white-noise model.
 
 Because the routines run through the matrix exponential, an autodiff scalar flows straight
-through them — a single `Dual` recovers a derivative with respect to a parameter:
+through them, a single `Dual` recovers a derivative with respect to a parameter:
 
 ```rust
 use multicalc::discretization::{q_discrete_white_noise, van_loan, zoh};
@@ -533,12 +532,12 @@ input. Full demo:
 Rotations, Lie groups, and rigid-body transforms for 2D and 3D. Fixed-size, stack-allocated, no
 panics, and generic over the `Numeric` scalar, so `f32`, `f64`, and the autodiff duals all work.
 
-- `Quaternion` — Hamilton quaternion, stored scalar-first `[w, x, y, z]`: the raw algebra plus
+- `Quaternion`: Hamilton quaternion, stored scalar-first `[w, x, y, z]`: the raw algebra plus
   axis-angle / rotation-matrix / ZYX-Euler conversions, `slerp`, and `exp`/`ln`.
-- `SO2` / `SE2` — 2D rotation and rigid-body transform.
-- `SO3` / `SE3` — 3D rotation (wrapping a unit `Quaternion`, which carries the unit-rotation
+- `SO2` / `SE2`: 2D rotation and rigid-body transform.
+- `SO3` / `SE3`: 3D rotation (wrapping a unit `Quaternion`, which carries the unit-rotation
   invariant) and rigid-body transform.
-- `Twist` / `Wrench` — typed spatial velocity and force in the linear-first `[v; ω]` /
+- `Twist` / `Wrench`: typed spatial velocity and force in the linear-first `[v; ω]` /
   `[force; torque]` ordering.
 
 Every group provides `identity`, `compose` (also `*`), `inverse`, `act` on a point, `exp`/`log`,
@@ -565,7 +564,7 @@ let g2 = SE3::exp(xi);
 ```
 
 Because everything is generic over the scalar, a derivative with respect to a joint angle or
-pose parameter flows through `act`, `compose`, and `exp`/`log` under autodiff — the basis for
+pose parameter flows through `act`, `compose`, and `exp`/`log` under autodiff, the basis for
 the inverse-kinematics showcases. Full demo:
 [lie_groups.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/lie_groups.rs);
 worked applications:
@@ -603,6 +602,6 @@ fn solve() -> Result<(), CalcError> {
 
 ## Internals
 
-`utils` holds crate-internal numeric helpers (`pub(crate)`, not part of the public API) — chiefly
+`utils` holds crate-internal numeric helpers (`pub(crate)`, not part of the public API), chiefly
 the blocked pairwise summation used for long running sums, where rounding error grows like
 `O(log n · eps)` instead of the naive `O(n · eps)`.

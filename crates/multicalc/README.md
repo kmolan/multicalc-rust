@@ -19,7 +19,7 @@ math.
   builds run the real math under QEMU and check the answers, so `no_std`, no-heap, and no-panic
   rules hold from a 64-bit CPU down to a microcontroller with no operating system.
 - **Every module checked against the reference libraries.** Each module's results are verified
-  against `mpmath`, `numpy`, and `scipy` fixtures, thus validating the rust implementation.
+  against `mpmath`, `numpy`, and `scipy` fixtures within ~1 ulp, thus validating the rust implementation.
 - **Fast, and measured.** On an i7-12650H: a third derivative in 26.7 ns, a small Jacobian in
   9.3 ns, a 10×10 LU solve in 239 ns, and a full Levenberg-Marquardt curve fit in 2.0 µs. See
   the [benchmarks](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks).
@@ -33,12 +33,10 @@ math.
 
 ## What it does
 
-Each capability links its chapter in the [guide](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md).
-
 - [Automatic differentiation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#scalars-and-automatic-differentiation): `Dual`, `HyperDual`, and `Jet` scalars for exact first, second, and nth-order derivatives.
-- [Differentiation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#derivatives-jacobians-and-hessians): derivatives of any order (total and partial), plus Jacobian and Hessian matrices — autodiff by default, finite differences for black-box functions.
+- [Differentiation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#derivatives-jacobians-and-hessians): derivatives of any order (total and partial), plus Jacobian and Hessian matrices; autodiff by default, finite differences for black-box functions.
 - [Integration](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#integration): iterative Newton-Cotes rules (Boole, Simpson, Trapezoidal) and Gaussian quadrature (Legendre, Hermite, Laguerre) over finite, semi-infinite, and infinite limits.
-- [Linear algebra](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#linear-algebra): fixed-size, stack-allocated `Matrix` and `Vector` with LU, Cholesky, column-pivoted QR, and SVD — solves, determinant, inverse, pseudo-inverse, and condition number.
+- [Linear algebra](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#linear-algebra): fixed-size, stack-allocated `Matrix` and `Vector` with LU, Cholesky, column-pivoted QR, and SVD: solves, determinant, inverse, pseudo-inverse, and condition number.
 - [Least-squares optimization](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#least-squares-optimization): `LevenbergMarquardt` and `GaussNewton` solvers for nonlinear curve fitting.
 - [Root finding](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#root-finding): bracketed bisection and Newton solvers for scalar equations and square systems, with an optional damped line search.
 - [Vector calculus](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#vector-calculus): curl, divergence, and line and flux integrals.
@@ -53,31 +51,56 @@ Each capability links its chapter in the [guide](https://github.com/kmolan/multi
 cargo add multicalc
 ```
 
-### Feature flags
+## Tutorial
 
-- `alloc` (off by default) — enables the heap-based methods for inputs too large for the stack.
-  See [Heap allocation](#heap-allocation).
+The [guide](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md) is a comprehesive tutorial for each module. It shows the full imports,
+expected outputs in comments, error-path notes, and pointers to runnable demos. Start there when you need the complete picture of a feature.
 
-### MSRV and edition
-
-Edition 2024, minimum supported Rust version **1.85**.
-
-## Examples
+## Example snippets
 
 ### Exact derivatives
 
 One formula, differentiated to any order by forward-mode autodiff:
 
 ```rust
-use multicalc::numerical_derivative::autodiff::AutoDiffSingle;
-use multicalc::numerical_derivative::derivator::DerivatorSingleVariable;
+use multicalc::numerical_derivative::autodiff::{AutoDiffSingle, AutoDiffMulti};
+use multicalc::numerical_derivative::derivator::{DerivatorSingleVariable, DerivatorMultiVariable};
 use multicalc::scalar_fn;
 
 let f = scalar_fn!(|x| x * x * x);           // f(x) = x^3
 let d = AutoDiffSingle::default();           // forward-mode autodiff, exact
-
 let first = d.get(1, &f, 2.0).unwrap();      // 12.0
 let third = d.get(3, &f, 2.0).unwrap();      //  6.0
+
+// Partial derivatives of a multivariable function; order = number of indices.
+let g = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1]);          // g(x, y) = x^2 * y
+let dm = AutoDiffMulti::default();
+let dx    = dm.get_single_partial(&g, 0, &[3.0, 4.0]).unwrap(); // dg/dx = 2xy   = 24.0
+let mixed = dm.get(&g, &[0, 1], &[3.0, 4.0]).unwrap();          // d^2g/dxdy = 2x =  6.0
+```
+
+### Integration
+
+Newton-Cotes and Gaussian rules over finite, semi-infinite, and infinite limits:
+
+```rust
+use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
+use multicalc::numerical_integration::iterative_integration::IterativeSingle;
+use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
+use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
+
+let integrator = IterativeSingle::default();     // Boole's rule, 120 intervals
+
+let area = integrator.get_single(&|x: f64| 2.0 * x, &[0.0, 2.0]).unwrap();       // 2x on [0, 2]        -> 4.0
+// decaying integrands may run to a semi-infinite or infinite limit
+let tail = integrator.get_single(&|x: f64| (-x).exp(), &[0.0, f64::INFINITY]).unwrap();  // e^-x on [0, inf)  -> 1.0
+let bell = integrator
+    .get_single(&|x: f64| (-x * x).exp(), &[f64::NEG_INFINITY, f64::INFINITY])
+    .unwrap();                                                                   // e^(-x^2) on R       -> sqrt(pi)
+
+// Gauss-Hermite already carries the e^(-x^2) weight, so pass the bare integrand.
+let gh = GaussianSingle::from_parameters(5, GaussianQuadratureMethod::GaussHermite);
+let moment = gh.get_single(&|x: f64| x * x, &[f64::NEG_INFINITY, f64::INFINITY]).unwrap();  // x^2, weight e^(-x^2) -> sqrt(pi)/2
 ```
 
 ### Nonlinear curve fitting
@@ -136,25 +159,50 @@ let p = g.act(Vector::new([1.0, 0.0, 0.0]));   // rotate then translate → (1, 
 let xi = g.log();                              // 6-vector twist [v; ω]
 ```
 
-The [guide](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md) has a
-worked section for every module.
+### Root finding
 
-## Gaussian quadrature
+Scalar equations and square systems `F(x) = 0`, with exact autodiff derivatives:
 
-Each Gaussian rule integrates over a fixed domain. Pass the **bare** integrand `f(x)`; the
-weights already carry the weighting factor.
+```rust
+use multicalc::root_finding::{Bisection, Newton, NewtonSystem};
+use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
+use multicalc::scalar::c;
+use multicalc::{scalar_fn, scalar_fn_vec};
 
-| Rule           | Computes                                              |
-| -------------- | ---------------------------------------------------- |
-| Gauss-Legendre | $\int_a^b f(x)\, \mathrm{d}x$                         |
-| Gauss-Laguerre | $\int_0^\infty f(x)\, e^{-x}\, \mathrm{d}x$           |
-| Gauss-Hermite  | $\int_{-\infty}^\infty f(x)\, e^{-x^2}\, \mathrm{d}x$ |
+let f = scalar_fn!(|x| c(-2.0) + x * x);       // f(x) = x^2 - 2, root at sqrt(2)
+let bracketed = Bisection::default().solve(&f, 0.0, 2.0).unwrap();          // ~ 1.41421356
+let newton = Newton::<AutoDiffSingle>::default().solve(&f, 2.0).unwrap();   // ~ 1.41421356
+
+// Square system: x^2 + y^2 = 4 and x*y = 1.
+let system = scalar_fn_vec!(|v: &[f64; 2]| [c(-4.0) + v[0] * v[0] + v[1] * v[1], c(-1.0) + v[0] * v[1]]);
+let solved = NewtonSystem::<AutoDiffMulti>::default().solve(&system, &[1.5, 0.8]).unwrap();
+// solved.root ~ [1.9319, 0.5176]
+```
+
+### ODE integration
+
+Initial-value solvers for `y' = f(t, y)` systems, generic over the state dimension:
+
+```rust
+use multicalc::ode::{Rk4, Rk45};
+use multicalc::linear_algebra::Vector;
+
+// Harmonic oscillator y'' = -y as the first-order system [position, velocity].
+let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+let y0 = Vector::new([1.0, 0.0]);
+
+let step = Rk4::step(&f, 0.0, &y0, 0.1);       // one fixed RK4 step of size 0.1
+// adaptive Dormand-Prince 5(4) over one full period returns to the start [1, 0]
+let yf = Rk45::default().solve(&f, 0.0, &y0, core::f64::consts::TAU).unwrap();
+```
+
+Refer to the [guide](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md) for a comprehensive tutorial.
 
 ## Error handling
 
 Where a sensible default exists, a "safe" wrapper (such as `get_single` or `get_double`) returns
 the answer directly. Otherwise the call returns a `Result` whose error is the module family's own
-enum — `LinalgError`, `DiffError`, `IntegrateError`, or `SolveError` — each convertible into the
+enum (`LinalgError`, `DiffError`, `IntegrateError`, or `SolveError`), each convertible into the
 `CalcError` umbrella. All variants are listed in
 [error.rs](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/src/error.rs).
 
@@ -194,6 +242,15 @@ Optimization* (chapters 4 and 10).
 ## License
 
 multicalc is licensed under the MIT license.
+
+### Feature flags
+
+- `alloc` (off by default): enables the heap-based methods for inputs too large for the stack.
+  See [Heap allocation](#heap-allocation).
+
+### MSRV and edition
+
+Edition 2024, minimum supported Rust version **1.85**.
 
 ## Contact
 
