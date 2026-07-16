@@ -9,7 +9,7 @@
 `multicalc` is a pure `no_std` Rust library for numerical calculus and the linear algebra
 around it: exact derivatives via automatic differentiation, integration, Jacobians and Hessians,
 nonlinear least-squares curve fitting, root finding, ODE integration, and 2D/3D rigid-body
-math — with a single dependency (`libm`) and no heap by default.
+math.
 
 ## Why use it
 

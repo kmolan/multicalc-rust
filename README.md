@@ -6,9 +6,9 @@
 [![Docs](https://docs.rs/multicalc/badge.svg)](https://docs.rs/multicalc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Scientific computing for single- and multi-variable calculus in pure, safe Rust. Numerical
-derivatives, integrals, curve fitting and linear algebra; built and tested on six
-hardware targets. Exercise the same code from a 64-bit server CPU down to a bare-metal microcontroller.**
+**Single- and multi-variable calculus, automatic differentiation, nonlinear least squares, and
+Lie groups in pure safe `no_std` Rust — the same code from a 64-bit server down to a bare-metal
+microcontroller.**
 
 https://github.com/user-attachments/assets/800e887d-b78b-488d-90bb-ff2dbdbb2960
 
@@ -17,20 +17,23 @@ Newton fractal and the gradient-driven marbles — every number on screen is mea
 
 ## Highlights
 
-- **Pure, safe Rust**: `#![forbid(unsafe_code)]`, no C dependencies.
-- **Tested against multiple platforms**: Every commit is built and tested across **six targets**: the
-  `x86_64` and `aarch64` Linux hosts and three ARM Cortex-M bare-metal ABIs (`thumbv7em`
-  soft-float, `thumbv7em` hardware-FPU, and `thumbv6m`), and `riscv32imc-unknown-none-elf`. `no_std`, no heap, and no panics rules apply to every platform build, and the transcendental functions come from
+- **Runs the same math from a server to a microcontroller.** Every commit is built and tested on
+  the `x86_64` and `aarch64` Linux hosts and on four bare-metal ABIs (`thumbv7em` soft-float,
+  `thumbv7em` hardware-FPU, `thumbv6m`, and `riscv32imc`), running the real math under QEMU.
+  `no_std`, no-alloc, and no-panic rules hold on every one.
+- **Every module checked against reference libraries.** Each module's results are verified
+  against `mpmath`, `numpy`, and `scipy` fixtures within ~1 ulp, thus validating the rust implementation.
+- **Fast, and measured** (i7-12650H): a third derivative in 26.7 ns, a 10×10 LU solve in 239 ns,
+  a full Levenberg-Marquardt fit in 2 µs. In the live demos: ~4 million Newton solves/sec on one
+  core, and a 1 kHz arm IK at ~6 µs/solve. See the [benchmarks](benchmarks).
+- **Exact derivatives, not estimates.** Differentiation, Jacobians, Hessians, Newton steps, and
+  Levenberg-Marquardt fits use forward-mode automatic differentiation, so derivatives are exact
+  to machine precision — finite differences remain available for black-box functions.
+- **Pure safe and panic-free.** `#![forbid(unsafe_code)]`, no C dependencies, and `unwrap`/
+  `panic` denied on library paths; every fallible call returns a typed error.
+- **One dependency.** `no_std`, no heap by default, with transcendentals from
   [`libm`](https://crates.io/crates/libm).
-- **Fast, and measured**: a derivative in **~1 ns**, a full Levenberg-Marquardt curve fit in
-  **microseconds**, and solvers that land on the answer to the **last few bits** (objectives near
-  `1e-30`, errors within ~1 ulp). Accuracy is enforced against proven external libraries like `numpy` and `scipy`. See the [benchmarks](benchmarks).
-- **Exact by default**: differentiation, Jacobians, Hessians, and Newton steps use forward-mode
-  automatic differentiation, not finite-difference approximations (which remain available for
-  black-box functions).
-- **Generic over the scalar**: use `f32` or `f64` (defaults to `f64`).
-- **Batteries included**: a runnable example for every module and a test suite covering each
-  error path.
+
 
 ## What it does
 
@@ -69,37 +72,18 @@ let first = d.get(1, &f, 2.0).unwrap();      // 12.0
 let third = d.get(3, &f, 2.0).unwrap();      //  6.0
 ```
 
-Fit `a·e^(b·t)` to data with Levenberg-Marquardt. Author the residuals and the solver
-differentiates them for you:
-
-```rust
-use multicalc::optimization::LevenbergMarquardt;
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
-use multicalc::scalar::c;
-use multicalc::scalar_fn_vec;
-
-// Fit through (0, 100), (1, 50), (2, 25): the minimum is a = 100, b = -ln 2.
-let residuals = scalar_fn_vec!(|v: &[f64; 2]| [
-    c(-100.0) + v[0],
-    c(-50.0)  + v[0] * v[1].exp(),
-    c(-25.0)  + v[0] * (c(2.0) * v[1]).exp(),
-]);
-let report = LevenbergMarquardt::<AutoDiffMulti>::default()
-    .minimize(&residuals, &[80.0, -0.3])
-    .unwrap();
-// report.solution ~ [100.0, -0.693]
-```
-
-There's a walk-through like this for **every** module in the full guide
-below.
+There's a walk-through like this for **every** module in the guide.
 
 ## Documentation
 
-- **[Full guide](crates/multicalc/README.md)**: Every feature with a runnable snippet, plus
-  notes on `no_std`, error handling, and heap allocation.
-- **[API docs](https://docs.rs/multicalc)** on docs.rs.
+- **[Guide](crates/multicalc/GUIDE.md)**: A worked section for every module — imports, a runnable
+  snippet, error paths, and a demo pointer.
+- **[Crate README](crates/multicalc/README.md)** / **[API docs](https://docs.rs/multicalc)**: the
+  crates.io page and full API reference, with notes on `no_std`, error handling, and heap allocation.
 - **[Examples](demos#start-here)**: Self-contained, self-checking programs for each module in the
   `demos/` crate. Run one with `cargo run -p multicalc-demos --example <name>`.
+- **[Benchmarks](benchmarks)**: Per-module accuracy tables and latency measurements, generated
+  from the QA fixtures and checked in CI.
 - **[Live showcases](demos#live-showcases)**: Five animated Rerun demos — a 1 kHz IK on a 3-link arm,
   an 8-link SE(3) arm tracking a moving 3D pose, a Newton fractal, Fourier epicycles drawing Ferris,
   and gradient-driven marbles — each streaming live-measured speed and accuracy.
@@ -118,9 +102,9 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Acknowledgements
 
-The least-squares solvers and QR factorization port the public-domain MINPACK routines
-(Moré, Garbow, Hillstrom; netlib), following Moré (1978) and Nocedal & Wright, *Numerical
-Optimization*.
+The least-squares solvers and QR factorization port the public-domain MINPACK routines (Moré,
+Garbow, Hillstrom; netlib); the full citation is in the
+[crate README](crates/multicalc/README.md#acknowledgements).
 
 ## License
 
