@@ -34,13 +34,11 @@ Jacobians and Hessians, vector-field operators, and Taylor approximation in a `n
 - A runnable example for every module, and a test suite covering each error path.
 
 <p align="center">
-  <img src="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/support/ik_servo_showcase.gif" width="75%" alt="1 kHz 3-link arm running a full Levenberg-Marquardt solve every millisecond">
-  <img src="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/support/newton_fractal_showcase.gif" width="75%" alt="Morphing Newton fractal, every pixel a full Newton solve">
+  <video src="https://github.com/kmolan/multicalc-rust/raw/main/combined_demo_reel.mp4" width="75%" controls muted loop></video>
 </p>
 
-*Two of four live [showcase demos](../../demos#live-showcases): a 1 kHz 3-link arm running a complete
-Levenberg-Marquardt solve every millisecond, and a Newton fractal at ~4 million solves/sec on one
-core — every number measured live.*
+*A reel of the live [showcase demos](../../demos#live-showcases): the 3D and 2D arm IK solvers, then
+the Newton fractal and the gradient-driven marbles — every number on screen is measured live.*
 
 ## What it does
 

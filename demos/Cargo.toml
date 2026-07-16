@@ -105,8 +105,8 @@ path = "examples/showcase/gradient_marbles.rs"
 required-features = ["rerun"]
 
 [[example]]
-name = "ik_servo"
-path = "examples/showcase/ik_servo.rs"
+name = "2d_arm_ik"
+path = "examples/showcase/2d_arm_ik.rs"
 required-features = ["rerun"]
 
 [[example]]
@@ -115,6 +115,6 @@ path = "examples/showcase/newton_fractal.rs"
 required-features = ["rerun"]
 
 [[example]]
-name = "serpent_ik"
-path = "examples/showcase/serpent_ik.rs"
+name = "3d_arm_ik"
+path = "examples/showcase/3d_arm_ik.rs"
 required-features = ["rerun"]
