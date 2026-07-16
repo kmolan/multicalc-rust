@@ -96,6 +96,33 @@ impl VizSink for CsvSink {
         Ok(())
     }
 
+    fn transform3d(&mut self, path: &str, _t: [f64; 3], _q: [f64; 4]) -> Result<(), VizError> {
+        eprintln!("CsvSink: transform3d('{path}') skipped (CSV is scalar-series only)");
+        Ok(())
+    }
+
+    fn boxes3d(
+        &mut self,
+        path: &str,
+        _centers: &[[f64; 3]],
+        _half_sizes: &[[f64; 3]],
+        _colors: &[Rgba],
+    ) -> Result<(), VizError> {
+        eprintln!("CsvSink: boxes3d('{path}') skipped (CSV is scalar-series only)");
+        Ok(())
+    }
+
+    fn arrows3d(
+        &mut self,
+        path: &str,
+        _origins: &[[f64; 3]],
+        _vectors: &[[f64; 3]],
+        _colors: &[Rgba],
+    ) -> Result<(), VizError> {
+        eprintln!("CsvSink: arrows3d('{path}') skipped (CSV is scalar-series only)");
+        Ok(())
+    }
+
     fn image_rgb8(
         &mut self,
         path: &str,
