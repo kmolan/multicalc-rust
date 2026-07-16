@@ -42,6 +42,9 @@ pub use spatial::{SE2, SE3, SO2, SO3};
 /// Typed spatial velocity and force in the linear-first `[v; ω]` / `[force; torque]` ordering.
 pub use spatial::{Twist, Wrench};
 
+/// Differential-drive kinematics and SE(2) odometry.
+pub use kinematics::{ChassisDelta, ChassisRate, DiffDrive, WheelDeltas, WheelRates};
+
 /// The Levenberg-Marquardt and Gauss-Newton least-squares solvers and their result types.
 pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
 
@@ -55,6 +58,7 @@ pub mod approximation;
 pub mod discretization;
 pub mod error;
 pub mod gaussian_tables;
+pub mod kinematics;
 pub mod linear_algebra;
 pub mod numerical_derivative;
 pub mod numerical_integration;
