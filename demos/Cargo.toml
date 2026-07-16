@@ -113,3 +113,8 @@ required-features = ["rerun"]
 name = "newton_fractal"
 path = "examples/showcase/newton_fractal.rs"
 required-features = ["rerun"]
+
+[[example]]
+name = "serpent_ik"
+path = "examples/showcase/serpent_ik.rs"
+required-features = ["rerun"]
