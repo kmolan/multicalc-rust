@@ -17,7 +17,7 @@ Newton fractal and the gradient-driven marbles; every number on screen is measur
 
 ## Highlights
 
-- **Runs the same math from a server to a microcontroller.** Every commit is built and tested on
+- **Runs the same math from a server to a microcontroller.** Every commit is built and tested on **six targets**:
   the `x86_64` and `aarch64` Linux hosts and on four bare-metal ABIs (`thumbv7em` soft-float,
   `thumbv7em` hardware-FPU, `thumbv6m`, and `riscv32imc`), running the real math under QEMU.
   `no_std`, no-alloc, and no-panic rules hold on every one.

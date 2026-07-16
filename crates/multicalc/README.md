@@ -13,7 +13,7 @@ math.
 
 ## Why use it
 
-- **Runs the same math from a server to a microcontroller.** Every commit is built and tested
+- **Runs the same math from a server to a microcontroller.** Every commit is built and tested on **six targets**:
   on `x86_64` and `aarch64` Linux and on four bare-metal ABIs (`thumbv7em` soft-float,
   `thumbv7em` hardware-FPU, `thumbv6m`, and `riscv32imc-unknown-none-elf`). The bare-metal
   builds run the real math under QEMU and check the answers, so `no_std`, no-heap, and no-panic
