@@ -44,8 +44,8 @@ numbers.
 
 ## Live showcases
 
-Four live demos, one per core module, each an attention-grabbing animated scene that markets the
-library's raw speed and accuracy. They need the `rerun` feature (on by default) and a
+Five live demos spanning the core modules, each an attention-grabbing animated scene that markets
+the library's raw speed and accuracy. They need the `rerun` feature (on by default) and a
 version-matched viewer already up. **Every number on screen is measured live** with
 `std::time::Instant` inside the demo — nothing is hardcoded. Run each with `--release` (mandatory
 for the timing readouts):
@@ -60,11 +60,18 @@ late or jitter but never changes what the demo computes.
 
 The figures below are representative of a modern desktop core (`x86_64`, `--release`).
 
-- **`ik_servo`** (optimization) — a 3-link arm runs a complete Levenberg-Marquardt IK solve, with
+- **`2d_arm_ik`** (optimization) — a 3-link arm runs a complete Levenberg-Marquardt IK solve, with
   exact autodiff Jacobians, every single millisecond. **Median solve ≈ 6 µs — under 1 % of the
   1 ms budget — with zero missed ticks over 120,000 solves.**
 
-  ![ik_servo — a 3-link arm running a full LM IK solve every millisecond](examples/showcase/support/ik_servo_showcase.gif)
+  ![2d_arm_ik — a 3-link arm running a full LM IK solve every millisecond](examples/showcase/support/2d_arm_ik_showcase.gif)
+
+- **`3d_arm_ik`** (spatial) — an 8-link SE(3) arm chases a moving 3D target in position and
+  orientation. Every millisecond a full Levenberg-Marquardt solve runs whose Jacobian — exp, log,
+  and compose through the whole Lie chain — comes from a single autodiff pass, with no hand-derived
+  kinematics. **Median solve ≈ 30 µs, tracking the moving target pose to a sub-micron position.**
+
+    ![3d_arm_ik — a 3-link arm running a full LM IK solve every millisecond](examples/showcase/support/3d_arm_ik_showcase.gif)
 
 - **`newton_fractal`** (root finding) — every pixel is a full Newton-system solve with an exact
   autodiff Jacobian, and the cubic's basins swirl as its roots orbit. **≈ 4 million Newton

@@ -104,6 +104,35 @@ pub trait VizSink {
         widths: &[f32],
     ) -> Result<(), VizError>;
 
+    /// Logs a rigid pose. `quat_wxyz` is `[w, x, y, z]` (core storage order); the sink converts to
+    /// the backend's order. Children of `path` inherit this pose.
+    fn transform3d(
+        &mut self,
+        path: &str,
+        translation: [f64; 3],
+        quat_wxyz: [f64; 4],
+    ) -> Result<(), VizError>;
+
+    /// Logs axis-aligned boxes in the entity's local frame. `colors` is length 1 (broadcast to
+    /// every box) or equal in length to `centers`. `centers` and `half_sizes` have equal length.
+    fn boxes3d(
+        &mut self,
+        path: &str,
+        centers: &[[f64; 3]],
+        half_sizes: &[[f64; 3]],
+        colors: &[Rgba],
+    ) -> Result<(), VizError>;
+
+    /// Logs arrows from `origins` along `vectors`. `colors` is length 1 (broadcast) or equal in
+    /// length to `vectors`. `origins` and `vectors` have equal length.
+    fn arrows3d(
+        &mut self,
+        path: &str,
+        origins: &[[f64; 3]],
+        vectors: &[[f64; 3]],
+        colors: &[Rgba],
+    ) -> Result<(), VizError>;
+
     /// Logs a row-major RGB8 image; `data.len()` must equal `width * height * 3`.
     fn image_rgb8(
         &mut self,

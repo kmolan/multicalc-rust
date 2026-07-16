@@ -162,6 +162,75 @@ impl VizSink for RerunSink {
             .map_err(|e| VizError::Backend(e.to_string()))
     }
 
+    fn transform3d(
+        &mut self,
+        path: &str,
+        translation: [f64; 3],
+        quat_wxyz: [f64; 4],
+    ) -> Result<(), VizError> {
+        let t = [
+            translation[0] as f32,
+            translation[1] as f32,
+            translation[2] as f32,
+        ];
+        // Core stores [w, x, y, z]; Rerun's Quaternion is xyzw — the one conversion point.
+        let rot = rerun::Quaternion::from_xyzw([
+            quat_wxyz[1] as f32,
+            quat_wxyz[2] as f32,
+            quat_wxyz[3] as f32,
+            quat_wxyz[0] as f32,
+        ]);
+        let arch = rerun::Transform3D::from_translation_rotation(t, rot);
+        self.stream
+            .log(path, &arch)
+            .map_err(|e| VizError::Backend(e.to_string()))
+    }
+
+    fn boxes3d(
+        &mut self,
+        path: &str,
+        centers: &[[f64; 3]],
+        half_sizes: &[[f64; 3]],
+        colors: &[Rgba],
+    ) -> Result<(), VizError> {
+        let c: Vec<[f32; 3]> = centers
+            .iter()
+            .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .collect();
+        let h: Vec<[f32; 3]> = half_sizes
+            .iter()
+            .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .collect();
+        let arch =
+            rerun::Boxes3D::from_centers_and_half_sizes(c, h).with_colors(colors_iter(colors));
+        self.stream
+            .log(path, &arch)
+            .map_err(|e| VizError::Backend(e.to_string()))
+    }
+
+    fn arrows3d(
+        &mut self,
+        path: &str,
+        origins: &[[f64; 3]],
+        vectors: &[[f64; 3]],
+        colors: &[Rgba],
+    ) -> Result<(), VizError> {
+        let o: Vec<[f32; 3]> = origins
+            .iter()
+            .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .collect();
+        let v: Vec<[f32; 3]> = vectors
+            .iter()
+            .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .collect();
+        let arch = rerun::Arrows3D::from_vectors(v)
+            .with_origins(o)
+            .with_colors(colors_iter(colors));
+        self.stream
+            .log(path, &arch)
+            .map_err(|e| VizError::Backend(e.to_string()))
+    }
+
     fn image_rgb8(
         &mut self,
         path: &str,

@@ -11,13 +11,11 @@ derivatives, integrals, curve fitting and linear algebra; built and tested on si
 hardware targets. Exercise the same code from a 64-bit server CPU down to a bare-metal microcontroller.**
 
 <p align="center">
-  <img src="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/support/ik_servo_showcase.gif" width="75%" alt="1 kHz 3-link arm running a full Levenberg-Marquardt solve every millisecond">
-  <img src="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/support/newton_fractal_showcase.gif" width="75%" alt="Morphing Newton fractal, every pixel a full Newton solve">
+  <video src="https://github.com/kmolan/multicalc-rust/raw/main/combined_demo_reel.mp4" width="100%" controls muted loop></video>
 </p>
 
-*Two of four live [showcase demos](demos#live-showcases): a 1 kHz 3-link arm running a complete
-Levenberg-Marquardt solve every millisecond, and a Newton fractal at ~4 million solves/sec on one
-core — every number measured live.*
+*A reel of the live [showcase demos](demos#live-showcases): the 3D and 2D arm IK solvers, then the
+Newton fractal and the gradient-driven marbles — every number on screen is measured live.*
 
 ## Highlights
 
@@ -104,9 +102,9 @@ below.
 - **[API docs](https://docs.rs/multicalc)** on docs.rs.
 - **[Examples](demos#start-here)**: Self-contained, self-checking programs for each module in the
   `demos/` crate. Run one with `cargo run -p multicalc-demos --example <name>`.
-- **[Live showcases](demos#live-showcases)**: Four animated Rerun demos — a 1 kHz IK on a 3-link arm, a
-  Newton fractal, Fourier epicycles drawing Ferris, and gradient-driven marbles — each streaming
-  live-measured speed and accuracy.
+- **[Live showcases](demos#live-showcases)**: Five animated Rerun demos — a 1 kHz IK on a 3-link arm,
+  an 8-link SE(3) arm tracking a moving 3D pose, a Newton fractal, Fourier epicycles drawing Ferris,
+  and gradient-driven marbles — each streaming live-measured speed and accuracy.
 - **[QA crate](tools/qa)**: `multicalc-qa` holds the CI-enforced accuracy fixtures and generates the [benchmarks](benchmarks) tables from them.
 
 ## Repository layout

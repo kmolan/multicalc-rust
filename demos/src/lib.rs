@@ -36,6 +36,19 @@ mod tests {
         sink.set_sequence("iteration", 0);
         sink.scalar("objective", 1.0)?;
         sink.points2d("data", &[[0.0, 0.0], [1.0, 1.0]])?;
+        sink.transform3d("pose", [0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0])?;
+        sink.boxes3d(
+            "pose/body",
+            &[[0.0, 0.0, 0.0]],
+            &[[0.5, 0.5, 0.5]],
+            &[[0x39, 0x87, 0xe5, 0xff]],
+        )?;
+        sink.arrows3d(
+            "pose/axis",
+            &[[0.0, 0.0, 0.0]],
+            &[[1.0, 0.0, 0.0]],
+            &[[0xc9, 0x85, 0x00, 0xff]],
+        )?;
         sink.flush()?;
         drop(sink);
 
