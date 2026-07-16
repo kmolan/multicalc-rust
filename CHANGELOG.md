@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-16
+
+A feature release adding spatial math (quaternions, Lie groups, twists/wrenches),
+ODE solvers, matrix-based discretization, and per-module error enums.
+
 ### Added
 
 - `vector!` and `matrix!` macros for building [`Vector`] and [`Matrix`] literals,
@@ -25,10 +30,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   via `.with_kahan_summation()`; pairwise remains the default. @rtmongold (#134)
 - **RISC-V embedded smoke.** `embedded-smoke` runs on `riscv32imc-unknown-none-elf`
   under QEMU `virt`, gated with its own flash/stack budgets. @rtmongold (#140)
+- **Quaternion type.** A `spatial::quaternion` module with unit-quaternion rotations.
+  @kmolan (#128)
+- **Lie groups.** A `spatial::lie` module with `SO(2)`, `SE(2)`, `SO(3)`, and `SE(3)`
+  (exp/log maps, composition, and group action), plus an `examples/lie_groups.rs`
+  walkthrough. @kmolan (#133)
+- **Twists and wrenches.** `spatial::twist` and `spatial::wrench` screw-theory types.
+  @kmolan (#137)
+- **Discretization and matrix exponential.** A new `discretization` module and a
+  `linear_algebra::expm` matrix exponential. @kmolan (#137)
+- **ODE solvers.** A new `ode` module with a fixed-step `RK4` and an adaptive `RK45`
+  integrator, plus an `examples/ode.rs` walkthrough and an `ode` benchmark. @kmolan (#135)
+- **Extended `Numeric` trait.** Inverse-trig (`asin`/`acos`/`atan`/`atan2`), hyperbolic
+  (`sinh`/`cosh`/`tanh`), and `copysign`/`floor`/`signum`/`hypot`/`powf`/`mul_add`/
+  `recip`, so autodiff scalar types support them. @kmolan (#120)
+- Property tests for numerical integration invariants. @kirloo (#122)
+- **Showcase demos.** A 3D arm IK demo and a 2D arm IK demo (renamed from `ik_servo`),
+  with a CSV/Rerun sink abstraction in the `demos` crate. @kmolan (#145)
+
+### Changed
+
+- **Per-module error enums.** Fallible operations now return family-specific enums
+  (`LinalgError`, `DiffError`, `IntegrateError`, `SolveError`), all convertible into the
+  `CalcError` umbrella, replacing the monolithic error codes. @kmolan (#136)
+- Faster Jacobians for large inputs: the multi-variable Jacobian now uses a single column
+  solve instead of per-column solves. @kmolan (#138)
+- Reorganized the benchmark suites and harness. @kmolan (#143)
+- Refreshed the crate README and updated its links and media. @kmolan (#144, #146, #147)
+- Internal refactor of the QA test and oracle scaffolding. @kmolan (#141)
+- Updated the ignored advisories in `deny.toml`. @kmolan (#142)
 
 ### Fixed
 
 - Fixed misspelled `examples/` link labels in `optimization/README.md`. @rtmongold
+- Corrected the `CONTRIBUTING.md` link from the README. @kirloo (#121)
 
 ## [0.7.2] - 2026-07-09
 
@@ -155,7 +190,9 @@ A breaking rewrite focused on real-time latency, ease of use, maintainability, a
 
 - The `num-complex` dependency, the `ComplexFloat` generic, and `f32` / complex-number support.
 
-[Unreleased]: https://github.com/kmolan/multicalc-rust/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/kmolan/multicalc-rust/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/kmolan/multicalc-rust/compare/v0.7.2...v0.8.0
+[0.7.2]: https://github.com/kmolan/multicalc-rust/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/kmolan/multicalc-rust/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/kmolan/multicalc-rust/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/kmolan/multicalc-rust/releases/tag/v0.6.0
