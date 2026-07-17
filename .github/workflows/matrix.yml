@@ -60,7 +60,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
       # Runs the library tests on each host. This overlaps the x86_64 `test` job on
       # purpose so the matrix is one complete cross-target gate on its own.
       - name: Build and test
@@ -81,11 +80,9 @@ jobs:
         with:
           targets: ${{ matrix.target }}
           components: llvm-tools-preview
-      - uses: Swatinem/rust-cache@v2
       # cargo-binutils provides `cargo size`, used by the budget check. It wraps
-      # the llvm-tools-preview component installed above. rust-cache does not cover
-      # installed binaries, so cache the compiled tool separately (built from source
-      # on a cache miss, restored on a hit).
+      # the llvm-tools-preview component installed above. Cache the compiled tool
+      # separately (built from source on a cache miss, restored on a hit).
       - name: Install cargo-binutils (cached)
         uses: taiki-e/cache-cargo-install-action@v3
         with:
