@@ -2,6 +2,7 @@
 mod approximation;
 mod discretization;
 mod gaussian_tables;
+mod kinematics;
 mod linear_algebra;
 mod numerical_derivative;
 mod numerical_integration;

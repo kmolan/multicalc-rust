@@ -230,7 +230,7 @@ impl<T: Numeric> DiffDrive<T> {
     /// assert!((back.right() - 2.0).abs() < 1e-15);
     /// ```
     pub fn new(wheel_radius: T, wheelbase: T) -> Result<Self, KinematicsError> {
-        // Finiteness first: NaN passes `<= 0`, so it would slip through the sign test as positive.
+        // Finiteness first: NaN fails `<= 0`, so the sign test alone would accept it.
         if !wheel_radius.is_finite() || !wheelbase.is_finite() {
             return Err(KinematicsError::NonFinite);
         }
