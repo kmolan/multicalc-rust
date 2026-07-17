@@ -31,12 +31,12 @@ def render(name, gauss):
     ]
     for order in range(1, MAX_ORDER + 1):
         abscissae, weights = gauss(order)
-        out.append("pub static {}_{}: [(f64, f64); {}] = [".format(name, order, order))
+        out.append("pub const {}_{}: [(f64, f64); {}] = [".format(name, order, order))
         for w, x in zip(weights, abscissae):
             out.append("    ({!r}, {!r}),".format(float(w), float(x)))
         out.append("];")
     out.append("")
-    out.append("pub static {}: [&[(f64, f64)]; {}] = [".format(name, MAX_ORDER + 1))
+    out.append("pub const {}: [&[(f64, f64)]; {}] = [".format(name, MAX_ORDER + 1))
     out.append("    &[],")
     for i in range(1, MAX_ORDER + 1):
         out.append("    &{}_{},".format(name, i))

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Const-evaluable solver constructors, AutoDiff `new()`, and Gaussian quadrature node
+  tables / `nodes`. @rtmongold (#168)
+
 ## [0.8.0] - 2026-07-16
 
 A feature release adding spatial math (quaternions, Lie groups, twists/wrenches),

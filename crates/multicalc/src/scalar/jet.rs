@@ -211,8 +211,11 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     const ONE: Self = Self::constant(T::ONE);
     const TWO: Self = Self::constant(T::TWO);
     const HALF: Self = Self::constant(T::HALF);
+    const HUNDRED: Self = Self::constant(T::HUNDRED);
     const PI: Self = Self::constant(T::PI);
     const EPSILON: Self = Self::constant(T::EPSILON);
+    const EPSILON_X4: Self = Self::constant(T::EPSILON_X4);
+    const EPSILON_X30: Self = Self::constant(T::EPSILON_X30);
     const NAN: Self = Self::constant(T::NAN);
     const INFINITY: Self = Self::constant(T::INFINITY);
     const NEG_INFINITY: Self = Self::constant(T::NEG_INFINITY);

@@ -54,8 +54,8 @@ impl<D: DerivatorMultiVariable + Default> Default for GaussNewton<D> {
 impl<D: DerivatorMultiVariable> GaussNewton<D> {
     /// Builds a solver with a specific differentiation backend and default settings:
     /// tolerances of `30·EPSILON`, patience `100`, backtracking off.
-    pub fn from_derivator(derivator: D) -> Self {
-        let tol = D::Scalar::EPSILON * D::Scalar::from_f64(30.0);
+    pub const fn from_derivator(derivator: D) -> Self {
+        let tol = D::Scalar::EPSILON_X30;
         GaussNewton {
             derivator,
             ftol: tol,
@@ -68,28 +68,28 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
 
     /// Sets the relative tolerance on the sum of squared residuals.
     #[must_use]
-    pub fn with_ftol(mut self, ftol: D::Scalar) -> Self {
+    pub const fn with_ftol(mut self, ftol: D::Scalar) -> Self {
         self.ftol = ftol;
         self
     }
 
     /// Sets the relative tolerance on the parameter step.
     #[must_use]
-    pub fn with_xtol(mut self, xtol: D::Scalar) -> Self {
+    pub const fn with_xtol(mut self, xtol: D::Scalar) -> Self {
         self.xtol = xtol;
         self
     }
 
     /// Sets the tolerance on the scaled gradient norm.
     #[must_use]
-    pub fn with_gtol(mut self, gtol: D::Scalar) -> Self {
+    pub const fn with_gtol(mut self, gtol: D::Scalar) -> Self {
         self.gtol = gtol;
         self
     }
 
     /// Sets the maximum number of iterations.
     #[must_use]
-    pub fn with_patience(mut self, patience: usize) -> Self {
+    pub const fn with_patience(mut self, patience: usize) -> Self {
         self.patience = patience;
         self
     }
@@ -97,7 +97,7 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
     /// Enables a backtracking line search: if a full step does not reduce the residual norm, the
     /// step is halved until it does (or the safeguard gives up). Off by default.
     #[must_use]
-    pub fn with_backtracking(mut self, backtracking: bool) -> Self {
+    pub const fn with_backtracking(mut self, backtracking: bool) -> Self {
         self.backtracking = backtracking;
         self
     }
