@@ -32,33 +32,44 @@ pub struct Bisection<T = f64> {
 
 impl<T: Numeric> Default for Bisection<T> {
     fn default() -> Self {
-        let tol = T::EPSILON * T::from_f64(4.0);
+        Self::new()
+    }
+}
+
+impl<T: Numeric> Bisection<T> {
+    /// Const constructor (same as [`Default::default`]).
+    ///
+    /// ```
+    /// use multicalc::root_finding::Bisection;
+    ///
+    /// const B: Bisection = Bisection::new();
+    /// ```
+    pub const fn new() -> Self {
+        let tol = T::EPSILON_X4;
         Bisection {
             xtol: tol,
             ftol: tol,
             max_iterations: 100,
         }
     }
-}
 
-impl<T: Numeric> Bisection<T> {
     /// Sets the bracket-width tolerance (relative: compared against `xtol * (1 + |mid|)`).
     #[must_use]
-    pub fn with_xtol(mut self, xtol: T) -> Self {
+    pub const fn with_xtol(mut self, xtol: T) -> Self {
         self.xtol = xtol;
         self
     }
 
     /// Sets the residual tolerance: the solver stops when `|f(mid)| ≤ ftol`.
     #[must_use]
-    pub fn with_ftol(mut self, ftol: T) -> Self {
+    pub const fn with_ftol(mut self, ftol: T) -> Self {
         self.ftol = ftol;
         self
     }
 
     /// Sets the maximum number of iterations.
     #[must_use]
-    pub fn with_max_iterations(mut self, max_iterations: usize) -> Self {
+    pub const fn with_max_iterations(mut self, max_iterations: usize) -> Self {
         self.max_iterations = max_iterations;
         self
     }

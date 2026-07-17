@@ -223,6 +223,12 @@ impl<T: Numeric> Numeric for HyperDual<T> {
         eps2: T::ZERO,
         eps1eps2: T::ZERO,
     };
+    const HUNDRED: Self = HyperDual {
+        real: T::HUNDRED,
+        eps1: T::ZERO,
+        eps2: T::ZERO,
+        eps1eps2: T::ZERO,
+    };
     const PI: Self = HyperDual {
         real: T::PI,
         eps1: T::ZERO,
@@ -231,6 +237,18 @@ impl<T: Numeric> Numeric for HyperDual<T> {
     };
     const EPSILON: Self = HyperDual {
         real: T::EPSILON,
+        eps1: T::ZERO,
+        eps2: T::ZERO,
+        eps1eps2: T::ZERO,
+    };
+    const EPSILON_X4: Self = HyperDual {
+        real: T::EPSILON_X4,
+        eps1: T::ZERO,
+        eps2: T::ZERO,
+        eps1eps2: T::ZERO,
+    };
+    const EPSILON_X30: Self = HyperDual {
+        real: T::EPSILON_X30,
         eps1: T::ZERO,
         eps2: T::ZERO,
         eps1eps2: T::ZERO,

@@ -51,8 +51,16 @@ impl<D: DerivatorSingleVariable + Default> Default for Newton<D> {
 impl<D: DerivatorSingleVariable> Newton<D> {
     /// Builds a solver with the given derivator and default settings:
     /// tolerances of `30 × EPSILON`, budget of 100 iterations, backtracking off.
-    pub fn from_derivator(derivator: D) -> Self {
-        let tol = D::Scalar::EPSILON * D::Scalar::from_f64(30.0);
+    ///
+    /// ```
+    /// use multicalc::numerical_derivative::autodiff::AutoDiffSingle;
+    /// use multicalc::root_finding::Newton;
+    ///
+    /// const D: AutoDiffSingle = AutoDiffSingle::new();
+    /// const SOLVER: Newton<AutoDiffSingle> = Newton::from_derivator(D);
+    /// ```
+    pub const fn from_derivator(derivator: D) -> Self {
+        let tol = D::Scalar::EPSILON_X30;
         Newton {
             derivator,
             xtol: tol,
@@ -64,21 +72,21 @@ impl<D: DerivatorSingleVariable> Newton<D> {
 
     /// Sets the step-size tolerance (relative: compared against `xtol × (1 + |x|)`).
     #[must_use]
-    pub fn with_xtol(mut self, xtol: D::Scalar) -> Self {
+    pub const fn with_xtol(mut self, xtol: D::Scalar) -> Self {
         self.xtol = xtol;
         self
     }
 
     /// Sets the residual tolerance: the solver stops when `|f(x)| ≤ ftol`.
     #[must_use]
-    pub fn with_ftol(mut self, ftol: D::Scalar) -> Self {
+    pub const fn with_ftol(mut self, ftol: D::Scalar) -> Self {
         self.ftol = ftol;
         self
     }
 
     /// Sets the maximum number of iterations.
     #[must_use]
-    pub fn with_max_iterations(mut self, max_iterations: usize) -> Self {
+    pub const fn with_max_iterations(mut self, max_iterations: usize) -> Self {
         self.max_iterations = max_iterations;
         self
     }
@@ -86,7 +94,7 @@ impl<D: DerivatorSingleVariable> Newton<D> {
     /// Enables or disables backtracking: when on, each Newton step is halved until `|f|`
     /// decreases or the safeguard runs out. Off by default.
     #[must_use]
-    pub fn with_backtracking(mut self, backtracking: bool) -> Self {
+    pub const fn with_backtracking(mut self, backtracking: bool) -> Self {
         self.backtracking = backtracking;
         self
     }

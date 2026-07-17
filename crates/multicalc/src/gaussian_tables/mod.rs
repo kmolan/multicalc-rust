@@ -14,7 +14,18 @@ pub mod legendre;
 pub const MAX_ORDER: usize = 30;
 
 /// Returns the `(weight, abscissa)` pairs for a quadrature method and order.
-pub fn nodes(
+///
+/// ```
+/// use multicalc::gaussian_tables::nodes;
+/// use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
+///
+/// const PAIRS: &[(f64, f64)] = match nodes(GaussianQuadratureMethod::GaussLegendre, 4) {
+///     Ok(t) => t,
+///     Err(_) => panic!("order 4 must exist"),
+/// };
+/// assert_eq!(PAIRS.len(), 4);
+/// ```
+pub const fn nodes(
     method: GaussianQuadratureMethod,
     order: usize,
 ) -> Result<&'static [(f64, f64)], IntegrateError> {
@@ -24,9 +35,8 @@ pub fn nodes(
         GaussianQuadratureMethod::GaussLaguerre => &laguerre::LAGUERRE,
     };
 
-    table
-        .get(order)
-        .filter(|pairs| !pairs.is_empty())
-        .copied()
-        .ok_or(IntegrateError::QuadratureOrderOutOfRange)
+    if order == 0 || order > MAX_ORDER {
+        return Err(IntegrateError::QuadratureOrderOutOfRange);
+    }
+    Ok(table[order])
 }

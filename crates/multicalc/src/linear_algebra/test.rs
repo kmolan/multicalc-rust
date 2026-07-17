@@ -281,8 +281,11 @@ impl Numeric for Counted {
     const ONE: Self = Counted(1.0);
     const TWO: Self = Counted(2.0);
     const HALF: Self = Counted(0.5);
+    const HUNDRED: Self = Counted(f64::HUNDRED);
     const PI: Self = Counted(core::f64::consts::PI);
     const EPSILON: Self = Counted(f64::EPSILON);
+    const EPSILON_X4: Self = Counted(f64::EPSILON_X4);
+    const EPSILON_X30: Self = Counted(f64::EPSILON_X30);
     const NAN: Self = Counted(f64::NAN);
     const INFINITY: Self = Counted(f64::INFINITY);
     const NEG_INFINITY: Self = Counted(f64::NEG_INFINITY);

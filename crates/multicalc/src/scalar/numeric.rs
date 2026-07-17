@@ -32,10 +32,16 @@ pub trait Numeric:
     const TWO: Self;
     /// The value `0.5`.
     const HALF: Self;
+    /// The value `100`.
+    const HUNDRED: Self;
     /// Archimedes' constant, π.
     const PI: Self;
     /// The difference between `1` and the next larger representable value.
     const EPSILON: Self;
+    /// `4 × EPSILON`.
+    const EPSILON_X4: Self;
+    /// `30 × EPSILON`.
+    const EPSILON_X30: Self;
     /// Not a Number.
     const NAN: Self;
     /// Positive infinity.
@@ -232,8 +238,11 @@ impl Numeric for f64 {
     const ONE: Self = 1.0;
     const TWO: Self = 2.0;
     const HALF: Self = 0.5;
+    const HUNDRED: Self = 100.0;
     const PI: Self = core::f64::consts::PI;
     const EPSILON: Self = f64::EPSILON;
+    const EPSILON_X4: Self = f64::EPSILON * 4.0;
+    const EPSILON_X30: Self = f64::EPSILON * 30.0;
     const NAN: Self = f64::NAN;
     const INFINITY: Self = f64::INFINITY;
     const NEG_INFINITY: Self = f64::NEG_INFINITY;
@@ -366,8 +375,11 @@ impl Numeric for f32 {
     const ONE: Self = 1.0;
     const TWO: Self = 2.0;
     const HALF: Self = 0.5;
+    const HUNDRED: Self = 100.0;
     const PI: Self = core::f32::consts::PI;
     const EPSILON: Self = f32::EPSILON;
+    const EPSILON_X4: Self = f32::EPSILON * 4.0;
+    const EPSILON_X30: Self = f32::EPSILON * 30.0;
     const NAN: Self = f32::NAN;
     const INFINITY: Self = f32::INFINITY;
     const NEG_INFINITY: Self = f32::NEG_INFINITY;
