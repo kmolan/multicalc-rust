@@ -40,7 +40,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
-      - uses: Swatinem/rust-cache@v2
       - name: Test (default, no_std-shaped)
         run: cargo test -p multicalc
       - name: Test (alloc feature)
@@ -54,7 +53,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
       # Reads committed fixtures only — never runs Python, never downloads MuJoCo.
       - run: cargo test -p multicalc-qa
       - name: Smoke fixtures are up to date
@@ -74,7 +72,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
       - name: Formatting
         run: cargo fmt --all --check
       - name: Clippy
@@ -94,7 +91,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
       - name: Build docs (deny warnings, broken links)
         run: cargo doc -p multicalc --no-deps --all-features
 
@@ -106,7 +102,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: thumbv7em-none-eabi, thumbv7em-none-eabihf
-      - uses: Swatinem/rust-cache@v2
       - name: Build for bare metal (no default features)
         run: cargo build -p multicalc --no-default-features --target thumbv7em-none-eabi
 
@@ -129,7 +124,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
       - name: Build headless demos
         run: cargo build -p multicalc-demos --examples --no-default-features
       - name: Run basics
