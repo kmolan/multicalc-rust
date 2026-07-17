@@ -11,6 +11,7 @@ import numpy as np
 from generators import (
     calculus,
     discretization,
+    estimation,
     linalg,
     ode,
     optimization,
@@ -29,6 +30,8 @@ def main():
     rng = np.random.default_rng(SEED)
     linalg.run(args.out, rng, SEED)
     discretization.run(args.out, rng, SEED)
+    # The last rng consumer: registering it here leaves the streams above untouched.
+    estimation.run(args.out, rng, SEED)
     optimization.run(args.out, SEED)
     quadrature.run(args.out, SEED)
     ode.run(args.out, SEED)
