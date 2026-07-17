@@ -85,6 +85,16 @@ pub enum KinematicsError {
     NonFinite,
 }
 
+/// Errors from the estimation module (Kalman filtering).
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
+pub enum EstimationError {
+    /// The innovation covariance was not positive definite — the gain solve failed.
+    NotPositiveDefinite,
+    /// A state, covariance, or measurement value was infinite or NaN.
+    NonFinite,
+}
+
 /// Umbrella over the per-module-family errors. Fallible operations return their family enum; this
 /// type collects them where one error type must span families.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -100,6 +110,8 @@ pub enum CalcError {
     Differentiate(DiffError),
     /// A kinematics error.
     Kinematics(KinematicsError),
+    /// An estimation error.
+    Estimation(EstimationError),
 }
 
 impl From<LinalgError> for SolveError {
@@ -135,6 +147,11 @@ impl From<SolveError> for CalcError {
 impl From<KinematicsError> for CalcError {
     fn from(e: KinematicsError) -> Self {
         CalcError::Kinematics(e)
+    }
+}
+impl From<EstimationError> for CalcError {
+    fn from(e: EstimationError) -> Self {
+        CalcError::Estimation(e)
     }
 }
 
@@ -216,6 +233,17 @@ impl core::fmt::Display for KinematicsError {
     }
 }
 
+impl core::fmt::Display for EstimationError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(match self {
+            EstimationError::NotPositiveDefinite => {
+                "innovation covariance is not positive definite"
+            }
+            EstimationError::NonFinite => "filter value was not finite",
+        })
+    }
+}
+
 impl core::fmt::Display for CalcError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -224,6 +252,7 @@ impl core::fmt::Display for CalcError {
             CalcError::Integrate(e) => write!(f, "{e}"),
             CalcError::Differentiate(e) => write!(f, "{e}"),
             CalcError::Kinematics(e) => write!(f, "{e}"),
+            CalcError::Estimation(e) => write!(f, "{e}"),
         }
     }
 }
@@ -232,6 +261,7 @@ impl core::error::Error for LinalgError {}
 impl core::error::Error for DiffError {}
 impl core::error::Error for IntegrateError {}
 impl core::error::Error for KinematicsError {}
+impl core::error::Error for EstimationError {}
 
 impl core::error::Error for SolveError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
@@ -251,6 +281,7 @@ impl core::error::Error for CalcError {
             CalcError::Integrate(e) => Some(e),
             CalcError::Differentiate(e) => Some(e),
             CalcError::Kinematics(e) => Some(e),
+            CalcError::Estimation(e) => Some(e),
         }
     }
 }

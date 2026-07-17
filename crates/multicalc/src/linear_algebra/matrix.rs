@@ -143,6 +143,19 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Matrix<ROWS, COLS, T> {
     pub fn transpose(self) -> Matrix<COLS, ROWS, T> {
         Matrix::from_fn(|r, c| self[(c, r)])
     }
+
+    /// Returns `true` when every entry is neither infinite nor NaN.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// assert!(Matrix::new([[1.0, -2.0], [3.0, 4.0]]).is_finite());
+    /// assert!(!Matrix::new([[1.0, f64::NAN], [3.0, 4.0]]).is_finite());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn is_finite(self) -> bool {
+        self.data.iter().flatten().all(|x| x.is_finite())
+    }
 }
 
 impl<const N: usize, T: Numeric> Matrix<N, N, T> {
