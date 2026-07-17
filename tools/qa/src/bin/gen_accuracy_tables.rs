@@ -327,6 +327,29 @@ const DOCS: &[Doc] = &[
         }],
     },
     Doc {
+        file: "estimation.md",
+        modules: &[Module {
+            dir: "fixtures/v1/estimation",
+            rows: &[
+                Row {
+                    case: "kalman_filter_constant_velocity_one_dimensional",
+                    operation: "Linear Kalman filter, 8 steps, state 2 / measurement 1",
+                    equation: "constant velocity, position measured",
+                },
+                Row {
+                    case: "kalman_filter_constant_velocity_two_dimensional",
+                    operation: "Linear Kalman filter, 10 steps, state 4 / measurement 2",
+                    equation: "constant velocity in x and y, both positions measured",
+                },
+                Row {
+                    case: "kalman_filter_with_control_input",
+                    operation: "Linear Kalman filter with control, 8 steps, control 1",
+                    equation: "x⁻ = F·x + B·u, position measured",
+                },
+            ],
+        }],
+    },
+    Doc {
         file: "root_finding.md",
         modules: &[Module {
             dir: "fixtures/v1/root_finding",
@@ -408,6 +431,8 @@ fn source(fx: &Fixture) -> String {
         format!("closed-form analytic (mpmath {})", version("mpmath"))
     } else if fx.metadata.generator == "ode" {
         format!("SciPy solve_ivp {}", version("scipy"))
+    } else if libs.contains_key("filterpy") {
+        format!("FilterPy {}", version("filterpy"))
     } else if libs.contains_key("scipy") {
         format!("SciPy/MINPACK {}", version("scipy"))
     } else if libs.contains_key("numpy") {
