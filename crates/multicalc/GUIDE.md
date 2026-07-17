@@ -28,6 +28,7 @@ see [Error handling](#error-handling).
 - [ODE integrators](#ode-integrators)
 - [Discretization](#discretization)
 - [Spatial: quaternions and Lie groups](#spatial-quaternions-and-lie-groups)
+- [Kinematics](#kinematics)
 - [Error handling](#error-handling)
 - [Internals](#internals)
 
@@ -572,9 +573,59 @@ worked applications:
 and
 [2d_arm_ik.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/2d_arm_ik.rs).
 
+## Kinematics
+
+Maps between wheel motion and chassis motion for a differential drive, and pose integration on
+SE(2). Fixed-size, no allocation, no panics, and generic over the `Numeric` scalar.
+
+The chassis intermediate is deliberately 2-DOF, not 3: a differential drive has exactly two degrees
+of freedom `(v, ω)` and exactly two wheels, so the map is a bijection and both round trips are exact
+identities. There is no lateral field to silently drop.
+
+- `DiffDrive`: the geometry, a wheel radius and a track width. Constructing it is the only fallible
+  operation in the module; with the geometry checked once, every map below is total.
+- `WheelRates` / `ChassisRate`: motion per second, related by `forward` and `inverse`.
+- `WheelDeltas` / `ChassisDelta`: motion accrued over one tick, related by `forward_delta` and
+  `inverse_delta`. `WheelDeltas` is what an encoder reports.
+- `integrate`: advances an `SE2` pose along the exact constant-twist arc.
+- `Unicycle`: the same plant as an ODE right-hand side, for `Rk4`/`Rk45`.
+- `OdometryStep`: the process model as a `VectorFn`, for autodiff Jacobians.
+
+```rust
+use multicalc::kinematics::{ChassisRate, DiffDrive, WheelRates, integrate};
+use multicalc::scalar::Dual;
+use multicalc::spatial::SE2;
+
+// Geometry: a 36 mm wheel radius and a 235 mm track width.
+let dd = DiffDrive::new(0.036_f64, 0.235).unwrap();
+
+// Wheel rates to chassis motion, and back exactly.
+let chassis = dd.forward(WheelRates::new(10.0, 10.0));   // v = 0.36 m/s, ω = 0
+let wheels = dd.inverse(ChassisRate::new(0.36, 0.0));    // back to (10, 10)
+
+// The encoder path: distance travelled -> wheel rotation -> chassis motion -> pose.
+let deltas = dd.wheel_deltas_from_travel(0.01, 0.012);
+let pose = integrate(SE2::identity(), dd.forward_delta(deltas));
+
+// Autodiff straight through an odometry step: d(pose)/d(arc length).
+let step = integrate(
+    SE2::<Dual<f64>>::identity(),
+    ChassisRate::new(Dual::variable(0.4), Dual::constant(0.3)).integrate_over(Dual::constant(1.0)),
+);
+let dx_ds = step.translation()[0].deriv;
+```
+
+Because `integrate` is built on `SE2::exp`, a straight line (ω = 0) is handled by the same code path
+as an arc, with no `1/ω` to blow up: the value and its derivative stay finite at exactly zero
+curvature. The arc is exact for a constant twist at any step size, so the modelling error is the
+zero-order hold on the wheel rates rather than integration error.
+
+Full demo:
+[kinematics.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/kinematics.rs).
+
 ## Error handling
 
-Each module family returns its own error enum; all four convert into the `CalcError` umbrella
+Each module family returns its own error enum; all five convert into the `CalcError` umbrella
 via `From`, so a caller that spans families can hold one type. Every enum is `#[non_exhaustive]`,
 `Copy`, and implements `Display` and `core::error::Error`.
 
@@ -584,7 +635,8 @@ via `From`, so a caller that spans families can hold one type. Every enum is `#[
 | `DiffError` | [Derivatives](#derivatives-jacobians-and-hessians), [Approximation](#taylor-approximation), [Vector calculus](#vector-calculus) | `OrderZero`, `OrderUnsupported`, `StepSizeZero`, `IndexOutOfRange`, `EmptyFunctionSet` |
 | `IntegrateError` | [Integration](#integration), [Gaussian tables](#gaussian-quadrature-tables), [ODE](#ode-integrators) | `IterationsZero`, `LimitsIllDefined`, `QuadratureOrderOutOfRange`, `StepSizeTooSmall`, `DidNotConverge { steps }`, `NonFinite` |
 | `SolveError` | [Optimization](#least-squares-optimization), [Root finding](#root-finding) | `DidNotConverge { iters, residual }`, `NonFinite`, `InvalidBracket`, `Linalg(LinalgError)`, `Diff(DiffError)` |
-| `CalcError` | umbrella | `Linalg`, `Solve`, `Integrate`, `Differentiate` |
+| `KinematicsError` | [Kinematics](#kinematics) | `NonPositiveParameter`, `NonFinite` |
+| `CalcError` | umbrella | `Linalg`, `Solve`, `Integrate`, `Differentiate`, `Kinematics` |
 
 `SolveError` wraps `LinalgError` and `DiffError` (a solver step can fail in either), and both
 are reachable through `core::error::Error::source`. Convert up to the umbrella with `?` or

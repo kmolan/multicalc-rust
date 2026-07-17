@@ -3,7 +3,9 @@
 
 use std::f64::consts::PI;
 
-use multicalc::kinematics::{ChassisDelta, ChassisRate, DiffDrive, Unicycle, WheelDeltas, integrate};
+use multicalc::kinematics::{
+    ChassisDelta, ChassisRate, DiffDrive, Unicycle, WheelDeltas, integrate,
+};
 use multicalc::linear_algebra::Vector;
 use multicalc::ode::Rk45;
 use multicalc::spatial::{SE2, SO2};

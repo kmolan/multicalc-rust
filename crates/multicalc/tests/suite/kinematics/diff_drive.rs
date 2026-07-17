@@ -200,10 +200,7 @@ fn project_tangent_discards_lateral() {
 
 #[test]
 fn tangent_slip_reports_lateral() {
-    assert_eq!(
-        ChassisRate::tangent_slip(Vector::new([1.0, 9.9, 2.0])),
-        9.9
-    );
+    assert_eq!(ChassisRate::tangent_slip(Vector::new([1.0, 9.9, 2.0])), 9.9);
 }
 
 #[test]
@@ -212,7 +209,10 @@ fn project_round_trips_only_without_slip() {
     assert_eq!(ChassisRate::project_tangent(clean).to_tangent(), clean);
 
     let slipping = Vector::new([1.0, 9.9, 2.0]);
-    assert_ne!(ChassisRate::project_tangent(slipping).to_tangent(), slipping);
+    assert_ne!(
+        ChassisRate::project_tangent(slipping).to_tangent(),
+        slipping
+    );
 }
 
 #[test]
