@@ -1,7 +1,7 @@
 //! Unicycle field tests: convergence of RK4 on the field to the closed-form arc, and autodiff
 //! against finite differences including at exactly zero curvature.
 
-use multicalc::kinematics::{ChassisDelta, ChassisRate, OdometryStep, Unicycle, integrate};
+use multicalc::kinematics::{BodyArc, BodyTwist, OdometryStep, Unicycle, integrate};
 use multicalc::linear_algebra::Vector;
 use multicalc::ode::Rk4;
 use multicalc::scalar::{Dual, Numeric, VectorFn};
@@ -11,12 +11,12 @@ use multicalc::spatial::SE2;
 
 /// The three outputs of one odometry increment from the identity: `[x, y, θ]`.
 fn arc_outputs<T: Numeric>(ds: T, dtheta: T) -> [T; 3] {
-    let pose = integrate(SE2::identity(), ChassisDelta::new(ds, dtheta));
+    let pose = integrate(SE2::identity(), BodyArc::new(ds, dtheta));
     let t = pose.translation();
     [t[0], t[1], pose.rotation().log()]
 }
 
-fn rk4_to(rate: ChassisRate<f64>, dt: f64, tf: f64) -> Vector<3, f64> {
+fn rk4_to(rate: BodyTwist<f64>, dt: f64, tf: f64) -> Vector<3, f64> {
     let f = Unicycle::new(rate).field();
     let n = (tf / dt).round() as usize;
     let mut y = Vector::new([0.0, 0.0, 0.0]);
@@ -32,7 +32,7 @@ fn rk4_to(rate: ChassisRate<f64>, dt: f64, tf: f64) -> Vector<3, f64> {
 
 #[test]
 fn rk4_of_field_converges_to_integrate() {
-    let rate = ChassisRate::new(0.4, 0.9);
+    let rate = BodyTwist::new(0.4, 0.9);
     let tf = 1.0;
 
     let truth = integrate(SE2::identity(), rate.integrate_over(tf)).translation();

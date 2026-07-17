@@ -11,10 +11,12 @@
 //! *Probabilistic Robotics*, Ch. 5, and Siegwart and Nourbakhsh, *Introduction to Autonomous
 //! Mobile Robots*, Ch. 3.
 
-mod diff_drive;
+mod differential_drive;
 mod odometry;
 mod unicycle;
 
-pub use diff_drive::{ChassisDelta, ChassisRate, DiffDrive, WheelDeltas, WheelRates};
+pub use differential_drive::{
+    BodyArc, BodyTwist, DifferentialDrive, WheelRotations, WheelVelocities,
+};
 pub use odometry::{OdometryStep, integrate};
 pub use unicycle::Unicycle;

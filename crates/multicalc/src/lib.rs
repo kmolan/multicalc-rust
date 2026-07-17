@@ -43,7 +43,7 @@ pub use spatial::{SE2, SE3, SO2, SO3};
 pub use spatial::{Twist, Wrench};
 
 /// Differential-drive kinematics and SE(2) odometry.
-pub use kinematics::{ChassisDelta, ChassisRate, DiffDrive, WheelDeltas, WheelRates};
+pub use kinematics::{BodyArc, BodyTwist, DifferentialDrive, WheelRotations, WheelVelocities};
 
 /// The Levenberg-Marquardt and Gauss-Newton least-squares solvers and their result types.
 pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};

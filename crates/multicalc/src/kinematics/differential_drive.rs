@@ -1,68 +1,72 @@
-//! Differential-drive geometry: wheel motion to chassis motion and back.
+//! Differential-drive geometry: wheel motion to body motion and back.
 
 use crate::error::KinematicsError;
 use crate::linear_algebra::Vector;
 use crate::scalar::Numeric;
 use crate::spatial::SE2;
 
-/// Left/right wheel motion to linear/angular chassis motion. Unit-agnostic: rates in, rates out;
-/// deltas in, deltas out.
+/// Left/right wheel motion to linear/angular body motion. Unit-agnostic: velocities in, twist out;
+/// rotations in, arc out.
 #[inline]
-fn to_chassis<T: Numeric>(r: T, b: T, left: T, right: T) -> (T, T) {
+fn to_body<T: Numeric>(r: T, b: T, left: T, right: T) -> (T, T) {
     (r * (right + left) * T::HALF, r * (right - left) / b)
 }
 
-/// The inverse of [`to_chassis`].
+/// The inverse of [`to_body`].
 #[inline]
 fn to_wheels<T: Numeric>(r: T, b: T, linear: T, angular: T) -> (T, T) {
     let half_span = angular * b * T::HALF;
     ((linear - half_span) / r, (linear + half_span) / r)
 }
 
-/// Wheel angular rates [rad/s]. Positive drives the chassis forward.
+/// Wheel angular velocities [rad/s]. Positive drives the body forward.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct WheelRates<T: Numeric> {
+pub struct WheelVelocities<T: Numeric> {
     left: T,
     right: T,
 }
 
-/// Wheel angular deltas over one tick [rad] — what an encoder reports.
+/// Wheel angular displacements over one tick [rad] — what an encoder reports.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct WheelDeltas<T: Numeric> {
+pub struct WheelRotations<T: Numeric> {
     left: T,
     right: T,
 }
 
-/// Chassis rate: forward speed [m/s] and yaw rate [rad/s].
+/// The body twist a differential drive can realise: forward speed [m/s] and yaw rate [rad/s].
 ///
-/// There is no lateral field: a differential-drive chassis cannot slide sideways.
+/// The se(2) twist restricted to two degrees of freedom. There is no lateral field: a
+/// differential-drive body cannot slide sideways.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ChassisRate<T: Numeric> {
+pub struct BodyTwist<T: Numeric> {
     linear: T,
     angular: T,
 }
 
-/// Chassis delta over one tick: arc length [m] and heading change [rad].
+/// The arc a body traces over one tick: arc length [m] and heading change [rad].
+///
+/// Arc length, not displacement — the straight-line distance covered is the chord, which is shorter
+/// whenever the heading changes. These are the exponential coordinates of the relative pose.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ChassisDelta<T: Numeric> {
+pub struct BodyArc<T: Numeric> {
     linear: T,
     angular: T,
 }
 
-impl<T: Numeric> WheelRates<T> {
-    /// Rates from the left and right wheel, in [rad/s].
+impl<T: Numeric> WheelVelocities<T> {
+    /// Velocities of the left and right wheel, in [rad/s].
     #[inline]
     pub fn new(left: T, right: T) -> Self {
-        WheelRates { left, right }
+        WheelVelocities { left, right }
     }
 
-    /// The left wheel rate.
+    /// The left wheel velocity.
     #[inline]
     pub fn left(self) -> T {
         self.left
     }
 
-    /// The right wheel rate.
+    /// The right wheel velocity.
     #[inline]
     pub fn right(self) -> T {
         self.right
@@ -71,27 +75,27 @@ impl<T: Numeric> WheelRates<T> {
     /// Both wheels stopped.
     #[inline]
     pub fn zeros() -> Self {
-        WheelRates {
+        WheelVelocities {
             left: T::ZERO,
             right: T::ZERO,
         }
     }
 }
 
-impl<T: Numeric> WheelDeltas<T> {
-    /// Deltas from the left and right wheel, in [rad].
+impl<T: Numeric> WheelRotations<T> {
+    /// Rotations of the left and right wheel, in [rad].
     #[inline]
     pub fn new(left: T, right: T) -> Self {
-        WheelDeltas { left, right }
+        WheelRotations { left, right }
     }
 
-    /// The left wheel delta.
+    /// The left wheel rotation.
     #[inline]
     pub fn left(self) -> T {
         self.left
     }
 
-    /// The right wheel delta.
+    /// The right wheel rotation.
     #[inline]
     pub fn right(self) -> T {
         self.right
@@ -100,18 +104,18 @@ impl<T: Numeric> WheelDeltas<T> {
     /// Neither wheel turned.
     #[inline]
     pub fn zeros() -> Self {
-        WheelDeltas {
+        WheelRotations {
             left: T::ZERO,
             right: T::ZERO,
         }
     }
 }
 
-impl<T: Numeric> ChassisRate<T> {
-    /// A rate from a forward speed [m/s] and a yaw rate [rad/s].
+impl<T: Numeric> BodyTwist<T> {
+    /// A twist from a forward speed [m/s] and a yaw rate [rad/s].
     #[inline]
     pub fn new(linear: T, angular: T) -> Self {
-        ChassisRate { linear, angular }
+        BodyTwist { linear, angular }
     }
 
     /// The forward speed.
@@ -126,10 +130,10 @@ impl<T: Numeric> ChassisRate<T> {
         self.angular
     }
 
-    /// The chassis at rest.
+    /// The body at rest.
     #[inline]
     pub fn zeros() -> Self {
-        ChassisRate {
+        BodyTwist {
             linear: T::ZERO,
             angular: T::ZERO,
         }
@@ -144,11 +148,11 @@ impl<T: Numeric> ChassisRate<T> {
     /// Projects an se(2) tangent onto the motions a differential drive can produce, discarding the
     /// lateral component.
     ///
-    /// Lossy: `ChassisRate::project_tangent(xi).to_tangent()` equals `xi` only when `xi[1]` is
+    /// Lossy: `BodyTwist::project_tangent(xi).to_tangent()` equals `xi` only when `xi[1]` is
     /// zero. [`tangent_slip`](Self::tangent_slip) reports what is discarded.
     #[inline]
     pub fn project_tangent(xi: Vector<3, T>) -> Self {
-        ChassisRate {
+        BodyTwist {
             linear: xi[0],
             angular: xi[2],
         }
@@ -161,21 +165,21 @@ impl<T: Numeric> ChassisRate<T> {
         xi[1]
     }
 
-    /// The delta accrued over `dt` at this constant rate.
+    /// The arc traced over `dt` by holding this twist constant.
     #[inline]
-    pub fn integrate_over(self, dt: T) -> ChassisDelta<T> {
-        ChassisDelta {
+    pub fn integrate_over(self, dt: T) -> BodyArc<T> {
+        BodyArc {
             linear: self.linear * dt,
             angular: self.angular * dt,
         }
     }
 }
 
-impl<T: Numeric> ChassisDelta<T> {
-    /// A delta from an arc length [m] and a heading change [rad].
+impl<T: Numeric> BodyArc<T> {
+    /// An arc from an arc length [m] and a heading change [rad].
     #[inline]
     pub fn new(linear: T, angular: T) -> Self {
-        ChassisDelta { linear, angular }
+        BodyArc { linear, angular }
     }
 
     /// The arc length.
@@ -190,10 +194,10 @@ impl<T: Numeric> ChassisDelta<T> {
         self.angular
     }
 
-    /// The chassis did not move.
+    /// The body did not move.
     #[inline]
     pub fn zeros() -> Self {
-        ChassisDelta {
+        BodyArc {
             linear: T::ZERO,
             angular: T::ZERO,
         }
@@ -205,12 +209,12 @@ impl<T: Numeric> ChassisDelta<T> {
 /// `wheelbase` is the track width: the lateral distance between the two wheel contact points, not a
 /// front-to-rear axle distance.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct DiffDrive<T: Numeric> {
+pub struct DifferentialDrive<T: Numeric> {
     wheel_radius: T,
     wheelbase: T,
 }
 
-impl<T: Numeric> DiffDrive<T> {
+impl<T: Numeric> DifferentialDrive<T> {
     /// Geometry from a wheel radius and a track width, both in metres.
     ///
     /// This is the only fallible operation in the module: with the geometry checked once here,
@@ -222,9 +226,9 @@ impl<T: Numeric> DiffDrive<T> {
     /// positive.
     ///
     /// ```
-    /// use multicalc::kinematics::{DiffDrive, WheelRates};
-    /// let dd = DiffDrive::new(0.036_f64, 0.235).unwrap();
-    /// let wheels = WheelRates::new(1.0, 2.0);
+    /// use multicalc::kinematics::{DifferentialDrive, WheelVelocities};
+    /// let dd = DifferentialDrive::new(0.036_f64, 0.235).unwrap();
+    /// let wheels = WheelVelocities::new(1.0, 2.0);
     /// let back = dd.inverse(dd.forward(wheels));
     /// assert!((back.left() - 1.0).abs() < 1e-15);
     /// assert!((back.right() - 2.0).abs() < 1e-15);
@@ -237,7 +241,7 @@ impl<T: Numeric> DiffDrive<T> {
         if wheel_radius <= T::ZERO || wheelbase <= T::ZERO {
             return Err(KinematicsError::NonPositiveParameter);
         }
-        Ok(DiffDrive {
+        Ok(DifferentialDrive {
             wheel_radius,
             wheelbase,
         })
@@ -255,49 +259,49 @@ impl<T: Numeric> DiffDrive<T> {
         self.wheelbase
     }
 
-    /// Chassis rate from wheel rates.
+    /// The body twist produced by wheel velocities.
     #[inline]
-    pub fn forward(self, w: WheelRates<T>) -> ChassisRate<T> {
-        let (linear, angular) = to_chassis(self.wheel_radius, self.wheelbase, w.left(), w.right());
-        ChassisRate::new(linear, angular)
+    pub fn forward(self, w: WheelVelocities<T>) -> BodyTwist<T> {
+        let (linear, angular) = to_body(self.wheel_radius, self.wheelbase, w.left(), w.right());
+        BodyTwist::new(linear, angular)
     }
 
-    /// Wheel rates from a chassis rate.
+    /// The wheel velocities that produce a body twist.
     #[inline]
-    pub fn inverse(self, c: ChassisRate<T>) -> WheelRates<T> {
+    pub fn inverse(self, c: BodyTwist<T>) -> WheelVelocities<T> {
         let (left, right) = to_wheels(self.wheel_radius, self.wheelbase, c.linear(), c.angular());
-        WheelRates::new(left, right)
+        WheelVelocities::new(left, right)
     }
 
-    /// Chassis delta from wheel deltas over one tick.
+    /// The arc traced by wheel rotations over one tick.
     #[inline]
-    pub fn forward_delta(self, d: WheelDeltas<T>) -> ChassisDelta<T> {
-        let (linear, angular) = to_chassis(self.wheel_radius, self.wheelbase, d.left(), d.right());
-        ChassisDelta::new(linear, angular)
+    pub fn forward_arc(self, d: WheelRotations<T>) -> BodyArc<T> {
+        let (linear, angular) = to_body(self.wheel_radius, self.wheelbase, d.left(), d.right());
+        BodyArc::new(linear, angular)
     }
 
-    /// Wheel deltas from a chassis delta over one tick.
+    /// The wheel rotations that trace an arc over one tick.
     #[inline]
-    pub fn inverse_delta(self, d: ChassisDelta<T>) -> WheelDeltas<T> {
+    pub fn inverse_arc(self, d: BodyArc<T>) -> WheelRotations<T> {
         let (left, right) = to_wheels(self.wheel_radius, self.wheelbase, d.linear(), d.angular());
-        WheelDeltas::new(left, right)
+        WheelRotations::new(left, right)
     }
 
-    /// Wheel deltas from the distance each wheel travelled, in metres.
+    /// Wheel rotations from the distance each wheel travelled, in metres.
     #[inline]
-    pub fn wheel_deltas_from_travel(self, left_m: T, right_m: T) -> WheelDeltas<T> {
-        WheelDeltas::new(left_m / self.wheel_radius, right_m / self.wheel_radius)
+    pub fn wheel_rotations_from_travel(self, left_m: T, right_m: T) -> WheelRotations<T> {
+        WheelRotations::new(left_m / self.wheel_radius, right_m / self.wheel_radius)
     }
 
-    /// The distance each wheel travelled, in metres, from its delta.
+    /// The distance each wheel travelled, in metres, from its rotation.
     #[inline]
-    pub fn wheel_travel(self, d: WheelDeltas<T>) -> (T, T) {
+    pub fn wheel_travel(self, d: WheelRotations<T>) -> (T, T) {
         (d.left() * self.wheel_radius, d.right() * self.wheel_radius)
     }
 
     /// The pose after one tick of wheel motion, along the exact constant-twist arc.
     #[inline]
-    pub fn odometry_step(self, pose: SE2<T>, d: WheelDeltas<T>) -> SE2<T> {
-        crate::kinematics::odometry::integrate(pose, self.forward_delta(d))
+    pub fn odometry_step(self, pose: SE2<T>, d: WheelRotations<T>) -> SE2<T> {
+        crate::kinematics::odometry::integrate(pose, self.forward_arc(d))
     }
 }
