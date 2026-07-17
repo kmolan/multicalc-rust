@@ -93,6 +93,8 @@ pub enum EstimationError {
     NotPositiveDefinite,
     /// A state, covariance, or measurement value was infinite or NaN.
     NonFinite,
+    /// A Jacobian step inside the filter failed.
+    Diff(DiffError),
 }
 
 /// Umbrella over the per-module-family errors. Fallible operations return their family enum; this
@@ -122,6 +124,11 @@ impl From<LinalgError> for SolveError {
 impl From<DiffError> for SolveError {
     fn from(e: DiffError) -> Self {
         SolveError::Diff(e)
+    }
+}
+impl From<DiffError> for EstimationError {
+    fn from(e: DiffError) -> Self {
+        EstimationError::Diff(e)
     }
 }
 impl From<LinalgError> for CalcError {
@@ -235,12 +242,13 @@ impl core::fmt::Display for KinematicsError {
 
 impl core::fmt::Display for EstimationError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(match self {
+        match self {
             EstimationError::NotPositiveDefinite => {
-                "innovation covariance is not positive definite"
+                f.write_str("innovation covariance is not positive definite")
             }
-            EstimationError::NonFinite => "filter value was not finite",
-        })
+            EstimationError::NonFinite => f.write_str("filter value was not finite"),
+            EstimationError::Diff(e) => write!(f, "{e}"),
+        }
     }
 }
 
@@ -261,7 +269,15 @@ impl core::error::Error for LinalgError {}
 impl core::error::Error for DiffError {}
 impl core::error::Error for IntegrateError {}
 impl core::error::Error for KinematicsError {}
-impl core::error::Error for EstimationError {}
+
+impl core::error::Error for EstimationError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            EstimationError::Diff(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 
 impl core::error::Error for SolveError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {

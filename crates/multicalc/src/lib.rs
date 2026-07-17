@@ -45,8 +45,8 @@ pub use spatial::{Twist, Wrench};
 /// Differential-drive kinematics and SE(2) odometry.
 pub use kinematics::{BodyArc, BodyTwist, DifferentialDrive, WheelRotations, WheelVelocities};
 
-/// Linear Kalman filter with Joseph-form covariance update.
-pub use estimation::KalmanFilter;
+/// Linear Kalman filter and Extended Kalman filter
+pub use estimation::{KalmanFilter, ExtendedKalmanFilter};
 
 /// The Levenberg-Marquardt and Gauss-Newton least-squares solvers and their result types.
 pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
