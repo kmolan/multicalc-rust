@@ -44,6 +44,7 @@ math.
 - [ODE integrators](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#ode-integrators): fixed-step `Rk4` and adaptive `Rk45` (Dormand-Prince 5(4)) with PI step control and dense output.
 - [Discretization](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#discretization): zero-order hold, Van Loan, and discrete white-noise models for continuous-time linear systems.
 - [Spatial math](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#spatial-quaternions-and-lie-groups): `Quaternion` and the `SO2`/`SE2`/`SO3`/`SE3` Lie groups for 2D and 3D rotations and rigid-body transforms.
+- [Kinematics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#kinematics): differential-drive and unicycle maps between wheel and body motion, with exact SE(2) odometry.
 
 ## Install
 
@@ -202,8 +203,8 @@ Refer to the [guide](https://github.com/kmolan/multicalc-rust/blob/main/crates/m
 
 Where a sensible default exists, a "safe" wrapper (such as `get_single` or `get_double`) returns
 the answer directly. Otherwise the call returns a `Result` whose error is the module family's own
-enum (`LinalgError`, `DiffError`, `IntegrateError`, or `SolveError`), each convertible into the
-`CalcError` umbrella. All variants are listed in
+enum (`LinalgError`, `DiffError`, `IntegrateError`, `SolveError`, or `KinematicsError`), each
+convertible into the `CalcError` umbrella. All variants are listed in
 [error.rs](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/src/error.rs).
 
 ## Accuracy

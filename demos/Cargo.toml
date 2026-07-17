@@ -56,6 +56,10 @@ name = "jacobian_hessian"
 path = "examples/basics/jacobian_hessian.rs"
 
 [[example]]
+name = "kinematics"
+path = "examples/basics/kinematics.rs"
+
+[[example]]
 name = "lie_groups"
 path = "examples/basics/lie_groups.rs"
 

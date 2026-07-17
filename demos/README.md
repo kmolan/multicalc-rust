@@ -31,6 +31,7 @@ cargo run -p multicalc-demos --example <name>
 | `gaussian_integration` | `numerical_integration::gaussian_integration` | Gauss-Legendre (finite), Gauss-Hermite and Gauss-Laguerre (infinite), with the bare-integrand convention. |
 | `iterative_integration` | `numerical_integration::iterative_integration` | Boole / Simpson / Trapezoidal rules, multi-variable partial integrals, and infinite / semi-infinite limits. |
 | `jacobian_hessian` | `numerical_derivative::{jacobian, hessian}` | Jacobian of a vector of functions and the Hessian of a scalar function. |
+| `kinematics` | `kinematics` | Wheel↔body maps and their round trip, exact SE(2) odometry against the closed-form arc, a figure eight through the encoder path, and a one-`Dual` derivative pushed through an odometry step. |
 | `lie_groups` | `spatial` | SO(3)/SE(3) compose, act on a point, exp/log round trips, geodesic interpolation, and a one-`Dual` autodiff derivative pushed through `exp` ∘ `act`. |
 | `linear_algebra` | `linear_algebra` | LU and Cholesky factorizations, linear solves, and the direct 4x4 inverse under a latency + approximation-error stress test on well- and ill-conditioned inputs. |
 | `ode` | `ode` | Fixed-step RK4 and adaptive RK45 on the harmonic oscillator (known solution) plus an acrobot, a tumbling quadrotor, and an outer-solar-system N-body, reporting error and conserved-quantity drift. |
