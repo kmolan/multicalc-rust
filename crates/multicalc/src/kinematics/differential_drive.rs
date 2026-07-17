@@ -26,14 +26,14 @@ pub struct WheelVelocities<T: Numeric> {
     right: T,
 }
 
-/// Wheel angular displacements over one tick [rad] — what an encoder reports.
+/// Wheel angular displacements over one tick `[rad]` — what an encoder reports.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct WheelRotations<T: Numeric> {
     left: T,
     right: T,
 }
 
-/// The body twist a differential drive can realise: forward speed [m/s] and yaw rate [rad/s].
+/// The body twist a differential drive can realise: forward speed `[m/s]` and yaw rate `[rad/s]`.
 ///
 /// The se(2) twist restricted to two degrees of freedom. There is no lateral field: a
 /// differential-drive body cannot slide sideways.
@@ -43,7 +43,7 @@ pub struct BodyTwist<T: Numeric> {
     angular: T,
 }
 
-/// The arc a body traces over one tick: arc length [m] and heading change [rad].
+/// The arc a body traces over one tick: arc length `[m]` and heading change `[rad]`.
 ///
 /// Arc length, not displacement — the straight-line distance covered is the chord, which is shorter
 /// whenever the heading changes. These are the exponential coordinates of the relative pose.
@@ -54,7 +54,7 @@ pub struct BodyArc<T: Numeric> {
 }
 
 impl<T: Numeric> WheelVelocities<T> {
-    /// Velocities of the left and right wheel, in [rad/s].
+    /// Velocities of the left and right wheel, in `[rad/s]`.
     #[inline]
     pub fn new(left: T, right: T) -> Self {
         WheelVelocities { left, right }
@@ -83,7 +83,7 @@ impl<T: Numeric> WheelVelocities<T> {
 }
 
 impl<T: Numeric> WheelRotations<T> {
-    /// Rotations of the left and right wheel, in [rad].
+    /// Rotations of the left and right wheel, in `[rad]`.
     #[inline]
     pub fn new(left: T, right: T) -> Self {
         WheelRotations { left, right }
@@ -112,7 +112,7 @@ impl<T: Numeric> WheelRotations<T> {
 }
 
 impl<T: Numeric> BodyTwist<T> {
-    /// A twist from a forward speed [m/s] and a yaw rate [rad/s].
+    /// A twist from a forward speed `[m/s]` and a yaw rate `[rad/s]`.
     #[inline]
     pub fn new(linear: T, angular: T) -> Self {
         BodyTwist { linear, angular }
@@ -176,7 +176,7 @@ impl<T: Numeric> BodyTwist<T> {
 }
 
 impl<T: Numeric> BodyArc<T> {
-    /// An arc from an arc length [m] and a heading change [rad].
+    /// An arc from an arc length `[m]` and a heading change `[rad]`.
     #[inline]
     pub fn new(linear: T, angular: T) -> Self {
         BodyArc { linear, angular }
