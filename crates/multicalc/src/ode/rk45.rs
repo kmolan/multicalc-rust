@@ -102,6 +102,7 @@ impl<T: Numeric> Rk45<T> {
 }
 
 /// RMS of `err_i / (atol + rtol * max(|y0_i|, |y1_i|))` over the components.
+/// Returns `T::ZERO` when `N == 0`.
 fn error_norm<const N: usize, T: Numeric>(
     err: &Vector<N, T>,
     y0: &Vector<N, T>,
@@ -122,6 +123,7 @@ fn error_norm<const N: usize, T: Numeric>(
 }
 
 /// RMS of `v_i / (atol + rtol * |y_i|)` — used by the initial-step heuristic.
+/// Returns `T::ZERO` when `N == 0`.
 fn scaled_norm<const N: usize, T: Numeric>(
     v: &Vector<N, T>,
     y: &Vector<N, T>,
