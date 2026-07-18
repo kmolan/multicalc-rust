@@ -81,7 +81,8 @@ fn lookahead_advances_monotonically() {
 #[test]
 fn lookahead_inside_first_segment_is_exact_distance() {
     let path: PolylinePath<2, 2, f64> =
-        PolylinePath::try_from_points(&[Vector::new([0.0, 0.0]), Vector::new([10.0, 0.0])]).unwrap();
+        PolylinePath::try_from_points(&[Vector::new([0.0, 0.0]), Vector::new([10.0, 0.0])])
+            .unwrap();
     let [x, y] = path.lookahead_point(0.0, 3.5).unwrap().into_array();
     assert!((x - 3.5).abs() < 1e-12 && y.abs() < 1e-12);
 }

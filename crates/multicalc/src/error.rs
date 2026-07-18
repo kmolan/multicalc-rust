@@ -300,11 +300,11 @@ impl core::fmt::Display for EstimationError {
 impl core::fmt::Display for ControlError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(match self {
-            ControlError::NonFinite => "gain, timestep, limit, or filter coefficient was not finite",
-            ControlError::NonPositiveTimestep => "control timestep must be strictly positive",
-            ControlError::InvalidOutputLimits => {
-                "output minimum must not exceed output maximum"
+            ControlError::NonFinite => {
+                "gain, timestep, limit, or filter coefficient was not finite"
             }
+            ControlError::NonPositiveTimestep => "control timestep must be strictly positive",
+            ControlError::InvalidOutputLimits => "output minimum must not exceed output maximum",
             ControlError::FilterCoefficientOutOfRange => {
                 "low-pass smoothing coefficient must lie in [0, 1]"
             }

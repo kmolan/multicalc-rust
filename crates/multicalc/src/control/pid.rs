@@ -120,7 +120,9 @@ impl<T: Numeric> Pid<T> {
 
         let candidate_integral = self.integral + self.integral_gain * error * self.dt;
         let unsaturated = proportional_term + candidate_integral + derivative_term;
-        let output = unsaturated.max(self.output_minimum).min(self.output_maximum);
+        let output = unsaturated
+            .max(self.output_minimum)
+            .min(self.output_maximum);
 
         let saturated_high = unsaturated > self.output_maximum;
         let saturated_low = unsaturated < self.output_minimum;

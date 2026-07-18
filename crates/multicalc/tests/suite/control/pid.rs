@@ -122,7 +122,8 @@ fn output_limits_reject_inverted_and_nan_but_allow_infinities() {
 // One `update` step (after seeding the derivative history), as a function of the setpoint.
 fn output_of_one_step<T: Numeric>(setpoint: T) -> T {
     let dt = T::from_f64(0.01);
-    let mut controller = Pid::new(T::from_f64(2.0), T::from_f64(0.5), T::from_f64(0.1), dt).unwrap();
+    let mut controller =
+        Pid::new(T::from_f64(2.0), T::from_f64(0.5), T::from_f64(0.1), dt).unwrap();
     controller.update(setpoint, T::ZERO);
     controller.update(setpoint, T::from_f64(0.3))
 }

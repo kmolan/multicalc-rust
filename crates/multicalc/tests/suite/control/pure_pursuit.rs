@@ -9,7 +9,8 @@ use multicalc::spatial::{SE2, SO2};
 
 #[test]
 fn straight_ahead_gives_zero_curvature() {
-    let curvature = pure_pursuit_curvature(SE2::identity(), Vector::new([2.0_f64, 0.0]), 2.0).unwrap();
+    let curvature =
+        pure_pursuit_curvature(SE2::identity(), Vector::new([2.0_f64, 0.0]), 2.0).unwrap();
     assert!(curvature.value().abs() < 1e-12);
 }
 
@@ -45,8 +46,7 @@ fn curvature_is_frame_invariant() {
 
     // The same target expressed in the world frame of a rotated, translated pose.
     let pose = SE2::from_parts(SO2::exp(0.7), Vector::new([3.0, -1.2]));
-    let moved =
-        pure_pursuit_curvature(pose, pose.act(body_point), lookahead_distance).unwrap();
+    let moved = pure_pursuit_curvature(pose, pose.act(body_point), lookahead_distance).unwrap();
     assert!((at_origin.value() - moved.value()).abs() < 1e-10);
 }
 
