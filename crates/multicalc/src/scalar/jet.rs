@@ -28,9 +28,10 @@ impl<T: Numeric, const N: usize> Jet<T, N> {
         Jet { coeffs }
     }
 
-    /// A constant: value in `coeffs[0]`, all derivatives zero.
+    /// A constant: value in `coeffs[0]`, all derivatives zero. Requires `N >= 1`.
     #[inline]
     pub const fn constant(value: T) -> Self {
+        const { assert!(N >= 1, "Jet::constant needs at least 1 coefficient") };
         let mut coeffs = [T::ZERO; N];
         coeffs[0] = value;
         Jet { coeffs }
@@ -53,20 +54,21 @@ impl<T: Numeric, const N: usize> Jet<T, N> {
         self.coeffs[0]
     }
 
-    /// The `k`-th Taylor coefficient `f⁽ᵏ⁾(x) / k!`.
+    /// The `k`-th Taylor coefficient `f⁽ᵏ⁾(x) / k!`, or `None` if `k >= N`.
     #[inline]
-    pub fn coefficient(&self, k: usize) -> T {
-        self.coeffs[k]
+    pub fn coefficient(&self, k: usize) -> Option<T> {
+        self.coeffs.get(k).copied()
     }
 
-    /// The `k`-th derivative `f⁽ᵏ⁾(x)` (= `k! · coeffs[k]`).
+    /// The `k`-th derivative `f⁽ᵏ⁾(x)` (= `k! · coeffs[k]`), or `None` if `k >= N`.
     #[inline]
-    pub fn derivative(&self, k: usize) -> T {
+    pub fn derivative(&self, k: usize) -> Option<T> {
+        let coeff = self.coefficient(k)?;
         let mut factorial = T::ONE;
         for i in 2..=k {
             factorial *= T::from_usize(i);
         }
-        factorial * self.coeffs[k]
+        Some(factorial * coeff)
     }
 }
 
@@ -376,5 +378,25 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     #[inline]
     fn is_finite(self) -> bool {
         self.coeffs[0].is_finite()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn coefficient_and_derivative_reject_out_of_range_k() {
+        let j = Jet::<f64, 3>::variable(1.5);
+        assert_eq!(j.coefficient(0), Some(1.5));
+        assert_eq!(j.coefficient(1), Some(1.0));
+        assert_eq!(j.coefficient(2), Some(0.0));
+        assert_eq!(j.coefficient(3), None);
+        assert_eq!(j.coefficient(100), None);
+
+        assert!(j.derivative(0).is_some());
+        assert!(j.derivative(1).is_some());
+        assert_eq!(j.derivative(3), None);
+        assert_eq!(j.derivative(99), None);
     }
 }
