@@ -235,6 +235,12 @@ impl<T: Numeric> Numeric for HyperDual<T> {
         eps2: T::ZERO,
         eps1eps2: T::ZERO,
     };
+    const TWO_PI: Self = HyperDual {
+        real: T::TWO_PI,
+        eps1: T::ZERO,
+        eps2: T::ZERO,
+        eps1eps2: T::ZERO,
+    };
     const EPSILON: Self = HyperDual {
         real: T::EPSILON,
         eps1: T::ZERO,
@@ -384,6 +390,17 @@ impl<T: Numeric> Numeric for HyperDual<T> {
     fn floor(self) -> Self {
         HyperDual {
             real: self.real.floor(),
+            eps1: T::ZERO,
+            eps2: T::ZERO,
+            eps1eps2: T::ZERO,
+        }
+    }
+
+    /// Nearest integer, ties away from zero; the derivatives of a step function are zero.
+    #[inline]
+    fn round(self) -> Self {
+        HyperDual {
+            real: self.real.round(),
             eps1: T::ZERO,
             eps2: T::ZERO,
             eps1eps2: T::ZERO,
