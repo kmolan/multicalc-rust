@@ -5,5 +5,7 @@
 //! a fixed timestep `dt`.
 
 mod derivative_filter;
+mod pid;
 
 pub use derivative_filter::OnePoleLowPass;
+pub use pid::Pid;
