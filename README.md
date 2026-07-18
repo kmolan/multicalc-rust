@@ -49,7 +49,7 @@ Newton fractal and the gradient-driven marbles; every number on screen is measur
 - [Discretization](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#discretization): zero-order hold, Van Loan, and discrete white-noise models for continuous-time linear systems.
 - [Spatial math](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#spatial-quaternions-and-lie-groups): `Quaternion` and the `SO2`/`SE2`/`SO3`/`SE3` Lie groups for 2D and 3D rotations and rigid-body transforms.
 - [Kinematics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#kinematics): differential-drive and unicycle maps between wheel and body motion, with exact SE(2) odometry.
-- [Estimation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#estimation): a linear `KalmanFilter` with Joseph-form covariance updates, optional control input, and innovation access for measurement gating.
+- [Estimation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#estimation): linear and extended `KalmanFilter`s with Joseph-form covariance updates, optional control input, and innovation access for measurement gating. `ExtendedKalmanFilter` takes nonlinear models as functions and differentiates them for the Jacobians — no hand-derived Jacobians.
 
 ## Install
 
