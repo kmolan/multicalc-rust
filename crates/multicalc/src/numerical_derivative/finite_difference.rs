@@ -21,7 +21,7 @@ fn offsets<T: Numeric>(method: FiniteDifferenceMode) -> (T, T, T) {
 }
 
 /// Configuration shared by the single- and multi-variable finite-difference differentiators.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FiniteDifferenceConfig<T = f64> {
     /// The finite-difference step size. See [`mode::DEFAULT_STEP_SIZE`].
     pub step_size: T,
@@ -63,7 +63,7 @@ impl<T: Numeric> FiniteDifferenceConfig<T> {
 }
 
 /// Finite-difference differentiator for single-variable functions.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FiniteDifferenceSingle<T = f64> {
     pub config: FiniteDifferenceConfig<T>,
 }
@@ -114,7 +114,7 @@ impl<T: Numeric> DerivatorSingleVariable for FiniteDifferenceSingle<T> {
 }
 
 /// Finite-difference differentiator for multi-variable functions.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FiniteDifferenceMulti<T = f64> {
     pub config: FiniteDifferenceConfig<T>,
 }

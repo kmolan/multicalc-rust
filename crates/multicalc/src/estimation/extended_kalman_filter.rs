@@ -91,7 +91,7 @@ use crate::scalar::{Numeric, VectorFn};
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ExtendedKalmanFilter<
     const STATE_DIMENSION: usize,
     const MEASUREMENT_DIMENSION: usize,
