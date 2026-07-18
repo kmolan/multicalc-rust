@@ -54,9 +54,16 @@ pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, Term
 /// Bracketed and Newton root finders for scalar equations and square systems.
 pub use root_finding::{Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination};
 
+/// Feedback control: PID, one-pole derivative filter, and the pure-pursuit path-following law.
+pub use control::{Curvature, OnePoleLowPass, Pid, pure_pursuit_curvature};
+
+/// Waypoint paths and their arc-length, closest-point, and lookahead queries.
+pub use motion::{EndOfPath, PathProjection, PolylinePath};
+
 /// Per-module-family error enums and the umbrella they convert into.
 pub use error::{
-    CalcError, DiffError, EstimationError, IntegrateError, KinematicsError, LinalgError, SolveError,
+    CalcError, ControlError, DiffError, EstimationError, IntegrateError, KinematicsError,
+    LinalgError, MotionError, SolveError,
 };
 
 pub mod approximation;
@@ -67,6 +74,7 @@ pub mod estimation;
 pub mod gaussian_tables;
 pub mod kinematics;
 pub mod linear_algebra;
+pub mod motion;
 pub mod numerical_derivative;
 pub mod numerical_integration;
 pub mod ode;
