@@ -34,7 +34,8 @@ fn harmonic_oscillator() {
     let yf = Rk4::integrate(&f, 0.0, &y0, dt, steps, |t, y| {
         let e = exact(t);
         max_err = max_err.max((y[0] - e[0]).abs()).max((y[1] - e[1]).abs());
-    });
+    })
+    .unwrap();
     println!("Harmonic oscillator y'' = -y");
     println!("  RK4  {steps} steps over [0, 2*pi]");
     println!(
@@ -85,7 +86,8 @@ where
     let mut max = 0.0_f64;
     let _ = Rk4::integrate(f, 0.0, y0, dt, steps, |_, y| {
         max = max.max((inv(y) - q0).abs());
-    });
+    })
+    .unwrap();
     max
 }
 

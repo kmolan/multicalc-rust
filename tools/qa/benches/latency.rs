@@ -151,7 +151,7 @@ fn bench_rk4_integrate(c: &mut Criterion) {
     let steps = 2000usize;
     let dt = core::f64::consts::TAU / steps as f64;
     c.bench_function("rk4_integrate", |b| {
-        b.iter(|| Rk4::integrate(&f, 0.0, black_box(&y0), dt, steps, |_t, _y| {}))
+        b.iter(|| Rk4::integrate(&f, 0.0, black_box(&y0), dt, steps, |_t, _y| {}).unwrap())
     });
 }
 

@@ -14,7 +14,7 @@ use crate::scalar::Numeric;
 /// use multicalc::linear_algebra::Vector;
 /// use multicalc::ode::Rk4;
 /// let plant = Unicycle::new(BodyTwist::new(1.0_f64, 0.0));
-/// let state = Rk4::step(&plant.field(), 0.0, &Vector::new([0.0, 0.0, 0.0]), 0.1);
+/// let state = Rk4::step(&plant.field(), 0.0, &Vector::new([0.0, 0.0, 0.0]), 0.1).unwrap();
 /// assert!((state[0] - 0.1).abs() < 1e-12);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]

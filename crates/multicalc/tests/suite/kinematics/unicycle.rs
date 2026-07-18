@@ -22,7 +22,7 @@ fn rk4_to(rate: BodyTwist<f64>, dt: f64, tf: f64) -> Vector<3, f64> {
     let mut y = Vector::new([0.0, 0.0, 0.0]);
     let mut t = 0.0;
     for _ in 0..n {
-        y = Rk4::step(&f, t, &y, dt);
+        y = Rk4::step(&f, t, &y, dt).unwrap();
         t += dt;
     }
     y

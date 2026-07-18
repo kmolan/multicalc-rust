@@ -194,7 +194,7 @@ use multicalc::linear_algebra::Vector;
 let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
 let y0 = Vector::new([1.0, 0.0]);
 
-let step = Rk4::step(&f, 0.0, &y0, 0.1);       // one fixed RK4 step of size 0.1
+let step = Rk4::step(&f, 0.0, &y0, 0.1).unwrap();       // one fixed RK4 step of size 0.1
 // adaptive Dormand-Prince 5(4) over one full period returns to the start [1, 0]
 let yf = Rk45::default().solve(&f, 0.0, &y0, core::f64::consts::TAU).unwrap();
 ```
