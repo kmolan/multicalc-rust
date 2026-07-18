@@ -261,7 +261,9 @@ fn main() {
     );
     for z in [0.5, 1.0, 1.5, 2.0] {
         reduced.predict(&ConstantVelocityMotion).unwrap();
-        reduced.update(&PositionMeasurement, Vector::new([z])).unwrap();
+        reduced
+            .update(&PositionMeasurement, Vector::new([z]))
+            .unwrap();
         linear.predict();
         linear.update(Vector::new([z])).unwrap();
     }
