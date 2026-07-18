@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Iterative integrators return `IntegrateError::LimitsIllDefined` instead of `NaN`
   if `classify` fails after validation. @rtmongold (#171)
+- RK45 now handles zero-dimensional states without producing NaN norms. (#159)
 
 ## [0.8.0] - 2026-07-16
 

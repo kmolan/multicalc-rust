@@ -108,6 +108,16 @@ fn zero_span_errors() {
 }
 
 #[test]
+fn zero_dimensional_state_remains_empty() {
+    let empty = Vector::<0, f64>::zeros();
+    let zero = |_t: f64, _y: &Vector<0, f64>| Vector::zeros();
+
+    let result = Rk45::default().solve(&zero, 0.0, &empty, 1.0);
+
+    assert_eq!(result.unwrap(), empty);
+}
+
+#[test]
 fn non_finite_rhs_errors() {
     let f = |_t: f64, _y: &Vector<1, f64>| Vector::new([f64::NAN]);
     let res = Rk45::default().solve(&f, 0.0, &Vector::new([1.0]), 1.0);
