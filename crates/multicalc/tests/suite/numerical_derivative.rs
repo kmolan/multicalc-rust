@@ -91,7 +91,7 @@ fn ad_jacobian() {
     let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
     for i in 0..2 {
         for j in 0..3 {
-            assert!(f64::abs(result[i][j] - expected[i][j]) < 1e-12);
+            assert!(f64::abs(result[(i, j)] - expected[i][j]) < 1e-12);
         }
     }
 }
@@ -124,7 +124,7 @@ fn ad_hessian() {
     ];
     for i in 0..2 {
         for j in 0..2 {
-            assert!(f64::abs(result[i][j] - expected[i][j]) < 1e-12);
+            assert!(f64::abs(result[(i, j)] - expected[i][j]) < 1e-12);
         }
     }
 }
@@ -212,7 +212,7 @@ fn ad_jacobian_is_column_seeded() {
     let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
     for i in 0..2 {
         for j in 0..3 {
-            assert!(f64::abs(result[i][j] - expected[i][j]) < 1e-12);
+            assert!(f64::abs(result[(i, j)] - expected[i][j]) < 1e-12);
         }
     }
 
@@ -249,7 +249,7 @@ fn fd_jacobian_column_matches() {
     let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
     for i in 0..2 {
         for j in 0..3 {
-            assert!(f64::abs(result[i][j] - expected[i][j]) < 1e-5);
+            assert!(f64::abs(result[(i, j)] - expected[i][j]) < 1e-5);
         }
     }
 }

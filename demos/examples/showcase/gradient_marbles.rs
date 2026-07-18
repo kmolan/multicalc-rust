@@ -149,7 +149,8 @@ fn quantile(vals: &[f64], q: f64) -> f64 {
 fn probe_error(jac: &Jacobian, probes: &[[f64; 2]]) -> f64 {
     let mut max_err = 0.0f64;
     for p in probes {
-        let ad = jac.get(&Himmelblau, p).expect("probe gradient")[0];
+        let gradient = jac.get(&Himmelblau, p).expect("probe gradient");
+        let ad = [gradient[(0, 0)], gradient[(0, 1)]];
         let an = himmelblau_grad(p[0], p[1]);
         max_err = max_err
             .max((ad[0] - an[0]).abs())
@@ -237,7 +238,10 @@ fn main() -> Result<(), VizError> {
         // The measured batch: 2000 exact autodiff gradients.
         let t0 = Instant::now();
         for (i, m) in marbles.iter().enumerate() {
-            grads[i] = jac.get(&Himmelblau, &m.pos).ok().map(|j| j[0]);
+            grads[i] = jac
+                .get(&Himmelblau, &m.pos)
+                .ok()
+                .map(|j| [j[(0, 0)], j[(0, 1)]]);
         }
         let grad_batch_us = t0.elapsed().as_nanos() as f64 / 1000.0;
         total_gradients += N_MARBLES as u64;

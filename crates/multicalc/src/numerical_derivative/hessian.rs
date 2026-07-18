@@ -28,7 +28,7 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
 
     /// Returns the Hessian matrix of `function` evaluated at `vector_of_points`.
     ///
-    /// The result is the symmetric matrix of second partial derivatives, so entry `[i][j]`
+    /// The result is the symmetric matrix of second partial derivatives, so entry `(i, j)`
     /// is `d²(function)/d(variable i) d(variable j)`. Only the upper triangle and diagonal
     /// are evaluated; the rest is mirrored, relying on the symmetry of the Hessian.
     ///
@@ -52,13 +52,13 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     ///
     /// let hessian: Hessian = Hessian::default();
     /// let result = hessian.get(&my_func, &[1.0, 2.0]).unwrap();
-    /// assert!(f64::abs(result[0][0] - (-2.0 * f64::sin(1.0))) < 1e-12);
+    /// assert!(f64::abs(result[(0, 0)] - (-2.0 * f64::sin(1.0))) < 1e-12);
     /// ```
     pub fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
         &self,
         function: &F,
         vector_of_points: &[D::Scalar; NUM_VARS],
-    ) -> Result<[[D::Scalar; NUM_VARS]; NUM_VARS], DiffError> {
+    ) -> Result<Matrix<NUM_VARS, NUM_VARS, D::Scalar>, DiffError> {
         let mut result: Matrix<NUM_VARS, NUM_VARS, D::Scalar> =
             Matrix::from_fn(|_, _| <D::Scalar as Numeric>::NAN);
 
@@ -77,6 +77,6 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
             }
         }
 
-        Ok(result.into_array())
+        Ok(result)
     }
 }

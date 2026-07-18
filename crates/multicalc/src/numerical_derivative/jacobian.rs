@@ -31,7 +31,7 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
 
     /// Returns the Jacobian matrix of `function` evaluated at `vector_of_points`.
     ///
-    /// The result has one row per output and one column per variable, so entry `[m][n]`
+    /// The result has one row per output and one column per variable, so entry `(m, n)`
     /// is `d(output m)/d(variable n)`.
     ///
     /// # Arguments
@@ -54,13 +54,13 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     /// let jacobian: Jacobian = Jacobian::default();
     /// let result = jacobian.get(&f, &[1.0, 2.0, 3.0]).unwrap();
     /// // result is [[6, 3, 2], [2, 4, 0]]
-    /// assert!(f64::abs(result[0][0] - 6.0) < 1e-12);
+    /// assert!(f64::abs(result[(0, 0)] - 6.0) < 1e-12);
     /// ```
     pub fn get<F: VectorFn<NUM_VARS, NUM_FUNCS>, const NUM_FUNCS: usize, const NUM_VARS: usize>(
         &self,
         function: &F,
         vector_of_points: &[D::Scalar; NUM_VARS],
-    ) -> Result<[[D::Scalar; NUM_VARS]; NUM_FUNCS], DiffError> {
+    ) -> Result<Matrix<NUM_FUNCS, NUM_VARS, D::Scalar>, DiffError> {
         if NUM_FUNCS == 0 {
             return Err(DiffError::EmptyFunctionSet);
         }
@@ -76,7 +76,7 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
             }
         }
 
-        Ok(result.into_array())
+        Ok(result)
     }
 
     /// Same as [`Jacobian::get`] but returns a heap-allocated `Vec<Vec<_>>`, which avoids a

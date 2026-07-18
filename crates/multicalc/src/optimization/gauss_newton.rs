@@ -1,8 +1,8 @@
 //! The Gauss-Newton least-squares solver.
 
 use crate::error::SolveError;
+use crate::linear_algebra::Vector;
 use crate::linear_algebra::qr::{PivotedQr, enorm, max};
-use crate::linear_algebra::{Matrix, Vector};
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::numerical_derivative::jacobian::Jacobian;
@@ -133,11 +133,10 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
         let mut evaluations = 1usize;
 
         for _ in 0..self.patience {
-            let jac = jacobian.get(f, &x)?;
-            if !jac.iter().all(is_finite) {
+            let j = jacobian.get(f, &x)?;
+            if !j.is_finite() {
                 return Err(SolveError::NonFinite);
             }
-            let j: Matrix<M, N, D::Scalar> = Matrix::from_fn(|r, c| jac[r][c]);
             let qr = PivotedQr::decompose(j)?;
 
             // Already at a perfect fit.

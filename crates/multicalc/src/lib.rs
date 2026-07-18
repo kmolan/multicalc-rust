@@ -46,7 +46,7 @@ pub use spatial::{Twist, Wrench};
 pub use kinematics::{BodyArc, BodyTwist, DifferentialDrive, WheelRotations, WheelVelocities};
 
 /// Linear Kalman filter and Extended Kalman filter
-pub use estimation::{KalmanFilter, ExtendedKalmanFilter};
+pub use estimation::{ExtendedKalmanFilter, KalmanFilter};
 
 /// The Levenberg-Marquardt and Gauss-Newton least-squares solvers and their result types.
 pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};

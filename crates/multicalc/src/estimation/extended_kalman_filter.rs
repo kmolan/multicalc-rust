@@ -215,7 +215,10 @@ where
     }
 
     /// Replaces the process noise, which a changing timestep also changes.
-    pub fn set_process_noise(&mut self, process_noise: Matrix<STATE_DIMENSION, STATE_DIMENSION, T>) {
+    pub fn set_process_noise(
+        &mut self,
+        process_noise: Matrix<STATE_DIMENSION, STATE_DIMENSION, T>,
+    ) {
         self.process_noise = process_noise;
     }
 
@@ -243,11 +246,8 @@ where
     where
         ProcessModel: VectorFn<STATE_DIMENSION, STATE_DIMENSION>,
     {
-        let rows = Jacobian::from_derivator(self.derivator.clone())
+        let state_transition = Jacobian::from_derivator(self.derivator.clone())
             .get(process_model, self.state.as_array())?;
-        let state_transition = Matrix::<STATE_DIMENSION, STATE_DIMENSION, T>::from_fn(
-            |row, column| rows[row][column],
-        );
 
         let propagated = Vector::new(process_model.eval(self.state.as_array()));
         if !propagated.is_finite() || !state_transition.is_finite() {
@@ -343,18 +343,13 @@ where
             return Err(EstimationError::NonFinite);
         }
 
-        let rows = Jacobian::from_derivator(self.derivator.clone())
+        let measurement_model_jacobian = Jacobian::from_derivator(self.derivator.clone())
             .get(measurement_model, self.state.as_array())?;
-        let measurement_model_jacobian =
-            Matrix::<MEASUREMENT_DIMENSION, STATE_DIMENSION, T>::from_fn(
-                |row, column| rows[row][column],
-            );
 
         self.innovation = residual;
-        self.innovation_covariance = measurement_model_jacobian
-            * self.covariance
-            * measurement_model_jacobian.transpose()
-            + self.measurement_noise;
+        self.innovation_covariance =
+            measurement_model_jacobian * self.covariance * measurement_model_jacobian.transpose()
+                + self.measurement_noise;
 
         if !self.innovation_covariance.is_finite() {
             return Err(EstimationError::NonFinite);
