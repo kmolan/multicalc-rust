@@ -91,6 +91,10 @@ fn integrate_display_strings() {
         IntegrateError::NonFinite,
         "integrand or state contained a non-finite value"
     ));
+    assert!(renders_as(
+        IntegrateError::IndexOutOfRange,
+        "variable index out of range"
+    ));
 }
 
 #[test]

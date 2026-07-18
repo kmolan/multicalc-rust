@@ -813,3 +813,25 @@ fn kahan_integration_beats_naive_on_long_sum() {
         "kahan ({kahan_err:e}) should be closer than naive ({naive_err:e})"
     );
 }
+
+#[test]
+fn iterative_multi_rejects_out_of_range_index() {
+    let func = |args: &[f64; 2]| args[0] + args[1];
+    let point = [1.0, 2.0];
+    let integrator = iterative_integration::IterativeMulti::default();
+    let err = integrator
+        .get([2; 1], &func, &[[0.0, 1.0]; 1], &point)
+        .unwrap_err();
+    assert_eq!(err, IntegrateError::IndexOutOfRange);
+}
+
+#[test]
+fn gaussian_multi_rejects_out_of_range_index() {
+    let func = |args: &[f64; 2]| args[0] + args[1];
+    let point = [1.0, 2.0];
+    let integrator = gaussian_integration::GaussianMulti::default();
+    let err = integrator
+        .get([2; 1], &func, &[[0.0, 1.0]; 1], &point)
+        .unwrap_err();
+    assert_eq!(err, IntegrateError::IndexOutOfRange);
+}

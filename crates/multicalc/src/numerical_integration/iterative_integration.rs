@@ -459,8 +459,9 @@ impl<T: Numeric> IntegratorMultiVariable for IterativeMulti<T> {
     ///   upper limit; a variable held constant holds that constant.
     ///
     /// # Errors
-    /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero, or
-    /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined.
+    /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero,
+    /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined, or
+    /// [`IntegrateError::IndexOutOfRange`] if any index is `>= NUM_VARS`.
     ///
     /// # Examples
     /// ```
@@ -483,6 +484,11 @@ impl<T: Numeric> IntegratorMultiVariable for IterativeMulti<T> {
         point: &[T; NUM_VARS],
     ) -> Result<T, IntegrateError> {
         self.config.check_for_errors(integration_limits)?;
+        for &idx in &idx_to_integrate {
+            if idx >= NUM_VARS {
+                return Err(IntegrateError::IndexOutOfRange);
+            }
+        }
         self.integrate(
             NUM_INTEGRATIONS,
             idx_to_integrate,
