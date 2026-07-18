@@ -308,9 +308,9 @@ where
     ///     }
     /// }
     ///
-    /// // atan2 returns (−π, π], so this is the wrap.
+    /// // Subtract whole turns to fold the angle into a ±π band.
     /// fn wrap_to_pi<T: Numeric>(angle: T) -> T {
-    ///     angle.sin().atan2(angle.cos())
+    ///     angle - T::TWO_PI * (angle / T::TWO_PI).round()
     /// }
     ///
     /// let mut filter = ExtendedKalmanFilter::<1, 1>::new(

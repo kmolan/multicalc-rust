@@ -40,7 +40,7 @@ impl VectorFn<3, 2> for LandmarkRangeAndBearing {
     }
 }
 
-/// Wraps an angle to (−π, π].
+/// Folds an angle into a ±π band by subtracting whole turns.
 fn wrap_to_pi<T: Numeric>(angle: T) -> T {
-    angle.sin().atan2(angle.cos())
+    angle - T::TWO_PI * (angle / T::TWO_PI).round()
 }
