@@ -60,6 +60,7 @@ pub use error::{
 };
 
 pub mod approximation;
+pub mod control;
 pub mod discretization;
 pub mod error;
 pub mod estimation;

@@ -97,6 +97,34 @@ pub enum EstimationError {
     Diff(DiffError),
 }
 
+/// Errors from the control module (feedback controllers, filters, path-following laws).
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
+pub enum ControlError {
+    /// A gain, timestep, limit, or filter coefficient was infinite or NaN.
+    NonFinite,
+    /// The control timestep `dt` was not strictly positive.
+    NonPositiveTimestep,
+    /// Output saturation limits were given with minimum greater than maximum.
+    InvalidOutputLimits,
+    /// A low-pass smoothing coefficient was outside the closed interval [0, 1].
+    FilterCoefficientOutOfRange,
+    /// The pure-pursuit lookahead distance was not strictly positive.
+    NonPositiveLookaheadDistance,
+}
+
+/// Errors from the motion module (waypoint paths and their geometric queries).
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
+pub enum MotionError {
+    /// A waypoint coordinate was infinite or NaN.
+    NonFinite,
+    /// More waypoints were supplied than the path capacity allows.
+    CapacityExceeded,
+    /// A query required more waypoints than the path contains.
+    PathTooShort,
+}
+
 /// Umbrella over the per-module-family errors. Fallible operations return their family enum; this
 /// type collects them where one error type must span families.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -114,6 +142,10 @@ pub enum CalcError {
     Kinematics(KinematicsError),
     /// An estimation error.
     Estimation(EstimationError),
+    /// A control error.
+    Control(ControlError),
+    /// A motion error.
+    Motion(MotionError),
 }
 
 impl From<LinalgError> for SolveError {
@@ -159,6 +191,16 @@ impl From<KinematicsError> for CalcError {
 impl From<EstimationError> for CalcError {
     fn from(e: EstimationError) -> Self {
         CalcError::Estimation(e)
+    }
+}
+impl From<ControlError> for CalcError {
+    fn from(e: ControlError) -> Self {
+        CalcError::Control(e)
+    }
+}
+impl From<MotionError> for CalcError {
+    fn from(e: MotionError) -> Self {
+        CalcError::Motion(e)
     }
 }
 
@@ -252,6 +294,34 @@ impl core::fmt::Display for EstimationError {
     }
 }
 
+impl core::fmt::Display for ControlError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(match self {
+            ControlError::NonFinite => "gain, timestep, limit, or filter coefficient was not finite",
+            ControlError::NonPositiveTimestep => "control timestep must be strictly positive",
+            ControlError::InvalidOutputLimits => {
+                "output minimum must not exceed output maximum"
+            }
+            ControlError::FilterCoefficientOutOfRange => {
+                "low-pass smoothing coefficient must lie in [0, 1]"
+            }
+            ControlError::NonPositiveLookaheadDistance => {
+                "lookahead distance must be strictly positive"
+            }
+        })
+    }
+}
+
+impl core::fmt::Display for MotionError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(match self {
+            MotionError::NonFinite => "waypoint coordinate was not finite",
+            MotionError::CapacityExceeded => "more waypoints than the path capacity allows",
+            MotionError::PathTooShort => "query required more waypoints than the path contains",
+        })
+    }
+}
+
 impl core::fmt::Display for CalcError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -261,6 +331,8 @@ impl core::fmt::Display for CalcError {
             CalcError::Differentiate(e) => write!(f, "{e}"),
             CalcError::Kinematics(e) => write!(f, "{e}"),
             CalcError::Estimation(e) => write!(f, "{e}"),
+            CalcError::Control(e) => write!(f, "{e}"),
+            CalcError::Motion(e) => write!(f, "{e}"),
         }
     }
 }
@@ -269,6 +341,8 @@ impl core::error::Error for LinalgError {}
 impl core::error::Error for DiffError {}
 impl core::error::Error for IntegrateError {}
 impl core::error::Error for KinematicsError {}
+impl core::error::Error for ControlError {}
+impl core::error::Error for MotionError {}
 
 impl core::error::Error for EstimationError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
@@ -298,6 +372,8 @@ impl core::error::Error for CalcError {
             CalcError::Differentiate(e) => Some(e),
             CalcError::Kinematics(e) => Some(e),
             CalcError::Estimation(e) => Some(e),
+            CalcError::Control(e) => Some(e),
+            CalcError::Motion(e) => Some(e),
         }
     }
 }
