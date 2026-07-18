@@ -2,7 +2,7 @@
 ///
 /// Central is the most accurate for most cases; start there and tweak the mode and step size
 /// if the result needs it.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum FiniteDifferenceMode {
     /// Samples at the point and one step forward.
     Forward,

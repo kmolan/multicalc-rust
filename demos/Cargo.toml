@@ -44,6 +44,10 @@ name = "discretization"
 path = "examples/basics/discretization.rs"
 
 [[example]]
+name = "estimation"
+path = "examples/basics/estimation.rs"
+
+[[example]]
 name = "gaussian_integration"
 path = "examples/basics/gaussian_integration.rs"
 

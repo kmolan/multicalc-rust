@@ -283,6 +283,7 @@ impl Numeric for Counted {
     const HALF: Self = Counted(0.5);
     const HUNDRED: Self = Counted(f64::HUNDRED);
     const PI: Self = Counted(core::f64::consts::PI);
+    const TWO_PI: Self = Counted(core::f64::consts::TAU);
     const EPSILON: Self = Counted(f64::EPSILON);
     const EPSILON_X4: Self = Counted(f64::EPSILON_X4);
     const EPSILON_X30: Self = Counted(f64::EPSILON_X30);
@@ -331,6 +332,9 @@ impl Numeric for Counted {
     }
     fn floor(self) -> Self {
         Counted(libm::floor(self.0))
+    }
+    fn round(self) -> Self {
+        Counted(libm::round(self.0))
     }
 
     fn is_nan(self) -> bool {

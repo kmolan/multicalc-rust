@@ -18,14 +18,19 @@ fn main() {
     let result = jacobian.get(&f, &point).unwrap();
 
     println!("Jacobian of (x*y*z, x^2 + y^2) at {point:?}:");
-    for row in &result {
-        println!("  [{:.4}, {:.4}, {:.4}]", row[0], row[1], row[2]);
+    for row in 0..2 {
+        println!(
+            "  [{:.4}, {:.4}, {:.4}]",
+            result[(row, 0)],
+            result[(row, 1)],
+            result[(row, 2)]
+        );
     }
     println!("  (exact [[6, 3, 2], [2, 4, 0]])");
     let exact = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
     for i in 0..2 {
         for j in 0..3 {
-            assert!((result[i][j] - exact[i][j]).abs() < 1e-9);
+            assert!((result[(i, j)] - exact[i][j]).abs() < 1e-9);
         }
     }
 
@@ -35,8 +40,8 @@ fn main() {
     let result = hessian.get(&g, &[1.0, 2.0]).unwrap();
 
     println!("\nHessian of y*sin(x) + 2*x*e^y at [1, 2]:");
-    for row in &result {
-        println!("  [{:.4}, {:.4}]", row[0], row[1]);
+    for row in 0..2 {
+        println!("  [{:.4}, {:.4}]", result[(row, 0)], result[(row, 1)]);
     }
     // only the upper triangle is evaluated; the symmetric entries are mirrored
 }

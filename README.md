@@ -21,8 +21,8 @@ Newton fractal and the gradient-driven marbles; every number on screen is measur
   the `x86_64` and `aarch64` Linux hosts and on four bare-metal ABIs (`thumbv7em` soft-float,
   `thumbv7em` hardware-FPU, `thumbv6m`, and `riscv32imc`), running the real math under QEMU.
   `no_std`, no-alloc, and no-panic rules hold on every one.
-- **Every module checked against reference libraries.** Each module's results are verified against
-  `mpmath`, `numpy`, and `scipy` fixtures within ~1 ulp, thus validating the rust implementation.
+- **Every module checked against reference libraries.** Each module's results are verified against established libraries like `numpy` and `scipy` fixtures within ~1 ulp, thus validating the rust
+  implementation.
 - **Fast, and measured** (i7-12650H): a third derivative in 26.7 ns, a 10×10 LU solve in 239 ns,
   a full Levenberg-Marquardt fit in 2 µs. In the live demos: ~4 million Newton solves/sec on one
   core, and a 1 kHz arm IK at ~6 µs/solve. See the [benchmarks](benchmarks).
@@ -49,6 +49,7 @@ Newton fractal and the gradient-driven marbles; every number on screen is measur
 - [Discretization](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#discretization): zero-order hold, Van Loan, and discrete white-noise models for continuous-time linear systems.
 - [Spatial math](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#spatial-quaternions-and-lie-groups): `Quaternion` and the `SO2`/`SE2`/`SO3`/`SE3` Lie groups for 2D and 3D rotations and rigid-body transforms.
 - [Kinematics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#kinematics): differential-drive and unicycle maps between wheel and body motion, with exact SE(2) odometry.
+- [Estimation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#estimation): linear and extended `KalmanFilter`s with Joseph-form covariance updates, optional control input, and innovation access for measurement gating. `ExtendedKalmanFilter` takes nonlinear models as functions and differentiates them for the Jacobians — no hand-derived Jacobians.
 
 ## Install
 

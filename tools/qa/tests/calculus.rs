@@ -10,7 +10,7 @@
 
 use multicalc::approximation::linear_approximation::LinearApproximator;
 use multicalc::approximation::quadratic_approximation::QuadraticApproximator;
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::Vector;
 use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::numerical_derivative::derivator::{DerivatorMultiVariable, DerivatorSingleVariable};
 use multicalc::numerical_derivative::hessian::Hessian;
@@ -78,12 +78,7 @@ fn calculus() {
                     let j = Jacobian::<AutoDiffMulti>::default()
                         .get(&Jac23, &p)
                         .unwrap();
-                    assert_matrix(
-                        &Matrix::<2, 3>::new(j),
-                        &fx.expected["jacobian"],
-                        t,
-                        "jacobian",
-                    );
+                    assert_matrix(&j, &fx.expected["jacobian"], t, "jacobian");
                     assert_vector(
                         &Vector::new(Jac23.eval::<f64>(&p)),
                         &fx.expected["f_at_probe"],
@@ -96,12 +91,7 @@ fn calculus() {
                     let j = Jacobian::<AutoDiffMulti>::default()
                         .get(&Jac66, &p)
                         .unwrap();
-                    assert_matrix(
-                        &Matrix::<6, 6>::new(j),
-                        &fx.expected["jacobian"],
-                        t,
-                        "jacobian",
-                    );
+                    assert_matrix(&j, &fx.expected["jacobian"], t, "jacobian");
                     assert_vector(
                         &Vector::new(Jac66.eval::<f64>(&p)),
                         &fx.expected["f_at_probe"],
@@ -116,12 +106,7 @@ fn calculus() {
                 let h = Hessian::<AutoDiffMulti>::default()
                     .get(&HessianTarget, &p)
                     .unwrap();
-                assert_matrix(
-                    &Matrix::<3, 3>::new(h),
-                    &fx.expected["hessian"],
-                    t,
-                    "hessian",
-                );
+                assert_matrix(&h, &fx.expected["hessian"], t, "hessian");
                 assert_scalar(
                     HessianTarget.eval::<f64>(&p),
                     &fx.expected["f_at_probe"],

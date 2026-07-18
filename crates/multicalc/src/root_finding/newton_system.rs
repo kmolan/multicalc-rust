@@ -1,8 +1,8 @@
 //! Newton and damped Newton solvers for square systems.
 
 use crate::error::SolveError;
+use crate::linear_algebra::Vector;
 use crate::linear_algebra::qr::enorm;
-use crate::linear_algebra::{Matrix, Vector};
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::numerical_derivative::jacobian::Jacobian;
@@ -137,12 +137,11 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
                 });
             }
 
-            let jac = jacobian.get(f, &x)?;
-            if jac.iter().any(|row| !all_finite(row)) {
+            let j = jacobian.get(f, &x)?;
+            if !j.is_finite() {
                 return Err(SolveError::NonFinite);
             }
 
-            let j: Matrix<N, N, D::Scalar> = Matrix::from_fn(|ri, c| jac[ri][c]);
             let neg_r: [D::Scalar; N] = core::array::from_fn(|i| -r[i]);
             // Solve J·step = -F; returns SingularMatrix if J is rank-deficient.
             let step = j.solve(Vector::new(neg_r))?;

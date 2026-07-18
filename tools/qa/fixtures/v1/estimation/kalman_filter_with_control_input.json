@@ -1,0 +1,167 @@
+{
+  "case": "kalman_filter_with_control_input",
+  "expected": {
+    "covariance": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fd1850e1867cf20",
+        "0x3fbb3ddab5d65eb6",
+        "0x3fbb3ddab5d65eb6",
+        "0x3fba853fa826d90c"
+      ],
+      "rows": 2
+    },
+    "innovation": {
+      "data": [
+        "0x3fe41fea8242bf18"
+      ],
+      "kind": "vector"
+    },
+    "innovation_covariance": {
+      "cols": 1,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff1ade3374f0b3e"
+      ],
+      "rows": 1
+    },
+    "state": {
+      "data": [
+        "0xc01848bcb2905557",
+        "0xbfe33c93e028256e"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "case": {
+      "kind": "str",
+      "v": "with_control_input"
+    },
+    "control_inputs": {
+      "cols": 1,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fd97b56dcd7346c",
+        "0xbfbf8cbcb5c4b0d0",
+        "0xbfe9b44f91341a10",
+        "0xbfccb741e27e56b8",
+        "0xbfdddb8c300b83b4",
+        "0xbfef95b121ee2ea2",
+        "0x3fef6c8baf4b78e4",
+        "0x3fe39ee5b8ab4cfc"
+      ],
+      "rows": 8
+    },
+    "control_model": {
+      "cols": 1,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fe0000000000000",
+        "0x3ff0000000000000"
+      ],
+      "rows": 2
+    },
+    "initial_covariance": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000"
+      ],
+      "rows": 2
+    },
+    "initial_state": {
+      "data": [
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "kind": {
+      "kind": "str",
+      "v": "kalman_filter_with_control"
+    },
+    "measurement_model": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff0000000000000",
+        "0x0000000000000000"
+      ],
+      "rows": 1
+    },
+    "measurement_noise": {
+      "cols": 1,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fe0000000000000"
+      ],
+      "rows": 1
+    },
+    "measurements": {
+      "cols": 1,
+      "kind": "matrix",
+      "row_major": [
+        "0x3feb612fd03781f9",
+        "0x3fe9da38199c292e",
+        "0x3f890aada81d0730",
+        "0xbfd153ec8f2614d9",
+        "0xc0029bb25cc3772f",
+        "0xc009dc6d7fc35276",
+        "0xc0153489e26913ec",
+        "0xc0172553a56e130d"
+      ],
+      "rows": 8
+    },
+    "process_noise": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3f8999999999999a",
+        "0x3f9999999999999a",
+        "0x3f9999999999999a",
+        "0x3fa999999999999a"
+      ],
+      "rows": 2
+    },
+    "state_transition": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff0000000000000",
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000"
+      ],
+      "rows": 2
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "estimation",
+    "libraries": {
+      "filterpy": "1.4.5",
+      "numpy": "2.1.3"
+    },
+    "sampling": "measurements are a constant-velocity truth track plus N(0, 0.5) noise; controls uniform in [-1, 1]",
+    "seed": 20260706
+  },
+  "module": "estimation",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-10,
+        "rel": 1e-09
+      }
+    }
+  }
+}

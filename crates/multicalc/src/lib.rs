@@ -45,6 +45,9 @@ pub use spatial::{Twist, Wrench};
 /// Differential-drive kinematics and SE(2) odometry.
 pub use kinematics::{BodyArc, BodyTwist, DifferentialDrive, WheelRotations, WheelVelocities};
 
+/// Linear Kalman filter and Extended Kalman filter
+pub use estimation::{ExtendedKalmanFilter, KalmanFilter};
+
 /// The Levenberg-Marquardt and Gauss-Newton least-squares solvers and their result types.
 pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
 
@@ -52,11 +55,14 @@ pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, Term
 pub use root_finding::{Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination};
 
 /// Per-module-family error enums and the umbrella they convert into.
-pub use error::{CalcError, DiffError, IntegrateError, KinematicsError, LinalgError, SolveError};
+pub use error::{
+    CalcError, DiffError, EstimationError, IntegrateError, KinematicsError, LinalgError, SolveError,
+};
 
 pub mod approximation;
 pub mod discretization;
 pub mod error;
+pub mod estimation;
 pub mod gaussian_tables;
 pub mod kinematics;
 pub mod linear_algebra;

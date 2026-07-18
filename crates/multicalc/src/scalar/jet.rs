@@ -213,6 +213,7 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     const HALF: Self = Self::constant(T::HALF);
     const HUNDRED: Self = Self::constant(T::HUNDRED);
     const PI: Self = Self::constant(T::PI);
+    const TWO_PI: Self = Self::constant(T::TWO_PI);
     const EPSILON: Self = Self::constant(T::EPSILON);
     const EPSILON_X4: Self = Self::constant(T::EPSILON_X4);
     const EPSILON_X30: Self = Self::constant(T::EPSILON_X30);
@@ -356,6 +357,12 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     #[inline]
     fn floor(self) -> Self {
         Jet::constant(self.coeffs[0].floor())
+    }
+
+    /// Nearest integer, ties away from zero; all higher coefficients (the derivatives) are zero.
+    #[inline]
+    fn round(self) -> Self {
+        Jet::constant(self.coeffs[0].round())
     }
 
     /// Reflects the value only; the higher coefficients are not inspected.

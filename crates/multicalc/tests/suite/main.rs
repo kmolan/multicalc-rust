@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod approximation;
 mod discretization;
+mod estimation;
 mod gaussian_tables;
 mod kinematics;
 mod linear_algebra;

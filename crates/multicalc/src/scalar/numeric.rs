@@ -36,6 +36,8 @@ pub trait Numeric:
     const HUNDRED: Self;
     /// Archimedes' constant, π.
     const PI: Self;
+    /// Two times π (the circle constant τ) — one full turn in radians.
+    const TWO_PI: Self;
     /// The difference between `1` and the next larger representable value.
     const EPSILON: Self;
     /// `4 × EPSILON`.
@@ -97,6 +99,12 @@ pub trait Numeric:
     /// A step function, so its derivative is zero everywhere it is differentiable; the dual
     /// implementations therefore carry a zero derivative.
     fn floor(self) -> Self;
+
+    /// The nearest integer to `self`, rounding half away from zero.
+    ///
+    /// A step function, so its derivative is zero everywhere it is differentiable; the dual
+    /// implementations therefore carry a zero derivative.
+    fn round(self) -> Self;
 
     /// Sign of `self`: `1` for positive, `-1` for negative, `0` at zero.
     ///
@@ -240,6 +248,7 @@ impl Numeric for f64 {
     const HALF: Self = 0.5;
     const HUNDRED: Self = 100.0;
     const PI: Self = core::f64::consts::PI;
+    const TWO_PI: Self = core::f64::consts::PI * 2.0;
     const EPSILON: Self = f64::EPSILON;
     const EPSILON_X4: Self = f64::EPSILON * 4.0;
     const EPSILON_X30: Self = f64::EPSILON * 30.0;
@@ -302,6 +311,10 @@ impl Numeric for f64 {
     #[inline]
     fn floor(self) -> Self {
         libm::floor(self)
+    }
+    #[inline]
+    fn round(self) -> Self {
+        libm::round(self)
     }
     #[inline]
     fn max(self, other: Self) -> Self {
@@ -377,6 +390,7 @@ impl Numeric for f32 {
     const HALF: Self = 0.5;
     const HUNDRED: Self = 100.0;
     const PI: Self = core::f32::consts::PI;
+    const TWO_PI: Self = core::f32::consts::PI * 2.0;
     const EPSILON: Self = f32::EPSILON;
     const EPSILON_X4: Self = f32::EPSILON * 4.0;
     const EPSILON_X30: Self = f32::EPSILON * 30.0;
@@ -439,6 +453,10 @@ impl Numeric for f32 {
     #[inline]
     fn floor(self) -> Self {
         libm::floorf(self)
+    }
+    #[inline]
+    fn round(self) -> Self {
+        libm::roundf(self)
     }
     #[inline]
     fn max(self, other: Self) -> Self {

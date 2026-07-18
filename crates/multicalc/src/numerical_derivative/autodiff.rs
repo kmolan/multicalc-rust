@@ -29,7 +29,7 @@ const MAX_ORDER: usize = 6;
 /// assert!((d.get(2, &f, 2.0_f64).unwrap() - 12.0).abs() < 1e-12);
 /// assert!((d.get(3, &f, 2.0_f64).unwrap() - 6.0).abs() < 1e-12);
 /// ```
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AutoDiffSingle<T = f64> {
     _marker: PhantomData<T>,
 }
@@ -96,7 +96,7 @@ impl<T: Numeric> DerivatorSingleVariable for AutoDiffSingle<T> {
 /// // mixed second partial d2f/dx dy = 2x
 /// assert!((ad.get_double_partial(&f, &[0, 1], &point).unwrap() - 2.0).abs() < 1e-12);
 /// ```
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AutoDiffMulti<T = f64> {
     _marker: PhantomData<T>,
 }

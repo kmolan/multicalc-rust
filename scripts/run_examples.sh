@@ -10,6 +10,7 @@ basics=(
   curve_fit
   differentiation
   discretization
+  estimation
   gaussian_integration
   iterative_integration
   jacobian_hessian

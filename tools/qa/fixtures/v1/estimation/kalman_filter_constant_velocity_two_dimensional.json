@@ -1,0 +1,220 @@
+{
+  "case": "kalman_filter_constant_velocity_two_dimensional",
+  "expected": {
+    "covariance": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fc1a6c2b92807c6",
+        "0x3fa8f8c0addf97b4",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fa8f8c0addf97b2",
+        "0x3fa0f2eb4392d328",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fc97abdd749c0f2",
+        "0x3fb0f7ded80b5009",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fb0f7ded80b500a",
+        "0x3fa4ab526e84e3b3"
+      ],
+      "rows": 4
+    },
+    "innovation": {
+      "data": [
+        "0x3fe9c038483afd30",
+        "0x3fcb90dcce89c6d0"
+      ],
+      "kind": "vector"
+    },
+    "innovation_covariance": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fe388ded86b4c0e",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fecbb7b9f646fe6"
+      ],
+      "rows": 2
+    },
+    "state": {
+      "data": [
+        "0x4012f32485d84214",
+        "0x3fee7d46ca0fff8f",
+        "0xc0013aed53861d02",
+        "0xbfdaa6da9cab5128"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "case": {
+      "kind": "str",
+      "v": "constant_velocity_two_dimensional"
+    },
+    "initial_covariance": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fe0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fe0000000000000"
+      ],
+      "rows": 4
+    },
+    "initial_state": {
+      "data": [
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0xbfe0000000000000"
+      ],
+      "kind": "vector"
+    },
+    "kind": {
+      "kind": "str",
+      "v": "kalman_filter"
+    },
+    "measurement_model": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x0000000000000000"
+      ],
+      "rows": 2
+    },
+    "measurement_noise": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fd999999999999a",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fe3333333333333"
+      ],
+      "rows": 2
+    },
+    "measurements": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fc08df43063e31e",
+        "0x3fd52ff5e3490828",
+        "0x3ff85ef4af8b0336",
+        "0xbfd748df591f6a7a",
+        "0x3ff50dbea5d862eb",
+        "0xbff25e67bcf0e740",
+        "0x400755d67d0b97b0",
+        "0xbfeb7fc039318d26",
+        "0x3ffc3438ec0c3c76",
+        "0xbff63310a8036124",
+        "0x400014a4854f2d2c",
+        "0xbff670b94b5ed093",
+        "0x400fb87ee5765d0c",
+        "0xbff88238b4c87ab2",
+        "0x4009ee2392eadf80",
+        "0xc0017a12b8907ee4",
+        "0x40103e53f4fe7e28",
+        "0xbff643ba5a54b757",
+        "0x40150f1554224b2c",
+        "0xc0001432e8cf10cf"
+      ],
+      "rows": 10
+    },
+    "process_noise": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x3f347ae147ae147b",
+        "0x3f547ae147ae147b",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3f547ae147ae147b",
+        "0x3f747ae147ae147b",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3f347ae147ae147b",
+        "0x3f547ae147ae147b",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3f547ae147ae147b",
+        "0x3f747ae147ae147b"
+      ],
+      "rows": 4
+    },
+    "state_transition": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff0000000000000",
+        "0x3fe0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x3fe0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000"
+      ],
+      "rows": 4
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "generator": "estimation",
+    "libraries": {
+      "filterpy": "1.4.5",
+      "numpy": "2.1.3"
+    },
+    "sampling": "measurements are a constant-velocity truth track plus N(0, 0.5) noise; controls uniform in [-1, 1]",
+    "seed": 20260706
+  },
+  "module": "estimation",
+  "schema_version": 1,
+  "tolerances": {
+    "table": {
+      "f32/host": {
+        "abs": 0.001,
+        "rel": 0.001
+      },
+      "f64/host": {
+        "abs": 1e-10,
+        "rel": 1e-09
+      }
+    }
+  }
+}

@@ -227,10 +227,10 @@ pub fn jacobian_identity() -> f64 {
     let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
     for r in 0..2 {
         for c in 0..3 {
-            assert_close!("jacobian", black_box(j[r][c]), expected[r][c], 1e-12, 0.0);
+            assert_close!("jacobian", black_box(j[(r, c)]), expected[r][c], 1e-12, 0.0);
         }
     }
-    black_box(j[0][0])
+    black_box(j[(0, 0)])
 }
 
 /// Identity: the field `[y, -x, 2z]` at `(1, 2, 3)` has curl `[0, 0, -2]` and divergence `2`.

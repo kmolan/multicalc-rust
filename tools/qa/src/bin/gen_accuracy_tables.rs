@@ -327,6 +327,34 @@ const DOCS: &[Doc] = &[
         }],
     },
     Doc {
+        file: "estimation.md",
+        modules: &[Module {
+            dir: "fixtures/v1/estimation",
+            rows: &[
+                Row {
+                    case: "kalman_filter_constant_velocity_one_dimensional",
+                    operation: "Linear Kalman filter, 8 steps, state 2 / measurement 1",
+                    equation: "F = [[1, 1], [0, 1]], H = [1, 0]",
+                },
+                Row {
+                    case: "kalman_filter_constant_velocity_two_dimensional",
+                    operation: "Linear Kalman filter, 10 steps, state 4 / measurement 2",
+                    equation: "F = blkdiag([[1, 0.5], [0, 1]], [[1, 0.5], [0, 1]]), H = [[1, 0, 0, 0], [0, 0, 1, 0]]",
+                },
+                Row {
+                    case: "kalman_filter_with_control_input",
+                    operation: "Linear Kalman filter with control, 8 steps, control 1",
+                    equation: "x⁻ = [[1, 1], [0, 1]]·x + [[0.5], [1]]·u, H = [1, 0]",
+                },
+                Row {
+                    case: "extended_kalman_filter_landmark_range_and_bearing",
+                    operation: "Extended Kalman filter, 8 steps, state 3 / measurement 2",
+                    equation: "h = [√((3−x)²+(4−y)²), atan2(4−y, 3−x)−θ], F = I",
+                },
+            ],
+        }],
+    },
+    Doc {
         file: "root_finding.md",
         modules: &[Module {
             dir: "fixtures/v1/root_finding",
@@ -408,6 +436,8 @@ fn source(fx: &Fixture) -> String {
         format!("closed-form analytic (mpmath {})", version("mpmath"))
     } else if fx.metadata.generator == "ode" {
         format!("SciPy solve_ivp {}", version("scipy"))
+    } else if libs.contains_key("filterpy") {
+        format!("FilterPy {}", version("filterpy"))
     } else if libs.contains_key("scipy") {
         format!("SciPy/MINPACK {}", version("scipy"))
     } else if libs.contains_key("numpy") {

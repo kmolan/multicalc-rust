@@ -1,8 +1,8 @@
 //! The Levenberg-Marquardt least-squares solver (MINPACK `lmder` driver).
 
 use crate::error::SolveError;
+use crate::linear_algebra::Vector;
 use crate::linear_algebra::qr::{PivotedQr, enorm, max, min};
-use crate::linear_algebra::{Matrix, Vector};
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::numerical_derivative::jacobian::Jacobian;
@@ -148,12 +148,11 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
         let mut first = true;
 
         for _ in 0..self.patience {
-            let jac = jacobian.get(f, &x)?;
-            if !jac.iter().all(is_finite) {
+            let j = jacobian.get(f, &x)?;
+            if !j.is_finite() {
                 return Err(SolveError::NonFinite);
             }
-            let dls = PivotedQr::decompose(Matrix::from_fn(|r, c| jac[r][c]))?
-                .into_damped(Vector::new(residuals));
+            let dls = PivotedQr::decompose(j)?.into_damped(Vector::new(residuals));
 
             if first {
                 for (slot, &column_norm) in diag.iter_mut().zip(dls.column_norms.iter()) {

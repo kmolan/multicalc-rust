@@ -29,6 +29,7 @@ see [Error handling](#error-handling).
 - [Discretization](#discretization)
 - [Spatial: quaternions and Lie groups](#spatial-quaternions-and-lie-groups)
 - [Kinematics](#kinematics)
+- [Estimation](#estimation)
 - [Error handling](#error-handling)
 - [Internals](#internals)
 
@@ -625,9 +626,112 @@ zero-order hold on the wheel velocities rather than integration error.
 Full demo:
 [kinematics.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/kinematics.rs).
 
+## Estimation
+
+State estimation from noisy measurements. `KalmanFilter` is the linear filter: `predict` rolls the
+state forward through a matrix model and grows the covariance by the process noise; `update` folds in
+a measurement and shrinks it. Fixed-size, no allocation, and generic over the `Numeric` scalar, so a
+`Dual` state differentiates the whole filter.
+
+- `KalmanFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T>`: built from an initial estimate and the
+  four model matrices — transition, measurement model, process noise, measurement noise.
+- `predict` / `predict_with_control`: the time step, undriven or with a `control_model ·
+  control_input` term. `CONTROL_DIMENSION` lives on the method, so undriven users never meet it.
+- `update`: the measurement step. The only fallible operation in the module.
+- `CovarianceUpdate`: `Joseph` (the default) or `Naive`.
+- `innovation` / `innovation_covariance` / `normalized_innovation_squared`: for measurement gating.
+- The setters (`set_state_transition`, `set_process_noise`, …) cover the time-varying case, where a
+  changing timestep changes the model between steps.
+
+```rust
+use multicalc::estimation::KalmanFilter;
+use multicalc::linear_algebra::{Matrix, Vector};
+
+// Constant velocity: position integrates velocity over a 1 s step; position is measured.
+let mut filter = KalmanFilter::new(
+    Vector::new([0.0, 0.0]),                    // initial state [position, velocity]
+    Matrix::new([[1.0, 0.0], [0.0, 1.0]]),      // initial covariance
+    Matrix::new([[1.0, 1.0], [0.0, 1.0]]),      // state transition
+    Matrix::new([[1.0, 0.0]]),                  // measurement model
+    Matrix::new([[0.01, 0.0], [0.0, 0.01]]),    // process noise
+    Matrix::new([[0.1]]),                       // measurement noise
+);
+
+filter.predict();
+filter.update(Vector::new([1.0])).unwrap();
+let position = filter.state()[0];
+
+// Gate an outlier before folding it in.
+filter.predict();
+filter.update(Vector::new([1.9])).unwrap();
+let gate = filter.normalized_innovation_squared().unwrap();
+```
+
+The covariance update is Joseph form by default — `(I − K·H)·P·(I − K·H)ᵀ + K·R·Kᵀ` — which stays
+symmetric and positive definite by construction, where the naive `(I − K·H)·P` loses symmetry as
+rounding accumulates. Joseph is not a guarantee at every scale: across roughly 10⁷ single-precision
+updates it too drifts, and symmetrize-and-clamp conditioning is the answer there.
+
+`update` returns `EstimationError::NonFinite` for a non-finite measurement or innovation covariance,
+and `EstimationError::NotPositiveDefinite` when the innovation covariance cannot be factorized — the
+gain is undefined. `predict` is a cheap element-wise path and propagates non-finite values silently.
+
+`ExtendedKalmanFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T>` takes the process and measurement
+models as functions rather than matrices — any `VectorFn` — and re-linearizes them at the current
+estimate on every step. **The Jacobians are taken by automatic differentiation: write the model once
+and its partial derivatives are exact, with no hand-derived Jacobians anywhere** — the classic source
+of silent estimator bugs.
+
+- `new` / `from_derivator`: the autodiff default, or an explicit differentiation backend (e.g.
+  `FiniteDifferenceMulti`).
+- `predict(&process_model)` / `update(&measurement_model, measurement)`: the models are passed per
+  step, not stored, so the type stays `ExtendedKalmanFilter<3, 2>`. A control input or a changing
+  timestep lives in the model as a field the caller sets between steps — there is no
+  `predict_with_control`. Unlike the linear filter, `predict` here evaluates and differentiates a
+  model, so it returns a `Result`.
+- `update_with_residual(&measurement_model, residual)`: `update` with a caller-formed residual, for
+  when a measurement component is an angle — plain subtraction is wrong across the ±π wrap, and only
+  the caller knows which components are angular.
+- `CovarianceUpdate`, the accessors, and `normalized_innovation_squared` are shared with the linear
+  filter. `predict` and `update` also return `EstimationError::Diff` if a Jacobian step fails —
+  reachable only with a finite-difference backend, as the autodiff default cannot.
+
+```rust
+use multicalc::estimation::ExtendedKalmanFilter;
+use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::scalar::{Numeric, VectorFn};
+
+// Range to a landmark at (3, 4): nonlinear in the pose, so the linear filter cannot take it.
+struct RangeToLandmark;
+impl VectorFn<2, 1> for RangeToLandmark {
+    fn eval<S: Numeric>(&self, state: &[S; 2]) -> [S; 1] {
+        let to_landmark_x = S::from_f64(3.0) - state[0];
+        let to_landmark_y = S::from_f64(4.0) - state[1];
+        [(to_landmark_x * to_landmark_x + to_landmark_y * to_landmark_y).sqrt()]
+    }
+}
+
+// A stationary target: the pose carries over unchanged.
+struct Stationary;
+impl VectorFn<2, 2> for Stationary {
+    fn eval<S: Numeric>(&self, state: &[S; 2]) -> [S; 2] {
+        [state[0], state[1]]
+    }
+}
+
+let mut filter = ExtendedKalmanFilter::<2, 1>::new(
+    Vector::new([0.0, 0.0]),                  // initial pose, 5.0 from the landmark
+    Matrix::new([[1.0, 0.0], [0.0, 1.0]]),    // initial covariance
+    Matrix::new([[0.01, 0.0], [0.0, 0.01]]),  // process noise
+    Matrix::new([[0.1]]),                     // measurement noise
+);
+filter.predict(&Stationary).unwrap();
+filter.update(&RangeToLandmark, Vector::new([5.5])).unwrap();
+```
+
 ## Error handling
 
-Each module family returns its own error enum; all five convert into the `CalcError` umbrella
+Each module family returns its own error enum; all six convert into the `CalcError` umbrella
 via `From`, so a caller that spans families can hold one type. Every enum is `#[non_exhaustive]`,
 `Copy`, and implements `Display` and `core::error::Error`.
 
@@ -638,7 +742,8 @@ via `From`, so a caller that spans families can hold one type. Every enum is `#[
 | `IntegrateError` | [Integration](#integration), [Gaussian tables](#gaussian-quadrature-tables), [ODE](#ode-integrators) | `IterationsZero`, `LimitsIllDefined`, `QuadratureOrderOutOfRange`, `StepSizeTooSmall`, `DidNotConverge { steps }`, `NonFinite` |
 | `SolveError` | [Optimization](#least-squares-optimization), [Root finding](#root-finding) | `DidNotConverge { iters, residual }`, `NonFinite`, `InvalidBracket`, `Linalg(LinalgError)`, `Diff(DiffError)` |
 | `KinematicsError` | [Kinematics](#kinematics) | `NonPositiveParameter`, `NonFinite` |
-| `CalcError` | umbrella | `Linalg`, `Solve`, `Integrate`, `Differentiate`, `Kinematics` |
+| `EstimationError` | [Estimation](#estimation) | `NotPositiveDefinite`, `NonFinite`, `Diff(DiffError)` |
+| `CalcError` | umbrella | `Linalg`, `Solve`, `Integrate`, `Differentiate`, `Kinematics`, `Estimation` |
 
 `SolveError` wraps `LinalgError` and `DiffError` (a solver step can fail in either), and both
 are reachable through `core::error::Error::source`. Convert up to the umbrella with `?` or

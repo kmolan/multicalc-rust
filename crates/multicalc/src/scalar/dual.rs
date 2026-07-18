@@ -176,6 +176,10 @@ impl<T: Numeric> Numeric for Dual<T> {
         value: T::PI,
         deriv: T::ZERO,
     };
+    const TWO_PI: Self = Dual {
+        value: T::TWO_PI,
+        deriv: T::ZERO,
+    };
     const EPSILON: Self = Dual {
         value: T::EPSILON,
         deriv: T::ZERO,
@@ -308,6 +312,15 @@ impl<T: Numeric> Numeric for Dual<T> {
     fn floor(self) -> Self {
         Dual {
             value: self.value.floor(),
+            deriv: T::ZERO,
+        }
+    }
+
+    /// Nearest integer, ties away from zero. A step function, so the derivative is zero.
+    #[inline]
+    fn round(self) -> Self {
+        Dual {
+            value: self.value.round(),
             deriv: T::ZERO,
         }
     }

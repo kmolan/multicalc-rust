@@ -8,8 +8,8 @@
 
 `multicalc` is a pure `no_std` Rust library for numerical calculus and the linear algebra
 around it: exact derivatives via automatic differentiation, integration, Jacobians and Hessians,
-nonlinear least-squares curve fitting, root finding, ODE integration, and 2D/3D rigid-body
-math.
+nonlinear least-squares curve fitting, root finding, ODE integration, 2D/3D rigid-body math, and
+Kalman filtering (linear and extended).
 
 ## Why use it
 
@@ -19,7 +19,8 @@ math.
   builds run the real math under QEMU and check the answers, so `no_std`, no-heap, and no-panic
   rules hold from a 64-bit CPU down to a microcontroller with no operating system.
 - **Every module checked against the reference libraries.** Each module's results are verified
-  against `mpmath`, `numpy`, and `scipy` fixtures within ~1 ulp, thus validating the rust implementation.
+  against established libraries like `numpy` and `scipy` fixtures within ~1 ulp, thus validating the
+  rust implementation.
 - **Fast, and measured.** On an i7-12650H: a third derivative in 26.7 ns, a small Jacobian in
   9.3 ns, a 10×10 LU solve in 239 ns, and a full Levenberg-Marquardt curve fit in 2.0 µs. See
   the [benchmarks](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks).
@@ -45,6 +46,7 @@ math.
 - [Discretization](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#discretization): zero-order hold, Van Loan, and discrete white-noise models for continuous-time linear systems.
 - [Spatial math](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#spatial-quaternions-and-lie-groups): `Quaternion` and the `SO2`/`SE2`/`SO3`/`SE3` Lie groups for 2D and 3D rotations and rigid-body transforms.
 - [Kinematics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#kinematics): differential-drive and unicycle maps between wheel and body motion, with exact SE(2) odometry.
+- [Estimation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#estimation): linear and extended `KalmanFilter`s with Joseph-form covariance updates, optional control input, and innovation access for measurement gating. `ExtendedKalmanFilter` takes nonlinear models as functions and differentiates them for the Jacobians — no hand-derived Jacobians.
 
 ## Install
 
@@ -203,19 +205,21 @@ Refer to the [guide](https://github.com/kmolan/multicalc-rust/blob/main/crates/m
 
 Where a sensible default exists, a "safe" wrapper (such as `get_single` or `get_double`) returns
 the answer directly. Otherwise the call returns a `Result` whose error is the module family's own
-enum (`LinalgError`, `DiffError`, `IntegrateError`, `SolveError`, or `KinematicsError`), each
-convertible into the `CalcError` umbrella. All variants are listed in
+enum (`LinalgError`, `DiffError`, `IntegrateError`, `SolveError`, `KinematicsError`, or
+`EstimationError`), each convertible into the `CalcError` umbrella. All variants are listed in
 [error.rs](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/src/error.rs).
 
 ## Accuracy
 
-Accuracy is verified against external-library fixtures (`mpmath`, `numpy`, `scipy`) in the
-`multicalc-qa` crate, with per-module tables generated from those fixtures. See
+Accuracy is verified against external-library fixtures (`mpmath`, `numpy`, `scipy`, `filterpy`) in
+the `multicalc-qa` crate, with per-module tables generated from those fixtures. See
 [benchmarks/README.md](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/README.md)
 for the index, or go straight to
 [calculus](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/calculus.md),
 [linear_algebra](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/linear_algebra.md),
 [optimization](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/optimization.md),
+[ode](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/ode.md),
+[estimation](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/estimation.md),
 or [root_finding](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/root_finding.md).
 
 ## Runnable demos
