@@ -342,8 +342,9 @@ impl<T: Numeric> IntegratorMultiVariable for GaussianMulti<T> {
     ///   upper limit; a variable held constant holds that constant.
     ///
     /// # Errors
-    /// [`IntegrateError::QuadratureOrderOutOfRange`] if the configured order is unsupported, or
-    /// [`IntegrateError::LimitsIllDefined`] if any limit does not match the method's domain.
+    /// [`IntegrateError::QuadratureOrderOutOfRange`] if the configured order is unsupported,
+    /// [`IntegrateError::LimitsIllDefined`] if any limit does not match the method's domain, or
+    /// [`IntegrateError::IndexOutOfRange`] if any index is `>= NUM_VARS`.
     ///
     /// # Examples
     /// ```
@@ -367,6 +368,11 @@ impl<T: Numeric> IntegratorMultiVariable for GaussianMulti<T> {
     ) -> Result<T, IntegrateError> {
         let table = nodes(self.config.integration_method, self.config.order)?;
         self.config.check_limits(integration_limits)?;
+        for &idx in &idx_to_integrate {
+            if idx >= NUM_VARS {
+                return Err(IntegrateError::IndexOutOfRange);
+            }
+        }
 
         Ok(match self.config.integration_method {
             GaussianQuadratureMethod::GaussLegendre => self.integrate_legendre(
