@@ -11,10 +11,15 @@ multicalc defaults to, so the goldens exercise the default path directly.
 A filter run compounds per-step error, so these tolerances are looser than a single-operation
 factorization's.
 
+In the equations, `x` is the state vector, `u` the control input, and `x⁻` the predicted state.
+`F` is the state-transition matrix (`x⁻ = F·x`), `H` the measurement model mapping state to
+measurement, and `h` its nonlinear counterpart for the extended filter (`z = h(x)`).
+
 <!-- BEGIN generated: accuracy -->
 | Operation | Equation | Tolerance | Tested Against |
 | --- | --- | --- | --- |
-| Linear Kalman filter, 8 steps, state 2 / measurement 1 | constant velocity, position measured | 1e-9 | FilterPy 1.4.5 |
-| Linear Kalman filter, 10 steps, state 4 / measurement 2 | constant velocity in x and y, both positions measured | 1e-9 | FilterPy 1.4.5 |
-| Linear Kalman filter with control, 8 steps, control 1 | x⁻ = F·x + B·u, position measured | 1e-9 | FilterPy 1.4.5 |
+| Linear Kalman filter, 8 steps, state 2 / measurement 1 | F = [[1, 1], [0, 1]], H = [1, 0] | 1e-9 | FilterPy 1.4.5 |
+| Linear Kalman filter, 10 steps, state 4 / measurement 2 | F = blkdiag([[1, 0.5], [0, 1]], [[1, 0.5], [0, 1]]), H = [[1, 0, 0, 0], [0, 0, 1, 0]] | 1e-9 | FilterPy 1.4.5 |
+| Linear Kalman filter with control, 8 steps, control 1 | x⁻ = [[1, 1], [0, 1]]·x + [[0.5], [1]]·u, H = [1, 0] | 1e-9 | FilterPy 1.4.5 |
+| Extended Kalman filter, 8 steps, state 3 / measurement 2 | h = [√((3−x)²+(4−y)²), atan2(4−y, 3−x)−θ], F = I | 1e-9 | FilterPy 1.4.5 |
 <!-- END generated -->

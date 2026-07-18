@@ -148,6 +148,60 @@ def _with_control_input(out, rng, meta):
     )
 
 
+def _landmark_range_and_bearing(out, rng, meta):
+    """A stationary pose observed by range and bearing to one known landmark: nonlinear h, linear f."""
+    from filterpy.kalman import ExtendedKalmanFilter
+
+    landmark = np.array([3.0, 4.0])
+    steps = 8
+    q = np.eye(3) * 0.001
+    r = np.diag([0.1, 0.05])
+    x0 = np.array([0.2, -0.1, 0.05])
+    p0 = np.eye(3) * 0.5
+    truth = np.array([0.0, 0.0, 0.0])
+
+    def hx(x):
+        d = landmark - x[:2, 0]
+        return np.array([[np.hypot(d[0], d[1])], [np.arctan2(d[1], d[0]) - x[2, 0]]])
+
+    def h_jacobian(x):
+        d = landmark - x[:2, 0]
+        squared = d @ d
+        distance = np.sqrt(squared)
+        return np.array([
+            [-d[0] / distance, -d[1] / distance, 0.0],
+            [d[1] / squared, -d[0] / squared, -1.0],
+        ])
+
+    d = landmark - truth[:2]
+    exact = np.array([np.hypot(d[0], d[1]), np.arctan2(d[1], d[0]) - truth[2]])
+    zs = exact + rng.normal(0.0, [0.1, 0.05], size=(steps, 2))
+
+    kf = ExtendedKalmanFilter(dim_x=3, dim_z=2)
+    kf.x = x0.reshape(3, 1)
+    kf.P = p0.copy()
+    kf.Q, kf.R = q, r
+    kf.F = np.eye(3)          # stationary pose; the Rust side's model is the identity too
+    for z in zs:
+        kf.predict()
+        kf.update(z.reshape(2, 1), h_jacobian, hx)
+
+    inputs = {
+        "kind": schema.string("extended_kalman_filter"),
+        "case": schema.string("landmark_range_and_bearing"),
+        "landmark": schema.vector(landmark),
+        "process_noise": schema.matrix(q),
+        "measurement_noise": schema.matrix(r),
+        "initial_state": schema.vector(x0),
+        "initial_covariance": schema.matrix(p0),
+        "measurements": schema.matrix(zs),
+    }
+    schema.write_fixture(
+        out, "estimation", "extended_kalman_filter_landmark_range_and_bearing",
+        meta, _tol(), inputs, _expected(kf),
+    )
+
+
 def run(out, rng, seed):
     meta = schema.metadata(
         "estimation", seed,
@@ -158,3 +212,4 @@ def run(out, rng, seed):
     _constant_velocity_one_dimensional(out, rng, meta)
     _constant_velocity_two_dimensional(out, rng, meta)
     _with_control_input(out, rng, meta)
+    _landmark_range_and_bearing(out, rng, meta)
