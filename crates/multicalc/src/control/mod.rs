@@ -6,6 +6,8 @@
 
 mod derivative_filter;
 mod pid;
+mod pure_pursuit;
 
 pub use derivative_filter::OnePoleLowPass;
 pub use pid::Pid;
+pub use pure_pursuit::{Curvature, pure_pursuit_curvature};
