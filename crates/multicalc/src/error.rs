@@ -52,6 +52,8 @@ pub enum IntegrateError {
     },
     /// An integrand or state value was infinite or NaN.
     NonFinite,
+    /// A variable index was `>=` the number of variables in the point.
+    IndexOutOfRange,
 }
 
 /// Errors from the solver modules (root finding, Gauss-Newton, Levenberg-Marquardt).
@@ -204,6 +206,7 @@ impl core::fmt::Display for IntegrateError {
             IntegrateError::NonFinite => {
                 f.write_str("integrand or state contained a non-finite value")
             }
+            IntegrateError::IndexOutOfRange => f.write_str("variable index out of range"),
         }
     }
 }
