@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Iterative integrators return `IntegrateError::LimitsIllDefined` instead of `NaN`
   if `classify` fails after validation. @rtmongold (#171)
 - RK45 now handles zero-dimensional states without producing NaN norms. (#159)
+- 2×2/3×3/4×4 `Matrix::inverse` reject near-singular inputs via an
+  `EPSILON`-scaled det check instead of exact `det == 0`. @rtmongold (#181)
 
 ## [0.8.0] - 2026-07-16
 
