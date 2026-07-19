@@ -90,6 +90,19 @@ fn matrix_inverse() {
     let singular3 = Matrix::new([[1.0, 2.0, 3.0], [2.0, 4.0, 6.0], [1.0, 1.0, 1.0]]);
     assert_eq!(singular3.determinant(), 0.0);
     assert_eq!(singular3.inverse(), Err(LinalgError::Singular));
+
+    // Near-singular: det is tiny but nonzero under exact compare.
+    let near2 = Matrix::new([[1.0, 1.0], [1.0, 1.0 + f64::EPSILON]]);
+    assert_ne!(near2.determinant(), 0.0);
+    assert_eq!(near2.inverse(), Err(LinalgError::Singular));
+
+    let near3 = Matrix::new([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, f64::EPSILON]]);
+    assert_ne!(near3.determinant(), 0.0);
+    assert_eq!(near3.inverse(), Err(LinalgError::Singular));
+
+    // Tiny but full-rank still inverts (scaled threshold, not absolute eps).
+    let tiny = Matrix::<2, 2>::identity().scale(1e-8);
+    assert!(tiny.inverse().is_ok());
 }
 
 #[test]
@@ -167,6 +180,16 @@ fn matrix_4x4_determinant_and_inverse() {
         [1.0, 2.0, 3.0, 4.0],
     ]);
     assert_identity(af * af.inverse().unwrap(), 1e-5_f32);
+
+    // Near-singular: det is tiny but nonzero under exact compare.
+    let near4 = Matrix::<4, 4>::new([
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [1.0, 1.0, 1.0, f64::EPSILON],
+    ]);
+    assert_ne!(near4.determinant(), 0.0);
+    assert_eq!(near4.inverse(), Err(LinalgError::Singular));
 }
 
 #[test]

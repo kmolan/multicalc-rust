@@ -156,6 +156,26 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Matrix<ROWS, COLS, T> {
     pub fn is_finite(self) -> bool {
         self.data.iter().flatten().all(|x| x.is_finite())
     }
+
+    /// Largest absolute entry; used to scale near-singularity checks.
+    #[inline]
+    #[must_use]
+    fn max_abs(self) -> T {
+        let mut best = T::ZERO;
+        for r in 0..ROWS {
+            for c in 0..COLS {
+                best = best.max(self[(r, c)].abs());
+            }
+        }
+        best
+    }
+
+    /// `true` when `|det|` is at or below `EPSILON * n * scale^n`.
+    #[inline]
+    #[must_use]
+    fn det_near_singular(det: T, scale: T, n: usize) -> bool {
+        det.abs() <= T::EPSILON * T::from_usize(n) * scale.powi(n as i32)
+    }
 }
 
 impl<const N: usize, T: Numeric> Matrix<N, N, T> {
@@ -297,8 +317,8 @@ impl<T: Numeric> Matrix<2, 2, T> {
         self[(0, 0)] * self[(1, 1)] - self[(0, 1)] * self[(1, 0)]
     }
 
-    /// The inverse, or [`LinalgError::Singular`] if the matrix is singular
-    /// (`determinant() == 0`).
+    /// The inverse, or [`LinalgError::Singular`] if the matrix is singular or
+    /// near-singular (`|det|` at or below an `EPSILON`-scaled threshold).
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
@@ -310,7 +330,7 @@ impl<T: Numeric> Matrix<2, 2, T> {
     #[inline]
     pub fn inverse(self) -> Result<Self, LinalgError> {
         let det = self.determinant();
-        if det == T::ZERO {
+        if Self::det_near_singular(det, self.max_abs(), 2) {
             return Err(LinalgError::Singular);
         }
         let inv = T::ONE / det;
@@ -339,8 +359,8 @@ impl<T: Numeric> Matrix<3, 3, T> {
             + m[(0, 2)] * (m[(1, 0)] * m[(2, 1)] - m[(1, 1)] * m[(2, 0)])
     }
 
-    /// The inverse, or [`LinalgError::Singular`] if the matrix is singular
-    /// (`determinant() == 0`).
+    /// The inverse, or [`LinalgError::Singular`] if the matrix is singular or
+    /// near-singular (`|det|` at or below an `EPSILON`-scaled threshold).
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
@@ -350,7 +370,7 @@ impl<T: Numeric> Matrix<3, 3, T> {
     #[inline]
     pub fn inverse(self) -> Result<Self, LinalgError> {
         let det = self.determinant();
-        if det == T::ZERO {
+        if Self::det_near_singular(det, self.max_abs(), 3) {
             return Err(LinalgError::Singular);
         }
         let inv = T::ONE / det;
@@ -422,8 +442,8 @@ impl<T: Numeric> Matrix<4, 4, T> {
         s[0] * c[5] - s[1] * c[4] + s[2] * c[3] + s[3] * c[2] - s[4] * c[1] + s[5] * c[0]
     }
 
-    /// The inverse, or [`LinalgError::Singular`] if the matrix is singular
-    /// (`determinant() == 0`).
+    /// The inverse, or [`LinalgError::Singular`] if the matrix is singular or
+    /// near-singular (`|det|` at or below an `EPSILON`-scaled threshold).
     ///
     /// Built from the adjugate, the transpose of the cofactor matrix, scaled by `1/det`.
     ///
@@ -447,7 +467,7 @@ impl<T: Numeric> Matrix<4, 4, T> {
     pub fn inverse(self) -> Result<Self, LinalgError> {
         let (s, c) = self.row_pair_minors();
         let det = s[0] * c[5] - s[1] * c[4] + s[2] * c[3] + s[3] * c[2] - s[4] * c[1] + s[5] * c[0];
-        if det == T::ZERO {
+        if Self::det_near_singular(det, self.max_abs(), 4) {
             return Err(LinalgError::Singular);
         }
         let inv = T::ONE / det;
