@@ -29,6 +29,7 @@ see [Error handling](#error-handling).
 - [Discretization](#discretization)
 - [Spatial: quaternions and Lie groups](#spatial-quaternions-and-lie-groups)
 - [Kinematics](#kinematics)
+- [Control](#control)
 - [Estimation](#estimation)
 - [Error handling](#error-handling)
 - [Internals](#internals)
@@ -625,6 +626,84 @@ zero-order hold on the wheel velocities rather than integration error.
 
 Full demo:
 [kinematics.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/kinematics.rs).
+
+## Control
+
+Feedback controllers and steering laws for a mobile robot: a PID with anti-windup and a filtered
+derivative, the pure-pursuit path-following law, and Follow-the-Gap reactive avoidance. Fixed-size,
+no allocation, no panics, and generic over the `Numeric` scalar, so the same code runs at `f32` on a
+microcontroller.
+
+Angles are radians in the robot body frame, measured from the forward (+x) axis and positive
+counter-clockwise. Every controller takes its configuration once, validated, and every subsequent
+call is total.
+
+- `Pid`: three gains and a fixed timestep. `with_output_limits` clamps the output and stops the
+  integral winding up against the clamp; `with_derivative_filter` puts a one-pole low-pass on the
+  derivative term, which is what makes a D gain usable on a noisy measurement.
+- `OnePoleLowPass`: the filter on its own, by smoothing coefficient (`new`) or by cutoff frequency
+  (`from_cutoff`).
+- `pure_pursuit_curvature`: the exact `κ = 2·sin(α)/L_d` steering curvature toward a lookahead
+  point, written in body-frame coordinates. `Curvature::to_body_twist` turns it into a command at a
+  chosen speed.
+- `FollowTheGap`: reactive avoidance over a forward range scan. Const-generic on the beam count,
+  so the working buffer is stack-allocated and the beam geometry is fixed at compile time.
+
+```rust
+use multicalc::control::{FollowTheGap, Pid, pure_pursuit_curvature};
+use multicalc::linear_algebra::Vector;
+use multicalc::spatial::SE2;
+
+// A speed loop: PID on the forward speed, output limited, derivative filtered.
+let mut speed_loop = Pid::new(2.0_f64, 1.0, 0.05, 0.01)
+    .unwrap()
+    .with_output_limits(-1.0, 1.0)
+    .unwrap()
+    .with_derivative_filter(0.2)
+    .unwrap();
+let command = speed_loop.update(0.4, 0.35); // setpoint 0.4 m/s, measured 0.35 m/s
+
+// Steering toward a point 2 m ahead and 1 m to the left: a left turn, so positive curvature.
+let curvature = pure_pursuit_curvature(SE2::identity(), Vector::new([2.0, 1.0]), 2.0).unwrap();
+let twist = curvature.to_body_twist(0.4);
+
+// Reactive avoidance: 31 beams over 120°, 4 m range, a 0.5 m chassis, a 0.5 m gap threshold,
+// 0.4 m/s cruise.
+let follower: FollowTheGap<31, f64> =
+    FollowTheGap::try_new(2.0 * core::f64::consts::PI / 3.0, 4.0, 0.5, 0.5, 0.4).unwrap();
+
+// A clear scan drives straight ahead at cruise speed.
+let plan = follower.plan(&[4.0; 31], 0.0).unwrap();
+assert!(plan.heading().abs() < 1e-12);
+
+// A wall all round stops, and says why.
+let blocked = follower.plan(&[0.2; 31], 0.0).unwrap();
+assert!(blocked.is_blocked());
+assert_eq!(blocked.body_twist().linear(), 0.0);
+```
+
+`FollowTheGap` works in two passes over the scan. It sanitizes it — a beam that is non-finite or
+non-positive is a dropped return and reads as free space at maximum range. Then it walks every
+maximal run of beams above the gap threshold, discards any run whose bounding returns are closer
+together than the chassis width, and scores the rest by `span − goal_bias · |aim − goal_bearing|`.
+The `span` is the run's usable arc, held off each bounded edge by the angle the robot's half-width
+subtends at that edge's range, and `aim` is the goal bearing clamped into it — so the follower keeps
+its shoulders out of the obstacles that form the gap. It steers at the winner with a yaw rate of
+`turn_gain · heading` and a forward speed scaled linearly by frontal clearance.
+
+Measuring the gap in metres rather than beams is what makes the width test meaningful: the same
+angular gap is passable at 4 m and impassable at 0.4 m, and the law of cosines across the two
+bounding returns settles it directly. A run that reaches either end of the field of view has no
+bounding return on that side and counts as open, because the sensor saw nothing out there and
+inventing a wall would stop the robot on no evidence.
+
+It is a purely reactive method, and the doc comment says so plainly: with no map and no memory it
+can dither in a three-sided concave pocket. When no run is both free and wide enough it returns a
+stopped twist with `is_blocked()` set rather than inventing a heading — the recovery policy, such as
+rotating in place until a gap opens, belongs to the caller.
+
+Full demo:
+[avoidance.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/avoidance.rs).
 
 ## Estimation
 
