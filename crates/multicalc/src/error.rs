@@ -113,6 +113,20 @@ pub enum ControlError {
     FilterCoefficientOutOfRange,
     /// The pure-pursuit lookahead distance was not strictly positive.
     NonPositiveLookaheadDistance,
+    /// The gap-follower was instantiated with fewer than two beams.
+    InvalidBeamCount,
+    /// A field of view or frontal half-angle was outside its valid range.
+    InvalidFieldOfView,
+    /// A maximum range or gap threshold was not strictly positive, or the threshold exceeded the range.
+    NonPositiveRange,
+    /// A chassis width was not strictly positive, or half of it reached the maximum range.
+    NonPositiveChassisWidth,
+    /// A cruise speed or turn gain was not strictly positive.
+    NonPositiveSpeed,
+    /// A stopping distance was negative or not strictly less than the clear distance.
+    InvalidSpeedScaling,
+    /// A goal bias was negative.
+    NegativeGoalBias,
 }
 
 /// Errors from the motion module (waypoint paths and their geometric queries).
@@ -311,6 +325,23 @@ impl core::fmt::Display for ControlError {
             ControlError::NonPositiveLookaheadDistance => {
                 "lookahead distance must be strictly positive"
             }
+            ControlError::InvalidBeamCount => "gap-follower needs at least two beams",
+            ControlError::InvalidFieldOfView => {
+                "field of view must lie in (0, 2π] and the frontal half-angle within half of it"
+            }
+            ControlError::NonPositiveRange => {
+                "maximum range and gap threshold must be strictly positive, with the threshold no larger than the range"
+            }
+            ControlError::NonPositiveChassisWidth => {
+                "chassis width must be strictly positive and less than twice the maximum range"
+            }
+            ControlError::NonPositiveSpeed => {
+                "cruise speed and turn gain must be strictly positive"
+            }
+            ControlError::InvalidSpeedScaling => {
+                "stopping distance must be non-negative and strictly less than the clear distance"
+            }
+            ControlError::NegativeGoalBias => "goal bias must not be negative",
         })
     }
 }
