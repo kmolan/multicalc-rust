@@ -15,9 +15,12 @@ pub use newton::Newton;
 pub use newton_system::NewtonSystem;
 
 use crate::scalar::Numeric;
+#[cfg(feature = "serde")]
+use alloc::vec::Vec;
 
 /// Which convergence test stopped a root-finding solver.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum RootTermination {
     /// The residual magnitude fell to or below the residual tolerance.
@@ -30,6 +33,7 @@ pub enum RootTermination {
 
 /// The outcome of a scalar root solve.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[must_use]
 pub struct RootReport<T = f64> {
     /// The final estimate of the root.
@@ -44,6 +48,8 @@ pub struct RootReport<T = f64> {
 
 /// The outcome of a system root solve.
 #[derive(Debug, Clone, Copy)]
+
+
 #[must_use]
 pub struct RootReportN<const N: usize, T = f64> {
     /// The final estimate of the root.
@@ -67,4 +73,51 @@ pub(crate) fn same_sign<T: Numeric>(a: T, b: T) -> bool {
 /// Returns `true` when every element of `v` is finite.
 pub(crate) fn all_finite<const K: usize, T: Numeric>(v: &[T; K]) -> bool {
     v.iter().all(|x| x.is_finite())
+}
+
+
+
+
+
+
+#[cfg(feature = "serde")]
+impl<const N: usize, T: serde::Serialize> serde::Serialize for RootReportN<N, T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut s = serializer.serialize_struct("RootReportN", 4)?;
+        s.serialize_field("root", self.root.as_slice())?;
+        s.serialize_field("residual_norm", &self.residual_norm)?;
+        s.serialize_field("iterations", &self.iterations)?;
+        s.serialize_field("termination", &self.termination)?;
+        s.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, const N: usize, T: serde::Deserialize<'de> + Copy> serde::Deserialize<'de> for RootReportN<N, T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        struct Helper<T> {
+            root: Vec<T>,
+            residual_norm: T,
+            iterations: usize,
+            termination: RootTermination,
+        }
+        let h = Helper::deserialize(deserializer)?;
+        let root: [T; N] = h.root.try_into().map_err(|_| {
+            serde::de::Error::custom("wrong number of elements in `root`")
+        })?;
+        Ok(RootReportN {
+            root,
+            residual_norm: h.residual_norm,
+            iterations: h.iterations,
+            termination: h.termination,
+        })
+    }
 }

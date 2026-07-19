@@ -24,6 +24,8 @@ use crate::scalar::Numeric;
 
 /// Which convergence test stopped a solver.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+
+
 #[non_exhaustive]
 pub enum TerminationReason {
     /// The sum of squared residuals stopped decreasing (relative reduction within `ftol`).
@@ -37,6 +39,8 @@ pub enum TerminationReason {
 
 /// The outcome of a solver run.
 #[derive(Debug, Clone, Copy)]
+
+
 #[must_use]
 pub struct MinimizationReport<const N: usize, T = f64> {
     /// The parameter values at the final point.
@@ -71,3 +75,8 @@ pub(crate) fn report<const N: usize, T: Numeric>(
 
 #[cfg(test)]
 mod test;
+
+
+
+
+

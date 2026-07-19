@@ -5,7 +5,8 @@ use core::ops::{Add, AddAssign, Index, IndexMut, Mul, Neg, Sub, SubAssign};
 use crate::error::LinalgError;
 use crate::linear_algebra::Vector;
 use crate::scalar::Numeric;
-
+#[cfg(feature = "serde")]
+use alloc::vec::Vec;
 /// A `ROWS`×`COLS` matrix stored inline on the stack in row-major order.
 ///
 /// ```
@@ -23,6 +24,7 @@ use crate::scalar::Numeric;
 /// ```
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
+
 #[must_use]
 pub struct Matrix<const ROWS: usize, const COLS: usize, T = f64> {
     data: [[T; COLS]; ROWS],
@@ -388,7 +390,33 @@ impl<T: Numeric> Matrix<4, 4, T> {
             m[(2, 2)] * m[(3, 3)] - m[(2, 3)] * m[(3, 2)],
         ];
         (s, c)
+
+
+
+
+
+
+
+
+
+
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     /// The determinant, as the Laplace expansion along the first two rows.
     ///
@@ -465,5 +493,42 @@ impl<T: Numeric> Matrix<4, 4, T> {
                 (m[(2, 0)] * s[3] - m[(2, 1)] * s[1] + m[(2, 2)] * s[0]) * inv,
             ],
         ]))
+    }
+}
+
+
+
+
+
+#[cfg(feature = "serde")]
+impl<const ROWS: usize, const COLS: usize, T: serde::Serialize> serde::Serialize
+    for Matrix<ROWS, COLS, T>
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeSeq;
+        let mut seq = serializer.serialize_seq(Some(ROWS * COLS))?;
+        for row in self.data.iter() {
+            for val in row.iter() {
+                seq.serialize_element(val)?;
+            }
+        }
+        seq.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, const ROWS: usize, const COLS: usize, T: serde::Deserialize<'de> + Copy>
+    serde::Deserialize<'de> for Matrix<ROWS, COLS, T>
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let flat: Vec<T> = Vec::deserialize(deserializer)?;
+        Matrix::try_from_row_slice(&flat)
+            .ok_or_else(|| serde::de::Error::custom("wrong number of elements"))
     }
 }

@@ -29,6 +29,7 @@ use crate::spatial::{small_angle, small_angle_sq};
 
 /// A quaternion `w + x·i + y·j + z·k`, stored scalar-first.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Quaternion<T: Numeric> {
     w: T,
     x: T,

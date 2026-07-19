@@ -20,6 +20,7 @@ use crate::scalar::Numeric;
 /// ```
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq)]
+
 #[must_use]
 pub struct Vector<const N: usize, T = f64> {
     data: [T; N],
