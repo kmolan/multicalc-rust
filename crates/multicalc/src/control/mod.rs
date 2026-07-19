@@ -7,6 +7,9 @@
 //! The pure-pursuit law consumes a lookahead *point* rather than a path, so this module does not
 //! depend on [`motion`](crate::motion); it depends on [`spatial`](crate::spatial) for poses and on
 //! [`kinematics`](crate::kinematics) for the body-twist output.
+//!
+//! The gap-follower consumes a range scan and produces a body twist, so it depends on
+//! [`kinematics`](crate::kinematics) for the output type and on nothing else.
 
 mod derivative_filter;
 mod follow_the_gap;
@@ -14,5 +17,6 @@ mod pid;
 mod pure_pursuit;
 
 pub use derivative_filter::OnePoleLowPass;
+pub use follow_the_gap::{FollowTheGap, GapPlan};
 pub use pid::Pid;
 pub use pure_pursuit::{Curvature, pure_pursuit_curvature};

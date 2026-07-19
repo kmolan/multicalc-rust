@@ -51,6 +51,75 @@ pub struct FollowTheGap<const BEAMS: usize, T: Numeric> {
     frontal_half_angle: T,
 }
 
+/// The outcome of one Follow-the-Gap planning pass.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GapPlan<T: Numeric> {
+    body_twist: BodyTwist<T>,
+    heading: T,
+    gap_start: usize,
+    gap_end: usize,
+    minimum_clearance: T,
+    blocked: bool,
+}
+
+impl<T: Numeric> GapPlan<T> {
+    /// A full stop, for a scan offering no gap the robot fits through.
+    #[inline]
+    fn stopped(minimum_clearance: T) -> Self {
+        GapPlan {
+            body_twist: BodyTwist::new(T::ZERO, T::ZERO),
+            heading: T::ZERO,
+            gap_start: 0,
+            gap_end: 0,
+            minimum_clearance,
+            blocked: true,
+        }
+    }
+
+    /// The commanded forward speed and yaw rate. Both are zero when the scan is blocked.
+    #[inline]
+    #[must_use]
+    pub fn body_twist(&self) -> BodyTwist<T> {
+        self.body_twist
+    }
+
+    /// The chosen heading in the robot body frame, in radians, positive to the left. Zero when
+    /// blocked.
+    #[inline]
+    #[must_use]
+    pub fn heading(&self) -> T {
+        self.heading
+    }
+
+    /// The first beam index of the selected gap. Zero when blocked.
+    #[inline]
+    #[must_use]
+    pub fn gap_start(&self) -> usize {
+        self.gap_start
+    }
+
+    /// The last beam index of the selected gap, inclusive. Zero when blocked.
+    #[inline]
+    #[must_use]
+    pub fn gap_end(&self) -> usize {
+        self.gap_end
+    }
+
+    /// The smallest range in the scan after sanitizing, in metres.
+    #[inline]
+    #[must_use]
+    pub fn minimum_clearance(&self) -> T {
+        self.minimum_clearance
+    }
+
+    /// Whether no beam run was both free and wide enough, so the plan is a full stop.
+    #[inline]
+    #[must_use]
+    pub fn is_blocked(&self) -> bool {
+        self.blocked
+    }
+}
+
 impl<const BEAMS: usize, T: Numeric> FollowTheGap<BEAMS, T> {
     /// A gap-follower over `BEAMS` beams spanning `field_of_view` radians.
     ///
@@ -185,11 +254,189 @@ impl<const BEAMS: usize, T: Numeric> FollowTheGap<BEAMS, T> {
         (index < BEAMS).then(|| self.beam_bearing_unchecked(index))
     }
 
+    /// Plans a body twist from one range scan.
+    ///
+    /// `ranges` holds the beam ranges in metres, ordered from the beam at `-field_of_view/2` to the
+    /// beam at `+field_of_view/2`. `goal_bearing` is the desired direction of travel in the same
+    /// body frame, with `0` meaning straight ahead.
+    ///
+    /// A beam that is non-finite or non-positive counts as no return, that is, free space at
+    /// `maximum_range` — a dropped lidar beam reports nothing, not an obstacle.
+    ///
+    /// Steering is proportional to the chosen heading, `ω = turn_gain · heading`. Forward speed
+    /// ramps linearly from zero at `stopping_distance` to `cruise_speed` at `clear_distance`,
+    /// measured on the frontal arc only.
+    ///
+    /// Returns [`ControlError::NonFinite`] if `goal_bearing` is not finite.
+    ///
+    /// ```
+    /// use multicalc::control::FollowTheGap;
+    ///
+    /// // 31 beams over 120°, 4 m range, a 0.5 m chassis, 0.5 m gap threshold, 0.4 m/s cruise.
+    /// let follower: FollowTheGap<31, f64> =
+    ///     FollowTheGap::try_new(2.0 * core::f64::consts::PI / 3.0, 4.0, 0.5, 0.5, 0.4).unwrap();
+    ///
+    /// // Nothing in the way: drive straight ahead at cruise speed.
+    /// let plan = follower.plan(&[4.0; 31], 0.0).unwrap();
+    /// assert!(plan.heading().abs() < 1e-12);
+    /// assert!((plan.body_twist().linear() - 0.4).abs() < 1e-12);
+    ///
+    /// // A wall all round: stop, and say so.
+    /// let blocked = follower.plan(&[0.2; 31], 0.0).unwrap();
+    /// assert!(blocked.is_blocked());
+    /// assert_eq!(blocked.body_twist().linear(), 0.0);
+    /// ```
+    pub fn plan(&self, ranges: &[T; BEAMS], goal_bearing: T) -> Result<GapPlan<T>, ControlError> {
+        if !goal_bearing.is_finite() {
+            return Err(ControlError::NonFinite);
+        }
+
+        let sanitized: [T; BEAMS] = core::array::from_fn(|index| match ranges.get(index) {
+            Some(&range) if range.is_finite() && range > T::ZERO => range.min(self.maximum_range),
+            _ => self.maximum_range,
+        });
+
+        let mut minimum_clearance = self.maximum_range;
+        for &range in &sanitized {
+            if range < minimum_clearance {
+                minimum_clearance = range;
+            }
+        }
+
+        // Walk the scan once, closing each maximal run of free beams and scoring it. The extra
+        // iteration at `BEAMS` reads `None`, counts as not free, and closes a run that reached the
+        // final beam.
+        let mut best_score = T::NEG_INFINITY;
+        let mut best_gap: Option<(usize, usize, T)> = None;
+        let mut run_start: Option<usize> = None;
+
+        for index in 0..=BEAMS {
+            let free = match sanitized.get(index) {
+                Some(&range) => range >= self.gap_threshold,
+                None => false,
+            };
+            match (free, run_start) {
+                (true, None) => run_start = Some(index),
+                (false, Some(start)) => {
+                    // Cannot underflow: this arm needs a `run_start` set at a lower index.
+                    let end = index - 1;
+                    run_start = None;
+
+                    if self
+                        .gap_width(&sanitized, start, end)
+                        .is_some_and(|width| width < self.chassis_width)
+                    {
+                        continue;
+                    }
+
+                    let (low, high) = self.aim_bounds(&sanitized, start, end);
+                    let aim = if low > high {
+                        // Both shoulders together fill the run; its midpoint is the point furthest
+                        // from either edge.
+                        (self.beam_bearing_unchecked(start) + self.beam_bearing_unchecked(end))
+                            * T::HALF
+                    } else {
+                        goal_bearing.max(low).min(high)
+                    };
+                    let score =
+                        (high - low).max(T::ZERO) - self.goal_bias * (aim - goal_bearing).abs();
+
+                    // Equal scores are common because bearings are quantized. Preferring the
+                    // smaller `|aim|` keeps the choice independent of scan order; a genuinely
+                    // symmetric pair still falls to the lower index.
+                    let wins = match best_gap {
+                        None => true,
+                        Some((_, _, best_aim)) => {
+                            score > best_score
+                                || (score == best_score && aim.abs() < best_aim.abs())
+                        }
+                    };
+                    if wins {
+                        best_score = score;
+                        best_gap = Some((start, end, aim));
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let (gap_start, gap_end, heading) = match best_gap {
+            Some(gap) => gap,
+            None => return Ok(GapPlan::stopped(minimum_clearance)),
+        };
+
+        // Forward speed follows the frontal arc alone, so an obstacle off to one side slows the
+        // robot only once it comes round to the front.
+        let mut frontal_clearance = self.maximum_range;
+        for (index, &range) in sanitized.iter().enumerate() {
+            if self.beam_bearing_unchecked(index).abs() <= self.frontal_half_angle
+                && range < frontal_clearance
+            {
+                frontal_clearance = range;
+            }
+        }
+
+        // `try_new` and `with_speed_scaling` both keep the stopping distance below the clear
+        // distance, so this span is strictly positive.
+        let span = self.clear_distance - self.stopping_distance;
+        let speed_scale = ((frontal_clearance - self.stopping_distance) / span)
+            .max(T::ZERO)
+            .min(T::ONE);
+
+        Ok(GapPlan {
+            body_twist: BodyTwist::new(self.cruise_speed * speed_scale, self.turn_gain * heading),
+            heading,
+            gap_start,
+            gap_end,
+            minimum_clearance,
+            blocked: false,
+        })
+    }
+
     /// The bearing formula, for callers that have already bounded the index.
     #[inline]
     fn beam_bearing_unchecked(&self, index: usize) -> T {
         // `try_new` rejects fewer than two beams and is the only constructor, so this cannot wrap.
         let span = T::from_usize(BEAMS - 1);
         -self.field_of_view * T::HALF + self.field_of_view * T::from_usize(index) / span
+    }
+
+    /// The Euclidean distance between the returns bounding the free run `[start, end]`, or `None`
+    /// when the run reaches an end of the scan and so is unbounded on that side.
+    ///
+    /// The two bounding returns and the sensor form a triangle with a known included angle, so the
+    /// law of cosines gives the distance between them directly. Measuring in metres is what makes
+    /// the width meaningful: the same angular run is passable at four metres and impassable at
+    /// forty centimetres.
+    fn gap_width(&self, sanitized: &[T; BEAMS], start: usize, end: usize) -> Option<T> {
+        let before = start.checked_sub(1)?;
+        let after = end.checked_add(1).filter(|&index| index < BEAMS)?;
+        let range_a = *sanitized.get(before)?;
+        let range_b = *sanitized.get(after)?;
+        let separation = self.beam_bearing_unchecked(after) - self.beam_bearing_unchecked(before);
+        let squared =
+            range_a * range_a + range_b * range_b - T::TWO * range_a * range_b * separation.cos();
+        // A near-degenerate triangle can round to a small negative, which would make `sqrt` NaN.
+        Some(squared.max(T::ZERO).sqrt())
+    }
+
+    /// The bearings between which the aim may lie inside the free run `[start, end]`, each bounded
+    /// edge held off by the angle the robot's half-width subtends at that edge's range.
+    ///
+    /// A run reaching an end of the scan gets no inset on that side, matching [`Self::gap_width`].
+    /// The bounds cross when both shoulders together fill the run, which the caller resolves.
+    fn aim_bounds(&self, sanitized: &[T; BEAMS], start: usize, end: usize) -> (T, T) {
+        let half_width = self.chassis_width * T::HALF;
+        let inset = |index: usize| match sanitized.get(index) {
+            Some(&range) if range > T::ZERO => (half_width / range).atan(),
+            _ => T::ZERO,
+        };
+        let low = self.beam_bearing_unchecked(start) + start.checked_sub(1).map_or(T::ZERO, inset);
+        let high = self.beam_bearing_unchecked(end)
+            - end
+                .checked_add(1)
+                .filter(|&index| index < BEAMS)
+                .map_or(T::ZERO, inset);
+        (low, high)
     }
 }
