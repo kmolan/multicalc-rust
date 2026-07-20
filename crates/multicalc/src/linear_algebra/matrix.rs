@@ -190,6 +190,17 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     pub fn identity() -> Self {
         Matrix::from_fn(|r, c| if r == c { T::ONE } else { T::ZERO })
     }
+
+    #[inline]
+    #[must_use]
+    pub fn determinant_general(self) -> T {
+        let Ok(lu) = self.lu() else { return T::ZERO };
+        lu.determinant()
+    }
+
+    pub fn inverse_general(self) -> Result<Self, LinalgError> {
+        Ok(self.lu()?.inverse())
+    }
 }
 
 impl<const ROWS: usize, const COLS: usize, T> From<[[T; COLS]; ROWS]> for Matrix<ROWS, COLS, T> {
