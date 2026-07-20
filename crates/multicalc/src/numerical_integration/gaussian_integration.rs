@@ -2,20 +2,11 @@ use core::marker::PhantomData;
 
 use crate::error::IntegrateError;
 use crate::gaussian_tables::nodes;
-use crate::numerical_integration::integrator::{IntegratorMultiVariable, IntegratorSingleVariable};
+use crate::numerical_integration::integrator::{
+    IntegratorMultiVariable, IntegratorSingleVariable, is_finite,
+};
 use crate::numerical_integration::mode::GaussianQuadratureMethod;
 use crate::scalar::Numeric;
-
-/// Returns `sample` unchanged, or [`IntegrateError::NonFinite`] if it is NaN or infinite.
-/// The quadrature rules never check their samples otherwise, so a blow-up in the integrand
-/// would silently propagate into a garbage result. Mirrors the `Rk45` policy in `ode/rk45.rs`.
-fn finite<T: Numeric>(sample: T) -> Result<T, IntegrateError> {
-    if sample.is_finite() {
-        Ok(sample)
-    } else {
-        Err(IntegrateError::NonFinite)
-    }
-}
 
 /// Default quadrature order (number of nodes).
 pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;
@@ -132,7 +123,7 @@ impl<T: Numeric> GaussianSingle<T> {
         if level == 1 {
             let mut ans = T::ZERO;
             for &(weight, abscissa) in table {
-                ans += T::from_f64(weight) * finite(func(half * T::from_f64(abscissa) + mid))?;
+                ans += T::from_f64(weight) * is_finite(func(half * T::from_f64(abscissa) + mid))?;
             }
             return Ok(half * ans);
         }
@@ -157,7 +148,7 @@ impl<T: Numeric> GaussianSingle<T> {
         if level == 1 {
             let mut ans = T::ZERO;
             for &(weight, abscissa) in table {
-                ans += T::from_f64(weight) * finite(func(T::from_f64(abscissa)))?;
+                ans += T::from_f64(weight) * is_finite(func(T::from_f64(abscissa)))?;
             }
             return Ok(ans);
         }
@@ -279,7 +270,7 @@ impl<T: Numeric> GaussianMulti<T> {
         if level == 1 {
             for &(weight, abscissa) in table {
                 current[var] = half * T::from_f64(abscissa) + mid;
-                ans += T::from_f64(weight) * finite(func(&current))?;
+                ans += T::from_f64(weight) * is_finite(func(&current))?;
             }
             return Ok(half * ans);
         }
@@ -322,7 +313,7 @@ impl<T: Numeric> GaussianMulti<T> {
         if level == 1 {
             for &(weight, abscissa) in table {
                 current[var] = T::from_f64(abscissa);
-                ans += T::from_f64(weight) * finite(func(&current))?;
+                ans += T::from_f64(weight) * is_finite(func(&current))?;
             }
             return Ok(ans);
         }

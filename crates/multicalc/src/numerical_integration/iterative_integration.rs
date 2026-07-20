@@ -61,17 +61,6 @@ impl IterativeConfig {
     }
 }
 
-/// Returns `sample` unchanged, or [`IntegrateError::NonFinite`] if it is NaN or infinite.
-/// The iterative rules never check their samples otherwise, so a blow-up in the integrand
-/// would silently propagate into a garbage result. Mirrors the `Rk45` policy in `ode/rk45.rs`.
-fn finite<T: Numeric>(sample: T) -> Result<T, IntegrateError> {
-    if sample.is_finite() {
-        Ok(sample)
-    } else {
-        Err(IntegrateError::NonFinite)
-    }
-}
-
 /// Dispatches to the chosen rule, integrating `g` over `[lo, hi]` with `iterations`
 /// intervals. The caller decides the domain branch before building `g`, so a finite
 /// integral passes `func` straight through with no per-sample transform.
@@ -233,7 +222,7 @@ impl<T: Numeric> IterativeSingle<T> {
         if level == 1 {
             return match domain {
                 Domain::Finite(a, b) => {
-                    integrate_rule(method, iterations, a, b, |x| finite(func(x)), summation)
+                    integrate_rule(method, iterations, a, b, |x| is_finite(func(x)), summation)
                 }
                 _ => {
                     let (lo, hi) = t_bounds(&domain);
@@ -244,7 +233,7 @@ impl<T: Numeric> IterativeSingle<T> {
                         hi,
                         |t| {
                             let (x, jacobian) = map_sample(&domain, t);
-                            finite(func(x) * jacobian)
+                            is_finite(func(x) * jacobian)
                         },
                         summation,
                     )
@@ -255,7 +244,7 @@ impl<T: Numeric> IterativeSingle<T> {
         let inner = self.integrate(level - 1, func, integration_limit)?;
         match domain {
             Domain::Finite(a, b) => {
-                integrate_rule(method, iterations, a, b, |_| finite(inner), summation)
+                integrate_rule(method, iterations, a, b, |_| is_finite(inner), summation)
             }
             _ => {
                 let (lo, hi) = t_bounds(&domain);
@@ -266,7 +255,7 @@ impl<T: Numeric> IterativeSingle<T> {
                     hi,
                     |t| {
                         let (_, jacobian) = map_sample(&domain, t);
-                        finite(inner * jacobian)
+                        is_finite(inner * jacobian)
                     },
                     summation,
                 )
@@ -390,7 +379,7 @@ impl<T: Numeric> IterativeMulti<T> {
                     b,
                     |x| {
                         current[var] = x;
-                        finite(func(&current))
+                        is_finite(func(&current))
                     },
                     summation,
                 ),
@@ -404,7 +393,7 @@ impl<T: Numeric> IterativeMulti<T> {
                         |t| {
                             let (x, jacobian) = map_sample(&domain, t);
                             current[var] = x;
-                            finite(func(&current) * jacobian)
+                            is_finite(func(&current) * jacobian)
                         },
                         summation,
                     )
@@ -448,7 +437,7 @@ impl<T: Numeric> IterativeMulti<T> {
                             integration_limits,
                             &current,
                         )?;
-                        finite(inner * jacobian)
+                        is_finite(inner * jacobian)
                     },
                     summation,
                 )
