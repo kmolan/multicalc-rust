@@ -22,6 +22,19 @@ fn matrix_arithmetic() {
 }
 
 #[test]
+fn try_row_column() {
+    let m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+
+    assert_eq!(m.try_row(1), Some(Vector::new([3.0, 4.0])));
+    assert_eq!(m.try_row(2), None);
+    assert_eq!(m.try_row(1), Some(m.row(1)));
+
+    assert_eq!(m.try_column(0), Some(Vector::new([1.0, 3.0])));
+    assert_eq!(m.try_column(2), None);
+    assert_eq!(m.try_column(0), Some(m.column(0)));
+}
+
+#[test]
 fn matrix_multiply() {
     let a = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
     let b = Matrix::new([[5.0, 6.0], [7.0, 8.0]]);
