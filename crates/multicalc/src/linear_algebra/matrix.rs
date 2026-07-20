@@ -83,6 +83,20 @@ impl<const ROWS: usize, const COLS: usize, T: Copy> Matrix<ROWS, COLS, T> {
         (slice.len() == ROWS * COLS).then(|| Self::from_fn(|r, c| slice[r * COLS + c]))
     }
 
+    /// Copies row `r`, or `None` if `r >= ROWS`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::{Matrix, Vector};
+    /// let m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    /// assert_eq!(m.try_row(1), Some(Vector::new([3.0, 4.0])));
+    /// assert_eq!(m.try_row(2), None);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn try_row(&self, r: usize) -> Option<Vector<COLS, T>> {
+        self.data.get(r).copied().map(Vector::new)
+    }
+
     /// Copies row `r` into a vector. Panics if `r >= ROWS`.
     ///
     /// ```
@@ -93,6 +107,25 @@ impl<const ROWS: usize, const COLS: usize, T: Copy> Matrix<ROWS, COLS, T> {
     #[inline]
     pub fn row(&self, r: usize) -> Vector<COLS, T> {
         Vector::new(self.data[r])
+    }
+
+    /// Copies column `c`, or `None` if `c >= COLS`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::{Matrix, Vector};
+    /// let m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    /// assert_eq!(m.try_column(1), Some(Vector::new([2.0, 4.0])));
+    /// assert_eq!(m.try_column(2), None);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn try_column(&self, c: usize) -> Option<Vector<ROWS, T>> {
+        let &probe = self.data.first().and_then(|row| row.get(c))?;
+        let mut data = [probe; ROWS];
+        for (dst, row) in data.iter_mut().zip(&self.data) {
+            *dst = *row.get(c)?;
+        }
+        Some(Vector::new(data))
     }
 
     /// Copies column `c` into a vector. Panics if `c >= COLS`.

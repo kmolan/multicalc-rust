@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Const-evaluable solver constructors, AutoDiff `new()`, and Gaussian quadrature node
   tables / `nodes`. @rtmongold (#168)
+- Add `Matrix::try_row` / `try_column` (`Option`, OOB -> `None`). @rtmongold (#185)
 
 ### Fixed
 
