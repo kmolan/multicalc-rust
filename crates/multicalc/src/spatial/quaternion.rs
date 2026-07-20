@@ -519,3 +519,11 @@ impl<T: Numeric> Mul for Quaternion<T> {
         }
     }
 }
+
+
+impl<T: Numeric> From<[T; 4]> for Quaternion<T> {
+    #[inline]
+    fn from(a: [T; 4]) -> Self {
+        Quaternion::from_array(a)
+    }
+}
