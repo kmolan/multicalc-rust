@@ -373,6 +373,32 @@ fn test_error_checking_4() {
 }
 
 #[test]
+fn test_error_checking_5() {
+    //integrand returns NaN, which the iterative rule must surface instead of a garbage number
+    let func = |_args: f64| -> f64 { f64::NAN };
+
+    let integration_limit = [0.0, 1.0];
+
+    let integrator = iterative_integration::IterativeSingle::default();
+    let result = integrator.get_single(&func, &integration_limit);
+    assert!(result.is_err());
+    assert!(result.unwrap_err() == IntegrateError::NonFinite);
+}
+
+#[test]
+fn test_error_checking_6() {
+    //integrand blows up to infinity, which Gauss-Legendre must surface as an error
+    let func = |_args: f64| -> f64 { f64::INFINITY };
+
+    let integration_limit = [0.0, 2.0];
+
+    let integrator = gaussian_integration::GaussianSingle::default();
+    let result = integrator.get_single(&func, &integration_limit);
+    assert!(result.is_err());
+    assert!(result.unwrap_err() == IntegrateError::NonFinite);
+}
+
+#[test]
 fn test_gauss_hermite_single() {
     //integrand is x*x; weights carry the e^{-x*x} kernel
     //∫_{-∞}^∞ x² e^{-x²} dx = √π / 2

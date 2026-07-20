@@ -28,6 +28,18 @@ pub(crate) fn classify<T: Numeric>(limit: &[T; 2]) -> Result<Domain<T>, Integrat
     }
 }
 
+/// Returns `sample` unchanged, or [`IntegrateError::NonFinite`] if it is NaN or infinite.
+/// The quadrature and iterative rules never check their samples otherwise, so a blow-up in
+/// the integrand would silently propagate into a garbage result. Mirrors the `Rk45` policy
+/// in `ode/rk45.rs`.
+pub(crate) fn is_finite<T: Numeric>(sample: T) -> Result<T, IntegrateError> {
+    if sample.is_finite() {
+        Ok(sample)
+    } else {
+        Err(IntegrateError::NonFinite)
+    }
+}
+
 /// Returns the `t`-interval the rule walks for a domain. The finite end of a
 /// semi-infinite domain sits at `t = 0` and is perfectly regular, so it is included;
 /// only an infinite end needs the `T::EPSILON` inset that keeps the transform away from

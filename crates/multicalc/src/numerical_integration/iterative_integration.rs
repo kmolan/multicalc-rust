@@ -222,7 +222,7 @@ impl<T: Numeric> IterativeSingle<T> {
         if level == 1 {
             return match domain {
                 Domain::Finite(a, b) => {
-                    integrate_rule(method, iterations, a, b, |x| Ok(func(x)), summation)
+                    integrate_rule(method, iterations, a, b, |x| is_finite(func(x)), summation)
                 }
                 _ => {
                     let (lo, hi) = t_bounds(&domain);
@@ -233,7 +233,7 @@ impl<T: Numeric> IterativeSingle<T> {
                         hi,
                         |t| {
                             let (x, jacobian) = map_sample(&domain, t);
-                            Ok(func(x) * jacobian)
+                            is_finite(func(x) * jacobian)
                         },
                         summation,
                     )
@@ -244,7 +244,7 @@ impl<T: Numeric> IterativeSingle<T> {
         let inner = self.integrate(level - 1, func, integration_limit)?;
         match domain {
             Domain::Finite(a, b) => {
-                integrate_rule(method, iterations, a, b, |_| Ok(inner), summation)
+                integrate_rule(method, iterations, a, b, |_| is_finite(inner), summation)
             }
             _ => {
                 let (lo, hi) = t_bounds(&domain);
@@ -255,7 +255,7 @@ impl<T: Numeric> IterativeSingle<T> {
                     hi,
                     |t| {
                         let (_, jacobian) = map_sample(&domain, t);
-                        Ok(inner * jacobian)
+                        is_finite(inner * jacobian)
                     },
                     summation,
                 )
@@ -279,8 +279,9 @@ impl<T: Numeric> IntegratorSingleVariable for IterativeSingle<T> {
     /// * `integration_limit` - the `[lower, upper]` limit for each level of integration.
     ///
     /// # Errors
-    /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero, or
-    /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined.
+    /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero,
+    /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined, or
+    /// [`IntegrateError::NonFinite`] if a sampled integrand value is infinite or NaN.
     ///
     /// # Examples
     /// ```
@@ -378,7 +379,7 @@ impl<T: Numeric> IterativeMulti<T> {
                     b,
                     |x| {
                         current[var] = x;
-                        Ok(func(&current))
+                        is_finite(func(&current))
                     },
                     summation,
                 ),
@@ -392,7 +393,7 @@ impl<T: Numeric> IterativeMulti<T> {
                         |t| {
                             let (x, jacobian) = map_sample(&domain, t);
                             current[var] = x;
-                            Ok(func(&current) * jacobian)
+                            is_finite(func(&current) * jacobian)
                         },
                         summation,
                     )
@@ -436,7 +437,7 @@ impl<T: Numeric> IterativeMulti<T> {
                             integration_limits,
                             &current,
                         )?;
-                        Ok(inner * jacobian)
+                        is_finite(inner * jacobian)
                     },
                     summation,
                 )
@@ -460,8 +461,9 @@ impl<T: Numeric> IntegratorMultiVariable for IterativeMulti<T> {
     ///
     /// # Errors
     /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero,
-    /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined, or
-    /// [`IntegrateError::IndexOutOfRange`] if any index is `>= NUM_VARS`.
+    /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined,
+    /// [`IntegrateError::IndexOutOfRange`] if any index is `>= NUM_VARS`, or
+    /// [`IntegrateError::NonFinite`] if a sampled integrand value is infinite or NaN.
     ///
     /// # Examples
     /// ```
