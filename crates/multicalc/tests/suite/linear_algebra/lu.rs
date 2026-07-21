@@ -1,7 +1,7 @@
 use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc_testkit::tol::{assert_identity, assert_matrix_close, lu_reconstructs};
-
+use proptest::prelude::*;
 // ----- LU decomposition (Doolittle, partial pivoting) -----
 
 #[test]
@@ -135,4 +135,45 @@ fn lu_inverse_matches_reference_5x5() {
         1e-12,
     );
     assert_identity(a * inv, 1e-12);
+}
+
+
+
+proptest! {
+    /// Random 3×3 matrices should still satisfy P·A = L·U — reject near-singular draws
+    /// so the pivot search always has something solid to work with.
+    #[test]
+    fn lu_reconstructs_random_3x3(
+        data in prop::array::uniform9(-10.0f64..10.0)
+    ) {
+        let a = Matrix::<3, 3>::new([
+            [data[0], data[1], data[2]],
+            [data[3], data[4], data[5]],
+            [data[6], data[7], data[8]],
+        ]);
+
+        // Reject matrices with a tiny determinant — near-singular draws make L/U reconstruction
+        // legitimately ill-conditioned, which would need a much looser (and less meaningful)
+        // tolerance. Rejecting keeps the tolerance tight and tests the well-conditioned case.
+        prop_assume!(a.determinant().abs() > 1e-3);
+
+        lu_reconstructs(a, 1e-9);
+    }
+
+    /// Same check on a 5×5 matrix, to exercise a size with more pivoting opportunities.
+    /// Same check on a 5×5 matrix, to exercise a size with more pivoting opportunities.
+    #[test]
+    fn lu_reconstructs_random_5x5(
+        data in prop::array::uniform25(-10.0f64..10.0)
+    ) {
+        let a = Matrix::<5, 5>::from_fn(|r, c| data[r * 5 + c]);
+
+        // Factorize first; reject if singular or near-singular (checked via the LU's own
+        // determinant, since a general `.determinant()` isn't implemented above 4×4).
+        let f = a.lu();
+        prop_assume!(f.is_ok());
+        prop_assume!(f.unwrap().determinant().abs() > 1e-2);
+
+        lu_reconstructs(a, 1e-6);
+    }
 }

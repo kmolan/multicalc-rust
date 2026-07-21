@@ -1,9 +1,8 @@
 use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, PivotedQr, Vector};
-use multicalc_testkit::tol::{assert_identity, assert_matrix_close};
-
+use multicalc_testkit::tol::{assert_identity, assert_matrix_close, qr_reconstructs};
 // ----- column-pivoted QR (decompose, accessors, solve) -----
-
+use proptest::prelude::*;
 #[test]
 fn qr_rejects_underdetermined() {
     let a = Matrix::<2, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
@@ -215,5 +214,36 @@ fn damped_solves_ridge_regression() {
             * x;
     for i in 0..8 {
         assert!((lhs[i] - vtb[i]).abs() < 1e-8);
+    }
+}
+
+
+
+proptest! {
+    /// Random 4×3 (rectangular, M > N) matrices should satisfy A·P = Q·R with Q orthonormal
+    /// and R upper-triangular.
+    #[test]
+    fn qr_reconstructs_random_4x3(
+        data in prop::array::uniform12(-10.0f64..10.0)
+    ) {
+        let a = Matrix::<4, 3>::from_fn(|r, c| data[r * 3 + c]);
+
+        // Reject rank-deficient draws: a genuinely low-rank matrix can't satisfy a tight
+        // reconstruction tolerance, since R's diagonal legitimately collapses toward zero.
+        let f = PivotedQr::decompose(a);
+        prop_assume!(f.is_ok());
+
+        qr_reconstructs(a, 1e-9);
+    }
+
+    /// Random 5×5 (square) matrices — the same identity should hold when M == N.
+    #[test]
+    fn qr_reconstructs_random_5x5(
+        data in prop::array::uniform25(-10.0f64..10.0)
+    ) {
+        let a = Matrix::<5, 5>::from_fn(|r, c| data[r * 5 + c]);
+        prop_assume!(PivotedQr::decompose(a).is_ok());
+
+        qr_reconstructs(a, 1e-9);
     }
 }

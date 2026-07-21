@@ -155,3 +155,29 @@ pub fn svd_moore_penrose_f32<const M: usize, const N: usize>(a: Matrix<M, N, f32
     let apa = ap * a;
     assert_matrix_close(apa, apa.transpose(), f32_scaled_tol(max_abs(apa), N));
 }
+
+
+
+
+
+/// Checks Q is orthonormal, R is upper-triangular, and `A·P` reconstructs `Q·R`.
+pub fn qr_reconstructs<const M: usize, const N: usize, T: Numeric>(a: Matrix<M, N, T>, tol: T) {
+    let f = multicalc::linear_algebra::PivotedQr::decompose(a).unwrap();
+    let q = f.q();
+    let r = f.r();
+    let perm = f.permutation();
+
+    // R must be upper-triangular.
+    for row in 0..N {
+        for col in 0..row {
+            assert_eq!(r[(row, col)], T::ZERO);
+        }
+    }
+
+    // Q must have orthonormal columns: Qᵀ·Q = I.
+    assert_identity(q.transpose() * q, tol);
+
+    // A·P == Q·R (column `j` of A·P is column `permutation[j]` of A).
+    let ap = Matrix::<M, N, T>::from_fn(|i, c| a[(i, perm[c])]);
+    assert_matrix_close(q * r, ap, tol);
+}
