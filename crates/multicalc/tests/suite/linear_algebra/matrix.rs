@@ -202,7 +202,7 @@ fn matrix_5x5_determinant_and_inverse() {
         [3.0, 1.0, 0.0, 3.0, 1.0],
     ]);
 
-    assert!((a.determinant_general() - -27.0).abs() < 1e-12);
+    assert!((a.determinant() - -27.0).abs() < 1e-12);
 
     let b = Matrix::<5, 5>::new([
         [1.0, 1.0, 1.0, 1.0, 1.0],
@@ -213,7 +213,7 @@ fn matrix_5x5_determinant_and_inverse() {
     ]);
 
     assert_matrix_close(
-        b.inverse_general().unwrap(),
+        b.inverse().unwrap(),
         Matrix::<5, 5>::new([
             [5.0, -10.0, 10.0, -5.0, 1.0],
             [-10.0, 30.0, -35.0, 19.0, -4.0],
