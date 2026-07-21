@@ -349,11 +349,10 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     #[inline]
     fn inverse_4x4(mut self) -> Result<Self, LinalgError> {
         let (top, bottom) = self.row_pair_minors();
-        let determinant = top[0] * bottom[5] - top[1] * bottom[4]
-            + top[2] * bottom[3]
-            + top[3] * bottom[2]
-            - top[4] * bottom[1]
-            + top[5] * bottom[0];
+        let determinant =
+            top[0] * bottom[5] - top[1] * bottom[4] + top[2] * bottom[3] + top[3] * bottom[2]
+                - top[4] * bottom[1]
+                + top[5] * bottom[0];
         if Self::det_near_singular(determinant, self.max_abs(), 4) {
             return Err(LinalgError::Singular);
         }
