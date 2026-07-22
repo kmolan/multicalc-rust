@@ -128,6 +128,55 @@ fn test_flux_integral_1() {
 }
 
 #[test]
+fn test_flux_integral_3d_helix() {
+    // Curve r(t) = (cos(t), sin(t), t)
+    // Vector field = (0, 0, z)
+    //
+    // Flux calculation:
+    // partial_x = 0
+    // partial_y = 0
+    // partial_z = ∫ z dz = ∫ t dt = 2*pi^2
+    //
+    // Flux = partial_x - partial_y - partial_z = -2*pi^2
+
+    let vector_field_matrix: [&dyn Fn(&[f64; 3]) -> f64; 3] = [
+        &(|_: &[f64; 3]| -> f64 { 0.0 }),
+        &(|_: &[f64; 3]| -> f64 { 0.0 }),
+        &(|args: &[f64; 3]| -> f64 { args[2] }),
+    ];
+
+    let transformation_matrix: [&dyn Fn(f64) -> f64; 3] = [
+        &(|t: f64| -> f64 { t.cos() }),
+        &(|t: f64| -> f64 { t.sin() }),
+        &(|t: f64| -> f64 { t }),
+    ];
+
+    let two_pi = 2.0 * core::f64::consts::PI;
+    let integration_limit = [0.0, two_pi];
+
+    let val = flux_integral::get_3d_custom(
+        &vector_field_matrix,
+        &transformation_matrix,
+        &integration_limit,
+        100,
+    )
+    .unwrap();
+
+    let expected = -2.0 * core::f64::consts::PI * core::f64::consts::PI;
+
+    assert!(f64::abs(val - expected) < 1e-6);
+}
+
+
+
+
+
+
+
+
+
+
+#[test]
 fn test_curl_2d_1() {
     //vector field is (2*x*y, 3*cos(y)); curl is known to be -2*x, so -2.0 at x = 1
     let vf = scalar_fn_vec!(|v: &[f64; 2]| [c(2.0) * v[0] * v[1], c(3.0) * v[1].cos()]);

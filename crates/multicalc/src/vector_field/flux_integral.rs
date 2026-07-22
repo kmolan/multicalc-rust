@@ -73,10 +73,6 @@ pub fn get_2d_custom<T: Numeric>(
     )?)
 }
 
-
-
-
-
 pub fn get_3d<T: Numeric>(
     vector_field: &[&dyn Fn(&[T; 3]) -> T; 3],
     transformations: &[&dyn Fn(T) -> T; 3],
@@ -89,9 +85,6 @@ pub fn get_3d<T: Numeric>(
         DEFAULT_TOTAL_ITERATIONS,
     )
 }
-
-
-
 
 pub fn get_3d_custom<T: Numeric>(
     vector_field: &[&dyn Fn(&[T; 3]) -> T; 3],
@@ -111,7 +104,7 @@ pub fn get_3d_custom<T: Numeric>(
         integration_limit,
         total_iterations,
         1,
-    )?- line_integral::get_partial_3d(
+    )? - line_integral::get_partial_3d(
         vector_field,
         transformations,
         integration_limit,
