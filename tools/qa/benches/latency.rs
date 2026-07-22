@@ -169,6 +169,66 @@ fn bench_lev_marq(c: &mut Criterion) {
     });
 }
 
+/// Beacons at the corners of a 10 m square room, ranged against for robot localization.
+/// Example taken from https://github.com/destenson/kalman-filter-rs/blob/master/examples/particle_filter_robot.rs
+const BEACONS: [(f64, f64); 4] = [(2.0, 8.0), (8.0, 8.0), (8.0, 2.0), (2.0, 2.0)];
+
+/// A stopped differential-drive robot: the pose `[x, y, heading]` holds. Keeping the robot still
+/// keeps the reused filter near the fixed measurement across the bench's iterations, rather than
+/// driving off and degenerating.
+struct StoppedRobot;
+impl VectorFn<3, 3> for StoppedRobot {
+    fn eval<S: Numeric>(&self, pose: &[S; 3]) -> [S; 3] {
+        [pose[0], pose[1], pose[2]]
+    }
+}
+
+/// The straight-line distance from the robot's position to each beacon.
+struct BeaconRanges;
+impl VectorFn<3, 4> for BeaconRanges {
+    fn eval<S: Numeric>(&self, pose: &[S; 3]) -> [S; 4] {
+        core::array::from_fn(|i| {
+            let to_beacon_x = pose[0] - S::from_f64(BEACONS[i].0);
+            let to_beacon_y = pose[1] - S::from_f64(BEACONS[i].1);
+            (to_beacon_x * to_beacon_x + to_beacon_y * to_beacon_y).sqrt()
+        })
+    }
+}
+
+fn bench_particle_filter(c: &mut Criterion) {
+    use multicalc::estimation::{GaussianLikelihood, ParticleFilter};
+
+    // One predict→update cycle of a 1000-particle range-only robot localizer: a 3-DOF pose scored
+    // against 4 beacon ranges. The robot is held stopped so the reused filter stays near the fixed
+    // measurement across criterion's iterations; resampling fires when the cloud concentrates.
+    let mut filter = ParticleFilter::<3, 4>::new(
+        1000,
+        Vector::new([5.0, 5.0, 0.0]),
+        Matrix::new([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 4.0]]),
+        Matrix::new([[0.01, 0.0, 0.0], [0.0, 0.01, 0.0], [0.0, 0.0, 0.01]]),
+        7,
+    )
+    .unwrap();
+    let sensor = GaussianLikelihood::new(Matrix::<4, 4>::identity().scale(0.09)).unwrap();
+    let motion = StoppedRobot;
+    let ranges = BeaconRanges;
+    // The measurement is the true ranges from the robot's held pose, formed once outside the loop.
+    let measurement = Vector::new(ranges.eval(&[5.0, 5.0, 0.0]));
+
+    c.bench_function("particle_filter", |b| {
+        b.iter(|| {
+            filter.predict(black_box(&motion)).unwrap();
+            filter
+                .update(
+                    black_box(&ranges),
+                    black_box(&sensor),
+                    black_box(measurement),
+                )
+                .unwrap();
+        })
+    });
+}
+
 fn bench_newton_system(crit: &mut Criterion) {
     // x^2 + y^2 = 4 and x*y = 1 (circle ∩ hyperbola).
     let system =
@@ -198,6 +258,7 @@ fn main() {
     bench_rk4_integrate(&mut c);
     bench_lev_marq(&mut c);
     bench_newton_system(&mut c);
+    bench_particle_filter(&mut c);
 
     c.final_summary();
 
@@ -219,6 +280,10 @@ const BENCHES: &[(&str, &str)] = &[
     ("rk4_integrate", "y″ = −y, fixed-step to 2π"),
     ("lev_marq", "fit y = a·eᵇᵗ (8 points)"),
     ("newton_system", "x²+y² = 4, x·y = 1"),
+    (
+        "particle_filter",
+        "1000 particles, diff-drive motion + process noise + systematic resample",
+    ),
 ];
 
 const BEGIN: &str = "<!-- BEGIN generated: latency -->";

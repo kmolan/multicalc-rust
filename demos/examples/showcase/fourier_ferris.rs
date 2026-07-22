@@ -25,7 +25,7 @@ use std::collections::VecDeque;
 use std::f64::consts::TAU;
 use std::time::Instant;
 
-include!("support/ferris_outline.rs"); // pub const FERRIS: [[f64; 2]; 256]
+include!("../resources/ferris_outline.rs"); // pub const FERRIS: [[f64; 2]; 256]
 
 const N_PTS: usize = 256;
 const K_MAX: i32 = 48; // harmonics k = -48..=48

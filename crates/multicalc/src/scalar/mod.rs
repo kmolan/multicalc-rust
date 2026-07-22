@@ -1,8 +1,10 @@
 //! The scalar number system the calculus modules are generic over.
 //!
-//! [`Numeric`] is the scalar trait, implemented for `f32` and `f64`. [`Dual`] and [`HyperDual`]
-//! are scalar types that also implement it, giving exact first (and, for `HyperDual`, second)
-//! derivatives by automatic differentiation.
+//! - [`Numeric`] — the scalar trait, implemented for `f32` and `f64`.
+//! - [`Dual`] / [`HyperDual`] / [`Jet`] — scalars that also implement it, giving exact first, second,
+//!   and arbitrary-order derivatives by automatic differentiation.
+//! - [`ScalarFn`] / [`ScalarFnN`] / [`VectorFn`] — functions evaluable at any [`Numeric`] scalar, so
+//!   one formula drives both finite differences and autodiff.
 
 pub mod dual;
 pub mod function;

@@ -213,6 +213,8 @@ jobs:
         run: cargo clippy -p multicalc-demos --all-targets -- -D warnings
       - name: Clippy (headless)
         run: cargo clippy -p multicalc-demos --all-targets --no-default-features -- -D warnings
+      - name: Clippy (headless + alloc)
+        run: cargo clippy -p multicalc-demos --all-targets --no-default-features --features alloc -- -D warnings
       - name: No Rerun in the headless tree
         run: "! cargo tree -p multicalc-demos --no-default-features -i rerun"
       - name: Headless record smoke test

@@ -1,17 +1,17 @@
 # multicalc guide
 
-A working tour of every public module: what it offers, the entry points, a runnable snippet,
-the errors it can return, and a pointer to a full demo. It is meant to be read start to finish
-by someone new to the crate, or dipped into per module once you know your way around.
+A tour of every public module: what it does, where to start, a snippet you can run, the errors
+it can return, and a link to a full demo. Read it start to finish if you are new to the crate,
+or jump to a single module once you know your way around.
 
-Operations are generic over the [`Numeric`](#scalars-and-automatic-differentiation) scalar
-trait (implemented for `f32` and `f64`, defaulting to `f64`) with transcendental functions
-from `libm` so everything works without `std`. Methods like `f64::sin` need `std`; in a
-`no_std` crate call the `libm` versions (`libm::sin(x)` in place of `x.sin()`). `multicalc`
-re-exports `libm`, reachable as `multicalc::libm`.
+Every operation is generic over the [`Numeric`](#scalars-and-automatic-differentiation) scalar
+trait, which is implemented for `f32` and `f64` and defaults to `f64`. The math functions come
+from `libm`, so the crate works without `std`. Methods like `f64::sin` need `std`; in a
+`no_std` crate, call the `libm` version instead (`libm::sin(x)` in place of `x.sin()`). The
+crate re-exports `libm` as `multicalc::libm`.
 
-Where a sensible default exists, a "safe" wrapper (such as `get_single`) returns the answer
-directly. Otherwise a call returns a `Result` whose error is the module family's own enum;
+Where a sensible default exists, a convenience method such as `get_single` returns the answer
+directly. Otherwise a call returns a `Result`, and the error is the module family's own enum;
 see [Error handling](#error-handling).
 
 ## Contents
@@ -29,14 +29,15 @@ see [Error handling](#error-handling).
 - [Discretization](#discretization)
 - [Spatial: quaternions and Lie groups](#spatial-quaternions-and-lie-groups)
 - [Kinematics](#kinematics)
+- [Control](#control)
 - [Estimation](#estimation)
 - [Error handling](#error-handling)
 - [Internals](#internals)
 
 ## Scalars and automatic differentiation
 
-The scalar number system every calculus module is generic over: the `Numeric` trait plus the
-forward-mode automatic differentiation numbers that also implement it.
+The scalar number system that every calculus module is generic over: the `Numeric` trait, plus
+the forward-mode automatic-differentiation numbers that also implement it.
 
 - `Numeric`: the scalar trait, implemented for `f32` and `f64`.
 - `Dual`, `HyperDual`, `Jet<T, N>`: autodiff scalars (dual numbers) carrying exact first,
@@ -67,8 +68,8 @@ Credits: standard forward-mode dual numbers. Full demo:
 
 ## Derivatives, Jacobians, and Hessians
 
-Derivatives of any order, total and partial (exact via forward-mode autodiff, or by finite
-differences for black-box functions), plus Jacobian and Hessian matrices.
+Derivatives of any order, total and partial — exact through forward-mode autodiff, or by finite
+differences for black-box functions — plus Jacobian and Hessian matrices.
 
 - `autodiff::{AutoDiffSingle, AutoDiffMulti}`: exact derivatives.
 - `finite_difference::{FiniteDifferenceSingle, FiniteDifferenceMulti}`: for functions you
@@ -97,8 +98,8 @@ let third = d.get(&g, &[0, 0, 1], &point).unwrap();        // d^3 g / dx^2 dy
 Pass a finite-difference derivator (`FiniteDifferenceSingle` / `FiniteDifferenceMulti`) instead
 when the function is a black box you cannot author with `scalar_fn!`.
 
-A vector-valued function is authored with `scalar_fn_vec!`, so its rows differentiate under
-autodiff to give the Jacobian; a scalar field gives the Hessian:
+Write a vector-valued function with `scalar_fn_vec!` and its rows differentiate under autodiff
+to give the Jacobian; a scalar field gives the Hessian:
 
 ```rust
 use multicalc::numerical_derivative::jacobian::Jacobian;
@@ -245,8 +246,8 @@ Errors: the underlying derivatives return [`DiffError`](#error-handling). Full d
 
 ## Linear algebra
 
-Fixed-size, stack-allocated `Matrix` and `Vector`: dimensions are const generics (shape
-mismatches are compile errors), nothing is heap-allocated, and the math never panics.
+Fixed-size, stack-allocated `Matrix` and `Vector`. Dimensions are const generics, so a shape
+mismatch is a compile error, nothing is heap-allocated, and the math never panics.
 
 - `Matrix::lu` → `Lu`: partial-pivoting Doolittle LU; `solve`, `determinant`, `inverse`.
 - `Matrix::cholesky` → `Cholesky`: faster path for symmetric positive-definite matrices.
@@ -316,7 +317,7 @@ and
 
 ## Least-squares optimization
 
-Nonlinear least-squares solvers: they minimize the sum of squared residuals of a
+Nonlinear least-squares solvers. They minimize the sum of squared residuals of a
 `scalar_fn_vec!` function, differentiating it under autodiff by default.
 
 - `LevenbergMarquardt`: the robust, damped default.
@@ -324,8 +325,8 @@ Nonlinear least-squares solvers: they minimize the sum of squared residuals of a
 - `minimize` returns a `MinimizationReport` whose `TerminationReason` says which convergence
   test stopped the solver.
 
-Author the residuals `model - data` with `scalar_fn_vec!`; the solver differentiates them under
-autodiff:
+Write the residuals `model - data` with `scalar_fn_vec!` and the solver differentiates them
+under autodiff:
 
 ```rust
 use multicalc::optimization::LevenbergMarquardt;
@@ -496,7 +497,7 @@ Turn a continuous-time linear system into its discrete-time equivalent over a st
 - `q_discrete_white_noise(dt, var)`: the filterpy-compatible discrete white-noise model.
 
 Because the routines run through the matrix exponential, an autodiff scalar flows straight
-through them, a single `Dual` recovers a derivative with respect to a parameter:
+through them: a single `Dual` recovers a derivative with respect to a parameter.
 
 ```rust
 use multicalc::discretization::{q_discrete_white_noise, van_loan, zoh};
@@ -566,8 +567,8 @@ let g2 = SE3::exp(xi);
 ```
 
 Because everything is generic over the scalar, a derivative with respect to a joint angle or
-pose parameter flows through `act`, `compose`, and `exp`/`log` under autodiff, the basis for
-the inverse-kinematics showcases. Full demo:
+pose parameter flows through `act`, `compose`, and `exp`/`log` under autodiff. That is what the
+inverse-kinematics showcases are built on. Full demo:
 [lie_groups.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/lie_groups.rs);
 worked applications:
 [3d_arm_ik.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/3d_arm_ik.rs)
@@ -579,9 +580,9 @@ and
 Maps between wheel motion and body motion for a differential drive, and pose integration on SE(2).
 Fixed-size, no allocation, no panics, and generic over the `Numeric` scalar.
 
-The body intermediate is deliberately 2-DOF, not 3: a differential drive has exactly two degrees of
-freedom `(v, ω)` and exactly two wheels, so the map is a bijection and both round trips are exact
-identities. There is no lateral field to silently drop.
+The body motion is deliberately 2-DOF, not 3. A differential drive has exactly two degrees of
+freedom `(v, ω)` and exactly two wheels, so the map between them is a bijection and both round trips
+are exact identities. There is no lateral term to silently drop.
 
 - `DifferentialDrive`: the geometry, a wheel radius and a track width. Constructing it is the only fallible
   operation in the module; with the geometry checked once, every map below is total.
@@ -626,6 +627,85 @@ zero-order hold on the wheel velocities rather than integration error.
 Full demo:
 [kinematics.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/kinematics.rs).
 
+## Control
+
+Feedback controllers and steering laws for a mobile robot: a PID with anti-windup and a filtered
+derivative, the pure-pursuit path-following law, and Follow-the-Gap reactive avoidance. Fixed-size,
+no allocation, no panics, and generic over the `Numeric` scalar, so the same code runs at `f32` on a
+microcontroller.
+
+Angles are radians in the robot body frame, measured from the forward (+x) axis and positive
+counter-clockwise. Every controller is configured once, with the configuration validated up front,
+and every call after that is total.
+
+- `Pid`: three gains and a fixed timestep. `with_output_limits` clamps the output and stops the
+  integral winding up against the clamp; `with_derivative_filter` puts a one-pole low-pass on the
+  derivative term, which is what makes a D gain usable on a noisy measurement.
+- `OnePoleLowPass`: the filter on its own, by smoothing coefficient (`new`) or by cutoff frequency
+  (`from_cutoff`).
+- `pure_pursuit_curvature`: the exact `κ = 2·sin(α)/L_d` steering curvature toward a lookahead
+  point, written in body-frame coordinates. `Curvature::to_body_twist` turns it into a command at a
+  chosen speed.
+- `FollowTheGap`: reactive avoidance over a forward range scan. Const-generic on the beam count,
+  so the working buffer is stack-allocated and the beam geometry is fixed at compile time.
+
+```rust
+use multicalc::control::{FollowTheGap, Pid, pure_pursuit_curvature};
+use multicalc::linear_algebra::Vector;
+use multicalc::spatial::SE2;
+
+// A speed loop: PID on the forward speed, output limited, derivative filtered.
+let mut speed_loop = Pid::new(2.0_f64, 1.0, 0.05, 0.01)
+    .unwrap()
+    .with_output_limits(-1.0, 1.0)
+    .unwrap()
+    .with_derivative_filter(0.2)
+    .unwrap();
+let command = speed_loop.update(0.4, 0.35); // setpoint 0.4 m/s, measured 0.35 m/s
+
+// Steering toward a point 2 m ahead and 1 m to the left: a left turn, so positive curvature.
+let curvature = pure_pursuit_curvature(SE2::identity(), Vector::new([2.0, 1.0]), 2.0).unwrap();
+let twist = curvature.to_body_twist(0.4);
+
+// Reactive avoidance: 31 beams over 120°, 4 m range, a 0.5 m chassis, a 0.5 m free-range threshold,
+// 0.4 m/s cruise.
+let follower: FollowTheGap<31, f64> =
+    FollowTheGap::try_new(2.0 * core::f64::consts::PI / 3.0, 4.0, 0.5, 0.5, 0.4).unwrap();
+
+// A clear scan drives straight ahead at cruise speed.
+let output = follower.compute(&[4.0; 31], 0.0).unwrap();
+assert!(output.heading().abs() < 1e-12);
+
+// A wall all round stops, and says why.
+let blocked = follower.compute(&[0.2; 31], 0.0).unwrap();
+assert!(blocked.is_blocked());
+assert_eq!(blocked.body_twist().linear(), 0.0);
+```
+
+`FollowTheGap` makes two passes over the scan. First it cleans the scan: a beam that is non-finite
+or non-positive counts as a dropped return and reads as free space at maximum range. Then it finds
+every run of consecutive beams above the free-range threshold, throws out any run whose two bounding
+returns are closer together than the chassis width, and scores the rest by
+`span − goal_bias · |aim − goal_angle|`. The `span` is the run's usable arc, pulled in from each
+bounded edge by the angle the robot's half-width covers at that edge's range; `aim` is the goal
+angle clamped into that arc. Together they keep the robot's sides clear of the obstacles that form
+the gap. It then steers toward the winning run with a yaw rate of `steering_gain · heading` and a
+forward speed that scales with how far the path ahead is clear.
+
+Measuring the gap in metres rather than in beams is what makes the width test meaningful: the same
+angular gap is wide enough to pass at 4 m but too narrow at 0.4 m, and the law of cosines across the
+two bounding returns settles it directly. A run that reaches either end of the field of view has no
+bounding return on that side, so it counts as open: the sensor saw nothing out there, and inventing
+a wall would stop the robot on no evidence.
+
+It is a purely reactive method: with no map and no memory, it can dither in a three-sided pocket.
+When no run is both clear and wide enough, it returns a stopped twist with `is_blocked()` set rather
+than inventing a heading. The recovery policy — rotating in place until a gap opens, say — is left to
+the caller.
+
+Full demo:
+[avoidance.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/avoidance.rs).
+
 ## Estimation
 
 State estimation from noisy measurements. `KalmanFilter` is the linear filter: `predict` rolls the
@@ -667,10 +747,10 @@ filter.update(Vector::new([1.9])).unwrap();
 let gate = filter.normalized_innovation_squared().unwrap();
 ```
 
-The covariance update is Joseph form by default — `(I − K·H)·P·(I − K·H)ᵀ + K·R·Kᵀ` — which stays
-symmetric and positive definite by construction, where the naive `(I − K·H)·P` loses symmetry as
-rounding accumulates. Joseph is not a guarantee at every scale: across roughly 10⁷ single-precision
-updates it too drifts, and symmetrize-and-clamp conditioning is the answer there.
+The covariance update uses Joseph form by default — `(I − K·H)·P·(I − K·H)ᵀ + K·R·Kᵀ` — which stays
+symmetric and positive definite by construction, while the naive `(I − K·H)·P` loses symmetry as
+rounding builds up. Joseph form is not a guarantee at every scale: over roughly 10⁷ single-precision
+updates it drifts too, and the fix there is to symmetrize and clamp the covariance.
 
 `update` returns `EstimationError::NonFinite` for a non-finite measurement or innovation covariance,
 and `EstimationError::NotPositiveDefinite` when the innovation covariance cannot be factorized — the
@@ -678,7 +758,7 @@ gain is undefined. `predict` is a cheap element-wise path and propagates non-fin
 
 `ExtendedKalmanFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T>` takes the process and measurement
 models as functions rather than matrices — any `VectorFn` — and re-linearizes them at the current
-estimate on every step. **The Jacobians are taken by automatic differentiation: write the model once
+estimate on every step. **The Jacobians come from automatic differentiation: write the model once
 and its partial derivatives are exact, with no hand-derived Jacobians anywhere** — the classic source
 of silent estimator bugs.
 
@@ -729,11 +809,69 @@ filter.predict(&Stationary).unwrap();
 filter.update(&RangeToLandmark, Vector::new([5.5])).unwrap();
 ```
 
+### Particle filter
+
+`ParticleFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T, R>` carries a cloud of weighted state
+samples instead of a single Gaussian, so it can track a belief the Kalman filters cannot represent —
+strongly nonlinear, non-Gaussian, or with several peaks at once (a robot that could be in one of two
+corridors). It is the tool to reach for when a single-Gaussian belief is the thing that breaks, and
+the price is running hundreds to thousands of samples every step.
+
+- `new(particle_count, initial_mean, initial_covariance, process_noise, seed)`: samples the starting
+  cloud from the given Gaussian, with a seeded built-in `Pcg32`. `from_random` takes any
+  `RandomSource` instead. `particle_count` must be at least one.
+- `predict(&process_model)`: pushes every sample through the model — any `VectorFn` — and adds a draw
+  of process noise. `update(&measurement_model, &likelihood, measurement)`: reweights each sample by
+  how well its predicted measurement matches, normalizes, and resamples if the cloud has degenerated.
+- `Likelihood` scores a sample as a log-weight; `GaussianLikelihood::new(measurement_noise)` is the
+  batteries-included default for additive Gaussian noise. Write your own for anything else.
+- `ResamplingScheme`: `Systematic` (the default), `Stratified`, `Multinomial`, or `Residual`. Set it
+  with `with_resampling`; tune when it fires with `with_resample_threshold`, and add post-resample
+  jitter with `with_roughening`.
+- `mean` (the usual estimate), `maximum_a_posteriori_state` (the single heaviest sample, for when the
+  belief has several peaks and the mean falls between them), `effective_sample_size`, `particles`,
+  and `weights`.
+
+```rust
+# use multicalc::estimation::{GaussianLikelihood, ParticleFilter};
+# use multicalc::linear_algebra::{Matrix, Vector};
+# use multicalc::scalar::{Numeric, VectorFn};
+// A stationary 2-D point, measured directly with a little noise.
+struct Stationary;
+impl VectorFn<2, 2> for Stationary {
+    fn eval<S: Numeric>(&self, state: &[S; 2]) -> [S; 2] {
+        [state[0], state[1]]
+    }
+}
+
+let mut filter = ParticleFilter::<2, 2>::new(
+    1000,
+    Vector::new([0.0, 0.0]),                  // initial mean
+    Matrix::new([[1.0, 0.0], [0.0, 1.0]]),    // initial covariance
+    Matrix::new([[0.01, 0.0], [0.0, 0.01]]),  // process noise
+    7,                                        // seed
+).unwrap();
+let sensor = GaussianLikelihood::new(Matrix::new([[0.05, 0.0], [0.0, 0.05]])).unwrap();
+
+for _ in 0..20 {
+    filter.predict(&Stationary).unwrap();
+    filter.update(&Stationary, &sensor, Vector::new([1.0, 2.0])).unwrap();
+}
+assert!((filter.mean()[0] - 1.0).abs() < 0.2);
+```
+
+The particle filter is heap-backed, so it is behind the `alloc` feature and the bare-metal build does
+not compile it. Its `update` returns `EstimationError::NonFinite` for a non-finite measurement and
+`EstimationError::WeightsDegenerate` when no sample can explain the measurement. `GaussianLikelihood`
+forms the mismatch by plain subtraction, so a measurement with an angular component needs a custom
+`Likelihood` that folds the angle into a ±π band first — the same wrap the extended filter's
+`update_with_residual` exists for.
+
 ## Error handling
 
-Each module family returns its own error enum; all six convert into the `CalcError` umbrella
-via `From`, so a caller that spans families can hold one type. Every enum is `#[non_exhaustive]`,
-`Copy`, and implements `Display` and `core::error::Error`.
+Each module family returns its own error enum. All six convert into the `CalcError` umbrella
+through `From`, so a caller that spans families can hold a single type. Every enum is
+`#[non_exhaustive]` and `Copy`, and implements `Display` and `core::error::Error`.
 
 | Enum | Raised by | Variants |
 | --- | --- | --- |
@@ -742,7 +880,7 @@ via `From`, so a caller that spans families can hold one type. Every enum is `#[
 | `IntegrateError` | [Integration](#integration), [Gaussian tables](#gaussian-quadrature-tables), [ODE](#ode-integrators) | `IterationsZero`, `LimitsIllDefined`, `QuadratureOrderOutOfRange`, `StepSizeTooSmall`, `DidNotConverge { steps }`, `NonFinite` |
 | `SolveError` | [Optimization](#least-squares-optimization), [Root finding](#root-finding) | `DidNotConverge { iters, residual }`, `NonFinite`, `InvalidBracket`, `Linalg(LinalgError)`, `Diff(DiffError)` |
 | `KinematicsError` | [Kinematics](#kinematics) | `NonPositiveParameter`, `NonFinite` |
-| `EstimationError` | [Estimation](#estimation) | `NotPositiveDefinite`, `NonFinite`, `Diff(DiffError)` |
+| `EstimationError` | [Estimation](#estimation) | `NotPositiveDefinite`, `NonFinite`, `Diff(DiffError)`, `WeightsDegenerate` |
 | `CalcError` | umbrella | `Linalg`, `Solve`, `Integrate`, `Differentiate`, `Kinematics`, `Estimation` |
 
 `SolveError` wraps `LinalgError` and `DiffError` (a solver step can fail in either), and both
@@ -761,6 +899,6 @@ fn solve() -> Result<(), CalcError> {
 
 ## Internals
 
-`utils` holds crate-internal numeric helpers (`pub(crate)`, not part of the public API), chiefly
-the blocked pairwise summation used for long running sums, where rounding error grows like
+`utils` holds crate-internal numeric helpers — `pub(crate)`, not part of the public API. The main
+one is the blocked pairwise summation used for long running sums, where rounding error grows like
 `O(log n · eps)` instead of the naive `O(n · eps)`.

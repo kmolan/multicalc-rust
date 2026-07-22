@@ -1,4 +1,8 @@
-//! Spatial math: rotations, Lie groups and spatial-algebra types.
+//! Spatial math: rotations, Lie groups, and spatial-algebra types.
+//!
+//! - [`Quaternion`] — unit-quaternion rotations.
+//! - [`SO2`] / [`SO3`] / [`SE2`] / [`SE3`] — 2D/3D rotation and rigid-transform Lie groups.
+//! - [`Twist`] / [`Wrench`] — spatial velocity and force in `[v; ω]` / `[force; torque]` ordering.
 
 use crate::scalar::Numeric;
 

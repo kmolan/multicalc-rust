@@ -48,14 +48,24 @@ pub use kinematics::{BodyArc, BodyTwist, DifferentialDrive, WheelRotations, Whee
 /// Linear Kalman filter and Extended Kalman filter
 pub use estimation::{ExtendedKalmanFilter, KalmanFilter};
 
+/// Particle filter (bootstrap/SIR) with pluggable resampling and measurement likelihood.
+#[cfg(feature = "alloc")]
+pub use estimation::{GaussianLikelihood, Likelihood, ParticleFilter, ResamplingScheme};
+
+/// Seedable pseudo-random generator and the trait its uniform and normal draws come from.
+pub use random::{Pcg32, RandomSource};
+
 /// The Levenberg-Marquardt and Gauss-Newton least-squares solvers and their result types.
 pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
 
 /// Bracketed and Newton root finders for scalar equations and square systems.
 pub use root_finding::{Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination};
 
-/// Feedback control: PID, one-pole derivative filter, and the pure-pursuit path-following law.
-pub use control::{Curvature, OnePoleLowPass, Pid, pure_pursuit_curvature};
+/// Feedback control: PID, one-pole derivative filter, the pure-pursuit path-following law, and
+/// Follow-the-Gap reactive avoidance.
+pub use control::{
+    Curvature, FollowTheGap, FollowTheGapOutput, OnePoleLowPass, Pid, pure_pursuit_curvature,
+};
 
 /// Waypoint paths and their arc-length, closest-point, and lookahead queries.
 pub use motion::{EndOfPath, PathProjection, PolylinePath};
@@ -79,6 +89,7 @@ pub mod numerical_derivative;
 pub mod numerical_integration;
 pub mod ode;
 pub mod optimization;
+pub mod random;
 pub mod root_finding;
 pub mod scalar;
 pub mod spatial;

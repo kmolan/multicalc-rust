@@ -11,9 +11,16 @@ autoexamples = false
 [features]
 default = ["rerun"]
 rerun = ["dep:rerun"]
+# Turns on multicalc's heap types (the particle filter) for the estimation example's extra section.
+alloc = ["multicalc/alloc"]
 
 [dependencies]
 multicalc = { path = "../crates/multicalc" }
+# Seeded RNG for the sensor simulator, so a run reproduces exactly. Showcase-side only; the core
+# crate stays rand-free. `rand_distr` supplies the Gaussian, which `rand` itself does not carry.
+rand = "0.10.2"
+rand_distr = "0.6.0"
+rand_pcg = "0.10.2"
 # Pinned to match the paired Rerun viewer version. Only the logging SDK is needed: `spawn()`
 # launches the external viewer on PATH, so the in-process `native_viewer` is not compiled in.
 rerun = { version = "=0.33.1", default-features = false, features = ["sdk"], optional = true }
@@ -23,6 +30,10 @@ workspace = true
 
 # Basics: headless, self-checking, multicalc-only. No required-features, so they
 # build and run with the rerun feature off.
+[[example]]
+name = "avoidance"
+path = "examples/basics/avoidance.rs"
+
 [[example]]
 name = "approximation"
 path = "examples/basics/approximation.rs"

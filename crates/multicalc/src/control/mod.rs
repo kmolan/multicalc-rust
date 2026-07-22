@@ -1,17 +1,20 @@
 //! Control: feedback controllers, signal filters, and path-following laws.
 //!
-//! Everything here is generic over [`Numeric`](crate::Numeric), so the same code runs at `f32` or
-//! `f64` or through an autodiff scalar. Units are SI, angles are radians, and controllers operate on
-//! a fixed timestep `dt`.
+//! - [`Pid`] — PID with anti-windup.
+//! - [`OnePoleLowPass`] — one-pole low-pass, for a filtered derivative.
+//! - [`pure_pursuit_curvature`] — the pure-pursuit path-following law (takes a lookahead point).
+//! - [`FollowTheGap`] — reactive gap-following over a range scan.
 //!
-//! The pure-pursuit law consumes a lookahead *point* rather than a path, so this module does not
-//! depend on [`motion`](crate::motion); it depends on [`spatial`](crate::spatial) for poses and on
-//! [`kinematics`](crate::kinematics) for the body-twist output.
+//! Everything is generic over [`Numeric`](crate::Numeric) (so `f32`/`f64`/autodiff), in SI units and
+//! radians, on a fixed timestep `dt`. Depends on [`spatial`](crate::spatial) and
+//! [`kinematics`](crate::kinematics), not on [`motion`](crate::motion).
 
 mod derivative_filter;
+mod follow_the_gap;
 mod pid;
 mod pure_pursuit;
 
 pub use derivative_filter::OnePoleLowPass;
+pub use follow_the_gap::{FollowTheGap, FollowTheGapOutput};
 pub use pid::Pid;
 pub use pure_pursuit::{Curvature, pure_pursuit_curvature};

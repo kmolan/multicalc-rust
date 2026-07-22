@@ -2,8 +2,11 @@
 //! target — an exact two-step hand check, a noisy track, Joseph vs naive covariance, a control
 //! input, innovation gating, and one `Dual` derivative through an update. The extended filter adds a
 //! nonlinear landmark range/bearing sighting, its reduction to the linear filter, and angle wrapping.
+//! With `--features alloc`, a closing section locates a differential-drive robot from beacon ranges
+//! with a particle filter.
 //!
 //! Run with: `cargo run -p multicalc-demos --example estimation`
+//! (or `--no-default-features --features alloc` for the particle-filter section).
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -84,6 +87,154 @@ impl VectorFn<1, 1> for Compass {
 /// Folds an angle into a ±π band by subtracting whole turns.
 fn wrap_to_pi<T: Numeric>(angle: T) -> T {
     angle - T::TWO_PI * (angle / T::TWO_PI).round()
+}
+
+/// The beacons a robot ranges against to find itself, at the corners of a 10 m square room.
+/// Example taken from https://github.com/destenson/kalman-filter-rs/blob/master/examples/particle_filter_robot.rs
+#[cfg(feature = "alloc")]
+const BEACONS: [(f64, f64); 4] = [(2.0, 8.0), (8.0, 8.0), (8.0, 2.0), (2.0, 2.0)];
+
+/// A differential-drive robot rolling at a fixed forward and turn rate over one timestep: the pose
+/// `[x, y, heading]` moves along the heading and the heading turns. The rates are fields the caller
+/// sets between steps.
+#[cfg(feature = "alloc")]
+struct DifferentialDrive {
+    forward_speed: f64,
+    turn_rate: f64,
+    timestep: f64,
+}
+#[cfg(feature = "alloc")]
+impl VectorFn<3, 3> for DifferentialDrive {
+    fn eval<S: Numeric>(&self, pose: &[S; 3]) -> [S; 3] {
+        let forward = S::from_f64(self.forward_speed) * S::from_f64(self.timestep);
+        let heading = pose[2];
+        [
+            pose[0] + forward * heading.cos(),
+            pose[1] + forward * heading.sin(),
+            heading + S::from_f64(self.turn_rate) * S::from_f64(self.timestep),
+        ]
+    }
+}
+
+/// The sensor: the straight-line distance from the robot's position to each beacon. Heading does not
+/// affect a range, so this reads position only.
+#[cfg(feature = "alloc")]
+struct BeaconRanges;
+#[cfg(feature = "alloc")]
+impl VectorFn<3, 4> for BeaconRanges {
+    fn eval<S: Numeric>(&self, pose: &[S; 3]) -> [S; 4] {
+        core::array::from_fn(|i| {
+            let to_beacon_x = pose[0] - S::from_f64(BEACONS[i].0);
+            let to_beacon_y = pose[1] - S::from_f64(BEACONS[i].1);
+            (to_beacon_x * to_beacon_x + to_beacon_y * to_beacon_y).sqrt()
+        })
+    }
+}
+
+/// Locates a differential-drive robot from beacon ranges with a particle filter. The robot knows how
+/// fast it is driving (its odometry) but not where it started, so the cloud begins spread wide over
+/// the room and pulls in as the beacon ranges rule out where the robot cannot be — the kind of
+/// many-hypotheses belief a single Gaussian cannot hold.
+#[cfg(feature = "alloc")]
+fn particle_filter() {
+    use multicalc::estimation::{GaussianLikelihood, ParticleFilter, ResamplingScheme};
+    use multicalc::random::{Pcg32, RandomSource};
+
+    let particle_count = 1500;
+    let timestep = 1.0;
+    let motion = DifferentialDrive {
+        forward_speed: 0.4,
+        turn_rate: 0.16,
+        timestep,
+    };
+    let range_noise = 0.3; // metres, one standard deviation
+
+    // The prior: the robot guesses it is near the middle of the room but could be a metre or two off
+    // in any direction and pointing almost anywhere.
+    let mut filter = ParticleFilter::<3, 4>::new(
+        particle_count,
+        Vector::new([4.0, 5.0, 0.0]), // initial mean, offset from the true start
+        Matrix::new([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 4.0]]), // wide prior
+        Matrix::new([[0.02, 0.0, 0.0], [0.0, 0.02, 0.0], [0.0, 0.0, 0.01]]), // odometry noise
+        7,
+    )
+    .unwrap()
+    .with_resampling(ResamplingScheme::Systematic);
+    let sensor =
+        GaussianLikelihood::new(Matrix::<4, 4>::identity().scale(range_noise * range_noise))
+            .unwrap();
+
+    // The true pose the robot actually follows; the filter never sees it. Each measurement is the
+    // true ranges plus sensor noise, drawn from a seeded generator so the run reproduces exactly.
+    let mut truth = [5.0_f64, 4.0, 0.3];
+    let mut range_generator = Pcg32::new(20);
+
+    println!("\nParticle filter: locating a robot from 4 beacon ranges with a 1500-sample cloud");
+    println!("  step |  est x  est y  est θ |  ess");
+    for step in 1..=16 {
+        truth = motion.eval(&truth);
+        let true_ranges = BeaconRanges.eval(&truth);
+        let measurement = Vector::new(core::array::from_fn(|i| {
+            true_ranges[i] + range_noise * range_generator.standard_normal()
+        }));
+
+        filter.predict(&motion).unwrap();
+        filter.update(&BeaconRanges, &sensor, measurement).unwrap();
+
+        let estimate = filter.mean();
+        println!(
+            "  {step:4} | {:6.2} {:6.2} {:6.2} | {:5.0}",
+            estimate[0],
+            estimate[1],
+            estimate[2],
+            filter.effective_sample_size(),
+        );
+    }
+
+    let estimate = filter.mean();
+    let best = filter.maximum_a_posteriori_state();
+    let heaviest_weight = filter.weights().iter().copied().fold(0.0_f64, f64::max);
+    let position_spread = position_spread(&filter);
+    println!(
+        "  true position ({:.2}, {:.2})  ->  estimate ({:.2}, {:.2})",
+        truth[0], truth[1], estimate[0], estimate[1]
+    );
+    println!(
+        "  heaviest particle ({:.2}, {:.2}) carrying weight {:.4}",
+        best[0], best[1], heaviest_weight
+    );
+    if position_spread > 1.0 {
+        println!(
+            "  the cloud is still spread ({position_spread:.2} m) — the robot is not sure yet"
+        );
+    } else {
+        println!("  the cloud has pulled in ({position_spread:.2} m) — the robot is located");
+    }
+
+    let position_error =
+        ((estimate[0] - truth[0]).powi(2) + (estimate[1] - truth[1]).powi(2)).sqrt();
+    assert!(
+        position_error < 0.4,
+        "the cloud should settle onto the true position"
+    );
+    assert!(
+        (1.0..=particle_count as f64 + 1e-6).contains(&filter.effective_sample_size()),
+        "effective sample size stays between one and the particle count"
+    );
+}
+
+/// How far the cloud reaches in position: the square root of the summed weighted variance of the x
+/// and y coordinates, a plain-metres measure of how sure the filter is.
+#[cfg(feature = "alloc")]
+fn position_spread<R: multicalc::random::RandomSource>(
+    filter: &multicalc::estimation::ParticleFilter<3, 4, f64, R>,
+) -> f64 {
+    let mean = filter.mean();
+    let mut variance = 0.0;
+    for (particle, &weight) in filter.particles().iter().zip(filter.weights()) {
+        variance += weight * ((particle[0] - mean[0]).powi(2) + (particle[1] - mean[1]).powi(2));
+    }
+    variance.sqrt()
 }
 
 fn main() {
@@ -319,4 +470,12 @@ fn main() {
         unwrapped.state()[0] < 0.0,
         "the plain residual throws the estimate across the circle"
     );
+
+    // (10) A particle filter, the nonlinear, non-Gaussian cousin of the Kalman filters: it carries a
+    // cloud of weighted samples instead of one Gaussian. It is heap-backed, so it lives behind the
+    // `alloc` feature; without it, the rest of the example still runs.
+    #[cfg(feature = "alloc")]
+    particle_filter();
+    #[cfg(not(feature = "alloc"))]
+    println!("\nParticle-filter section needs --features alloc");
 }

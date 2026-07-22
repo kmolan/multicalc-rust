@@ -1,3 +1,8 @@
+//! Least-squares function approximation with goodness-of-fit metrics.
+//!
+//! - [`linear_approximation`] — fit a linear model to sampled points.
+//! - [`quadratic_approximation`] — fit a quadratic model.
+
 use crate::scalar::Numeric;
 use crate::utils::summation::Acc;
 pub use crate::utils::summation::SummationMethod;

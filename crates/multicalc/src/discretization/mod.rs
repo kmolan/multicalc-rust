@@ -1,5 +1,8 @@
-//! Discretization of continuous-time linear systems: zero-order hold, Van Loan process-noise
-//! discretization, and the piecewise-constant white-noise model. All build on [`Matrix::expm`].
+//! Discretization of continuous-time linear systems. All build on [`Matrix::expm`].
+//!
+//! - [`zoh`] — exact zero-order hold of `ẋ = A x + B u`.
+//! - [`van_loan`] — Van Loan discrete process-noise covariance.
+//! - [`q_discrete_white_noise`] — the piecewise-constant white-noise model.
 
 use crate::error::LinalgError;
 use crate::linear_algebra::Matrix;

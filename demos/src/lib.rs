@@ -4,10 +4,14 @@
 //! `plot.py` fallback and, behind the `rerun` feature, a Rerun backend ([`RerunSink`], live or
 //! recorded). With the feature off the crate builds headless, with no Rerun in the dependency
 //! tree. A satellite crate: never a dependency of the core, excluded from bare-metal builds.
+//!
+//! Also carries [`sim`], a std-only 2D sensor simulator (occupancy grid, lidar) that the robot
+//! demos drive; it is demo scaffolding, never core numerics.
 
 mod csv_sink;
 #[cfg(feature = "rerun")]
 mod rerun_sink;
+pub mod sim;
 mod sink;
 
 #[doc(hidden)]

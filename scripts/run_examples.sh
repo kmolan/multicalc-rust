@@ -28,4 +28,9 @@ for name in "${basics[@]}"; do
   cargo run -p multicalc-demos --example "$name" --no-default-features
 done
 
+# The estimation example carries an extra particle-filter section behind the alloc feature; run it
+# once more with that on so the heap path is exercised too.
+echo "== estimation (alloc) =="
+cargo run -p multicalc-demos --example estimation --no-default-features --features alloc
+
 echo "all ${#basics[@]} basics passed"
