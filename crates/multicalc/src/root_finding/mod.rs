@@ -1,10 +1,11 @@
 //! Root finding for scalar equations and square systems.
 //!
-//! [`Bisection`] brackets a scalar root and halves the interval within a guaranteed budget.
-//! [`Newton`] and [`NewtonSystem`] take Newton steps using a derivative from any
-//! [`Derivator`](crate::numerical_derivative::derivator) (exact autodiff by default), each
-//! with an optional backtracking line search. Every solver takes an iteration budget and
-//! reports why it stopped as a [`RootTermination`].
+//! - [`Bisection`] — brackets a scalar root and halves the interval within a guaranteed budget.
+//! - [`Newton`] / [`NewtonSystem`] — Newton steps from any
+//!   [`Derivator`](crate::numerical_derivative::derivator) (exact autodiff by default), with an
+//!   optional backtracking line search.
+//!
+//! Every solver takes an iteration budget and reports why it stopped as a [`RootTermination`].
 
 pub mod bisection;
 pub mod newton;

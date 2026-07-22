@@ -97,6 +97,9 @@ pub enum EstimationError {
     NonFinite,
     /// A Jacobian step inside the filter failed.
     Diff(DiffError),
+    /// Every particle weight underflowed to zero — the measurement is incompatible with the whole
+    /// cloud.
+    WeightsDegenerate,
 }
 
 /// Errors from the control module (feedback controllers, filters, path-following laws).
@@ -307,6 +310,7 @@ impl core::fmt::Display for EstimationError {
             }
             EstimationError::NonFinite => f.write_str("filter value was not finite"),
             EstimationError::Diff(e) => write!(f, "{e}"),
+            EstimationError::WeightsDegenerate => f.write_str("all particle weights were zero"),
         }
     }
 }

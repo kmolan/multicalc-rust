@@ -11,6 +11,8 @@ autoexamples = false
 [features]
 default = ["rerun"]
 rerun = ["dep:rerun"]
+# Turns on multicalc's heap types (the particle filter) for the estimation example's extra section.
+alloc = ["multicalc/alloc"]
 
 [dependencies]
 multicalc = { path = "../crates/multicalc" }

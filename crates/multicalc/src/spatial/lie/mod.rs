@@ -1,13 +1,14 @@
 //! Lie groups for 2D and 3D rotations and rigid-body transforms.
 //!
-//! [`SO2`]/[`SO3`] are rotations; [`SE2`]/[`SE3`] are rigid transforms (rotation + translation).
+//! - [`SO2`] / [`SO3`] — rotations.
+//! - [`SE2`] / [`SE3`] — rigid transforms (rotation + translation).
+//!
 //! Each provides `identity`, `compose` (also `*`), `inverse`, `act` on a point, `exp`/`log`,
 //! `hat`/`vee`, `adjoint`, geodesic `interpolate`, and matrix conversions.
 //!
-//! Conventions: the tangent ordering is `[v; ω]` (linear part first) for `SE2`/`SE3`; the retract
-//! is right-perturbation `X · exp(ξ)`, so `interpolate(a, b, t) = a · exp(t · log(a⁻¹·b))`. Angles
-//! are radians. `SO3` wraps a unit [`Quaternion`](crate::spatial::Quaternion) and carries the
-//! unit-rotation invariant.
+//! Conventions: the tangent ordering is `[v; ω]` (linear first) for `SE2`/`SE3`; the retract is
+//! right-perturbation `X · exp(ξ)`, so `interpolate(a, b, t) = a · exp(t · log(a⁻¹·b))`. Angles are
+//! radians. `SO3` wraps a unit [`Quaternion`](crate::spatial::Quaternion).
 
 mod se2;
 mod se3;

@@ -1,8 +1,8 @@
-//! Fixed-size, stack-allocated linear algebra: [`Vector`] and [`Matrix`].
+//! Fixed-size, stack-allocated linear algebra.
 //!
-//! The types are backed by fixed arrays, so they allocate nothing and live on the stack.
-//! Dimensions are const generics, so shape mismatches are rejected at compile time. The math
-//! operations never panic; only out-of-range indexing does. Matrices are stored row-major.
+//! - [`Vector`] / [`Matrix`] — const-generic, array-backed (row-major), no allocation; shape
+//!   mismatches are compile errors and the math never panics (only out-of-range indexing does).
+//! - [`Cholesky`] / [`Lu`] / [`PivotedQr`] / [`Svd`] — factorizations and the solves built on them.
 //!
 //! ```compile_fail
 //! use multicalc::linear_algebra::Vector;

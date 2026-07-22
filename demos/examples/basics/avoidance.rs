@@ -79,7 +79,10 @@ fn main() {
     // occupancy grid CSV. The grid is 0.1 m per cell with its origin at (0.0, -1.0), so the walls,
     // end cap, and pillar are the 1s in the file. The path is anchored to the crate so the example
     // runs from any working directory.
-    let corridor = concat!(env!("CARGO_MANIFEST_DIR"), "/examples/resources/maps/corridor.csv");
+    let corridor = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/examples/resources/maps/corridor.csv"
+    );
     let map = OccupancyGrid::from_csv(corridor, 0.1, [0.0, -1.0]).unwrap();
 
     // The same field of view on both, which is the point of sharing the angle formula.

@@ -39,7 +39,10 @@ impl fmt::Display for GridError {
         match self {
             GridError::Io(error) => write!(f, "could not read the grid file: {error}"),
             GridError::Ragged { line } => {
-                write!(f, "row on line {line} has a different width than the first row")
+                write!(
+                    f,
+                    "row on line {line} has a different width than the first row"
+                )
             }
             GridError::BadToken { line } => {
                 write!(f, "line {line} has a value that is not 0 or 1")
@@ -110,9 +113,7 @@ impl OccupancyGrid {
     /// Whether the cell at `(column, row)` is occupied. Cells outside the grid read as free.
     #[must_use]
     pub fn is_occupied(&self, column: usize, row: usize) -> bool {
-        column < self.columns
-            && row < self.rows
-            && self.cells[row * self.columns + column]
+        column < self.columns && row < self.rows && self.cells[row * self.columns + column]
     }
 
     /// Loads a grid from a CSV of `0`s and `1`s, with the given cell size and origin.
@@ -219,8 +220,10 @@ impl OccupancyGrid {
         };
 
         // The ray parameter at which the next boundary on each axis is crossed.
-        let mut next_column = self.boundary_distance(origin[0], direction[0], column, step_column, self.origin[0]);
-        let mut next_row = self.boundary_distance(origin[1], direction[1], row, step_row, self.origin[1]);
+        let mut next_column =
+            self.boundary_distance(origin[0], direction[0], column, step_column, self.origin[0]);
+        let mut next_row =
+            self.boundary_distance(origin[1], direction[1], row, step_row, self.origin[1]);
 
         // The ray parameter at which the ray entered the current cell.
         let mut entered = entry;

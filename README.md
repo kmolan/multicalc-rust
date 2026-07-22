@@ -51,7 +51,7 @@ Newton fractal and the gradient-driven marbles; every number on screen is measur
 - [Kinematics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#kinematics): differential-drive and unicycle maps between wheel and body motion, with exact SE(2) odometry.
 - [Control](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#control): `Pid` with anti-windup and a filtered derivative, a one-pole low-pass, the pure-pursuit path-following law, and `FollowTheGap` reactive obstacle avoidance over a range scan.
 - Motion: `PolylinePath`, a stack-allocated waypoint path with arc-length, closest-point, and lookahead queries.
-- [Estimation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#estimation): linear and extended `KalmanFilter`s with Joseph-form covariance updates, optional control input, and innovation access for measurement gating. `ExtendedKalmanFilter` takes nonlinear models as functions and differentiates them for the Jacobians — no hand-derived Jacobians.
+- [Estimation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#estimation): linear and extended `KalmanFilter`s (Joseph-form covariance, autodiff Jacobians — no hand-derived ones) and a bootstrap/SIR `ParticleFilter` for nonlinear, non-Gaussian problems (`alloc` only).
 
 ## Install
 

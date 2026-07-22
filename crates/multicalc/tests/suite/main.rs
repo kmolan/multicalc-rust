@@ -11,6 +11,7 @@ mod numerical_derivative;
 mod numerical_integration;
 mod ode;
 mod optimization;
+mod random;
 mod root_finding;
 mod scalar;
 mod spatial;

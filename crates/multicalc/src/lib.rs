@@ -48,6 +48,13 @@ pub use kinematics::{BodyArc, BodyTwist, DifferentialDrive, WheelRotations, Whee
 /// Linear Kalman filter and Extended Kalman filter
 pub use estimation::{ExtendedKalmanFilter, KalmanFilter};
 
+/// Particle filter (bootstrap/SIR) with pluggable resampling and measurement likelihood.
+#[cfg(feature = "alloc")]
+pub use estimation::{GaussianLikelihood, Likelihood, ParticleFilter, ResamplingScheme};
+
+/// Seedable pseudo-random generator and the trait its uniform and normal draws come from.
+pub use random::{Pcg32, RandomSource};
+
 /// The Levenberg-Marquardt and Gauss-Newton least-squares solvers and their result types.
 pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
 
@@ -82,6 +89,7 @@ pub mod numerical_derivative;
 pub mod numerical_integration;
 pub mod ode;
 pub mod optimization;
+pub mod random;
 pub mod root_finding;
 pub mod scalar;
 pub mod spatial;

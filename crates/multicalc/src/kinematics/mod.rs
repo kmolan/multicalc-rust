@@ -1,15 +1,14 @@
 //! Kinematics: maps between actuator motion and body motion, and pose integration.
 //!
-//! Everything here is generic over [`Numeric`](crate::Numeric), so the same code runs at `f32` or
-//! `f64` or through an autodiff scalar — differentiating an odometry step through
-//! [`Dual`](crate::Dual) gives exact Jacobians with no hand-derived formulas.
+//! - [`DifferentialDrive`] — wheel ↔ body motion for a differential-drive base.
+//! - [`Unicycle`] — the unicycle (body-twist) model.
+//! - [`integrate`] — exact-arc SE(2) odometry from a body twist.
 //!
-//! Units are SI and angles are radians. Twists are linear-first `[v; ω]`, matching
-//! [`SE2`](crate::spatial::SE2). Poses advance by right-perturbation, `X · exp(ξ)`.
-//!
-//! The velocity motion model and its exact-arc integration follow Thrun, Burgard and Fox,
-//! *Probabilistic Robotics*, Ch. 5, and Siegwart and Nourbakhsh, *Introduction to Autonomous
-//! Mobile Robots*, Ch. 3.
+//! Generic over [`Numeric`](crate::Numeric) (so `f32`/`f64`/autodiff — an odometry step through
+//! [`Dual`](crate::Dual) gives exact Jacobians). SI units, radians, twists linear-first `[v; ω]`
+//! (matching [`SE2`](crate::spatial::SE2)), poses advance by `X · exp(ξ)`. The velocity model and
+//! arc integration follow Thrun/Burgard/Fox, *Probabilistic Robotics*, ch. 5, and
+//! Siegwart/Nourbakhsh, *Introduction to Autonomous Mobile Robots*, ch. 3.
 
 mod differential_drive;
 mod odometry;

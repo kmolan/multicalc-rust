@@ -809,6 +809,64 @@ filter.predict(&Stationary).unwrap();
 filter.update(&RangeToLandmark, Vector::new([5.5])).unwrap();
 ```
 
+### Particle filter
+
+`ParticleFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T, R>` carries a cloud of weighted state
+samples instead of a single Gaussian, so it can track a belief the Kalman filters cannot represent —
+strongly nonlinear, non-Gaussian, or with several peaks at once (a robot that could be in one of two
+corridors). It is the tool to reach for when a single-Gaussian belief is the thing that breaks, and
+the price is running hundreds to thousands of samples every step.
+
+- `new(particle_count, initial_mean, initial_covariance, process_noise, seed)`: samples the starting
+  cloud from the given Gaussian, with a seeded built-in `Pcg32`. `from_random` takes any
+  `RandomSource` instead. `particle_count` must be at least one.
+- `predict(&process_model)`: pushes every sample through the model — any `VectorFn` — and adds a draw
+  of process noise. `update(&measurement_model, &likelihood, measurement)`: reweights each sample by
+  how well its predicted measurement matches, normalizes, and resamples if the cloud has degenerated.
+- `Likelihood` scores a sample as a log-weight; `GaussianLikelihood::new(measurement_noise)` is the
+  batteries-included default for additive Gaussian noise. Write your own for anything else.
+- `ResamplingScheme`: `Systematic` (the default), `Stratified`, `Multinomial`, or `Residual`. Set it
+  with `with_resampling`; tune when it fires with `with_resample_threshold`, and add post-resample
+  jitter with `with_roughening`.
+- `mean` (the usual estimate), `maximum_a_posteriori_state` (the single heaviest sample, for when the
+  belief has several peaks and the mean falls between them), `effective_sample_size`, `particles`,
+  and `weights`.
+
+```rust
+# use multicalc::estimation::{GaussianLikelihood, ParticleFilter};
+# use multicalc::linear_algebra::{Matrix, Vector};
+# use multicalc::scalar::{Numeric, VectorFn};
+// A stationary 2-D point, measured directly with a little noise.
+struct Stationary;
+impl VectorFn<2, 2> for Stationary {
+    fn eval<S: Numeric>(&self, state: &[S; 2]) -> [S; 2] {
+        [state[0], state[1]]
+    }
+}
+
+let mut filter = ParticleFilter::<2, 2>::new(
+    1000,
+    Vector::new([0.0, 0.0]),                  // initial mean
+    Matrix::new([[1.0, 0.0], [0.0, 1.0]]),    // initial covariance
+    Matrix::new([[0.01, 0.0], [0.0, 0.01]]),  // process noise
+    7,                                        // seed
+).unwrap();
+let sensor = GaussianLikelihood::new(Matrix::new([[0.05, 0.0], [0.0, 0.05]])).unwrap();
+
+for _ in 0..20 {
+    filter.predict(&Stationary).unwrap();
+    filter.update(&Stationary, &sensor, Vector::new([1.0, 2.0])).unwrap();
+}
+assert!((filter.mean()[0] - 1.0).abs() < 0.2);
+```
+
+The particle filter is heap-backed, so it is behind the `alloc` feature and the bare-metal build does
+not compile it. Its `update` returns `EstimationError::NonFinite` for a non-finite measurement and
+`EstimationError::WeightsDegenerate` when no sample can explain the measurement. `GaussianLikelihood`
+forms the mismatch by plain subtraction, so a measurement with an angular component needs a custom
+`Likelihood` that folds the angle into a ±π band first — the same wrap the extended filter's
+`update_with_residual` exists for.
+
 ## Error handling
 
 Each module family returns its own error enum. All six convert into the `CalcError` umbrella
@@ -822,7 +880,7 @@ through `From`, so a caller that spans families can hold a single type. Every en
 | `IntegrateError` | [Integration](#integration), [Gaussian tables](#gaussian-quadrature-tables), [ODE](#ode-integrators) | `IterationsZero`, `LimitsIllDefined`, `QuadratureOrderOutOfRange`, `StepSizeTooSmall`, `DidNotConverge { steps }`, `NonFinite` |
 | `SolveError` | [Optimization](#least-squares-optimization), [Root finding](#root-finding) | `DidNotConverge { iters, residual }`, `NonFinite`, `InvalidBracket`, `Linalg(LinalgError)`, `Diff(DiffError)` |
 | `KinematicsError` | [Kinematics](#kinematics) | `NonPositiveParameter`, `NonFinite` |
-| `EstimationError` | [Estimation](#estimation) | `NotPositiveDefinite`, `NonFinite`, `Diff(DiffError)` |
+| `EstimationError` | [Estimation](#estimation) | `NotPositiveDefinite`, `NonFinite`, `Diff(DiffError)`, `WeightsDegenerate` |
 | `CalcError` | umbrella | `Linalg`, `Solve`, `Integrate`, `Differentiate`, `Kinematics`, `Estimation` |
 
 `SolveError` wraps `LinalgError` and `DiffError` (a solver step can fail in either), and both
