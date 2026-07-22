@@ -66,34 +66,34 @@ The figures below are representative of a modern desktop core (`x86_64`, `--rele
   exact autodiff Jacobians, every single millisecond. **Median solve ≈ 6 µs — under 1 % of the
   1 ms budget — with zero missed ticks over 120,000 solves.**
 
-  ![2d_arm_ik — a 3-link arm running a full LM IK solve every millisecond](examples/showcase/support/2d_arm_ik_showcase.gif)
+  ![2d_arm_ik — a 3-link arm running a full LM IK solve every millisecond](examples/resources/gifs/2d_arm_ik_showcase.gif)
 
 - **`3d_arm_ik`** (spatial) — an 8-link SE(3) arm chases a moving 3D target in position and
   orientation. Every millisecond a full Levenberg-Marquardt solve runs whose Jacobian — exp, log,
   and compose through the whole Lie chain — comes from a single autodiff pass, with no hand-derived
   kinematics. **Median solve ≈ 30 µs, tracking the moving target pose to a sub-micron position.**
 
-    ![3d_arm_ik — a 3-link arm running a full LM IK solve every millisecond](examples/showcase/support/3d_arm_ik_showcase.gif)
+    ![3d_arm_ik — a 3-link arm running a full LM IK solve every millisecond](examples/resources/gifs/3d_arm_ik_showcase.gif)
 
 - **`newton_fractal`** (root finding) — every pixel is a full Newton-system solve with an exact
   autodiff Jacobian, and the cubic's basins swirl as its roots orbit. **≈ 4 million Newton
   solves/sec on one core** (a 256×256 grid re-solved at ~60 fps), each converged root accurate to
   **≈ 5e-15**.
 
-  ![newton_fractal — cubic basins swirling, every pixel a full Newton solve](examples/showcase/support/newton_fractal_showcase.gif)
+  ![newton_fractal — cubic basins swirling, every pixel a full Newton solve](examples/resources/gifs/newton_fractal_showcase.gif)
 
 - **`fourier_ferris`** (integration) — Gauss-Legendre quadrature computes the Fourier coefficients
   of Ferris's outline; a chain of epicycles then draws the crab. **≈ 600,000 quadrature node
   evaluations in ≈ 8 ms** at startup, with every coefficient matching the exact closed form to
   **≈ 1e-15**.
 
-  ![fourier_ferris — an epicycle chain drawing Ferris from Fourier coefficients](examples/showcase/support/fourier_ferris_showcase.gif)
+  ![fourier_ferris — an epicycle chain drawing Ferris from Fourier coefficients](examples/resources/gifs/fourier_ferris_showcase.gif)
 
 - **`gradient_marbles`** (autodiff) — 2,000 marbles across a 3D Himmelblau landscape, each steered
   by an exact autodiff gradient every millisecond. **2,000 exact gradients in under 3 µs per tick
   (~750,000 gradients/ms), and the autodiff-vs-analytic error is pinned at exactly 0.0** on screen.
 
-  ![gradient_marbles — 2,000 marbles steered by exact autodiff gradients down a 3D landscape](examples/showcase/support/gradient_marbles_showcase.gif)
+  ![gradient_marbles — 2,000 marbles steered by exact autodiff gradients down a 3D landscape](examples/resources/gifs/gradient_marbles_showcase.gif)
 
 `curve_fit_live` and `curve_fit_record` are two more showcase examples: the first streams a live
 Levenberg-Marquardt fit, the second writes a `.rrd` (and a `.csv`) with no viewer needed.

@@ -5,8 +5,8 @@
 //! recorded). With the feature off the crate builds headless, with no Rerun in the dependency
 //! tree. A satellite crate: never a dependency of the core, excluded from bare-metal builds.
 //!
-//! Also carries [`sim`], a std-only 2D sensor simulator (map, lidar, beacons) that the robot demos
-//! drive; it is demo scaffolding, never core numerics.
+//! Also carries [`sim`], a std-only 2D sensor simulator (occupancy grid, lidar) that the robot
+//! demos drive; it is demo scaffolding, never core numerics.
 
 mod csv_sink;
 #[cfg(feature = "rerun")]

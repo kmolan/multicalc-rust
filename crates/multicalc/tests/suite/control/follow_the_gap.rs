@@ -6,8 +6,8 @@ use core::f64::consts::PI;
 use multicalc::control::FollowTheGap;
 use multicalc::error::ControlError;
 
-// 31 beams over 120°, 4 m range, a 0.5 m chassis, a 0.5 m gap threshold, 0.4 m/s cruise. Beam 15
-// is the exact centre, and the beams are (2π/3)/30 = 0.06981… rad apart.
+// 31 beams over 120°, 4 m range, a 0.5 m robot, a 0.5 m open-space threshold, 0.4 m/s cruise. Beam
+// 15 is the exact centre, and neighbouring beams are (2π/3)/30 = 0.06981… rad apart.
 fn follower() -> FollowTheGap<31, f64> {
     FollowTheGap::try_new(2.0 * PI / 3.0, 4.0, 0.5, 0.5, 0.4).unwrap()
 }
@@ -35,8 +35,8 @@ fn obstacle_on_the_right_steers_left() {
     assert!(output.heading() > 0.0);
     assert!(output.body_twist().angular() > 0.0);
     assert_eq!(output.gap_start_index(), 16);
-    // The run is open-ended at the far end, so the aim is inset only at beam 16, by
-    // atan(0.25 / 0.4) = 0.5586 rad from that beam's angle of 0.0698 rad.
+    // The gap runs off the edge of the scan, so it has an obstacle only on the near side. The aim
+    // is pulled in from that one edge (beam 16, at 0.0698 rad) by atan(0.25 / 0.4) = 0.5586 rad.
     assert!(
         (output.heading() - 0.62841).abs() < 1e-5,
         "heading {}",
@@ -68,12 +68,12 @@ fn fully_blocked_scan_stops() {
 
 #[test]
 fn gap_narrower_than_the_chassis_is_rejected() {
-    // Both bands below are far wider in angle than the robot needs in open space. It is the 0.4 m
-    // range of the returns bounding them that makes the chord short, which is what a width in
-    // metres captures and an angular threshold would not.
+    // Both bands below span a wide angle — wider than the robot needs in open space. But the
+    // obstacles on their edges are only 0.4 m away, so the straight-line distance between them is
+    // short. A width in metres catches that; an angle-only test would not.
     let follower = follower();
 
-    // Free 6..=23, bounded by beams 5 and 24: √(2 · 0.4² · (1 − cos 1.3265)) ≈ 0.4925 m.
+    // Open beams 6..=23, with obstacles at beams 5 and 24: √(2 · 0.4² · (1 − cos 1.3265)) ≈ 0.4925 m.
     let mut narrow = [0.4; 31];
     for range in narrow.iter_mut().take(24).skip(6) {
         *range = 4.0;
@@ -84,7 +84,7 @@ fn gap_narrower_than_the_chassis_is_rejected() {
         "a 0.4925 m gap must not admit a 0.5 m chassis"
     );
 
-    // Free 6..=24, bounded by beams 5 and 25: one beam wider, ≈ 0.5142 m, and passable.
+    // Open beams 6..=24, with obstacles at beams 5 and 25: one beam wider, ≈ 0.5142 m, and passable.
     let mut wide = [0.4; 31];
     for range in wide.iter_mut().take(25).skip(6) {
         *range = 4.0;
@@ -111,9 +111,9 @@ fn dropped_beams_read_as_free_space() {
 
 #[test]
 fn goal_bias_selects_the_gap_toward_the_goal() {
-    // Blocking the middle leaves two gaps. Both are open-ended at the scan edge and inset by the
-    // same atan(0.25 / 0.3) at their inner edge, so their usable spans are identical and the goal
-    // bias is the only thing separating them.
+    // Blocking the middle leaves two gaps. Each runs off its scan edge and is pulled in by the same
+    // atan(0.25 / 0.3) at its inner edge, so both end up the same width. The goal bias is then the
+    // only thing separating them.
     let mut ranges = [4.0; 31];
     for range in ranges.iter_mut().take(18).skip(13) {
         *range = 0.3;
@@ -128,17 +128,17 @@ fn goal_bias_selects_the_gap_toward_the_goal() {
     assert!(toward_right.heading() < 0.0);
     assert_eq!(toward_right.gap_end_index(), 12);
 
-    // With the goal dead ahead the two gaps score identically and have equal |aim|, so neither the
-    // score nor the tie-break separates them and the lower index wins. The point is that a
-    // symmetric scan resolves deterministically, not that it resolves in a meaningful direction.
+    // With the goal straight ahead, both gaps score the same and aim the same distance off-centre,
+    // so nothing separates them and the earlier beam wins. The point is that a symmetric scan
+    // resolves the same way every time, not that it picks a meaningful side.
     let symmetric = follower.compute(&ranges, 0.0).unwrap();
     assert_eq!(symmetric.gap_end_index(), 12);
 }
 
 #[test]
 fn speed_scales_with_frontal_clearance() {
-    // The frontal half-angle defaults to field_of_view / 4 = π/6 ≈ 0.5236 rad, covering beams
-    // 8..=22. Every case stays above the 0.5 m gap threshold, so this measures speed scaling and
+    // The "ahead" half-angle defaults to field_of_view / 4 = π/6 ≈ 0.5236 rad, covering beams
+    // 8..=22. Every case stays above the 0.5 m open-space threshold, so this checks speed scaling,
     // not the blocked path.
     let follower = follower().with_speed_scaling(1.0, 3.0).unwrap();
     for (frontal, expected) in [(1.0, 0.0), (2.0, 0.2), (3.0, 0.4)] {
