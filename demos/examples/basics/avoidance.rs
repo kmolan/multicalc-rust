@@ -82,7 +82,7 @@ fn main() {
         .with_segment([12.0, -1.0], [12.0, 1.0]) // end cap
         .with_circle([5.0, 0.35], 0.35); // pillar
 
-    // The same field of view on both, which is the point of sharing the bearing formula.
+    // The same field of view on both, which is the point of sharing the angle formula.
     let lidar = Lidar2d::<BEAMS>::new(2.0 * PI / 3.0, 4.0, 0.03, 0.01);
     // The default clear distance is the sensor's maximum range, which suits open ground. Inside a
     // 2 m corridor the frontal arc never sees past about 2 m — a beam 30° off-axis meets the side

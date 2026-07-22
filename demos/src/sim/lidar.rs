@@ -8,7 +8,7 @@ use super::map::Map;
 
 /// A forward-arc lidar with `BEAMS` beams uniformly spaced across its field of view.
 ///
-/// Beam bearings are measured from the robot's forward axis, positive counter-clockwise, matching
+/// Beam angles are measured from the robot's forward axis, positive counter-clockwise, matching
 /// the convention `multicalc::control::FollowTheGap` expects. A beam with no return — out of range,
 /// or dropped — reads as `f64::INFINITY`.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -37,11 +37,11 @@ impl<const BEAMS: usize> Lidar2d<BEAMS> {
         }
     }
 
-    /// The body-frame bearing of beam `index`, or `None` if the index is out of range.
+    /// The body-frame angle of beam `index`, or `None` if the index is out of range.
     ///
     /// Uses the same formula as the gap-follower, so the two agree beam for beam.
     #[must_use]
-    pub fn beam_bearing(&self, index: usize) -> Option<f64> {
+    pub fn beam_angle(&self, index: usize) -> Option<f64> {
         if BEAMS < 2 || index >= BEAMS {
             return None;
         }
@@ -64,11 +64,11 @@ impl<const BEAMS: usize> Lidar2d<BEAMS> {
             if rng.random::<f64>() < self.dropout_probability {
                 return f64::INFINITY;
             }
-            let Some(bearing) = self.beam_bearing(index) else {
+            let Some(angle) = self.beam_angle(index) else {
                 return f64::INFINITY;
             };
-            let world_bearing = pose[2] + bearing;
-            match map.cast_ray([pose[0], pose[1]], world_bearing, self.maximum_range) {
+            let world_angle = pose[2] + angle;
+            match map.cast_ray([pose[0], pose[1]], world_angle, self.maximum_range) {
                 Some(distance) => match noise {
                     Some(normal) => (distance + normal.sample(rng)).max(0.0),
                     None => distance,
