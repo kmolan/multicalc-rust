@@ -8,7 +8,6 @@ use std::path::PathBuf;
 
 use criterion::Criterion;
 
-use multicalc::control::FollowTheGap;
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::numerical_derivative::derivator::DerivatorSingleVariable;
@@ -185,19 +184,6 @@ fn bench_newton_system(crit: &mut Criterion) {
     });
 }
 
-fn bench_follow_the_gap(crit: &mut Criterion) {
-    // 61 beams over 120°: one reactive-avoidance step against a partly blocked scan.
-    let follower: FollowTheGap<61, f64> =
-        FollowTheGap::try_new(2.0 * std::f64::consts::PI / 3.0, 4.0, 0.5, 0.5, 0.4).unwrap();
-    let mut ranges = [4.0_f64; 61];
-    for (index, range) in ranges.iter_mut().enumerate().take(24) {
-        *range = 0.8 + 0.02 * index as f64;
-    }
-    crit.bench_function("follow_the_gap", |b| {
-        b.iter(|| follower.compute(black_box(&ranges), black_box(0.0)).unwrap())
-    });
-}
-
 fn main() {
     let mut c = Criterion::default().configure_from_args();
 
@@ -212,7 +198,6 @@ fn main() {
     bench_rk4_integrate(&mut c);
     bench_lev_marq(&mut c);
     bench_newton_system(&mut c);
-    bench_follow_the_gap(&mut c);
 
     c.final_summary();
 
@@ -234,7 +219,6 @@ const BENCHES: &[(&str, &str)] = &[
     ("rk4_integrate", "y″ = −y, fixed-step to 2π"),
     ("lev_marq", "fit y = a·eᵇᵗ (8 points)"),
     ("newton_system", "x²+y² = 4, x·y = 1"),
-    ("follow_the_gap", "gap plan over a 61-beam scan"),
 ];
 
 const BEGIN: &str = "<!-- BEGIN generated: latency -->";

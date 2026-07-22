@@ -20,6 +20,5 @@ Measured on a 12th Gen Intel Core i7-12650H (16 threads) under WSL2 (Linux 6.18)
 | `rk4_integrate` | y″ = −y, fixed-step to 2π | 18.86 µs | 18.93 µs |
 | `lev_marq` | fit y = a·eᵇᵗ (8 points) | 2.27 µs | 2.28 µs |
 | `newton_system` | x²+y² = 4, x·y = 1 | 311.9 ns | 312.7 ns |
-| `follow_the_gap` | gap plan over a 61-beam scan | 298.6 ns | 300.3 ns |
 
 <!-- END generated -->
