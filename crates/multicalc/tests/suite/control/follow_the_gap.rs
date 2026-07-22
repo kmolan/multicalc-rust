@@ -19,8 +19,8 @@ fn clear_scan_drives_straight() {
     assert!(plan.heading().abs() < 1e-12);
     assert!((plan.body_twist().linear() - 0.4).abs() < 1e-12);
     assert!(plan.body_twist().angular().abs() < 1e-12);
-    assert_eq!(plan.gap_start(), 0);
-    assert_eq!(plan.gap_end(), 30);
+    assert_eq!(plan.gap_start_index(), 0);
+    assert_eq!(plan.gap_end_index(), 30);
     assert!((plan.minimum_clearance() - 4.0).abs() < 1e-12);
 }
 
@@ -34,9 +34,9 @@ fn obstacle_on_the_right_steers_left() {
     assert!(!plan.is_blocked());
     assert!(plan.heading() > 0.0);
     assert!(plan.body_twist().angular() > 0.0);
-    assert_eq!(plan.gap_start(), 16);
+    assert_eq!(plan.gap_start_index(), 16);
     // The run is open-ended at the far end, so the aim is inset only at beam 16, by
-    // atan(0.25 / 0.4) = 0.5586 rad from that beam's bearing of 0.0698 rad.
+    // atan(0.25 / 0.4) = 0.5586 rad from that beam's angle of 0.0698 rad.
     assert!(
         (plan.heading() - 0.62841).abs() < 1e-5,
         "heading {}",
@@ -53,7 +53,7 @@ fn obstacle_on_the_left_steers_right() {
     let plan = follower().plan(&ranges, 0.0).unwrap();
     assert!(!plan.is_blocked());
     assert!(plan.heading() < 0.0);
-    assert_eq!(plan.gap_end(), 14);
+    assert_eq!(plan.gap_end_index(), 14);
 }
 
 #[test]
@@ -91,8 +91,8 @@ fn gap_narrower_than_the_chassis_is_rejected() {
     }
     let plan = follower.plan(&wide, 0.0).unwrap();
     assert!(!plan.is_blocked());
-    assert_eq!(plan.gap_start(), 6);
-    assert_eq!(plan.gap_end(), 24);
+    assert_eq!(plan.gap_start_index(), 6);
+    assert_eq!(plan.gap_end_index(), 24);
 }
 
 #[test]
@@ -105,8 +105,8 @@ fn dropped_beams_read_as_free_space() {
     let plan = follower().plan(&ranges, 0.0).unwrap();
     assert!(!plan.is_blocked());
     assert!(plan.heading().abs() < 1e-12);
-    assert_eq!(plan.gap_start(), 0);
-    assert_eq!(plan.gap_end(), 30);
+    assert_eq!(plan.gap_start_index(), 0);
+    assert_eq!(plan.gap_end_index(), 30);
 }
 
 #[test]
@@ -122,17 +122,17 @@ fn goal_bias_selects_the_gap_toward_the_goal() {
 
     let toward_left = follower.plan(&ranges, 0.6).unwrap();
     assert!(toward_left.heading() > 0.0);
-    assert_eq!(toward_left.gap_start(), 18);
+    assert_eq!(toward_left.gap_start_index(), 18);
 
     let toward_right = follower.plan(&ranges, -0.6).unwrap();
     assert!(toward_right.heading() < 0.0);
-    assert_eq!(toward_right.gap_end(), 12);
+    assert_eq!(toward_right.gap_end_index(), 12);
 
     // With the goal dead ahead the two gaps score identically and have equal |aim|, so neither the
     // score nor the tie-break separates them and the lower index wins. The point is that a
     // symmetric scan resolves deterministically, not that it resolves in a meaningful direction.
     let symmetric = follower.plan(&ranges, 0.0).unwrap();
-    assert_eq!(symmetric.gap_end(), 12);
+    assert_eq!(symmetric.gap_end_index(), 12);
 }
 
 #[test]
@@ -201,7 +201,7 @@ fn invalid_configuration_is_rejected() {
         Some(ControlError::NonPositiveSpeed)
     );
     assert_eq!(
-        follower().with_turn_gain(0.0).err(),
+        follower().with_steering_gain(0.0).err(),
         Some(ControlError::NonPositiveSpeed)
     );
     assert_eq!(
@@ -227,7 +227,7 @@ fn invalid_configuration_is_rejected() {
 }
 
 #[test]
-fn non_finite_goal_bearing_is_an_error() {
+fn non_finite_goal_angle_is_an_error() {
     assert_eq!(
         follower().plan(&[4.0; 31], f64::NAN).err(),
         Some(ControlError::NonFinite)
@@ -239,12 +239,12 @@ fn non_finite_goal_bearing_is_an_error() {
 }
 
 #[test]
-fn beam_bearing_spans_the_field_of_view() {
+fn beam_angle_spans_the_field_of_view() {
     let follower = follower();
-    assert!((follower.beam_bearing(0).unwrap() + PI / 3.0).abs() < 1e-12);
-    assert!(follower.beam_bearing(15).unwrap().abs() < 1e-12);
-    assert!((follower.beam_bearing(30).unwrap() - PI / 3.0).abs() < 1e-12);
-    assert!(follower.beam_bearing(31).is_none());
+    assert!((follower.beam_angle(0).unwrap() + PI / 3.0).abs() < 1e-12);
+    assert!(follower.beam_angle(15).unwrap().abs() < 1e-12);
+    assert!((follower.beam_angle(30).unwrap() - PI / 3.0).abs() < 1e-12);
+    assert!(follower.beam_angle(31).is_none());
 }
 
 #[test]

@@ -667,7 +667,7 @@ let command = speed_loop.update(0.4, 0.35); // setpoint 0.4 m/s, measured 0.35 m
 let curvature = pure_pursuit_curvature(SE2::identity(), Vector::new([2.0, 1.0]), 2.0).unwrap();
 let twist = curvature.to_body_twist(0.4);
 
-// Reactive avoidance: 31 beams over 120°, 4 m range, a 0.5 m chassis, a 0.5 m gap threshold,
+// Reactive avoidance: 31 beams over 120°, 4 m range, a 0.5 m chassis, a 0.5 m free-range threshold,
 // 0.4 m/s cruise.
 let follower: FollowTheGap<31, f64> =
     FollowTheGap::try_new(2.0 * core::f64::consts::PI / 3.0, 4.0, 0.5, 0.5, 0.4).unwrap();
@@ -684,12 +684,12 @@ assert_eq!(blocked.body_twist().linear(), 0.0);
 
 `FollowTheGap` works in two passes over the scan. It sanitizes it — a beam that is non-finite or
 non-positive is a dropped return and reads as free space at maximum range. Then it walks every
-maximal run of beams above the gap threshold, discards any run whose bounding returns are closer
-together than the chassis width, and scores the rest by `span − goal_bias · |aim − goal_bearing|`.
+maximal run of beams above the free-range threshold, discards any run whose bounding returns are
+closer together than the chassis width, and scores the rest by `span − goal_bias · |aim − goal_angle|`.
 The `span` is the run's usable arc, held off each bounded edge by the angle the robot's half-width
-subtends at that edge's range, and `aim` is the goal bearing clamped into it — so the follower keeps
+subtends at that edge's range, and `aim` is the goal angle clamped into it — so the follower keeps
 its shoulders out of the obstacles that form the gap. It steers at the winner with a yaw rate of
-`turn_gain · heading` and a forward speed scaled linearly by frontal clearance.
+`steering_gain · heading` and a forward speed scaled linearly by frontal clearance.
 
 Measuring the gap in metres rather than beams is what makes the width test meaningful: the same
 angular gap is passable at 4 m and impassable at 0.4 m, and the law of cosines across the two
