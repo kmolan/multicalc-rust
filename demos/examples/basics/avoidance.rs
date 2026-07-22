@@ -52,17 +52,17 @@ fn run(
 
     for tick in 0..1500 {
         let scan = lidar.simulate(map, [pose[0], pose[1], pose[2]], &mut rng);
-        let plan = follower.plan(&scan, 0.0).unwrap();
-        if plan.is_blocked() {
+        let output = follower.compute(&scan, 0.0).unwrap();
+        if output.is_blocked() {
             blocked_ticks += 1;
         }
         // Skip a short warm-up so the very first scans do not dominate the minimum.
         if tick >= 10 {
-            minimum_clearance = minimum_clearance.min(plan.minimum_clearance());
+            minimum_clearance = minimum_clearance.min(output.minimum_clearance());
         }
-        travelled += plan.body_twist().linear() * dt;
+        travelled += output.body_twist().linear() * dt;
 
-        let plant = Unicycle::new(plan.body_twist());
+        let plant = Unicycle::new(output.body_twist());
         pose = Rk4::step(&plant.field(), 0.0, &pose, dt);
     }
 
@@ -113,7 +113,7 @@ fn main() {
     check("never fully blocked", summary.blocked_ticks == 0);
 
     // (3) The blocked case, checked directly and independently of the loop.
-    let walled_in = follower.plan(&[0.2_f64; BEAMS], 0.0).unwrap();
+    let walled_in = follower.compute(&[0.2_f64; BEAMS], 0.0).unwrap();
     check(
         "blocked scan stops",
         walled_in.is_blocked() && walled_in.body_twist().linear() == 0.0,

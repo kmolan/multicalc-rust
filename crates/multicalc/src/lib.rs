@@ -56,7 +56,9 @@ pub use root_finding::{Bisection, Newton, NewtonSystem, RootReport, RootReportN,
 
 /// Feedback control: PID, one-pole derivative filter, the pure-pursuit path-following law, and
 /// Follow-the-Gap reactive avoidance.
-pub use control::{Curvature, FollowTheGap, GapPlan, OnePoleLowPass, Pid, pure_pursuit_curvature};
+pub use control::{
+    Curvature, FollowTheGap, FollowTheGapOutput, OnePoleLowPass, Pid, pure_pursuit_curvature,
+};
 
 /// Waypoint paths and their arc-length, closest-point, and lookahead queries.
 pub use motion::{EndOfPath, PathProjection, PolylinePath};

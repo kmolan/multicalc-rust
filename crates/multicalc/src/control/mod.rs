@@ -17,6 +17,6 @@ mod pid;
 mod pure_pursuit;
 
 pub use derivative_filter::OnePoleLowPass;
-pub use follow_the_gap::{FollowTheGap, GapPlan};
+pub use follow_the_gap::{FollowTheGap, FollowTheGapOutput};
 pub use pid::Pid;
 pub use pure_pursuit::{Curvature, pure_pursuit_curvature};

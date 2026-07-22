@@ -186,7 +186,7 @@ fn bench_newton_system(crit: &mut Criterion) {
 }
 
 fn bench_follow_the_gap(crit: &mut Criterion) {
-    // 61 beams over 120°: one reactive-avoidance plan against a partly blocked scan.
+    // 61 beams over 120°: one reactive-avoidance step against a partly blocked scan.
     let follower: FollowTheGap<61, f64> =
         FollowTheGap::try_new(2.0 * std::f64::consts::PI / 3.0, 4.0, 0.5, 0.5, 0.4).unwrap();
     let mut ranges = [4.0_f64; 61];
@@ -194,7 +194,7 @@ fn bench_follow_the_gap(crit: &mut Criterion) {
         *range = 0.8 + 0.02 * index as f64;
     }
     crit.bench_function("follow_the_gap", |b| {
-        b.iter(|| follower.plan(black_box(&ranges), black_box(0.0)).unwrap())
+        b.iter(|| follower.compute(black_box(&ranges), black_box(0.0)).unwrap())
     });
 }
 

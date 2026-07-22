@@ -673,11 +673,11 @@ let follower: FollowTheGap<31, f64> =
     FollowTheGap::try_new(2.0 * core::f64::consts::PI / 3.0, 4.0, 0.5, 0.5, 0.4).unwrap();
 
 // A clear scan drives straight ahead at cruise speed.
-let plan = follower.plan(&[4.0; 31], 0.0).unwrap();
-assert!(plan.heading().abs() < 1e-12);
+let output = follower.compute(&[4.0; 31], 0.0).unwrap();
+assert!(output.heading().abs() < 1e-12);
 
 // A wall all round stops, and says why.
-let blocked = follower.plan(&[0.2; 31], 0.0).unwrap();
+let blocked = follower.compute(&[0.2; 31], 0.0).unwrap();
 assert!(blocked.is_blocked());
 assert_eq!(blocked.body_twist().linear(), 0.0);
 ```

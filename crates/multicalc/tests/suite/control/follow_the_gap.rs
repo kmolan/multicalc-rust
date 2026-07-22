@@ -14,14 +14,14 @@ fn follower() -> FollowTheGap<31, f64> {
 
 #[test]
 fn clear_scan_drives_straight() {
-    let plan = follower().plan(&[4.0; 31], 0.0).unwrap();
-    assert!(!plan.is_blocked());
-    assert!(plan.heading().abs() < 1e-12);
-    assert!((plan.body_twist().linear() - 0.4).abs() < 1e-12);
-    assert!(plan.body_twist().angular().abs() < 1e-12);
-    assert_eq!(plan.gap_start_index(), 0);
-    assert_eq!(plan.gap_end_index(), 30);
-    assert!((plan.minimum_clearance() - 4.0).abs() < 1e-12);
+    let output = follower().compute(&[4.0; 31], 0.0).unwrap();
+    assert!(!output.is_blocked());
+    assert!(output.heading().abs() < 1e-12);
+    assert!((output.body_twist().linear() - 0.4).abs() < 1e-12);
+    assert!(output.body_twist().angular().abs() < 1e-12);
+    assert_eq!(output.gap_start_index(), 0);
+    assert_eq!(output.gap_end_index(), 30);
+    assert!((output.minimum_clearance() - 4.0).abs() < 1e-12);
 }
 
 #[test]
@@ -30,17 +30,17 @@ fn obstacle_on_the_right_steers_left() {
     for range in ranges.iter_mut().take(16) {
         *range = 0.4;
     }
-    let plan = follower().plan(&ranges, 0.0).unwrap();
-    assert!(!plan.is_blocked());
-    assert!(plan.heading() > 0.0);
-    assert!(plan.body_twist().angular() > 0.0);
-    assert_eq!(plan.gap_start_index(), 16);
+    let output = follower().compute(&ranges, 0.0).unwrap();
+    assert!(!output.is_blocked());
+    assert!(output.heading() > 0.0);
+    assert!(output.body_twist().angular() > 0.0);
+    assert_eq!(output.gap_start_index(), 16);
     // The run is open-ended at the far end, so the aim is inset only at beam 16, by
     // atan(0.25 / 0.4) = 0.5586 rad from that beam's angle of 0.0698 rad.
     assert!(
-        (plan.heading() - 0.62841).abs() < 1e-5,
+        (output.heading() - 0.62841).abs() < 1e-5,
         "heading {}",
-        plan.heading()
+        output.heading()
     );
 }
 
@@ -50,20 +50,20 @@ fn obstacle_on_the_left_steers_right() {
     for range in ranges.iter_mut().skip(15) {
         *range = 0.4;
     }
-    let plan = follower().plan(&ranges, 0.0).unwrap();
-    assert!(!plan.is_blocked());
-    assert!(plan.heading() < 0.0);
-    assert_eq!(plan.gap_end_index(), 14);
+    let output = follower().compute(&ranges, 0.0).unwrap();
+    assert!(!output.is_blocked());
+    assert!(output.heading() < 0.0);
+    assert_eq!(output.gap_end_index(), 14);
 }
 
 #[test]
 fn fully_blocked_scan_stops() {
-    let plan = follower().plan(&[0.2; 31], 0.0).unwrap();
-    assert!(plan.is_blocked());
-    assert_eq!(plan.body_twist().linear(), 0.0);
-    assert_eq!(plan.body_twist().angular(), 0.0);
-    assert_eq!(plan.heading(), 0.0);
-    assert!((plan.minimum_clearance() - 0.2).abs() < 1e-12);
+    let output = follower().compute(&[0.2; 31], 0.0).unwrap();
+    assert!(output.is_blocked());
+    assert_eq!(output.body_twist().linear(), 0.0);
+    assert_eq!(output.body_twist().angular(), 0.0);
+    assert_eq!(output.heading(), 0.0);
+    assert!((output.minimum_clearance() - 0.2).abs() < 1e-12);
 }
 
 #[test]
@@ -78,9 +78,9 @@ fn gap_narrower_than_the_chassis_is_rejected() {
     for range in narrow.iter_mut().take(24).skip(6) {
         *range = 4.0;
     }
-    let plan = follower.plan(&narrow, 0.0).unwrap();
+    let output = follower.compute(&narrow, 0.0).unwrap();
     assert!(
-        plan.is_blocked(),
+        output.is_blocked(),
         "a 0.4925 m gap must not admit a 0.5 m chassis"
     );
 
@@ -89,10 +89,10 @@ fn gap_narrower_than_the_chassis_is_rejected() {
     for range in wide.iter_mut().take(25).skip(6) {
         *range = 4.0;
     }
-    let plan = follower.plan(&wide, 0.0).unwrap();
-    assert!(!plan.is_blocked());
-    assert_eq!(plan.gap_start_index(), 6);
-    assert_eq!(plan.gap_end_index(), 24);
+    let output = follower.compute(&wide, 0.0).unwrap();
+    assert!(!output.is_blocked());
+    assert_eq!(output.gap_start_index(), 6);
+    assert_eq!(output.gap_end_index(), 24);
 }
 
 #[test]
@@ -102,11 +102,11 @@ fn dropped_beams_read_as_free_space() {
     ranges[7] = f64::INFINITY;
     ranges[11] = -1.0;
     ranges[12] = 0.0;
-    let plan = follower().plan(&ranges, 0.0).unwrap();
-    assert!(!plan.is_blocked());
-    assert!(plan.heading().abs() < 1e-12);
-    assert_eq!(plan.gap_start_index(), 0);
-    assert_eq!(plan.gap_end_index(), 30);
+    let output = follower().compute(&ranges, 0.0).unwrap();
+    assert!(!output.is_blocked());
+    assert!(output.heading().abs() < 1e-12);
+    assert_eq!(output.gap_start_index(), 0);
+    assert_eq!(output.gap_end_index(), 30);
 }
 
 #[test]
@@ -120,18 +120,18 @@ fn goal_bias_selects_the_gap_toward_the_goal() {
     }
     let follower = follower();
 
-    let toward_left = follower.plan(&ranges, 0.6).unwrap();
+    let toward_left = follower.compute(&ranges, 0.6).unwrap();
     assert!(toward_left.heading() > 0.0);
     assert_eq!(toward_left.gap_start_index(), 18);
 
-    let toward_right = follower.plan(&ranges, -0.6).unwrap();
+    let toward_right = follower.compute(&ranges, -0.6).unwrap();
     assert!(toward_right.heading() < 0.0);
     assert_eq!(toward_right.gap_end_index(), 12);
 
     // With the goal dead ahead the two gaps score identically and have equal |aim|, so neither the
     // score nor the tie-break separates them and the lower index wins. The point is that a
     // symmetric scan resolves deterministically, not that it resolves in a meaningful direction.
-    let symmetric = follower.plan(&ranges, 0.0).unwrap();
+    let symmetric = follower.compute(&ranges, 0.0).unwrap();
     assert_eq!(symmetric.gap_end_index(), 12);
 }
 
@@ -146,12 +146,12 @@ fn speed_scales_with_frontal_clearance() {
         for range in ranges.iter_mut().take(23).skip(8) {
             *range = frontal;
         }
-        let plan = follower.plan(&ranges, 0.0).unwrap();
-        assert!(!plan.is_blocked(), "frontal {frontal} m must not block");
+        let output = follower.compute(&ranges, 0.0).unwrap();
+        assert!(!output.is_blocked(), "frontal {frontal} m must not block");
         assert!(
-            (plan.body_twist().linear() - expected).abs() < 1e-12,
+            (output.body_twist().linear() - expected).abs() < 1e-12,
             "frontal {frontal} m gave {}",
-            plan.body_twist().linear()
+            output.body_twist().linear()
         );
     }
 }
@@ -229,11 +229,11 @@ fn invalid_configuration_is_rejected() {
 #[test]
 fn non_finite_goal_angle_is_an_error() {
     assert_eq!(
-        follower().plan(&[4.0; 31], f64::NAN).err(),
+        follower().compute(&[4.0; 31], f64::NAN).err(),
         Some(ControlError::NonFinite)
     );
     assert_eq!(
-        follower().plan(&[4.0; 31], f64::INFINITY).err(),
+        follower().compute(&[4.0; 31], f64::INFINITY).err(),
         Some(ControlError::NonFinite)
     );
 }
@@ -251,7 +251,7 @@ fn beam_angle_spans_the_field_of_view() {
 fn clear_scan_runs_at_f32() {
     let follower: FollowTheGap<31, f32> =
         FollowTheGap::try_new(2.0 * core::f32::consts::PI / 3.0, 4.0, 0.5, 0.5, 0.4).unwrap();
-    let plan = follower.plan(&[4.0_f32; 31], 0.0).unwrap();
-    assert!(plan.heading().abs() < 1e-6);
-    assert!((plan.body_twist().linear() - 0.4).abs() < 1e-6);
+    let output = follower.compute(&[4.0_f32; 31], 0.0).unwrap();
+    assert!(output.heading().abs() < 1e-6);
+    assert!((output.body_twist().linear() - 0.4).abs() < 1e-6);
 }
