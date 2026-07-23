@@ -1,4 +1,5 @@
 use multicalc::Dual;
+use multicalc::error::IntegrateError;
 use multicalc::linear_algebra::Vector;
 use multicalc::ode::Rk4;
 
@@ -18,7 +19,8 @@ fn exp_decay_matches_closed_form() {
         1.0 / steps as f64,
         steps,
         |_, _| {},
-    );
+    )
+    .unwrap();
     assert!((yf[0] - (-1.0_f64).exp()).abs() < 1e-9);
 }
 
@@ -35,7 +37,8 @@ fn harmonic_matches_closed_form() {
         tf / steps as f64,
         steps,
         |_, _| {},
-    );
+    )
+    .unwrap();
     assert!((yf[0] - tf.cos()).abs() < 1e-7);
     assert!((yf[1] - (-tf.sin())).abs() < 1e-7);
 }
@@ -52,7 +55,8 @@ fn fourth_order_convergence() {
             1.0 / steps as f64,
             steps,
             |_, _| {},
-        );
+        )
+        .unwrap();
         (yf[0] - exact).abs()
     };
     let ratio = err(50) / err(100);
@@ -76,7 +80,8 @@ fn ad_through_rk4_matches_fd() {
         dt,
         steps,
         |_, _| {},
-    );
+    )
+    .unwrap();
     let ad = yf[0].deriv;
     assert!((ad - (-tf).exp()).abs() < 1e-6);
 
@@ -88,7 +93,8 @@ fn ad_through_rk4_matches_fd() {
             tf / steps as f64,
             steps,
             |_, _| {},
-        )[0]
+        )
+        .unwrap()[0]
     };
     let h = 1e-6;
     let fd = (run(a + h) - run(a - h)) / (2.0 * h);
@@ -108,7 +114,19 @@ fn f32_energy_round_trip() {
         tf / steps as f32,
         steps,
         |_, _| {},
-    );
+    )
+    .unwrap();
     let energy = yf[0] * yf[0] + yf[1] * yf[1];
     assert!((energy - 1.0).abs() < 1e-3);
+}
+
+#[test]
+fn non_finite_rhs_returns_error() {
+    let res = Rk4::step(
+        &|_t, _y: &Vector<1, f64>| Vector::new([f64::NAN]),
+        0.0,
+        &Vector::new([1.0]),
+        0.1,
+    );
+    assert_eq!(res.unwrap_err(), IntegrateError::NonFinite);
 }

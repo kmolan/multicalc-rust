@@ -459,7 +459,7 @@ use multicalc::linear_algebra::Vector;
 let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
 let y0 = Vector::new([1.0, 0.0]);
 
-let y1 = Rk4::step(&f, 0.0, &y0, 0.1);                                  // one fixed step of size 0.1
+let y1 = Rk4::step(&f, 0.0, &y0, 0.1).unwrap();                          // one fixed step of size 0.1
 
 // Adaptive solve over one full period returns to the start [1, 0].
 let yf = Rk45::default().solve(&f, 0.0, &y0, core::f64::consts::TAU).unwrap();

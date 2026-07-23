@@ -187,7 +187,8 @@ pub fn ode_identity() {
         dt,
         steps,
         |_, _| {},
-    );
+    )
+    .expect("rk4 integrate");
     assert_close!("ode_rk4_x", black_box(yf[0]), 1.0, 1e-4, 0.0);
     assert_close!("ode_rk4_v", black_box(yf[1]), 0.0, 1e-4, 0.0);
 
