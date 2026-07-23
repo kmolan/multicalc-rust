@@ -73,6 +73,10 @@ fn check_matrix_is_finite<const ROWS: usize, const COLS: usize>(m: Matrix<ROWS, 
     );
 }
 
+fn check_matrix_trace<const N: usize>(m: Matrix<N, N>) {
+    assert_eq!(m.trace(), (0..N).fold(0.0, |acc, i| acc + m[(i, i)]));
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(256))]
 
@@ -104,6 +108,28 @@ proptest! {
     #[test]
     fn matrix_is_finite_4x4(m in matrix_strategy::<4, 4, _>(prop::num::f64::ANY)) {
         check_matrix_is_finite(m);
+    }
+
+    // Note: using `prop::num::f64::NORMAL` as opposed to `prop::num::f64::ANY` because
+    // if `NaN` or `Infinity` are involved then the equality check will fail (`NaN != NaN`).
+    #[test]
+    fn matrix_trace_1x1(m in matrix_strategy::<1, 1, _>(prop::num::f64::NORMAL)) {
+        check_matrix_trace(m);
+    }
+
+    #[test]
+    fn matrix_trace_2x2(m in matrix_strategy::<2, 2, _>(prop::num::f64::NORMAL)) {
+        check_matrix_trace(m);
+    }
+
+    #[test]
+    fn matrix_trace_3x3(m in matrix_strategy::<3, 3, _>(prop::num::f64::NORMAL)) {
+        check_matrix_trace(m);
+    }
+
+    #[test]
+    fn matrix_trace_4x4(m in matrix_strategy::<4, 4, _>(prop::num::f64::NORMAL)) {
+        check_matrix_trace(m);
     }
 }
 

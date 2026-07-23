@@ -217,6 +217,23 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
         }
     }
 
+    /// Returns the trace of the matrix (sum of diagonal entries).
+    ///
+    /// Note: this method computes the sum of the entries in order from top left
+    /// to bottom right, which could have an impact on the accuracy of the result
+    /// in the case of floating-point types if the earlier elements are significantly
+    /// larger than the later ones.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// assert_eq!(Matrix::new([[1.0, -2.0], [3.0, 4.0]]).trace(), 5.0);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn trace(&self) -> T {
+        (0..N).fold(T::ZERO, |acc, i| acc + self[(i, i)])
+    }
+
     /// The inverse, or [`LinalgError::Singular`] if the matrix is singular or near-singular.
     ///
     /// Sizes up to 4×4 use a closed form and reject a matrix whose `|det|` is at or below an
