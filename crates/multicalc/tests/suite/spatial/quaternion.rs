@@ -409,3 +409,40 @@ fn f32_identities() {
         }
     }
 }
+
+//---- near-zero identities (f32 + f64) ----------------------------------------
+
+fn near_zero_scaled_axis_roundtrip<T: Numeric>() {
+    let zero = Vector::new([T::ZERO, T::ZERO, T::ZERO]);
+    let q0 = Quaternion::from_scaled_axis(zero);
+    assert!((q0.norm() - T::ONE).abs() < T::from_f64(1e-5));
+    let back0 = q0.to_scaled_axis();
+    for &comp in back0.as_array() {
+        assert!(comp.abs() < T::from_f64(1e-5));
+    }
+
+    // Sub threshold angle stays on Taylor path; round-trip stays finite/unit.
+    let tiny = Vector::new([T::from_f64(1e-9), T::ZERO, T::ZERO]);
+    let q = Quaternion::from_scaled_axis(tiny);
+    assert!(q.norm().is_finite());
+    assert!((q.norm() - T::ONE).abs() < T::from_f64(1e-4));
+    let back = Quaternion::from_scaled_axis(q.to_scaled_axis());
+    for (a, b) in q.as_array().iter().zip(back.as_array().iter()) {
+        assert!((*a - *b).abs() < T::from_f64(1e-4));
+    }
+
+    let [tx, ty, tz] = *tiny.as_array();
+    let q_exp = Quaternion::new(T::ZERO, tx, ty, tz).exp();
+    let q_ln = q_exp.ln();
+    assert!(q_ln.w().is_finite() && q_ln.x().is_finite());
+}
+
+#[test]
+fn near_zero_identities_f64() {
+    near_zero_scaled_axis_roundtrip::<f64>();
+}
+
+#[test]
+fn near_zero_identities_f32() {
+    near_zero_scaled_axis_roundtrip::<f32>();
+}
