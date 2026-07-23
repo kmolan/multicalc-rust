@@ -594,3 +594,44 @@ fn se3_to_matrix_goldens() {
         1e-12,
     );
 }
+
+#[test]
+fn near_zero_exp_log_and_jacobians_f64() {
+    let z3 = Vector::new([0.0_f64, 0.0, 0.0]);
+    assert_vec_close(SO3::exp(z3).log(), z3, 1e-14);
+    assert_mat_close(
+        SO3::left_jacobian(z3) * SO3::left_jacobian_inverse(z3),
+        Matrix::identity(),
+        1e-14,
+    );
+
+    let z6 = Vector::new([0.0_f64; 6]);
+    assert_vec_close(SE3::exp(z6).log(), z6, 1e-14);
+
+    let z3_se2 = Vector::new([0.0_f64, 0.0, 0.0]);
+    assert_vec_close(SE2::exp(z3_se2).log(), z3_se2, 1e-14);
+}
+
+#[test]
+fn near_zero_exp_log_and_jacobians_f32() {
+    let z3 = Vector::new([0.0_f32, 0.0, 0.0]);
+    for &comp in SO3::exp(z3).log().as_array() {
+        assert!(comp.abs() < 1e-5);
+    }
+    let jl = SO3::left_jacobian(z3) * SO3::left_jacobian_inverse(z3);
+    let rows = jl.as_slice_rows();
+    for (r, row) in rows.iter().enumerate() {
+        for (c, &val) in row.iter().enumerate() {
+            let expect = if r == c { 1.0 } else { 0.0 };
+            assert!((val - expect).abs() < 1e-4);
+        }
+    }
+    let z6 = Vector::new([0.0_f32; 6]);
+    for &comp in SE3::exp(z6).log().as_array() {
+        assert!(comp.abs() < 1e-5);
+    }
+    let z3_se2 = Vector::new([0.0_f32, 0.0, 0.0]);
+    for &comp in SE2::exp(z3_se2).log().as_array() {
+        assert!(comp.abs() < 1e-5);
+    }
+}

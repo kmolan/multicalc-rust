@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RK45 now handles zero-dimensional states without producing NaN norms. (#159)
 - 2×2/3×3/4×4 `Matrix::inverse` reject near-singular inputs via an
   `EPSILON`-scaled det check instead of exact `det == 0`. @rtmongold (#181)
+- Spatial small-angle Taylor cutoffs use `30 · EPSILON` instead of fixed `1e-6` / 
+  `1e-12`. @rtmongold (#190)
 
 ## [0.8.0] - 2026-07-16
 
