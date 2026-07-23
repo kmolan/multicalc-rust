@@ -665,3 +665,83 @@ fn se3_to_matrix_goldens() {
         1e-12,
     );
 }
+
+#[test]
+fn near_zero_exp_log_and_jacobians_f64() {
+    let z3 = Vector::new([0.0_f64, 0.0, 0.0]);
+    assert_components_close(SO3::exp(z3).log(), z3, 1e-14);
+    assert_entries_close(
+        SO3::left_jacobian(z3) * SO3::left_jacobian_inverse(z3),
+        Matrix::identity(),
+        1e-14,
+    );
+
+    let tiny3 = Vector::new([1e-9_f64, 0.0, 0.0]);
+    assert_components_close(SO3::exp(tiny3).log(), tiny3, 1e-12);
+    assert_entries_close(
+        SO3::left_jacobian(tiny3) * SO3::left_jacobian_inverse(tiny3),
+        Matrix::identity(),
+        1e-9,
+    );
+
+    let z6 = Vector::new([0.0_f64; 6]);
+    assert_components_close(SE3::exp(z6).log(), z6, 1e-14);
+    let tiny6 = Vector::new([0.0, 0.0, 0.0, 1e-9_f64, 0.0, 0.0]);
+    assert_components_close(SE3::exp(tiny6).log(), tiny6, 1e-12);
+
+    let z3_se2 = Vector::new([0.0_f64, 0.0, 0.0]);
+    assert_components_close(SE2::exp(z3_se2).log(), z3_se2, 1e-14);
+    let tiny_se2 = Vector::new([0.0, 0.0, 1e-9_f64]);
+    assert_components_close(SE2::exp(tiny_se2).log(), tiny_se2, 1e-12);
+}
+
+#[test]
+fn near_zero_exp_log_and_jacobians_f32() {
+    let z3 = Vector::new([0.0_f32, 0.0, 0.0]);
+    let back = SO3::exp(z3).log();
+    for i in 0..3 {
+        assert!(back[i].abs() < 1e-5);
+    }
+    let jl = SO3::left_jacobian(z3) * SO3::left_jacobian_inverse(z3);
+    for i in 0..3 {
+        for j in 0..3 {
+            let expect = if i == j { 1.0 } else { 0.0 };
+            assert!((jl[(i, j)] - expect).abs() < 1e-4);
+        }
+    }
+
+    let tiny3 = Vector::new([1e-9_f32, 0.0, 0.0]);
+    let back_tiny = SO3::exp(tiny3).log();
+    for i in 0..3 {
+        assert!((back_tiny[i] - tiny3[i]).abs() < 1e-5);
+    }
+    let jl_tiny = SO3::left_jacobian(tiny3) * SO3::left_jacobian_inverse(tiny3);
+    for i in 0..3 {
+        for j in 0..3 {
+            let expect = if i == j { 1.0 } else { 0.0 };
+            assert!((jl_tiny[(i, j)] - expect).abs() < 1e-4);
+        }
+    }
+
+    let z6 = Vector::new([0.0_f32; 6]);
+    let back6 = SE3::exp(z6).log();
+    for i in 0..6 {
+        assert!(back6[i].abs() < 1e-5);
+    }
+    let tiny6 = Vector::new([0.0, 0.0, 0.0, 1e-9_f32, 0.0, 0.0]);
+    let back6_tiny = SE3::exp(tiny6).log();
+    for i in 0..6 {
+        assert!((back6_tiny[i] - tiny6[i]).abs() < 1e-5);
+    }
+
+    let z3_se2 = Vector::new([0.0_f32, 0.0, 0.0]);
+    let back_se2 = SE2::exp(z3_se2).log();
+    for i in 0..3 {
+        assert!(back_se2[i].abs() < 1e-5);
+    }
+    let tiny_se2 = Vector::new([0.0, 0.0, 1e-9_f32]);
+    let back_se2_tiny = SE2::exp(tiny_se2).log();
+    for i in 0..3 {
+        assert!((back_se2_tiny[i] - tiny_se2[i]).abs() < 1e-5);
+    }
+}

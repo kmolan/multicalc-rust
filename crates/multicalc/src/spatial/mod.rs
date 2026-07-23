@@ -16,18 +16,17 @@ pub use quaternion::Quaternion;
 pub use twist::Twist;
 pub use wrench::Wrench;
 
-/// The angle threshold below which trig ratios switch to their Taylor series, keeping values
-/// finite and derivatives continuous. A fixed absolute cutoff (not `EPSILON`-relative); correct for
-/// both f32 and f64.
+/// Angle threshold below which trig ratios switch to their Taylor series.
+/// Also used for eps-scale proximity checks (e.g. Euler gimbal lock vs ±1).
+/// Scaled as `30 · EPSILON` so each scalar type gets a type-appropriate cutoff.
 #[inline]
 pub(crate) fn small_angle<T: Numeric>() -> T {
-    T::from_f64(1e-6)
+    T::EPSILON_X30
 }
 
-/// The squared small-angle threshold, for branches taken on a squared magnitude (θ², ‖v‖²) before
-/// any `sqrt`. Branching pre-`sqrt` keeps the AD derivative finite at exactly zero, where `sqrt`'s
-/// derivative is NaN.
+/// Squared small-angle threshold, `(30 · EPSILON)²`, for branches on θ² / ‖v‖² before
+/// `sqrt`.
 #[inline]
 pub(crate) fn small_angle_sq<T: Numeric>() -> T {
-    T::from_f64(1e-12)
+    small_angle::<T>() * small_angle::<T>()
 }
