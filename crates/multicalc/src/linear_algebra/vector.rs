@@ -183,6 +183,33 @@ impl<const N: usize, T: Numeric> Vector<N, T> {
     pub fn is_finite(self) -> bool {
         self.data.iter().all(|x| x.is_finite())
     }
+
+    /// Returns a normalized copy of the vector (i.e. one where the norm is equal to 1).
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// assert_eq!(Vector::new([30.0, 40.0]).normalized(), Vector::new([0.6, 0.8]));
+    /// ```
+    #[inline]
+    pub fn normalized(self) -> Self {
+        self / self.norm()
+    }
+
+    /// Normalize the vector in-place (i.e. after this operation the norm is equal to 1).
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// let mut v = Vector::new([30.0, 40.0]);
+    /// v.normalize();
+    /// assert_eq!(v, Vector::new([0.6, 0.8]));
+    /// ```
+    #[inline]
+    pub fn normalize(&mut self) {
+        let norm = self.norm();
+        for x in self.data.iter_mut() {
+            *x /= norm;
+        }
+    }
 }
 
 impl<const N: usize, T> From<[T; N]> for Vector<N, T> {
