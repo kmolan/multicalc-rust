@@ -167,15 +167,6 @@ fn test_flux_integral_3d_helix() {
     assert!(f64::abs(val - expected) < 1e-6);
 }
 
-
-
-
-
-
-
-
-
-
 #[test]
 fn test_curl_2d_1() {
     //vector field is (2*x*y, 3*cos(y)); curl is known to be -2*x, so -2.0 at x = 1
