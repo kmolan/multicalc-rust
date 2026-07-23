@@ -1,6 +1,6 @@
 //! Fixed-size, stack-allocated column vector.
 
-use core::ops::{Add, AddAssign, Index, IndexMut, Mul, Neg, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, Neg, Sub, SubAssign};
 
 use crate::scalar::Numeric;
 
@@ -259,6 +259,17 @@ impl<const N: usize, T: Numeric> Mul<T> for Vector<N, T> {
     #[inline]
     fn mul(self, scalar: T) -> Self {
         self.scale(scalar)
+    }
+}
+
+// Note: this implementation panics on division by zero if the underlying
+// implementation on `T` would panic.
+impl<const N: usize, T: Numeric> Div<T> for Vector<N, T> {
+    type Output = Self;
+
+    #[inline]
+    fn div(self, scalar: T) -> Self {
+        self.scale(T::ONE / scalar)
     }
 }
 

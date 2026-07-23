@@ -63,6 +63,7 @@ fn vector_arithmetic() {
     assert_eq!(b - a, Vector::new([3.0, 3.0, 3.0]));
     assert_eq!(-a, Vector::new([-1.0, -2.0, -3.0]));
     assert_eq!(a * 2.0, a.scale(2.0));
+    assert_eq!(a / 2.0, a.scale(0.5));
     assert_eq!(a.scale(2.0), Vector::new([2.0, 4.0, 6.0]));
 
     let mut c = a;
