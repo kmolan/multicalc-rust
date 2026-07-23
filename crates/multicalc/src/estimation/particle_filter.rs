@@ -505,6 +505,77 @@ where
             self.log_weight_scratch[i] = self.weights[i].ln() + score;
         }
 
+        self.normalize_and_resample()
+    }
+
+    /// Reweights every particle by a caller-supplied log-score, then normalizes and resamples as
+    /// [`update`](Self::update) does.
+    ///
+    /// [`update`](Self::update) scores a particle by running a `VectorFn` measurement model and a
+    /// [`Likelihood`]; this scores it however the caller likes — a grid ray-cast, a likelihood
+    /// field, any `f64` computation the measurement-model trait cannot express. `score` returns the
+    /// log of the (unnormalized) weight for each particle; larger means a better match. Scores
+    /// combine with the current weights in log space, so a sequence of these composes like repeated
+    /// `update`s.
+    ///
+    /// Returns [`WeightsDegenerate`](EstimationError::WeightsDegenerate) if every weight underflows
+    /// to zero — no particle can explain the observation.
+    ///
+    /// # Examples
+    /// ```
+    /// use multicalc::estimation::ParticleFilter;
+    /// use multicalc::linear_algebra::{Matrix, Vector};
+    /// use multicalc::scalar::{Numeric, VectorFn};
+    /// # fn main() -> Result<(), multicalc::error::EstimationError> {
+    /// // A stationary 2-D point, scored by a closure rather than a measurement model.
+    /// struct Stationary;
+    /// impl VectorFn<2, 2> for Stationary {
+    ///     fn eval<S: Numeric>(&self, state: &[S; 2]) -> [S; 2] {
+    ///         [state[0], state[1]]
+    ///     }
+    /// }
+    ///
+    /// let mut filter = ParticleFilter::<2, 2>::new(
+    ///     1000,
+    ///     Vector::new([0.0, 0.0]),                  // initial mean
+    ///     Matrix::new([[1.0, 0.0], [0.0, 1.0]]),    // initial covariance
+    ///     Matrix::new([[0.01, 0.0], [0.0, 0.01]]),  // process noise
+    ///     7,                                        // seed
+    /// )?;
+    /// let target = [1.0, 2.0];
+    ///
+    /// for _ in 0..20 {
+    ///     filter.predict(&Stationary)?;
+    ///     // Score each particle by how close it sits to the target, in log space.
+    ///     filter.update_with_log_weights(|particle| {
+    ///         let dx = particle[0] - target[0];
+    ///         let dy = particle[1] - target[1];
+    ///         -0.5 * (dx * dx + dy * dy) / 0.05
+    ///     })?;
+    /// }
+    /// // The cloud has settled onto the target point.
+    /// assert!((filter.mean()[0] - 1.0).abs() < 0.2);
+    /// assert!((filter.mean()[1] - 2.0).abs() < 0.2);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn update_with_log_weights<F>(&mut self, mut score: F) -> Result<(), EstimationError>
+    where
+        F: FnMut(&Vector<STATE_DIMENSION, T>) -> T,
+    {
+        // Combine each particle's score with its current weight in log space, matching update's
+        // scoring loop; the shared tail then normalizes and resamples.
+        for i in 0..self.particles.len() {
+            self.log_weight_scratch[i] = self.weights[i].ln() + score(&self.particles[i]);
+        }
+
+        self.normalize_and_resample()
+    }
+
+    /// Turns the log-scores now in `log_weight_scratch` into normalized weights, then resamples if
+    /// the cloud has degenerated below the threshold. Shared by [`update`](Self::update) and
+    /// [`update_with_log_weights`](Self::update_with_log_weights) so the two cannot drift.
+    fn normalize_and_resample(&mut self) -> Result<(), EstimationError> {
         // Normalize by subtracting the largest log-weight before exponentiating, so a peaked cloud
         // does not underflow every weight to zero at once. A non-finite largest means every particle
         // is impossible, so the cloud is dead.
