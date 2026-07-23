@@ -1,6 +1,6 @@
 use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, Vector};
-use multicalc_testkit::tol::{assert_identity, assert_matrix_close, lu_reconstructs};
+use multicalc_testkit::tol::{assert_identity, assert_matrix_close, lu_reconstructs, max_abs};
 use proptest::prelude::*;
 use proptest::test_runner::TestCaseError;
 
@@ -141,18 +141,6 @@ fn lu_inverse_matches_reference_5x5() {
 
 // ----- property: P·A = L·U on random matrices -----
 
-/// Largest absolute entry of `a`, used to scale the reconstruction tolerance to the size of
-/// the randomly generated input.
-fn max_abs<const R: usize, const C: usize>(a: &Matrix<R, C>) -> f64 {
-    let mut max = 0.0_f64;
-    for r in 0..R {
-        for c in 0..C {
-            max = max.max(a[(r, c)].abs());
-        }
-    }
-    max
-}
-
 /// Builds an `N`x`N` matrix from `entries` and checks `P·A = L·U` (`L` unit lower-triangular,
 /// `U` upper-triangular) via [`lu_reconstructs`], at a tolerance scaled by the matrix's
 /// magnitude and `f64::EPSILON`.
@@ -163,7 +151,7 @@ fn max_abs<const R: usize, const C: usize>(a: &Matrix<R, C>) -> f64 {
 /// tolerance not to flake.
 fn check_lu_property<const N: usize>(entries: Vec<f64>) -> Result<(), TestCaseError> {
     let a = Matrix::<N, N>::try_from_row_slice(&entries).expect("N*N entries");
-    let scale = max_abs(&a).max(1.0);
+    let scale = max_abs(a).max(1.0);
 
     let lu = a.lu();
     prop_assume!(lu.is_ok());
@@ -178,7 +166,7 @@ fn check_lu_property<const N: usize>(entries: Vec<f64>) -> Result<(), TestCaseEr
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(64))]
+    #![proptest_config(ProptestConfig::with_cases(256))]
 
     #[test]
     fn proptest_lu_reconstructs_3x3(entries in prop::collection::vec(-8.0f64..8.0, 9)) {

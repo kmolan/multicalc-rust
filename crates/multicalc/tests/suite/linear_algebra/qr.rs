@@ -1,6 +1,6 @@
 use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, PivotedQr, Vector};
-use multicalc_testkit::tol::{assert_identity, assert_matrix_close};
+use multicalc_testkit::tol::{assert_identity, assert_matrix_close, max_abs};
 use proptest::prelude::*;
 use proptest::test_runner::TestCaseError;
 
@@ -222,18 +222,6 @@ fn damped_solves_ridge_regression() {
 
 // ----- property: A·P = Q·R on random matrices -----
 
-/// Largest absolute entry of `a`, used to scale the reconstruction tolerance to the size of
-/// the randomly generated input.
-fn max_abs<const R: usize, const C: usize>(a: &Matrix<R, C>) -> f64 {
-    let mut max = 0.0_f64;
-    for r in 0..R {
-        for c in 0..C {
-            max = max.max(a[(r, c)].abs());
-        }
-    }
-    max
-}
-
 /// Builds an `M`x`N` matrix from `entries` and checks the column-pivoted QR identities: `R` is
 /// upper-triangular, `Q` has orthonormal columns (`QᵀQ = I`), and `A·P = Q·R` (column `j` of
 /// `A·P` is column `permutation()[j]` of `A`). Tolerance is scaled by the matrix's magnitude and
@@ -247,7 +235,7 @@ fn check_qr_property<const M: usize, const N: usize>(
     entries: Vec<f64>,
 ) -> Result<(), TestCaseError> {
     let a = Matrix::<M, N>::try_from_row_slice(&entries).expect("M*N entries");
-    let scale = max_abs(&a).max(1.0);
+    let scale = max_abs(a).max(1.0);
 
     // M >= N is guaranteed by the generators below, so this never hits `Underdetermined`.
     let f = PivotedQr::decompose(a).unwrap();
