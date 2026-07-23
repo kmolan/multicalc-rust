@@ -20,6 +20,11 @@ pub fn close(got: f64, want: f64, t: Tol) -> bool {
     (got - want).abs() <= t.abs + t.rel * got.abs().max(want.abs())
 }
 
+/// Asserts a scalar matches the expected value within `t`.
+pub fn assert_scalar_close(got: f64, want: f64, t: Tol) {
+    assert!(close(got, want, t), "got {got}, want {want}, tol {t:?}");
+}
+
 /// Asserts every component of a vector matches within `t`.
 pub fn assert_vector_close<const N: usize>(got: &Vector<N>, want: &Vector<N>, t: Tol) {
     for i in 0..N {
