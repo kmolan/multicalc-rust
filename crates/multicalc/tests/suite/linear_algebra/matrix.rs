@@ -1,7 +1,6 @@
 use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, Vector};
-use multicalc_testkit::tol::{Tol, assert_scalar_close};
-use multicalc_testkit::tol::{assert_identity, assert_matrix_close};
+use multicalc_testkit::tol::{Tol, assert_identity, assert_matrix_close, assert_scalar_close};
 use proptest::prelude::*;
 
 // A strategy for producing matrices in property-based tests.
