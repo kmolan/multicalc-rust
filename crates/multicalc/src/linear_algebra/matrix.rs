@@ -1,6 +1,6 @@
 //! Fixed-size, stack-allocated matrix.
 
-use core::ops::{Add, AddAssign, Index, IndexMut, Mul, Neg, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, Neg, Sub, SubAssign};
 
 use crate::error::LinalgError;
 use crate::linear_algebra::Vector;
@@ -540,6 +540,17 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Mul<T> for Matrix<ROWS, C
     #[inline]
     fn mul(self, scalar: T) -> Self {
         self.scale(scalar)
+    }
+}
+
+// Note: this implementation could panic on division by zero if the underlying
+// implementation on `T` would panic.
+impl<const ROWS: usize, const COLS: usize, T: Numeric> Div<T> for Matrix<ROWS, COLS, T> {
+    type Output = Self;
+
+    #[inline]
+    fn div(self, scalar: T) -> Self {
+        self.scale(T::ONE / scalar)
     }
 }
 

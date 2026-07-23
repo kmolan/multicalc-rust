@@ -26,6 +26,7 @@ fn matrix_arithmetic() {
     assert_eq!(b - a, Matrix::new([[4.0, 4.0], [4.0, 4.0]]));
     assert_eq!(-a, Matrix::new([[-1.0, -2.0], [-3.0, -4.0]]));
     assert_eq!(a * 2.0, a.scale(2.0));
+    assert_eq!(a / 2.0, a.scale(0.5));
 
     let mut c = a;
     c += b;
