@@ -86,6 +86,37 @@ impl OccupancyGrid {
         }
     }
 
+    /// Marks the cells along each edge of a point list. `closed` joins the last point back to the
+    /// first. Each edge is sampled at well under a cell width, so a wall it draws has no gap a ray
+    /// could slip through.
+    pub fn occupy_polyline(&mut self, polyline: &[[f64; 2]], closed: bool) {
+        let step = 0.4 * self.resolution;
+        let count = polyline.len();
+        let edges = if closed { count } else { count.saturating_sub(1) };
+        for i in 0..edges {
+            let a = polyline[i];
+            let b = polyline[(i + 1) % count];
+            let samples = ((b[0] - a[0]).hypot(b[1] - a[1]) / step).ceil().max(1.0) as usize;
+            for s in 0..=samples {
+                let t = s as f64 / samples as f64;
+                self.occupy_point([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]);
+            }
+        }
+    }
+
+    /// Marks the cells around a circle's rim — the outline, not the filled disc.
+    pub fn occupy_circle(&mut self, center: [f64; 2], radius: f64) {
+        let step = (0.4 * self.resolution / radius).max(1e-3);
+        let mut angle = 0.0;
+        while angle < std::f64::consts::TAU {
+            self.occupy_point([
+                center[0] + radius * angle.cos(),
+                center[1] + radius * angle.sin(),
+            ]);
+            angle += step;
+        }
+    }
+
     /// The number of columns.
     #[must_use]
     pub fn columns(&self) -> usize {
@@ -395,6 +426,26 @@ mod tests {
         assert!(!grid.is_occupied(1, 2));
         // A point outside the grid is ignored.
         grid.occupy_point([100.0, 100.0]);
+    }
+
+    #[test]
+    fn occupy_polyline_draws_a_gap_free_wall() {
+        let mut grid = OccupancyGrid::new(20, 20, 0.1, [0.0, 0.0]);
+        // A vertical wall at x = 1.0; a ray crossing it head-on is stopped at the wall.
+        grid.occupy_polyline(&[[1.0, 0.2], [1.0, 1.5]], false);
+        let hit = grid.cast_ray([0.0, 0.8], 0.0, 5.0).unwrap();
+        assert!((hit - 1.0).abs() < grid.resolution() + 1e-9, "hit {hit}");
+    }
+
+    #[test]
+    fn occupy_circle_marks_the_rim() {
+        let mut grid = OccupancyGrid::new(40, 40, 0.05, [0.0, 0.0]);
+        grid.occupy_circle([1.0, 1.0], 0.3);
+        // A ray through the centre meets the near rim at about radius 0.3, so 0.7 m away.
+        let hit = grid.cast_ray([0.0, 1.0], 0.0, 5.0).unwrap();
+        assert!(hit > 0.6 && hit < 0.72, "hit {hit}");
+        // Only the rim is marked: the cell at the centre stays free.
+        assert!(!grid.is_occupied(20, 20));
     }
 
     #[test]
