@@ -93,6 +93,7 @@ fn vector_arithmetic() {
     assert_eq!(-left, Vector::new([-1.0, -2.0, -3.0]));
     assert_eq!(left * 2.0, left.scale(2.0));
     assert_eq!(left.scale(2.0), Vector::new([2.0, 4.0, 6.0]));
+    assert_eq!(left / 2.0, left.scale(0.5));
 
     let mut accumulated = left;
     accumulated += right;
