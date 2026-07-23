@@ -92,7 +92,11 @@ impl OccupancyGrid {
     pub fn occupy_polyline(&mut self, polyline: &[[f64; 2]], closed: bool) {
         let step = 0.4 * self.resolution;
         let count = polyline.len();
-        let edges = if closed { count } else { count.saturating_sub(1) };
+        let edges = if closed {
+            count
+        } else {
+            count.saturating_sub(1)
+        };
         for i in 0..edges {
             let a = polyline[i];
             let b = polyline[(i + 1) % count];

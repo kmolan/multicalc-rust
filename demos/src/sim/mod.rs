@@ -6,7 +6,9 @@
 //! - [`inertial_measurement_unit`]: a noisy absolute heading and turn rate
 //! - [`global_position_sensor`]: a noisy absolute position
 //! - [`lidar`]: a forward-arc range scan over the grid
+//! - [`estimator`]: the EKF's coordinated-turn and measurement models
 
+pub mod estimator;
 pub mod global_position_sensor;
 pub mod inertial_measurement_unit;
 pub mod lap_track_2d;
@@ -14,6 +16,10 @@ pub mod lidar;
 pub mod occupancy_grid;
 pub mod wheeled_vehicle;
 
+pub use estimator::{
+    AttitudeHeadingModel, CoordinatedTurnModel, GlobalPositionModel, WheelOdometryModel,
+    attitude_residual, diagonal,
+};
 pub use global_position_sensor::GlobalPositionSensor;
 pub use inertial_measurement_unit::{InertialMeasurementUnit, InertialReading};
 pub use lap_track_2d::{LapTrack2D, lap_track_2d, rounded_rectangle, wrap_angle};

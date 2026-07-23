@@ -66,7 +66,11 @@ impl WheeledVehicle {
         rng: &mut Pcg32,
     ) -> TruthStep {
         let next = Rk4::step(&Unicycle::new(command).field(), 0.0, &pose, dt);
-        let speed_factor = if slipping { self.slip_speed_factor } else { 1.0 };
+        let speed_factor = if slipping {
+            self.slip_speed_factor
+        } else {
+            1.0
+        };
         TruthStep {
             pose: next,
             measured_speed: command.linear() * speed_factor + noise(self.speed_noise, rng),
@@ -80,7 +84,9 @@ fn noise(deviation: f64, rng: &mut Pcg32) -> f64 {
     if deviation <= 0.0 {
         return 0.0;
     }
-    Normal::new(0.0, deviation).map(|n| n.sample(rng)).unwrap_or(0.0)
+    Normal::new(0.0, deviation)
+        .map(|n| n.sample(rng))
+        .unwrap_or(0.0)
 }
 
 #[cfg(test)]
@@ -107,8 +113,16 @@ mod tests {
             &mut rng,
         );
         assert!(step.pose[0] > 0.0, "x should advance: {}", step.pose[0]);
-        assert!(step.pose[1].abs() < 1e-12, "y should not move: {}", step.pose[1]);
-        assert!(step.pose[2].abs() < 1e-12, "heading should not turn: {}", step.pose[2]);
+        assert!(
+            step.pose[1].abs() < 1e-12,
+            "y should not move: {}",
+            step.pose[1]
+        );
+        assert!(
+            step.pose[2].abs() < 1e-12,
+            "heading should not turn: {}",
+            step.pose[2]
+        );
     }
 
     #[test]
@@ -124,7 +138,11 @@ mod tests {
             &mut rng,
         );
         // Heading integrates the turn rate exactly, and turning left moves the vehicle up.
-        assert!((step.pose[2] - yaw_rate * dt).abs() < 1e-12, "heading: {}", step.pose[2]);
+        assert!(
+            (step.pose[2] - yaw_rate * dt).abs() < 1e-12,
+            "heading: {}",
+            step.pose[2]
+        );
         assert!(step.pose[1] > 0.0, "should steer left: {}", step.pose[1]);
     }
 

@@ -29,7 +29,9 @@ fn noise(deviation: f64, rng: &mut Pcg32) -> f64 {
     if deviation <= 0.0 {
         return 0.0;
     }
-    Normal::new(0.0, deviation).map(|n| n.sample(rng)).unwrap_or(0.0)
+    Normal::new(0.0, deviation)
+        .map(|n| n.sample(rng))
+        .unwrap_or(0.0)
 }
 
 #[cfg(test)]
@@ -62,7 +64,10 @@ mod tests {
         let mean = sum / count as f64;
         let spread = (sum_of_squares / count as f64 - mean * mean).sqrt();
         assert!(mean.abs() < 0.02, "residuals should centre on zero: {mean}");
-        assert!((spread - deviation).abs() < 0.03, "spread off the noise: {spread}");
+        assert!(
+            (spread - deviation).abs() < 0.03,
+            "spread off the noise: {spread}"
+        );
     }
 
     #[test]
@@ -70,6 +75,9 @@ mod tests {
         let sensor = GlobalPositionSensor::new(0.3);
         let mut first = Pcg32::seed_from_u64(8);
         let mut second = Pcg32::seed_from_u64(8);
-        assert_eq!(sensor.read([1.0, 2.0], &mut first), sensor.read([1.0, 2.0], &mut second));
+        assert_eq!(
+            sensor.read([1.0, 2.0], &mut first),
+            sensor.read([1.0, 2.0], &mut second)
+        );
     }
 }
