@@ -113,8 +113,8 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
     /// let a = Matrix::<3, 2>::new([[1.0, 0.0], [1.0, 1.0], [1.0, 2.0]]);
     /// let b = Vector::new([1.0, 3.0, 5.0]);
     /// let x = PivotedQr::decompose(a).unwrap().solve_least_squares(b).unwrap();
-    /// assert!((x[0] - 1.0).abs() < 1e-12);
-    /// assert!((x[1] - 2.0).abs() < 1e-12);
+    /// assert!((x.as_array()[0] - 1.0).abs() < 1e-12);
+    /// assert!((x.as_array()[1] - 2.0).abs() < 1e-12);
     /// ```
     pub fn decompose(a: Matrix<M, N, T>) -> Result<Self, LinalgError> {
         if M < N {
@@ -131,14 +131,22 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
         // column is reduced, after which it holds the final `R` diagonal.
         for j in 0..N {
             let mut column = [T::ZERO; M];
-            for i in 0..M {
-                column[i] = qr[(i, j)];
+            for (i, slot) in column.iter_mut().enumerate() {
+                *slot = qr.get(i, j).copied().unwrap_or(T::ZERO);
             }
             let norm = enorm(&column);
-            column_norms[j] = norm;
-            r_diag[j] = norm;
-            reference_norm[j] = norm;
-            permutation[j] = j;
+            if let Some(slot) = column_norms.get_mut(j) {
+                *slot = norm;
+            }
+            if let Some(slot) = r_diag.get_mut(j) {
+                *slot = norm;
+            }
+            if let Some(slot) = reference_norm.get_mut(j) {
+                *slot = norm;
+            }
+            if let Some(slot) = permutation.get_mut(j) {
+                *slot = j;
+            }
         }
 
         let epsmch = T::EPSILON;
@@ -148,70 +156,104 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
             // Bring the column of largest remaining partial norm into position `j`.
             let mut kmax = j;
             for k in j..N {
-                if r_diag[k] > r_diag[kmax] {
+                let Some(&rk) = r_diag.get(k) else { continue };
+                let Some(&rkmax) = r_diag.get(kmax) else {
+                    continue;
+                };
+                if rk > rkmax {
                     kmax = k;
                 }
             }
             if kmax != j {
-                for i in 0..M {
-                    let tmp = qr[(i, j)];
-                    qr[(i, j)] = qr[(i, kmax)];
-                    qr[(i, kmax)] = tmp;
+                for row in qr.as_mut_slice_rows() {
+                    row.swap(j, kmax)
                 }
-                r_diag[kmax] = r_diag[j];
-                reference_norm[kmax] = reference_norm[j];
+                let rj = r_diag.get(j).copied();
+                if let (Some(value), Some(slot)) = (rj, r_diag.get_mut(kmax)) {
+                    *slot = value;
+                }
+                let nj = reference_norm.get(j).copied();
+                if let (Some(value), Some(slot)) = (nj, reference_norm.get_mut(kmax)) {
+                    *slot = value;
+                }
                 permutation.swap(j, kmax);
             }
 
             // Householder transformation zeroing column `j` below the diagonal.
             let mut column = [T::ZERO; M];
             for i in j..M {
-                column[i] = qr[(i, j)];
+                if let Some(slot) = column.get_mut(i) {
+                    *slot = qr.get(i, j).copied().unwrap_or(T::ZERO);
+                }
             }
-            let mut ajnorm = enorm(&column[j..]);
+            let mut ajnorm = column.get(j..).map(enorm).unwrap_or(T::ZERO);
             if ajnorm == T::ZERO {
-                r_diag[j] = -ajnorm;
+                if let Some(slot) = r_diag.get_mut(j) {
+                    *slot = -ajnorm;
+                }
                 continue;
             }
             // Sign chosen so the pivot element is at least one, keeping the divisor below safe.
-            if qr[(j, j)] < T::ZERO {
+            if qr.get(j, j).copied().unwrap_or(T::ZERO) < T::ZERO {
                 ajnorm = -ajnorm;
             }
-            for i in j..M {
-                qr[(i, j)] /= ajnorm;
+            for row in qr.as_mut_slice_rows().iter_mut().skip(j) {
+                if let Some(slot) = row.get_mut(j) {
+                    *slot /= ajnorm;
+                }
             }
-            qr[(j, j)] += T::ONE;
+            if let Some(slot) = qr.get_mut(j, j) {
+                *slot += T::ONE;
+            }
 
             // Apply the transformation to the remaining columns and downdate their norms.
             for k in (j + 1)..N {
                 let mut sum = T::ZERO;
                 for i in j..M {
-                    sum += qr[(i, j)] * qr[(i, k)];
+                    let a = qr.get(i, j).copied().unwrap_or(T::ZERO);
+                    let b = qr.get(i, k).copied().unwrap_or(T::ZERO);
+                    sum += a * b;
                 }
-                let factor = sum / qr[(j, j)];
+                let pivot = qr.get(j, j).copied().unwrap_or(T::ZERO);
+                let factor = sum / pivot;
                 for i in j..M {
-                    let reflected = qr[(i, k)] - factor * qr[(i, j)];
-                    qr[(i, k)] = reflected;
+                    let current = qr.get(i, k).copied().unwrap_or(T::ZERO);
+                    let reflector = qr.get(i, j).copied().unwrap_or(T::ZERO);
+                    if let Some(slot) = qr.get_mut(i, k) {
+                        *slot = current - factor * reflector;
+                    }
                 }
 
-                if r_diag[k] != T::ZERO {
-                    let ratio = qr[(j, k)] / r_diag[k];
-                    r_diag[k] *= max(T::ZERO, T::ONE - ratio * ratio).sqrt();
-                    // `reference_norm[k]` is the column's original norm, nonzero here.
-                    let relative = r_diag[k] / reference_norm[k];
+                if r_diag.get(k).copied() != Some(T::ZERO) {
+                    let ratio = qr.get(j, k).copied().unwrap_or(T::ZERO)
+                        / r_diag.get(k).copied().unwrap_or(T::ZERO);
+                    if let Some(slot) = r_diag.get_mut(k) {
+                        *slot *= max(T::ZERO, T::ONE - ratio * ratio).sqrt();
+                    }
+                    let rk = r_diag.get(k).copied().unwrap_or(T::ZERO);
+                    let refk = reference_norm.get(k).copied().unwrap_or(T::ZERO);
+                    let relative = rk / refk;
                     if p05 * relative * relative <= epsmch {
-                        // Recompute from the remaining rows to shed accumulated round-off.
                         let mut tail = [T::ZERO; M];
                         for i in (j + 1)..M {
-                            tail[i] = qr[(i, k)];
+                            if let Some(slot) = tail.get_mut(i) {
+                                *slot = qr.get(i, k).copied().unwrap_or(T::ZERO);
+                            }
                         }
-                        r_diag[k] = enorm(&tail[(j + 1)..]);
-                        reference_norm[k] = r_diag[k];
+                        let recomputed = tail.get((j + 1)..).map(enorm).unwrap_or(T::ZERO);
+                        if let Some(slot) = r_diag.get_mut(k) {
+                            *slot = recomputed;
+                        }
+                        if let Some(slot) = reference_norm.get_mut(k) {
+                            *slot = recomputed;
+                        }
                     }
                 }
             }
 
-            r_diag[j] = -ajnorm;
+            if let Some(slot) = r_diag.get_mut(j) {
+                *slot = -ajnorm;
+            }
         }
 
         Ok(PivotedQr {
@@ -226,9 +268,9 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
     pub fn r(&self) -> Matrix<N, N, T> {
         Matrix::from_fn(|row, col| {
             if row == col {
-                self.r_diag[row]
+                self.r_diag.get(row).copied().unwrap_or(T::ZERO)
             } else if col > row {
-                self.qr[(row, col)]
+                self.qr.get(row, col).copied().unwrap_or(T::ZERO)
             } else {
                 T::ZERO
             }
@@ -241,17 +283,22 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
         let mut q = Matrix::from_fn(|row, col| if row == col { T::ONE } else { T::ZERO });
         for col in 0..N {
             for j in (0..N).rev() {
-                let pivot = self.qr[(j, j)];
+                let pivot = self.qr.get(j, j).copied().unwrap_or(T::ZERO);
                 if pivot == T::ZERO {
                     continue;
                 }
                 let mut sum = T::ZERO;
                 for i in j..M {
-                    sum += self.qr[(i, j)] * q[(i, col)];
+                    let reflector = self.qr.get(i, j).copied().unwrap_or(T::ZERO);
+                    let qi = q.get(i, col).copied().unwrap_or(T::ZERO);
+                    sum += reflector * qi;
                 }
                 let factor = sum / pivot;
                 for i in j..M {
-                    q[(i, col)] -= factor * self.qr[(i, j)];
+                    let reflector = self.qr.get(i, j).copied().unwrap_or(T::ZERO);
+                    if let Some(slot) = q.get_mut(i, col) {
+                        *slot -= factor * reflector;
+                    }
                 }
             }
         }
@@ -277,25 +324,29 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
     /// let a = Matrix::<3, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 10.0]]);
     /// let b = Vector::new([6.0, 15.0, 25.0]);
     /// let x = PivotedQr::decompose(a).unwrap().solve_least_squares(b).unwrap();
-    /// assert!((x[0] - 1.0).abs() < 1e-12);
-    /// assert!((x[1] - 1.0).abs() < 1e-12);
-    /// assert!((x[2] - 1.0).abs() < 1e-12);
+    /// assert!((x.as_array()[0] - 1.0).abs() < 1e-12);
+    /// assert!((x.as_array()[1] - 1.0).abs() < 1e-12);
+    /// assert!((x.as_array()[2] - 1.0).abs() < 1e-12);
     /// ```
     pub fn solve_least_squares(&self, b: Vector<M, T>) -> Result<Vector<N, T>, LinalgError> {
         // Apply the reflectors to b, leaving Qᵀb in the first N entries.
         let mut qtb = b;
         for j in 0..N {
-            let pivot = self.qr[(j, j)];
+            let pivot = self.qr.get(j, j).copied().unwrap_or(T::ZERO);
             if pivot == T::ZERO {
                 continue;
             }
             let mut sum = T::ZERO;
             for i in j..M {
-                sum += self.qr[(i, j)] * qtb[i];
+                let reflector = self.qr.get(i, j).copied().unwrap_or(T::ZERO);
+                sum += reflector * qtb.get(i).copied().unwrap_or(T::ZERO);
             }
             let factor = sum / pivot;
             for i in j..M {
-                qtb[i] -= factor * self.qr[(i, j)];
+                let reflector = self.qr.get(i, j).copied().unwrap_or(T::ZERO);
+                if let Some(slot) = qtb.get_mut(i) {
+                    *slot -= factor * reflector;
+                }
             }
         }
 
@@ -303,26 +354,33 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
         let threshold = if N == 0 {
             T::ZERO
         } else {
-            T::EPSILON * T::from_usize(M.max(N)) * self.r_diag[0].abs()
+            T::EPSILON
+                * T::from_usize(M.max(N))
+                * self.r_diag.first().copied().unwrap_or(T::ZERO).abs()
         };
 
         // Back-substitute R y = Qᵀb over the first N rows.
         let mut y = [T::ZERO; N];
         for row in (0..N).rev() {
-            if self.r_diag[row].abs() <= threshold {
+            let diag = self.r_diag.get(row).copied().unwrap_or(T::ZERO);
+            if diag.abs() <= threshold {
                 return Err(LinalgError::Singular);
             }
-            let mut acc = qtb[row];
+            let mut acc = qtb.get(row).copied().unwrap_or(T::ZERO);
             for (col, &y_value) in y.iter().enumerate().skip(row + 1) {
-                acc -= self.qr[(row, col)] * y_value;
+                acc -= self.qr.get(row, col).copied().unwrap_or(T::ZERO) * y_value;
             }
-            y[row] = acc / self.r_diag[row];
+            if let Some(slot) = y.get_mut(row) {
+                *slot = acc / diag;
+            }
         }
 
         // Undo the column permutation: x = P y.
         let mut x = [T::ZERO; N];
         for (j, &target) in self.permutation.iter().enumerate() {
-            x[target] = y[j];
+            if let (Some(slot), Some(&yj)) = (x.get_mut(target), y.get(j)) {
+                *slot = yj;
+            }
         }
         Ok(Vector::new(x))
     }
@@ -333,17 +391,21 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
         // Apply the reflectors to b, leaving Qᵀb in the first N entries.
         let mut transformed = b;
         for j in 0..N {
-            let pivot = self.qr[(j, j)];
+            let pivot = self.qr.get(j, j).copied().unwrap_or(T::ZERO);
             if pivot == T::ZERO {
                 continue;
             }
             let mut sum = T::ZERO;
             for i in j..M {
-                sum += self.qr[(i, j)] * transformed[i];
+                let reflector = self.qr.get(i, j).copied().unwrap_or(T::ZERO);
+                sum += reflector * transformed.get(i).copied().unwrap_or(T::ZERO);
             }
             let factor = sum / pivot;
             for i in j..M {
-                transformed[i] -= factor * self.qr[(i, j)];
+                let reflector = self.qr.get(i, j).copied().unwrap_or(T::ZERO);
+                if let Some(slot) = transformed.get_mut(i) {
+                    *slot -= factor * reflector;
+                }
             }
         }
         let mut qt_b = [T::ZERO; N];
@@ -386,85 +448,123 @@ impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
         let mut s = self.r;
         for j in 0..N {
             for i in (j + 1)..N {
-                s[(i, j)] = s[(j, i)];
+                let value = s.get(j, i).copied().unwrap_or(T::ZERO);
+                if let Some(slot) = s.get_mut(i, j) {
+                    *slot = value;
+                }
             }
         }
 
         let mut saved_diag = [T::ZERO; N];
         let mut wa = [T::ZERO; N];
         for j in 0..N {
-            saved_diag[j] = s[(j, j)];
-            wa[j] = self.qt_b[j];
+            if let Some(slot) = saved_diag.get_mut(j) {
+                *slot = s.get(j, j).copied().unwrap_or(T::ZERO);
+            }
+            if let (Some(slot), Some(&qj)) = (wa.get_mut(j), self.qt_b.get(j)) {
+                *slot = qj;
+            }
         }
 
         let mut s_diag = [T::ZERO; N];
         let quarter = T::from_f64(0.25);
 
         for j in 0..N {
-            let l = self.permutation[j];
-            if diag[l] != T::ZERO {
+            let Some(&l) = self.permutation.get(j) else {
+                continue;
+            };
+            if diag.get(l).copied() != Some(T::ZERO) {
                 for entry in s_diag.iter_mut().skip(j) {
                     *entry = T::ZERO;
                 }
-                s_diag[j] = diag[l];
+                if let (Some(slot), Some(&dl)) = (s_diag.get_mut(j), diag.get(l)) {
+                    *slot = dl;
+                }
 
                 // Eliminate the diagonal row of D with Givens rotations, carrying the extra
                 // right-hand-side element (initially zero) alongside.
                 let mut qtbpj = T::ZERO;
                 for k in j..N {
-                    if s_diag[k] == T::ZERO {
+                    if s_diag.get(k).copied() == Some(T::ZERO) {
                         continue;
                     }
-                    let (sin, cos) = if s[(k, k)].abs() >= s_diag[k].abs() {
-                        let tan = s_diag[k] / s[(k, k)];
+                    let skk = s.get(k, k).copied().unwrap_or(T::ZERO);
+                    let sk = s_diag.get(k).copied().unwrap_or(T::ZERO);
+                    let (sin, cos) = if skk.abs() >= sk.abs() {
+                        let tan = sk / skk;
                         let cos = T::HALF / (quarter + quarter * tan * tan).sqrt();
                         (cos * tan, cos)
                     } else {
-                        let cotan = s[(k, k)] / s_diag[k];
+                        let cotan = skk / sk;
                         let sin = T::HALF / (quarter + quarter * cotan * cotan).sqrt();
                         (sin, sin * cotan)
                     };
 
-                    s[(k, k)] = cos * s[(k, k)] + sin * s_diag[k];
-                    let temp = cos * wa[k] + sin * qtbpj;
-                    qtbpj = -sin * wa[k] + cos * qtbpj;
-                    wa[k] = temp;
+                    if let Some(slot) = s.get_mut(k, k) {
+                        *slot = cos * skk + sin * sk;
+                    }
+                    let wak = wa.get(k).copied().unwrap_or(T::ZERO);
+                    let temp = cos * wak + sin * qtbpj;
+                    qtbpj = -sin * wak + cos * qtbpj;
+                    if let Some(slot) = wa.get_mut(k) {
+                        *slot = temp;
+                    }
 
                     for i in (k + 1)..N {
-                        let rotated = cos * s[(i, k)] + sin * s_diag[i];
-                        s_diag[i] = -sin * s[(i, k)] + cos * s_diag[i];
-                        s[(i, k)] = rotated;
+                        let sik = s.get(i, k).copied().unwrap_or(T::ZERO);
+                        let si = s_diag.get(i).copied().unwrap_or(T::ZERO);
+                        let rotated = cos * sik + sin * si;
+                        if let Some(slot) = s_diag.get_mut(i) {
+                            *slot = -sin * sik + cos * si;
+                        }
+                        if let Some(slot) = s.get_mut(i, k) {
+                            *slot = rotated;
+                        }
                     }
                 }
             }
-            // Store the S diagonal and restore R's.
-            s_diag[j] = s[(j, j)];
-            s[(j, j)] = saved_diag[j];
+            let sjj = s.get(j, j).copied().unwrap_or(T::ZERO);
+            let saved = saved_diag.get(j).copied().unwrap_or(T::ZERO);
+            if let Some(slot) = s_diag.get_mut(j) {
+                *slot = sjj;
+            }
+            if let Some(slot) = s.get_mut(j, j) {
+                *slot = saved;
+            }
         }
 
         // Solve the triangular system for the permuted solution, zeroing any singular tail.
         let mut nsing = N;
         for j in 0..N {
-            if s_diag[j] == T::ZERO && nsing == N {
+            if s_diag.get(j).copied() == Some(T::ZERO) && nsing == N {
                 nsing = j;
             }
             if nsing < N {
-                wa[j] = T::ZERO;
+                if let Some(slot) = wa.get_mut(j) {
+                    *slot = T::ZERO;
+                }
             }
         }
         for k in 0..nsing {
             let j = nsing - 1 - k;
             let mut sum = T::ZERO;
             for i in (j + 1)..nsing {
-                sum += s[(i, j)] * wa[i];
+                sum +=
+                    s.get(i, j).copied().unwrap_or(T::ZERO) * wa.get(i).copied().unwrap_or(T::ZERO);
             }
-            wa[j] = (wa[j] - sum) / s_diag[j];
+            let waj = wa.get(j).copied().unwrap_or(T::ZERO);
+            let dj = s_diag.get(j).copied().unwrap_or(T::ZERO);
+            if let Some(slot) = wa.get_mut(j) {
+                *slot = (waj - sum) / dj;
+            }
         }
 
         // Permute the solution back to original coordinates.
         let mut x = [T::ZERO; N];
         for (j, &target) in self.permutation.iter().enumerate() {
-            x[target] = wa[j];
+            if let (Some(slot), Some(&waj)) = (x.get_mut(target), wa.get(j)) {
+                *slot = waj;
+            }
         }
 
         (Vector::new(x), CholeskyFactor { s, s_diag })
@@ -484,13 +584,16 @@ impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
         }
         let mut result = T::ZERO;
         for j in 0..N {
-            let l = self.permutation[j];
-            if self.column_norms[l] != T::ZERO {
+            let Some(&l) = self.permutation.get(j) else {
+                continue;
+            };
+            if self.column_norms.get(l).copied() != Some(T::ZERO) {
                 let mut sum = T::ZERO;
                 for (i, &qi) in self.qt_b.iter().enumerate().take(j + 1) {
-                    sum += self.r[(i, j)] * (qi / b_norm);
+                    sum += self.r.get(i, j).copied().unwrap_or(T::ZERO) * (qi / b_norm);
                 }
-                result = max(result, (sum / self.column_norms[l]).abs());
+                let norm = self.column_norms.get(l).copied().unwrap_or(T::ZERO);
+                result = max(result, (sum / norm).abs());
             }
         }
         result
@@ -501,9 +604,14 @@ impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
     pub fn a_x_norm(&self, x: &Vector<N, T>) -> T {
         let mut w = [T::ZERO; N];
         for j in 0..N {
-            let xl = x[self.permutation[j]];
+            let Some(&p) = self.permutation.get(j) else {
+                continue;
+            };
+            let Some(&xl) = x.as_array().get(p) else {
+                continue;
+            };
             for (i, slot) in w.iter_mut().enumerate().take(j + 1) {
-                *slot += self.r[(i, j)] * xl;
+                *slot += self.r.get(i, j).copied().unwrap_or(T::ZERO) * xl;
             }
         }
         enorm(&w)
@@ -515,8 +623,9 @@ impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
         if N == 0 {
             return true;
         }
-        let threshold = T::EPSILON * T::from_usize(N) * self.r[(0, 0)].abs();
-        (0..N).all(|j| self.r[(j, j)].abs() > threshold)
+        let threshold =
+            T::EPSILON * T::from_usize(N) * self.r.get(0, 0).copied().unwrap_or(T::ZERO).abs();
+        (0..N).all(|j| self.r.get(j, j).copied().unwrap_or(T::ZERO).abs() > threshold)
     }
 }
 
@@ -539,14 +648,21 @@ impl<const N: usize, T: Numeric> CholeskyFactor<N, T> {
     #[must_use]
     pub fn solve(&self, mut rhs: [T; N]) -> [T; N] {
         for j in 0..N {
-            if self.s_diag[j] != T::ZERO {
-                rhs[j] /= self.s_diag[j];
-            } else {
-                rhs[j] = T::ZERO;
+            match self.s_diag.get(j) {
+                Some(&d) if d != T::ZERO => {
+                    if let Some(s) = rhs.get_mut(j) {
+                        *s /= d;
+                    }
+                }
+                _ => {
+                    if let Some(s) = rhs.get_mut(j) {
+                        *s = T::ZERO;
+                    }
+                }
             }
-            let temp = rhs[j];
+            let temp = rhs.get(j).copied().unwrap_or(T::ZERO);
             for (i, slot) in rhs.iter_mut().enumerate().skip(j + 1) {
-                *slot -= self.s[(i, j)] * temp;
+                *slot -= self.s.get(i, j).copied().unwrap_or(T::ZERO) * temp;
             }
         }
         rhs

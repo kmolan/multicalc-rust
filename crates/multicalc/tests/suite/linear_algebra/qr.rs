@@ -38,8 +38,9 @@ fn qr_solves_overdetermined_least_squares() {
         .unwrap()
         .solve_least_squares(b)
         .unwrap();
-    assert!((x[0] - 0.5).abs() < 1e-12);
-    assert!((x[1] - 7.0 / 6.0).abs() < 1e-12);
+    let [m, c] = *x.as_array();
+    assert!((m - 0.5).abs() < 1e-12);
+    assert!((c - 7.0 / 6.0).abs() < 1e-12);
 }
 
 #[test]
@@ -90,11 +91,11 @@ fn damped_solve_satisfies_normal_equations() {
     // x must satisfy (JᵀJ + D²) x = Jᵀb.
     let jtj = j.transpose() * j;
     let jtb = j.transpose() * b;
-    let lhs =
-        Matrix::<3, 3>::from_fn(|r, c| jtj[(r, c)] + if r == c { diag[r] * diag[r] } else { 0.0 })
-            * x;
+    let lhs = Matrix::<3, 3>::from_fn(|r, c| {
+        jtj.get(r, c).copied().unwrap() + if r == c { diag[r] * diag[r] } else { 0.0 }
+    }) * x;
     for i in 0..3 {
-        assert!((lhs[i] - jtb[i]).abs() < 1e-12);
+        assert!((lhs.as_array()[i] - jtb.as_array()[i]).abs() < 1e-12);
     }
 }
 
@@ -105,7 +106,7 @@ fn damped_zero_diagonal_matches_least_squares() {
     let expected = qr.solve_least_squares(b).unwrap();
     let (x, _) = qr.into_damped(b).solve_with_zero_diagonal();
     for i in 0..3 {
-        assert!((x[i] - expected[i]).abs() < 1e-12);
+        assert!((x.as_array()[i] - expected.as_array()[i]).abs() < 1e-12);
     }
 }
 
@@ -119,7 +120,7 @@ fn damped_accessors() {
     let jtb = j.transpose() * b;
     let mut expected = 0.0_f64;
     for l in 0..3 {
-        let scaled = (jtb[l] / b_norm / j.column(l).norm()).abs();
+        let scaled = (jtb.as_array()[l] / b_norm / j.try_column(l).unwrap().norm()).abs();
         expected = expected.max(scaled);
     }
     assert!((dls.max_a_t_b_scaled(b_norm) - expected).abs() < 1e-12);
@@ -178,7 +179,7 @@ fn qr_factorizes_hilbert_stably() {
 
     // The factorization stays backward-stable regardless of conditioning.
     assert_identity(q.transpose() * q, 1e-12);
-    let ap = Matrix::<8, 8>::from_fn(|i, c| hilbert[(i, perm[c])]);
+    let ap = Matrix::<8, 8>::from_fn(|i, c| hilbert.get(i, perm[c]).copied().unwrap());
     assert_matrix_close(q * r, ap, 1e-12);
 
     // Solving is backward-stable (tiny residual) though the solution itself degrades.
@@ -212,11 +213,11 @@ fn damped_solves_ridge_regression() {
     // x satisfies the regularized normal equations.
     let vtv = v.transpose() * v;
     let vtb = v.transpose() * b;
-    let lhs =
-        Matrix::<8, 8>::from_fn(|r, c| vtv[(r, c)] + if r == c { lambda * lambda } else { 0.0 })
-            * x;
+    let lhs = Matrix::<8, 8>::from_fn(|r, c| {
+        vtv.get(r, c).copied().unwrap() + if r == c { lambda * lambda } else { 0.0 }
+    }) * x;
     for i in 0..8 {
-        assert!((lhs[i] - vtb[i]).abs() < 1e-8);
+        assert!((lhs.as_array()[i] - vtb.as_array()[i]).abs() < 1e-8);
     }
 }
 
@@ -243,7 +244,9 @@ fn check_qr_property<const M: usize, const N: usize>(
     let q = f.q();
     let perm = f.permutation();
 
-    let min_diag = (0..N).fold(f64::MAX, |acc, j| acc.min(r[(j, j)].abs()));
+    let min_diag = (0..N).fold(f64::MAX, |acc, j| {
+        acc.min(r.get(j, j).copied().unwrap_or(0.0).abs())
+    });
     prop_assume!(min_diag >= 1e-6 * scale);
 
     let tol = M.max(N) as f64 * scale * f64::EPSILON * 1e3;
@@ -251,13 +254,13 @@ fn check_qr_property<const M: usize, const N: usize>(
     // R is upper-triangular by construction; check anyway as a structural guard.
     for row in 0..N {
         for col in 0..row {
-            assert_eq!(r[(row, col)], 0.0);
+            assert_eq!(r.get(row, col).copied().unwrap_or(0.0), 0.0);
         }
     }
 
     assert_identity(q.transpose() * q, tol);
 
-    let ap = Matrix::<M, N>::from_fn(|i, c| a[(i, perm[c])]);
+    let ap = Matrix::<M, N>::from_fn(|i, c| a.get(i, perm[c]).copied().unwrap_or(0.0));
     assert_matrix_close(q * r, ap, tol);
 
     Ok(())

@@ -150,7 +150,10 @@ fn probe_error(jac: &Jacobian, probes: &[[f64; 2]]) -> f64 {
     let mut max_err = 0.0f64;
     for p in probes {
         let gradient = jac.get(&Himmelblau, p).expect("probe gradient");
-        let ad = [gradient[(0, 0)], gradient[(0, 1)]];
+        let ad = [
+            gradient.get(0, 0).copied().unwrap(),
+            gradient.get(0, 1).copied().unwrap(),
+        ];
         let an = himmelblau_grad(p[0], p[1]);
         max_err = max_err
             .max((ad[0] - an[0]).abs())
@@ -241,7 +244,7 @@ fn main() -> Result<(), VizError> {
             grads[i] = jac
                 .get(&Himmelblau, &m.pos)
                 .ok()
-                .map(|j| [j[(0, 0)], j[(0, 1)]]);
+                .map(|j| [j.get(0, 0).copied().unwrap(), j.get(0, 1).copied().unwrap()]);
         }
         let grad_batch_us = t0.elapsed().as_nanos() as f64 / 1000.0;
         total_gradients += N_MARBLES as u64;

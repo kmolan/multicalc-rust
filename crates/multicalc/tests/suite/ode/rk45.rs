@@ -16,23 +16,27 @@ fn solve_matches_closed_form() {
         .with_atol(1e-12)
         .solve(&decay, 0.0, &Vector::new([1.0]), 2.0)
         .unwrap();
-    assert!((yf[0] - (-2.0_f64).exp()).abs() < 1e-7);
+    assert!((yf.as_array()[0] - (-2.0_f64).exp()).abs() < 1e-7);
 
     // Harmonic oscillator over one period returns to [1, 0].
-    let harmonic = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+    let harmonic = |_t: f64, y: &Vector<2, f64>| {
+        let [y0, y1] = *y.as_array();
+        Vector::new([y1, -y0])
+    };
     let tf = core::f64::consts::TAU;
     let yf = Rk45::default()
         .with_rtol(1e-10)
         .with_atol(1e-12)
         .solve(&harmonic, 0.0, &Vector::new([1.0, 0.0]), tf)
         .unwrap();
-    assert!((yf[0] - 1.0).abs() < 1e-7 && yf[1].abs() < 1e-7);
+    assert!((yf.as_array()[0] - 1.0).abs() < 1e-7 && yf.as_array()[1].abs() < 1e-7);
 
     // Two-body unit circular orbit returns to its start after one period.
     let two_body = |_t: f64, y: &Vector<4, f64>| {
-        let r = (y[0] * y[0] + y[1] * y[1]).sqrt();
+        let [y0, y1, y2, y3] = *y.as_array();
+        let r = (y0 * y0 + y1 * y1).sqrt();
         let r3 = r * r * r;
-        Vector::new([y[2], y[3], -y[0] / r3, -y[1] / r3])
+        Vector::new([y2, y3, -y0 / r3, -y1 / r3])
     };
     let y0 = Vector::new([1.0, 0.0, 0.0, 1.0]);
     let yf = Rk45::default()
@@ -74,7 +78,7 @@ fn dense_output_endpoints_exact() {
         .with_atol(1e-12)
         .solve(&decay, 0.0, &y0, tm)
         .unwrap();
-    assert!((ym[0] - solved[0]).abs() < 1e-8);
+    assert!((ym.as_array()[0] - solved.as_array()[0]).abs() < 1e-8);
 }
 
 #[test]
@@ -150,6 +154,6 @@ proptest! {
             .solve(&f, 0.0, &Vector::new([a]), tf)
             .unwrap();
         let exact = a * (lambda * tf).exp();
-        prop_assert!((yf[0] - exact).abs() < 1e-6 * (1.0 + exact.abs()));
+        prop_assert!((yf.as_array()[0] - exact).abs() < 1e-6 * (1.0 + exact.abs()));
     }
 }

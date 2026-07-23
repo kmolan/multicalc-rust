@@ -62,23 +62,15 @@ impl<T: Numeric> Quaternion<T> {
     /// Builds a quaternion from a `[w, x, y, z]` array.
     #[inline]
     pub fn from_array(a: [T; 4]) -> Self {
-        Quaternion {
-            w: a[0],
-            x: a[1],
-            y: a[2],
-            z: a[3],
-        }
+        let [w, x, y, z] = a;
+        Quaternion { w, x, y, z }
     }
 
     /// Builds a quaternion from a scalar part and a vector part.
     #[inline]
     pub fn from_scalar_vector(w: T, v: Vector<3, T>) -> Self {
-        Quaternion {
-            w,
-            x: v[0],
-            y: v[1],
-            z: v[2],
-        }
+        let [x, y, z] = *v.as_array();
+        Quaternion { w, x, y, z }
     }
 
     /// The scalar (real) component.
@@ -229,9 +221,10 @@ impl<T: Numeric> Quaternion<T> {
     /// let q = Quaternion::from_axis_angle(Vector::new([0.0, 0.0, 1.0]),
     ///                                     core::f64::consts::FRAC_PI_2);
     /// let p = q.transform_point(Vector::new([1.0, 0.0, 0.0]));
-    /// assert!((p[0] - 0.0).abs() < 1e-12);
-    /// assert!((p[1] - 1.0).abs() < 1e-12);
-    /// assert!((p[2] - 0.0).abs() < 1e-12);
+    /// let [px, py, pz] = *p.as_array();
+    /// assert!((px - 0.0).abs() < 1e-12);
+    /// assert!((py - 1.0).abs() < 1e-12);
+    /// assert!((pz - 0.0).abs() < 1e-12);
     /// ```
     #[inline]
     pub fn from_axis_angle(axis: Vector<3, T>, angle: T) -> Self {
@@ -241,11 +234,12 @@ impl<T: Numeric> Quaternion<T> {
         }
         let half = angle * T::HALF;
         let s = half.sin() / an;
+        let [ax, ay, az] = *axis.as_array();
         Quaternion {
             w: half.cos(),
-            x: axis[0] * s,
-            y: axis[1] * s,
-            z: axis[2] * s,
+            x: ax * s,
+            y: ay * s,
+            z: az * s,
         }
     }
 
@@ -267,11 +261,12 @@ impl<T: Numeric> Quaternion<T> {
             let half = theta * T::HALF;
             (half.cos(), half.sin() / theta)
         };
+        let [rx, ry, rz] = *rotvec.as_array();
         Quaternion {
             w,
-            x: rotvec[0] * scale,
-            y: rotvec[1] * scale,
-            z: rotvec[2] * scale,
+            x: rx * scale,
+            y: ry * scale,
+            z: rz * scale,
         }
     }
 
@@ -297,37 +292,38 @@ impl<T: Numeric> Quaternion<T> {
     #[inline]
     pub fn try_from_rotation_matrix(m: Matrix<3, 3, T>) -> Option<Self> {
         let quarter = T::from_f64(0.25);
-        let trace = m[(0, 0)] + m[(1, 1)] + m[(2, 2)];
+        let [[m00, m01, m02], [m10, m11, m12], [m20, m21, m22]] = m.into_array();
+        let trace = m00 + m11 + m22;
         let q = if trace > T::ZERO {
             let s = (trace + T::ONE).sqrt() * T::TWO; // s = 4·w
             Quaternion::new(
                 quarter * s,
-                (m[(2, 1)] - m[(1, 2)]) / s,
-                (m[(0, 2)] - m[(2, 0)]) / s,
-                (m[(1, 0)] - m[(0, 1)]) / s,
+                (m21 - m12) / s,
+                (m02 - m20) / s,
+                (m10 - m01) / s,
             )
-        } else if m[(0, 0)] > m[(1, 1)] && m[(0, 0)] > m[(2, 2)] {
-            let s = (T::ONE + m[(0, 0)] - m[(1, 1)] - m[(2, 2)]).sqrt() * T::TWO; // s = 4·x
+        } else if m00 > m11 && m00 > m22 {
+            let s = (T::ONE + m00 - m11 - m22).sqrt() * T::TWO; // s = 4·x
             Quaternion::new(
-                (m[(2, 1)] - m[(1, 2)]) / s,
+                (m21 - m12) / s,
                 quarter * s,
-                (m[(0, 1)] + m[(1, 0)]) / s,
-                (m[(0, 2)] + m[(2, 0)]) / s,
+                (m01 + m10) / s,
+                (m02 + m20) / s,
             )
-        } else if m[(1, 1)] > m[(2, 2)] {
-            let s = (T::ONE + m[(1, 1)] - m[(0, 0)] - m[(2, 2)]).sqrt() * T::TWO; // s = 4·y
+        } else if m11 > m22 {
+            let s = (T::ONE + m11 - m00 - m22).sqrt() * T::TWO; // s = 4·y
             Quaternion::new(
-                (m[(0, 2)] - m[(2, 0)]) / s,
-                (m[(0, 1)] + m[(1, 0)]) / s,
+                (m02 - m20) / s,
+                (m01 + m10) / s,
                 quarter * s,
-                (m[(1, 2)] + m[(2, 1)]) / s,
+                (m12 + m21) / s,
             )
         } else {
-            let s = (T::ONE + m[(2, 2)] - m[(0, 0)] - m[(1, 1)]).sqrt() * T::TWO; // s = 4·z
+            let s = (T::ONE + m22 - m00 - m11).sqrt() * T::TWO; // s = 4·z
             Quaternion::new(
-                (m[(1, 0)] - m[(0, 1)]) / s,
-                (m[(0, 2)] + m[(2, 0)]) / s,
-                (m[(1, 2)] + m[(2, 1)]) / s,
+                (m10 - m01) / s,
+                (m02 + m20) / s,
+                (m12 + m21) / s,
                 quarter * s,
             )
         };
@@ -417,11 +413,12 @@ impl<T: Numeric> Quaternion<T> {
     /// Rotates a point by the sandwich product `q · (0, v) · q⁻¹`. Assumes a unit quaternion.
     #[inline]
     pub fn transform_point(self, v: Vector<3, T>) -> Vector<3, T> {
+        let [x, y, z] = *v.as_array();
         let p = Quaternion {
             w: T::ZERO,
-            x: v[0],
-            y: v[1],
-            z: v[2],
+            x,
+            y,
+            z,
         };
         let r = self * p * self.conjugate();
         Vector::new([r.x, r.y, r.z])

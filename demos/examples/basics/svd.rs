@@ -27,7 +27,8 @@ fn max_abs<const R: usize, const C: usize>(a: Matrix<R, C>, b: Matrix<R, C>) -> 
     let mut worst = 0.0f64;
     for r in 0..R {
         for c in 0..C {
-            worst = worst.max((a[(r, c)] - b[(r, c)]).abs());
+            worst =
+                worst.max((a.get(r, c).copied().unwrap() - b.get(r, c).copied().unwrap()).abs());
         }
     }
     worst
@@ -38,7 +39,7 @@ fn max_entry<const R: usize, const C: usize>(a: Matrix<R, C>) -> f64 {
     let mut worst = 0.0f64;
     for r in 0..R {
         for c in 0..C {
-            worst = worst.max(a[(r, c)].abs());
+            worst = worst.max(a.get(r, c).copied().unwrap().abs());
         }
     }
     worst
@@ -69,7 +70,9 @@ fn kabsch() {
         let q = rot * pv;
         for i in 0..3 {
             for j in 0..3 {
-                h[(i, j)] += q[i] * pv[j];
+                if let Some(slot) = h.get_mut(i, j) {
+                    *slot += q.as_array()[i] * pv.as_array()[j];
+                }
             }
         }
     }
@@ -81,7 +84,10 @@ fn kabsch() {
     if rhat.determinant() < 0.0 {
         let mut uf = u;
         for i in 0..3 {
-            uf[(i, 2)] = -uf[(i, 2)];
+            let u = uf.get(i, 2).copied().unwrap();
+            if let Some(slot) = uf.get_mut(i, 2) {
+                *slot = -u;
+            }
         }
         rhat = uf * v.transpose();
     }
@@ -126,11 +132,14 @@ fn near_singular() {
         }
     });
     for r in 0..6 {
-        j[(r, 5)] = j[(r, 4)] + 1e-8 * (r as f64 + 1.0);
+        let j4 = j.get(r, 4).copied().unwrap();
+        if let Some(slot) = j.get_mut(r, 5) {
+            *slot = j4 + 1e-8 * (r as f64 + 1.0);
+        }
     }
     let (f, ns) = time(100_000, || black_box(j).svd().unwrap());
     let cond = f.condition_number();
-    let tol = 1e-4 * f.singular_values()[0];
+    let tol = 1e-4 * f.singular_values().as_array()[0];
     let rank = f.rank(tol);
     let pinv_max = max_entry(f.pseudo_inverse_tol(tol));
     let label = "Near-singular 6x6";
@@ -162,7 +171,7 @@ fn overdetermined() {
         .unwrap();
     let mut vs_ne = 0.0f64;
     for i in 0..3 {
-        vs_ne = vs_ne.max((x_svd[i] - x_ne[i]).abs());
+        vs_ne = vs_ne.max((x_svd.as_array()[i] - x_ne.as_array()[i]).abs());
     }
     let residual = (design * x_svd - rhs).norm();
     let label = "Overdetermined 30x3";

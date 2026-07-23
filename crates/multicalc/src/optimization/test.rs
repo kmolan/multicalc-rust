@@ -25,7 +25,7 @@ fn lmpar_accepts_gauss_newton_inside_region() {
 
     let (gn, _) = dls.solve_with_zero_diagonal();
     for i in 0..3 {
-        assert!((result.step[i] - gn[i]).abs() < 1e-12);
+        assert!((result.step.as_array()[i] - gn.as_array()[i]).abs() < 1e-12);
     }
 }
 
@@ -48,11 +48,11 @@ fn lmpar_hits_trust_region_boundary() {
     // The step solves the damped normal equations (JᵀJ + λI) p = Jᵀb (D = I here).
     let jtj = j.transpose() * j;
     let jtb = j.transpose() * b;
-    let lhs =
-        Matrix::<3, 3>::from_fn(|r, c| jtj[(r, c)] + if r == c { result.lambda } else { 0.0 })
-            * result.step;
+    let lhs = Matrix::<3, 3>::from_fn(|r, c| {
+        jtj.get(r, c).copied().unwrap() + if r == c { result.lambda } else { 0.0 }
+    }) * result.step;
     for i in 0..3 {
-        assert!((lhs[i] - jtb[i]).abs() < 1e-10);
+        assert!((lhs.as_array()[i] - jtb.as_array()[i]).abs() < 1e-10);
     }
 }
 

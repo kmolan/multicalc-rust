@@ -14,8 +14,8 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// # fn main() -> Result<(), multicalc::error::LinalgError> {
-    /// let e = Matrix::<3, 3>::zeros().expm()?; // e^0 = I
-    /// assert!((e[(0, 0)] - 1.0).abs() < 1e-12 && e[(0, 1)].abs() < 1e-12);
+    /// let e = Matrix::<3, 3>::zeros().expm()?.into_array(); // e^0 = I
+    /// assert!((e[0][0] - 1.0).abs() < 1e-12 && e[0][1].abs() < 1e-12);
     /// # Ok(())
     /// # }
     /// ```
@@ -25,7 +25,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
         for j in 0..N {
             let mut col = T::ZERO;
             for i in 0..N {
-                col += self[(i, j)].abs();
+                col += self.get(i, j).copied().unwrap_or(T::ZERO).abs();
             }
             if col > nrm {
                 nrm = col;
@@ -65,12 +65,8 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
         for _ in 0..s {
             result = result * result;
         }
-        for i in 0..N {
-            for j in 0..N {
-                if !result[(i, j)].is_finite() {
-                    return Err(LinalgError::NonFinite);
-                }
-            }
+        if !result.is_finite() {
+            return Err(LinalgError::NonFinite);
         }
         Ok(result)
     }

@@ -76,19 +76,16 @@ fn assert_mat_close<const R: usize, const C: usize>(
 ) {
     for i in 0..R {
         for j in 0..C {
-            assert!(
-                (a[(i, j)] - b[(i, j)]).abs() < tol,
-                "({i},{j}): {} vs {}",
-                a[(i, j)],
-                b[(i, j)]
-            );
+            let (aij, bij) = (a.get(i, j).copied().unwrap(), b.get(i, j).copied().unwrap());
+            assert!((aij - bij).abs() < tol, "({i},{j}): {aij} vs {bij}");
         }
     }
 }
 
 fn assert_vec_close<const N: usize>(a: Vector<N, f64>, b: Vector<N, f64>, tol: f64) {
     for i in 0..N {
-        assert!((a[i] - b[i]).abs() < tol, "[{i}]: {} vs {}", a[i], b[i]);
+        let (ai, bi) = (a.as_array()[i], b.as_array()[i]);
+        assert!((ai - bi).abs() < tol, "[{i}]: {ai} vs {bi}");
     }
 }
 
@@ -200,14 +197,9 @@ fn se3_exp_log_roundtrip() {
         let axis = rand_unit_vec3(&mut rng);
         for &angle in &[1e-9, 1e-4, 0.7, 2.0, PI - 1e-6] {
             let v = rand_vec3(&mut rng);
-            let xi = Vector::new([
-                v[0],
-                v[1],
-                v[2],
-                axis[0] * angle,
-                axis[1] * angle,
-                axis[2] * angle,
-            ]);
+            let [vx, vy, vz] = *v.as_array();
+            let [ax, ay, az] = *axis.as_array();
+            let xi = Vector::new([vx, vy, vz, ax * angle, ay * angle, az * angle]);
             assert_vec_close(SE3::exp(xi).log(), xi, 1e-6);
         }
     }
@@ -231,9 +223,11 @@ fn se3_act_matches_homogeneous_matrix() {
     for _ in 0..100 {
         let x = rand_se3(&mut rng);
         let p = rand_vec3(&mut rng);
-        let hp = Vector::new([p[0], p[1], p[2], 1.0]);
+        let [px, py, pz] = *p.as_array();
+        let hp = Vector::new([px, py, pz, 1.0]);
         let m = x.to_matrix() * hp;
-        assert_vec_close(x.act(p), Vector::new([m[0], m[1], m[2]]), TOL);
+        let [mx, my, mz, _] = *m.as_array();
+        assert_vec_close(x.act(p), Vector::new([mx, my, mz]), TOL);
     }
 }
 
@@ -303,9 +297,11 @@ fn se2_group_and_roundtrip() {
             assert_vec_close(SE2::exp(xi).log(), xi, 1e-7);
         }
         let p = Vector::new([rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0)]);
-        let hp = Vector::new([p[0], p[1], 1.0]);
+        let [px, py] = *p.as_array();
+        let hp = Vector::new([px, py, 1.0]);
         let m = a.to_matrix() * hp;
-        assert_vec_close(a.act(p), Vector::new([m[0], m[1]]), TOL);
+        let [mx, my, _] = *m.as_array();
+        assert_vec_close(a.act(p), Vector::new([mx, my]), TOL);
     }
 }
 
@@ -365,11 +361,11 @@ fn so3_exp_ad_vs_fd() {
         let fp = SO3::exp(Vector::new(phi_p)).act(Vector::new(p));
         let fm = SO3::exp(Vector::new(phi_m)).act(Vector::new(p));
         for i in 0..3 {
-            let fd = (fp[i] - fm[i]) / (2.0 * h);
+            let fd = (fp.as_array()[i] - fm.as_array()[i]) / (2.0 * h);
             assert!(
-                (out[i].deriv - fd).abs() < 1e-6,
+                (out.as_array()[i].deriv - fd).abs() < 1e-6,
                 "k={k} i={i}: {} vs {}",
-                out[i].deriv,
+                out.as_array()[i].deriv,
                 fd
             );
         }
@@ -391,7 +387,7 @@ fn so3_exp_derivative_finite_at_zero() {
     ]);
     let out = SO3::exp(phi).act(pv);
     for i in 0..3 {
-        assert!(out[i].deriv.is_finite());
+        assert!(out.as_array()[i].deriv.is_finite());
     }
 }
 
@@ -402,13 +398,13 @@ fn f32_identity_coverage() {
     let phi = Vector::new([0.2_f32, -0.3, 0.5]);
     let back = SO3::exp(phi).log();
     for i in 0..3 {
-        assert!((back[i] - phi[i]).abs() < 1e-4);
+        assert!((back.as_array()[i] - phi.as_array()[i]).abs() < 1e-4);
     }
 
     let xi = Vector::new([0.1_f32, -0.2, 0.3, 0.2, -0.3, 0.5]);
     let back6 = SE3::exp(xi).log();
     for i in 0..6 {
-        assert!((back6[i] - xi[i]).abs() < 1e-4);
+        assert!((back6.as_array()[i] - xi.as_array()[i]).abs() < 1e-4);
     }
 
     // Rotation matrix orthonormality: RᵀR = I.
@@ -417,7 +413,7 @@ fn f32_identity_coverage() {
     for i in 0..3 {
         for j in 0..3 {
             let expect = if i == j { 1.0 } else { 0.0 };
-            assert!((rtr[(i, j)] - expect).abs() < 1e-5);
+            assert!((rtr.get(i, j).copied().unwrap() - expect).abs() < 1e-5);
         }
     }
 }
@@ -499,10 +495,15 @@ fn se3_left_jacobian_matches_finite_difference() {
     let h = 1e-6;
     for col in 0..6 {
         let mut plus = xi;
-        plus[col] += h;
+        if let Some(slot) = plus.get_mut(col) {
+            *slot += h;
+        }
         let d = (SE3::exp(plus) * SE3::exp(xi).inverse()).log() * (1.0 / h);
         for row in 0..6 {
-            assert!((d[row] - jl[(row, col)]).abs() < 1e-4, "({row},{col})");
+            assert!(
+                (d.as_array()[row] - jl.get(row, col).copied().unwrap()).abs() < 1e-4,
+                "({row},{col})"
+            );
         }
     }
 }
@@ -520,7 +521,8 @@ fn se3_left_jacobian_finite_at_zero_under_dual() {
     let jl = SE3::left_jacobian(xi);
     for i in 0..6 {
         for j in 0..6 {
-            assert!(jl[(i, j)].value.is_finite() && jl[(i, j)].deriv.is_finite());
+            let cell = jl.get(i, j).copied().unwrap();
+            assert!(cell.value.is_finite() && cell.deriv.is_finite());
         }
     }
 }
@@ -551,10 +553,15 @@ fn se2_jacobian_identities_and_fd() {
     let h = 1e-6;
     for col in 0..3 {
         let mut plus = xi;
-        plus[col] += h;
+        if let Some(slot) = plus.get_mut(col) {
+            *slot += h;
+        }
         let d = (SE2::exp(plus) * SE2::exp(xi).inverse()).log() * (1.0 / h);
         for row in 0..3 {
-            assert!((d[row] - jl[(row, col)]).abs() < 1e-4, "({row},{col})");
+            assert!(
+                (d.as_array()[row] - jl.get(row, col).copied().unwrap()).abs() < 1e-4,
+                "({row},{col})"
+            );
         }
     }
 }

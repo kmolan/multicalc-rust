@@ -25,29 +25,46 @@ fn main() {
     let b = Matrix::<2, 1>::new([[0.0], [1.0]]);
     let (f, g) = zoh::<2, 1, 3, f64>(a, b, dt).unwrap();
     println!("ZOH double integrator (dt = {dt})");
-    report("F[0,1]", f[(0, 1)], dt);
-    report("G[0,0]", g[(0, 0)], dt * dt / 2.0);
-    report("G[1,0]", g[(1, 0)], dt);
+    report("F[0,1]", f.get(0, 1).copied().unwrap(), dt);
+    report("G[0,0]", g.get(0, 0).copied().unwrap(), dt * dt / 2.0);
+    report("G[1,0]", g.get(1, 0).copied().unwrap(), dt);
 
     // (2) Van Loan process-noise discretization.
     let qc = Matrix::<2, 2>::new([[0.0, 0.0], [0.0, 1.0]]);
     let (_f, qd) = van_loan::<2, 4, f64>(a, qc, dt).unwrap();
     println!("\nVan Loan Q_d (continuous white noise on velocity)");
-    report("Q_d[1,1]", qd[(1, 1)], dt);
-    report("symmetry err", (qd[(0, 1)] - qd[(1, 0)]).abs(), 0.0);
+    report("Q_d[1,1]", qd.get(1, 1).copied().unwrap(), dt);
+    report(
+        "symmetry err",
+        (qd.get(0, 1).copied().unwrap() - qd.get(1, 0).copied().unwrap()).abs(),
+        0.0,
+    );
 
     // (3) Discrete white-noise model (filterpy-compatible).
     let q = q_discrete_white_noise::<2, f64>(dt, 2.0);
     println!("\nq_discrete_white_noise(dim = 2, var = 2.0)");
-    report("Q[0,0]", q[(0, 0)], 2.0 * dt.powi(4) / 4.0);
-    report("Q[1,1]", q[(1, 1)], 2.0 * dt * dt);
+    report(
+        "Q[0,0]",
+        q.get(0, 0).copied().unwrap(),
+        2.0 * dt.powi(4) / 4.0,
+    );
+    report("Q[1,1]", q.get(1, 1).copied().unwrap(), 2.0 * dt * dt);
 
     // (4) Autodiff: d/dx expm(x·M)|_{x=0} = M, one Dual through expm.
     let m = Matrix::<2, 2>::new([[0.2, 0.5], [-0.1, 0.3]]);
-    let ad = Matrix::<2, 2, Dual<f64>>::from_fn(|i, j| Dual::new(0.0, m[(i, j)]))
-        .expm()
-        .unwrap();
+    let ad =
+        Matrix::<2, 2, Dual<f64>>::from_fn(|i, j| Dual::new(0.0, m.get(i, j).copied().unwrap()))
+            .expm()
+            .unwrap();
     println!("\nAutodiff: d/dx expm(x·M) at x = 0 equals M");
-    report("d/dx [0,1]", ad[(0, 1)].deriv, m[(0, 1)]);
-    report("d/dx [1,0]", ad[(1, 0)].deriv, m[(1, 0)]);
+    report(
+        "d/dx [0,1]",
+        ad.get(0, 1).copied().unwrap().deriv,
+        m.get(0, 1).copied().unwrap(),
+    );
+    report(
+        "d/dx [1,0]",
+        ad.get(1, 0).copied().unwrap().deriv,
+        m.get(1, 0).copied().unwrap(),
+    );
 }

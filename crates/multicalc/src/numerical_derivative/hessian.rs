@@ -51,8 +51,8 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     ///
     ///
     /// let hessian: Hessian = Hessian::default();
-    /// let result = hessian.get(&my_func, &[1.0, 2.0]).unwrap();
-    /// assert!(f64::abs(result[(0, 0)] - (-2.0 * f64::sin(1.0))) < 1e-12);
+    /// let result = hessian.get(&my_func, &[1.0, 2.0]).unwrap().into_array();
+    /// assert!(f64::abs(result[0][0] - (-2.0 * f64::sin(1.0))) < 1e-12);
     /// ```
     pub fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
         &self,
@@ -62,17 +62,21 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
         let mut result: Matrix<NUM_VARS, NUM_VARS, D::Scalar> =
             Matrix::from_fn(|_, _| <D::Scalar as Numeric>::NAN);
 
-        // explicit indices drive the symmetric mirror write `result[(col, row)]`
         for row_index in 0..NUM_VARS {
             for col_index in 0..NUM_VARS {
-                if result[(row_index, col_index)].is_nan() {
-                    result[(row_index, col_index)] = self.derivator.get_double_partial(
+                if result.get(row_index, col_index).is_some_and(|x| x.is_nan()) {
+                    let value = self.derivator.get_double_partial(
                         function,
                         &[row_index, col_index],
                         vector_of_points,
                     )?;
+                    if let Some(slot) = result.get_mut(row_index, col_index) {
+                        *slot = value;
+                    }
                     // a Hessian is symmetric, so mirror instead of recomputing
-                    result[(col_index, row_index)] = result[(row_index, col_index)];
+                    if let Some(slot) = result.get_mut(col_index, row_index) {
+                        *slot = value;
+                    }
                 }
             }
         }

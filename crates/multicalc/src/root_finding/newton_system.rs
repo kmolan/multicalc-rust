@@ -145,13 +145,14 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
             let neg_r: [D::Scalar; N] = core::array::from_fn(|i| -r[i]);
             // Solve J·step = -F; returns SingularMatrix if J is rank-deficient.
             let step = j.solve(Vector::new(neg_r))?;
+            let sa = *step.as_array();
 
             // Try the full Newton step; when backtracking is on, halve alpha until ‖F‖
             // decreases or the per-iteration safeguard runs out.
             let mut alpha = one;
             let mut tries = 0usize;
             let (x_new, r_new, fnorm_new) = loop {
-                let candidate: [D::Scalar; N] = core::array::from_fn(|k| x[k] + alpha * step[k]);
+                let candidate: [D::Scalar; N] = core::array::from_fn(|k| x[k] + alpha * sa[k]);
                 let trial = f.eval(&candidate);
                 let trial_finite = all_finite(&trial);
                 let trial_fnorm = if trial_finite {

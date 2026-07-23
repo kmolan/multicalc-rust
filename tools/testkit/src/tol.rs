@@ -26,6 +26,8 @@ pub fn assert_scalar_close(got: f64, want: f64, t: Tol) {
 
 /// Asserts every component of a vector matches within `t`.
 pub fn assert_vector_close<const N: usize>(got: &Vector<N>, want: &Vector<N>, t: Tol) {
+    let got = *got.as_array();
+    let want = *want.as_array();
     for i in 0..N {
         assert!(
             close(got[i], want[i], t),
@@ -42,9 +44,11 @@ pub fn assert_matrix_close<const R: usize, const C: usize, T: Numeric>(
     expected: Matrix<R, C, T>,
     tol: T,
 ) {
+    let actual = *actual.as_slice_rows();
+    let expected = *expected.as_slice_rows();
     for r in 0..R {
         for c in 0..C {
-            assert!((actual[(r, c)] - expected[(r, c)]).abs() < tol);
+            assert!((actual[r][c] - expected[r][c]).abs() < tol);
         }
     }
 }
@@ -59,30 +63,34 @@ pub fn lu_reconstructs<const N: usize, T: Numeric>(a: Matrix<N, N, T>, tol: T) {
     let f = a.lu().unwrap();
     let l = f.l();
     let u = f.u();
+    let la = *l.as_slice_rows();
+    let ua = *u.as_slice_rows();
+    let aa = *a.as_slice_rows();
     let perm = f.permutation();
 
     // L is unit lower-triangular; U is upper-triangular.
     for r in 0..N {
-        assert_eq!(l[(r, r)], T::ONE);
-        for c in (r + 1)..N {
-            assert_eq!(l[(r, c)], T::ZERO);
+        assert_eq!(la[r][r], T::ONE);
+        for &x in &la[r][(r + 1)..] {
+            assert_eq!(x, T::ZERO);
         }
-        for c in 0..r {
-            assert_eq!(u[(r, c)], T::ZERO);
+        for &x in &ua[r][..r] {
+            assert_eq!(x, T::ZERO);
         }
     }
 
-    let pa = Matrix::<N, N, T>::from_fn(|i, c| a[(perm[i], c)]);
+    let pa = Matrix::<N, N, T>::from_fn(|i, c| aa[perm[i]][c]);
     assert_matrix_close(l * u, pa, tol);
 }
 
 /// Checks the Cholesky factor is lower-triangular with a positive diagonal and reconstructs `A`.
 pub fn cholesky_reconstructs<const N: usize, T: Numeric>(a: Matrix<N, N, T>, tol: T) {
     let l = a.cholesky().unwrap().l();
-    for r in 0..N {
-        assert!(l[(r, r)] > T::ZERO);
-        for c in (r + 1)..N {
-            assert_eq!(l[(r, c)], T::ZERO);
+    let la = *l.as_slice_rows();
+    for (r, row) in la.iter().enumerate() {
+        assert!(row[r] > T::ZERO);
+        for &x in &row[(r + 1)..] {
+            assert_eq!(x, T::ZERO);
         }
     }
     assert_matrix_close(l * l.transpose(), a, tol);
@@ -92,11 +100,14 @@ pub fn cholesky_reconstructs<const N: usize, T: Numeric>(a: Matrix<N, N, T>, tol
 pub fn svd_reconstructs<const M: usize, const N: usize, T: Numeric>(a: Matrix<M, N, T>, tol: T) {
     let f = a.svd().unwrap();
     let (u, s, v) = (f.u(), f.singular_values(), f.v());
+    let ua = *u.as_slice_rows();
+    let sa = *s.as_array();
+    let va = *v.as_slice_rows();
 
     for k in 0..N {
-        assert!(s[k] >= T::ZERO);
+        assert!(sa[k] >= T::ZERO);
         if k + 1 < N {
-            assert!(s[k] >= s[k + 1]);
+            assert!(sa[k] >= sa[k + 1]);
         }
     }
 
@@ -106,7 +117,7 @@ pub fn svd_reconstructs<const M: usize, const N: usize, T: Numeric>(a: Matrix<M,
     let recon = Matrix::<M, N, T>::from_fn(|r, c| {
         let mut acc = T::ZERO;
         for k in 0..N {
-            acc += u[(r, k)] * s[k] * v[(c, k)];
+            acc += ua[r][k] * sa[k] * va[c][k];
         }
         acc
     });
@@ -128,9 +139,10 @@ pub fn svd_moore_penrose<const M: usize, const N: usize, T: Numeric>(a: Matrix<M
 /// magnitude of the input matrix.
 pub fn max_abs<const R: usize, const C: usize, T: Numeric>(a: Matrix<R, C, T>) -> T {
     let mut max = T::ZERO;
-    for r in 0..R {
-        for c in 0..C {
-            max = max.max(a[(r, c)].abs());
+    let a = *a.as_slice_rows();
+    for row in &a {
+        for &x in row {
+            max = max.max(x.abs());
         }
     }
     max

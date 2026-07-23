@@ -22,6 +22,17 @@ fn matrix_arithmetic() {
 }
 
 #[test]
+fn try_row_column() {
+    let m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+
+    assert_eq!(m.try_row(1), Some(Vector::new([3.0, 4.0])));
+    assert_eq!(m.try_row(2), None);
+
+    assert_eq!(m.try_column(0), Some(Vector::new([1.0, 3.0])));
+    assert_eq!(m.try_column(2), None);
+}
+
+#[test]
 fn matrix_multiply() {
     let a = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
     let b = Matrix::new([[5.0, 6.0], [7.0, 8.0]]);
@@ -233,8 +244,10 @@ fn matrix_solve_agrees_with_lu() {
 
     // The convenience solver matches an explicit LU solve.
     let lu_x = a.lu().unwrap().solve(b);
+    let xa = *x.as_array();
+    let lu_xa = *lu_x.as_array();
     for i in 0..3 {
-        assert!((x[i] - lu_x[i]).abs() < 1e-12);
+        assert!((xa[i] - lu_xa[i]).abs() < 1e-12);
     }
     assert!((a * x - b).norm() < 1e-12);
 

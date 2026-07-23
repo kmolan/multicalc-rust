@@ -12,7 +12,7 @@ use multicalc::spatial::SE2;
 /// The three outputs of one odometry increment from the identity: `[x, y, θ]`.
 fn arc_outputs<T: Numeric>(ds: T, dtheta: T) -> [T; 3] {
     let pose = integrate(SE2::identity(), BodyArc::new(ds, dtheta));
-    let t = pose.translation();
+    let t = *pose.translation().as_array();
     [t[0], t[1], pose.rotation().log()]
 }
 
@@ -35,9 +35,11 @@ fn rk4_of_field_converges_to_integrate() {
     let rate = BodyTwist::new(0.4, 0.9);
     let tf = 1.0;
 
-    let truth = integrate(SE2::identity(), rate.integrate_over(tf)).translation();
+    let truth = *integrate(SE2::identity(), rate.integrate_over(tf))
+        .translation()
+        .as_array();
     let err = |dt: f64| {
-        let y = rk4_to(rate, dt, tf);
+        let y = *rk4_to(rate, dt, tf).as_array();
         ((y[0] - truth[0]).powi(2) + (y[1] - truth[1]).powi(2)).sqrt()
     };
 

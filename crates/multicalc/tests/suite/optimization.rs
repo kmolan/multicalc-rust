@@ -398,7 +398,9 @@ fn check_jacobian<F: VectorFn<N, M>, const N: usize, const M: usize>(f: &F, x: &
     let mut worst = 0.0_f64;
     for m in 0..M {
         for n in 0..N {
-            worst = worst.max((autodiff[(m, n)] - finite[(m, n)]).abs());
+            worst = worst.max(
+                (autodiff.get(m, n).copied().unwrap() - finite.get(m, n).copied().unwrap()).abs(),
+            );
         }
     }
     worst

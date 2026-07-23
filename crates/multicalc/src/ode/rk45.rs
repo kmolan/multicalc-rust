@@ -274,7 +274,7 @@ impl<T: Numeric> Rk45<T> {
     /// let yf = Rk45::default()
     ///     .solve(&|_t, y: &Vector<1, f64>| -*y, 0.0, &Vector::new([1.0]), 2.0)
     ///     .unwrap();
-    /// assert!((yf[0] - (-2.0_f64).exp()).abs() < 1e-6);
+    /// assert!((yf.as_array()[0] - (-2.0_f64).exp()).abs() < 1e-6);
     /// ```
     pub fn for_each_step<const N: usize, F, O>(
         &self,
@@ -395,8 +395,8 @@ impl<T: Numeric> Rk45<T> {
     /// Rk45::default()
     ///     .solve_on_grid(&|_t, y: &Vector<1, f64>| -*y, 0.0, &Vector::new([1.0]), &times, &mut out)
     ///     .unwrap();
-    /// assert!((out[0][0] - (-0.5_f64).exp()).abs() < 1e-6);
-    /// assert!((out[1][0] - (-1.0_f64).exp()).abs() < 1e-6);
+    /// assert!((out[0].as_array()[0] - (-0.5_f64).exp()).abs() < 1e-6);
+    /// assert!((out[1].as_array()[0] - (-1.0_f64).exp()).abs() < 1e-6);
     /// ```
     pub fn solve_on_grid<const N: usize, F>(
         &self,

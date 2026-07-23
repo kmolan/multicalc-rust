@@ -63,7 +63,7 @@ pub enum CovarianceUpdate {
 /// );
 /// filter.predict();
 /// filter.update(Vector::new([1.0]))?;
-/// assert!(filter.state()[0] > 0.0);
+/// assert!(filter.state().as_array()[0] > 0.0);
 /// # Ok(())
 /// # }
 /// ```
@@ -137,7 +137,7 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
     /// .with_covariance_update(CovarianceUpdate::Naive);
     /// filter.predict();
     /// filter.update(Vector::new([1.0]))?;
-    /// assert!(filter.covariance()[(0, 0)] > 0.0);
+    /// assert!(filter.covariance().into_array()[0][0] > 0.0);
     /// # Ok(())
     /// # }
     /// ```

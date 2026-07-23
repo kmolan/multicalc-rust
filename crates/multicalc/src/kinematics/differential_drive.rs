@@ -148,21 +148,20 @@ impl<T: Numeric> BodyTwist<T> {
     /// Projects an se(2) tangent onto the motions a differential drive can produce, discarding the
     /// lateral component.
     ///
-    /// Lossy: `BodyTwist::project_tangent(xi).to_tangent()` equals `xi` only when `xi[1]` is
-    /// zero. [`tangent_slip`](Self::tangent_slip) reports what is discarded.
+    /// Lossy: `BodyTwist::project_tangent(xi).to_tangent()` equals `xi` only when the
+    /// lateral is zero. `tangent_slip` reports what is discarded.
     #[inline]
     pub fn project_tangent(xi: Vector<3, T>) -> Self {
-        BodyTwist {
-            linear: xi[0],
-            angular: xi[2],
-        }
+        let [linear, _, angular] = *xi.as_array();
+        BodyTwist { linear, angular }
     }
 
     /// The lateral component of `xi`, which [`project_tangent`](Self::project_tangent) discards.
     /// Zero for any motion a differential drive can produce.
     #[inline]
     pub fn tangent_slip(xi: Vector<3, T>) -> T {
-        xi[1]
+        let [_, lateral, _] = *xi.as_array();
+        lateral
     }
 
     /// The arc traced over `dt` by holding this twist constant.

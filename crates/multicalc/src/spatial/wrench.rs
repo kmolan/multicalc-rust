@@ -67,9 +67,10 @@ impl<T: Numeric> Wrench<T> {
     /// ```
     #[inline]
     pub fn from_array(a: [T; 6]) -> Self {
+        let [vx, vy, vz, wx, wy, wz] = a;
         Wrench {
-            force: Vector::new([a[0], a[1], a[2]]),
-            torque: Vector::new([a[3], a[4], a[5]]),
+            force: Vector::new([vx, vy, vz]),
+            torque: Vector::new([wx, wy, wz]),
         }
     }
 
@@ -82,9 +83,9 @@ impl<T: Numeric> Wrench<T> {
     /// ```
     #[inline]
     pub fn as_array(self) -> [T; 6] {
-        let f = self.force;
-        let t = self.torque;
-        [f[0], f[1], f[2], t[0], t[1], t[2]]
+        let [fx, fy, fz] = *self.force.as_array();
+        let [tx, ty, tz] = *self.torque.as_array();
+        [fx, fy, fz, tx, ty, tz]
     }
 
     /// A wrench from a flat `[f; τ]` `Vector<6>`.

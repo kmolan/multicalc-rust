@@ -92,10 +92,11 @@ fn ad_transparent_under_dual() {
     let scaled = t.scale(Dual::constant(3.0));
     let out = scaled.to_vector();
     // d/dx (3·x) = 3 in the seeded component; the rest stay finite with zero derivative.
-    assert!((out[0].value - 6.0).abs() < 1e-12);
-    assert!((out[0].deriv - 3.0).abs() < 1e-12);
+    assert!((out.as_array()[0].value - 6.0).abs() < 1e-12);
+    assert!((out.as_array()[0].deriv - 3.0).abs() < 1e-12);
     for i in 1..6 {
-        assert!(out[i].value.is_finite() && out[i].deriv.is_finite());
-        assert!(out[i].deriv.abs() < 1e-12);
+        let oi = out.as_array()[i];
+        assert!(oi.value.is_finite() && oi.deriv.is_finite());
+        assert!(oi.deriv.abs() < 1e-12);
     }
 }

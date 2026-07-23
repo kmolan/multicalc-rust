@@ -27,11 +27,8 @@ use crate::spatial::small_angle_sq;
 /// The 3×3 skew-symmetric matrix `[v]×`, so that `[v]× · p = v × p`.
 #[inline]
 pub(crate) fn skew3<T: Numeric>(v: Vector<3, T>) -> Matrix<3, 3, T> {
-    Matrix::new([
-        [T::ZERO, -v[2], v[1]],
-        [v[2], T::ZERO, -v[0]],
-        [-v[1], v[0], T::ZERO],
-    ])
+    let [x, y, z] = *v.as_array();
+    Matrix::new([[T::ZERO, -z, y], [z, T::ZERO, -x], [-y, x, T::ZERO]])
 }
 
 /// The SO(3) left Jacobian `J_l(φ) = I + c1·[φ]× + c2·[φ]×²`. Near θ = 0 the coefficients use a
@@ -109,17 +106,18 @@ pub(crate) fn q_matrix_se3<T: Numeric>(rho: Vector<3, T>, phi: Vector<3, T>) -> 
 /// SO(3) left Jacobian of the rotation part and `Q` the Barfoot block.
 #[inline]
 pub(crate) fn left_jacobian_se3<T: Numeric>(xi: Vector<6, T>) -> Matrix<6, 6, T> {
-    let rho = Vector::new([xi[0], xi[1], xi[2]]);
-    let phi = Vector::new([xi[3], xi[4], xi[5]]);
+    let [rx, ry, rz, px, py, pz] = *xi.as_array();
+    let rho = Vector::new([rx, ry, rz]);
+    let phi = Vector::new([px, py, pz]);
     let j = left_jacobian_so3(phi);
     let q = q_matrix_se3(rho, phi);
     Matrix::from_fn(|i, k| {
         if i < 3 && k < 3 {
-            j[(i, k)]
+            j.get(i, k).copied().unwrap_or(T::ZERO)
         } else if i < 3 {
-            q[(i, k - 3)]
+            q.get(i, k - 3).copied().unwrap_or(T::ZERO)
         } else if k >= 3 {
-            j[(i - 3, k - 3)]
+            j.get(i - 3, k - 3).copied().unwrap_or(T::ZERO)
         } else {
             T::ZERO
         }
@@ -129,18 +127,19 @@ pub(crate) fn left_jacobian_se3<T: Numeric>(xi: Vector<6, T>) -> Matrix<6, 6, T>
 /// The inverse SE(3) left Jacobian `J_l⁻¹(ξ) = [[Jᵢ, −Jᵢ·Q·Jᵢ], [0, Jᵢ]]`.
 #[inline]
 pub(crate) fn inverse_left_jacobian_se3<T: Numeric>(xi: Vector<6, T>) -> Matrix<6, 6, T> {
-    let rho = Vector::new([xi[0], xi[1], xi[2]]);
-    let phi = Vector::new([xi[3], xi[4], xi[5]]);
+    let [rx, ry, rz, px, py, pz] = *xi.as_array();
+    let rho = Vector::new([rx, ry, rz]);
+    let phi = Vector::new([px, py, pz]);
     let ji = inverse_left_jacobian_so3(phi);
     let q = q_matrix_se3(rho, phi);
     let top_right = -(ji * q * ji);
     Matrix::from_fn(|i, k| {
         if i < 3 && k < 3 {
-            ji[(i, k)]
+            ji.get(i, k).copied().unwrap_or(T::ZERO)
         } else if i < 3 {
-            top_right[(i, k - 3)]
+            top_right.get(i, k - 3).copied().unwrap_or(T::ZERO)
         } else if k >= 3 {
-            ji[(i - 3, k - 3)]
+            ji.get(i - 3, k - 3).copied().unwrap_or(T::ZERO)
         } else {
             T::ZERO
         }

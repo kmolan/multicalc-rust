@@ -9,7 +9,7 @@ fn approx_identity<const N: usize>(m: Matrix<N, N>) {
     let id: Matrix<N, N> = Matrix::identity();
     for r in 0..N {
         for c in 0..N {
-            assert!((m[(r, c)] - id[(r, c)]).abs() < 1e-12);
+            assert!((m.get(r, c).copied().unwrap() - id.get(r, c).copied().unwrap()).abs() < 1e-12);
         }
     }
 }
@@ -104,7 +104,7 @@ fn qr_reconstructs_pivoted_matrix() {
     // R is upper-triangular.
     for row in 0..3 {
         for col in 0..row {
-            assert_eq!(r[(row, col)], 0.0);
+            assert_eq!(r.get(row, col).copied().unwrap(), 0.0);
         }
     }
 
@@ -112,11 +112,14 @@ fn qr_reconstructs_pivoted_matrix() {
     approx_identity(q.transpose() * q);
 
     // A * P == Q * R.
-    let ap = Matrix::<4, 3>::from_fn(|i, c| a[(i, perm[c])]);
+    let ap = Matrix::<4, 3>::from_fn(|i, c| a.get(i, perm[c]).copied().unwrap());
     let product = q * r;
     for i in 0..4 {
         for c in 0..3 {
-            assert!((ap[(i, c)] - product[(i, c)]).abs() < 1e-12);
+            assert!(
+                (ap.get(i, c).copied().unwrap() - product.get(i, c).copied().unwrap()).abs()
+                    < 1e-12
+            );
         }
     }
 }
@@ -138,11 +141,14 @@ fn qr_handles_zero_column() {
     assert!(f.r_diag[2].abs() < 1e-12);
 
     // The factorization still reproduces A * P.
-    let ap = Matrix::<4, 3>::from_fn(|i, c| a[(i, perm[c])]);
+    let ap = Matrix::<4, 3>::from_fn(|i, c| a.get(i, perm[c]).copied().unwrap());
     let product = f.q() * f.r();
     for i in 0..4 {
         for c in 0..3 {
-            assert!((ap[(i, c)] - product[(i, c)]).abs() < 1e-12);
+            assert!(
+                (ap.get(i, c).copied().unwrap() - product.get(i, c).copied().unwrap()).abs()
+                    < 1e-12
+            );
         }
     }
 }
@@ -161,7 +167,7 @@ fn damped_cholesky_factor_matches_normal_matrix() {
         if row == col {
             cf.s_diag[row]
         } else if col > row {
-            cf.s[(col, row)]
+            cf.s.get(col, row).copied().unwrap()
         } else {
             0.0
         }
@@ -172,12 +178,12 @@ fn damped_cholesky_factor_matches_normal_matrix() {
     let rtr = dls.r.transpose() * dls.r;
     for row in 0..3 {
         for col in 0..3 {
-            let mut expected = rtr[(row, col)];
+            let mut expected = rtr.get(row, col).copied().unwrap();
             if row == col {
                 let d = diag[dls.permutation[row]];
                 expected += d * d;
             }
-            assert!((sts[(row, col)] - expected).abs() < 1e-9);
+            assert!((sts.get(row, col).copied().unwrap() - expected).abs() < 1e-9);
         }
     }
 }

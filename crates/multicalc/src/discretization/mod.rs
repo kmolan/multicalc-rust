@@ -21,8 +21,9 @@ use crate::scalar::Numeric;
 /// let a = Matrix::<2, 2>::new([[0.0, 1.0], [0.0, 0.0]]);
 /// let b = Matrix::<2, 1>::new([[0.0], [1.0]]);
 /// let (f, g) = zoh::<2, 1, 3, f64>(a, b, 0.1)?;
-/// assert!((f[(0, 1)] - 0.1).abs() < 1e-9); // F = [[1, dt], [0, 1]]
-/// assert!((g[(0, 0)] - 0.005).abs() < 1e-9); // G = [[dt²/2], [dt]]
+/// let (fa, ga) = (f.into_array(), g.into_array());
+/// assert!((fa[0][1] - 0.1).abs() < 1e-9); // F = [[1, dt], [0, 1]]
+/// assert!((ga[0][0] - 0.005).abs() < 1e-9); // G = [[dt²/2], [dt]]
 /// # Ok(())
 /// # }
 /// ```
@@ -35,16 +36,16 @@ pub fn zoh<const N: usize, const M: usize, const NM: usize, T: Numeric>(
     // Augmented [[A, B], [0, 0]] · dt; its exponential's top blocks are F and G.
     let aug = Matrix::<NM, NM, T>::from_fn(|i, j| {
         if i < N && j < N {
-            a[(i, j)] * dt
+            a.get(i, j).copied().unwrap_or(T::ZERO) * dt
         } else if i < N {
-            b[(i, j - N)] * dt
+            b.get(i, j - N).copied().unwrap_or(T::ZERO) * dt
         } else {
             T::ZERO
         }
     });
     let e = aug.expm()?;
-    let f = Matrix::<N, N, T>::from_fn(|i, j| e[(i, j)]);
-    let g = Matrix::<N, M, T>::from_fn(|i, j| e[(i, N + j)]);
+    let f = Matrix::<N, N, T>::from_fn(|i, j| e.get(i, j).copied().unwrap_or(T::ZERO));
+    let g = Matrix::<N, M, T>::from_fn(|i, j| e.get(i, N + j).copied().unwrap_or(T::ZERO));
     Ok((f, g))
 }
 
@@ -60,7 +61,8 @@ pub fn zoh<const N: usize, const M: usize, const NM: usize, T: Numeric>(
 /// let a = Matrix::<2, 2>::new([[0.0, 1.0], [0.0, 0.0]]);
 /// let qc = Matrix::<2, 2>::new([[0.0, 0.0], [0.0, 1.0]]);
 /// let (_f, qd) = van_loan::<2, 4, f64>(a, qc, 0.1)?;
-/// assert!((qd[(0, 1)] - qd[(1, 0)]).abs() < 1e-12); // symmetric
+/// let qd = qd.into_array();
+/// assert!((qd[0][1] - qd[1][0]).abs() < 1e-12); // symmetric
 /// # Ok(())
 /// # }
 /// ```
@@ -73,18 +75,18 @@ pub fn van_loan<const N: usize, const N2: usize, T: Numeric>(
     // Ξ = [[-A, Q_c], [0, Aᵀ]] · dt. From expm(Ξ) = [[.., G12], [0, G22]]: F = G22ᵀ, Q_d = F · G12.
     let xi = Matrix::<N2, N2, T>::from_fn(|i, j| {
         if i < N && j < N {
-            -a[(i, j)] * dt
+            -a.get(i, j).copied().unwrap_or(T::ZERO) * dt
         } else if i < N {
-            qc[(i, j - N)] * dt
+            qc.get(i, j - N).copied().unwrap_or(T::ZERO) * dt
         } else if j >= N {
-            a[(j - N, i - N)] * dt // (Aᵀ)[i-N, j-N] = A[j-N, i-N]
+            a.get(j - N, i - N).copied().unwrap_or(T::ZERO) * dt // (Aᵀ)[i-N, j-N] = A[j-N, i-N]
         } else {
             T::ZERO
         }
     });
     let e = xi.expm()?;
-    let g12 = Matrix::<N, N, T>::from_fn(|i, j| e[(i, N + j)]);
-    let g22 = Matrix::<N, N, T>::from_fn(|i, j| e[(N + i, N + j)]);
+    let g12 = Matrix::<N, N, T>::from_fn(|i, j| e.get(i, N + j).copied().unwrap_or(T::ZERO));
+    let g22 = Matrix::<N, N, T>::from_fn(|i, j| e.get(N + i, N + j).copied().unwrap_or(T::ZERO));
     let f = g22.transpose();
     let qd = f * g12;
     Ok((f, qd))
@@ -98,8 +100,8 @@ pub fn van_loan<const N: usize, const N2: usize, T: Numeric>(
 ///
 /// ```
 /// use multicalc::discretization::q_discrete_white_noise;
-/// let q = q_discrete_white_noise::<2, f64>(0.1, 2.0);
-/// assert!((q[(1, 1)] - 2.0 * 0.1 * 0.1).abs() < 1e-15); // var · dt²
+/// let q = q_discrete_white_noise::<2, f64>(0.1, 2.0).into_array();
+/// assert!((q[1][1] - 2.0 * 0.1 * 0.1).abs() < 1e-15); // var · dt²
 /// ```
 pub fn q_discrete_white_noise<const DIM: usize, T: Numeric>(
     dt: T,

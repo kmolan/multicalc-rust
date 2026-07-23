@@ -14,7 +14,7 @@ impl Rk4 {
     /// use multicalc::linear_algebra::Vector;
     /// // y' = y, y(0) = 1  ->  y(dt) ≈ e^{dt}
     /// let y1 = Rk4::step(&|_t, y: &Vector<1, f64>| *y, 0.0, &Vector::new([1.0]), 0.1);
-    /// assert!((y1[0] - 0.1_f64.exp()).abs() < 1e-6);
+    /// assert!((y1.as_array()[0] - 0.1_f64.exp()).abs() < 1e-6);
     /// ```
     pub fn step<const N: usize, T, F>(f: &F, t: T, y: &Vector<N, T>, dt: T) -> Vector<N, T>
     where
@@ -39,9 +39,9 @@ impl Rk4 {
     /// let mut last = 0.0;
     /// // y' = -y over [0, 1] in 100 steps; endpoint ≈ e^{-1}.
     /// let yf = Rk4::integrate(&|_t, y: &Vector<1, f64>| -*y, 0.0,
-    ///     &Vector::new([1.0]), 0.01, 100, |_t, y| last = y[0]);
-    /// assert!((yf[0] - (-1.0_f64).exp()).abs() < 1e-6);
-    /// assert_eq!(last, yf[0]);
+    ///     &Vector::new([1.0]), 0.01, 100, |_t, y| last = y.as_array()[0]);
+    /// assert!((yf.as_array()[0] - (-1.0_f64).exp()).abs() < 1e-6);
+    /// assert_eq!(last, yf.as_array()[0]);
     /// ```
     pub fn integrate<const N: usize, T, F, O>(
         f: &F,

@@ -247,7 +247,9 @@ Errors: the underlying derivatives return [`DiffError`](#error-handling). Full d
 ## Linear algebra
 
 Fixed-size, stack-allocated `Matrix` and `Vector`. Dimensions are const generics, so a shape
-mismatch is a compile error, nothing is heap-allocated, and the math never panics.
+mismatch is a compile error, nothing is heap-allocated, and the math never panics. Use
+`get` / `get_mut` for elements and `try_row` / `try_column` for row/column copies (no
+panicking `Index` / `row` / `column`).
 
 - `Matrix::lu` → `Lu`: partial-pivoting Doolittle LU; `solve`, `determinant`, `inverse`.
 - `Matrix::cholesky` → `Cholesky`: faster path for symmetric positive-definite matrices.
@@ -456,14 +458,17 @@ use multicalc::ode::{Rk4, Rk45};
 use multicalc::linear_algebra::Vector;
 
 // Harmonic oscillator y'' = -y as the first-order system [position, velocity].
-let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+let f = |_t: f64, y: &Vector<2, f64>| {
+  let [y0, y1] = *y.as_array();
+  Vector::new([y1, -y0])
+};
 let y0 = Vector::new([1.0, 0.0]);
 
 let y1 = Rk4::step(&f, 0.0, &y0, 0.1);                                  // one fixed step of size 0.1
 
 // Adaptive solve over one full period returns to the start [1, 0].
 let yf = Rk45::default().solve(&f, 0.0, &y0, core::f64::consts::TAU).unwrap();
-assert!((yf[0] - 1.0).abs() < 1e-6 && yf[1].abs() < 1e-6);
+assert!((yf.as_array()[0] - 1.0).abs() < 1e-6 && yf.as_array()[1].abs() < 1e-6);
 ```
 
 Dense output samples a whole grid in one pass, and `for_each_step` lets you track a conserved
@@ -473,7 +478,10 @@ quantity as the solver runs:
 use multicalc::ode::Rk45;
 use multicalc::linear_algebra::Vector;
 
-let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+let f = |_t: f64, y: &Vector<2, f64>| {
+  let [y0, y1] = *y.as_array();
+  Vector::new([y1, -y0])
+};
 let y0 = Vector::new([1.0, 0.0]);
 let solver = Rk45::default().with_rtol(1e-9).with_atol(1e-12);
 
@@ -509,21 +517,23 @@ let dt = 0.1;
 // Zero-order hold of the double integrator: F = [[1, dt], [0, 1]], G = [[dt^2/2], [dt]].
 let a = Matrix::<2, 2>::new([[0.0, 1.0], [0.0, 0.0]]);
 let b = Matrix::<2, 1>::new([[0.0], [1.0]]);
-let (f, g) = zoh::<2, 1, 3, f64>(a, b, dt).unwrap();      // f[(0, 1)] = dt, g[(1, 0)] = dt
+let (f, g) = zoh::<2, 1, 3, f64>(a, b, dt).unwrap();      // f.get(0, 1) == Some(&dt), g.get(1, 0) == Some(&dt)
 
 // Van Loan process-noise discretization of continuous white noise on velocity.
 let qc = Matrix::<2, 2>::new([[0.0, 0.0], [0.0, 1.0]]);
-let (_f, qd) = van_loan::<2, 4, f64>(a, qc, dt).unwrap(); // qd[(1, 1)] = dt, symmetric
+let (_f, qd) = van_loan::<2, 4, f64>(a, qc, dt).unwrap(); // qd.get(1, 1) == Some(&dt), symmetric
 
 // Discrete white-noise model.
-let q = q_discrete_white_noise::<2, f64>(dt, 2.0);        // q[(1, 1)] = 2*dt^2
+let q = q_discrete_white_noise::<2, f64>(dt, 2.0);        // q.get(1, 1) == Some(&(2*dt^2))
 
 // d/dx expm(x·M) at x = 0 equals M, recovered by one Dual through expm.
 let m = Matrix::<2, 2>::new([[0.2, 0.5], [-0.1, 0.3]]);
-let ad = Matrix::<2, 2, Dual<f64>>::from_fn(|i, j| Dual::new(0.0, m[(i, j)]))
+let ad = Matrix::<2, 2, Dual<f64>>::from_fn(|i, j| {
+  Dual::new(0.0, m.get(i, j).copied().unwrap())
+})
     .expm()
     .unwrap();
-// ad[(0, 1)].deriv == m[(0, 1)]
+// ad.get(0, 1).unwrap().deriv == m.get(0, 1).copied().unwrap()
 ```
 
 Errors: the matrix-exponential step returns [`LinalgError`](#error-handling) on a non-finite
@@ -616,7 +626,7 @@ let step = integrate(
     SE2::<Dual<f64>>::identity(),
     BodyTwist::new(Dual::variable(0.4), Dual::constant(0.3)).integrate_over(Dual::constant(1.0)),
 );
-let dx_ds = step.translation()[0].deriv;
+let dx_ds = step.translation().as_array()[0].deriv;
 ```
 
 Because `integrate` is built on `SE2::exp`, a straight line (ω = 0) is handled by the same code path
@@ -739,7 +749,7 @@ let mut filter = KalmanFilter::new(
 
 filter.predict();
 filter.update(Vector::new([1.0])).unwrap();
-let position = filter.state()[0];
+let position = filter.state().as_array()[0];
 
 // Gate an outlier before folding it in.
 filter.predict();
