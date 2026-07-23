@@ -65,12 +65,8 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
         for _ in 0..s {
             result = result * result;
         }
-        for i in 0..N {
-            for j in 0..N {
-                if !result[(i, j)].is_finite() {
-                    return Err(LinalgError::NonFinite);
-                }
-            }
+        if !result.is_finite() {
+            return Err(LinalgError::NonFinite);
         }
         Ok(result)
     }

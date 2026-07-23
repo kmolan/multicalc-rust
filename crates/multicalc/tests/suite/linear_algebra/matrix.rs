@@ -27,11 +27,13 @@ fn try_row_column() {
 
     assert_eq!(m.try_row(1), Some(Vector::new([3.0, 4.0])));
     assert_eq!(m.try_row(2), None);
-    assert_eq!(m.try_row(1), Some(m.row(1)));
 
     assert_eq!(m.try_column(0), Some(Vector::new([1.0, 3.0])));
     assert_eq!(m.try_column(2), None);
-    assert_eq!(m.try_column(0), Some(m.column(0)));
+
+    let empty: Matrix<0, 3> = Matrix::zeros();
+    assert_eq!(empty.try_column(0), Some(Vector::<0, f64>::zeros()));
+    assert_eq!(empty.try_column(3), None);
 }
 
 #[test]

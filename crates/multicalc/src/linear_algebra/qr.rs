@@ -116,6 +116,7 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
     /// assert!((x[0] - 1.0).abs() < 1e-12);
     /// assert!((x[1] - 2.0).abs() < 1e-12);
     /// ```
+    #[allow(clippy::indexing_slicing)]
     pub fn decompose(a: Matrix<M, N, T>) -> Result<Self, LinalgError> {
         if M < N {
             return Err(LinalgError::Underdetermined);
@@ -153,10 +154,8 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
                 }
             }
             if kmax != j {
-                for i in 0..M {
-                    let tmp = qr[(i, j)];
-                    qr[(i, j)] = qr[(i, kmax)];
-                    qr[(i, kmax)] = tmp;
+                for row in qr.as_mut_slice_rows() {
+                    row.swap(j, kmax)
                 }
                 r_diag[kmax] = r_diag[j];
                 reference_norm[kmax] = reference_norm[j];
@@ -222,7 +221,8 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
         })
     }
 
-    /// The `N`-by-`N` upper-triangular factor `R`.
+    /// The `N`-by-`N` upper-triangular factor `R`
+    #[allow(clippy::indexing_slicing)]
     pub fn r(&self) -> Matrix<N, N, T> {
         Matrix::from_fn(|row, col| {
             if row == col {
@@ -281,6 +281,7 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
     /// assert!((x[1] - 1.0).abs() < 1e-12);
     /// assert!((x[2] - 1.0).abs() < 1e-12);
     /// ```
+    #[allow(clippy::indexing_slicing)]
     pub fn solve_least_squares(&self, b: Vector<M, T>) -> Result<Vector<N, T>, LinalgError> {
         // Apply the reflectors to b, leaving Qᵀb in the first N entries.
         let mut qtb = b;
@@ -381,6 +382,7 @@ pub struct DampedLeastSquares<const N: usize, T = f64> {
 impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
     /// Solves `(AᵀA + D²) x = Aᵀb` for the diagonal `D` given by `diag`, returning the solution
     /// and the Cholesky-like factor `S` of `AᵀA + D²`.
+    #[allow(clippy::indexing_slicing)]
     pub fn solve_with_diagonal(&self, diag: &[T; N]) -> (Vector<N, T>, CholeskyFactor<N, T>) {
         // Working matrix: upper triangle is R, lower triangle mirrors it as scratch.
         let mut s = self.r;
@@ -426,8 +428,9 @@ impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
                     };
 
                     s[(k, k)] = cos * s[(k, k)] + sin * s_diag[k];
-                    let temp = cos * wa[k] + sin * qtbpj;
-                    qtbpj = -sin * wa[k] + cos * qtbpj;
+                    let wak = wa[k];
+                    let temp = cos * wak + sin * qtbpj;
+                    qtbpj = -sin * wak + cos * qtbpj;
                     wa[k] = temp;
 
                     for i in (k + 1)..N {
@@ -437,7 +440,6 @@ impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
                     }
                 }
             }
-            // Store the S diagonal and restore R's.
             s_diag[j] = s[(j, j)];
             s[(j, j)] = saved_diag[j];
         }
@@ -477,6 +479,7 @@ impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
 
     /// The largest scaled gradient component `|Aᵀb|ⱼ / (b_norm · ‖columnⱼ‖)`, used by the
     /// gradient convergence test. Returns zero when `b_norm` is zero.
+    #[allow(clippy::indexing_slicing)]
     #[must_use]
     pub fn max_a_t_b_scaled(&self, b_norm: T) -> T {
         if b_norm == T::ZERO {
@@ -497,6 +500,7 @@ impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
     }
 
     /// The norm `‖A x‖`, computed as `‖R P x‖` since `Q` has orthonormal columns.
+    #[allow(clippy::indexing_slicing)]
     #[must_use]
     pub fn a_x_norm(&self, x: &Vector<N, T>) -> T {
         let mut w = [T::ZERO; N];
@@ -536,6 +540,7 @@ pub struct CholeskyFactor<const N: usize, T = f64> {
 
 impl<const N: usize, T: Numeric> CholeskyFactor<N, T> {
     /// Forward-solves `Sᵀ w = rhs`, with `rhs` and the result in the factor's internal order.
+    #[allow(clippy::indexing_slicing)]
     #[must_use]
     pub fn solve(&self, mut rhs: [T; N]) -> [T; N] {
         for j in 0..N {

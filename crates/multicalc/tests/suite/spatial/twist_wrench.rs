@@ -95,7 +95,8 @@ fn ad_transparent_under_dual() {
     assert!((out[0].value - 6.0).abs() < 1e-12);
     assert!((out[0].deriv - 3.0).abs() < 1e-12);
     for i in 1..6 {
-        assert!(out[i].value.is_finite() && out[i].deriv.is_finite());
-        assert!(out[i].deriv.abs() < 1e-12);
+        let oi = out[i];
+        assert!(oi.value.is_finite() && oi.deriv.is_finite());
+        assert!(oi.deriv.abs() < 1e-12);
     }
 }

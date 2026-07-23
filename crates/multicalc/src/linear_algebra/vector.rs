@@ -12,6 +12,7 @@ use crate::scalar::Numeric;
 /// let b = Vector::from([4.0, 5.0, 6.0]);
 ///
 /// assert_eq!(a[0], 1.0);
+/// assert_eq!(a.get(0), Some(&1.0));
 /// assert_eq!(a + b, Vector::new([5.0, 7.0, 9.0]));
 /// assert_eq!(b - a, Vector::new([3.0, 3.0, 3.0]));
 /// assert_eq!(-a, Vector::new([-1.0, -2.0, -3.0]));
@@ -81,6 +82,50 @@ impl<const N: usize, T> Vector<N, T> {
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         &mut self.data
+    }
+
+    // Crate-internal panic path (also used by Index). Public: prefer `[]`; use `get` when fallible.
+    #[inline]
+    #[track_caller]
+    pub(crate) fn at(&self, i: usize) -> &T {
+        #[allow(clippy::indexing_slicing)]
+        &self.data[i]
+    }
+
+    #[inline]
+    #[track_caller]
+    pub(crate) fn at_mut(&mut self, i: usize) -> &mut T {
+        #[allow(clippy::indexing_slicing)]
+        &mut self.data[i]
+    }
+
+    /// Returns a reference to component `i`, or `None` if `i >= N`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// let v = Vector::new([1.0, 2.0]);
+    /// assert_eq!(v.get(0), Some(&1.0));
+    /// assert_eq!(v.get(2), None);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn get(&self, i: usize) -> Option<&T> {
+        self.data.get(i)
+    }
+
+    /// Returns a mutable reference to component `i`, or `None` if `i >= N`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// let mut v = Vector::new([1.0, 2.0]);
+    /// if let Some(x) = v.get_mut(1) {
+    ///     *x = 9.0;
+    /// }
+    /// assert_eq!(v.get(1), Some(&9.0));
+    /// ```
+    #[inline]
+    pub fn get_mut(&mut self, i: usize) -> Option<&mut T> {
+        self.data.get_mut(i)
     }
 
     /// Consumes the vector, returning its components.
@@ -195,16 +240,20 @@ impl<const N: usize, T> From<[T; N]> for Vector<N, T> {
 impl<const N: usize, T> Index<usize> for Vector<N, T> {
     type Output = T;
 
+    /// Panics if `index >= N`. Use [`Self::get`] when the index may be invalid.
     #[inline]
+    #[track_caller]
     fn index(&self, index: usize) -> &T {
-        &self.data[index]
+        self.at(index)
     }
 }
 
 impl<const N: usize, T> IndexMut<usize> for Vector<N, T> {
+    /// Panics if `index >= N`. Use [`Self::get_mut`] when the index may be invalid.
     #[inline]
+    #[track_caller]
     fn index_mut(&mut self, index: usize) -> &mut T {
-        &mut self.data[index]
+        self.at_mut(index)
     }
 }
 
@@ -308,6 +357,8 @@ impl<T: Numeric> Vector<2, T> {
     #[inline]
     #[must_use]
     pub fn cross(self, rhs: Self) -> T {
-        self[0] * rhs[1] - self[1] * rhs[0]
+        let [a0, a1] = self.data;
+        let [b0, b1] = rhs.data;
+        a0 * b1 - a1 * b0
     }
 }
