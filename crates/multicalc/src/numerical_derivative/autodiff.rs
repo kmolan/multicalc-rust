@@ -68,7 +68,8 @@ impl<T: Numeric> DerivatorSingleVariable for AutoDiffSingle<T> {
             2 => Ok(func.eval(HyperDual::variable(point)).eps1eps2),
             o if o <= MAX_ORDER => Ok(func
                 .eval(Jet::<T, { MAX_ORDER + 1 }>::variable(point))
-                .derivative(o)),
+                .derivative(o)
+                .expect("order within Jet capacity")),
             _ => Err(DiffError::OrderUnsupported),
         }
     }

@@ -576,7 +576,7 @@ mod jet {
         let x0 = 0.4_f64;
         let y = Jet::<f64, 6>::variable(x0).exp();
         for k in 0..6 {
-            assert!(f64::abs(y.derivative(k) - f64::exp(x0)) < TOL);
+            assert!(f64::abs(y.derivative(k).unwrap() - f64::exp(x0)) < TOL);
         }
     }
 
@@ -586,11 +586,11 @@ mod jet {
         let x0 = 2.0_f64;
         let y = Jet::<f64, 6>::variable(x0).powi(4);
         assert!(f64::abs(y.value() - 16.0) < TOL);
-        assert!(f64::abs(y.derivative(1) - 32.0) < TOL);
-        assert!(f64::abs(y.derivative(2) - 48.0) < TOL);
-        assert!(f64::abs(y.derivative(3) - 48.0) < TOL);
-        assert!(f64::abs(y.derivative(4) - 24.0) < TOL);
-        assert!(f64::abs(y.derivative(5)) < TOL);
+        assert!(f64::abs(y.derivative(1).unwrap() - 32.0) < TOL);
+        assert!(f64::abs(y.derivative(2).unwrap() - 48.0) < TOL);
+        assert!(f64::abs(y.derivative(3).unwrap() - 48.0) < TOL);
+        assert!(f64::abs(y.derivative(4).unwrap() - 24.0) < TOL);
+        assert!(f64::abs(y.derivative(5).unwrap()) < TOL);
     }
 
     #[test]
@@ -598,11 +598,11 @@ mod jet {
         // derivatives of sin cycle: sin, cos, -sin, -cos, sin
         let x0 = 0.6_f64;
         let y = Jet::<f64, 5>::variable(x0).sin();
-        assert!(f64::abs(y.derivative(0) - f64::sin(x0)) < TOL);
-        assert!(f64::abs(y.derivative(1) - f64::cos(x0)) < TOL);
-        assert!(f64::abs(y.derivative(2) - (-f64::sin(x0))) < TOL);
-        assert!(f64::abs(y.derivative(3) - (-f64::cos(x0))) < TOL);
-        assert!(f64::abs(y.derivative(4) - f64::sin(x0)) < TOL);
+        assert!(f64::abs(y.derivative(0).unwrap() - f64::sin(x0)) < TOL);
+        assert!(f64::abs(y.derivative(1).unwrap() - f64::cos(x0)) < TOL);
+        assert!(f64::abs(y.derivative(2).unwrap() - (-f64::sin(x0))) < TOL);
+        assert!(f64::abs(y.derivative(3).unwrap() - (-f64::cos(x0))) < TOL);
+        assert!(f64::abs(y.derivative(4).unwrap() - f64::sin(x0)) < TOL);
     }
 
     #[test]
@@ -618,7 +618,7 @@ mod jet {
                 factorial *= k as f64;
             }
             let expected = sign * factorial / (1.0 + x0).powi(k as i32 + 1);
-            assert!(f64::abs(y.derivative(k) - expected) < TOL);
+            assert!(f64::abs(y.derivative(k).unwrap() - expected) < TOL);
             sign = -sign;
         }
     }
@@ -628,10 +628,10 @@ mod jet {
         // f(x) = sqrt(x): f'=1/(2√x), f''=-1/(4 x^{3/2}), f'''=3/(8 x^{5/2})
         let x0 = 1.7_f64;
         let y = Jet::<f64, 4>::variable(x0).sqrt();
-        assert!(f64::abs(y.derivative(0) - f64::sqrt(x0)) < TOL);
-        assert!(f64::abs(y.derivative(1) - 1.0 / (2.0 * f64::sqrt(x0))) < TOL);
-        assert!(f64::abs(y.derivative(2) - (-1.0 / (4.0 * x0 * f64::sqrt(x0)))) < TOL);
-        assert!(f64::abs(y.derivative(3) - 3.0 / (8.0 * x0 * x0 * f64::sqrt(x0))) < TOL);
+        assert!(f64::abs(y.derivative(0).unwrap() - f64::sqrt(x0)) < TOL);
+        assert!(f64::abs(y.derivative(1).unwrap() - 1.0 / (2.0 * f64::sqrt(x0))) < TOL);
+        assert!(f64::abs(y.derivative(2).unwrap() - (-1.0 / (4.0 * x0 * f64::sqrt(x0)))) < TOL);
+        assert!(f64::abs(y.derivative(3).unwrap() - 3.0 / (8.0 * x0 * x0 * f64::sqrt(x0))) < TOL);
     }
 
     #[test]
@@ -639,10 +639,10 @@ mod jet {
         // f(x) = ln(x): f'=1/x, f''=-1/x^2, f'''=2/x^3
         let x0 = 2.0_f64;
         let y = Jet::<f64, 4>::variable(x0).ln();
-        assert!(f64::abs(y.derivative(0) - f64::ln(x0)) < TOL);
-        assert!(f64::abs(y.derivative(1) - 1.0 / x0) < TOL);
-        assert!(f64::abs(y.derivative(2) - (-1.0 / (x0 * x0))) < TOL);
-        assert!(f64::abs(y.derivative(3) - 2.0 / (x0 * x0 * x0)) < TOL);
+        assert!(f64::abs(y.derivative(0).unwrap() - f64::ln(x0)) < TOL);
+        assert!(f64::abs(y.derivative(1).unwrap() - 1.0 / x0) < TOL);
+        assert!(f64::abs(y.derivative(2).unwrap() - (-1.0 / (x0 * x0))) < TOL);
+        assert!(f64::abs(y.derivative(3).unwrap() - 2.0 / (x0 * x0 * x0)) < TOL);
     }
 
     #[test]
@@ -651,9 +651,9 @@ mod jet {
         let x0 = 0.5_f64;
         let t = f64::tan(x0);
         let y = Jet::<f64, 3>::variable(x0).tan();
-        assert!(f64::abs(y.derivative(0) - t) < TOL);
-        assert!(f64::abs(y.derivative(1) - (1.0 + t * t)) < TOL);
-        assert!(f64::abs(y.derivative(2) - 2.0 * t * (1.0 + t * t)) < TOL);
+        assert!(f64::abs(y.derivative(0).unwrap() - t) < TOL);
+        assert!(f64::abs(y.derivative(1).unwrap() - (1.0 + t * t)) < TOL);
+        assert!(f64::abs(y.derivative(2).unwrap() - 2.0 * t * (1.0 + t * t)) < TOL);
     }
 
     #[test]
@@ -679,19 +679,19 @@ mod jet {
         let plain = g(x0);
         let j = g(Jet::<f64, 4>::variable(x0));
         assert!(f64::abs(j.value() - plain) < TOL);
-        assert!(f64::abs(j.derivative(1) - (3.0 * x0 * x0 + 2.0)) < TOL); // f'
-        assert!(f64::abs(j.derivative(2) - 6.0 * x0) < TOL); // f''
-        assert!(f64::abs(j.derivative(3) - 6.0) < TOL); // f'''
+        assert!(f64::abs(j.derivative(1).unwrap() - (3.0 * x0 * x0 + 2.0)) < TOL); // f'
+        assert!(f64::abs(j.derivative(2).unwrap() - 6.0 * x0) < TOL); // f''
+        assert!(f64::abs(j.derivative(3).unwrap() - 6.0) < TOL); // f'''
     }
 
     #[test]
     fn test_generic_over_f32() {
         // Jet is generic over the scalar; here it carries f32.
         let y = Jet::<f32, 4>::variable(2.0).powi(3);
-        assert!(f32::abs(y.derivative(0) - 8.0) < TOL_F32);
-        assert!(f32::abs(y.derivative(1) - 12.0) < TOL_F32);
-        assert!(f32::abs(y.derivative(2) - 12.0) < TOL_F32);
-        assert!(f32::abs(y.derivative(3) - 6.0) < TOL_F32);
+        assert!(f32::abs(y.derivative(0).unwrap() - 8.0) < TOL_F32);
+        assert!(f32::abs(y.derivative(1).unwrap() - 12.0) < TOL_F32);
+        assert!(f32::abs(y.derivative(2).unwrap() - 12.0) < TOL_F32);
+        assert!(f32::abs(y.derivative(3).unwrap() - 6.0) < TOL_F32);
     }
 
     #[test]
@@ -726,10 +726,10 @@ mod jet {
         let y0 = 0.5_f64;
         let j = Jet::<f64, 4>::variable(y0).atan2(Jet::constant(1.0));
         let d = 1.0 + y0 * y0;
-        assert!(f64::abs(j.derivative(0) - y0.atan()) < TOL);
-        assert!(f64::abs(j.derivative(1) - 1.0 / d) < TOL);
-        assert!(f64::abs(j.derivative(2) - (-2.0 * y0) / (d * d)) < TOL);
-        assert!(f64::abs(j.derivative(3) - (6.0 * y0 * y0 - 2.0) / (d * d * d)) < TOL);
+        assert!(f64::abs(j.derivative(0).unwrap() - y0.atan()) < TOL);
+        assert!(f64::abs(j.derivative(1).unwrap() - 1.0 / d) < TOL);
+        assert!(f64::abs(j.derivative(2).unwrap() - (-2.0 * y0) / (d * d)) < TOL);
+        assert!(f64::abs(j.derivative(3).unwrap() - (6.0 * y0 * y0 - 2.0) / (d * d * d)) < TOL);
     }
 
     #[test]
@@ -765,7 +765,7 @@ mod function {
         // HyperDual: f''(x) = 24x - 6 = 42 at x = 2
         assert!(f64::abs(f.eval(HyperDual::variable(2.0_f64)).eps1eps2 - 42.0) < 1e-12);
         // Jet: f'''(x) = 24
-        assert!(f64::abs(f.eval(Jet::<f64, 4>::variable(2.0_f64)).derivative(3) - 24.0) < 1e-9);
+        assert!(f64::abs(f.eval(Jet::<f64, 4>::variable(2.0_f64)).derivative(3).unwrap() - 24.0) < 1e-9);
     }
 
     // g(x, y, z) = y*sin(x) + 2*x*e^z, hand-written over the scalar.
@@ -801,7 +801,7 @@ mod function {
         assert!(f64::abs(f.eval(2.0_f64) - 20.0) < 1e-12);
         assert!(f64::abs(f.eval(Dual::variable(2.0_f64)).deriv - 36.0) < 1e-12);
         assert!(f64::abs(f.eval(HyperDual::variable(2.0_f64)).eps1eps2 - 42.0) < 1e-12);
-        assert!(f64::abs(f.eval(Jet::<f64, 4>::variable(2.0_f64)).derivative(3) - 24.0) < 1e-9);
+        assert!(f64::abs(f.eval(Jet::<f64, 4>::variable(2.0_f64)).derivative(3).unwrap() - 24.0) < 1e-9);
     }
 
     #[test]
