@@ -207,6 +207,24 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Matrix<ROWS, COLS, T> {
 }
 
 impl<const N: usize, T: Numeric> Matrix<N, N, T> {
+    /// The `N`×`N` diagonal matrix with the given diagonal entries
+    /// (all off-diagonal elements are equal to zero).
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// let m = Matrix::from_diagonal([1.0, 2.0, 3.0]);
+    /// assert_eq!(m.into_array(), [[1.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 3.0]]);
+    /// ```
+    #[inline]
+    pub fn from_diagonal(diag: [T; N]) -> Self {
+        let rows = core::array::from_fn(|i| {
+            let mut r = [T::ZERO; N];
+            r[i] = diag[i];
+            r
+        });
+        Matrix::new(rows)
+    }
+
     /// The `N`×`N` identity matrix.
     ///
     /// ```
@@ -216,7 +234,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// ```
     #[inline]
     pub fn identity() -> Self {
-        Matrix::from_fn(|r, c| if r == c { T::ONE } else { T::ZERO })
+        Self::from_diagonal([T::ONE; N])
     }
 
     /// The determinant.

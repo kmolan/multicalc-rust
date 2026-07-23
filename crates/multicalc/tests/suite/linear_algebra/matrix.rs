@@ -102,6 +102,18 @@ fn check_matrix_trace<const N: usize>(m: Matrix<N, N>) {
     assert_eq!(m.trace(), (0..N).fold(0.0, |acc, i| acc + m[(i, i)]));
 }
 
+fn check_matrix_from_diagonal<const N: usize>(diag: [f64; N]) {
+    let m = Matrix::from_diagonal(diag);
+    for i in 0..N {
+        assert_eq!(m[(i, i)], diag[i]);
+        for j in 0..N {
+            if i != j {
+                assert_eq!(m[(i, j)], 0.0);
+            }
+        }
+    }
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(256))]
 
@@ -185,6 +197,26 @@ proptest! {
     #[test]
     fn matrix_trace_4x4(m in matrix_strategy::<4, 4, _>(prop::num::f64::NORMAL)) {
         check_matrix_trace(m);
+    }
+
+    #[test]
+    fn matrix_from_diagonal_1x1(diag in prop::array::uniform1(prop::num::f64::NORMAL)) {
+        check_matrix_from_diagonal(diag);
+    }
+
+    #[test]
+    fn matrix_from_diagonal_2x2(diag in prop::array::uniform2(prop::num::f64::NORMAL)) {
+        check_matrix_from_diagonal(diag);
+    }
+
+    #[test]
+    fn matrix_from_diagonal_3x3(diag in prop::array::uniform3(prop::num::f64::NORMAL)) {
+        check_matrix_from_diagonal(diag);
+    }
+
+    #[test]
+    fn matrix_from_diagonal_4x4(diag in prop::array::uniform4(prop::num::f64::NORMAL)) {
+        check_matrix_from_diagonal(diag);
     }
 }
 
