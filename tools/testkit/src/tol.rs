@@ -124,11 +124,13 @@ pub fn svd_moore_penrose<const M: usize, const N: usize, T: Numeric>(a: Matrix<M
     assert_matrix_close(apa, apa.transpose(), tol);
 }
 
-fn max_abs<const R: usize, const C: usize>(m: Matrix<R, C, f32>) -> f32 {
-    let mut max = 0.0_f32;
+/// Largest absolute entry of `a`, used to scale reconstruction/tolerance checks to the
+/// magnitude of the input matrix.
+pub fn max_abs<const R: usize, const C: usize, T: Numeric>(a: Matrix<R, C, T>) -> T {
+    let mut max = T::ZERO;
     for r in 0..R {
         for c in 0..C {
-            max = max.max(m[(r, c)].abs());
+            max = max.max(a[(r, c)].abs());
         }
     }
     max

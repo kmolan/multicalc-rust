@@ -1,6 +1,8 @@
 use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, PivotedQr, Vector};
-use multicalc_testkit::tol::{assert_identity, assert_matrix_close};
+use multicalc_testkit::tol::{assert_identity, assert_matrix_close, max_abs};
+use proptest::prelude::*;
+use proptest::test_runner::TestCaseError;
 
 // ----- column-pivoted QR (decompose, accessors, solve) -----
 
@@ -215,5 +217,68 @@ fn damped_solves_ridge_regression() {
             * x;
     for i in 0..8 {
         assert!((lhs[i] - vtb[i]).abs() < 1e-8);
+    }
+}
+
+// ----- property: A·P = Q·R on random matrices -----
+
+/// Builds an `M`x`N` matrix from `entries` and checks the column-pivoted QR identities: `R` is
+/// upper-triangular, `Q` has orthonormal columns (`QᵀQ = I`), and `A·P = Q·R` (column `j` of
+/// `A·P` is column `permutation()[j]` of `A`). Tolerance is scaled by the matrix's magnitude and
+/// `f64::EPSILON`.
+///
+/// Rejects rather than asserts on inputs the generator turns up that are near rank-deficient (an
+/// `R` diagonal entry too small relative to the matrix's scale) — the factorization stays
+/// backward-stable regardless, but the reconstruction tolerance below would flake on the rare,
+/// mildly ill-conditioned draw.
+fn check_qr_property<const M: usize, const N: usize>(
+    entries: Vec<f64>,
+) -> Result<(), TestCaseError> {
+    let a = Matrix::<M, N>::try_from_row_slice(&entries).expect("M*N entries");
+    let scale = max_abs(a).max(1.0);
+
+    // M >= N is guaranteed by the generators below, so this never hits `Underdetermined`.
+    let f = PivotedQr::decompose(a).unwrap();
+    let r = f.r();
+    let q = f.q();
+    let perm = f.permutation();
+
+    let min_diag = (0..N).fold(f64::MAX, |acc, j| acc.min(r[(j, j)].abs()));
+    prop_assume!(min_diag >= 1e-6 * scale);
+
+    let tol = M.max(N) as f64 * scale * f64::EPSILON * 1e3;
+
+    // R is upper-triangular by construction; check anyway as a structural guard.
+    for row in 0..N {
+        for col in 0..row {
+            assert_eq!(r[(row, col)], 0.0);
+        }
+    }
+
+    assert_identity(q.transpose() * q, tol);
+
+    let ap = Matrix::<M, N>::from_fn(|i, c| a[(i, perm[c])]);
+    assert_matrix_close(q * r, ap, tol);
+
+    Ok(())
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(64))]
+
+    #[test]
+    fn proptest_qr_reconstructs_3x3(entries in prop::collection::vec(-8.0f64..8.0, 9)) {
+        check_qr_property::<3, 3>(entries)?;
+    }
+
+    #[test]
+    fn proptest_qr_reconstructs_5x5(entries in prop::collection::vec(-8.0f64..8.0, 25)) {
+        check_qr_property::<5, 5>(entries)?;
+    }
+
+    // Rectangular (overdetermined) case: more rows than columns.
+    #[test]
+    fn proptest_qr_reconstructs_6x3(entries in prop::collection::vec(-8.0f64..8.0, 18)) {
+        check_qr_property::<6, 3>(entries)?;
     }
 }
