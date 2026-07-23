@@ -1,6 +1,18 @@
 use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc_testkit::tol::{assert_identity, assert_matrix_close};
+use proptest::prelude::*;
+
+// A strategy for producing matrices in property-based tests.
+fn matrix_strategy<const ROWS: usize, const COLS: usize, S>(
+    num_strategy: S,
+) -> impl Strategy<Value = Matrix<ROWS, COLS>>
+where
+    S: Strategy<Value = f64>,
+{
+    prop::array::uniform::<_, ROWS>(prop::array::uniform::<_, COLS>(num_strategy))
+        .prop_map(Matrix::new)
+}
 
 // ----- matrix arithmetic, multiply, transpose -----
 
@@ -70,6 +82,47 @@ fn matrix_transpose() {
         (left * right).transpose(),
         right.transpose() * left.transpose()
     );
+}
+
+fn check_matrix_is_finite<const ROWS: usize, const COLS: usize>(m: Matrix<ROWS, COLS>) {
+    assert_eq!(
+        m.is_finite(),
+        m.into_array().iter().flatten().all(|x| x.is_finite())
+    );
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    #[test]
+    fn matrix_is_finite_1x1(m in matrix_strategy::<1, 1, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(m);
+    }
+
+    #[test]
+    fn matrix_is_finite_2x2(m in matrix_strategy::<2, 2, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(m);
+    }
+
+    #[test]
+    fn matrix_is_finite_3x3(m in matrix_strategy::<3, 3, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(m);
+    }
+
+    #[test]
+    fn matrix_is_finite_4x3(m in matrix_strategy::<4, 3, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(m);
+    }
+
+    #[test]
+    fn matrix_is_finite_3x4(m in matrix_strategy::<3, 4, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(m);
+    }
+
+    #[test]
+    fn matrix_is_finite_4x4(m in matrix_strategy::<4, 4, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(m);
+    }
 }
 
 // ----- determinant & inverse (specialized) -----
