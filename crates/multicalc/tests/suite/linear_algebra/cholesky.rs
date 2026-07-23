@@ -71,12 +71,12 @@ fn cholesky_solves() {
     let b = a * x_exact;
     let x = a.cholesky().unwrap().solve(b);
     for i in 0..3 {
-        assert!((x[i] - x_exact[i]).abs() < 1e-12);
+        assert!((x.as_array()[i] - x_exact.as_array()[i]).abs() < 1e-12);
     }
     assert!((a * x - b).norm() < 1e-12);
     let lu_x = a.lu().unwrap().solve(b);
     for i in 0..3 {
-        assert!((x[i] - lu_x[i]).abs() < 1e-12);
+        assert!((x.as_array()[i] - lu_x.as_array()[i]).abs() < 1e-12);
     }
 
     // Multiple RHS: A·X == B, and each column agrees with a single-RHS solve.
@@ -86,9 +86,9 @@ fn cholesky_solves() {
     let xm = f.solve_matrix(rhs);
     assert_matrix_close(s * xm, rhs, 1e-12);
     for c in 0..3 {
-        let single = f.solve(rhs.column(c));
+        let single = f.solve(rhs.try_column(c).unwrap());
         for r in 0..2 {
-            assert!((xm[(r, c)] - single[r]).abs() < 1e-12);
+            assert!((xm.get(r, c).copied().unwrap() - single.as_array()[r]).abs() < 1e-12);
         }
     }
 }

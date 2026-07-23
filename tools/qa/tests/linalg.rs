@@ -14,23 +14,21 @@ use multicalc_qa::load::*;
 use multicalc_qa::schema::*;
 
 fn assert_identity_f64<const N: usize>(m: &Matrix<N, N>, t: Tol, ctx: &str) {
+    let m = *m.as_slice_rows();
     for i in 0..N {
         for j in 0..N {
             let want = if i == j { 1.0 } else { 0.0 };
-            assert!(
-                close(m[(i, j)], want, t),
-                "{ctx}: ({i},{j}) = {}",
-                m[(i, j)]
-            );
+            assert!(close(m[i][j], want, t), "{ctx}: ({i},{j}) = {}", m[i][j]);
         }
     }
 }
 
 fn assert_identity_f32<const N: usize>(m: &Matrix<N, N, f32>, t: Tol, ctx: &str) {
+    let m = *m.as_slice_rows();
     for i in 0..N {
         for j in 0..N {
             let want = if i == j { 1.0 } else { 0.0 };
-            assert!(close(m[(i, j)] as f64, want, t), "{ctx}: ({i},{j})");
+            assert!(close(m[i][j] as f64, want, t), "{ctx}: ({i},{j})");
         }
     }
 }
@@ -41,9 +39,11 @@ fn assert_mat_close<const R: usize, const C: usize>(
     t: Tol,
     ctx: &str,
 ) {
+    let got = *got.as_slice_rows();
+    let want = *want.as_slice_rows();
     for i in 0..R {
         for j in 0..C {
-            assert!(close(got[(i, j)], want[(i, j)], t), "{ctx}: ({i},{j})");
+            assert!(close(got[i][j], want[i][j], t), "{ctx}: ({i},{j})");
         }
     }
 }
@@ -54,10 +54,12 @@ fn assert_mat_close_f32<const R: usize, const C: usize>(
     t: Tol,
     ctx: &str,
 ) {
+    let got = *got.as_slice_rows();
+    let want = *want.as_slice_rows();
     for i in 0..R {
         for j in 0..C {
             assert!(
-                close(got[(i, j)] as f64, want[(i, j)] as f64, t),
+                close(got[i][j] as f64, want[i][j] as f64, t),
                 "{ctx}: ({i},{j})"
             );
         }
@@ -123,14 +125,16 @@ fn run_qr<const R: usize, const C: usize>(fx: &Fixture) {
     // Self-identities from multicalc's own factors.
     let (q, r, perm) = (qr.q(), qr.r(), qr.permutation());
     assert_identity_f64(&(q.transpose() * q), t, "QtQ");
-    let ap = Matrix::<R, C>::from_fn(|i, c| a[(i, perm[c])]);
+    let aa = *a.as_slice_rows();
+    let ap = Matrix::<R, C>::from_fn(|i, c| aa[i][perm[c]]);
     assert_mat_close(&(q * r), &ap, t, "Q*R=A*P");
 
     // f32 identity only: reconstruct A*P.
     let a32 = to_matrix_f32::<R, C>(&fx.inputs["A"]);
     let qr32 = PivotedQr::decompose(a32).unwrap();
     let (q32, r32, perm32) = (qr32.q(), qr32.r(), qr32.permutation());
-    let ap32 = Matrix::<R, C, f32>::from_fn(|i, c| a32[(i, perm32[c])]);
+    let aa32 = *a32.as_slice_rows();
+    let ap32 = Matrix::<R, C, f32>::from_fn(|i, c| aa32[i][perm32[c]]);
     assert_mat_close_f32(
         &(q32 * r32),
         &ap32,
@@ -177,7 +181,10 @@ fn run_svd<const R: usize, const C: usize>(fx: &Fixture) {
 
     // Self-identity: A = U*diag(s)*Vt.
     let (u, s, v) = (f.u(), f.singular_values(), f.v());
-    let recon = Matrix::<R, C>::from_fn(|i, j| (0..C).map(|k| u[(i, k)] * s[k] * v[(j, k)]).sum());
+    let ua = *u.as_slice_rows();
+    let sa = *s.as_array();
+    let va = *v.as_slice_rows();
+    let recon = Matrix::<R, C>::from_fn(|i, j| (0..C).map(|k| ua[i][k] * sa[k] * va[j][k]).sum());
     assert_mat_close(&recon, &a, t, "U*S*Vt");
 
     // Four Moore-Penrose conditions on the unique pseudo-inverse.
@@ -192,8 +199,11 @@ fn run_svd<const R: usize, const C: usize>(fx: &Fixture) {
     let a32 = to_matrix_f32::<R, C>(&fx.inputs["A"]);
     let f32 = a32.svd().unwrap();
     let (u32, s32, v32) = (f32.u(), f32.singular_values(), f32.v());
+    let ua32 = *u32.as_slice_rows();
+    let sa32 = *s32.as_array();
+    let va32 = *v32.as_slice_rows();
     let recon32 = Matrix::<R, C, f32>::from_fn(|i, j| {
-        (0..C).map(|k| u32[(i, k)] * s32[k] * v32[(j, k)]).sum()
+        (0..C).map(|k| ua32[i][k] * sa32[k] * va32[j][k]).sum()
     });
     assert_mat_close_f32(
         &recon32,

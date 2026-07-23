@@ -193,7 +193,10 @@ use multicalc::ode::{Rk4, Rk45};
 use multicalc::linear_algebra::Vector;
 
 // Harmonic oscillator y'' = -y as the first-order system [position, velocity].
-let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+let f = |_t: f64, y: &Vector<2, f64>| {
+  let [y0, y1] = *y.as_array();
+  Vector::new([y1, -y0])
+};
 let y0 = Vector::new([1.0, 0.0]);
 
 let step = Rk4::step(&f, 0.0, &y0, 0.1);       // one fixed RK4 step of size 0.1

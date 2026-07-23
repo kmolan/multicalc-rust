@@ -19,13 +19,16 @@ fn exp_decay_matches_closed_form() {
         steps,
         |_, _| {},
     );
-    assert!((yf[0] - (-1.0_f64).exp()).abs() < 1e-9);
+    assert!((yf.as_array()[0] - (-1.0_f64).exp()).abs() < 1e-9);
 }
 
 #[test]
 fn harmonic_matches_closed_form() {
     // y'' = -y as [y2, -y1]; over one period the state returns to [cos, -sin].
-    let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+    let f = |_t: f64, y: &Vector<2, f64>| {
+        let [y0, y1] = *y.as_array();
+        Vector::new([y1, -y0])
+    };
     let tf = core::f64::consts::TAU;
     let steps = 2000;
     let yf = Rk4::integrate(
@@ -36,8 +39,8 @@ fn harmonic_matches_closed_form() {
         steps,
         |_, _| {},
     );
-    assert!((yf[0] - tf.cos()).abs() < 1e-7);
-    assert!((yf[1] - (-tf.sin())).abs() < 1e-7);
+    assert!((yf.as_array()[0] - tf.cos()).abs() < 1e-7);
+    assert!((yf.as_array()[1] - (-tf.sin())).abs() < 1e-7);
 }
 
 #[test]
@@ -53,7 +56,7 @@ fn fourth_order_convergence() {
             steps,
             |_, _| {},
         );
-        (yf[0] - exact).abs()
+        (yf.as_array()[0] - exact).abs()
     };
     let ratio = err(50) / err(100);
     assert!((12.0..=20.0).contains(&ratio), "convergence ratio {ratio}");
@@ -77,7 +80,7 @@ fn ad_through_rk4_matches_fd() {
         steps,
         |_, _| {},
     );
-    let ad = yf[0].deriv;
+    let ad = yf.as_array()[0].deriv;
     assert!((ad - (-tf).exp()).abs() < 1e-6);
 
     let run = |a0: f64| {
@@ -88,7 +91,8 @@ fn ad_through_rk4_matches_fd() {
             tf / steps as f64,
             steps,
             |_, _| {},
-        )[0]
+        )
+        .as_array()[0]
     };
     let h = 1e-6;
     let fd = (run(a + h) - run(a - h)) / (2.0 * h);
@@ -98,7 +102,10 @@ fn ad_through_rk4_matches_fd() {
 #[test]
 fn f32_energy_round_trip() {
     // Harmonic oscillator at f32 over one period conserves y0^2 + y1^2 = 1.
-    let f = |_t: f32, y: &Vector<2, f32>| Vector::new([y[1], -y[0]]);
+    let f = |_t: f32, y: &Vector<2, f32>| {
+        let [y0, y1] = *y.as_array();
+        Vector::new([y1, -y0])
+    };
     let tf = core::f32::consts::TAU;
     let steps = 2000;
     let yf = Rk4::integrate(
@@ -109,6 +116,7 @@ fn f32_energy_round_trip() {
         steps,
         |_, _| {},
     );
+    let yf = *yf.as_array();
     let energy = yf[0] * yf[0] + yf[1] * yf[1];
     assert!((energy - 1.0).abs() < 1e-3);
 }

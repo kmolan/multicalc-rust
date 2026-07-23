@@ -35,14 +35,17 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
     /// let a = Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
     /// let svd = a.svd().unwrap();
     /// let (u, s, v) = (svd.u(), svd.singular_values(), svd.v());
-    /// // U · diag(σ) · Vᵀ == A.
+    /// let ua = u.into_array();
+    /// let sa = s.into_array();
+    /// let va = v.into_array();
+    /// let aa = a.into_array();
     /// for r in 0..3 {
     ///     for c in 0..2 {
     ///         let mut acc = 0.0;
     ///         for k in 0..2 {
-    ///             acc += u[(r, k)] * s[k] * v[(c, k)];
+    ///             acc += ua[r][k] * sa[k] * va[c][k];
     ///         }
-    ///         assert!((acc - a[(r, c)]).abs() < 1e-12);
+    ///         assert!((acc - aa[r][c]).abs() < 1e-12);
     ///     }
     /// }
     /// ```
@@ -58,13 +61,17 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
     /// let at = a.transpose();
     /// let svd = at.svd().unwrap();
     /// let (u, s, v) = (svd.u(), svd.singular_values(), svd.v());
+    /// let ua = u.into_array();
+    /// let sa = s.into_array();
+    /// let va = v.into_array();
+    /// let aa = at.into_array();
     /// for r in 0..3 {
     ///     for c in 0..2 {
     ///         let mut acc = 0.0;
     ///         for k in 0..2 {
-    ///             acc += u[(r, k)] * s[k] * v[(c, k)];
+    ///             acc += ua[r][k] * sa[k] * va[c][k];
     ///         }
-    ///         assert!((acc - at[(r, c)]).abs() < 1e-12);
+    ///         assert!((acc - aa[r][c]).abs() < 1e-12);
     ///     }
     /// }
     /// ```
@@ -72,12 +79,8 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
         if M < N {
             return Err(LinalgError::Underdetermined);
         }
-        for r in 0..M {
-            for c in 0..N {
-                if !self[(r, c)].is_finite() {
-                    return Err(LinalgError::NonFinite);
-                }
-            }
+        if !self.is_finite() {
+            return Err(LinalgError::NonFinite);
         }
 
         let mut u = self;
@@ -89,8 +92,8 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
             let mut off_max = T::ZERO;
             for p in 0..N {
                 for q in (p + 1)..N {
-                    let cp = u.column(p);
-                    let cq = u.column(q);
+                    let Some(cp) = u.try_column(p) else { continue };
+                    let Some(cq) = u.try_column(q) else { continue };
                     let alpha = cp.norm_squared();
                     let beta = cq.norm_squared();
                     let gamma = cp.dot(cq);
@@ -112,16 +115,30 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
                     let c = T::ONE / (T::ONE + t * t).sqrt();
                     let s = c * t;
                     for i in 0..M {
-                        let up = u[(i, p)];
-                        let uq = u[(i, q)];
-                        u[(i, p)] = c * up - s * uq;
-                        u[(i, q)] = s * up + c * uq;
+                        let rows = u.as_mut_slice_rows();
+                        let Some(row) = rows.get_mut(i) else { continue };
+                        let (Some(&up), Some(&uq)) = (row.get(p), row.get(q)) else {
+                            continue;
+                        };
+                        if let Some(slot) = row.get_mut(p) {
+                            *slot = c * up - s * uq;
+                        }
+                        if let Some(slot) = row.get_mut(q) {
+                            *slot = s * up + c * uq;
+                        }
                     }
                     for i in 0..N {
-                        let vp = v[(i, p)];
-                        let vq = v[(i, q)];
-                        v[(i, p)] = c * vp - s * vq;
-                        v[(i, q)] = s * vp + c * vq;
+                        let rows = v.as_mut_slice_rows();
+                        let Some(row) = rows.get_mut(i) else { continue };
+                        let (Some(&vp), Some(&vq)) = (row.get(p), row.get(q)) else {
+                            continue;
+                        };
+                        if let Some(slot) = row.get_mut(p) {
+                            *slot = c * vp - s * vq;
+                        }
+                        if let Some(slot) = row.get_mut(q) {
+                            *slot = s * vp + c * vq;
+                        }
                     }
                 }
             }
@@ -133,11 +150,16 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
         // The column norms are the singular values; normalize U's columns by them.
         let mut singular_values = Vector::<N, T>::zeros();
         for k in 0..N {
-            let sigma = u.column(k).norm();
-            singular_values[k] = sigma;
+            let Some(col) = u.try_column(k) else { continue };
+            let sigma = col.norm();
+            if let Some(slot) = singular_values.get_mut(k) {
+                *slot = sigma;
+            }
             if sigma > T::ZERO {
-                for i in 0..M {
-                    u[(i, k)] /= sigma;
+                for row in u.as_mut_slice_rows() {
+                    if let Some(x) = row.get_mut(k) {
+                        *x /= sigma;
+                    }
                 }
             }
         }
@@ -146,44 +168,46 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
         for k in 0..N {
             let mut top = k;
             for j in (k + 1)..N {
-                if singular_values[j] > singular_values[top] {
+                let (Some(&sj), Some(&st)) = (singular_values.get(j), singular_values.get(top))
+                else {
+                    continue;
+                };
+                if sj > st {
                     top = j;
                 }
             }
             if top != k {
-                let tmp = singular_values[k];
-                singular_values[k] = singular_values[top];
-                singular_values[top] = tmp;
-                for i in 0..M {
-                    let tmp = u[(i, k)];
-                    u[(i, k)] = u[(i, top)];
-                    u[(i, top)] = tmp;
+                singular_values.as_mut_slice().swap(k, top);
+                for row in u.as_mut_slice_rows() {
+                    row.swap(k, top);
                 }
-                for i in 0..N {
-                    let tmp = v[(i, k)];
-                    v[(i, k)] = v[(i, top)];
-                    v[(i, top)] = tmp;
+                for row in v.as_mut_slice_rows() {
+                    row.swap(k, top);
                 }
             }
         }
 
         // Sign convention: the largest-magnitude entry of each U column is positive.
         for k in 0..N {
-            let mut row = 0;
+            let Some(col) = u.try_column(k) else { continue };
             let mut best = T::ZERO;
-            for i in 0..M {
-                let mag = u[(i, k)].abs();
-                if mag > best {
-                    best = mag;
-                    row = i;
+            let mut flip = false;
+            for &x in col.as_array() {
+                if x.abs() > best {
+                    best = x.abs();
+                    flip = x < T::ZERO;
                 }
             }
-            if u[(row, k)] < T::ZERO {
-                for i in 0..M {
-                    u[(i, k)] = -u[(i, k)];
+            if flip {
+                for row in u.as_mut_slice_rows() {
+                    if let Some(x) = row.get_mut(k) {
+                        *x = -*x;
+                    }
                 }
-                for i in 0..N {
-                    v[(i, k)] = -v[(i, k)];
+                for row in v.as_mut_slice_rows() {
+                    if let Some(x) = row.get_mut(k) {
+                        *x = -*x;
+                    }
                 }
             }
         }
@@ -206,9 +230,11 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
     /// let a = Matrix::<2, 3>::new([[1.0, 0.0, 2.0], [0.0, 1.0, 1.0]]);
     /// let pinv = a.pseudo_inverse().unwrap();
     /// let recon = a * pinv * a; // A·A⁺·A == A
+    /// let ra = recon.into_array();
+    /// let aa = a.into_array();
     /// for r in 0..2 {
     ///     for c in 0..3 {
-    ///         assert!((recon[(r, c)] - a[(r, c)]).abs() < 1e-12);
+    ///         assert!((ra[r][c] - aa[r][c]).abs() < 1e-12);
     ///     }
     /// }
     /// ```
@@ -250,7 +276,10 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
     pub fn rank(&self, tol: T) -> usize {
         let mut count = 0;
         for k in 0..N {
-            if self.singular_values[k] > tol {
+            let Some(&s) = self.singular_values.get(k) else {
+                continue;
+            };
+            if s > tol {
                 count += 1;
             }
         }
@@ -270,11 +299,15 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
         if N == 0 {
             return T::INFINITY;
         }
-        let smallest = self.singular_values[N - 1];
+        let (Some(&largest), Some(&smallest)) =
+            (self.singular_values.get(0), self.singular_values.get(N - 1))
+        else {
+            return T::INFINITY;
+        };
         if smallest <= T::ZERO {
             T::INFINITY
         } else {
-            self.singular_values[0] / smallest
+            largest / smallest
         }
     }
 
@@ -283,7 +316,10 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
         if N == 0 {
             return T::ZERO;
         }
-        T::from_usize(M.max(N)) * T::EPSILON * self.singular_values[0]
+        let Some(&s0) = self.singular_values.get(0) else {
+            return T::ZERO;
+        };
+        T::from_usize(M.max(N)) * T::EPSILON * s0
     }
 
     /// The Moore–Penrose pseudo-inverse `V · Σ⁺ · Uᵀ`, dropping singular values `<= tol`.
@@ -291,9 +327,13 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
         Matrix::from_fn(|i, j| {
             let mut acc = T::ZERO;
             for k in 0..N {
-                let sigma = self.singular_values[k];
+                let Some(&sigma) = self.singular_values.get(k) else {
+                    continue;
+                };
                 if sigma > tol {
-                    acc += self.v[(i, k)] * self.u[(j, k)] / sigma;
+                    let vik = self.v.get(i, k).copied().unwrap_or(T::ZERO);
+                    let ujk = self.u.get(j, k).copied().unwrap_or(T::ZERO);
+                    acc += vik * ujk / sigma;
                 }
             }
             acc
@@ -307,9 +347,11 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
     /// let a = Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
     /// let pinv = a.svd().unwrap().pseudo_inverse();
     /// let recon = a * pinv * a; // A·A⁺·A == A
+    /// let ra = recon.into_array();
+    /// let aa = a.into_array();
     /// for r in 0..3 {
     ///     for c in 0..2 {
-    ///         assert!((recon[(r, c)] - a[(r, c)]).abs() < 1e-12);
+    ///         assert!((ra[r][c] - aa[r][c]).abs() < 1e-12);
     ///     }
     /// }
     /// ```
@@ -326,16 +368,25 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
     /// // Overdetermined and consistent: the exact solution is x = [1, 2].
     /// let a = Matrix::<3, 2>::new([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]);
     /// let x = a.svd().unwrap().solve(Vector::new([1.0, 2.0, 3.0]));
-    /// assert!((x[0] - 1.0).abs() < 1e-12);
-    /// assert!((x[1] - 2.0).abs() < 1e-12);
+    /// let [x0, x1] = *x.as_array();
+    /// assert!((x0 - 1.0).abs() < 1e-12);
+    /// assert!((x1 - 2.0).abs() < 1e-12);
     /// ```
     pub fn solve(&self, b: Vector<M, T>) -> Vector<N, T> {
         let tol = self.default_tol();
         let mut z = Vector::<N, T>::zeros();
         for k in 0..N {
-            let sigma = self.singular_values[k];
-            if sigma > tol {
-                z[k] = self.u.column(k).dot(b) / sigma;
+            let Some(&sigma) = self.singular_values.get(k) else {
+                continue;
+            };
+            if sigma <= tol {
+                continue;
+            }
+            let Some(col) = self.u.try_column(k) else {
+                continue;
+            };
+            if let Some(slot) = z.get_mut(k) {
+                *slot = col.dot(b) / sigma;
             }
         }
         self.v * z

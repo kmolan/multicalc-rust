@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Const-evaluable solver constructors, AutoDiff `new()`, and Gaussian quadrature node
   tables / `nodes`. @rtmongold (#168)
 - Add `Matrix::try_row` / `try_column` (`Option`, OOB -> `None`). @rtmongold (#185)
+- Add `Vector`/`Matrix` `get` / `get_mut` and `Matrix::as_mut_slice_rows`. @rtmongold (#185)
 
 ### Fixed
 
@@ -20,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RK45 now handles zero-dimensional states without producing NaN norms. (#159)
 - 2×2/3×3/4×4 `Matrix::inverse` reject near-singular inputs via an
   `EPSILON`-scaled det check instead of exact `det == 0`. @rtmongold (#181)
+
+### Removed
+
+- Remove panicking `Vector`/`Matrix` `Index`/`IndexMut` and `Matrix::row`/`column`.
+  Use `get`/`get_mut`, `try_row`/`try_column`, or `as_array()`/`into_array()`. @rtmongold (#185)
 
 ## [0.8.0] - 2026-07-16
 

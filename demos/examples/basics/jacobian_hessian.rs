@@ -21,16 +21,16 @@ fn main() {
     for row in 0..2 {
         println!(
             "  [{:.4}, {:.4}, {:.4}]",
-            result[(row, 0)],
-            result[(row, 1)],
-            result[(row, 2)]
+            result.get(row, 0).copied().unwrap(),
+            result.get(row, 1).copied().unwrap(),
+            result.get(row, 2).copied().unwrap()
         );
     }
     println!("  (exact [[6, 3, 2], [2, 4, 0]])");
     let exact = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
-    for i in 0..2 {
-        for j in 0..3 {
-            assert!((result[(i, j)] - exact[i][j]).abs() < 1e-9);
+    for (i, row) in exact.iter().enumerate() {
+        for (j, &want) in row.iter().enumerate() {
+            assert!((result.get(i, j).copied().unwrap() - want).abs() < 1e-9);
         }
     }
 
@@ -41,7 +41,11 @@ fn main() {
 
     println!("\nHessian of y*sin(x) + 2*x*e^y at [1, 2]:");
     for row in 0..2 {
-        println!("  [{:.4}, {:.4}]", result[(row, 0)], result[(row, 1)]);
+        println!(
+            "  [{:.4}, {:.4}]",
+            result.get(row, 0).copied().unwrap(),
+            result.get(row, 1).copied().unwrap()
+        );
     }
     // only the upper triangle is evaluated; the symmetric entries are mirrored
 }

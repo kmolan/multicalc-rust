@@ -27,7 +27,8 @@ fn max_abs<const R: usize, const C: usize>(a: Matrix<R, C>, b: Matrix<R, C>) -> 
     let mut worst = 0.0f64;
     for r in 0..R {
         for c in 0..C {
-            worst = worst.max((a[(r, c)] - b[(r, c)]).abs());
+            worst =
+                worst.max((a.get(r, c).copied().unwrap() - b.get(r, c).copied().unwrap()).abs());
         }
     }
     worst
@@ -62,7 +63,7 @@ fn lu_report<const N: usize>(a: Matrix<N, N>, label: &str) {
 
     // Reconstruction: row i of P·A is row perm[i] of A, and P·A == L·U.
     let perm = f.permutation();
-    let pa = Matrix::<N, N>::from_fn(|i, c| a[(perm[i], c)]);
+    let pa = Matrix::<N, N>::from_fn(|i, c| a.get(perm[i], c).copied().unwrap());
     let recon = max_abs(pa, f.l() * f.u());
 
     let residual = (a * f.solve(b) - b).norm();
@@ -82,7 +83,9 @@ fn cholesky_report<const N: usize>(a: Matrix<N, N>, label: &str) {
     let residual = (a * x - b).norm();
     // Agreement with the general LU solve on the same system.
     let lu_x = a.lu().unwrap().solve(b);
-    let vs_lu = (0..N).map(|i| (x[i] - lu_x[i]).abs()).fold(0.0, f64::max);
+    let vs_lu = (0..N)
+        .map(|i| (x.as_array()[i] - lu_x.as_array()[i]).abs())
+        .fold(0.0, f64::max);
 
     println!(
         "  {label:<14} {ns:>8.1} ns   A-LLt {recon:.1e}   residual {residual:.1e}   vs LU {vs_lu:.1e}"

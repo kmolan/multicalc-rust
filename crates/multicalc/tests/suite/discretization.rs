@@ -17,7 +17,7 @@ fn expm_zero_is_identity() {
     for i in 0..4 {
         for j in 0..4 {
             let want = if i == j { 1.0 } else { 0.0 };
-            assert!((e[(i, j)] - want).abs() < 1e-12);
+            assert!((e.get(i, j).copied().unwrap() - want).abs() < 1e-12);
         }
     }
 }
@@ -27,7 +27,7 @@ fn expm_diagonal_is_elementwise_exp() {
     let d = mat3([[0.5, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, 2.0]]);
     let e = d.expm().unwrap();
     for (i, x) in [0.5_f64, -1.0, 2.0].into_iter().enumerate() {
-        assert!((e[(i, i)] - x.exp()).abs() < 1e-10);
+        assert!((e.get(i, i).copied().unwrap() - x.exp()).abs() < 1e-10);
     }
 }
 
@@ -35,13 +35,15 @@ fn expm_diagonal_is_elementwise_exp() {
 fn expm_derivative_finite_and_correct() {
     // d/dx expm(x·M)|_{x=0} = M. One Dual through expm; compare to central FD.
     let m = mat3([[0.1, 0.4, -0.2], [0.0, -0.3, 0.5], [0.2, 0.1, 0.05]]);
-    let ad = Matrix::<3, 3, Dual<f64>>::from_fn(|i, j| Dual::new(0.0, m[(i, j)]))
-        .expm()
-        .unwrap();
+    let ad =
+        Matrix::<3, 3, Dual<f64>>::from_fn(|i, j| Dual::new(0.0, m.get(i, j).copied().unwrap()))
+            .expm()
+            .unwrap();
     for i in 0..3 {
         for j in 0..3 {
-            assert!(ad[(i, j)].deriv.is_finite());
-            assert!((ad[(i, j)].deriv - m[(i, j)]).abs() < 1e-9);
+            let cell = ad.get(i, j).copied().unwrap();
+            assert!(cell.deriv.is_finite());
+            assert!((cell.deriv - m.get(i, j).copied().unwrap()).abs() < 1e-9);
         }
     }
 }
@@ -53,13 +55,13 @@ fn zoh_double_integrator() {
     let dt = 0.1;
     let (f, g) = zoh::<2, 1, 3, f64>(a, b, dt).unwrap();
     let want_f = [[1.0, dt], [0.0, 1.0]];
-    for i in 0..2 {
-        for j in 0..2 {
-            assert!((f[(i, j)] - want_f[i][j]).abs() < 1e-9);
+    for (i, row) in want_f.iter().enumerate() {
+        for (j, &want) in row.iter().enumerate() {
+            assert!((f.get(i, j).copied().unwrap() - want).abs() < 1e-9);
         }
     }
-    assert!((g[(0, 0)] - dt * dt / 2.0).abs() < 1e-9);
-    assert!((g[(1, 0)] - dt).abs() < 1e-9);
+    assert!((g.get(0, 0).copied().unwrap() - dt * dt / 2.0).abs() < 1e-9);
+    assert!((g.get(1, 0).copied().unwrap() - dt).abs() < 1e-9);
 }
 
 #[test]
@@ -71,8 +73,12 @@ fn van_loan_qd_symmetric_and_f_matches_expm() {
     let f_ref = a.scale(dt).expm().unwrap();
     for i in 0..3 {
         for j in 0..3 {
-            assert!((f[(i, j)] - f_ref[(i, j)]).abs() < 1e-9);
-            assert!((qd[(i, j)] - qd[(j, i)]).abs() < 1e-10);
+            assert!(
+                (f.get(i, j).copied().unwrap() - f_ref.get(i, j).copied().unwrap()).abs() < 1e-9
+            );
+            assert!(
+                (qd.get(i, j).copied().unwrap() - qd.get(j, i).copied().unwrap()).abs() < 1e-10
+            );
         }
     }
 }
@@ -81,10 +87,10 @@ fn van_loan_qd_symmetric_and_f_matches_expm() {
 fn qdwn_matches_closed_form() {
     let (dt, var) = (0.1, 2.0);
     let q = q_discrete_white_noise::<2, f64>(dt, var);
-    assert!((q[(0, 0)] - var * dt.powi(4) / 4.0).abs() < 1e-15);
-    assert!((q[(0, 1)] - var * dt.powi(3) / 2.0).abs() < 1e-15);
-    assert!((q[(1, 0)] - var * dt.powi(3) / 2.0).abs() < 1e-15);
-    assert!((q[(1, 1)] - var * dt * dt).abs() < 1e-15);
+    assert!((q.get(0, 0).copied().unwrap() - var * dt.powi(4) / 4.0).abs() < 1e-15);
+    assert!((q.get(0, 1).copied().unwrap() - var * dt.powi(3) / 2.0).abs() < 1e-15);
+    assert!((q.get(1, 0).copied().unwrap() - var * dt.powi(3) / 2.0).abs() < 1e-15);
+    assert!((q.get(1, 1).copied().unwrap() - var * dt * dt).abs() < 1e-15);
 }
 
 proptest! {
@@ -97,7 +103,7 @@ proptest! {
         for i in 0..3 {
             for j in 0..3 {
                 let want = if i == j { 1.0 } else { 0.0 };
-                prop_assert!((prod[(i, j)] - want).abs() < 1e-9);
+                prop_assert!((prod.get(i, j).copied().unwrap() - want).abs() < 1e-9);
             }
         }
     }

@@ -87,6 +87,7 @@ pub fn assert_scalar(got: f64, want: &Value, t: Tol, ctx: &str) {
 pub fn assert_vector<const N: usize>(got: &Vector<N>, want: &Value, t: Tol, ctx: &str) {
     let w = want.as_vector();
     assert_eq!(w.len(), N, "{ctx}: length");
+    let got = *got.as_array();
     for i in 0..N {
         assert!(
             close(got[i], w[i], t),
@@ -106,12 +107,13 @@ pub fn assert_matrix<const R: usize, const C: usize>(
 ) {
     let (r, c, w) = want.as_matrix();
     assert_eq!((r, c), (R, C), "{ctx}: shape");
+    let got = *got.as_slice_rows();
     for i in 0..R {
         for j in 0..C {
             assert!(
-                close(got[(i, j)], w[i * C + j], t),
+                close(got[i][j], w[i * C + j], t),
                 "{ctx}({i},{j}): got {}, want {}, tol {t:?}",
-                got[(i, j)],
+                got[i][j],
                 w[i * C + j]
             );
         }

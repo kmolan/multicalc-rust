@@ -40,7 +40,7 @@ fn tracker<T: Numeric>(
 }
 
 fn trace<const N: usize>(m: Matrix<N, N>) -> f64 {
-    (0..N).map(|i| m[(i, i)]).sum()
+    (0..N).map(|i| m.get(i, i).copied().unwrap()).sum()
 }
 
 /// Range and bearing to a known landmark, from a [x, y, heading] pose. Written once; its Jacobian
@@ -181,7 +181,7 @@ fn particle_filter() {
         filter.predict(&motion).unwrap();
         filter.update(&BeaconRanges, &sensor, measurement).unwrap();
 
-        let estimate = filter.mean();
+        let estimate = *filter.mean().as_array();
         println!(
             "  {step:4} | {:6.2} {:6.2} {:6.2} | {:5.0}",
             estimate[0],
@@ -191,8 +191,8 @@ fn particle_filter() {
         );
     }
 
-    let estimate = filter.mean();
-    let best = filter.maximum_a_posteriori_state();
+    let estimate = *filter.mean().as_array();
+    let best = *filter.maximum_a_posteriori_state().as_array();
     let heaviest_weight = filter.weights().iter().copied().fold(0.0_f64, f64::max);
     let position_spread = position_spread(&filter);
     println!(
@@ -229,10 +229,11 @@ fn particle_filter() {
 fn position_spread<R: multicalc::random::RandomSource>(
     filter: &multicalc::estimation::ParticleFilter<3, 4, f64, R>,
 ) -> f64 {
-    let mean = filter.mean();
+    let mean = *filter.mean().as_array();
     let mut variance = 0.0;
     for (particle, &weight) in filter.particles().iter().zip(filter.weights()) {
-        variance += weight * ((particle[0] - mean[0]).powi(2) + (particle[1] - mean[1]).powi(2));
+        let p = *particle.as_array();
+        variance += weight * ((p[0] - mean[0]).powi(2) + (p[1] - mean[1]).powi(2));
     }
     variance.sqrt()
 }
@@ -246,13 +247,21 @@ fn main() {
         filter.update(Vector::new([z])).unwrap();
     }
     println!("Exact two-step filter (P0 = I, Q = 0, R = 1, z = [1, 2])");
-    report("position", filter.state()[0], 5.0 / 3.0);
-    report("velocity", filter.state()[1], 2.0 / 3.0);
-    report("P[0,0]", filter.covariance()[(0, 0)], 2.0 / 3.0);
-    report("P[0,1] = P[1,0]", filter.covariance()[(0, 1)], 1.0 / 3.0);
+    report("position", filter.state().as_array()[0], 5.0 / 3.0);
+    report("velocity", filter.state().as_array()[1], 2.0 / 3.0);
+    report(
+        "P[0,0]",
+        filter.covariance().get(0, 0).copied().unwrap(),
+        2.0 / 3.0,
+    );
+    report(
+        "P[0,1] = P[1,0]",
+        filter.covariance().get(0, 1).copied().unwrap(),
+        1.0 / 3.0,
+    );
     report(
         "innovation covariance",
-        filter.innovation_covariance()[(0, 0)],
+        filter.innovation_covariance().get(0, 0).copied().unwrap(),
         3.0,
     );
 
@@ -273,12 +282,12 @@ fn main() {
             "  t = {:>2}s  measured {:>5.2}  ->  position {:>6.3}, velocity {:>6.3}  (trace P {:>7.4})",
             step + 1,
             z,
-            filter.state()[0],
-            filter.state()[1],
+            filter.state().as_array()[0],
+            filter.state().as_array()[1],
             trace(filter.covariance()),
         );
     }
-    let (position, velocity) = (filter.state()[0], filter.state()[1]);
+    let (position, velocity) = (filter.state().as_array()[0], filter.state().as_array()[1]);
     assert!(
         (position - 8.0).abs() < 0.3,
         "position should converge on the truth track"
@@ -305,10 +314,16 @@ fn main() {
         naive.update(Vector::new([*z])).unwrap();
     }
     println!("\nJoseph (default) vs naive covariance update");
-    report("state agreement", (naive.state()[0] - position).abs(), 0.0);
+    report(
+        "state agreement",
+        (naive.state().as_array()[0] - position).abs(),
+        0.0,
+    );
     report(
         "Joseph symmetry err",
-        (filter.covariance()[(0, 1)] - filter.covariance()[(1, 0)]).abs(),
+        (filter.covariance().get(0, 1).copied().unwrap()
+            - filter.covariance().get(1, 0).copied().unwrap())
+        .abs(),
         0.0,
     );
     assert!(
@@ -326,11 +341,11 @@ fn main() {
     println!("\nDriven filter (1 m/s² command through the control model)");
     println!(
         "  after 4 s: position {:.3}, velocity {:.3}",
-        driven.state()[0],
-        driven.state()[1]
+        driven.state().as_array()[0],
+        driven.state().as_array()[1]
     );
     assert!(
-        driven.state()[1] > 1.0,
+        driven.state().as_array()[1] > 1.0,
         "a sustained acceleration command must build velocity"
     );
 
@@ -354,9 +369,14 @@ fn main() {
     // gain formed independently from the prior covariance and the innovation covariance.
     let mut reference = tracker::<f64>(Matrix::identity(), Matrix::zeros(), Matrix::new([[0.25]]));
     reference.predict();
-    let prior_position_variance = reference.covariance()[(0, 0)];
+    let prior_position_variance = reference.covariance().get(0, 0).copied().unwrap();
     reference.update(Vector::new([1.0])).unwrap();
-    let gain = prior_position_variance / reference.innovation_covariance()[(0, 0)];
+    let gain = prior_position_variance
+        / reference
+            .innovation_covariance()
+            .get(0, 0)
+            .copied()
+            .unwrap();
 
     let mut differentiated = tracker::<Dual<f64>>(
         Matrix::identity(),
@@ -369,7 +389,11 @@ fn main() {
         .unwrap();
 
     println!("\nAutodiff: d(position)/d(measurement) equals the Kalman gain");
-    report("d(position)/dz", differentiated.state()[0].deriv, gain);
+    report(
+        "d(position)/dz",
+        differentiated.state().as_array()[0].deriv,
+        gain,
+    );
 
     // (7) The same tracking problem, made nonlinear: a range-and-bearing sighting of a known
     // landmark. The measurement model is written once as a plain function; its Jacobian is taken by
@@ -421,7 +445,7 @@ fn main() {
     println!("\nExtended filter reduces to the linear filter on linear models");
     report(
         "state agreement",
-        (reduced.state()[0] - linear.state()[0]).abs(),
+        (reduced.state().as_array()[0] - linear.state().as_array()[0]).abs(),
         0.0,
     );
 
@@ -456,18 +480,18 @@ fn main() {
     println!("\nAngle wrapping near ±π (true heading error ≈ 0.08 rad)");
     println!(
         "  update (plain subtraction): heading -> {:>7.3}",
-        unwrapped.state()[0]
+        unwrapped.state().as_array()[0]
     );
     println!(
         "  update_with_residual (wrapped): heading -> {:>7.3}",
-        wrapped.state()[0]
+        wrapped.state().as_array()[0]
     );
     assert!(
-        wrapped.state()[0] > 3.0,
+        wrapped.state().as_array()[0] > 3.0,
         "the wrapped residual nudges the estimate a little past +π"
     );
     assert!(
-        unwrapped.state()[0] < 0.0,
+        unwrapped.state().as_array()[0] < 0.0,
         "the plain residual throws the estimate across the circle"
     );
 

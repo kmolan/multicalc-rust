@@ -53,7 +53,8 @@ fn assert_close_q(a: Quaternion<f64>, b: Quaternion<f64>, tol: f64) {
 
 fn assert_close_v(a: Vector<3, f64>, b: Vector<3, f64>, tol: f64) {
     for i in 0..3 {
-        assert!((a[i] - b[i]).abs() < tol, "{} vs {}", a[i], b[i]);
+        let (ai, bi) = (a.as_array()[i], b.as_array()[i]);
+        assert!((ai - bi).abs() < tol, "{ai} vs {bi}");
     }
 }
 
@@ -62,7 +63,7 @@ fn assert_rot_close(a: Quaternion<f64>, b: Quaternion<f64>, tol: f64) {
     let (ra, rb) = (a.to_rotation_matrix(), b.to_rotation_matrix());
     for r in 0..3 {
         for c in 0..3 {
-            assert!((ra[(r, c)] - rb[(r, c)]).abs() < tol);
+            assert!((ra.get(r, c).copied().unwrap() - rb.get(r, c).copied().unwrap()).abs() < tol);
         }
     }
 }
@@ -87,7 +88,12 @@ fn rotation_matrix_goldens() {
     let expect_x = Matrix::new([[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]]);
     for r in 0..3 {
         for c in 0..3 {
-            assert!((qx.to_rotation_matrix()[(r, c)] - expect_x[(r, c)]).abs() < TOL);
+            assert!(
+                (qx.to_rotation_matrix().get(r, c).copied().unwrap()
+                    - expect_x.get(r, c).copied().unwrap())
+                .abs()
+                    < TOL
+            );
         }
     }
 
@@ -96,7 +102,12 @@ fn rotation_matrix_goldens() {
     let expect_c = Matrix::new([[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]);
     for r in 0..3 {
         for c in 0..3 {
-            assert!((qc.to_rotation_matrix()[(r, c)] - expect_c[(r, c)]).abs() < TOL);
+            assert!(
+                (qc.to_rotation_matrix().get(r, c).copied().unwrap()
+                    - expect_c.get(r, c).copied().unwrap())
+                .abs()
+                    < TOL
+            );
         }
     }
 }
@@ -168,7 +179,7 @@ fn rotation_matrix_orthonormal() {
         for r in 0..3 {
             for c in 0..3 {
                 let expect = if r == c { 1.0 } else { 0.0 };
-                assert!((should_be_i[(r, c)] - expect).abs() < 1e-12);
+                assert!((should_be_i.get(r, c).copied().unwrap() - expect).abs() < 1e-12);
             }
         }
         assert!((m.determinant() - 1.0).abs() < 1e-12);
@@ -266,7 +277,8 @@ fn exp_matches_from_scaled_axis() {
         // For a pure-vector quaternion v, exp(v) is the rotation from_scaled_axis(2v).
         let theta = rng.gen_range(0.0..0.49 * PI);
         let v = rand_unit_vec(&mut rng) * theta;
-        let qv = Quaternion::new(0.0, v[0], v[1], v[2]);
+        let [vx, vy, vz] = *v.as_array();
+        let qv = Quaternion::new(0.0, vx, vy, vz);
         assert_rot_close(qv.exp(), Quaternion::from_scaled_axis(v * 2.0), 1e-11);
     }
     // Both branches stay finite and unit at exactly zero.
@@ -335,7 +347,8 @@ fn transform_point_properties() {
 /// Rotates x̂ by `angle` about ẑ and returns the x-component, which is `cos(angle)`.
 fn rotated_component<T: Numeric>(angle: T) -> T {
     let q = Quaternion::from_axis_angle(Vector::new([T::ZERO, T::ZERO, T::ONE]), angle);
-    q.transform_point(Vector::new([T::ONE, T::ZERO, T::ZERO]))[0]
+    q.transform_point(Vector::new([T::ONE, T::ZERO, T::ZERO]))
+        .as_array()[0]
 }
 
 #[test]
@@ -357,7 +370,8 @@ fn ad_matches_finite_difference() {
 fn scaled_axis_component<T: Numeric>(t: T) -> T {
     let phi = Vector::new([T::ZERO, T::ZERO, T::ONE]) * t;
     let q = Quaternion::from_scaled_axis(phi);
-    q.transform_point(Vector::new([T::ONE, T::ZERO, T::ZERO]))[1]
+    q.transform_point(Vector::new([T::ONE, T::ZERO, T::ZERO]))
+        .as_array()[1]
 }
 
 #[test]
@@ -395,7 +409,7 @@ fn f32_identities() {
         for r in 0..3 {
             for c in 0..3 {
                 let expect = if r == c { 1.0 } else { 0.0 };
-                assert!((i[(r, c)] - expect).abs() < 1e-4);
+                assert!((i.get(r, c).copied().unwrap() - expect).abs() < 1e-4);
             }
         }
 
@@ -404,7 +418,9 @@ fn f32_identities() {
         let (ra, rb) = (q.to_rotation_matrix(), back.to_rotation_matrix());
         for r in 0..3 {
             for c in 0..3 {
-                assert!((ra[(r, c)] - rb[(r, c)]).abs() < 1e-4);
+                assert!(
+                    (ra.get(r, c).copied().unwrap() - rb.get(r, c).copied().unwrap()).abs() < 1e-4
+                );
             }
         }
     }

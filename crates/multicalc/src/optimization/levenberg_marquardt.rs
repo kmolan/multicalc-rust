@@ -185,13 +185,14 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
                 let update = determine_lambda_and_parameter_update(&dls, &diag, delta, par);
                 par = update.lambda;
                 let p = update.step;
-                let pnorm = enorm(&core::array::from_fn::<_, N, _>(|j| diag[j] * p[j]));
+                let pa = *p.as_array();
+                let pnorm = enorm(&core::array::from_fn::<_, N, _>(|j| diag[j] * pa[j]));
                 if first {
                     delta = min(delta, pnorm);
                     first = false;
                 }
 
-                let x_new: [D::Scalar; N] = core::array::from_fn(|j| x[j] - p[j]);
+                let x_new: [D::Scalar; N] = core::array::from_fn(|j| x[j] - pa[j]);
                 let residuals_new = f.eval(&x_new);
                 evaluations += 1;
                 if !is_finite(&residuals_new) {

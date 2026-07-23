@@ -52,9 +52,9 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     ///
     ///
     /// let jacobian: Jacobian = Jacobian::default();
-    /// let result = jacobian.get(&f, &[1.0, 2.0, 3.0]).unwrap();
+    /// let result = jacobian.get(&f, &[1.0, 2.0, 3.0]).unwrap().into_array();
     /// // result is [[6, 3, 2], [2, 4, 0]]
-    /// assert!(f64::abs(result[(0, 0)] - 6.0) < 1e-12);
+    /// assert!(f64::abs(result[0][0] - 6.0) < 1e-12);
     /// ```
     pub fn get<F: VectorFn<NUM_VARS, NUM_FUNCS>, const NUM_FUNCS: usize, const NUM_VARS: usize>(
         &self,
@@ -72,7 +72,9 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
                 .derivator
                 .jacobian_column(function, n, vector_of_points)?;
             for (m, &value) in column.iter().enumerate() {
-                result[(m, n)] = value;
+                if let Some(slot) = result.get_mut(m, n) {
+                    *slot = value;
+                }
             }
         }
 

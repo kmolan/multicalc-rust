@@ -23,7 +23,10 @@ fn main() {
 
 fn harmonic_oscillator() {
     // y1' = y2 ; y2' = -y1
-    let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+    let f = |_t: f64, y: &Vector<2, f64>| {
+        let [y0, y1] = *y.as_array();
+        Vector::new([y1, -y0])
+    };
     let y0 = Vector::new([1.0, 0.0]);
     let exact = |t: f64| [t.cos(), -t.sin()];
 
@@ -33,13 +36,16 @@ fn harmonic_oscillator() {
     let mut max_err = 0.0_f64;
     let yf = Rk4::integrate(&f, 0.0, &y0, dt, steps, |t, y| {
         let e = exact(t);
-        max_err = max_err.max((y[0] - e[0]).abs()).max((y[1] - e[1]).abs());
+        max_err = max_err
+            .max((y.as_array()[0] - e[0]).abs())
+            .max((y.as_array()[1] - e[1]).abs());
     });
     println!("Harmonic oscillator y'' = -y");
     println!("  RK4  {steps} steps over [0, 2*pi]");
     println!(
         "    y(2*pi) = [{:.12}, {:.12}]  max|err| = {max_err:.2e}",
-        yf[0], yf[1]
+        yf.as_array()[0],
+        yf.as_array()[1]
     );
     assert!(
         max_err < 1e-3,
@@ -53,9 +59,11 @@ fn harmonic_oscillator() {
     println!("  RK45 adaptive solve to t = 2*pi (rtol 1e-9)");
     println!(
         "    y(2*pi) = [{:.12}, {:.12}]  |err| = {:.2e}",
-        yf[0],
-        yf[1],
-        (yf[0] - e[0]).abs().max((yf[1] - e[1]).abs())
+        yf.as_array()[0],
+        yf.as_array()[1],
+        (yf.as_array()[0] - e[0])
+            .abs()
+            .max((yf.as_array()[1] - e[1]).abs())
     );
 
     let times = [0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
@@ -68,7 +76,9 @@ fn harmonic_oscillator() {
         .zip(out.iter())
         .map(|(&t, y)| {
             let e = exact(t);
-            (y[0] - e[0]).abs().max((y[1] - e[1]).abs())
+            (y.as_array()[0] - e[0])
+                .abs()
+                .max((y.as_array()[1] - e[1]).abs())
         })
         .fold(0.0_f64, f64::max);
     println!("    dense-output grid max|err| = {grid_err:.2e}");
@@ -136,7 +146,7 @@ fn acrobot_mass(c2: f64) -> (f64, f64, f64) {
 }
 
 fn acrobot_rhs(_t: f64, y: &Vector<4, f64>) -> Vector<4, f64> {
-    let (th1, th2, w1, w2) = (y[0], y[1], y[2], y[3]);
+    let [th1, th2, w1, w2] = *y.as_array();
     let (d11, d12, d22) = acrobot_mass(th2.cos());
     let s2 = th2.sin();
     let h1 = -ACRO_M2 * ACRO_L1 * ACRO_LC2 * s2 * (2.0 * w1 * w2 + w2 * w2);
@@ -151,7 +161,7 @@ fn acrobot_rhs(_t: f64, y: &Vector<4, f64>) -> Vector<4, f64> {
 }
 
 fn acrobot_energy(y: &Vector<4, f64>) -> f64 {
-    let (th1, th2, w1, w2) = (y[0], y[1], y[2], y[3]);
+    let [th1, th2, w1, w2] = *y.as_array();
     let (d11, d12, d22) = acrobot_mass(th2.cos());
     let ke = 0.5 * (d11 * w1 * w1 + 2.0 * d12 * w1 * w2 + d22 * w2 * w2);
     let pe = ACRO_G
@@ -178,8 +188,7 @@ const QUAD_IY: f64 = 0.02;
 const QUAD_IZ: f64 = 0.03;
 
 fn quadrotor_rhs(_t: f64, y: &Vector<7, f64>) -> Vector<7, f64> {
-    let (qw, qx, qy, qz) = (y[0], y[1], y[2], y[3]);
-    let (wx, wy, wz) = (y[4], y[5], y[6]);
+    let [qw, qx, qy, qz, wx, wy, wz] = *y.as_array();
     let qwd = -0.5 * (qx * wx + qy * wy + qz * wz);
     let qxd = 0.5 * (qw * wx + qy * wz - qz * wy);
     let qyd = 0.5 * (qw * wy - qx * wz + qz * wx);
@@ -191,11 +200,13 @@ fn quadrotor_rhs(_t: f64, y: &Vector<7, f64>) -> Vector<7, f64> {
 }
 
 fn quadrotor_ke(y: &Vector<7, f64>) -> f64 {
-    0.5 * (QUAD_IX * y[4] * y[4] + QUAD_IY * y[5] * y[5] + QUAD_IZ * y[6] * y[6])
+    let [_, _, _, _, wx, wy, wz] = *y.as_array();
+    0.5 * (QUAD_IX * wx * wx + QUAD_IY * wy * wy + QUAD_IZ * wz * wz)
 }
 
 fn quadrotor_qnorm(y: &Vector<7, f64>) -> f64 {
-    (y[0] * y[0] + y[1] * y[1] + y[2] * y[2] + y[3] * y[3]).sqrt()
+    let [qw, qx, qy, qz, _, _, _] = *y.as_array();
+    (qw * qw + qx * qx + qy * qy + qz * qz).sqrt()
 }
 
 fn quadrotor_attitude() {
@@ -220,8 +231,9 @@ const NBODY_MASS: [f64; NB] = [1.0, 9.5e-4, 2.86e-4, 4.37e-5, 5.15e-5];
 const NBODY_RADII: [f64; NB] = [0.0, 5.20, 9.58, 19.2, 30.1];
 
 fn nbody_rhs(_t: f64, y: &Vector<20, f64>) -> Vector<20, f64> {
-    let pos: [[f64; 2]; NB] = core::array::from_fn(|i| [y[4 * i], y[4 * i + 1]]);
-    let vel: [[f64; 2]; NB] = core::array::from_fn(|i| [y[4 * i + 2], y[4 * i + 3]]);
+    let ya = y.as_array();
+    let pos: [[f64; 2]; NB] = core::array::from_fn(|i| [ya[4 * i], ya[4 * i + 1]]);
+    let vel: [[f64; 2]; NB] = core::array::from_fn(|i| [ya[4 * i + 2], ya[4 * i + 3]]);
     let mut acc = [[0.0f64; 2]; NB];
     for (i, (ai, pi)) in acc.iter_mut().zip(pos.iter()).enumerate() {
         for (j, (mj, pj)) in NBODY_MASS.iter().zip(pos.iter()).enumerate() {
@@ -248,8 +260,9 @@ fn nbody_rhs(_t: f64, y: &Vector<20, f64>) -> Vector<20, f64> {
 }
 
 fn nbody_energy(y: &Vector<20, f64>) -> f64 {
-    let pos: [[f64; 2]; NB] = core::array::from_fn(|i| [y[4 * i], y[4 * i + 1]]);
-    let vel: [[f64; 2]; NB] = core::array::from_fn(|i| [y[4 * i + 2], y[4 * i + 3]]);
+    let ya = y.as_array();
+    let pos: [[f64; 2]; NB] = core::array::from_fn(|i| [ya[4 * i], ya[4 * i + 1]]);
+    let vel: [[f64; 2]; NB] = core::array::from_fn(|i| [ya[4 * i + 2], ya[4 * i + 3]]);
     let mut ke = 0.0;
     for (m, v) in NBODY_MASS.iter().zip(vel.iter()) {
         ke += 0.5 * m * (v[0] * v[0] + v[1] * v[1]);

@@ -260,8 +260,8 @@ fn converges_to_kalman_on_linear_gaussian_model() {
             .unwrap();
     }
 
-    let kalman_state = kalman.state();
-    let particle_mean = particle.mean();
+    let kalman_state = *kalman.state().as_array();
+    let particle_mean = *particle.mean().as_array();
     assert!(
         (particle_mean[0] - kalman_state[0]).abs() < 0.05,
         "position off the Kalman estimate: {} vs {}",

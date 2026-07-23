@@ -275,9 +275,9 @@ impl<const MEASUREMENT_DIMENSION: usize, T: Numeric> Likelihood<MEASUREMENT_DIME
 ///     filter.predict(&Stationary)?;
 ///     filter.update(&Stationary, &sensor, Vector::new([1.0, 2.0]))?;
 /// }
-/// // The cloud has settled onto the measured point.
-/// assert!((filter.mean()[0] - 1.0).abs() < 0.2);
-/// assert!((filter.mean()[1] - 2.0).abs() < 0.2);
+/// let mean = *filter.mean().as_array();
+/// assert!((mean[0] - 1.0).abs() < 0.2);
+/// assert!((mean[1] - 2.0).abs() < 0.2);
 /// # Ok(())
 /// # }
 /// ```
@@ -577,10 +577,10 @@ where
         for axis in 0..STATE_DIMENSION {
             // Measure how far the samples reach along this axis (lowest to highest), a cheap,
             // scale-aware stand-in for the spread.
-            let mut lowest = self.particles[0][axis];
+            let mut lowest = *self.particles[0].get(axis).unwrap_or(&T::ZERO);
             let mut highest = lowest;
             for particle in &self.particles {
-                let value = particle[axis];
+                let value = *particle.get(axis).unwrap_or(&T::ZERO);
                 if value < lowest {
                     lowest = value;
                 }
@@ -596,7 +596,9 @@ where
             }
             // Nudge every particle along this axis by an independent draw at that scale.
             for particle in self.particles.iter_mut() {
-                particle[axis] += scale * T::from_f64(self.random.standard_normal());
+                if let Some(x) = particle.get_mut(axis) {
+                    *x += scale * T::from_f64(self.random.standard_normal());
+                }
             }
         }
     }

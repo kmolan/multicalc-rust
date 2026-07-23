@@ -31,7 +31,7 @@ fn symmetric_positive_definite<const N: usize>(entries: &[f64]) -> Matrix<N, N> 
 }
 
 fn trace<const N: usize>(m: Matrix<N, N>) -> f64 {
-    (0..N).map(|i| m[(i, i)]).sum()
+    (0..N).map(|i| m.get(i, i).copied().unwrap()).sum()
 }
 
 // ----- Goldens -----
@@ -95,7 +95,10 @@ proptest! {
         filter.update(Vector::new([measurement])).unwrap();
 
         let covariance = filter.covariance();
-        prop_assert!((covariance[(0, 1)] - covariance[(1, 0)]).abs() < 1e-12);
+        prop_assert!(
+            (covariance.get(0, 1).copied().unwrap() - covariance.get(1, 0).copied().unwrap()).abs()
+            < 1e-12
+        );
     }
 
     #[test]
@@ -232,8 +235,11 @@ fn covariance_stays_symmetric_and_positive_definite_in_single_precision() {
         filter.update(Vector::new([step as f32 * 0.5])).unwrap();
 
         let covariance = filter.covariance();
-        let scale = covariance[(0, 0)].abs().max(1.0);
-        assert!((covariance[(0, 1)] - covariance[(1, 0)]).abs() < 512.0 * f32::EPSILON * scale);
+        let scale = covariance.get(0, 0).copied().unwrap().abs().max(1.0);
+        assert!(
+            (covariance.get(0, 1).copied().unwrap() - covariance.get(1, 0).copied().unwrap()).abs()
+                < 512.0 * f32::EPSILON * scale
+        );
         assert!(covariance.cholesky().is_ok());
     }
 }
@@ -249,7 +255,7 @@ fn posterior_position<T: Numeric>(process_noise_scale: T) -> T {
     );
     filter.predict();
     filter.update(Vector::new([T::from_f64(1.0)])).unwrap();
-    filter.state()[0]
+    filter.state().as_array()[0]
 }
 
 #[test]

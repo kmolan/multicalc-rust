@@ -45,24 +45,25 @@ fn arc_matches_rk45() {
             .unwrap();
 
         let arc = integrate(SE2::identity(), rate.integrate_over(tf));
-        let t = arc.translation();
+        let t = *arc.translation().as_array();
+        let s = *solved.as_array();
         assert!(
-            (t[0] - solved[0]).abs() < 1e-9,
+            (t[0] - s[0]).abs() < 1e-9,
             "(v={v}, w={w}) x: arc {} vs rk45 {}",
             t[0],
-            solved[0]
+            s[0]
         );
         assert!(
-            (t[1] - solved[1]).abs() < 1e-9,
+            (t[1] - s[1]).abs() < 1e-9,
             "(v={v}, w={w}) y: arc {} vs rk45 {}",
             t[1],
-            solved[1]
+            s[1]
         );
         assert!(
-            (arc.rotation().log() - solved[2]).abs() < 1e-12,
+            (arc.rotation().log() - s[2]).abs() < 1e-12,
             "(v={v}, w={w}) heading: arc {} vs rk45 {}",
             arc.rotation().log(),
-            solved[2]
+            s[2]
         );
     }
 }
@@ -83,7 +84,8 @@ fn one_big_step_equals_many_small_steps() {
         many = integrate(many, small);
     }
 
-    let (a, b) = (one.translation(), many.translation());
+    let a = *one.translation().as_array();
+    let b = *many.translation().as_array();
     assert!((a[0] - b[0]).abs() < TOL, "x: {} vs {}", a[0], b[0]);
     assert!((a[1] - b[1]).abs() < TOL, "y: {} vs {}", a[1], b[1]);
     assert!((one.rotation().log() - many.rotation().log()).abs() < TOL);
@@ -96,7 +98,7 @@ fn arc_matches_closed_form() {
     let radius = v / w;
 
     let arc = integrate(SE2::identity(), BodyTwist::new(v, w).integrate_over(t));
-    let p = arc.translation();
+    let p = *arc.translation().as_array();
     assert!((p[0] - radius * theta.sin()).abs() < TOL);
     assert!((p[1] - radius * (1.0 - theta.cos())).abs() < TOL);
     assert!((arc.rotation().log() - theta).abs() < TOL);
@@ -107,7 +109,7 @@ fn arc_matches_closed_form() {
 #[test]
 fn zero_angular_is_straight_line() {
     let pose = integrate(SE2::identity(), BodyArc::new(0.5_f64, 0.0));
-    let t = pose.translation();
+    let t = *pose.translation().as_array();
     assert!(t[0].is_finite() && t[1].is_finite());
     assert_eq!(t[0], 0.5);
     assert_eq!(t[1], 0.0);
@@ -120,7 +122,8 @@ fn zero_linear_is_pure_rotation() {
     let start = rand_pose(&mut rng);
     let pose = integrate(start, BodyArc::new(0.0, 0.7));
 
-    let (a, b) = (start.translation(), pose.translation());
+    let a = *start.translation().as_array();
+    let b = *pose.translation().as_array();
     assert_eq!(a[0], b[0]);
     assert_eq!(a[1], b[1]);
 }
@@ -178,7 +181,7 @@ fn figure_eight_closes() {
         }
     }
 
-    let t = pose.translation();
+    let t = *pose.translation().as_array();
     assert!(t[0].abs() < 1e-9, "x did not close: {}", t[0]);
     assert!(t[1].abs() < 1e-9, "y did not close: {}", t[1]);
     assert!(

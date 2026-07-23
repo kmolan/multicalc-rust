@@ -44,6 +44,7 @@ impl VectorFn<5, 3> for OdometryStep {
         let pose = SE2::from_parts(SO2::exp(p[2]), Vector::new([p[0], p[1]]));
         let next = pose * SE2::exp(Vector::new([p[3], S::ZERO, p[4]]));
         let t = next.translation();
-        [t[0], t[1], next.rotation().log()]
+        let [tx, ty] = *t.as_array();
+        [tx, ty, next.rotation().log()]
     }
 }

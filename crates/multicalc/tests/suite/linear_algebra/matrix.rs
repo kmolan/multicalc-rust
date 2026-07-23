@@ -27,11 +27,9 @@ fn try_row_column() {
 
     assert_eq!(m.try_row(1), Some(Vector::new([3.0, 4.0])));
     assert_eq!(m.try_row(2), None);
-    assert_eq!(m.try_row(1), Some(m.row(1)));
 
     assert_eq!(m.try_column(0), Some(Vector::new([1.0, 3.0])));
     assert_eq!(m.try_column(2), None);
-    assert_eq!(m.try_column(0), Some(m.column(0)));
 }
 
 #[test]
@@ -246,8 +244,10 @@ fn matrix_solve_agrees_with_lu() {
 
     // The convenience solver matches an explicit LU solve.
     let lu_x = a.lu().unwrap().solve(b);
+    let xa = *x.as_array();
+    let lu_xa = *lu_x.as_array();
     for i in 0..3 {
-        assert!((x[i] - lu_x[i]).abs() < 1e-12);
+        assert!((xa[i] - lu_xa[i]).abs() < 1e-12);
     }
     assert!((a * x - b).norm() < 1e-12);
 

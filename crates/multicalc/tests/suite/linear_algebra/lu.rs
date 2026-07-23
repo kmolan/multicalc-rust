@@ -64,9 +64,10 @@ fn lu_solves() {
     // Single RHS: A·x = b has the exact solution x = [1, 2, 3], with a tiny residual.
     let b = Vector::new([7.0, 19.0, 49.0]);
     let x = f.solve(b);
-    assert!((x[0] - 1.0).abs() < 1e-12);
-    assert!((x[1] - 2.0).abs() < 1e-12);
-    assert!((x[2] - 3.0).abs() < 1e-12);
+    let [x0, x1, x2] = *x.as_array();
+    assert!((x0 - 1.0).abs() < 1e-12);
+    assert!((x1 - 2.0).abs() < 1e-12);
+    assert!((x2 - 3.0).abs() < 1e-12);
     assert!((a * x - b).norm() < 1e-12);
 
     // Multiple RHS: A·X == B, and each column agrees with a single-RHS solve.
@@ -74,9 +75,9 @@ fn lu_solves() {
     let xm = f.solve_matrix(rhs);
     assert_matrix_close(a * xm, rhs, 1e-12);
     for c in 0..2 {
-        let single = f.solve(rhs.column(c));
+        let single = f.solve(rhs.try_column(c).unwrap());
         for r in 0..3 {
-            assert!((xm[(r, c)] - single[r]).abs() < 1e-12);
+            assert!((xm.get(r, c).copied().unwrap() - single.as_array()[r]).abs() < 1e-12);
         }
     }
 }
@@ -157,7 +158,9 @@ fn check_lu_property<const N: usize>(entries: Vec<f64>) -> Result<(), TestCaseEr
     prop_assume!(lu.is_ok());
     let f = lu.unwrap();
 
-    let min_pivot = (0..N).fold(f64::MAX, |acc, i| acc.min(f.u()[(i, i)].abs()));
+    let min_pivot = (0..N).fold(f64::MAX, |acc, i| {
+        acc.min(f.u().get(i, i).copied().unwrap_or(0.0).abs())
+    });
     prop_assume!(min_pivot >= 1e-6 * scale);
 
     let tol = N as f64 * scale * f64::EPSILON * 1e3;

@@ -26,6 +26,7 @@ fn run_case<const N: usize>(fx: &Fixture, f: &dyn Fn(f64, &Vector<N>) -> Vector<
         .solve_on_grid(&f, t0, &y0v, &times, &mut out)
         .unwrap();
     for (i, y) in out.iter().enumerate() {
+        let y = *y.as_array();
         for j in 0..N {
             let want = states[i * N + j];
             assert!(

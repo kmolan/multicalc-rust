@@ -64,7 +64,7 @@ fn svd_singular_values() {
     let d = Matrix::<3, 3>::new([[6.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 1.0]]);
     let s = (r * d * r.transpose()).svd().unwrap().singular_values();
     for (k, want) in [6.0, 3.0, 1.0].into_iter().enumerate() {
-        assert!((s[k] - want).abs() < 1e-12);
+        assert!((s.as_array()[k] - want).abs() < 1e-12);
     }
 
     // Diagonal input: singular values are the sorted absolute diagonal.
@@ -77,7 +77,7 @@ fn svd_singular_values() {
     });
     let s = diag.svd().unwrap().singular_values();
     for (k, want) in [5.0, 3.0, 2.0, 1.0].into_iter().enumerate() {
-        assert!((s[k] - want).abs() < 1e-12);
+        assert!((s.as_array()[k] - want).abs() < 1e-12);
     }
 }
 
@@ -144,7 +144,7 @@ fn svd_rank_deficient() {
     let ap = f.pseudo_inverse();
     for r in 0..2 {
         for c in 0..3 {
-            assert!(ap[(r, c)].is_finite());
+            assert!(ap.get(r, c).copied().unwrap().is_finite());
         }
     }
 
@@ -154,7 +154,7 @@ fn svd_rank_deficient() {
     assert!((a * x - b).norm() < 1e-10);
     let x_pinv = ap * b;
     for i in 0..2 {
-        assert!((x[i] - x_pinv[i]).abs() < 1e-12);
+        assert!((x.as_array()[i] - x_pinv.as_array()[i]).abs() < 1e-12);
     }
 }
 
@@ -166,10 +166,14 @@ fn svd_error_paths() {
 
     // Non-finite entries are rejected.
     let mut nan = Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
-    nan[(2, 1)] = f64::NAN;
+    if let Some(x) = nan.get_mut(2, 1) {
+        *x = f64::NAN;
+    }
     assert_eq!(nan.svd().err(), Some(LinalgError::NonFinite));
     let mut inf = Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
-    inf[(0, 0)] = f64::INFINITY;
+    if let Some(x) = inf.get_mut(0, 0) {
+        *x = f64::INFINITY;
+    }
     assert_eq!(inf.svd().err(), Some(LinalgError::NonFinite));
 }
 
@@ -200,7 +204,9 @@ fn svd_kabsch_rotation_recovery() {
         let q = rot * pv;
         for i in 0..3 {
             for j in 0..3 {
-                h[(i, j)] += q[i] * pv[j];
+                if let Some(slot) = h.get_mut(i, j) {
+                    *slot += q.as_array()[i] * pv.as_array()[j];
+                }
             }
         }
     }
@@ -211,7 +217,10 @@ fn svd_kabsch_rotation_recovery() {
     if rhat.determinant() < 0.0 {
         let mut uf = u;
         for i in 0..3 {
-            uf[(i, 2)] = -uf[(i, 2)];
+            let u = uf.get(i, 2).copied().unwrap();
+            if let Some(slot) = uf.get_mut(i, 2) {
+                *slot = -u;
+            }
         }
         rhat = uf * v.transpose();
     }
@@ -247,7 +256,8 @@ fn svd_redundant_jacobian_pseudo_inverse() {
     let x_min = jp * vtwist;
     let n = Vector::<7>::from_fn(|i| (i as f64 - 3.0) * 0.7);
     let jpjn = (jp * j) * n;
-    let x_other = Vector::<7>::from_fn(|i| x_min[i] + n[i] - jpjn[i]);
+    let x_other =
+        Vector::<7>::from_fn(|i| x_min.as_array()[i] + n.as_array()[i] - jpjn.as_array()[i]);
     assert!((j * x_min - vtwist).norm() < 1e-9);
     assert!((j * x_other - vtwist).norm() < 1e-9);
     assert!(x_min.norm() <= x_other.norm() + 1e-9);
@@ -264,11 +274,14 @@ fn svd_near_singular_jacobian() {
         }
     });
     for r in 0..6 {
-        j[(r, 5)] = j[(r, 4)] + 1e-8 * (r as f64 + 1.0);
+        let j4 = j.get(r, 4).copied().unwrap();
+        if let Some(slot) = j.get_mut(r, 5) {
+            *slot = j4 + 1e-8 * (r as f64 + 1.0);
+        }
     }
     let f = j.svd().unwrap();
     let s = f.singular_values();
-    let tol = 1e-4 * s[0];
+    let tol = 1e-4 * s.as_array()[0];
 
     assert!(f.condition_number() > 1e6);
     assert_eq!(f.rank(tol), 5);
@@ -277,12 +290,12 @@ fn svd_near_singular_jacobian() {
     let jp = f.pseudo_inverse_tol(tol);
     for r in 0..6 {
         for c in 0..6 {
-            assert!(jp[(r, c)].is_finite());
+            assert!(jp.get(r, c).copied().unwrap().is_finite());
         }
     }
     let x = f.solve(Vector::from_fn(|i| i as f64 + 1.0));
     for i in 0..6 {
-        assert!(x[i].is_finite());
+        assert!(x.as_array()[i].is_finite());
     }
 }
 
@@ -307,6 +320,6 @@ fn svd_overdetermined_least_squares() {
         .solve(design.transpose() * rhs)
         .unwrap();
     for i in 0..3 {
-        assert!((x_svd[i] - x_ne[i]).abs() < 1e-9);
+        assert!((x_svd.as_array()[i] - x_ne.as_array()[i]).abs() < 1e-9);
     }
 }

@@ -16,8 +16,9 @@ use crate::spatial::lie::{inverse_left_jacobian_so3, left_jacobian_so3, skew3};
 /// use multicalc::linear_algebra::Vector;
 /// let r = SO3::<f64>::exp(Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2]));
 /// let p = r.act(Vector::new([1.0, 0.0, 0.0]));
-/// assert!(p[0].abs() < 1e-12);
-/// assert!((p[1] - 1.0).abs() < 1e-12);
+/// let [px, py, _] = *p.as_array();
+/// assert!(px.abs() < 1e-12);
+/// assert!((py - 1.0).abs() < 1e-12);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
@@ -97,7 +98,8 @@ impl<T: Numeric> SO3<T> {
     /// The inverse of [`SO3::hat`].
     #[inline]
     pub fn vee(m: Matrix<3, 3, T>) -> Vector<3, T> {
-        Vector::new([m[(2, 1)], m[(0, 2)], m[(1, 0)]])
+        let [[_, _, m02], [m10, _, _], [_, m21, _]] = m.into_array();
+        Vector::new([m21, m02, m10])
     }
 
     /// The adjoint, equal to the rotation matrix (`Ad_R = R`).
@@ -152,8 +154,8 @@ impl<T: Numeric> SO3<T> {
     /// use multicalc::spatial::SO3;
     /// use multicalc::linear_algebra::{Matrix, Vector};
     /// let phi = Vector::new([0.2_f64, -0.1, 0.4]);
-    /// let prod = SO3::left_jacobian(phi) * SO3::left_jacobian_inverse(phi);
-    /// for i in 0..3 { assert!((prod[(i, i)] - 1.0).abs() < 1e-12); }
+    /// let prod = (SO3::left_jacobian(phi) * SO3::left_jacobian_inverse(phi)).into_array();
+    /// for i in 0..3 { assert!((prod[i][i] - 1.0).abs() < 1e-12); }
     /// ```
     #[inline]
     pub fn left_jacobian_inverse(phi: Vector<3, T>) -> Matrix<3, 3, T> {

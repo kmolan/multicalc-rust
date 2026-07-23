@@ -51,7 +51,7 @@ fn run(
     let mut blocked_ticks = 0;
 
     for tick in 0..1500 {
-        let scan = lidar.simulate(map, [pose[0], pose[1], pose[2]], &mut rng);
+        let scan = lidar.simulate(map, *pose.as_array(), &mut rng);
         let output = follower.compute(&scan, 0.0).unwrap();
         if output.is_blocked() {
             blocked_ticks += 1;
@@ -98,10 +98,11 @@ fn main() {
 
     // (1) Drive the corridor.
     let summary = run(&map, &lidar, &follower, SEED);
+    let pose = *summary.pose.as_array();
     println!("Corridor run: 1500 ticks at dt = 0.02 s, seed {SEED}");
-    report("x [m]", summary.pose[0]);
-    report("y [m]", summary.pose[1]);
-    report("heading [rad]", summary.pose[2]);
+    report("x [m]", pose[0]);
+    report("y [m]", pose[1]);
+    report("heading [rad]", pose[2]);
     report("minimum clearance [m]", summary.minimum_clearance);
     report("distance travelled [m]", summary.travelled);
 
@@ -113,7 +114,7 @@ fn main() {
     println!("\nChecks");
     check("never came within 15 cm", summary.minimum_clearance > 0.15);
     check("kept moving", summary.travelled > 4.0);
-    check("got past the pillar", summary.pose[0] > 4.0);
+    check("got past the pillar", pose[0] > 4.0);
     check("never fully blocked", summary.blocked_ticks == 0);
 
     // (3) The blocked case, checked directly and independently of the loop.
@@ -125,11 +126,10 @@ fn main() {
 
     // (4) The same seed reproduces the run exactly.
     let repeat = run(&map, &lidar, &follower, SEED);
+    let repeat_pose = *repeat.pose.as_array();
     check(
         "a fixed seed reproduces the run",
-        repeat.pose[0] == summary.pose[0]
-            && repeat.pose[1] == summary.pose[1]
-            && repeat.pose[2] == summary.pose[2],
+        repeat_pose[0] == pose[0] && repeat_pose[1] == pose[1] && repeat_pose[2] == pose[2],
     );
 
     println!("\nAll checks passed.");

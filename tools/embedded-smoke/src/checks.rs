@@ -123,7 +123,7 @@ pub fn error_path_returns_err() {
 /// Returns the values for the cross-ABI guard (emitted on every target).
 pub fn svd_golden() -> [f64; 3] {
     let a: Matrix<3, 3> = black_box(Matrix::new(fixtures::SVD_3X3_INPUT));
-    let sv = a.svd().expect("svd").singular_values();
+    let sv = *a.svd().expect("svd").singular_values().as_array();
     for i in 0..3 {
         assert_close!(
             "svd_golden",
@@ -149,21 +149,23 @@ pub fn lie_group_identity() -> f64 {
         0.0,
         core::f64::consts::FRAC_PI_2,
     ])));
-    let p = rz.act(black_box(Vector::new([1.0, 0.0, 0.0])));
+    let p = *rz.act(black_box(Vector::new([1.0, 0.0, 0.0]))).as_array();
     assert_close!("lie_rot_x", black_box(p[0]), 0.0, 1e-12, 0.0);
     assert_close!("lie_rot_y", black_box(p[1]), 1.0, 1e-12, 0.0);
     assert_close!("lie_rot_z", black_box(p[2]), 0.0, 1e-12, 0.0);
 
     // SO(3) exp/log round trip.
     let phi = black_box(Vector::new([0.3, -0.6, 0.2]));
-    let back = SO3::exp(phi).log();
+    let back = *SO3::exp(phi).log().as_array();
+    let phi = *phi.as_array();
     for i in 0..3 {
         assert_close!("lie_so3", black_box(back[i]), phi[i], 1e-9, 0.0);
     }
 
     // SE(3) exp/log round trip (exercises the left Jacobian and its inverse).
     let xi = black_box(Vector::new([0.5, -0.2, 0.1, 0.3, -0.6, 0.2]));
-    let back6 = SE3::exp(xi).log();
+    let back6 = *SE3::exp(xi).log().as_array();
+    let xi = *xi.as_array();
     for i in 0..6 {
         assert_close!("lie_se3", black_box(back6[i]), xi[i], 1e-9, 0.0);
     }
@@ -177,7 +179,10 @@ pub fn ode_identity() {
     use multicalc::linear_algebra::Vector;
     use multicalc::ode::{Rk4, Rk45};
 
-    let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+    let f = |_t: f64, y: &Vector<2, f64>| {
+        let [y0, y1] = *y.as_array();
+        Vector::new([y1, -y0])
+    };
     let steps = 2000;
     let dt = core::f64::consts::TAU / steps as f64;
     let yf = Rk4::integrate(
@@ -188,8 +193,8 @@ pub fn ode_identity() {
         steps,
         |_, _| {},
     );
-    assert_close!("ode_rk4_x", black_box(yf[0]), 1.0, 1e-4, 0.0);
-    assert_close!("ode_rk4_v", black_box(yf[1]), 0.0, 1e-4, 0.0);
+    assert_close!("ode_rk4_x", black_box(yf.as_array()[0]), 1.0, 1e-4, 0.0);
+    assert_close!("ode_rk4_v", black_box(yf.as_array()[1]), 0.0, 1e-4, 0.0);
 
     let g = |_t: f64, y: &Vector<1, f64>| -*y;
     let e = Rk45::default()
@@ -197,7 +202,7 @@ pub fn ode_identity() {
         .expect("rk45 solve");
     assert_close!(
         "ode_rk45",
-        black_box(e[0]),
+        black_box(e.as_array()[0]),
         multicalc::libm::exp(-1.0),
         1e-6,
         0.0
@@ -225,12 +230,13 @@ pub fn jacobian_identity() -> f64 {
         .get(&Jac23, &black_box([1.0, 2.0, 3.0]))
         .expect("jacobian");
     let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
+    let j = *j.as_slice_rows();
     for r in 0..2 {
         for c in 0..3 {
-            assert_close!("jacobian", black_box(j[(r, c)]), expected[r][c], 1e-12, 0.0);
+            assert_close!("jacobian", black_box(j[r][c]), expected[r][c], 1e-12, 0.0);
         }
     }
-    black_box(j[(0, 0)])
+    black_box(j[0][0])
 }
 
 /// Identity: the field `[y, -x, 2z]` at `(1, 2, 3)` has curl `[0, 0, -2]` and divergence `2`.

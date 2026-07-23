@@ -146,10 +146,11 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
 
             // Gradient convergence: max over columns of |(Jᵀr)_c| / (fnorm · ‖columnₙ‖).
             let gradient = j.transpose() * Vector::new(residuals);
+            let ga = *gradient.as_array();
             let mut gnorm = zero;
             for (c, &column_norm) in qr.column_norms.iter().enumerate() {
                 if column_norm != zero {
-                    gnorm = max(gnorm, (gradient[c] / (fnorm * column_norm)).abs());
+                    gnorm = max(gnorm, (ga[c] / (fnorm * column_norm)).abs());
                 }
             }
             if gnorm <= self.gtol {
@@ -158,13 +159,14 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
 
             // Gauss-Newton step (errors on a rank-deficient Jacobian).
             let p = qr.solve_least_squares(Vector::new(residuals))?;
+            let pa = *p.as_array();
 
             // Take a step, shrinking it (when backtracking) until it is finite and lowers the
             // cost. A non-finite or cost-increasing trial triggers another halving.
             let mut alpha = D::Scalar::ONE;
             let mut tries = 0;
             let (x_new, residuals_new, fnorm_new) = loop {
-                let candidate: [D::Scalar; N] = core::array::from_fn(|k| x[k] - alpha * p[k]);
+                let candidate: [D::Scalar; N] = core::array::from_fn(|k| x[k] - alpha * pa[k]);
                 let trial = f.eval(&candidate);
                 evaluations += 1;
                 let finite = is_finite(&trial);

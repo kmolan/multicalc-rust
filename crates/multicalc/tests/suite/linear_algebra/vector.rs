@@ -5,11 +5,13 @@ use multicalc::linear_algebra::{Matrix, Vector};
 #[test]
 fn construct_and_access() {
     let v = Vector::new([1.0, 2.0, 3.0]);
-    assert_eq!(v[0], 1.0);
+    assert_eq!(v.get(0), Some(&1.0));
     assert_eq!(v.into_array(), [1.0, 2.0, 3.0]);
 
     let mut w = Vector::from([4.0, 5.0]);
-    w[1] = 9.0;
+    if let Some(x) = w.get_mut(1) {
+        *x = 9.0;
+    }
     assert_eq!(w, Vector::new([4.0, 9.0]));
 
     let z: Vector<3> = Vector::zeros();
@@ -21,9 +23,11 @@ fn construct_and_access() {
     );
 
     let mut m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-    assert_eq!(m[(1, 0)], 3.0);
-    m[(0, 1)] = 7.0;
-    assert_eq!(m[(0, 1)], 7.0);
+    assert_eq!(m.get(1, 0), Some(&3.0));
+    if let Some(x) = m.get_mut(0, 1) {
+        *x = 7.0;
+    }
+    assert_eq!(m.get(0, 1), Some(&7.0));
 
     let id: Matrix<3, 3> = Matrix::identity();
     assert_eq!(
@@ -50,6 +54,31 @@ fn try_from_slice_length() {
         Some(Matrix::new([[1.0, 2.0], [3.0, 4.0]]))
     );
     assert!(Matrix::<2, 2>::try_from_row_slice(&[1.0, 2.0, 3.0]).is_none());
+}
+
+#[test]
+fn get_checked_access() {
+    let v = Vector::new([1.0, 2.0, 3.0]);
+    assert_eq!(v.get(0), Some(&1.0));
+    assert_eq!(v.get(3), None);
+
+    let mut w = Vector::new([4.0, 5.0]);
+    if let Some(x) = w.get_mut(1) {
+        *x = 9.0;
+    }
+    assert_eq!(w.get(1), Some(&9.0));
+
+    let mut m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    assert_eq!(m.get(1, 0), Some(&3.0));
+    assert_eq!(m.get(2, 0), None);
+    assert_eq!(m.get(0, 2), None);
+    if let Some(x) = m.get_mut(0, 1) {
+        *x = 7.0;
+    }
+    assert_eq!(m.get(0, 1), Some(&7.0));
+
+    m.as_mut_slice_rows()[1][1] = 8.0;
+    assert_eq!(m.get(1, 1), Some(&8.0));
 }
 
 // ----- vector arithmetic -----

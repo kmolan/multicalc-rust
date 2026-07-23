@@ -47,8 +47,9 @@ fn main() {
     let pose = integrate(SE2::identity(), BodyTwist::new(v, w).integrate_over(t));
     let (theta, radius) = (w * t, v / w);
     println!("\nArc of a constant twist (v = 0.4, omega = 0.9) held for 1.3 s");
-    report("x [m]", pose.translation()[0], radius * theta.sin());
-    report("y [m]", pose.translation()[1], radius * (1.0 - theta.cos()));
+    let xy = *pose.translation().as_array();
+    report("x [m]", xy[0], radius * theta.sin());
+    report("y [m]", xy[1], radius * (1.0 - theta.cos()));
     report("heading [rad]", pose.rotation().log(), theta);
 
     // (4) The encoder path, end to end: two full circles of opposite curvature must return to the
@@ -68,8 +69,9 @@ fn main() {
         }
     }
     println!("\nFigure eight: two opposed circles through the encoder path");
-    report("x [m]", figure_eight.translation()[0], 0.0);
-    report("y [m]", figure_eight.translation()[1], 0.0);
+    let xy = *figure_eight.translation().as_array();
+    report("x [m]", xy[0], 0.0);
+    report("y [m]", xy[1], 0.0);
     report("heading [rad]", figure_eight.rotation().log(), 0.0);
 
     // (5) One Dual through an odometry step: d(x)/d(arc length), exact, no hand-derived formula.
@@ -79,12 +81,9 @@ fn main() {
     );
     println!("\nAutodiff through an odometry step");
     // x = (v/omega)*sin(omega*t), so dx/dv = sin(omega*t)/omega.
-    report("dx/dv [s]", step.translation()[0].deriv, theta.sin() / w);
-    report(
-        "dy/dv [s]",
-        step.translation()[1].deriv,
-        (1.0 - theta.cos()) / w,
-    );
+    let t = *step.translation().as_array();
+    report("dx/dv [s]", t[0].deriv, theta.sin() / w);
+    report("dy/dv [s]", t[1].deriv, (1.0 - theta.cos()) / w);
 
     println!("\nAll checks passed.");
 }

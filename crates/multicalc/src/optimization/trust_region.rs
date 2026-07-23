@@ -27,7 +27,9 @@ pub(crate) fn determine_lambda_and_parameter_update<const N: usize, T: Numeric>(
     let p1 = T::from_f64(0.1);
     let p001 = T::from_f64(0.001);
 
-    let scale = |v: &Vector<N, T>| -> [T; N] { core::array::from_fn(|j| diag[j] * v[j]) };
+    let scale = |v: &Vector<N, T>| -> [T; N] {
+        core::array::from_fn(|j| diag[j] * v.get(j).copied().unwrap_or(T::ZERO))
+    };
 
     // Gauss-Newton direction and its scaled length.
     let (gauss_newton, _) = dls.solve_with_zero_diagonal();
@@ -54,9 +56,12 @@ pub(crate) fn determine_lambda_and_parameter_update<const N: usize, T: Numeric>(
         for j in 0..N {
             let mut sum = T::ZERO;
             for (i, &wi) in w.iter().enumerate().take(j) {
-                sum += dls.r[(i, j)] * wi;
+                sum += dls.r.get(i, j).copied().unwrap_or(T::ZERO) * wi;
             }
-            w[j] = (w[j] - sum) / dls.r[(j, j)];
+            let diag_r = dls.r.get(j, j).copied().unwrap_or(T::ONE);
+            if let Some(slot) = w.get_mut(j) {
+                *slot = (*slot - sum) / diag_r;
+            }
         }
         let temp = enorm(&w);
         parl = ((fp / delta) / temp) / temp;
@@ -66,7 +71,7 @@ pub(crate) fn determine_lambda_and_parameter_update<const N: usize, T: Numeric>(
     let w: [T; N] = core::array::from_fn(|j| {
         let mut sum = T::ZERO;
         for i in 0..=j {
-            sum += dls.r[(i, j)] * dls.qt_b[i];
+            sum += dls.r.get(i, j).copied().unwrap_or(T::ZERO) * dls.qt_b[i];
         }
         sum / diag[dls.permutation[j]]
     });

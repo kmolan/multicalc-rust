@@ -80,7 +80,7 @@ fn symmetric_positive_definite<const N: usize>(entries: &[f64]) -> Matrix<N, N> 
 }
 
 fn trace<const N: usize>(m: Matrix<N, N>) -> f64 {
-    (0..N).map(|i| m[(i, i)]).sum()
+    (0..N).map(|i| m.get(i, i).copied().unwrap()).sum()
 }
 
 // ----- Agreement with the linear filter -----
@@ -239,9 +239,18 @@ proptest! {
         filter.update(&model, measurement).unwrap();
 
         let covariance = filter.covariance();
-        prop_assert!((covariance[(0, 1)] - covariance[(1, 0)]).abs() < 1e-12);
-        prop_assert!((covariance[(0, 2)] - covariance[(2, 0)]).abs() < 1e-12);
-        prop_assert!((covariance[(1, 2)] - covariance[(2, 1)]).abs() < 1e-12);
+        prop_assert!(
+            (covariance.get(0, 1).copied().unwrap() - covariance.get(1, 0).copied().unwrap()).abs()
+            < 1e-12
+        );
+        prop_assert!(
+            (covariance.get(0, 2).copied().unwrap() - covariance.get(2, 0).copied().unwrap()).abs()
+            < 1e-12
+        );
+        prop_assert!(
+            (covariance.get(1, 2).copied().unwrap() - covariance.get(2, 1).copied().unwrap()).abs()
+            < 1e-12
+        );
         prop_assert!(covariance.cholesky().is_ok());
     }
 
@@ -404,10 +413,12 @@ fn covariance_stays_symmetric_and_positive_definite_in_single_precision() {
         filter.update(&model, Vector::new([5.0, bearing])).unwrap();
 
         let covariance = filter.covariance();
-        let scale = covariance[(0, 0)].abs().max(1.0);
+        let scale = covariance.get(0, 0).copied().unwrap().abs().max(1.0);
         for (row, column) in [(0, 1), (0, 2), (1, 2)] {
             assert!(
-                (covariance[(row, column)] - covariance[(column, row)]).abs()
+                (covariance.get(row, column).copied().unwrap()
+                    - covariance.get(column, row).copied().unwrap())
+                .abs()
                     < 512.0 * f32::EPSILON * scale
             );
         }
@@ -432,7 +443,7 @@ fn posterior_x<T: Numeric>(measurement_noise_scale: T) -> T {
     };
     let measurement = Vector::new([T::from_f64(5.5), T::from_f64(4.0_f64.atan2(3.0) + 0.1)]);
     filter.update(&model, measurement).unwrap();
-    filter.state()[0]
+    filter.state().as_array()[0]
 }
 
 #[test]

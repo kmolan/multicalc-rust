@@ -86,8 +86,9 @@ use crate::scalar::{Numeric, VectorFn};
 /// filter.predict(&Stationary)?;
 /// filter.update(&RangeToLandmark, Vector::new([5.5]))?;
 /// // A longer range than predicted moves the estimate away from the landmark.
-/// assert!(filter.state()[0] < 0.0);
-/// assert!(filter.state()[1] < 0.0);
+/// let [x, y] = *filter.state().as_array();
+/// assert!(x < 0.0);
+/// assert!(y < 0.0);
 /// # Ok(())
 /// # }
 /// ```
@@ -198,7 +199,7 @@ where
     /// .with_covariance_update(CovarianceUpdate::Naive);
     /// filter.predict(&Stationary)?;
     /// filter.update(&MeasurePosition, Vector::new([1.0]))?;
-    /// assert!(filter.covariance()[(0, 0)] > 0.0);
+    /// assert!(filter.covariance().into_array()[0][0] > 0.0);
     /// # Ok(())
     /// # }
     /// ```
@@ -323,11 +324,13 @@ where
     /// // The compass reads just over −π: a true error of about 0.08 rad, not −6.2.
     /// let measurement = Vector::new([-3.1]);
     /// let predicted = Vector::new(Compass.eval(filter.state().as_array()));
-    /// let residual = Vector::new([wrap_to_pi(measurement[0] - predicted[0])]);
+    /// let [m0] = *measurement.as_array();
+    /// let [p0] = *predicted.as_array();
+    /// let residual = Vector::new([wrap_to_pi(m0 - p0)]);
     /// filter.update_with_residual(&Compass, residual)?;
     ///
     /// // The estimate steps a little past +π, rather than most of the way around the circle.
-    /// assert!(filter.state()[0] > 3.1);
+    /// assert!(filter.state().as_array()[0] > 3.1);
     /// # Ok(())
     /// # }
     /// ```

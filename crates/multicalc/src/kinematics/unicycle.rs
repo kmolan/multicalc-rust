@@ -15,7 +15,8 @@ use crate::scalar::Numeric;
 /// use multicalc::ode::Rk4;
 /// let plant = Unicycle::new(BodyTwist::new(1.0_f64, 0.0));
 /// let state = Rk4::step(&plant.field(), 0.0, &Vector::new([0.0, 0.0, 0.0]), 0.1);
-/// assert!((state[0] - 0.1).abs() < 1e-12);
+/// let [x, _, _] = *state.as_array();
+/// assert!((x - 0.1).abs() < 1e-12);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Unicycle<T: Numeric> {
@@ -33,7 +34,7 @@ impl<T: Numeric> Unicycle<T> {
     #[inline]
     pub fn derivative(self, state: &Vector<3, T>) -> Vector<3, T> {
         let v = self.twist.linear();
-        let theta = state[2];
+        let [_, _, theta] = *state.as_array();
         Vector::new([v * theta.cos(), v * theta.sin(), self.twist.angular()])
     }
 
