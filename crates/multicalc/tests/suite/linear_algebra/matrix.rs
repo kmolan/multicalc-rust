@@ -1,5 +1,6 @@
 use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc_testkit::tol::{Tol, assert_scalar_close};
 use multicalc_testkit::tol::{assert_identity, assert_matrix_close};
 use proptest::prelude::*;
 
@@ -73,6 +74,30 @@ fn check_matrix_is_finite<const ROWS: usize, const COLS: usize>(m: Matrix<ROWS, 
     );
 }
 
+// Check the Frobenius norm implementation using the alternate definition
+// `||A||_F = sqrt(Tr(A * A^T))`.
+fn check_matrix_frobenius_norm<const ROWS: usize, const COLS: usize>(m: Matrix<ROWS, COLS>) {
+    let norm = m.frobenius_norm();
+    let alt_def = (m * m.transpose()).trace().sqrt();
+    assert_eq!(
+        norm.is_finite(),
+        alt_def.is_finite(),
+        "{} != {}",
+        norm,
+        alt_def
+    );
+    if norm.is_finite() {
+        assert_scalar_close(
+            norm,
+            alt_def,
+            Tol {
+                abs: 0.0,
+                rel: 1e-8,
+            },
+        );
+    }
+}
+
 fn check_matrix_trace<const N: usize>(m: Matrix<N, N>) {
     assert_eq!(m.trace(), (0..N).fold(0.0, |acc, i| acc + m[(i, i)]));
 }
@@ -108,6 +133,36 @@ proptest! {
     #[test]
     fn matrix_is_finite_4x4(m in matrix_strategy::<4, 4, _>(prop::num::f64::ANY)) {
         check_matrix_is_finite(m);
+    }
+
+    #[test]
+    fn matrix_frobenius_norm_1x1(m in matrix_strategy::<1, 1, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(m);
+    }
+
+    #[test]
+    fn matrix_frobenius_norm_2x2(m in matrix_strategy::<2, 2, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(m);
+    }
+
+    #[test]
+    fn matrix_frobenius_norm_3x3(m in matrix_strategy::<3, 3, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(m);
+    }
+
+    #[test]
+    fn matrix_frobenius_norm_4x3(m in matrix_strategy::<4, 3, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(m);
+    }
+
+    #[test]
+    fn matrix_frobenius_norm_3x4(m in matrix_strategy::<3, 4, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(m);
+    }
+
+    #[test]
+    fn matrix_frobenius_norm_4x4(m in matrix_strategy::<4, 4, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(m);
     }
 
     // Note: using `prop::num::f64::NORMAL` as opposed to `prop::num::f64::ANY` because

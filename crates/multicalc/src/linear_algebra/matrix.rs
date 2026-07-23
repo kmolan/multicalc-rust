@@ -144,6 +144,34 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Matrix<ROWS, COLS, T> {
         Matrix::from_fn(|r, c| self[(c, r)])
     }
 
+    /// The Frobenius norm, sometimes called the Euclidean norm:
+    /// the square root of the sum of the absolute squares of the elements.
+    ///
+    /// Note: this method computes the sum of the entries in row-major order from top left
+    /// to bottom right, which could have an impact on the accuracy of the result
+    /// in the case of floating-point types if the earlier elements are significantly
+    /// larger than the later ones.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// let m = Matrix::new([[1.0, -2.0, 0.0], [3.0, 0.0, 4.0], [2.0, -1.0, 1.0]]);
+    /// assert_eq!(m.frobenius_norm(), 6.0);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn frobenius_norm(self) -> T {
+        let total = self.data.into_iter().flatten().fold(T::ZERO, |acc, x| {
+            // Note: implementing `|x|^2` as `x * x` is correct for real numbers,
+            // however would be incorrect for complex numbers. In that case it
+            // should be `x * x.conj()` (i.e. multiplying by the complex conjugate).
+            // If this library is expected to work will complex numbers in the future
+            // then this will need to be updated; the `Numeric` trait would also need
+            // updating to include a complex conjugate operation.
+            acc + x * x
+        });
+        total.sqrt()
+    }
+
     /// Returns `true` when every entry is neither infinite nor NaN.
     ///
     /// ```
