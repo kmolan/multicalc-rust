@@ -1,3 +1,4 @@
+use core::f64::consts::{E, PI};
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc_testkit::tol::{Tol, assert_scalar_close};
 use proptest::prelude::*;
@@ -90,6 +91,37 @@ fn get_checked_access() {
 
     matrix.as_mut_slice_rows()[1][1] = 8.0;
     assert_eq!(matrix.get(1, 1), Some(&8.0));
+}
+
+fn check_vector_map<const N: usize, F: Fn(f64) -> f64>(v: Vector<N>, f: F) {
+    let u = v.map(&f);
+    for (a, b) in u.as_slice().iter().zip(v.as_slice()) {
+        assert_eq!(*a, f(*b));
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    #[test]
+    fn vector_map_1(v in vector_strategy::<1, _>(prop::num::f64::NORMAL)) {
+        check_vector_map(v, |x| x + PI);
+    }
+
+    #[test]
+    fn vector_map_2(v in vector_strategy::<2, _>(prop::num::f64::NORMAL)) {
+        check_vector_map(v, |x| 2.0 * x);
+    }
+
+    #[test]
+    fn vector_map_3(v in vector_strategy::<3, _>(prop::num::f64::NORMAL)) {
+        check_vector_map(v, |x| x - E);
+    }
+
+    #[test]
+    fn vector_map_4(v in vector_strategy::<4, _>(prop::num::f64::NORMAL)) {
+        check_vector_map(v, |x| x * x);
+    }
 }
 
 // ----- vector arithmetic -----
