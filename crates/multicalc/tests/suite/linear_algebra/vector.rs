@@ -1,4 +1,16 @@
+use core::f64::consts::{E, PI};
 use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc_testkit::tol::{Tol, assert_scalar_close};
+use proptest::prelude::*;
+use proptest::test_runner::TestCaseError;
+
+// A strategy for producing vectors in property-based tests.
+fn vector_strategy<const N: usize, S>(num_strategy: S) -> impl Strategy<Value = Vector<N>>
+where
+    S: Strategy<Value = f64>,
+{
+    prop::array::uniform::<_, N>(num_strategy).prop_map(Vector::new)
+}
 
 // ----- construction & access -----
 
@@ -52,6 +64,37 @@ fn try_from_slice_length() {
     assert!(Matrix::<2, 2>::try_from_row_slice(&[1.0, 2.0, 3.0]).is_none());
 }
 
+fn check_vector_map<const N: usize, F: Fn(f64) -> f64>(v: Vector<N>, f: F) {
+    let u = v.map(&f);
+    for (a, b) in u.as_slice().iter().zip(v.as_slice()) {
+        assert_eq!(*a, f(*b));
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    #[test]
+    fn vector_map_1(v in vector_strategy::<1, _>(prop::num::f64::NORMAL)) {
+        check_vector_map(v, |x| x + PI);
+    }
+
+    #[test]
+    fn vector_map_2(v in vector_strategy::<2, _>(prop::num::f64::NORMAL)) {
+        check_vector_map(v, |x| 2.0 * x);
+    }
+
+    #[test]
+    fn vector_map_3(v in vector_strategy::<3, _>(prop::num::f64::NORMAL)) {
+        check_vector_map(v, |x| x - E);
+    }
+
+    #[test]
+    fn vector_map_4(v in vector_strategy::<4, _>(prop::num::f64::NORMAL)) {
+        check_vector_map(v, |x| x * x);
+    }
+}
+
 // ----- vector arithmetic -----
 
 #[test]
@@ -63,6 +106,7 @@ fn vector_arithmetic() {
     assert_eq!(b - a, Vector::new([3.0, 3.0, 3.0]));
     assert_eq!(-a, Vector::new([-1.0, -2.0, -3.0]));
     assert_eq!(a * 2.0, a.scale(2.0));
+    assert_eq!(a / 2.0, a.scale(0.5));
     assert_eq!(a.scale(2.0), Vector::new([2.0, 4.0, 6.0]));
 
     let mut c = a;
@@ -99,6 +143,48 @@ fn vector_is_finite() {
     assert!(!Vector::new([1.0, f64::NAN]).is_finite());
     assert!(!Vector::new([f64::INFINITY, 0.0]).is_finite());
     assert!(!Vector::new([0.0, f64::NEG_INFINITY]).is_finite());
+}
+
+fn check_vector_normalized<const N: usize>(mut v: Vector<N>) -> Result<(), TestCaseError> {
+    prop_assume!(v.norm().is_finite());
+    prop_assume!(v.norm() > 1e-16);
+
+    let tol = Tol {
+        abs: 0.0,
+        rel: 1e-8,
+    };
+
+    let normalized = v.normalized();
+    assert_scalar_close(normalized.norm(), 1.0, tol);
+
+    v.normalize();
+    assert_scalar_close(v.norm(), 1.0, tol);
+
+    Ok(())
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    #[test]
+    fn vector_normalize_1(v in vector_strategy::<1, _>(prop::num::f64::NORMAL)) {
+        check_vector_normalized(v)?;
+    }
+
+    #[test]
+    fn vector_normalize_2(v in vector_strategy::<2, _>(prop::num::f64::NORMAL)) {
+        check_vector_normalized(v)?;
+    }
+
+    #[test]
+    fn vector_normalize_3(v in vector_strategy::<3, _>(prop::num::f64::NORMAL)) {
+        check_vector_normalized(v)?;
+    }
+
+    #[test]
+    fn vector_normalize_4(v in vector_strategy::<4, _>(prop::num::f64::NORMAL)) {
+        check_vector_normalized(v)?;
+    }
 }
 
 // ----- cross products & scalar triple -----

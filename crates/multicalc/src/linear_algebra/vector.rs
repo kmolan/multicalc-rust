@@ -1,6 +1,6 @@
 //! Fixed-size, stack-allocated column vector.
 
-use core::ops::{Add, AddAssign, Index, IndexMut, Mul, Neg, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, Neg, Sub, SubAssign};
 
 use crate::scalar::Numeric;
 
@@ -88,6 +88,22 @@ impl<const N: usize, T> Vector<N, T> {
     #[must_use]
     pub fn into_array(self) -> [T; N] {
         self.data
+    }
+
+    /// Construct a new vector by applying a function to each component.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// let v = Vector::new([1.0, 2.0, 3.0]);
+    /// let u = v.map(|x| 2.0 * x);
+    /// assert_eq!(u, Vector::new([2.0, 4.0, 6.0]));
+    /// ```
+    #[inline]
+    pub fn map<F, U>(self, f: F) -> Vector<N, U>
+    where
+        F: Fn(T) -> U,
+    {
+        Vector::new(self.data.map(f))
     }
 }
 
@@ -183,6 +199,33 @@ impl<const N: usize, T: Numeric> Vector<N, T> {
     pub fn is_finite(self) -> bool {
         self.data.iter().all(|x| x.is_finite())
     }
+
+    /// Returns a normalized copy of the vector (i.e. one where the norm is equal to 1).
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// assert_eq!(Vector::new([30.0, 40.0]).normalized(), Vector::new([0.6, 0.8]));
+    /// ```
+    #[inline]
+    pub fn normalized(self) -> Self {
+        self / self.norm()
+    }
+
+    /// Normalize the vector in-place (i.e. after this operation the norm is equal to 1).
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// let mut v = Vector::new([30.0, 40.0]);
+    /// v.normalize();
+    /// assert_eq!(v, Vector::new([0.6, 0.8]));
+    /// ```
+    #[inline]
+    pub fn normalize(&mut self) {
+        let norm = self.norm();
+        for x in self.data.iter_mut() {
+            *x /= norm;
+        }
+    }
 }
 
 impl<const N: usize, T> From<[T; N]> for Vector<N, T> {
@@ -259,6 +302,17 @@ impl<const N: usize, T: Numeric> Mul<T> for Vector<N, T> {
     #[inline]
     fn mul(self, scalar: T) -> Self {
         self.scale(scalar)
+    }
+}
+
+// Note: this implementation panics on division by zero if the underlying
+// implementation on `T` would panic.
+impl<const N: usize, T: Numeric> Div<T> for Vector<N, T> {
+    type Output = Self;
+
+    #[inline]
+    fn div(self, scalar: T) -> Self {
+        self.scale(T::ONE / scalar)
     }
 }
 

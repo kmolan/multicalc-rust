@@ -1,6 +1,6 @@
 //! Fixed-size, stack-allocated matrix.
 
-use core::ops::{Add, AddAssign, Index, IndexMut, Mul, Neg, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, Neg, Sub, SubAssign};
 
 use crate::error::LinalgError;
 use crate::linear_algebra::Vector;
@@ -144,6 +144,34 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Matrix<ROWS, COLS, T> {
         Matrix::from_fn(|r, c| self[(c, r)])
     }
 
+    /// The Frobenius norm, sometimes called the Euclidean norm:
+    /// the square root of the sum of the absolute squares of the elements.
+    ///
+    /// Note: this method computes the sum of the entries in row-major order from top left
+    /// to bottom right, which could have an impact on the accuracy of the result
+    /// in the case of floating-point types if the earlier elements are significantly
+    /// larger than the later ones.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// let m = Matrix::new([[1.0, -2.0, 0.0], [3.0, 0.0, 4.0], [2.0, -1.0, 1.0]]);
+    /// assert_eq!(m.frobenius_norm(), 6.0);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn frobenius_norm(self) -> T {
+        let total = self.data.into_iter().flatten().fold(T::ZERO, |acc, x| {
+            // Note: implementing `|x|^2` as `x * x` is correct for real numbers,
+            // however would be incorrect for complex numbers. In that case it
+            // should be `x * x.conj()` (i.e. multiplying by the complex conjugate).
+            // If this library is expected to work will complex numbers in the future
+            // then this will need to be updated; the `Numeric` trait would also need
+            // updating to include a complex conjugate operation.
+            acc + x * x
+        });
+        total.sqrt()
+    }
+
     /// Returns `true` when every entry is neither infinite nor NaN.
     ///
     /// ```
@@ -179,6 +207,24 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Matrix<ROWS, COLS, T> {
 }
 
 impl<const N: usize, T: Numeric> Matrix<N, N, T> {
+    /// The `N`×`N` diagonal matrix with the given diagonal entries
+    /// (all off-diagonal elements are equal to zero).
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// let m = Matrix::from_diagonal([1.0, 2.0, 3.0]);
+    /// assert_eq!(m.into_array(), [[1.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 3.0]]);
+    /// ```
+    #[inline]
+    pub fn from_diagonal(diag: [T; N]) -> Self {
+        let rows = core::array::from_fn(|i| {
+            let mut r = [T::ZERO; N];
+            r[i] = diag[i];
+            r
+        });
+        Matrix::new(rows)
+    }
+
     /// The `N`×`N` identity matrix.
     ///
     /// ```
@@ -188,7 +234,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// ```
     #[inline]
     pub fn identity() -> Self {
-        Matrix::from_fn(|r, c| if r == c { T::ONE } else { T::ZERO })
+        Self::from_diagonal([T::ONE; N])
     }
 
     /// The determinant.
@@ -215,6 +261,23 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
                 Err(_) => T::ZERO,
             },
         }
+    }
+
+    /// Returns the trace of the matrix (sum of diagonal entries).
+    ///
+    /// Note: this method computes the sum of the entries in order from top left
+    /// to bottom right, which could have an impact on the accuracy of the result
+    /// in the case of floating-point types if the earlier elements are significantly
+    /// larger than the later ones.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// assert_eq!(Matrix::new([[1.0, -2.0], [3.0, 4.0]]).trace(), 5.0);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn trace(&self) -> T {
+        (0..N).fold(T::ZERO, |acc, i| acc + self[(i, i)])
     }
 
     /// The inverse, or [`LinalgError::Singular`] if the matrix is singular or near-singular.
@@ -477,6 +540,17 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Mul<T> for Matrix<ROWS, C
     #[inline]
     fn mul(self, scalar: T) -> Self {
         self.scale(scalar)
+    }
+}
+
+// Note: this implementation could panic on division by zero if the underlying
+// implementation on `T` would panic.
+impl<const ROWS: usize, const COLS: usize, T: Numeric> Div<T> for Matrix<ROWS, COLS, T> {
+    type Output = Self;
+
+    #[inline]
+    fn div(self, scalar: T) -> Self {
+        self.scale(T::ONE / scalar)
     }
 }
 
