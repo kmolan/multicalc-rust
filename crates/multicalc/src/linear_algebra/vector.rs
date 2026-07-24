@@ -89,6 +89,22 @@ impl<const N: usize, T> Vector<N, T> {
     pub fn into_array(self) -> [T; N] {
         self.data
     }
+
+    /// Construct a new vector by applying a function to each component.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// let v = Vector::new([1.0, 2.0, 3.0]);
+    /// let u = v.map(|x| 2.0 * x);
+    /// assert_eq!(u, Vector::new([2.0, 4.0, 6.0]));
+    /// ```
+    #[inline]
+    pub fn map<F, U>(self, f: F) -> Vector<N, U>
+    where
+        F: Fn(T) -> U,
+    {
+        Vector::new(self.data.map(f))
+    }
 }
 
 impl<const N: usize, T: Copy> Vector<N, T> {
