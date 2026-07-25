@@ -6,59 +6,60 @@
 [![Docs](https://docs.rs/multicalc/badge.svg)](https://docs.rs/multicalc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-`multicalc` is a pure `no_std` Rust library for numerical calculus and the linear algebra
-around it: exact derivatives via automatic differentiation, integration, Jacobians and Hessians,
-nonlinear least-squares curve fitting, root finding, ODE integration, 2D/3D rigid-body math,
-Kalman filtering (linear and extended), and a particle filter.
+**Math for real-time embedded systems, in `no_std` stable Rust with nero-zero dependencies: state
+estimation, control, kinematics, and Lie groups on a calculus, autodiff, and linear-algebra core in one integrated package.
+No heap, no panics, no `unsafe` - from a 64-bit server down to a bare-metal microcontroller.**
 
 ## Why use it
 
-- **Runs the same math from a server to a microcontroller.** Every commit is built and tested on **six targets**:
-  on `x86_64` and `aarch64` Linux and on four bare-metal ABIs (`thumbv7em` soft-float,
-  `thumbv7em` hardware-FPU, `thumbv6m`, and `riscv32imc-unknown-none-elf`). The bare-metal
-  builds run the real math under QEMU and check the answers, so `no_std`, no-heap, and no-panic
-  rules hold from a 64-bit CPU down to a microcontroller with no operating system.
-- **Every module checked against the reference libraries.** Each module's results are verified
-  against established libraries like `numpy` and `scipy` fixtures within ~1 ulp, thus validating the
-  rust implementation.
-- **Fast, and measured.** On an i7-12650H: a third derivative in 26.7 ns, a small Jacobian in
-  9.3 ns, a 10×10 LU solve in 239 ns, and a full Levenberg-Marquardt curve fit in 2.0 µs. See
-  the [benchmarks](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks).
+- **1 kHz loop rate.** The lead showcase localizes a differential-drive
+  robot against a known map with a 2,000-particle filter over 61 noisy lidar beams, then runs a
+  5-state extended Kalman filter fusing 100 Hz wheel odometry, a 200 Hz IMU, and 20 Hz GPS while a
+  Follow-the-Gap controller laps a course of obstacles — predict, fuse, and plan every millisecond.
+- **Exercise the same math from a server to a microcontroller.** Every commit is built and tested on **six targets**:
+  the `x86_64` and `aarch64` Linux hosts and on four bare-metal ABIs (`thumbv7em` soft-float,
+  `thumbv7em` hardware-FPU, `thumbv6m`, and `riscv32imc`), running the real math under QEMU.
+  `no_std`, no-alloc, and no-panic rules hold on each target.
+- **Fast, and measured.** Each module's results are verified against established libraries like `numpy`, `scipy`, and `filterpy` fixtures within ~1 ulp, thus validating the rust
+  implementation. See the
+  [benchmarks](benchmarks).
 - **Exact derivatives, not estimates.** Differentiation, Jacobians, Hessians, Newton steps, and
-  least-squares fits use forward-mode automatic differentiation (`Dual`, `HyperDual`, `Jet`), so
-  derivatives are exact to machine precision rather than finite-difference approximations.
-- **Pure safe and panic-free.** `forbid(unsafe_code)` across the workspace; `unwrap`/`expect`/
-  `panic` are denied on library paths. Every fallible call returns a typed error.
-- **One dependency.** Transcendental functions come from [`libm`](https://crates.io/crates/libm)
-  (re-exported), so the math works without `std`.
+  Levenberg-Marquardt fits use forward-mode automatic differentiation, so derivatives are exact
+  to machine precision; finite differences remain available for black-box functions. The extended
+  Kalman filter's Jacobians come from autodiff — none are hand-derived.
+- **Pure safe and panic-free.** `#![forbid(unsafe_code)]`, no C dependencies, and `unwrap`/
+  `panic` denied on library paths; every fallible call returns a typed error. Types are fixed-size
+  and stack-allocated, and iteration counts are bounded.
+- **One dependency.** `no_std`, no heap by default, with transcendentals from
+  [`libm`](https://crates.io/crates/libm).
+
 
 ## What it does
 
-- [Automatic differentiation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#scalars-and-automatic-differentiation): `Dual`, `HyperDual`, and `Jet` scalars for exact first, second, and nth-order derivatives.
-- [Differentiation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#derivatives-jacobians-and-hessians): derivatives of any order (total and partial), plus Jacobian and Hessian matrices; autodiff by default, finite differences for black-box functions.
-- [Integration](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#integration): iterative Newton-Cotes rules (Boole, Simpson, Trapezoidal) and Gaussian quadrature (Legendre, Hermite, Laguerre) over finite, semi-infinite, and infinite limits.
-- [Linear algebra](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#linear-algebra): fixed-size, stack-allocated `Matrix` and `Vector` with LU, Cholesky, column-pivoted QR, and SVD: solves, determinant, inverse, pseudo-inverse, and condition number.
+### Robotics and control
+
+- [Estimation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#estimation): linear and extended `KalmanFilter`s (autodiff Jacobians, no hand-derived ones) and a `ParticleFilter` for nonlinear, non-Gaussian problems (`alloc` only).
+- [Control](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#control): `Pid` with anti-windup and a filtered derivative, a one-pole low-pass, the `pure_pursuit_curvature` path-following law, and `FollowTheGap` reactive obstacle avoidance over a range scan.
+- [Spatial math](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#spatial-quaternions-and-lie-groups): `Quaternion`, the `SO2`/`SE2`/`SO3`/`SE3` Lie groups for 2D and 3D rotations and rigid-body transforms with left and right Jacobians and their inverses on all four, and `Twist`/`Wrench` screw-theory types.
+- [Kinematics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#kinematics): differential-drive and unicycle maps between wheel and body motion, with exact SE(2) odometry.
+- [Motion](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#motion): `PolylinePath`, a stack-allocated waypoint path with arc-length, closest-point, and lookahead queries.
+
+### Core math
+
+- [Automatic differentiation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#scalars-and-automatic-differentiation): Exact autodiff of any order (total and partial), plus Jacobian and Hessian matrices.
+- [Linear algebra](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#linear-algebra): fixed-size, stack-allocated `Matrix` and `Vector` with LU, Cholesky, column-pivoted QR, SVD, and the matrix exponential `expm`: solves, general N×N determinant and inverse, pseudo-inverse, and condition number.
 - [Least-squares optimization](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#least-squares-optimization): `LevenbergMarquardt` and `GaussNewton` solvers for nonlinear curve fitting.
 - [Root finding](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#root-finding): bracketed bisection and Newton solvers for scalar equations and square systems, with an optional damped line search.
-- [Vector calculus](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#vector-calculus): curl, divergence, and line and flux integrals.
-- [Approximation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#taylor-approximation): linear and quadratic Taylor models with goodness-of-fit metrics.
+- [Integration](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#integration): iterative Newton-Cotes rules (Boole, Simpson, Trapezoidal) and Gaussian quadrature (Legendre, Hermite, Laguerre) over finite, semi-infinite, and infinite limits.
 - [ODE integrators](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#ode-integrators): fixed-step `Rk4` and adaptive `Rk45` (Dormand-Prince 5(4)) with PI step control and dense output.
 - [Discretization](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#discretization): zero-order hold, Van Loan, and discrete white-noise models for continuous-time linear systems.
-- [Spatial math](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#spatial-quaternions-and-lie-groups): `Quaternion` and the `SO2`/`SE2`/`SO3`/`SE3` Lie groups for 2D and 3D rotations and rigid-body transforms.
-- [Kinematics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#kinematics): differential-drive and unicycle maps between wheel and body motion, with exact SE(2) odometry.
-- [Control](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#control): `Pid` with anti-windup and a filtered derivative, a one-pole low-pass, the pure-pursuit path-following law, and `FollowTheGap` reactive obstacle avoidance over a range scan.
-- Motion: `PolylinePath`, a stack-allocated waypoint path with arc-length, closest-point, and lookahead queries.
-- [Estimation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#estimation): linear and extended `KalmanFilter`s (Joseph-form covariance, autodiff Jacobians — no hand-derived ones) and a bootstrap/SIR `ParticleFilter` for nonlinear, non-Gaussian problems (`alloc` only).
-
-## Install
-
-```sh
-cargo add multicalc
-```
+- [Vector calculus](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#vector-calculus): curl, divergence, and line and flux integrals.
+- [Approximation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#taylor-approximation): linear and quadratic Taylor models with goodness-of-fit metrics.
+- [Random](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#random): `Pcg32` and the `RandomSource` trait, a seedable `no_std` generator for the particle filter and for stochastic models.
 
 ## Tutorial
 
-The [guide](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md) is a comprehesive tutorial for each module. It shows the full imports,
+The [guide](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md) is a comprehensive tutorial for each module. It shows the full imports,
 expected outputs in comments, error-path notes, and pointers to runnable demos. Start there when you need the complete picture of a feature.
 
 ## Example snippets
@@ -164,6 +165,35 @@ let p = g.act(Vector::new([1.0, 0.0, 0.0]));   // rotate then translate → (1, 
 let xi = g.log();                              // 6-vector twist [v; ω]
 ```
 
+### Tracking a robot's state
+
+A Kalman filter recovers what you never measure directly — here velocity, from position alone.
+`ExtendedKalmanFilter` takes its process and measurement models as functions instead of matrices and
+re-linearizes them each step, with the Jacobians coming from autodiff, so a nonlinear model needs no
+hand-derived matrices:
+
+```rust
+use multicalc::estimation::KalmanFilter;
+use multicalc::linear_algebra::{Matrix, Vector};
+
+// Constant velocity: position integrates velocity over a 1 s step, and only position is measured.
+let mut filter = KalmanFilter::new(
+    Vector::new([0.0, 0.0]),                    // initial state [position, velocity]
+    Matrix::new([[1.0, 0.0], [0.0, 1.0]]),      // initial covariance
+    Matrix::new([[1.0, 1.0], [0.0, 1.0]]),      // state transition
+    Matrix::new([[1.0, 0.0]]),                  // measurement model: position only
+    Matrix::new([[0.01, 0.0], [0.0, 0.01]]),    // process noise
+    Matrix::new([[0.1]]),                       // measurement noise
+);
+
+filter.predict();
+filter.update(Vector::new([1.0])).unwrap();     // the target moved about 1 m
+let velocity = filter.state()[1];               // recovered, though never measured
+
+// Gate an outlier before folding it in.
+let gate = filter.normalized_innovation_squared().unwrap();
+```
+
 ### Root finding
 
 Scalar equations and square systems `F(x) = 0`, with exact autodiff derivatives:
@@ -255,6 +285,19 @@ multicalc is licensed under the MIT license.
 
 - `alloc` (off by default): enables the heap-based methods for inputs too large for the stack.
   See [Heap allocation](#heap-allocation).
+
+### Heap allocation
+
+The library allocates nothing by default: every type is fixed-size and lives on the stack. Turning
+on `alloc` pulls in `extern crate alloc` and unlocks exactly two things:
+
+- `estimation::ParticleFilter`, whose cloud of samples is sized at runtime and so cannot be a
+  fixed-size stack type.
+- `numerical_derivative::jacobian::Jacobian::get_on_heap`, which returns a `Vec<Vec<_>>` for
+  Jacobians too large to sit on the stack. The stack-allocated `get` is always available.
+
+Nothing else changes: `no_std`, `forbid(unsafe_code)`, and the no-panic rules hold either way, and
+the feature never pulls in `std`.
 
 ### MSRV and edition
 

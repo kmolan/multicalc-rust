@@ -1,8 +1,10 @@
 # multicalc guide
 
-A tour of every public module: what it does, where to start, a snippet you can run, the errors
-it can return, and a link to a full demo. Read it start to finish if you are new to the crate,
-or jump to a single module once you know your way around.
+A tour of every public module — the robotics and control layer (estimation, control, kinematics,
+motion, spatial) and the calculus, autodiff, and linear-algebra core it is built on: what each does,
+where to start, a snippet you can run, the errors it can return, and a link to a full demo. Read it
+start to finish if you are new to the crate, or jump to a single module once you know your way
+around.
 
 Every operation is generic over the [`Numeric`](#scalars-and-automatic-differentiation) scalar
 trait, which is implemented for `f32` and `f64` and defaults to `f64`. The math functions come
@@ -30,7 +32,9 @@ see [Error handling](#error-handling).
 - [Spatial: quaternions and Lie groups](#spatial-quaternions-and-lie-groups)
 - [Kinematics](#kinematics)
 - [Control](#control)
+- [Motion](#motion)
 - [Estimation](#estimation)
+- [Random](#random)
 - [Error handling](#error-handling)
 - [Internals](#internals)
 
@@ -707,6 +711,56 @@ and
 [2d_localization_obstacle_avoidance.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/2d_localization_obstacle_avoidance.rs)
 (a full lap of a marked course, localizing on a map and fusing odometry, an IMU, and GPS).
 
+## Motion
+
+The path a controller follows. `PolylinePath` is an ordered set of waypoints joined by straight
+segments, stored as a fixed array of `MAX_POINTS` with a runtime length, so it is stack-allocated
+and needs no heap. It answers the two questions a path-following law asks every tick: where am I on
+the path, and what point should I aim at.
+
+- `PolylinePath<MAX_POINTS, DIMENSION, T>`: built with `try_from_points` from a slice, or `new` plus
+  `push` one waypoint at a time. Duplicate consecutive waypoints are accepted; every query treats a
+  zero-length segment as contributing no arc length.
+- `total_arc_length`: the distance along the whole path, zero for fewer than two waypoints.
+- `closest_point`: projects a query point onto the path, returning a `PathProjection` with the
+  `point` found, its `segment_index`, its `arc_length` from the start, and the `distance` from the
+  query point to it.
+- `lookahead_point`: the point a given distance further along from a given arc length — the aim
+  point for `pure_pursuit_curvature`.
+- `EndOfPath`: what a lookahead does when it runs off the end, `Stop` (clamp to the last waypoint,
+  the default) or `Loop` (wrap to the start). Set it with `with_end_of_path`.
+
+```rust
+use multicalc::motion::{EndOfPath, PolylinePath};
+use multicalc::linear_algebra::Vector;
+
+// An L-shaped path: three units east, then four units north.
+let path: PolylinePath<3, 2, f64> = PolylinePath::try_from_points(&[
+    Vector::new([0.0, 0.0]),
+    Vector::new([3.0, 0.0]),
+    Vector::new([3.0, 4.0]),
+])
+.unwrap()
+.with_end_of_path(EndOfPath::Loop);
+
+let total = path.total_arc_length();                        // 7.0
+
+// Where is a robot sitting off to the side of the first leg?
+let here = path.closest_point(Vector::new([2.0, 0.5])).unwrap();
+let on_path = here.point();                                 // (2.0, 0.0)
+let travelled = here.arc_length();                          // 2.0
+let cross_track = here.distance();                          // 0.5
+
+// Aim one unit further along than that.
+let aim = path.lookahead_point(travelled, 1.0).unwrap();    // (3.0, 0.0)
+```
+
+`try_from_points` and `push` return [`MotionError::CapacityExceeded`] if there is no room for the
+waypoint and [`MotionError::NonFinite`] if any coordinate is not finite. `closest_point` and
+`lookahead_point` return [`MotionError::PathTooShort`] on an empty path.
+
+Demo: `2d_localization_obstacle_avoidance` drives a lap of this kind of path under pure pursuit.
+
 ## Estimation
 
 State estimation from noisy measurements. `KalmanFilter` is the linear filter: `predict` rolls the
@@ -867,6 +921,41 @@ not compile it. Its `update` returns `EstimationError::NonFinite` for a non-fini
 forms the mismatch by plain subtraction, so a measurement with an angular component needs a custom
 `Likelihood` that folds the angle into a ±π band first — the same wrap the extended filter's
 `update_with_residual` exists for.
+
+## Random
+
+A seedable generator that works without an operating system, so the stochastic parts of the library
+run on bare metal. The particle filter uses it internally; it is public because process noise,
+sensor models, and Monte-Carlo checks need the same thing.
+
+- `RandomSource`: the trait a generator implements. `next_u32` is the only required method; the
+  trait supplies `next_u64`, `next_unit_f64` (uniform in `[0, 1)` with 53 bits of precision), and
+  `standard_normal` (mean 0, standard deviation 1) on top of it. Implement it to plug in a hardware
+  generator or your own algorithm.
+- `Pcg32`: the built-in generator (PCG-XSH-RR, 32-bit output). `new(seed)` uses the default stream;
+  `with_stream(seed, stream)` picks another, so independent filters draw independent sequences from
+  the same seed. Deterministic — the same seed reproduces the same run exactly, which is what makes
+  a seeded simulation repeatable. Not for cryptography.
+
+```rust
+use multicalc::random::{Pcg32, RandomSource};
+
+let mut generator = Pcg32::new(20260722);
+
+let uniform = generator.next_unit_f64();     // in [0, 1)
+let noise = generator.standard_normal();     // mean 0, standard deviation 1
+
+// The same seed replays the same sequence.
+let mut replay = Pcg32::new(20260722);
+assert_eq!(replay.next_unit_f64(), uniform);
+
+// A second stream from the same seed draws an independent sequence.
+let mut other = Pcg32::with_stream(20260722, 1);
+let independent = other.standard_normal();
+```
+
+Demo: `2d_localization_obstacle_avoidance` seeds every noise source from one number, so the whole
+run repeats exactly.
 
 ## Error handling
 

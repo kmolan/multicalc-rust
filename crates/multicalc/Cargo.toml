@@ -4,12 +4,12 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Calculus, autodiff, nonlinear least squares, and Lie groups in pure no_std Rust: the same math from 64-bit servers to bare-metal microcontrollers"
+description = "Math for real-time embedded systems, in stable no_std Rust: state estimation, control, kinematics, Lie groups, autodiff, and linear algebra — from 64-bit servers to bare-metal microcontrollers"
 repository.workspace = true
 license.workspace = true
 documentation = "https://docs.rs/multicalc"
 readme = "README.md"
-keywords = ["no-std", "autodiff", "calculus", "embedded", "numerical-methods"]
+keywords = ["no-std", "autodiff", "calculus", "embedded", "robotics"]
 categories = ["mathematics", "no-std", "no-std::no-alloc", "embedded", "science::robotics"]
 
 [dependencies]
