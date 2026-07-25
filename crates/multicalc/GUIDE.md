@@ -570,10 +570,8 @@ Because everything is generic over the scalar, a derivative with respect to a jo
 pose parameter flows through `act`, `compose`, and `exp`/`log` under autodiff. That is what the
 inverse-kinematics showcases are built on. Full demo:
 [lie_groups.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/lie_groups.rs);
-worked applications:
-[3d_arm_ik.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/3d_arm_ik.rs)
-and
-[2d_arm_ik.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/2d_arm_ik.rs).
+worked application:
+[3d_arm_ik.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/3d_arm_ik.rs).
 
 ## Kinematics
 
@@ -703,8 +701,11 @@ When no run is both clear and wide enough, it returns a stopped twist with `is_b
 than inventing a heading. The recovery policy — rotating in place until a gap opens, say — is left to
 the caller.
 
-Full demo:
-[avoidance.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/avoidance.rs).
+Full demos:
+[avoidance.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/avoidance.rs)
+and
+[localized_lap.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/localized_lap.rs)
+(a full lap of a marked course, localizing on a map and fusing odometry, an IMU, and GPS).
 
 ## Estimation
 

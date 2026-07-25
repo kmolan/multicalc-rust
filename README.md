@@ -12,7 +12,7 @@ microcontroller.**
 
 https://github.com/user-attachments/assets/800e887d-b78b-488d-90bb-ff2dbdbb2960
 
-*A reel of the live [showcase demos](demos#live-showcases): the 3D and 2D arm IK solvers, then the
+*A reel of the live [showcase demos](demos#live-showcases): the 3D arm IK solver, then the
 Newton fractal and the gradient-driven marbles; every number on screen is measured live.*
 
 ## Highlights
@@ -25,7 +25,7 @@ Newton fractal and the gradient-driven marbles; every number on screen is measur
   implementation.
 - **Fast, and measured** (i7-12650H): a third derivative in 26.7 ns, a 10×10 LU solve in 239 ns,
   a full Levenberg-Marquardt fit in 2 µs. In the live demos: ~4 million Newton solves/sec on one
-  core, and a 1 kHz arm IK at ~6 µs/solve. See the [benchmarks](benchmarks).
+  core, and a 1 kHz 8-link arm IK at ~30 µs/solve. See the [benchmarks](benchmarks).
 - **Exact derivatives, not estimates.** Differentiation, Jacobians, Hessians, Newton steps, and
   Levenberg-Marquardt fits use forward-mode automatic differentiation, so derivatives are exact
   to machine precision; finite differences remain available for black-box functions.
@@ -74,9 +74,11 @@ expected outputs in comments, error-path notes, and pointers to runnable demos. 
   `demos/` crate. Run one with `cargo run -p multicalc-demos --example <name>`.
 - **[Benchmarks](benchmarks)**: Per-module accuracy tables and latency measurements, generated
   from the QA fixtures and checked in CI.
-- **[Live showcases](demos#live-showcases)**: Five animated Rerun demos: a 1 kHz IK on a 3-link arm,
-  an 8-link SE(3) arm tracking a moving 3D pose, a Newton fractal, Fourier epicycles drawing Ferris,
-  and gradient-driven marbles, each streaming live-measured speed and accuracy.
+- **[Live showcases](demos#live-showcases)**: Five animated Rerun demos, led by a robot that boots not
+  knowing where it is, finds itself on a known map with a particle filter, then fuses wheel odometry,
+  an IMU, and GPS to lap a course of obstacles on lidar alone — alongside an 8-link SE(3) arm tracking
+  a moving 3D pose, a Newton fractal, Fourier epicycles drawing Ferris, and gradient-driven marbles,
+  each streaming live-measured speed and accuracy.
 - **[QA crate](tools/qa)**: `multicalc-qa` holds the CI-enforced accuracy fixtures and generates the [benchmarks](benchmarks) tables from them.
 
 ## Repository layout

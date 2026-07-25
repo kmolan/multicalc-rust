@@ -3,7 +3,7 @@
 //! Both constructors are stock SDK calls; Rerun's own recording-stream thread does the live
 //! streaming. `live()` spawns the external viewer found on PATH (version-matched to the SDK).
 
-use crate::sink::{Rgba, VizError, VizSink};
+use super::sink::{Rgba, VizError, VizSink};
 use rerun::RecordingStreamBuilder;
 use std::path::Path;
 
