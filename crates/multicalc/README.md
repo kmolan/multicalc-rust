@@ -22,7 +22,7 @@ No heap, no panics, no `unsafe` - from a 64-bit server down to a bare-metal micr
   `no_std`, no-alloc, and no-panic rules hold on each target.
 - **Fast, and measured.** Each module's results are verified against established libraries like `numpy`, `scipy`, and `filterpy` fixtures within ~1 ulp, thus validating the rust
   implementation. See the
-  [benchmarks](benchmarks).
+  [benchmarks](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks).
 - **Exact derivatives, not estimates.** Differentiation, Jacobians, Hessians, Newton steps, and
   Levenberg-Marquardt fits use forward-mode automatic differentiation, so derivatives are exact
   to machine precision; finite differences remain available for black-box functions. The extended
