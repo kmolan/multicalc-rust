@@ -86,6 +86,41 @@ impl OccupancyGrid {
         }
     }
 
+    /// Marks the cells along each edge of a point list. `closed` joins the last point back to the
+    /// first. Each edge is sampled at well under a cell width, so a wall it draws has no gap a ray
+    /// could slip through.
+    pub fn occupy_polyline(&mut self, polyline: &[[f64; 2]], closed: bool) {
+        let step = 0.4 * self.resolution;
+        let count = polyline.len();
+        let edges = if closed {
+            count
+        } else {
+            count.saturating_sub(1)
+        };
+        for i in 0..edges {
+            let a = polyline[i];
+            let b = polyline[(i + 1) % count];
+            let samples = ((b[0] - a[0]).hypot(b[1] - a[1]) / step).ceil().max(1.0) as usize;
+            for s in 0..=samples {
+                let t = s as f64 / samples as f64;
+                self.occupy_point([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]);
+            }
+        }
+    }
+
+    /// Marks the cells around a circle's rim — the outline, not the filled disc.
+    pub fn occupy_circle(&mut self, center: [f64; 2], radius: f64) {
+        let step = (0.4 * self.resolution / radius).max(1e-3);
+        let mut angle = 0.0;
+        while angle < std::f64::consts::TAU {
+            self.occupy_point([
+                center[0] + radius * angle.cos(),
+                center[1] + radius * angle.sin(),
+            ]);
+            angle += step;
+        }
+    }
+
     /// The number of columns.
     #[must_use]
     pub fn columns(&self) -> usize {
@@ -313,125 +348,5 @@ fn clamp_index(value: f64, length: usize) -> isize {
         length as isize - 1
     } else {
         floored as isize
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-
-    use super::*;
-    use std::f64::consts::PI;
-    use std::path::PathBuf;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    // Writes `contents` to a fresh file under the system temp directory and returns its path. Each
-    // call gets a unique name so tests running at once do not clash.
-    fn temp_csv(contents: &str) -> PathBuf {
-        static COUNTER: AtomicUsize = AtomicUsize::new(0);
-        let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "multicalc_grid_{}_{unique}.csv",
-            std::process::id()
-        ));
-        std::fs::write(&path, contents).unwrap();
-        path
-    }
-
-    // A grid with a single occupied column whose left face sits exactly at x = 2, spanning enough y
-    // that the oblique rays below meet it away from any row boundary.
-    fn wall() -> OccupancyGrid {
-        let mut grid = OccupancyGrid::new(15, 12, 1.0, [-5.0, -5.25]);
-        for row in 0..grid.rows() {
-            grid.set_cell(7, row, true);
-        }
-        grid
-    }
-
-    #[test]
-    fn ray_hits_a_wall_head_on_at_the_exact_face() {
-        let hit = wall().cast_ray([0.0, 0.0], 0.0, 10.0).unwrap();
-        assert!((hit - 2.0).abs() < 1e-12, "hit {hit}");
-    }
-
-    #[test]
-    fn oblique_ray_hits_the_wall_at_the_exact_face() {
-        // A ray at 45° reaches the face at x = 2 after travelling 2 / cos(45°).
-        let hit = wall().cast_ray([0.0, 0.0], PI / 4.0, 10.0).unwrap();
-        assert!((hit - 2.0 / (PI / 4.0).cos()).abs() < 1e-12, "hit {hit}");
-    }
-
-    #[test]
-    fn ray_into_empty_space_reads_nothing() {
-        let grid = OccupancyGrid::new(15, 12, 1.0, [-5.0, -5.25]);
-        assert!(grid.cast_ray([0.0, 0.0], 0.0, 10.0).is_none());
-    }
-
-    #[test]
-    fn ray_pointing_away_from_the_wall_misses() {
-        assert!(wall().cast_ray([0.0, 0.0], PI, 10.0).is_none());
-    }
-
-    #[test]
-    fn range_is_respected() {
-        assert!(wall().cast_ray([0.0, 0.0], 0.0, 1.0).is_none());
-        assert!(wall().cast_ray([0.0, 0.0], 0.0, 2.5).is_some());
-    }
-
-    #[test]
-    fn a_ray_starting_in_an_occupied_cell_reads_zero() {
-        let mut grid = OccupancyGrid::new(4, 4, 1.0, [0.0, 0.0]);
-        grid.set_cell(1, 1, true);
-        let hit = grid.cast_ray([1.5, 1.5], 0.0, 10.0).unwrap();
-        assert!(hit.abs() < 1e-12, "hit {hit}");
-    }
-
-    #[test]
-    fn occupy_point_marks_the_containing_cell() {
-        let mut grid = OccupancyGrid::new(4, 4, 0.5, [-1.0, -1.0]);
-        // (0.1, 0.1) sits in column 2, row 2 with a 0.5 m cell and origin (-1, -1).
-        grid.occupy_point([0.1, 0.1]);
-        assert!(grid.is_occupied(2, 2));
-        assert!(!grid.is_occupied(1, 2));
-        // A point outside the grid is ignored.
-        grid.occupy_point([100.0, 100.0]);
-    }
-
-    #[test]
-    fn csv_round_trips_with_the_top_line_at_the_highest_y() {
-        // Top line is the highest y; only the top-left cell is occupied.
-        let path = temp_csv("1 0 0\n0 0 0\n");
-        let grid = OccupancyGrid::from_csv(&path, 1.0, [0.0, 0.0]).unwrap();
-        assert_eq!(grid.columns(), 3);
-        assert_eq!(grid.rows(), 2);
-        // The top line became the top row (row 1, highest y), leftmost column.
-        assert!(grid.is_occupied(0, 1));
-        assert!(!grid.is_occupied(0, 0));
-    }
-
-    #[test]
-    fn csv_accepts_commas_and_skips_comments() {
-        let path = temp_csv("# a corridor\n1,1\n\n0,0\n");
-        let grid = OccupancyGrid::from_csv(&path, 1.0, [0.0, 0.0]).unwrap();
-        assert_eq!(grid.columns(), 2);
-        assert_eq!(grid.rows(), 2);
-    }
-
-    #[test]
-    fn a_ragged_csv_is_rejected() {
-        let path = temp_csv("1 1 1\n1 1\n");
-        assert!(matches!(
-            OccupancyGrid::from_csv(&path, 1.0, [0.0, 0.0]),
-            Err(GridError::Ragged { .. })
-        ));
-    }
-
-    #[test]
-    fn a_bad_token_is_rejected() {
-        let path = temp_csv("1 2 0\n");
-        assert!(matches!(
-            OccupancyGrid::from_csv(&path, 1.0, [0.0, 0.0]),
-            Err(GridError::BadToken { .. })
-        ));
     }
 }

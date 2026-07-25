@@ -281,3 +281,106 @@ fn converges_to_kalman_on_linear_gaussian_model() {
         truth[0]
     );
 }
+
+#[test]
+fn closure_update_matches_the_model_update() {
+    // The same stationary point, scored two ways from one seed: through the measurement model and
+    // its Gaussian likelihood, and through a closure computing the same Gaussian log-weight by hand.
+    // Both paths should land on the same estimate.
+    let measurement = Vector::new([0.3, -0.2]);
+    let noise = 0.1;
+
+    let build = || {
+        ParticleFilter::<2, 2>::new(
+            1000,
+            Vector::new([0.0, 0.0]),
+            identity_covariance(),
+            small_noise(),
+            11,
+        )
+        .unwrap()
+    };
+
+    let mut through_model = build();
+    let sensor = GaussianLikelihood::new(Matrix::new([[noise, 0.0], [0.0, noise]])).unwrap();
+
+    let mut through_closure = build();
+
+    for _ in 0..15 {
+        through_model.predict(&Stationary).unwrap();
+        through_model
+            .update(&MeasureBoth, &sensor, measurement)
+            .unwrap();
+
+        through_closure.predict(&Stationary).unwrap();
+        through_closure
+            .update_with_log_weights(|particle| {
+                // The Gaussian log-weight for isotropic noise: −½ · |measurement − particle|² / σ².
+                let dx = measurement[0] - particle[0];
+                let dy = measurement[1] - particle[1];
+                -0.5 * (dx * dx + dy * dy) / noise
+            })
+            .unwrap();
+    }
+
+    let model_mean = through_model.mean();
+    let closure_mean = through_closure.mean();
+    assert_eq!(
+        model_mean.into_array(),
+        closure_mean.into_array(),
+        "closure scoring should match the model update exactly"
+    );
+}
+
+#[test]
+fn a_closure_that_favours_one_region_moves_the_mean() {
+    let mut filter = ParticleFilter::<2, 2>::new(
+        2000,
+        Vector::new([0.0, 0.0]),
+        identity_covariance(),
+        small_noise(),
+        22,
+    )
+    .unwrap();
+
+    let target = [1.5, -1.0];
+    for _ in 0..15 {
+        filter.predict(&Stationary).unwrap();
+        filter
+            .update_with_log_weights(|particle| {
+                let dx = target[0] - particle[0];
+                let dy = target[1] - particle[1];
+                -0.5 * (dx * dx + dy * dy) / 0.05
+            })
+            .unwrap();
+    }
+
+    let mean = filter.mean();
+    assert!(
+        (mean[0] - target[0]).abs() < 0.2 && (mean[1] - target[1]).abs() < 0.2,
+        "the mean should follow the favoured region: {mean:?}"
+    );
+}
+
+#[test]
+fn a_zero_score_closure_leaves_the_weights_uniform() {
+    let count = 500;
+    let mut filter = ParticleFilter::<2, 2>::new(
+        count,
+        Vector::new([0.0, 0.0]),
+        identity_covariance(),
+        small_noise(),
+        33,
+    )
+    .unwrap();
+
+    // Scoring every particle the same leaves the weights uniform, so nothing resamples and the
+    // effective sample size stays at the full count.
+    filter.update_with_log_weights(|_| 0.0).unwrap();
+
+    let ess = filter.effective_sample_size();
+    assert!(
+        (ess - count as f64).abs() < 1e-9,
+        "a flat score should leave the full sample size: {ess}"
+    );
+}

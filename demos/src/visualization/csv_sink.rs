@@ -4,7 +4,7 @@
 //! order, with blanks where a row is missing one. Point and tensor logs are skipped with a
 //! warning — a dense grid is not a natural CSV time-series.
 
-use crate::sink::{Rgba, VizError, VizSink};
+use super::sink::{Rgba, VizError, VizSink};
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{BufWriter, Write};

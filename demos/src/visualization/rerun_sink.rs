@@ -3,7 +3,7 @@
 //! Both constructors are stock SDK calls; Rerun's own recording-stream thread does the live
 //! streaming. `live()` spawns the external viewer found on PATH (version-matched to the SDK).
 
-use crate::sink::{Rgba, VizError, VizSink};
+use super::sink::{Rgba, VizError, VizSink};
 use rerun::RecordingStreamBuilder;
 use std::path::Path;
 
@@ -96,6 +96,25 @@ impl VizSink for RerunSink {
         let arch = rerun::Points2D::new(pts)
             .with_colors(colors_iter(colors))
             .with_radii(radii.iter().copied());
+        self.stream
+            .log(path, &arch)
+            .map_err(|e| VizError::Backend(e.to_string()))
+    }
+
+    fn points2d_labeled(
+        &mut self,
+        path: &str,
+        xy: &[[f64; 2]],
+        colors: &[Rgba],
+        radii: &[f32],
+        labels: &[&str],
+    ) -> Result<(), VizError> {
+        let pts: Vec<[f32; 2]> = xy.iter().map(|p| [p[0] as f32, p[1] as f32]).collect();
+        let arch = rerun::Points2D::new(pts)
+            .with_colors(colors_iter(colors))
+            .with_radii(radii.iter().copied())
+            .with_labels(labels.iter().copied())
+            .with_show_labels(true);
         self.stream
             .log(path, &arch)
             .map_err(|e| VizError::Backend(e.to_string()))

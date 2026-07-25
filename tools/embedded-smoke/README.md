@@ -76,14 +76,21 @@ every target including the Cortex-M0; the full set adds the heavier checks on th
 | `portable_path` | all (incl. `thumbv6m`) | Identity: `multicalc` vector dot product `[1,2,3,4]·[4,3,2,1] = 20` — a no-atomics library call exercised on M0. |
 | `svd_golden` | all (incl. `thumbv6m`) | Golden: singular values of a 3×3 fixture matrix vs the `svd_3x3` QA golden. Also emits `SMOKE_VAL_svd_s*` for the cross-ABI guard. |
 | `error_path_returns_err` | all (incl. `thumbv6m`) | Negative path: a singular matrix's `lu()` and an indefinite matrix's `cholesky()` return a typed `Err`, not a panic. |
-| `lm_fit` | `thumbv7em` only | Golden: Levenberg-Marquardt Rosenbrock least-squares minimizer vs the `rosenbrock` QA golden. |
-| `autodiff_derivative` | `thumbv7em` only | Identity: forward-mode autodiff of `x³` at `x = 2`, expects 12. |
-| `ode_identity` | `thumbv7em` only | Identity: RK4 harmonic oscillator round trip and RK45 `y' = -y` to `e^{-1}`. |
-| `lie_group_identity` | `thumbv7em` only | Identity: SO(3)/SE(3) exp/log round trips and one known rotation. |
-| `quadrature_identity` | `thumbv7em` only | Identity: Gauss-Legendre order 4 of `2x` on `[0,2]`, expects 4. Emits `SMOKE_VAL_quad`. |
-| `jacobian_identity` | `thumbv7em` only | Identity: Jacobian of `[x·y·z, x²+y²]` at `(1,2,3)` = `[[6,3,2],[2,4,0]]`. Emits `SMOKE_VAL_jac00`. |
-| `vector_field_identity` | `thumbv7em` only | Identity: curl of `[y,-x,2z]` = `[0,0,-2]` and divergence = 2. Emits `SMOKE_VAL_div3d`. |
-| `root_finding_golden` | `thumbv7em` only | Golden: Newton on Wien's equation vs the `wien_newton` QA golden. Emits `SMOKE_VAL_wien_root`. |
+| `pid_step` | all (incl. `thumbv6m`) | Identity: a PID controller's first output is the exact `kp·e + ki·e·dt`, and the plant it drives climbs to within 1% of the setpoint. Emits `SMOKE_VAL_pid`. |
+| `lm_fit` | full set | Golden: Levenberg-Marquardt Rosenbrock least-squares minimizer vs the `rosenbrock` QA golden. |
+| `autodiff_derivative` | full set | Identity: forward-mode autodiff of `x³` at `x = 2`, expects 12. |
+| `autodiff_derivative_f32` | full set | Identity in `f32`: the same `x³` derivative at single precision, where soft-float and the hardware FPU are most likely to differ. Emits `SMOKE_VAL_ad_f32`. |
+| `ode_identity` | full set | Identity: RK4 harmonic oscillator round trip and RK45 `y' = -y` to `e^{-1}`. |
+| `lie_group_identity` | full set | Identity: SO(3)/SE(3) exp/log round trips and one known rotation. |
+| `quadrature_identity` | full set | Identity: Gauss-Legendre order 4 of `2x` on `[0,2]`, expects 4. Emits `SMOKE_VAL_quad`. |
+| `jacobian_identity` | full set | Identity: Jacobian of `[x·y·z, x²+y²]` at `(1,2,3)` = `[[6,3,2],[2,4,0]]`. Emits `SMOKE_VAL_jac00`. |
+| `vector_field_identity` | full set | Identity: curl of `[y,-x,2z]` = `[0,0,-2]` and divergence = 2. Emits `SMOKE_VAL_div3d`. |
+| `root_finding_golden` | full set | Golden: Newton on Wien's equation vs the `wien_newton` QA golden. Emits `SMOKE_VAL_wien_root`. |
+| `kalman_filter_golden` | full set | Golden: eight predict/update steps of a constant-velocity Kalman filter vs the `kalman_filter_constant_velocity_one_dimensional` QA golden. Emits `SMOKE_VAL_kalman`. |
+| `extended_kalman_filter_golden` | full set | Golden: eight steps of an extended Kalman filter tracking a turning vehicle from position fixes, vs the `extended_kalman_filter_coordinated_turn_fusion` QA golden. The only check driving 5×5 autodiff Jacobians on target. Emits `SMOKE_VAL_extended_kalman`. |
+| `kalman_filter_identity_f32` | full set | Identity in `f32`: two unit-measurement steps of a constant-velocity filter land on the exact `[5/3, 2/3]`. Emits `SMOKE_VAL_kalman_f32`. |
+| `pure_pursuit_identity` | full set | Identity: pure pursuit returns zero curvature for a point dead ahead and the exact `2·lateral/L²` for one off to the side. Emits `SMOKE_VAL_pure_pursuit`. |
+| `follow_the_gap_identity` | full set | Identity: a 31-beam clear scan drives straight ahead at cruise speed; a wall all round stops the robot and reports it blocked. Emits `SMOKE_VAL_follow_the_gap`. |
 
 ## Pass/fail contract
 

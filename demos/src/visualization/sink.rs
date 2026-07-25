@@ -71,6 +71,25 @@ pub trait VizSink {
         self.points2d(path, xy)
     }
 
+    /// Logs 2D points that each carry a text label, for a legend or a named landmark. `colors` and
+    /// `radii` broadcast as in [`points2d_styled`](VizSink::points2d_styled); `labels` has one entry
+    /// per point.
+    ///
+    /// The default drops the labels and falls through to
+    /// [`points2d_styled`](VizSink::points2d_styled), so a backend that cannot draw text still
+    /// places the points.
+    fn points2d_labeled(
+        &mut self,
+        path: &str,
+        xy: &[[f64; 2]],
+        colors: &[Rgba],
+        radii: &[f32],
+        labels: &[&str],
+    ) -> Result<(), VizError> {
+        let _ = labels;
+        self.points2d_styled(path, xy, colors, radii)
+    }
+
     /// Logs 3D points with per-point styling. Broadcast and unit conventions match
     /// [`points2d_styled`](VizSink::points2d_styled).
     fn points3d_styled(

@@ -2,10 +2,10 @@
 
 Runnable demos for [`multicalc`](../crates/multicalc), in two flavors:
 
-- **Basics** — headless, terminating programs, one per module. Each prints its results against
+- **Basics**: headless, terminating programs, one per module. Each prints its results against
   the known analytic value (with the `|err|`) and self-checks with an assert. No viewer, no
   feature flags; they depend only on `multicalc`.
-- **Showcases** — live [Rerun](https://rerun.io) demos that render an animated scene and stream
+- **Showcases**: live [Rerun](https://rerun.io) demos that render an animated scene and stream
   live-measured speed and accuracy. They require the `rerun` feature (on by default) and a
   version-matched viewer.
 
@@ -15,7 +15,7 @@ workspace supply-chain audit.
 
 ## Start here
 
-No viewer, no flags — each terminates and prints results vs the analytic value with the `|err|`:
+No viewer, no flags. Each terminates and prints results vs the analytic value with the `|err|`:
 
 ```sh
 cargo run -p multicalc-demos --example <name>
@@ -25,6 +25,7 @@ cargo run -p multicalc-demos --example <name>
 | --- | --- | --- |
 | `approximation` | `approximation` | Linear and quadratic (Taylor) approximations, `predict`, and goodness-of-fit metrics. |
 | `autodiff_scalars` | `scalar` | Use `Dual` and `HyperDual` directly: evaluate a generic `Numeric` function and read f, f′, f″ from the result fields (no derivator). |
+| `avoidance` | `control::follow_the_gap`, `ode` | Follow-the-Gap steering a simulated lidar scan through a corridor with a pillar: gap selection, RK4-integrated commands, and the walled-in full-stop case. |
 | `curve_fit` | `optimization` | Levenberg-Marquardt fit of `y = a·e^(b·t)` to sensor samples with exact autodiff Jacobians; prints recovered `a`, `b`, and `\|err\|`. |
 | `differentiation` | `numerical_derivative` | Single- and multi-variable derivatives (orders 1-3, partials, mixed partials) by autodiff. |
 | `discretization` | `discretization`, `linear_algebra::expm` | ZOH on a double integrator, Van Loan process-noise discretization, the filterpy `q_discrete_white_noise` model, and a one-`Dual` derivative through the matrix exponential. |
@@ -35,6 +36,7 @@ cargo run -p multicalc-demos --example <name>
 | `kinematics` | `kinematics` | Wheel↔body maps and their round trip, exact SE(2) odometry against the closed-form arc, a figure eight through the encoder path, and a one-`Dual` derivative pushed through an odometry step. |
 | `lie_groups` | `spatial` | SO(3)/SE(3) compose, act on a point, exp/log round trips, geodesic interpolation, and a one-`Dual` autodiff derivative pushed through `exp` ∘ `act`. |
 | `linear_algebra` | `linear_algebra` | LU and Cholesky factorizations, linear solves, and the direct 4x4 inverse under a latency + approximation-error stress test on well- and ill-conditioned inputs. |
+| `localized_lap_check` | `estimation`, `control`, `kinematics` | The headless acceptance gate for the `2d_localization_obstacle_avoidance` showcase: drives 600,000 seeded ticks and asserts zero contacts, a fused position RMS under 5 cm, fusion beating dead reckoning threefold, and the per-tick cost. Needs `--features alloc`. |
 | `ode` | `ode` | Fixed-step RK4 and adaptive RK45 on the harmonic oscillator (known solution) plus an acrobot, a tumbling quadrotor, and an outer-solar-system N-body, reporting error and conserved-quantity drift. |
 | `optimization_solvers` | `optimization` | Gauss-Newton on a well-conditioned linear residual (`y = a + b·t`); when GN is enough vs LM (`curve_fit`). |
 | `root_finding` | `root_finding` | Bracketed bisection, Newton with exact derivatives, damped (backtracking) Newton rescuing a far start, and a square-system Newton solve, each printed against its known root. |
@@ -42,14 +44,15 @@ cargo run -p multicalc-demos --example <name>
 | `vector_field` | `vector_field` | Curl, divergence, line integrals and flux integrals. |
 
 `linear_algebra` and `svd` also print per-call latency; build them `--release` for representative
-numbers.
+numbers. `localized_lap_check` is the one basics example that needs a feature flag
+(`--features alloc`, for the particle filter) and should also be built `--release`.
 
 ## Live showcases
 
 Five live demos spanning the core modules, each an attention-grabbing animated scene that markets
 the library's raw speed and accuracy. They need the `rerun` feature (on by default) and a
 version-matched viewer already up. **Every number on screen is measured live** with
-`std::time::Instant` inside the demo — nothing is hardcoded. Run each with `--release` (mandatory
+`std::time::Instant` inside the demo, so nothing is hardcoded. Run each with `--release` (mandatory
 for the timing readouts):
 
 ```sh
@@ -62,38 +65,41 @@ late or jitter but never changes what the demo computes.
 
 The figures below are representative of a modern desktop core (`x86_64`, `--release`).
 
-- **`2d_arm_ik`** (optimization) — a 3-link arm runs a complete Levenberg-Marquardt IK solve, with
-  exact autodiff Jacobians, every single millisecond. **Median solve ≈ 6 µs — under 1 % of the
-  1 ms budget — with zero missed ticks over 120,000 solves.**
+- **`2d_localization_obstacle_avoidance`** (estimation + control). A
+  differential-drive robot boots not knowing where it is; a 2,000-particle filter matches its noisy
+  lidar to a known map to find itself, then a 5-state EKF fuses noisy wheel odometry, an IMU, and
+  GPS to hold a centimetre-level global pose while a Follow-the-Gap controller laps a course of
+  obstacles on the noisy lidar alone. **Localize, fuse, and plan every millisecond in a
+  median 0.72 µs of the 1 ms tick, with zero collisions over 600,000 ticks.**
 
-  ![2d_arm_ik — a 3-link arm running a full LM IK solve every millisecond](examples/resources/gifs/2d_arm_ik_showcase.gif)
+  ![2d_localization_obstacle_avoidance_showcase](examples/resources/gifs/2d_localization_obstacle_avoidance_showcase.gif)
 
-- **`3d_arm_ik`** (spatial) — an 8-link SE(3) arm chases a moving 3D target in position and
-  orientation. Every millisecond a full Levenberg-Marquardt solve runs whose Jacobian — exp, log,
-  and compose through the whole Lie chain — comes from a single autodiff pass, with no hand-derived
+- **`3d_arm_ik`** (spatial). An 8-link SE(3) arm chases a moving 3D target in position and
+  orientation. Every millisecond a full Levenberg-Marquardt solve runs whose Jacobian (exp, log,
+  and compose through the whole Lie chain) comes from a single autodiff pass, with no hand-derived
   kinematics. **Median solve ≈ 30 µs, tracking the moving target pose to a sub-micron position.**
 
-    ![3d_arm_ik — a 3-link arm running a full LM IK solve every millisecond](examples/resources/gifs/3d_arm_ik_showcase.gif)
+    ![3d_arm_ik: a 3-link arm running a full LM IK solve every millisecond](examples/resources/gifs/3d_arm_ik_showcase.gif)
 
-- **`newton_fractal`** (root finding) — every pixel is a full Newton-system solve with an exact
+- **`newton_fractal`** (root finding). Every pixel is a full Newton-system solve with an exact
   autodiff Jacobian, and the cubic's basins swirl as its roots orbit. **≈ 4 million Newton
   solves/sec on one core** (a 256×256 grid re-solved at ~60 fps), each converged root accurate to
   **≈ 5e-15**.
 
-  ![newton_fractal — cubic basins swirling, every pixel a full Newton solve](examples/resources/gifs/newton_fractal_showcase.gif)
+  ![newton_fractal: cubic basins swirling, every pixel a full Newton solve](examples/resources/gifs/newton_fractal_showcase.gif)
 
-- **`fourier_ferris`** (integration) — Gauss-Legendre quadrature computes the Fourier coefficients
+- **`fourier_ferris`** (integration). Gauss-Legendre quadrature computes the Fourier coefficients
   of Ferris's outline; a chain of epicycles then draws the crab. **≈ 600,000 quadrature node
   evaluations in ≈ 8 ms** at startup, with every coefficient matching the exact closed form to
   **≈ 1e-15**.
 
-  ![fourier_ferris — an epicycle chain drawing Ferris from Fourier coefficients](examples/resources/gifs/fourier_ferris_showcase.gif)
+  ![fourier_ferris: an epicycle chain drawing Ferris from Fourier coefficients](examples/resources/gifs/fourier_ferris_showcase.gif)
 
-- **`gradient_marbles`** (autodiff) — 2,000 marbles across a 3D Himmelblau landscape, each steered
+- **`gradient_marbles`** (autodiff). 2,000 marbles across a 3D Himmelblau landscape, each steered
   by an exact autodiff gradient every millisecond. **2,000 exact gradients in under 3 µs per tick
   (~750,000 gradients/ms), and the autodiff-vs-analytic error is pinned at exactly 0.0** on screen.
 
-  ![gradient_marbles — 2,000 marbles steered by exact autodiff gradients down a 3D landscape](examples/resources/gifs/gradient_marbles_showcase.gif)
+  ![gradient_marbles: 2,000 marbles steered by exact autodiff gradients down a 3D landscape](examples/resources/gifs/gradient_marbles_showcase.gif)
 
 `curve_fit_live` and `curve_fit_record` are two more showcase examples: the first streams a live
 Levenberg-Marquardt fit, the second writes a `.rrd` (and a `.csv`) with no viewer needed.
@@ -166,7 +172,7 @@ the viewer on Windows instead (real GPU) and stream to it from WSL over gRPC.
    cargo run -p multicalc-demos --example curve_fit_live
    ```
 
-   The Windows viewer from step 3 MUST already be running — under WSL the example connects to it
+   The Windows viewer from step 3 MUST already be running; under WSL the example connects to it
    and does not spawn one.
 
 On NAT networking (the WSL default) instead of mirrored, set `RERUN_VIZ_URL` to the Windows host,

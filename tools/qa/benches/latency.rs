@@ -229,6 +229,131 @@ fn bench_particle_filter(c: &mut Criterion) {
     });
 }
 
+/// Rolls `[x, y, heading, speed, turn_rate]` one tick along a turning arc. Mirrors
+/// `CoordinatedTurn` in `tools/qa/tests/estimation.rs`; the two must stay in step.
+struct CoordinatedTurn {
+    timestep: f64,
+}
+
+impl VectorFn<5, 5> for CoordinatedTurn {
+    fn eval<S: Numeric>(&self, state: &[S; 5]) -> [S; 5] {
+        let [x, y, heading, speed, turn_rate] = *state;
+        let dt = S::from_f64(self.timestep);
+        let next_heading = heading + turn_rate * dt;
+        let (next_x, next_y) = if turn_rate.abs() > S::from_f64(1e-6) {
+            let radius = speed / turn_rate;
+            (
+                x + radius * (next_heading.sin() - heading.sin()),
+                y + radius * (heading.cos() - next_heading.cos()),
+            )
+        } else {
+            (
+                x + speed * heading.cos() * dt,
+                y + speed * heading.sin() * dt,
+            )
+        };
+        let wrapped = next_heading - S::TWO_PI * (next_heading / S::TWO_PI).round();
+        [next_x, next_y, wrapped, speed, turn_rate]
+    }
+}
+
+/// A position fix: the sensor sees the first two state components.
+struct GlobalPosition;
+impl VectorFn<5, 2> for GlobalPosition {
+    fn eval<S: Numeric>(&self, state: &[S; 5]) -> [S; 2] {
+        [state[0], state[1]]
+    }
+}
+
+fn bench_kalman_filter_step(c: &mut Criterion) {
+    // One predict + update of a constant-velocity tracker: position measured, velocity inferred.
+    use multicalc::estimation::KalmanFilter;
+    let mut filter = KalmanFilter::<2, 1>::new(
+        Vector::new([0.0, 1.0]),
+        Matrix::identity(),
+        Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
+        Matrix::new([[1.0, 0.0]]),
+        Matrix::new([[0.05, 0.0], [0.0, 0.05]]),
+        Matrix::new([[0.5]]),
+    );
+    let measurement = Vector::new([1.0]);
+    c.bench_function("kalman_filter_step", |b| {
+        b.iter(|| {
+            filter.predict();
+            filter.update(black_box(measurement)).unwrap();
+        })
+    });
+}
+
+fn bench_extended_kalman_filter_step(c: &mut Criterion) {
+    // One predict + update of the showcase's 5-state coordinated-turn filter against a
+    // position fix: the per-tick cost the 1 kHz loop is built around.
+    use multicalc::estimation::ExtendedKalmanFilter;
+    let motion = CoordinatedTurn { timestep: 0.001 };
+    let mut filter = ExtendedKalmanFilter::<5, 2>::new(
+        Vector::new([0.0, 0.0, 0.0, 1.0, 0.3]),
+        Matrix::from_fn(|i, j| if i == j { 0.5 } else { 0.0 }),
+        Matrix::from_fn(|i, j| {
+            if i != j {
+                0.0
+            } else if i < 3 {
+                1e-7
+            } else {
+                4e-4
+            }
+        }),
+        Matrix::from_fn(|i, j| if i == j { 0.09 } else { 0.0 }),
+    );
+    let measurement = Vector::new([0.001, 0.0]);
+    c.bench_function("extended_kalman_filter_step", |b| {
+        b.iter(|| {
+            filter.predict(black_box(&motion)).unwrap();
+            filter
+                .update(black_box(&GlobalPosition), black_box(measurement))
+                .unwrap();
+        })
+    });
+}
+
+fn bench_pid_update(c: &mut Criterion) {
+    use multicalc::control::Pid;
+    let mut controller = Pid::new(2.0, 1.0, 0.05, 0.001)
+        .unwrap()
+        .with_output_limits(-1.0, 1.0)
+        .unwrap();
+    c.bench_function("pid_update", |b| {
+        b.iter(|| controller.update(black_box(1.0), black_box(0.5)))
+    });
+}
+
+fn bench_pure_pursuit(c: &mut Criterion) {
+    use multicalc::control::pure_pursuit_curvature;
+    use multicalc::spatial::SE2;
+    let pose = SE2::<f64>::identity();
+    let target = Vector::new([1.0, 0.35]);
+    c.bench_function("pure_pursuit", |b| {
+        b.iter(|| pure_pursuit_curvature(black_box(pose), black_box(target), 1.06).unwrap())
+    });
+}
+
+fn bench_follow_the_gap(c: &mut Criterion) {
+    // The showcase's exact follower: 61 beams over 120 degrees, 4 m range, 0.60 m planning
+    // width. The scan has an obstacle across the right half so a real gap search runs.
+    use multicalc::control::FollowTheGap;
+    const BEAMS: usize = 61;
+    let follower: FollowTheGap<BEAMS, f64> =
+        FollowTheGap::try_new(2.0 * std::f64::consts::PI / 3.0, 4.0, 0.60, 0.62, 0.40)
+            .unwrap()
+            .with_frontal_half_angle(0.35)
+            .unwrap()
+            .with_speed_scaling(0.15, 0.70)
+            .unwrap();
+    let scan: [f64; BEAMS] = core::array::from_fn(|i| if i < BEAMS / 2 { 0.8 } else { 4.0 });
+    c.bench_function("follow_the_gap", |b| {
+        b.iter(|| follower.compute(black_box(&scan), black_box(0.0)).unwrap())
+    });
+}
+
 fn bench_newton_system(crit: &mut Criterion) {
     // x^2 + y^2 = 4 and x*y = 1 (circle ∩ hyperbola).
     let system =
@@ -259,6 +384,11 @@ fn main() {
     bench_lev_marq(&mut c);
     bench_newton_system(&mut c);
     bench_particle_filter(&mut c);
+    bench_kalman_filter_step(&mut c);
+    bench_extended_kalman_filter_step(&mut c);
+    bench_pid_update(&mut c);
+    bench_pure_pursuit(&mut c);
+    bench_follow_the_gap(&mut c);
 
     c.final_summary();
 
@@ -283,6 +413,23 @@ const BENCHES: &[(&str, &str)] = &[
     (
         "particle_filter",
         "1000 particles, diff-drive motion + process noise + systematic resample",
+    ),
+    (
+        "kalman_filter_step",
+        "2-state constant velocity, predict + update",
+    ),
+    (
+        "extended_kalman_filter_step",
+        "5-state coordinated turn + position fix, autodiff Jacobians, predict + update",
+    ),
+    (
+        "pid_update",
+        "one PID tick with anti-windup and output limits",
+    ),
+    ("pure_pursuit", "κ = 2·sin(α)/L_d toward a lookahead point"),
+    (
+        "follow_the_gap",
+        "61-beam scan, widest gap the robot fits through + speed ramp",
     ),
 ];
 

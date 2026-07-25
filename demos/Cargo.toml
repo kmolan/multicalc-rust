@@ -9,9 +9,10 @@ publish = false
 autoexamples = false
 
 [features]
-default = ["rerun"]
+default = ["rerun", "alloc"]
 rerun = ["dep:rerun"]
-# Turns on multicalc's heap types (the particle filter) for the estimation example's extra section.
+# Turns on multicalc's heap types (the particle filter), used by the estimation example's extra
+# section and the 2D localization and obstacle avoidance showcase (its localizer and lap driver).
 alloc = ["multicalc/alloc"]
 
 [dependencies]
@@ -83,6 +84,11 @@ name = "linear_algebra"
 path = "examples/basics/linear_algebra.rs"
 
 [[example]]
+name = "localized_lap_check"
+path = "examples/basics/localized_lap_check.rs"
+required-features = ["alloc"]
+
+[[example]]
 name = "ode"
 path = "examples/basics/ode.rs"
 
@@ -124,9 +130,9 @@ path = "examples/showcase/gradient_marbles.rs"
 required-features = ["rerun"]
 
 [[example]]
-name = "2d_arm_ik"
-path = "examples/showcase/2d_arm_ik.rs"
-required-features = ["rerun"]
+name = "2d_localization_obstacle_avoidance"
+path = "examples/showcase/2d_localization_obstacle_avoidance.rs"
+required-features = ["rerun", "alloc"]
 
 [[example]]
 name = "newton_fractal"
