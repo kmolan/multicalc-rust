@@ -4,10 +4,89 @@ use multicalc_demos::sim::wheeled_vehicle::WheeledVehicle;
 use rand::SeedableRng;
 use rand_pcg::Pcg32;
 
+const WHEEL_RADIUS: f64 = 0.036;
 const WHEELBASE: f64 = 0.235;
 
 fn noiseless() -> WheeledVehicle {
-    WheeledVehicle::new(WHEELBASE, 0.0, 0.0, 1.2).unwrap()
+    WheeledVehicle::new(WHEEL_RADIUS, WHEELBASE, 0.0, 0.0, 1.2).unwrap()
+}
+
+#[test]
+fn driving_straight_turns_both_wheels_the_same_way() {
+    // Rolling forward, both wheels turn forward by the distance covered over the wheel radius.
+    let mut rng = Pcg32::seed_from_u64(1);
+    let (speed, dt) = (1.0, 0.1);
+    let step = noiseless().step(
+        Vector::new([0.0, 0.0, 0.0]),
+        BodyTwist::new(speed, 0.0),
+        dt,
+        false,
+        &mut rng,
+    );
+    let expected = speed * dt / WHEEL_RADIUS;
+    let rotations = step.wheel_rotations;
+    assert!(
+        (rotations.left() - expected).abs() < 1e-12,
+        "left wheel: {}",
+        rotations.left()
+    );
+    assert!(
+        (rotations.right() - expected).abs() < 1e-12,
+        "right wheel: {}",
+        rotations.right()
+    );
+}
+
+#[test]
+fn turning_on_the_spot_turns_the_wheels_opposite_ways() {
+    // No forward motion, so one wheel goes forward exactly as far as the other goes back, and the
+    // gap between them is the turn spread across the wheelbase.
+    let mut rng = Pcg32::seed_from_u64(2);
+    let (yaw_rate, dt) = (1.0, 0.1);
+    let step = noiseless().step(
+        Vector::new([0.0, 0.0, 0.0]),
+        BodyTwist::new(0.0, yaw_rate),
+        dt,
+        false,
+        &mut rng,
+    );
+    let rotations = step.wheel_rotations;
+    assert!(
+        (rotations.left() + rotations.right()).abs() < 1e-12,
+        "wheels should cancel: {} and {}",
+        rotations.left(),
+        rotations.right()
+    );
+    assert!(
+        rotations.right() > 0.0,
+        "a left turn drives the right wheel"
+    );
+    let spread = (rotations.right() - rotations.left()) * WHEEL_RADIUS;
+    assert!(
+        (spread - yaw_rate * dt * WHEELBASE).abs() < 1e-12,
+        "turn spread across the wheelbase: {spread}"
+    );
+}
+
+#[test]
+fn the_wheel_turn_reproduces_the_motion_that_caused_it() {
+    // Splitting a body arc between the wheels and putting it back together returns the same arc.
+    let mut rng = Pcg32::seed_from_u64(3);
+    let vehicle = noiseless();
+    let command = BodyTwist::new(0.7, -0.4);
+    let dt = 0.05;
+    let step = vehicle.step(Vector::new([0.0, 0.0, 0.0]), command, dt, false, &mut rng);
+    let arc = vehicle.drive().forward_arc(step.wheel_rotations);
+    assert!(
+        (arc.linear() - command.linear() * dt).abs() < 1e-12,
+        "arc length: {}",
+        arc.linear()
+    );
+    assert!(
+        (arc.angular() - command.angular() * dt).abs() < 1e-12,
+        "heading change: {}",
+        arc.angular()
+    );
 }
 
 #[test]
@@ -86,7 +165,7 @@ fn slipping_scales_only_the_measured_speed() {
 
 #[test]
 fn a_fixed_seed_reproduces_the_step() {
-    let vehicle = WheeledVehicle::new(WHEELBASE, 0.05, 0.05, 1.2).unwrap();
+    let vehicle = WheeledVehicle::new(WHEEL_RADIUS, WHEELBASE, 0.05, 0.05, 1.2).unwrap();
     let pose = Vector::new([0.0, 0.0, 0.0]);
     let command = BodyTwist::new(1.0, 0.2);
 

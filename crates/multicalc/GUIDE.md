@@ -704,7 +704,7 @@ the caller.
 Full demos:
 [avoidance.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/avoidance.rs)
 and
-[localized_lap.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/localized_lap.rs)
+[2d_localization_obstacle_avoidance.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/2d_localization_obstacle_avoidance.rs)
 (a full lap of a marked course, localizing on a map and fusing odometry, an IMU, and GPS).
 
 ## Estimation

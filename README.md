@@ -10,7 +10,7 @@
 Lie groups in pure safe `no_std` Rust: the same code from a 64-bit server down to a bare-metal
 microcontroller.**
 
-https://github.com/user-attachments/assets/800e887d-b78b-488d-90bb-ff2dbdbb2960
+https://github.com/user-attachments/assets/93dee114-67f6-4124-a20d-88a8be50da6f
 
 *A reel of the live [showcase demos](demos#live-showcases): the 3D arm IK solver, then the
 Newton fractal and the gradient-driven marbles; every number on screen is measured live.*

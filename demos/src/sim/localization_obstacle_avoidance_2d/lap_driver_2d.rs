@@ -7,7 +7,7 @@ use std::time::Instant;
 
 use multicalc::control::FollowTheGap;
 use multicalc::estimation::ExtendedKalmanFilter;
-use multicalc::kinematics::{BodyTwist, Unicycle};
+use multicalc::kinematics::{BodyTwist, Unicycle, WheelRotations};
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::ode::Rk4;
 use multicalc::scalar::VectorFn;
@@ -32,9 +32,20 @@ pub const BEAMS: usize = 61;
 const TIMESTEP: f64 = 0.001;
 const FOOTPRINT_RADIUS: f64 = 0.17;
 const WHEELBASE: f64 = 0.235;
+const WHEEL_RADIUS: f64 = 0.036;
 const LIDAR_RANGE: f64 = 4.0;
 const STARTUP_YAW_RATE: f64 = 0.8; // in-place turn while localizing
 const RECOVERY_YAW_RATE: f64 = 1.2; // in-place turn when the planner is boxed in
+const MAXIMUM_ACCELERATION: f64 = 1.0; // how fast the commanded speed may rise, m/s²
+const MAXIMUM_DECELERATION: f64 = 3.0; // and fall — braking beats driving, as on a real vehicle
+/// How long the way ahead must stay shut before the robot gives up and turns on the spot.
+///
+/// Reading a noisy scan a thousand times a second, the planner reports no way through for a tick or
+/// two quite often — a dropped beam, a wall clipping the edge of the arc — and clears again straight
+/// away. Reacting to every one of those stops the robot dead several times a second for no reason.
+/// Waiting for the report to persist ignores the flickers and still catches a real dead end within a
+/// fiftieth of a second, in which the robot travels under a centimetre.
+const BLOCKED_TICKS_BEFORE_RECOVERY: u32 = 20;
 /// Give up localizing after 3 s and drive anyway.
 pub const LOCALIZE_CAP_TICKS: u64 = 3000;
 const ODOMETRY_EVERY: u64 = 10; // fold in odometry at 100 Hz
@@ -77,6 +88,8 @@ pub struct TickRecord {
     pub scan: [f64; BEAMS],
     pub gps_fix: Option<[f64; 2]>,
     pub twist: BodyTwist<f64>,
+    /// How far the left and right wheel have turned in total, in radians, folded into (-π, π].
+    pub wheel_angles: [f64; 2],
     /// Distance from the robot's rim to the nearest wall. Negative means contact.
     pub clearance: f64,
     pub contact: bool,
@@ -158,8 +171,10 @@ pub struct LapWorld {
     dead_reckoned: Vector<3, f64>,
     twist: BodyTwist<f64>,
     tick: u64,
-    winding: f64,      // total angle wound around the island, for lap counting
-    last_bearing: f64, // last angle from the island to the robot
+    wheel_angles: [f64; 2], // how far each wheel has turned, for the display
+    blocked_ticks: u32,     // consecutive ticks the planner has reported no way through
+    winding: f64,           // total angle wound around the island, for lap counting
+    last_bearing: f64,      // last angle from the island to the robot
     metrics: LapMetrics,
 }
 
@@ -167,8 +182,13 @@ impl LapWorld {
     pub fn new(seed: u64) -> Result<Self, Box<dyn std::error::Error>> {
         let field_of_view = 2.0 * std::f64::consts::PI / 3.0;
         let track = lap_track_2d();
-        let vehicle =
-            WheeledVehicle::new(WHEELBASE, SPEED_NOISE, YAW_RATE_NOISE, SLIP_SPEED_FACTOR)?;
+        let vehicle = WheeledVehicle::new(
+            WHEEL_RADIUS,
+            WHEELBASE,
+            SPEED_NOISE,
+            YAW_RATE_NOISE,
+            SLIP_SPEED_FACTOR,
+        )?;
         let lidar =
             Lidar2d::<BEAMS>::new(field_of_view, LIDAR_RANGE, LIDAR_RANGE_NOISE, LIDAR_DROPOUT);
         let inertial =
@@ -210,6 +230,8 @@ impl LapWorld {
             dead_reckoned: pose,
             twist: BodyTwist::new(0.0, 0.0),
             tick: 0,
+            wheel_angles: [0.0, 0.0],
+            blocked_ticks: 0,
             winding: 0.0,
             last_bearing,
             metrics: LapMetrics {
@@ -242,6 +264,7 @@ impl LapWorld {
             .vehicle
             .step(self.pose, command, TIMESTEP, false, &mut self.rng);
         self.pose = truth.pose;
+        self.turn_wheels(truth.wheel_rotations);
         let scan = self.lidar.simulate(
             &self.track.grid,
             [self.pose[0], self.pose[1], self.pose[2]],
@@ -310,6 +333,7 @@ impl LapWorld {
             scan,
             gps_fix: None,
             twist: command,
+            wheel_angles: self.wheel_angles,
             clearance,
             contact,
             slipping: false,
@@ -328,6 +352,7 @@ impl LapWorld {
             .vehicle
             .step(self.pose, commanded, TIMESTEP, slipping, &mut self.rng);
         self.pose = truth.pose;
+        self.turn_wheels(truth.wheel_rotations);
 
         // 2. Sensor reads (the simulator, not the library, so outside the timed block).
         let imu_reading = if self.tick.is_multiple_of(INERTIAL_EVERY) {
@@ -396,16 +421,25 @@ impl LapWorld {
         let plan = self.follower.compute(&scan, 0.0);
         let math_microseconds = started.elapsed().as_nanos() as f64 / 1000.0;
 
-        // 5. Recovery and the next command.
+        // 5. Recovery, then the next command eased in at a rate the drive could really manage.
         let (blocked, planned_twist) = match &plan {
             Ok(output) => (output.is_blocked(), output.body_twist()),
             Err(_) => (true, BodyTwist::new(0.0, 0.0)),
         };
-        let command = if blocked {
+        self.blocked_ticks = if blocked { self.blocked_ticks + 1 } else { 0 };
+        let wanted = if self.blocked_ticks >= BLOCKED_TICKS_BEFORE_RECOVERY {
+            // Shut for long enough to believe: stop and turn toward the open side.
             BodyTwist::new(0.0, RECOVERY_YAW_RATE * free_side_sign(&scan))
+        } else if blocked {
+            // A flicker: carry on as before rather than stamping on the brakes.
+            commanded
         } else {
             planned_twist
         };
+        let command = BodyTwist::new(
+            reachable_speed(commanded.linear(), wanted.linear()),
+            wanted.angular(),
+        );
         self.twist = command;
 
         // 6. Dead-reckoned foil: integrate the measured odometry with no correction.
@@ -471,6 +505,7 @@ impl LapWorld {
             scan,
             gps_fix,
             twist: command,
+            wheel_angles: self.wheel_angles,
             clearance,
             contact,
             slipping,
@@ -500,6 +535,16 @@ impl LapWorld {
     pub fn localizer(&self) -> &GlobalLocalizer<BEAMS> {
         &self.localizer
     }
+    #[must_use]
+    pub fn vehicle(&self) -> &WheeledVehicle {
+        &self.vehicle
+    }
+
+    /// Rolls the wheels on by the turn they just made, keeping the angles folded into (-π, π].
+    fn turn_wheels(&mut self, rotations: WheelRotations<f64>) {
+        self.wheel_angles[0] = wrap_angle(self.wheel_angles[0] + rotations.left());
+        self.wheel_angles[1] = wrap_angle(self.wheel_angles[1] + rotations.right());
+    }
 }
 
 /// Folds the filter's heading state back into range after a predict or an angular update.
@@ -507,6 +552,18 @@ fn rewrap_heading(filter: &mut ExtendedKalmanFilter<5, 2>) {
     let mut state = filter.state();
     state[2] = wrap_angle(state[2]);
     filter.set_state(state);
+}
+
+/// How much of the wanted speed change the drive can actually deliver in one tick.
+///
+/// The planner reads a fresh, noisy scan every tick and its speed follows the nearest thing in front,
+/// so the raw command jumps around far faster than wheels and motors ever could. Easing toward it —
+/// slower when speeding up than when slowing down, as on a real vehicle — is what the machine itself
+/// would do, and it leaves the planner untouched.
+fn reachable_speed(previous: f64, wanted: f64) -> f64 {
+    let rise = MAXIMUM_ACCELERATION * TIMESTEP;
+    let fall = MAXIMUM_DECELERATION * TIMESTEP;
+    wanted.clamp(previous - fall, previous + rise)
 }
 
 /// +1.0 to turn toward the left half of the scan when it is the more open one, else -1.0.

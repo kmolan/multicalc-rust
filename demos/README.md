@@ -62,13 +62,14 @@ late or jitter but never changes what the demo computes.
 
 The figures below are representative of a modern desktop core (`x86_64`, `--release`).
 
-- **`localized_lap`** (estimation + control) — "Know where you are." A differential-drive robot boots
-  not knowing where it is; a particle filter matches its lidar to a known map to find itself, then an
-  EKF fuses wheel odometry, an IMU, and GPS to hold a centimetre-level global pose while Follow-the-Gap
-  laps a course of obstacles on lidar alone — a dead-reckoning foil drifting away beside it, most
-  visibly through the wheel-slip zone. **Localize, fuse, and plan every millisecond at well under 1 µs
-  of the 1 ms tick, centimetre-level fused accuracy against a drifting foil, and zero contact through
+- **`2d_localization_obstacle_avoidance`** (estimation + control) — A
+  differential-drive robot boots not knowing where it is; a particle filter matches its noisy lidar to a
+  known map to find itself, then an EKF fuses noisy wheel odometry, an IMU, and GPS to hold a
+  centimetre-level global pose while a Follow-the-Gap controller laps a course of obstacles on the noisy lidar, **Localize, fuse, and plan every millisecond at well under 1 µs
+  of the 1 ms tick with zero collisions through
   the obstacle gauntlet.**
+
+  ![2d_localization_obstacle_avoidance_showcase](examples/resources/gifs/2d_localization_obstacle_avoidance_showcase.gif)
 
 - **`3d_arm_ik`** (spatial) — an 8-link SE(3) arm chases a moving 3D target in position and
   orientation. Every millisecond a full Levenberg-Marquardt solve runs whose Jacobian — exp, log,

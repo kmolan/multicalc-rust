@@ -1,6 +1,7 @@
-//! Headless acceptance check for the localized-lap showcase: boot not knowing where it is, localize
-//! on the map with a particle filter, then fuse wheel odometry, an IMU, and GPS while Follow-the-Gap
-//! laps the course — asserting zero contacts, centimetre-level fused accuracy, and a fast per-tick cost.
+//! Headless acceptance check for the 2D localization and obstacle avoidance showcase: boot not
+//! knowing where it is, localize on the map with a particle filter, then fuse wheel odometry, an IMU,
+//! and GPS while Follow-the-Gap laps the course — asserting zero contacts, centimetre-level fused
+//! accuracy, and a fast per-tick cost.
 //!
 //! The startup localizer runs before the timed loop and is not part of the per-tick cost; the lidar
 //! reports every tick, which is a property of this simulation, not a hardware claim.

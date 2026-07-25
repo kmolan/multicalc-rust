@@ -12,7 +12,7 @@ autoexamples = false
 default = ["rerun", "alloc"]
 rerun = ["dep:rerun"]
 # Turns on multicalc's heap types (the particle filter), used by the estimation example's extra
-# section and the localized-lap showcase (its localizer and lap driver).
+# section and the 2D localization and obstacle avoidance showcase (its localizer and lap driver).
 alloc = ["multicalc/alloc"]
 
 [dependencies]
@@ -130,8 +130,8 @@ path = "examples/showcase/gradient_marbles.rs"
 required-features = ["rerun"]
 
 [[example]]
-name = "localized_lap"
-path = "examples/showcase/localized_lap.rs"
+name = "2d_localization_obstacle_avoidance"
+path = "examples/showcase/2d_localization_obstacle_avoidance.rs"
 required-features = ["rerun", "alloc"]
 
 [[example]]

@@ -101,6 +101,25 @@ impl VizSink for RerunSink {
             .map_err(|e| VizError::Backend(e.to_string()))
     }
 
+    fn points2d_labeled(
+        &mut self,
+        path: &str,
+        xy: &[[f64; 2]],
+        colors: &[Rgba],
+        radii: &[f32],
+        labels: &[&str],
+    ) -> Result<(), VizError> {
+        let pts: Vec<[f32; 2]> = xy.iter().map(|p| [p[0] as f32, p[1] as f32]).collect();
+        let arch = rerun::Points2D::new(pts)
+            .with_colors(colors_iter(colors))
+            .with_radii(radii.iter().copied())
+            .with_labels(labels.iter().copied())
+            .with_show_labels(true);
+        self.stream
+            .log(path, &arch)
+            .map_err(|e| VizError::Backend(e.to_string()))
+    }
+
     fn points3d_styled(
         &mut self,
         path: &str,
