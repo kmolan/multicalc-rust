@@ -25,17 +25,17 @@
 tolerance_pct = 10
 
 [embedded-smoke.thumbv7em-none-eabi]
-text_bytes = 84072
-stack_bytes_f64 = 1344
+text_bytes = 114240
+stack_bytes_f64 = 3071
 
 [embedded-smoke.thumbv7em-none-eabihf]
-text_bytes = 92284
-stack_bytes_f64 = 1628
+text_bytes = 123324
+stack_bytes_f64 = 3159
 
 [embedded-smoke.thumbv6m-none-eabi]
 text_bytes = 43424
 stack_bytes_f64 = 672
 
 [embedded-smoke.riscv32imc-unknown-none-elf]
-text_bytes = 88822
-stack_bytes_f64 = 1380
+text_bytes = 131284
+stack_bytes_f64 = 2907

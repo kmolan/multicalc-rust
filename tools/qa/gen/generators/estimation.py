@@ -202,6 +202,101 @@ def _landmark_range_and_bearing(out, rng, meta):
     )
 
 
+def _coordinated_turn_fusion(out, rng, meta):
+    """A turning ground vehicle tracked from position fixes: nonlinear f, linear h.
+
+    The process model is the showcase's coordinated turn over
+    [x, y, heading, speed, turn_rate]; the measurement is a position fix. filterpy
+    propagates with the matrix F, so the state is advanced through the nonlinear
+    model by hand and F is set to its Jacobian at each step.
+    """
+    from filterpy.kalman import ExtendedKalmanFilter
+
+    timestep, steps = 0.1, 8
+    process_noise = np.diag([1e-7, 1e-7, 1e-7, 4e-4, 4e-4])
+    measurement_noise = np.diag([0.09, 0.09])
+    initial_state = np.array([0.2, -0.1, 0.05, 0.9, 0.25])
+    initial_covariance = np.diag([0.5, 0.5, 0.2, 0.2, 0.2])
+    true_initial_state = np.array([0.0, 0.0, 0.0, 1.0, 0.3])
+
+    def advance_state(state):
+        """One tick along the turning arc. Mirrors CoordinatedTurnModel in
+        demos/src/sim/kalman_filter_models.rs; the two must stay in step."""
+        x, y, heading, speed, turn_rate = state
+        next_heading = heading + turn_rate * timestep
+        radius = speed / turn_rate
+        return np.array([
+            x + radius * (np.sin(next_heading) - np.sin(heading)),
+            y + radius * (np.cos(heading) - np.cos(next_heading)),
+            next_heading,
+            speed,
+            turn_rate,
+        ])
+
+    def transition_jacobian(state):
+        """How each output of advance_state changes with each input."""
+        _, _, heading, speed, turn_rate = state
+        next_heading = heading + turn_rate * timestep
+        radius = speed / turn_rate
+        sine_difference = np.sin(next_heading) - np.sin(heading)
+        cosine_difference = np.cos(heading) - np.cos(next_heading)
+        jacobian = np.eye(5)
+        jacobian[0, 2] = radius * (np.cos(next_heading) - np.cos(heading))
+        jacobian[0, 3] = sine_difference / turn_rate
+        jacobian[0, 4] = (-speed * sine_difference / turn_rate**2
+                          + speed * np.cos(next_heading) * timestep / turn_rate)
+        jacobian[1, 2] = radius * sine_difference
+        jacobian[1, 3] = cosine_difference / turn_rate
+        jacobian[1, 4] = (-speed * cosine_difference / turn_rate**2
+                          + speed * np.sin(next_heading) * timestep / turn_rate)
+        jacobian[2, 4] = timestep
+        return jacobian
+
+    def measurement_function(state):
+        """The sensor sees position only."""
+        return np.array([[state[0, 0]], [state[1, 0]]])
+
+    def measurement_jacobian(_state):
+        return np.array([[1.0, 0.0, 0.0, 0.0, 0.0],
+                         [0.0, 1.0, 0.0, 0.0, 0.0]])
+
+    # Measurements: the true track's position, plus position-sensor noise.
+    true_state = true_initial_state.copy()
+    measurements = np.zeros((steps, 2))
+    for step in range(steps):
+        true_state = advance_state(true_state)
+        measurements[step] = true_state[:2] + rng.normal(0.0, 0.3, size=2)
+
+    estimator = ExtendedKalmanFilter(dim_x=5, dim_z=2)
+    estimator.x = initial_state.reshape(5, 1)
+    estimator.P = initial_covariance.copy()
+    estimator.Q, estimator.R = process_noise, measurement_noise
+    for measurement in measurements:
+        # Advance through the nonlinear model, then hand filterpy the matching
+        # linearization so its covariance predict uses the same transition.
+        estimator.F = transition_jacobian(estimator.x.flatten())
+        predicted = advance_state(estimator.x.flatten())
+        estimator.P = estimator.F @ estimator.P @ estimator.F.T + estimator.Q
+        estimator.x = predicted.reshape(5, 1)
+        estimator.update(measurement.reshape(2, 1),
+                         measurement_jacobian, measurement_function)
+
+    inputs = {
+        "kind": schema.string("extended_kalman_filter"),
+        "case": schema.string("coordinated_turn_fusion"),
+        "timestep": schema.scalar(timestep),
+        "process_noise": schema.matrix(process_noise),
+        "measurement_noise": schema.matrix(measurement_noise),
+        "initial_state": schema.vector(initial_state),
+        "initial_covariance": schema.matrix(initial_covariance),
+        "measurements": schema.matrix(measurements),
+    }
+    schema.write_fixture(
+        out, "estimation", "extended_kalman_filter_coordinated_turn_fusion",
+        meta, _tol(), inputs, _expected(estimator),
+    )
+
+
 def run(out, rng, seed):
     meta = schema.metadata(
         "estimation", seed,
@@ -213,3 +308,4 @@ def run(out, rng, seed):
     _constant_velocity_two_dimensional(out, rng, meta)
     _with_control_input(out, rng, meta)
     _landmark_range_and_bearing(out, rng, meta)
+    _coordinated_turn_fusion(out, rng, meta)

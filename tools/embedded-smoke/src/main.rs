@@ -68,28 +68,33 @@ fn main() -> ! {
     paint(bottom, top);
 
     // Canary set: runs on every target, including the thumbv6m M0. Covers the
-    // portable (no-atomics) path, one golden, and the no-panic negative path.
+    // portable (no-atomics) path, one golden, the no-panic negative path, and one
+    // control law.
     checks::portable_path();
     let svd_sv = checks::svd_golden();
     checks::error_path_returns_err();
+    let pid = checks::pid_step();
 
-    // Full set: thumbv7em only (default features). Each check returns its headline
-    // scalar, captured now and emitted below (after the stack is measured).
+    // Full set: thumbv7em and riscv32 (default features). Each check returns its headline
+    // scalar, captured now and emitted below (after the stack is measured). The tuple order
+    // here must match the destructuring below.
     #[cfg(feature = "full-smoke")]
     let full = {
-        let lm0 = checks::lm_fit();
-        let ad = checks::autodiff_derivative();
-        let lie = checks::lie_group_identity();
         checks::ode_identity();
         (
             checks::quadrature_identity(),
             checks::jacobian_identity(),
             checks::vector_field_identity(),
             checks::root_finding_golden(),
-            lm0,
-            ad,
-            lie,
+            checks::lm_fit(),
+            checks::autodiff_derivative(),
+            checks::lie_group_identity(),
             checks::autodiff_derivative_f32(),
+            checks::kalman_filter_golden(),
+            checks::extended_kalman_filter_golden(),
+            checks::pure_pursuit_identity(),
+            checks::follow_the_gap_identity(),
+            checks::kalman_filter_identity_f32(),
         )
     };
 
@@ -109,12 +114,28 @@ fn main() -> ! {
     let _ = hprintln!("SMOKE_VAL_svd_s0={:e}", svd_sv[0]);
     let _ = hprintln!("SMOKE_VAL_svd_s1={:e}", svd_sv[1]);
     let _ = hprintln!("SMOKE_VAL_svd_s2={:e}", svd_sv[2]);
+    let _ = hprintln!("SMOKE_VAL_pid={:e}", pid);
 
-    // Full-set headlines. Both thumbv7em ABIs build the full set, so the key set
-    // matches across them; the thumbv6m canary emits neither and is not compared.
+    // Full-set headlines. Both thumbv7em ABIs and riscv32 build the full set, so the key
+    // set matches across them; the thumbv6m canary emits none of these and is compared
+    // only on the keys it does carry.
     #[cfg(feature = "full-smoke")]
     {
-        let (quad, jac00, div3d, wien_root, lm0, ad, lie, ad_f32) = full;
+        let (
+            quad,
+            jac00,
+            div3d,
+            wien_root,
+            lm0,
+            ad,
+            lie,
+            ad_f32,
+            kalman,
+            extended_kalman,
+            pure_pursuit,
+            follow_the_gap,
+            kalman_f32,
+        ) = full;
         let _ = hprintln!("SMOKE_VAL_quad={:e}", quad);
         let _ = hprintln!("SMOKE_VAL_jac00={:e}", jac00);
         let _ = hprintln!("SMOKE_VAL_div3d={:e}", div3d);
@@ -123,6 +144,11 @@ fn main() -> ! {
         let _ = hprintln!("SMOKE_VAL_ad={:e}", ad);
         let _ = hprintln!("SMOKE_VAL_lie={:e}", lie);
         let _ = hprintln!("SMOKE_VAL_ad_f32={:e}", ad_f32);
+        let _ = hprintln!("SMOKE_VAL_kalman={:e}", kalman);
+        let _ = hprintln!("SMOKE_VAL_extended_kalman={:e}", extended_kalman);
+        let _ = hprintln!("SMOKE_VAL_pure_pursuit={:e}", pure_pursuit);
+        let _ = hprintln!("SMOKE_VAL_follow_the_gap={:e}", follow_the_gap);
+        let _ = hprintln!("SMOKE_VAL_kalman_f32={:e}", kalman_f32);
     }
 
     debug::exit(debug::EXIT_SUCCESS);

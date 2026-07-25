@@ -13,8 +13,10 @@
 use core::hint::black_box;
 
 use multicalc::LevenbergMarquardt;
+use multicalc::control::{FollowTheGap, Pid, pure_pursuit_curvature};
 use multicalc::error::LinalgError;
-use multicalc::linear_algebra::Matrix;
+use multicalc::estimation::{ExtendedKalmanFilter, KalmanFilter};
+use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::numerical_derivative::derivator::DerivatorSingleVariable;
 use multicalc::numerical_derivative::jacobian::Jacobian;
@@ -22,7 +24,9 @@ use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
 use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
 use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
 use multicalc::root_finding::Newton;
+use multicalc::scalar::{Numeric, VectorFn};
 use multicalc::scalar_fn;
+use multicalc::spatial::SE2;
 use multicalc::vector_field::{curl, divergence};
 use multicalc_testkit::problems::{Jac23, Rosenbrock, VField3d, Wien};
 
@@ -263,4 +267,232 @@ pub fn root_finding_golden() -> f64 {
         fixtures::ROOT_WIEN_REL
     );
     black_box(report.root)
+}
+
+/// Rolls `[x, y, heading, speed, turn_rate]` one tick along a turning arc. Mirrors
+/// `CoordinatedTurn` in `tools/qa/tests/estimation.rs`; the two must stay in step.
+struct CoordinatedTurn {
+    timestep: f64,
+}
+
+impl VectorFn<5, 5> for CoordinatedTurn {
+    fn eval<S: Numeric>(&self, state: &[S; 5]) -> [S; 5] {
+        let [x, y, heading, speed, turn_rate] = *state;
+        let dt = S::from_f64(self.timestep);
+        let next_heading = heading + turn_rate * dt;
+        let (next_x, next_y) = if turn_rate.abs() > S::from_f64(1e-6) {
+            let radius = speed / turn_rate;
+            (
+                x + radius * (next_heading.sin() - heading.sin()),
+                y + radius * (heading.cos() - next_heading.cos()),
+            )
+        } else {
+            (
+                x + speed * heading.cos() * dt,
+                y + speed * heading.sin() * dt,
+            )
+        };
+        let wrapped = next_heading - S::TWO_PI * (next_heading / S::TWO_PI).round();
+        [next_x, next_y, wrapped, speed, turn_rate]
+    }
+}
+
+/// A position fix: the sensor sees the first two state components.
+struct GlobalPosition;
+impl VectorFn<5, 2> for GlobalPosition {
+    fn eval<S: Numeric>(&self, state: &[S; 5]) -> [S; 2] {
+        [state[0], state[1]]
+    }
+}
+
+/// Golden: the linear Kalman filter's final state must match the host QA golden
+/// (estimation/kalman_filter_constant_velocity_one_dimensional). Returns `state[0]` for the
+/// cross-ABI guard. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn kalman_filter_golden() -> f64 {
+    let mut filter = KalmanFilter::<2, 1>::new(
+        black_box(Vector::new(fixtures::KALMAN_INITIAL_STATE)),
+        Matrix::new(fixtures::KALMAN_INITIAL_COVARIANCE),
+        Matrix::new(fixtures::KALMAN_STATE_TRANSITION),
+        Matrix::new(fixtures::KALMAN_MEASUREMENT_MODEL),
+        Matrix::new(fixtures::KALMAN_PROCESS_NOISE),
+        Matrix::new(fixtures::KALMAN_MEASUREMENT_NOISE),
+    );
+    for row in fixtures::KALMAN_MEASUREMENTS {
+        filter.predict();
+        filter
+            .update(black_box(Vector::new(row)))
+            .expect("kalman update");
+    }
+    let state = filter.state();
+    for i in 0..2 {
+        assert_close!(
+            "kalman_filter",
+            black_box(state[i]),
+            fixtures::KALMAN_EXPECTED_STATE[i],
+            fixtures::KALMAN_ABS,
+            fixtures::KALMAN_REL
+        );
+    }
+    black_box(state[0])
+}
+
+/// Golden: the extended filter tracking a turning vehicle from position fixes must match the
+/// host QA golden (estimation/extended_kalman_filter_coordinated_turn_fusion). This is the only
+/// check that drives autodiff Jacobians at 5x5 on target. Returns `state[0]`. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn extended_kalman_filter_golden() -> f64 {
+    let motion = CoordinatedTurn {
+        timestep: fixtures::COORDINATED_TURN_TIMESTEP,
+    };
+    let mut filter = ExtendedKalmanFilter::<5, 2>::new(
+        black_box(Vector::new(fixtures::COORDINATED_TURN_INITIAL_STATE)),
+        Matrix::new(fixtures::COORDINATED_TURN_INITIAL_COVARIANCE),
+        Matrix::new(fixtures::COORDINATED_TURN_PROCESS_NOISE),
+        Matrix::new(fixtures::COORDINATED_TURN_MEASUREMENT_NOISE),
+    );
+    for row in fixtures::COORDINATED_TURN_MEASUREMENTS {
+        filter.predict(&motion).expect("extended predict");
+        filter
+            .update(&GlobalPosition, black_box(Vector::new(row)))
+            .expect("extended update");
+    }
+    let state = filter.state();
+    for i in 0..5 {
+        assert_close!(
+            "extended_kalman_filter",
+            black_box(state[i]),
+            fixtures::COORDINATED_TURN_EXPECTED_STATE[i],
+            fixtures::COORDINATED_TURN_ABS,
+            fixtures::COORDINATED_TURN_REL
+        );
+    }
+    black_box(state[0])
+}
+
+/// Identity: pure pursuit steers straight at a point dead ahead, and returns the exact
+/// `2*lateral/L^2` for one off-axis. Returns the off-axis curvature. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn pure_pursuit_identity() -> f64 {
+    let pose = SE2::<f64>::identity();
+    let ahead = pure_pursuit_curvature(pose, black_box(Vector::new([2.0, 0.0])), 2.0)
+        .expect("pure pursuit ahead");
+    assert_close!(
+        "pure_pursuit_ahead",
+        black_box(ahead.value()),
+        0.0,
+        1e-12,
+        0.0
+    );
+
+    let left = pure_pursuit_curvature(pose, black_box(Vector::new([2.0, 1.0])), 2.0)
+        .expect("pure pursuit left");
+    assert_close!(
+        "pure_pursuit_left",
+        black_box(left.value()),
+        0.5,
+        1e-12,
+        0.0
+    );
+    black_box(left.value())
+}
+
+/// Identity: an unobstructed scan drives straight ahead at cruise speed, and a wall all round
+/// stops the robot and reports it. Returns the clear-scan linear speed. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn follow_the_gap_identity() -> f64 {
+    const BEAMS: usize = 31;
+    let field_of_view = 2.0 * core::f64::consts::PI / 3.0;
+    let follower: FollowTheGap<BEAMS, f64> =
+        FollowTheGap::try_new(field_of_view, 4.0, 0.50, 0.60, 0.40).expect("follower");
+
+    let clear = follower
+        .compute(&black_box([4.0; BEAMS]), 0.0)
+        .expect("clear scan");
+    assert_close!(
+        "follow_the_gap_heading",
+        black_box(clear.heading()),
+        0.0,
+        1e-12,
+        0.0
+    );
+    assert_close!(
+        "follow_the_gap_speed",
+        black_box(clear.body_twist().linear()),
+        0.40,
+        1e-12,
+        0.0
+    );
+
+    let blocked = follower
+        .compute(&black_box([0.2; BEAMS]), 0.0)
+        .expect("blocked scan");
+    assert!(blocked.is_blocked(), "follow_the_gap_blocked");
+    assert_close!(
+        "follow_the_gap_stopped",
+        black_box(blocked.body_twist().linear()),
+        0.0,
+        0.0,
+        0.0
+    );
+    black_box(clear.body_twist().linear())
+}
+
+/// Identity in f32: two unit-measurement steps of a constant-velocity filter land on the exact
+/// [5/3, 2/3]. f32 arithmetic is where soft-float (eabi) and the hardware FPU (eabihf) diverge.
+/// Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn kalman_filter_identity_f32() -> f32 {
+    let mut filter = KalmanFilter::<2, 1, f32>::new(
+        black_box(Vector::new([0.0_f32, 0.0])),
+        Matrix::identity(),
+        Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
+        Matrix::new([[1.0, 0.0]]),
+        Matrix::zeros(),
+        Matrix::new([[1.0]]),
+    );
+    for measurement in [1.0_f32, 2.0] {
+        filter.predict();
+        filter
+            .update(black_box(Vector::new([measurement])))
+            .expect("kalman update f32");
+    }
+    let state = filter.state();
+    let expected = [5.0_f32 / 3.0, 2.0_f32 / 3.0];
+    for i in 0..2 {
+        let scale = expected[i].abs().max(1.0);
+        let ok = (state[i] - expected[i]).abs() <= 128.0 * f32::EPSILON * scale;
+        if !ok {
+            let _ = crate::hprintln!(
+                "CHECK kalman_f32 FAIL got={:e} want={:e}",
+                state[i],
+                expected[i]
+            );
+        }
+        assert!(ok, "kalman_filter_identity_f32");
+    }
+    black_box(state[0])
+}
+
+/// Real library call for the canary tier: a PID controller drives a plant that adds each output
+/// straight onto its measurement. The first output is the exact `kp*e + ki*e*dt`, and over the
+/// next hundred ticks the plant climbs steadily to within one percent of the setpoint. Returns
+/// the measurement it reaches.
+pub fn pid_step() -> f64 {
+    let dt = 0.01_f64;
+    let setpoint = 1.0_f64;
+    let mut controller = Pid::new(2.0, 1.0, 0.0, dt).expect("pid");
+
+    let first = controller.update(setpoint, black_box(0.0));
+    assert_close!("pid_first_output", black_box(first), 2.01, 1e-12, 0.0);
+
+    let mut measurement = dt * first;
+    for _ in 0..100 {
+        let previous = measurement;
+        let output = controller.update(setpoint, measurement);
+        measurement += dt * output;
+        assert!(measurement > previous, "pid_climbs");
+    }
+    assert_close!("pid_settled", black_box(measurement), setpoint, 0.01, 0.0);
+    black_box(measurement)
 }

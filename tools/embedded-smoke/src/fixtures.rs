@@ -2,7 +2,12 @@
 // Goldens for the on-target smoke checks, taken bit-exact from tools/qa/fixtures/v1.
 // SVD golden: linalg/svd_3x3. LM golden: optimization/rosenbrock.
 // Wien golden: root_finding/wien_newton.
+// Kalman golden: estimation/kalman_filter_constant_velocity_one_dimensional.
+// Coordinated-turn golden: estimation/extended_kalman_filter_coordinated_turn_fusion.
 // Reduced (canary) builds use a subset, so some consts may be unused.
+// Left unformatted: this file's shape comes from the generator, and rustfmt would
+// collapse some literals so a regenerate-and-diff check could never come out clean.
+#![cfg_attr(rustfmt, rustfmt::skip)]
 #![allow(clippy::unreadable_literal)]
 #![allow(dead_code)]
 
@@ -59,3 +64,249 @@ pub const ROOT_WIEN_ROOT: f64 = f64::from_bits(0x4013dc46e7b8fbbb);
 /// Comparison tolerance for the Wien check (from the fixture's f64 tolerance).
 pub const ROOT_WIEN_ABS: f64 = 1e-9;
 pub const ROOT_WIEN_REL: f64 = 1e-9;
+
+/// Initial state of the linear filter, from estimation/kalman_filter_constant_velocity_one_dimensional.
+pub const KALMAN_INITIAL_STATE: [f64; 2] = [
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x3ff0000000000000),
+];
+
+/// Initial covariance of the linear filter.
+pub const KALMAN_INITIAL_COVARIANCE: [[f64; 2]; 2] = [
+    [
+        f64::from_bits(0x3ff0000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ff0000000000000),
+    ],
+];
+
+/// State transition of the linear filter.
+pub const KALMAN_STATE_TRANSITION: [[f64; 2]; 2] = [
+    [
+        f64::from_bits(0x3ff0000000000000),
+        f64::from_bits(0x3ff0000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ff0000000000000),
+    ],
+];
+
+/// Measurement model of the linear filter.
+pub const KALMAN_MEASUREMENT_MODEL: [[f64; 2]; 1] = [
+    [
+        f64::from_bits(0x3ff0000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+];
+
+/// Process noise of the linear filter.
+pub const KALMAN_PROCESS_NOISE: [[f64; 2]; 2] = [
+    [
+        f64::from_bits(0x3f8999999999999a),
+        f64::from_bits(0x3f9999999999999a),
+    ],
+    [
+        f64::from_bits(0x3f9999999999999a),
+        f64::from_bits(0x3fa999999999999a),
+    ],
+];
+
+/// Measurement noise of the linear filter.
+pub const KALMAN_MEASUREMENT_NOISE: [[f64; 1]; 1] = [
+    [
+        f64::from_bits(0x3fe0000000000000),
+    ],
+];
+
+/// The measurement sequence fed to the linear filter, one row per step.
+pub const KALMAN_MEASUREMENTS: [[f64; 1]; 8] = [
+    [
+        f64::from_bits(0x3fe54e9b59a9876e),
+    ],
+    [
+        f64::from_bits(0x4005cd16d60d6f0a),
+    ],
+    [
+        f64::from_bits(0x40084eb3f35af257),
+    ],
+    [
+        f64::from_bits(0x400d16ec129352f8),
+    ],
+    [
+        f64::from_bits(0x40123e0f4e2b356a),
+    ],
+    [
+        f64::from_bits(0x40163312ff986ed3),
+    ],
+    [
+        f64::from_bits(0x4019e62a95ab179f),
+    ],
+    [
+        f64::from_bits(0x401ab9a6ab236cac),
+    ],
+];
+
+/// Expected state after the whole sequence.
+pub const KALMAN_EXPECTED_STATE: [f64; 2] = [
+    f64::from_bits(0x401bde6b430aef38),
+    f64::from_bits(0x3fe7b2baf9e843e2),
+];
+
+/// Comparison tolerance for the linear filter check (from the fixture's f64 tolerance).
+pub const KALMAN_ABS: f64 = 1e-10;
+pub const KALMAN_REL: f64 = 1e-9;
+
+/// Tick length of the turning-arc model, from estimation/extended_kalman_filter_coordinated_turn_fusion.
+pub const COORDINATED_TURN_TIMESTEP: f64 = f64::from_bits(0x3fb999999999999a);
+
+/// Initial state of the extended filter: `[x, y, heading, speed, turn_rate]`.
+pub const COORDINATED_TURN_INITIAL_STATE: [f64; 5] = [
+    f64::from_bits(0x3fc999999999999a),
+    f64::from_bits(0xbfb999999999999a),
+    f64::from_bits(0x3fa999999999999a),
+    f64::from_bits(0x3feccccccccccccd),
+    f64::from_bits(0x3fd0000000000000),
+];
+
+/// Initial covariance of the extended filter.
+pub const COORDINATED_TURN_INITIAL_COVARIANCE: [[f64; 5]; 5] = [
+    [
+        f64::from_bits(0x3fe0000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3fe0000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3fc999999999999a),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3fc999999999999a),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3fc999999999999a),
+    ],
+];
+
+/// Process noise of the extended filter.
+pub const COORDINATED_TURN_PROCESS_NOISE: [[f64; 5]; 5] = [
+    [
+        f64::from_bits(0x3e7ad7f29abcaf48),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3e7ad7f29abcaf48),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3e7ad7f29abcaf48),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3f3a36e2eb1c432d),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3f3a36e2eb1c432d),
+    ],
+];
+
+/// Measurement noise of the extended filter.
+pub const COORDINATED_TURN_MEASUREMENT_NOISE: [[f64; 2]; 2] = [
+    [
+        f64::from_bits(0x3fb70a3d70a3d70a),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3fb70a3d70a3d70a),
+    ],
+];
+
+/// The position fixes fed to the extended filter, one row per step.
+pub const COORDINATED_TURN_MEASUREMENTS: [[f64; 2]; 8] = [
+    [
+        f64::from_bits(0xbfcb0b811008d900),
+        f64::from_bits(0xbfc6fd44f536615d),
+    ],
+    [
+        f64::from_bits(0x3fb5ace128232fbb),
+        f64::from_bits(0xbfe018bf70baaa3d),
+    ],
+    [
+        f64::from_bits(0x3fe2cba3ab20db73),
+        f64::from_bits(0xbfb8840c7ec5a6da),
+    ],
+    [
+        f64::from_bits(0x3feee267ac267cb6),
+        f64::from_bits(0x3fc6e7d25aad2136),
+    ],
+    [
+        f64::from_bits(0x3fd9b80d506e893d),
+        f64::from_bits(0xbfcdd6f4b6bd8c1f),
+    ],
+    [
+        f64::from_bits(0x3ff249db3a3a3e58),
+        f64::from_bits(0x3fd6f5e54a98c7bb),
+    ],
+    [
+        f64::from_bits(0x3fdd47d72e86437a),
+        f64::from_bits(0x3fcead31e081b770),
+    ],
+    [
+        f64::from_bits(0x3feb2d20bb35d2af),
+        f64::from_bits(0x3fbbb9e01d6cbe0b),
+    ],
+];
+
+/// Expected state after the whole sequence.
+pub const COORDINATED_TURN_EXPECTED_STATE: [f64; 5] = [
+    f64::from_bits(0x3fec43d5e2b04755),
+    f64::from_bits(0x3fc7c0040e7ba30d),
+    f64::from_bits(0x3fe402072ebd63c3),
+    f64::from_bits(0x3ff1ea31d4e76d78),
+    f64::from_bits(0x3fd80cb30d3056b7),
+];
+
+/// Comparison tolerance for the extended filter check (from the fixture's f64 tolerance).
+pub const COORDINATED_TURN_ABS: f64 = 1e-10;
+pub const COORDINATED_TURN_REL: f64 = 1e-9;

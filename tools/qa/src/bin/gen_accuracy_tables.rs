@@ -351,6 +351,11 @@ const DOCS: &[Doc] = &[
                     operation: "Extended Kalman filter, 8 steps, state 3 / measurement 2",
                     equation: "h = [√((3−x)²+(4−y)²), atan2(4−y, 3−x)−θ], F = I",
                 },
+                Row {
+                    case: "extended_kalman_filter_coordinated_turn_fusion",
+                    operation: "Extended Kalman filter, 8 steps, state 5 / measurement 2",
+                    equation: "f = coordinated turn on [x, y, θ, v, ω], h = [x, y]",
+                },
             ],
         }],
     },

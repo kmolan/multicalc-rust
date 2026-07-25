@@ -139,6 +139,43 @@ impl VectorFn<3, 3> for StationaryPose {
     }
 }
 
+/// Rolls `[x, y, heading, speed, turn_rate]` one tick along a turning arc. Mirrors
+/// `CoordinatedTurnModel` in `demos/src/sim/kalman_filter_models.rs` and the model in
+/// `tools/qa/gen/generators/estimation.py`; the three must stay in step.
+struct CoordinatedTurn {
+    timestep: f64,
+}
+
+impl VectorFn<5, 5> for CoordinatedTurn {
+    fn eval<S: Numeric>(&self, state: &[S; 5]) -> [S; 5] {
+        let [x, y, heading, speed, turn_rate] = *state;
+        let dt = S::from_f64(self.timestep);
+        let next_heading = heading + turn_rate * dt;
+        let (next_x, next_y) = if turn_rate.abs() > S::from_f64(1e-6) {
+            let radius = speed / turn_rate;
+            (
+                x + radius * (next_heading.sin() - heading.sin()),
+                y + radius * (heading.cos() - next_heading.cos()),
+            )
+        } else {
+            (
+                x + speed * heading.cos() * dt,
+                y + speed * heading.sin() * dt,
+            )
+        };
+        let wrapped = next_heading - S::TWO_PI * (next_heading / S::TWO_PI).round();
+        [next_x, next_y, wrapped, speed, turn_rate]
+    }
+}
+
+/// A position fix: the sensor sees the first two state components.
+struct GlobalPosition;
+impl VectorFn<5, 2> for GlobalPosition {
+    fn eval<S: Numeric>(&self, state: &[S; 5]) -> [S; 2] {
+        [state[0], state[1]]
+    }
+}
+
 fn run_landmark_range_and_bearing(fx: &Fixture) {
     let landmark = fx.inputs["landmark"].as_vector();
     let model = LandmarkRangeAndBearing {
@@ -181,6 +218,46 @@ fn run_landmark_range_and_bearing(fx: &Fixture) {
     );
 }
 
+fn run_coordinated_turn_fusion(fx: &Fixture) {
+    let motion = CoordinatedTurn {
+        timestep: fx.inputs["timestep"].as_scalar(),
+    };
+    let mut filter = ExtendedKalmanFilter::<5, 2>::new(
+        to_vector::<5>(&fx.inputs["initial_state"]),
+        to_matrix::<5, 5>(&fx.inputs["initial_covariance"]),
+        to_matrix::<5, 5>(&fx.inputs["process_noise"]),
+        to_matrix::<2, 2>(&fx.inputs["measurement_noise"]),
+    );
+
+    let (steps, _, measurements) = fx.inputs["measurements"].as_matrix();
+    for step in 0..steps {
+        filter.predict(&motion).unwrap();
+        let measurement = Vector::from_fn(|i| measurements[step * 2 + i]);
+        filter.update(&GlobalPosition, measurement).unwrap();
+    }
+
+    let tolerance = fx.tolerances.get("f64", "host");
+    assert_vector(&filter.state(), &fx.expected["state"], tolerance, "state");
+    assert_matrix(
+        &filter.covariance(),
+        &fx.expected["covariance"],
+        tolerance,
+        "covariance",
+    );
+    assert_vector(
+        &filter.innovation(),
+        &fx.expected["innovation"],
+        tolerance,
+        "innovation",
+    );
+    assert_matrix(
+        &filter.innovation_covariance(),
+        &fx.expected["innovation_covariance"],
+        tolerance,
+        "innovation_covariance",
+    );
+}
+
 #[test]
 fn extended_kalman_filter_cases() {
     for fx in load_dir("fixtures/v1/estimation") {
@@ -189,6 +266,7 @@ fn extended_kalman_filter_cases() {
         }
         match fx.inputs["case"].as_str() {
             "landmark_range_and_bearing" => run_landmark_range_and_bearing(&fx),
+            "coordinated_turn_fusion" => run_coordinated_turn_fusion(&fx),
             case => panic!("unregistered extended kalman filter case {case:?}"),
         }
     }
