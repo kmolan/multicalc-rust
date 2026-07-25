@@ -72,3 +72,43 @@ pub fn get_2d_custom<T: Numeric>(
         1,
     )?)
 }
+
+pub fn get_3d<T: Numeric>(
+    vector_field: &[&dyn Fn(&[T; 3]) -> T; 3],
+    transformations: &[&dyn Fn(T) -> T; 3],
+    integration_limit: &[T; 2],
+) -> Result<T, IntegrateError> {
+    get_3d_custom(
+        vector_field,
+        transformations,
+        integration_limit,
+        DEFAULT_TOTAL_ITERATIONS,
+    )
+}
+
+pub fn get_3d_custom<T: Numeric>(
+    vector_field: &[&dyn Fn(&[T; 3]) -> T; 3],
+    transformations: &[&dyn Fn(T) -> T; 3],
+    integration_limit: &[T; 2],
+    total_iterations: u64,
+) -> Result<T, IntegrateError> {
+    Ok(line_integral::get_partial_3d(
+        vector_field,
+        transformations,
+        integration_limit,
+        total_iterations,
+        0,
+    )? - line_integral::get_partial_3d(
+        vector_field,
+        transformations,
+        integration_limit,
+        total_iterations,
+        1,
+    )? - line_integral::get_partial_3d(
+        vector_field,
+        transformations,
+        integration_limit,
+        total_iterations,
+        2,
+    )?)
+}
