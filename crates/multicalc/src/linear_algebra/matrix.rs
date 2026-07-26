@@ -623,14 +623,12 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Mul<T> for Matrix<ROWS, C
     }
 }
 
-// Note: this implementation could panic on division by zero if the underlying
-// implementation on `T` would panic.
 impl<const ROWS: usize, const COLS: usize, T: Numeric> Div<T> for Matrix<ROWS, COLS, T> {
     type Output = Self;
 
     #[inline]
     fn div(self, scalar: T) -> Self {
-        self.scale(T::ONE / scalar)
+        Self::from_fn(|i, j| self[(i, j)].safe_div(scalar))
     }
 }
 

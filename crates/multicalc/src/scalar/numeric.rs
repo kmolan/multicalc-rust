@@ -175,7 +175,7 @@ pub trait Numeric:
     /// Hyperbolic tangent.
     #[inline]
     fn tanh(self) -> Self {
-        self.sinh() / self.cosh()
+        self.sinh().safe_div(self.cosh())
     }
 
     /// Euclidean distance `√(self² + other²)`, scaled to avoid overflow and underflow.
@@ -208,7 +208,7 @@ pub trait Numeric:
     /// The reciprocal `1 / self`.
     #[inline]
     fn recip(self) -> Self {
-        Self::ONE / self
+        Self::ONE.safe_div(self)
     }
 
     /// `self` raised to an integer power, by exponentiation-by-squaring.
@@ -233,6 +233,32 @@ pub trait Numeric:
         }
 
         if n < 0 { Self::ONE / acc } else { acc }
+    }
+
+    /// Division with a zero check to prevent possible panics.
+    /// The behavior is meant to match the floating point standard.
+    /// I.e. this has the following rules:
+    /// (finite positive) / zero = INFINITY
+    /// (finite negative) / zero = NEG_INFINITY
+    /// INFINITY / zero = INFINITY
+    /// NEG_INFINITY / zero = NEG_INFINITY
+    /// zero / zero = NAN
+    /// NAN / zero = NAN
+    #[inline]
+    fn safe_div(self, other: Self) -> Self {
+        if other == Self::ZERO {
+            if self.is_nan() {
+                return Self::NAN;
+            } else if self < Self::ZERO {
+                return Self::NEG_INFINITY;
+            } else if Self::ZERO < self {
+                return Self::INFINITY;
+            } else {
+                return Self::NAN;
+            }
+        }
+
+        self / other
     }
 
     /// Returns `true` if `self` is NaN.

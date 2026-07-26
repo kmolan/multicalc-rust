@@ -276,7 +276,7 @@ impl<const N: usize, T: Numeric> Vector<N, T> {
     pub fn normalize(&mut self) {
         let norm = self.norm();
         for x in self.data.iter_mut() {
-            *x /= norm;
+            *x = x.safe_div(norm);
         }
     }
 }
@@ -362,14 +362,12 @@ impl<const N: usize, T: Numeric> Mul<T> for Vector<N, T> {
     }
 }
 
-// Note: this implementation panics on division by zero if the underlying
-// implementation on `T` would panic.
 impl<const N: usize, T: Numeric> Div<T> for Vector<N, T> {
     type Output = Self;
 
     #[inline]
     fn div(self, scalar: T) -> Self {
-        self.scale(T::ONE / scalar)
+        Self::from_fn(|i| self.data[i].safe_div(scalar))
     }
 }
 

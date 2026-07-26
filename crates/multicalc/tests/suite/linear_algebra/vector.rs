@@ -143,6 +143,38 @@ fn vector_arithmetic() {
     assert_eq!(accumulated, left + right);
     accumulated -= right;
     assert_eq!(accumulated, left);
+
+    // Check division by zero behavior
+    let a = Vector::new([
+        1.0,
+        -1.0,
+        0.0,
+        -0.0,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::NAN,
+    ]);
+    let div_zero = a / 0.0;
+    let expected = Vector::new([
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::NAN,
+        f64::NAN,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::NAN,
+    ]);
+    div_zero
+        .into_array()
+        .into_iter()
+        .zip(expected.as_array())
+        .for_each(|(got, want)| {
+            assert_eq!(
+                got.total_cmp(want),
+                core::cmp::Ordering::Equal,
+                "{got} != {want}"
+            );
+        })
 }
 
 #[test]
@@ -190,6 +222,30 @@ fn check_vector_normalized<const N: usize>(mut v: Vector<N>) -> Result<(), TestC
     assert_scalar_close(v.norm(), 1.0, tol);
 
     Ok(())
+}
+
+#[test]
+fn zero_vector_normalize() {
+    // A vector with any finite non-zero entry (even EPSILON) can still be normalized
+    let mut near_zero = Vector::new([<f64 as multicalc::Numeric>::EPSILON, 0.0, 0.0]);
+    assert_eq!(near_zero.normalized(), Vector::new([1.0f64, 0.0, 0.0]));
+    near_zero.normalize();
+    assert_eq!(near_zero, Vector::new([1.0f64, 0.0, 0.0]));
+
+    // The zero vector will normalize to NAN
+    let mut zero = Vector::new([0.0f64, 0.0, 0.0]);
+    assert!(
+        zero.normalized()
+            .into_array()
+            .into_iter()
+            .all(|x| x.total_cmp(&f64::NAN).is_eq())
+    );
+    zero.normalize();
+    assert!(
+        zero.into_array()
+            .into_iter()
+            .all(|x| x.total_cmp(&f64::NAN).is_eq())
+    );
 }
 
 proptest! {

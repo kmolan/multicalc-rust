@@ -32,6 +32,29 @@ fn matrix_arithmetic() {
     assert_eq!(accumulated, left + right);
     accumulated -= right;
     assert_eq!(accumulated, left);
+
+    // Check division by zero behavior
+    let a = Matrix::new([
+        [1.0, -1.0, 0.0],
+        [f64::INFINITY, f64::NEG_INFINITY, f64::NAN],
+    ]);
+    let div_zero = a / 0.0;
+    let expected = Matrix::new([
+        [f64::INFINITY, f64::NEG_INFINITY, f64::NAN],
+        [f64::INFINITY, f64::NEG_INFINITY, f64::NAN],
+    ]);
+    div_zero
+        .into_array()
+        .into_iter()
+        .flatten()
+        .zip(expected.into_array().into_iter().flatten())
+        .for_each(|(got, want)| {
+            assert_eq!(
+                got.total_cmp(&want),
+                core::cmp::Ordering::Equal,
+                "{got} != {want}"
+            );
+        })
 }
 
 #[test]
