@@ -1,7 +1,9 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 #[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 extern crate alloc;
 
 /// Re-export of [`libm`], so `no_std` users can reach transcendental functions
@@ -50,6 +52,7 @@ pub use estimation::{ExtendedKalmanFilter, KalmanFilter};
 
 /// Particle filter (bootstrap/SIR) with pluggable resampling and measurement likelihood.
 #[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 pub use estimation::{GaussianLikelihood, Likelihood, ParticleFilter, ResamplingScheme};
 
 /// Seedable pseudo-random generator and the trait its uniform and normal draws come from.

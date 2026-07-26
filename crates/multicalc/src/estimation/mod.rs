@@ -10,10 +10,12 @@ mod extended_kalman_filter;
 mod kalman_filter;
 
 #[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 mod particle_filter;
 
 pub use extended_kalman_filter::ExtendedKalmanFilter;
 pub use kalman_filter::{CovarianceUpdate, KalmanFilter};
 
 #[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 pub use particle_filter::{GaussianLikelihood, Likelihood, ParticleFilter, ResamplingScheme};

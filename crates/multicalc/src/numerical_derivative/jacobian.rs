@@ -93,6 +93,7 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     /// [`DiffError::EmptyFunctionSet`] if `function` has no outputs, or
     /// [`DiffError::StepSizeZero`] if the derivator's step size is zero.
     #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
     pub fn get_on_heap<
         F: VectorFn<NUM_VARS, NUM_FUNCS>,
         const NUM_FUNCS: usize,
