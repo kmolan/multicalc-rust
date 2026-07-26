@@ -21,13 +21,14 @@ const MAX_ORDER: usize = 6;
 /// use multicalc::scalar_fn;
 ///
 /// // f(x) = x^3 -> f' = 3x^2, f'' = 6x, f''' = 6
-/// let f = scalar_fn!(|x| x * x * x);
-/// let d = AutoDiffSingle::default();
+/// let function = scalar_fn!(|x| x * x * x);
+/// let derivator = AutoDiffSingle::default();
+/// let point = 2.0_f64;
 ///
 /// // exact to rounding, no step size
-/// assert!((d.differentiate(1, &f, 2.0_f64).unwrap() - 12.0).abs() < 1e-12);
-/// assert!((d.differentiate(2, &f, 2.0_f64).unwrap() - 12.0).abs() < 1e-12);
-/// assert!((d.differentiate(3, &f, 2.0_f64).unwrap() - 6.0).abs() < 1e-12);
+/// assert!((derivator.differentiate(1, &function, point).unwrap() - 12.0).abs() < 1e-12);
+/// assert!((derivator.differentiate(2, &function, point).unwrap() - 12.0).abs() < 1e-12);
+/// assert!((derivator.differentiate(3, &function, point).unwrap() - 6.0).abs() < 1e-12);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AutoDiffSingle<T = f64> {
@@ -83,18 +84,26 @@ impl<T: Numeric> DerivatorSingleVariable for AutoDiffSingle<T> {
 /// use multicalc::scalar_fn;
 ///
 /// // f(x, y) = x^2 * y + sin(x)
-/// let f = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1] + v[0].sin());
-/// let ad = AutoDiffMulti::default();
-/// let fd = FiniteDifferenceMulti::default();
+/// let function = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1] + v[0].sin());
+/// let autodiff = AutoDiffMulti::default();
+/// let finite_difference = FiniteDifferenceMulti::default();
 /// let point = [1.0, 2.0];
+/// let x_index = 0;
 ///
 /// // df/dx = 2xy + cos(x): exact, and it agrees with finite differences
-/// let ad_dx = ad.first_partial_derivative(&f, 0, &point).unwrap();
-/// assert!((ad_dx - (2.0 * 1.0 * 2.0 + f64::cos(1.0))).abs() < 1e-12);
-/// assert!((ad_dx - fd.first_partial_derivative(&f, 0, &point).unwrap()).abs() < 1e-5);
+/// let slope_x = autodiff.first_partial_derivative(&function, x_index, &point).unwrap();
+/// assert!((slope_x - (2.0 * 1.0 * 2.0 + f64::cos(1.0))).abs() < 1e-12);
+/// let estimated = finite_difference
+///     .first_partial_derivative(&function, x_index, &point)
+///     .unwrap();
+/// assert!((slope_x - estimated).abs() < 1e-5);
 ///
 /// // mixed second partial d2f/dx dy = 2x
-/// assert!((ad.second_partial_derivative(&f, &[0, 1], &point).unwrap() - 2.0).abs() < 1e-12);
+/// let variable_indices = [0, 1];
+/// let mixed = autodiff
+///     .second_partial_derivative(&function, &variable_indices, &point)
+///     .unwrap();
+/// assert!((mixed - 2.0).abs() < 1e-12);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AutoDiffMulti<T = f64> {

@@ -52,11 +52,16 @@ impl<T: Numeric> Curvature<T> {
 /// use multicalc::linear_algebra::Vector;
 ///
 /// let pose = SE2::identity();
+/// let lookahead_distance = 2.0;
+///
 /// // A point straight ahead needs no turn.
-/// let ahead = pure_pursuit_curvature(pose, Vector::new([2.0_f64, 0.0]), 2.0).unwrap();
+/// let straight_ahead = Vector::new([2.0_f64, 0.0]);
+/// let ahead = pure_pursuit_curvature(pose, straight_ahead, lookahead_distance).unwrap();
 /// assert!(ahead.value().abs() < 1e-12);
+///
 /// // A point to the left curves left (positive curvature).
-/// let left = pure_pursuit_curvature(pose, Vector::new([2.0_f64, 1.0]), 2.0).unwrap();
+/// let off_to_the_left = Vector::new([2.0_f64, 1.0]);
+/// let left = pure_pursuit_curvature(pose, off_to_the_left, lookahead_distance).unwrap();
 /// assert!(left.value() > 0.0);
 /// ```
 pub fn pure_pursuit_curvature<T: Numeric>(

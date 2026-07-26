@@ -32,7 +32,10 @@ const MAX_BACKTRACK: usize = 20;
 ///     c(-3.0) + v[0] + v[1],
 ///     c(-5.0) + c(2.0) * v[0] + v[1],
 /// ]);
-/// let report = GaussNewton::<AutoDiffMulti>::default().minimize(&f, &[0.0, 0.0]).unwrap();
+/// let initial_guess = [0.0, 0.0];
+///
+/// let solver = GaussNewton::<AutoDiffMulti>::default();
+/// let report = solver.minimize(&f, &initial_guess).unwrap();
 /// assert!((report.solution[0] - 2.0).abs() < 1e-9);
 /// assert!((report.solution[1] - 1.0).abs() < 1e-9);
 /// ```

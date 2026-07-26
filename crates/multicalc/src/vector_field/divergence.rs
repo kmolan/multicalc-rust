@@ -26,7 +26,8 @@ use crate::scalar::VectorFn;
 /// let vf = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
 ///
 /// let derivator = AutoDiffMulti::default();
-/// let val = divergence_3d(derivator, &vf, &[0.0, 1.0, 3.0]).unwrap();
+/// let point = [0.0, 1.0, 3.0];
+/// let val = divergence_3d(derivator, &vf, &point).unwrap();
 /// // divergence is known to be 2
 /// assert!(f64::abs(val - 2.0) < 1e-12);
 /// ```
@@ -66,7 +67,8 @@ pub fn divergence_3d<D: DerivatorMultiVariable, F: VectorFn<NUM_VARS, 3>, const 
 /// let vf = scalar_fn_vec!(|v: &[f64; 2]| [v[1], -v[0]]);
 ///
 /// let derivator = AutoDiffMulti::default();
-/// let val = divergence_2d(derivator, &vf, &[0.0, 1.0]).unwrap();
+/// let point = [0.0, 1.0];
+/// let val = divergence_2d(derivator, &vf, &point).unwrap();
 /// // divergence is known to be 0
 /// assert!(f64::abs(val) < 1e-12);
 /// ```

@@ -13,17 +13,20 @@ use crate::scalar::Numeric;
 /// ```
 /// use multicalc::control::OnePoleLowPass;
 ///
-/// // Pass-through: the output reproduces the input exactly.
-/// let mut passthrough = OnePoleLowPass::new(1.0_f64).unwrap();
+/// // A weight of 1 keeps all of the new sample, so the output reproduces the input exactly.
+/// let keep_everything = 1.0_f64;
+/// let mut passthrough = OnePoleLowPass::new(keep_everything).unwrap();
 /// assert_eq!(passthrough.filter(3.0), 3.0);
 /// assert_eq!(passthrough.filter(-2.0), -2.0);
 ///
-/// // A constant input converges to that constant.
-/// let mut smoother = OnePoleLowPass::new(0.5_f64).unwrap();
+/// // A smaller weight leans on the history, and a constant input converges to that constant.
+/// let half_new_half_old = 0.5_f64;
+/// let mut smoother = OnePoleLowPass::new(half_new_half_old).unwrap();
+/// let steady_input = 10.0;
 /// for _ in 0..64 {
-///     smoother.filter(10.0);
+///     smoother.filter(steady_input);
 /// }
-/// assert!((smoother.value() - 10.0).abs() < 1e-9);
+/// assert!((smoother.value() - steady_input).abs() < 1e-9);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct OnePoleLowPass<T: Numeric = f64> {

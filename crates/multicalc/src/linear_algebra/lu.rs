@@ -97,7 +97,8 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// ```
     /// use multicalc::linear_algebra::{Matrix, Vector};
     /// let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
-    /// let x = a.solve(Vector::new([7.0, 19.0, 49.0])).unwrap();
+    /// let b = Vector::new([7.0, 19.0, 49.0]);
+    /// let x = a.solve(b).unwrap();
     /// assert!((x[0] - 1.0).abs() < 1e-12);
     /// assert!((x[1] - 2.0).abs() < 1e-12);
     /// assert!((x[2] - 3.0).abs() < 1e-12);
@@ -157,8 +158,9 @@ impl<const N: usize, T: Numeric> Lu<N, T> {
     /// ```
     /// use multicalc::linear_algebra::{Matrix, Vector};
     /// let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    /// let b = Vector::new([7.0, 19.0, 49.0]);
     /// // A·x = b has the exact solution x = [1, 2, 3].
-    /// let x = a.lu().unwrap().solve(Vector::new([7.0, 19.0, 49.0]));
+    /// let x = a.lu().unwrap().solve(b);
     /// assert!((x[0] - 1.0).abs() < 1e-12);
     /// assert!((x[1] - 2.0).abs() < 1e-12);
     /// assert!((x[2] - 3.0).abs() < 1e-12);
@@ -193,8 +195,9 @@ impl<const N: usize, T: Numeric> Lu<N, T> {
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let a = Matrix::<2, 2>::new([[4.0, 3.0], [6.0, 3.0]]);
+    /// let identity = Matrix::<2, 2>::identity();
     /// // Solving A·X = I gives X = A⁻¹.
-    /// let x = a.lu().unwrap().solve_matrix(Matrix::<2, 2>::identity());
+    /// let x = a.lu().unwrap().solve_matrix(identity);
     /// let p = a * x;
     /// assert!((p[(0, 0)] - 1.0).abs() < 1e-12);
     /// assert!((p[(1, 1)] - 1.0).abs() < 1e-12);

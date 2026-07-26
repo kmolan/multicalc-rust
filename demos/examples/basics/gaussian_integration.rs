@@ -45,8 +45,11 @@ fn main() {
 
     // ---- Gauss-Hermite: int_-inf^inf f(x) e^(-x^2) dx ----
     // pass the BARE integrand f(x); the weights already carry the e^(-x^2) factor
-    let hermite = GaussianSingle::from_parameters(5, GaussianQuadratureMethod::GaussHermite);
-    let hermite_m = GaussianMulti::from_parameters(5, GaussianQuadratureMethod::GaussHermite);
+    let node_count = 5;
+    let hermite =
+        GaussianSingle::from_parameters(node_count, GaussianQuadratureMethod::GaussHermite);
+    let hermite_m =
+        GaussianMulti::from_parameters(node_count, GaussianQuadratureMethod::GaussHermite);
     let real_line = [f64::NEG_INFINITY, f64::INFINITY];
     println!("\nGauss-Hermite (bare integrand; weights carry e^(-x^2)):");
     // int x^2 e^(-x^2) = sqrt(pi)/2
@@ -58,14 +61,19 @@ fn main() {
     // multi-variable: int int x^2 y^2 e^(-x^2-y^2) = (sqrt(pi)/2)^2
     report(
         "int int x^2 y^2 e^-x^2-y^2",
-        hermite_m
-            .integrate(
-                [0, 1],
-                &|v: &[f64; 2]| v[0] * v[0] * v[1] * v[1],
-                &[real_line; 2],
-                &[0.0, 0.0],
-            )
-            .unwrap(),
+        {
+            let by_x_then_y = [0, 1];
+            let plane = [real_line; 2];
+            let origin = [0.0, 0.0];
+            hermite_m
+                .integrate(
+                    by_x_then_y,
+                    &|v: &[f64; 2]| v[0] * v[0] * v[1] * v[1],
+                    &plane,
+                    &origin,
+                )
+                .unwrap()
+        },
         (sqrt_pi / 2.0) * (sqrt_pi / 2.0),
     );
 

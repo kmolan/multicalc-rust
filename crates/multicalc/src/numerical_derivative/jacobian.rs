@@ -62,11 +62,11 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     /// use multicalc::scalar_fn_vec;
     ///
     /// // the vector function (x*y*z, x^2 + y^2)
-    /// let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
-    ///
+    /// let function = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    /// let point = [1.0, 2.0, 3.0];
     ///
     /// let jacobian: Jacobian = Jacobian::default();
-    /// let result = jacobian.evaluate(&f, &[1.0, 2.0, 3.0]).unwrap();
+    /// let result = jacobian.evaluate(&function, &point).unwrap();
     /// // result is [[6, 3, 2], [2, 4, 0]]
     /// assert!(f64::abs(result[(0, 0)] - 6.0) < 1e-12);
     /// ```

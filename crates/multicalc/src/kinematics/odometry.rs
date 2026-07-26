@@ -20,8 +20,9 @@ use crate::spatial::{SE2, SO2};
 /// use multicalc::kinematics::{BodyArc, integrate};
 /// use multicalc::spatial::SE2;
 /// // Two ticks of 0.05 rad turn each leave the pose rotated by 0.1 rad.
-/// let d = BodyArc::new(0.1_f64, 0.05);
-/// let pose = integrate(integrate(SE2::identity(), d), d);
+/// let start = SE2::identity();
+/// let step = BodyArc::new(0.1_f64, 0.05);   // turn 0.1 rad while moving 0.05 m along the arc
+/// let pose = integrate(integrate(start, step), step);
 /// assert!((pose.rotation().log() - 0.1).abs() < 1e-12);
 /// ```
 #[inline]

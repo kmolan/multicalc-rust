@@ -44,8 +44,10 @@ jobs:
         run: cargo test -p multicalc
       - name: Test (alloc feature)
         run: cargo test -p multicalc --features alloc
+      # All features on: the README and guide examples are compiled here too, and some of
+      # them use the alloc-only types.
       - name: Doctests
-        run: cargo test -p multicalc --doc
+        run: cargo test -p multicalc --all-features --doc
 
   qa:
     name: qa fixtures (host-only)

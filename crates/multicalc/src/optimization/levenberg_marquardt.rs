@@ -27,8 +27,11 @@ const MAX_TRUST_REGION_TRIALS: usize = 100;
 /// use multicalc::scalar_fn_vec;
 ///
 /// // Minimize the Rosenbrock residual; the minimum is at (1, 1).
-/// let f = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
-/// let report = LevenbergMarquardt::<AutoDiffMulti>::default().minimize(&f, &[-1.2, 1.0]).unwrap();
+/// let residuals = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
+/// let initial_guess = [-1.2, 1.0];
+///
+/// let solver = LevenbergMarquardt::<AutoDiffMulti>::default();
+/// let report = solver.minimize(&residuals, &initial_guess).unwrap();
 /// assert!((report.solution[0] - 1.0).abs() < 1e-6);
 /// assert!((report.solution[1] - 1.0).abs() < 1e-6);
 /// ```

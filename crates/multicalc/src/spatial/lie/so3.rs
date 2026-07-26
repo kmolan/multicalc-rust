@@ -14,10 +14,13 @@ use crate::spatial::lie::{inverse_left_jacobian_so3, left_jacobian_so3, skew3};
 /// ```
 /// use multicalc::spatial::SO3;
 /// use multicalc::linear_algebra::Vector;
-/// let r = SO3::<f64>::exp(Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2]));
-/// let p = r.act(Vector::new([1.0, 0.0, 0.0]));
-/// assert!(p[0].abs() < 1e-12);
-/// assert!((p[1] - 1.0).abs() < 1e-12);
+/// let quarter_turn_about_z = Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2]);
+/// let rotation = SO3::<f64>::exp(quarter_turn_about_z);
+///
+/// let point = Vector::new([1.0, 0.0, 0.0]);
+/// let rotated = rotation.act(point);          // the x axis swings onto the y axis
+/// assert!(rotated[0].abs() < 1e-12);
+/// assert!((rotated[1] - 1.0).abs() < 1e-12);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]

@@ -60,12 +60,12 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     /// use multicalc::scalar_fn;
     ///
     /// // f(x, y) = y*sin(x) + 2*x*e^y
-    /// let my_func =
+    /// let function =
     ///     scalar_fn!(|args: &[f64; 2]| args[1] * args[0].sin() + c(2.0) * args[0] * args[1].exp());
-    ///
+    /// let point = [1.0, 2.0];
     ///
     /// let hessian: Hessian = Hessian::default();
-    /// let result = hessian.evaluate(&my_func, &[1.0, 2.0]).unwrap();
+    /// let result = hessian.evaluate(&function, &point).unwrap();
     /// assert!(f64::abs(result[(0, 0)] - (-2.0 * f64::sin(1.0))) < 1e-12);
     /// ```
     pub fn evaluate<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(

@@ -27,7 +27,8 @@ use crate::scalar::{Numeric, VectorFn};
 /// let vf = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
 ///
 /// let derivator = AutoDiffMulti::default();
-/// let val = curl_3d(derivator, &vf, &[0.0, 1.0, 3.0]).unwrap();
+/// let point = [0.0, 1.0, 3.0];
+/// let val = curl_3d(derivator, &vf, &point).unwrap();
 /// // curl is known to be (0, 0, -2)
 /// assert!(f64::abs(val[2] + 2.0) < 1e-12);
 /// ```
@@ -74,7 +75,8 @@ pub fn curl_3d<D: DerivatorMultiVariable, F: VectorFn<NUM_VARS, 3>, const NUM_VA
 /// let vf = scalar_fn_vec!(|v: &[f64; 2]| [c(2.0) * v[0] * v[1], c(3.0) * v[1].cos()]);
 ///
 /// let derivator = AutoDiffMulti::default();
-/// let val = curl_2d(derivator, &vf, &[1.0, 3.14]).unwrap();
+/// let point = [1.0, 3.14];
+/// let val = curl_2d(derivator, &vf, &point).unwrap();
 /// // curl is known to be -2
 /// assert!(f64::abs(val + 2.0) < 1e-12);
 /// ```

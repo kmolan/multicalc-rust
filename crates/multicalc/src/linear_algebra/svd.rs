@@ -243,7 +243,8 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
     /// use multicalc::linear_algebra::Matrix;
     /// // Column 2 is twice column 1, so the matrix has rank 1.
     /// let a = Matrix::<3, 2>::new([[1.0, 2.0], [2.0, 4.0], [3.0, 6.0]]);
-    /// assert_eq!(a.svd().unwrap().rank(1e-9), 1);
+    /// let tolerance = 1e-9;
+    /// assert_eq!(a.svd().unwrap().rank(tolerance), 1);
     /// ```
     #[inline]
     #[must_use]
@@ -325,7 +326,8 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
     /// use multicalc::linear_algebra::{Matrix, Vector};
     /// // Overdetermined and consistent: the exact solution is x = [1, 2].
     /// let a = Matrix::<3, 2>::new([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]);
-    /// let x = a.svd().unwrap().solve(Vector::new([1.0, 2.0, 3.0]));
+    /// let b = Vector::new([1.0, 2.0, 3.0]);
+    /// let x = a.svd().unwrap().solve(b);
     /// assert!((x[0] - 1.0).abs() < 1e-12);
     /// assert!((x[1] - 2.0).abs() < 1e-12);
     /// ```

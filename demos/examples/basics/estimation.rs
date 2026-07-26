@@ -373,19 +373,26 @@ fn main() -> Result<(), CalcError> {
     // (7) The same tracking problem, made nonlinear: a range-and-bearing sighting of a known
     // landmark. The measurement model is written once as a plain function; its Jacobian is taken by
     // automatic differentiation, so there are no hand-derived Jacobians anywhere.
+    let initial_pose = Vector::new([0.0, 0.0, 0.0]); // [x, y, heading] at the origin
+    let initial_covariance = Matrix::<3, 3>::identity(); // a wide, uncertain prior
+    let process_noise = Matrix::zeros();
+    let measurement_noise = Matrix::<2, 2>::identity().scale(0.01); // a precise sensor
+
     let mut extended = ExtendedKalmanFilter::<3, 2>::new(
-        Vector::new([0.0, 0.0, 0.0]), // pose [x, y, heading] at the origin
-        Matrix::<3, 3>::identity(),   // a wide, uncertain prior
-        Matrix::zeros(),
-        Matrix::<2, 2>::identity().scale(0.01), // a precise range/bearing sensor
+        initial_pose,
+        initial_covariance,
+        process_noise,
+        measurement_noise,
     );
     let landmark = LandmarkRangeAndBearing {
         landmark_x: 3.0,
         landmark_y: 4.0,
     };
     let uncertainty_before = trace(extended.covariance());
+
     // From the true pose the landmark is at range 5, bearing atan2(4, 3).
-    extended.update(&landmark, Vector::new([5.0, 4.0_f64.atan2(3.0)]))?;
+    let sighting = Vector::new([5.0, 4.0_f64.atan2(3.0)]);
+    extended.update(&landmark, sighting)?;
     let uncertainty_after = trace(extended.covariance());
     println!("\nExtended filter: one range/bearing sighting of a landmark at (3, 4)");
     println!("  uncertainty (trace P): {uncertainty_before:.3} -> {uncertainty_after:.3}");
@@ -396,17 +403,18 @@ fn main() -> Result<(), CalcError> {
 
     // (8) With linear models the extended filter reproduces the linear one exactly — that identity
     // is what "extended" means. Run the same constant-velocity models through both and compare.
+    let initial_state = Vector::new([0.0, 0.0]);
+    let initial_covariance = Matrix::identity();
+    let process_noise = Matrix::<2, 2>::identity().scale(0.01);
+    let measurement_noise = Matrix::new([[0.5]]);
+
     let mut reduced = ExtendedKalmanFilter::<2, 1>::new(
-        Vector::new([0.0, 0.0]),
-        Matrix::identity(),
-        Matrix::<2, 2>::identity().scale(0.01),
-        Matrix::new([[0.5]]),
+        initial_state,
+        initial_covariance,
+        process_noise,
+        measurement_noise,
     );
-    let mut linear = tracker::<f64>(
-        Matrix::identity(),
-        Matrix::<2, 2>::identity().scale(0.01),
-        Matrix::new([[0.5]]),
-    );
+    let mut linear = tracker::<f64>(initial_covariance, process_noise, measurement_noise);
     for z in [0.5, 1.0, 1.5, 2.0] {
         reduced.predict(&ConstantVelocityMotion)?;
         reduced.update(&PositionMeasurement, Vector::new([z]))?;
@@ -426,19 +434,24 @@ fn main() -> Result<(), CalcError> {
     // exists for.
     let measurement = -3.1; // compass reads just over −π; the state is just under +π
 
+    let initial_heading = Vector::new([3.1]);
+    let heading_covariance = Matrix::new([[0.1]]);
+    let no_process_noise = Matrix::zeros();
+    let compass_noise = Matrix::new([[0.05]]);
+
     let mut unwrapped = ExtendedKalmanFilter::<1, 1>::new(
-        Vector::new([3.1]),
-        Matrix::new([[0.1]]),
-        Matrix::zeros(),
-        Matrix::new([[0.05]]),
+        initial_heading,
+        heading_covariance,
+        no_process_noise,
+        compass_noise,
     );
     unwrapped.update(&Compass, Vector::new([measurement]))?;
 
     let mut wrapped = ExtendedKalmanFilter::<1, 1>::new(
-        Vector::new([3.1]),
-        Matrix::new([[0.1]]),
-        Matrix::zeros(),
-        Matrix::new([[0.05]]),
+        initial_heading,
+        heading_covariance,
+        no_process_noise,
+        compass_noise,
     );
     let predicted = Compass.eval(wrapped.state().as_array())[0];
     let residual = wrap_to_pi(measurement - predicted);

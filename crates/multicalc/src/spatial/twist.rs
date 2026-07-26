@@ -36,7 +36,9 @@ impl<T: Numeric> Twist<T> {
     /// ```
     /// use multicalc::linear_algebra::Vector;
     /// use multicalc::spatial::Twist;
-    /// let t = Twist::new(Vector::new([1.0_f64, 2.0, 3.0]), Vector::new([4.0, 5.0, 6.0]));
+    /// let linear = Vector::new([1.0_f64, 2.0, 3.0]);
+    /// let angular = Vector::new([4.0, 5.0, 6.0]);
+    /// let t = Twist::new(linear, angular);
     /// assert_eq!(t.linear(), Vector::new([1.0, 2.0, 3.0]));
     /// assert_eq!(t.angular(), Vector::new([4.0, 5.0, 6.0]));
     /// ```

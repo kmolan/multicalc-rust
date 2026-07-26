@@ -80,7 +80,8 @@ fn get_partial<T: Numeric, const N: usize>(
 /// let transformation_matrix: [&dyn Fn(f64) -> f64; 2] =
 ///     [&(|t: f64| t.cos()), &(|t: f64| t.sin())];
 ///
-/// let val = line_integral_2d(&vector_field_matrix, &transformation_matrix, &[0.0, 6.28]).unwrap();
+/// let limits = [0.0, 6.28];   // one full turn around the circle
+/// let val = line_integral_2d(&vector_field_matrix, &transformation_matrix, &limits).unwrap();
 /// // the line integral is -2*pi
 /// assert!(f64::abs(val + 6.28) < 0.01);
 /// ```

@@ -271,10 +271,15 @@ impl<T: Numeric> Rk45<T> {
     /// use multicalc::ode::Rk45;
     /// use multicalc::linear_algebra::Vector;
     /// // y' = -y over [0, 2]; y(2) = e^{-2}.
-    /// let yf = Rk45::default()
-    ///     .solve(&|_t, y: &Vector<1, f64>| -*y, 0.0, &Vector::new([1.0]), 2.0)
+    /// let rate_of_change = |_t, y: &Vector<1, f64>| -*y;
+    /// let start_time = 0.0;
+    /// let start_state = Vector::new([1.0]);
+    /// let end_time = 2.0;
+    ///
+    /// let final_state = Rk45::default()
+    ///     .solve(&rate_of_change, start_time, &start_state, end_time)
     ///     .unwrap();
-    /// assert!((yf[0] - (-2.0_f64).exp()).abs() < 1e-6);
+    /// assert!((final_state[0] - (-2.0_f64).exp()).abs() < 1e-6);
     /// ```
     pub fn for_each_step<const N: usize, F, O>(
         &self,

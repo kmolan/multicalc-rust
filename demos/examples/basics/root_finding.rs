@@ -14,7 +14,9 @@ fn main() -> Result<(), CalcError> {
     // The root 4.965114231744276 fixes the peak of the blackbody spectrum.
     let wien = scalar_fn!(|x| c(-5.0) + x + c(5.0) * (-x).exp());
     let wien_true = 4.965114231744276_f64;
-    let r = Bisection::default().solve(&wien, 1.0, 10.0)?;
+    let lower_bound = 1.0;
+    let upper_bound = 10.0;
+    let r = Bisection::default().solve(&wien, lower_bound, upper_bound)?;
     println!("Bisection  Wien's displacement root on [1, 10]");
     println!(
         "  root = {:.15}   |err| = {:.1e}   ({} iters, {:?})",
@@ -27,7 +29,8 @@ fn main() -> Result<(), CalcError> {
     // ---- Newton: x^2 - 2 = 0, exact derivative via Dual numbers ----
     let f = scalar_fn!(|x| c(-2.0) + x * x);
     let sqrt2 = 2.0_f64.sqrt();
-    let r = Newton::new().solve(&f, 2.0)?;
+    let initial_guess = 2.0;
+    let r = Newton::new().solve(&f, initial_guess)?;
     println!("\nNewton  x^2 - 2 = 0 (exact derivative, x0 = 2)");
     println!(
         "  root = {:.15}   |err| = {:.1e}   ({} iters, {:?})",
@@ -42,8 +45,11 @@ fn main() -> Result<(), CalcError> {
     // backtracking line search halves the step until |f| decreases.
     let g = scalar_fn!(|x| x / (c(1.0) + x * x).sqrt());
     // The plain solve is expected to fail, so its `Result` is printed rather than propagated.
-    let plain = Newton::new().solve(&g, 2.0);
-    let damped = Newton::new().with_backtracking(true).solve(&g, 2.0)?;
+    let use_backtracking = true;
+    let plain = Newton::new().solve(&g, initial_guess);
+    let damped = Newton::new()
+        .with_backtracking(use_backtracking)
+        .solve(&g, initial_guess)?;
     println!("\nDamped Newton  x / sqrt(1 + x^2), root at 0, from x0 = 2");
     println!("  plain Newton  -> {plain:?}");
     println!(

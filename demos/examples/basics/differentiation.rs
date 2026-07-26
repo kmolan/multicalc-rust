@@ -23,21 +23,22 @@ fn main() {
     let derivator = AutoDiffSingle::default();
     let x = 1.0_f64;
     let (s, c) = (x.sin(), x.cos());
+    let (first_order, second_order, third_order) = (1, 2, 3);
 
     println!("f(x) = x^2 sin(x)  at x = {x}");
     report(
         "f'",
-        derivator.differentiate(1, &f, x).unwrap(),
+        derivator.differentiate(first_order, &f, x).unwrap(),
         2.0 * x * s + x * x * c,
     );
     report(
         "f''",
-        derivator.differentiate(2, &f, x).unwrap(),
+        derivator.differentiate(second_order, &f, x).unwrap(),
         2.0 * s + 4.0 * x * c - x * x * s,
     );
     report(
         "f'''",
-        derivator.differentiate(3, &f, x).unwrap(),
+        derivator.differentiate(third_order, &f, x).unwrap(),
         6.0 * c - 6.0 * x * s - x * x * c,
     );
 
@@ -52,12 +53,18 @@ fn main() {
     let p = [1.0, 2.0, 3.0];
     let (e3, sin2, cos2) = (3.0_f64.exp(), 2.0_f64.sin(), 2.0_f64.cos());
 
+    // Which variable to differentiate by, and in what order. x is index 0, y is 1, z is 2.
+    let x_index = 0;
+    let twice_by_x = [0, 0];
+    let by_x_then_y = [0, 1];
+    let twice_by_x_then_y = [0, 0, 1];
+
     println!("\ng(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z  at {p:?}");
 
     // a single partial derivative, dg/dx = y*cos(x) + cos(y) + y*e^z
     report(
         "dg/dx",
-        multi.first_partial_derivative(&g, 0, &p).unwrap(),
+        multi.first_partial_derivative(&g, x_index, &p).unwrap(),
         2.0 * c + cos2 + 2.0 * e3,
     );
 
@@ -65,20 +72,20 @@ fn main() {
     // d2g/dx2 = -y*sin(x)
     report(
         "d2g/dx2",
-        multi.differentiate(&g, &[0, 0], &p).unwrap(),
+        multi.differentiate(&g, &twice_by_x, &p).unwrap(),
         -2.0 * s,
     );
     // mixed partial d(dg/dx)/dy = cos(x) - sin(y) + e^z
     report(
         "d2g/dx dy",
-        multi.differentiate(&g, &[0, 1], &p).unwrap(),
+        multi.differentiate(&g, &by_x_then_y, &p).unwrap(),
         c - sin2 + e3,
     );
 
     // third-order mixed partial d2(dg/dy)/dx2 = -sin(x)
     report(
         "d3g/dx2 dy",
-        multi.differentiate(&g, &[0, 0, 1], &p).unwrap(),
+        multi.differentiate(&g, &twice_by_x_then_y, &p).unwrap(),
         -s,
     );
 }

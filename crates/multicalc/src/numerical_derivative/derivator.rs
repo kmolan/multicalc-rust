@@ -18,13 +18,17 @@ pub trait DerivatorSingleVariable {
     /// use multicalc::numerical_derivative::FiniteDifferenceSingle;
     /// use multicalc::scalar_fn;
     ///
-    /// let func = scalar_fn!(|x| x * x * x);
+    /// let function = scalar_fn!(|x| x * x * x);
     /// let derivator = FiniteDifferenceSingle::default();
+    /// let point = 2.0;
     ///
-    /// let val = derivator.differentiate(1, &func, 2.0).unwrap();
-    /// assert!(f64::abs(val - 12.0) < 1e-7);
-    /// let val = derivator.differentiate(2, &func, 2.0).unwrap();
-    /// assert!(f64::abs(val - 12.0) < 1e-5);
+    /// let first_order = 1;
+    /// let slope = derivator.differentiate(first_order, &function, point).unwrap();
+    /// assert!(f64::abs(slope - 12.0) < 1e-7);
+    ///
+    /// let second_order = 2;
+    /// let bend = derivator.differentiate(second_order, &function, point).unwrap();
+    /// assert!(f64::abs(bend - 12.0) < 1e-5);
     /// ```
     fn differentiate<F: ScalarFn>(
         &self,
@@ -73,13 +77,14 @@ pub trait DerivatorMultiVariable {
     /// use multicalc::scalar_fn;
     ///
     /// // f(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z
-    /// let func = scalar_fn!(|v: &[f64; 3]| v[1] * v[0].sin() + v[0] * v[1].cos() + v[0] * v[1] * v[2].exp());
+    /// let function = scalar_fn!(|v: &[f64; 3]| v[1] * v[0].sin() + v[0] * v[1].cos() + v[0] * v[1] * v[2].exp());
     /// let derivator = FiniteDifferenceMulti::default();
+    /// let variable_indices = [0, 1];   // once by x, then by y
+    /// let point = [1.0, 2.0, 3.0];
     ///
-    /// // mixed partial d(df/dx)/dy
-    /// let val = derivator.differentiate(&func, &[0, 1], &[1.0, 2.0, 3.0]).unwrap();
+    /// let mixed = derivator.differentiate(&function, &variable_indices, &point).unwrap();
     /// let expected = f64::cos(1.0) - f64::sin(2.0) + f64::exp(3.0);
-    /// assert!(f64::abs(val - expected) < 0.001);
+    /// assert!(f64::abs(mixed - expected) < 0.001);
     /// ```
     fn differentiate<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize, const NUM_ORDER: usize>(
         &self,

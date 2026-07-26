@@ -34,9 +34,11 @@ use crate::scalar::{Dual, HyperDual, Numeric, ScalarFn, ScalarFnN};
 /// use multicalc::numerical_derivative::derivative;
 /// use multicalc::scalar_fn;
 ///
-/// // f(x) = x^3, so f'(2) = 12
-/// let f = scalar_fn!(|x| x * x * x);
-/// assert!((derivative(&f, 2.0_f64) - 12.0).abs() < 1e-12);
+/// let function = scalar_fn!(|x| x * x * x);   // f(x) = x^3
+/// let point = 2.0_f64;
+///
+/// let slope = derivative(&function, point);   // f'(2) = 3x^2 = 12
+/// assert!((slope - 12.0).abs() < 1e-12);
 /// ```
 #[must_use]
 #[inline]
@@ -51,9 +53,11 @@ pub fn derivative<T: Numeric, F: ScalarFn>(function: &F, point: T) -> T {
 /// use multicalc::numerical_derivative::second_derivative;
 /// use multicalc::scalar_fn;
 ///
-/// // f(x) = x^3, so f''(2) = 12; f32 works the same way
-/// let f = scalar_fn!(|x| x * x * x);
-/// assert!((second_derivative(&f, 2.0_f32) - 12.0).abs() < 1e-4);
+/// let function = scalar_fn!(|x| x * x * x);   // f(x) = x^3
+/// let point = 2.0_f32;                        // f32 works the same way
+///
+/// let bend = second_derivative(&function, point);   // f''(2) = 6x = 12
+/// assert!((bend - 12.0).abs() < 1e-4);
 /// ```
 #[must_use]
 #[inline]
@@ -74,9 +78,12 @@ pub fn second_derivative<T: Numeric, F: ScalarFn>(function: &F, point: T) -> T {
 /// use multicalc::numerical_derivative::partial;
 /// use multicalc::scalar_fn;
 /// # fn main() -> Result<(), multicalc::error::DiffError> {
-/// // g(x, y) = x^2 * y, so dg/dx at (3, 4) is 2xy = 24
-/// let g = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1]);
-/// assert!((partial(&g, 0, &[3.0_f64, 4.0])? - 24.0).abs() < 1e-12);
+/// let function = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1]);   // g(x, y) = x^2 * y
+/// let variable_index = 0;                                         // differentiate by x
+/// let point = [3.0_f64, 4.0];
+///
+/// let slope = partial(&function, variable_index, &point)?;        // dg/dx = 2xy = 24
+/// assert!((slope - 24.0).abs() < 1e-12);
 /// # Ok(())
 /// # }
 /// ```

@@ -227,9 +227,12 @@ impl<T: Numeric> DifferentialDrive<T> {
     ///
     /// ```
     /// use multicalc::kinematics::{DifferentialDrive, WheelVelocities};
-    /// let dd = DifferentialDrive::new(0.036_f64, 0.235).unwrap();
+    /// let wheel_radius = 0.036_f64;   // 36 mm wheels
+    /// let track_width = 0.235;        // 235 mm apart
+    /// let drive = DifferentialDrive::new(wheel_radius, track_width).unwrap();
+    ///
     /// let wheels = WheelVelocities::new(1.0, 2.0);
-    /// let back = dd.inverse(dd.forward(wheels));
+    /// let back = drive.inverse(drive.forward(wheels));
     /// assert!((back.left() - 1.0).abs() < 1e-15);
     /// assert!((back.right() - 2.0).abs() < 1e-15);
     /// ```

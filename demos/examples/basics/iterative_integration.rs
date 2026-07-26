@@ -41,10 +41,12 @@ fn main() {
         ("Simpson", IterativeMethod::Simpsons),
         ("Trapezoid", IterativeMethod::Trapezoidal),
     ] {
-        let solver = IterativeMulti::from_parameters(120, method);
-        let val = solver
-            .integrate([0, 0, 0], &g, &[[0.0, 1.0]; 3], &point)
-            .unwrap();
+        let interval_count = 120;
+        let solver = IterativeMulti::from_parameters(interval_count, method);
+
+        let thrice_by_x = [0, 0, 0];
+        let limits = [[0.0, 1.0]; 3];
+        let val = solver.integrate(thrice_by_x, &g, &limits, &point).unwrap();
         report(name, val, exact);
     }
 

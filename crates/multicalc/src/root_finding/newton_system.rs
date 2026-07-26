@@ -38,7 +38,9 @@ const MAX_BACKTRACK: usize = 20;
 ///     c(-1.0) + v[0] * v[1],
 /// ]);
 /// let solver: NewtonSystem = NewtonSystem::default();
-/// let report = solver.solve(&f, &[1.5_f64, 0.8]).unwrap();
+/// let initial_guess = [1.5_f64, 0.8];
+///
+/// let report = solver.solve(&f, &initial_guess).unwrap();
 /// assert!(report.residual_norm < 1e-12);
 /// ```
 pub struct NewtonSystem<D: DerivatorMultiVariable = AutoDiffMulti> {

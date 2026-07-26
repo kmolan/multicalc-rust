@@ -36,10 +36,11 @@ fn main() {
 
     // ---- Hessian of f(x, y) = y*sin(x) + 2*x*e^y ----
     let g = scalar_fn!(|v: &[f64; 2]| v[1] * v[0].sin() + c(2.0) * v[0] * v[1].exp());
+    let hessian_point = [1.0, 2.0];
     let hessian: Hessian = Hessian::default();
-    let result = hessian.evaluate(&g, &[1.0, 2.0]).unwrap();
+    let result = hessian.evaluate(&g, &hessian_point).unwrap();
 
-    println!("\nHessian of y*sin(x) + 2*x*e^y at [1, 2]:");
+    println!("\nHessian of y*sin(x) + 2*x*e^y at {hessian_point:?}:");
     for row in 0..2 {
         println!("  [{:.4}, {:.4}]", result[(row, 0)], result[(row, 1)]);
     }

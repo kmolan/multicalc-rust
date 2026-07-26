@@ -31,8 +31,11 @@ fn main() -> Result<(), VizError> {
     let y: [f64; M] = core::array::from_fn(|i| A_TRUE * (B_TRUE * i as f64).exp());
     let problem = SensorFit { t, y };
 
+    // Deliberately away from the truth, so the fit has work to do.
+    let initial_guess = [80.0, -0.3];
+
     let report = LevenbergMarquardt::<AutoDiffMulti>::default()
-        .minimize(&problem, &[80.0, -0.3])
+        .minimize(&problem, &initial_guess)
         .expect("curve fit did not converge");
     let (a, b) = (report.solution[0], report.solution[1]);
     let fit = |tt: f64| a * (b * tt).exp();

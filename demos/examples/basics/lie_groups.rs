@@ -21,8 +21,11 @@ fn report(label: &str, value: f64, exact: f64) {
 
 fn main() {
     // (1) SO(3): a 90° rotation about z maps x -> y.
-    let rz = SO3::<f64>::exp(Vector::new([0.0, 0.0, FRAC_PI_2]));
-    let p = rz.act(Vector::new([1.0, 0.0, 0.0]));
+    let quarter_turn_about_z = Vector::new([0.0, 0.0, FRAC_PI_2]);
+    let rz = SO3::<f64>::exp(quarter_turn_about_z);
+
+    let along_x = Vector::new([1.0, 0.0, 0.0]);
+    let p = rz.act(along_x);
     println!("SO(3): 90 deg about z applied to (1, 0, 0)");
     report("x", p[0], 0.0);
     report("y", p[1], 1.0);
@@ -37,15 +40,17 @@ fn main() {
     }
 
     // (3) SE(3): rotate then translate a point.
-    let g = SE3::from_parts(rz, Vector::new([1.0, 2.0, 3.0]));
-    let q = g.act(Vector::new([1.0, 0.0, 0.0]));
+    let translation = Vector::new([1.0, 2.0, 3.0]);
+    let g = SE3::from_parts(rz, translation);
+    let q = g.act(along_x);
     println!("\nSE(3): rotate then translate (1, 0, 0)");
     report("x", q[0], 1.0);
     report("y", q[1], 3.0);
     report("z", q[2], 3.0);
 
     // (4) Geodesic interpolation: midpoint of identity and a 90° rotation is 45°.
-    let mid = SO3::<f64>::identity().interpolate(rz, 0.5);
+    let halfway = 0.5;
+    let mid = SO3::<f64>::identity().interpolate(rz, halfway);
     println!("\nSO(3): slerp midpoint angle about z");
     report("angle (rad)", mid.log()[2], FRAC_PI_2 / 2.0);
 

@@ -190,10 +190,12 @@ impl<T: Numeric> IntegratorSingleVariable for GaussianSingle<T> {
     /// use multicalc::numerical_integration::GaussianSingle;
     ///
     /// // Gauss-Legendre is exact for polynomials: integral of 4x^3 - 3x^2 over [0, 2] is 8
-    /// let my_func = |x: f64| 4.0 * x * x * x - 3.0 * x * x;
+    /// let cubic = |x: f64| 4.0 * x * x * x - 3.0 * x * x;
     /// let integrator = GaussianSingle::default();
-    /// let val = integrator.integrate(&my_func, &[[0.0, 2.0]; 1]).unwrap();
-    /// assert!(f64::abs(val - 8.0) < 1e-7);
+    /// let limits = [[0.0, 2.0]];
+    ///
+    /// let area = integrator.integrate(&cubic, &limits).unwrap();
+    /// assert!(f64::abs(area - 8.0) < 1e-7);
     /// ```
     fn integrate<F: Fn(T) -> T, const NUM_INTEGRATIONS: usize>(
         &self,
@@ -355,13 +357,15 @@ impl<T: Numeric> IntegratorMultiVariable for GaussianMulti<T> {
     /// use multicalc::numerical_integration::IntegratorMultiVariable;
     /// use multicalc::numerical_integration::GaussianMulti;
     ///
-    /// // f(x, y, z) = 2x + yz, integrated over x in [0, 1] with (y, z) = (2, 3); result is 7
-    /// let my_func = |args: &[f64; 3]| 2.0 * args[0] + args[1] * args[2];
+    /// // f(x, y, z) = 2x + yz, integrated over x with (y, z) held at (2, 3); result is 7
+    /// let function = |args: &[f64; 3]| 2.0 * args[0] + args[1] * args[2];
     /// let integrator = GaussianMulti::default();
+    /// let variable_indices = [0];        // integrate over x
+    /// let limits = [[0.0, 1.0]];
     /// let point = [1.0, 2.0, 3.0];
     ///
-    /// let val = integrator.integrate([0; 1], &my_func, &[[0.0, 1.0]; 1], &point).unwrap();
-    /// assert!(f64::abs(val - 7.0) < 1e-7);
+    /// let area = integrator.integrate(variable_indices, &function, &limits, &point).unwrap();
+    /// assert!(f64::abs(area - 7.0) < 1e-7);
     /// ```
     fn integrate<
         F: Fn(&[T; NUM_VARS]) -> T,

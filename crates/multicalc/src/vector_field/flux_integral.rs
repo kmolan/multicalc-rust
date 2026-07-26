@@ -29,7 +29,8 @@ use crate::vector_field::line_integral::{line_integral_partial_2d, line_integral
 /// let transformation_matrix: [&dyn Fn(f64) -> f64; 2] =
 ///     [&(|t: f64| t.cos()), &(|t: f64| t.sin())];
 ///
-/// let val = flux_integral_2d(&vector_field_matrix, &transformation_matrix, &[0.0, 6.28]).unwrap();
+/// let limits = [0.0, 6.28];   // one full turn around the circle
+/// let val = flux_integral_2d(&vector_field_matrix, &transformation_matrix, &limits).unwrap();
 /// // the flux integral is 0
 /// assert!(f64::abs(val) < 0.01);
 /// ```

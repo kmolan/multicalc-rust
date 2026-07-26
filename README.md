@@ -6,9 +6,8 @@
 [![Docs](https://docs.rs/multicalc/badge.svg)](https://docs.rs/multicalc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Scientific math for real-time embedded systems, in `no_std` stable Rust with near-zero dependencies: state
-estimation, control, kinematics, and Lie groups on a calculus, autodiff, and linear-algebra core in one integrated package.
-No heap, no panics, no `unsafe` - from a 64-bit server down to a bare-metal microcontroller.**
+**Scientific computing that fits on a microcontroller, built and tested from scratch in one integrated package. Estimation, control, kinematics, Lie groups, calculus, autodiff and linear algebra in stable no_std Rust with
+no heap, no panics and no unsafe. Run the same code on your laptop and your Cortex-M0.**
 
 https://github.com/user-attachments/assets/93dee114-67f6-4124-a20d-88a8be50da6f
 
@@ -17,10 +16,7 @@ screen is measured live, inside a 1 ms tick.*
 
 ## Highlights
 
-- **1 kHz loop rate.** The lead showcase localizes a differential-drive
-  robot against a known map with a 2,000-particle filter over 61 noisy lidar beams, then runs a
-  5-state extended Kalman filter fusing 100 Hz wheel odometry, a 200 Hz IMU, and 20 Hz GPS while a
-  Follow-the-Gap controller laps a course of obstacles — predict, fuse, and plan every millisecond.
+- **1 kHz loop rates:** No heap, fixed-size types, bounded work per call. Results in a full robotics control loop at 1 kHz.
 - **Exercise the same math from a server to a microcontroller.** Every commit is built and tested on **six targets**:
   the `x86_64` and `aarch64` Linux hosts and on four bare-metal ABIs (`thumbv7em` soft-float,
   `thumbv7em` hardware-FPU, `thumbv6m`, and `riscv32imc`), running the real math under QEMU.
@@ -78,46 +74,58 @@ fn main() -> Result<(), CalcError> {
     let g = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1] + v[0].sin()); // g(x, y) = x²y + sin x
 
     // Derivatives — exact, by forward-mode autodiff. No step size, no truncation error.
-    let slope = derivative(&f, 2.0_f64);                     // f'(2)  = 10
-    let bend = second_derivative(&f, 2.0_f64);               // f''(2) = 12
-    let dg_dx = partial(&g, 0, &[1.0_f64, 2.0])?;            // ∂g/∂x at (1, 2)
+    let single_point = 2.0_f64;
+    let slope = derivative(&f, single_point);                // f'(2)  = 10
+    let bend = second_derivative(&f, single_point);          // f''(2) = 12
+
+    let point = [1.0_f64, 2.0];
+    let x_index = 0;
+    let dg_dx = partial(&g, x_index, &point)?;
 
     // The derivative matrices of those same two formulas.
-    let hessian = Hessian::new().evaluate(&g, &[1.0, 2.0])?;            // 2x2 second derivatives
+    let hessian = Hessian::new().evaluate(&g, &point)?;      // 2x2 second derivatives
     let both = scalar_fn_vec!(|v: &[f64; 2]| [
         v[0] * v[0] * v[1] + v[0].sin(),
         v[0] * v[0] * v[0] - c(2.0) * v[0],
     ]);
-    let jacobian = Jacobian::new().evaluate(&both, &[1.0, 2.0])?;       // 2x2 first derivatives
+    let jacobian = Jacobian::new().evaluate(&both, &point)?; // 2x2 first derivatives
 
     // Integration — f again, this time over an interval.
-    let area = integral(&|x: f64| f.eval(x), [0.0, 2.0])?;   // ∫₀² f = 0
+    let limits = [0.0, 2.0];
+    let area = integral(&|x: f64| f.eval(x), limits)?;       // ∫₀² f = 0
 
     // Linear algebra — solve H·x = b with the Hessian computed three lines up.
-    let x = hessian.solve(Vector::new([1.0, 2.0]))?;
+    let b = Vector::new([1.0, 2.0]);
+    let x = hessian.solve(b)?;
 
     // Root finding — Newton on the same f, its derivative supplied by autodiff.
-    let root = Newton::new().solve(&f, 2.0)?.root;           // √2 ≈ 1.41421356
+    let initial_guess = 2.0;
+    let root = Newton::new().solve(&f, initial_guess)?.root; // √2 ≈ 1.41421356
 
     // Rigid-body motion — SO(3)/SE(3), generic over the scalar like everything above.
-    let turn = SO3::exp(Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2]));  // 90° about z
-    let pose = SE3::from_parts(turn, Vector::new([1.0, 2.0, 3.0]));
-    let moved = pose.act(Vector::new([1.0, 0.0, 0.0]));      // rotate, then translate → (1, 3, 3)
+    let quarter_turn_about_z = Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2]);
+    let translation = Vector::new([1.0, 2.0, 3.0]);
+    let start = Vector::new([1.0, 0.0, 0.0]);
+
+    let pose = SE3::from_parts(SO3::exp(quarter_turn_about_z), translation);
+    let moved = pose.act(start);                  // rotate, then translate → (1, 3, 3)
 
     // Estimation — a Kalman filter recovering the velocity it never measures.
-    let mut filter = KalmanFilter::new(
-        Vector::new([0.0, 0.0]),                 // initial state [position, velocity]
-        Matrix::new([[1.0, 0.0], [0.0, 1.0]]),   // initial covariance
-        KalmanModel {
-            state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
-            measurement_model: Matrix::new([[1.0, 0.0]]),    // position only
-            process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
-            measurement_noise: Matrix::new([[0.1]]),
-        },
-    );
+    let initial_state = Vector::new([0.0, 0.0]);  // [position, velocity]
+    let initial_covariance = Matrix::new([[1.0, 0.0], [0.0, 1.0]]);
+    let model = KalmanModel {
+        state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
+        measurement_model: Matrix::new([[1.0, 0.0]]),        // position only
+        process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
+        measurement_noise: Matrix::new([[0.1]]),
+    };
+
+    let mut filter = KalmanFilter::new(initial_state, initial_covariance, model);
     filter.predict();
-    filter.update(Vector::new([1.0]))?;          // the target moved about 1 m
-    let velocity = filter.state()[1];            // recovered, though never measured
+
+    let measurement = Vector::new([1.0]);         // the target moved about 1 m
+    filter.update(measurement)?;
+    let velocity = filter.state()[1];             // recovered, though never measured
 
     Ok(())
 }
@@ -126,14 +134,34 @@ fn main() -> Result<(), CalcError> {
 Every fallible call propagates with `?`: each module has its own error enum, and all of them
 convert into the `CalcError` umbrella, so one return type covers a program that mixes modules.
 
-Import with `use multicalc::prelude::*;` for the traits and one-call functions, plus the types you
-need from the crate root. The one-call functions (`derivative`, `partial`, `integral`) cover the
-common case; the strategy objects behind them are how you pick a different method or step size.
+## Full tutorial
 
-## Tutorial
-
-The [guide](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md) is a comprehensive tutorial for each module. It shows the full imports,
+Refer to the [guide](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md) for a comprehensive tutorial for each module. It shows the full imports,
 expected outputs in comments, error-path notes, and pointers to runnable demos. Start there when you need the complete picture of a feature.
+
+## Accuracy
+
+Verified against external-library fixtures (`mpmath`, `numpy`, `scipy`, `filterpy`) in
+the `multicalc-qa` crate, with per-module tables generated from those fixtures. See
+[benchmarks/README.md](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/README.md)
+for the index, or go straight to
+[calculus](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/calculus.md),
+[linear_algebra](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/linear_algebra.md),
+[optimization](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/optimization.md),
+[ode](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/ode.md),
+[estimation](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/estimation.md),
+or [root_finding](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/root_finding.md).
+
+## Runnable demos
+
+Runnable, self-contained programs for each module live in the
+[`demos/`](https://github.com/kmolan/multicalc-rust/tree/main/demos) crate. See
+[demos/README.md](https://github.com/kmolan/multicalc-rust/blob/main/demos/README.md). Run one
+with:
+
+```sh
+cargo run -p multicalc-demos --example <name>
+```
 
 ## Documentation
 
