@@ -2,10 +2,10 @@
 
 use crate::error::SolveError;
 use crate::linear_algebra::Vector;
-use crate::linear_algebra::qr::{PivotedQr, enorm, max};
-use crate::numerical_derivative::autodiff::AutoDiffMulti;
-use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-use crate::numerical_derivative::jacobian::Jacobian;
+use crate::linear_algebra::{PivotedQr, enorm, max};
+use crate::numerical_derivative::AutoDiffMulti;
+use crate::numerical_derivative::DerivatorMultiVariable;
+use crate::numerical_derivative::Jacobian;
 use crate::optimization::{MinimizationReport, TerminationReason, is_finite, report};
 use crate::scalar::{Numeric, Primal, VectorFn};
 
@@ -22,7 +22,7 @@ const MAX_BACKTRACK: usize = 20;
 /// # Examples
 /// ```
 /// use multicalc::optimization::GaussNewton;
-/// use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+/// use multicalc::numerical_derivative::AutoDiffMulti;
 /// use multicalc::scalar::c;
 /// use multicalc::scalar_fn_vec;
 ///
@@ -32,7 +32,10 @@ const MAX_BACKTRACK: usize = 20;
 ///     c(-3.0) + v[0] + v[1],
 ///     c(-5.0) + c(2.0) * v[0] + v[1],
 /// ]);
-/// let report = GaussNewton::<AutoDiffMulti>::default().minimize(&f, &[0.0, 0.0]).unwrap();
+/// let initial_guess = [0.0, 0.0];
+///
+/// let solver = GaussNewton::<AutoDiffMulti>::default();
+/// let report = solver.minimize(&f, &initial_guess).unwrap();
 /// assert!((report.solution[0] - 2.0).abs() < 1e-9);
 /// assert!((report.solution[1] - 1.0).abs() < 1e-9);
 /// ```
@@ -147,7 +150,7 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
         let mut evaluations = 1usize;
 
         for _ in 0..self.patience {
-            let j = jacobian.get(f, &x)?;
+            let j = jacobian.evaluate(f, &x)?;
             if !j.is_finite() {
                 return Err(SolveError::NonFinite);
             }

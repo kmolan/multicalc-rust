@@ -192,7 +192,9 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Matrix<ROWS, COLS, T> {
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
-    /// assert_eq!(Matrix::new([[1.0, 2.0]]).scale(3.0).into_array(), [[3.0, 6.0]]);
+    /// let m = Matrix::new([[1.0, 2.0]]);
+    /// let factor = 3.0;
+    /// assert_eq!(m.scale(factor).into_array(), [[3.0, 6.0]]);
     /// ```
     #[inline]
     pub fn scale(self, scalar: T) -> Self {

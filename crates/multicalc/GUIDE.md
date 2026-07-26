@@ -12,12 +12,12 @@ from `libm`, so the crate works without `std`. Methods like `f64::sin` need `std
 `no_std` crate, call the `libm` version instead (`libm::sin(x)` in place of `x.sin()`). The
 crate re-exports `libm` as `multicalc::libm`.
 
-Where a sensible default exists, a convenience method such as `get_single` returns the answer
-directly. Otherwise a call returns a `Result`, and the error is the module family's own enum;
-see [Error handling](#error-handling).
+Every fallible call returns a `Result`, and the error is the module family's own enum; see
+[Error handling](#error-handling).
 
 ## Contents
 
+- [Importing](#importing)
 - [Scalars and automatic differentiation](#scalars-and-automatic-differentiation)
 - [Derivatives, Jacobians, and Hessians](#derivatives-jacobians-and-hessians)
 - [Integration](#integration)
@@ -38,6 +38,35 @@ see [Error handling](#error-handling).
 - [Error handling](#error-handling)
 - [Internals](#internals)
 
+## Importing
+
+There is one answer: glob the prelude for the traits and one-call functions, then name the types
+you need from the crate root. Every public type lives at `multicalc::Type`, so you never have to
+know which file it is declared in. The examples below spell out their imports in full, but
+`use multicalc::prelude::*;` covers the traits in all of them.
+
+```rust
+use multicalc::prelude::*;
+use multicalc::{KalmanFilter, Matrix, Vector};
+```
+
+The one exception is a handful of free functions that stay on their own module, because their
+names only make sense next to each other — `multicalc::vector_field::curl_3d` reads better than
+`multicalc::curl_3d`.
+
+### The easy path and the configurable one
+
+Most calculus work has two ways in, and the guide uses both:
+
+- **The one-call functions** — `derivative`, `second_derivative`, `partial`, `integral`. They need
+  no imported trait and no configuration, and they use exact automatic differentiation. Reach for
+  these first.
+- **The strategy objects** — `AutoDiffSingle`, `FiniteDifferenceSingle`, `IterativeSingle`,
+  `GaussianSingle` and their multi-variable siblings. These are how you choose a different method,
+  a step size, an iteration count, or a derivative order above the second.
+
+Both compute the same answers; the objects just expose the knobs.
+
 ## Scalars and automatic differentiation
 
 The scalar number system that every calculus module is generic over: the `Numeric` trait, plus
@@ -54,15 +83,16 @@ the forward-mode automatic-differentiation numbers that also implement it.
 One formula, differentiated exactly to any order:
 
 ```rust
-use multicalc::numerical_derivative::autodiff::AutoDiffSingle;
-use multicalc::numerical_derivative::derivator::DerivatorSingleVariable;
+use multicalc::AutoDiffSingle;
+use multicalc::DerivatorSingleVariable;
 use multicalc::scalar_fn;
 
-let f = scalar_fn!(|x| x * x * x);           // f(x) = x^3, evaluable at any Numeric
-let d = AutoDiffSingle::default();           // forward-mode autodiff, exact
+let function = scalar_fn!(|x| x * x * x);    // f(x) = x^3, evaluable at any Numeric
+let derivator = AutoDiffSingle::default();   // forward-mode autodiff, exact
+let point = 2.0;
 
-let first = d.get(1, &f, 2.0).unwrap();      // 12.0
-let third = d.get(3, &f, 2.0).unwrap();      //  6.0
+let first = derivator.differentiate(1, &function, point).unwrap();   // 12.0
+let third = derivator.differentiate(3, &function, point).unwrap();   //  6.0
 ```
 
 Errors: differentiation calls return [`DiffError`](#error-handling) (for example `OrderZero`).
@@ -75,18 +105,20 @@ Credits: standard forward-mode dual numbers. Full demo:
 Derivatives of any order, total and partial — exact through forward-mode autodiff, or by finite
 differences for black-box functions — plus Jacobian and Hessian matrices.
 
-- `autodiff::{AutoDiffSingle, AutoDiffMulti}`: exact derivatives.
-- `finite_difference::{FiniteDifferenceSingle, FiniteDifferenceMulti}`: for functions you
-  cannot author with `scalar_fn!`.
-- Both implement the `derivator::DerivatorSingleVariable` / `DerivatorMultiVariable` traits
-  (`get`, `get_single`, `get_double`, `get_single_partial`).
-- `jacobian::Jacobian` and `hessian::Hessian` build the matrices.
+- `derivative`, `second_derivative`, `partial`: one-call functions covering the common case. See
+  [the note on the two paths](#the-easy-path-and-the-configurable-one).
+- `AutoDiffSingle` / `AutoDiffMulti`: exact derivatives, to any order.
+- `FiniteDifferenceSingle` / `FiniteDifferenceMulti`: for functions you cannot author with
+  `scalar_fn!`.
+- Both implement the `DerivatorSingleVariable` / `DerivatorMultiVariable` traits
+  (`differentiate`, `first_derivative`, `second_derivative`, `first_partial_derivative`).
+- `Jacobian` and `Hessian` build the matrices.
 
 For several variables, the derivative order is just the number of indices you pass:
 
 ```rust
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
-use multicalc::numerical_derivative::derivator::DerivatorMultiVariable;
+use multicalc::AutoDiffMulti;
+use multicalc::DerivatorMultiVariable;
 use multicalc::scalar_fn;
 
 // g(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z; order = number of indices passed
@@ -94,9 +126,14 @@ let g = scalar_fn!(|v: &[f64; 3]| v[1] * v[0].sin() + v[0] * v[1].cos() + v[0] *
 let d = AutoDiffMulti::default();
 let point = [1.0, 2.0, 3.0];
 
-let dx    = d.get_single_partial(&g, 0, &point).unwrap();  // dg/dx
-let mixed = d.get(&g, &[0, 1], &point).unwrap();           // d(dg/dx)/dy
-let third = d.get(&g, &[0, 0, 1], &point).unwrap();        // d^3 g / dx^2 dy
+let x_index = 0;
+let dx = d.first_partial_derivative(&g, x_index, &point).unwrap();
+
+let then_by_y = [0, 1];
+let mixed = d.differentiate(&g, &then_by_y, &point).unwrap();      // d(dg/dx)/dy
+
+let twice_by_x_then_y = [0, 0, 1];
+let third = d.differentiate(&g, &twice_by_x_then_y, &point).unwrap();
 ```
 
 Pass a finite-difference derivator (`FiniteDifferenceSingle` / `FiniteDifferenceMulti`) instead
@@ -106,23 +143,25 @@ Write a vector-valued function with `scalar_fn_vec!` and its rows differentiate 
 to give the Jacobian; a scalar field gives the Hessian:
 
 ```rust
-use multicalc::numerical_derivative::jacobian::Jacobian;
-use multicalc::numerical_derivative::hessian::Hessian;
-use multicalc::scalar::c;
+use multicalc::Jacobian;
+use multicalc::Hessian;
+use multicalc::c;
 use multicalc::{scalar_fn, scalar_fn_vec};
 
 // the vector function (x*y*z, x^2 + y^2)
 let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+let jacobian_point = [1.0, 2.0, 3.0];
 let jacobian: Jacobian = Jacobian::default();
-let j = jacobian.get(&f, &[1.0, 2.0, 3.0]).unwrap();   // [[6, 3, 2], [2, 4, 0]]
+let j = jacobian.evaluate(&f, &jacobian_point).unwrap();   // [[6, 3, 2], [2, 4, 0]]
 
 // g(x, y) = y*sin(x) + 2*x*e^y
 let g = scalar_fn!(|v: &[f64; 2]| v[1] * v[0].sin() + c(2.0) * v[0] * v[1].exp());
+let hessian_point = [1.0, 2.0];
 let hessian: Hessian = Hessian::default();
-let h = hessian.get(&g, &[1.0, 2.0]).unwrap();
+let h = hessian.evaluate(&g, &hessian_point).unwrap();
 ```
 
-With the `alloc` feature, `Jacobian::get_on_heap` returns a `Vec<Vec<T>>` for inputs too large
+With the `alloc` feature, `Jacobian::evaluate_on_heap` returns a `Vec<Vec<T>>` for inputs too large
 for the stack.
 
 Errors: these calls return [`DiffError`](#error-handling): `OrderZero`, `OrderUnsupported`,
@@ -136,50 +175,59 @@ and
 Definite integration of any order: iterative Newton-Cotes rules and Gaussian quadrature, over
 finite, semi-infinite, and infinite limits.
 
-- `iterative_integration::IterativeSingle`: Boole (default), Simpson, and Trapezoidal rules;
-  pick the rule and interval count with `from_parameters`.
+- `integral`: a one-call function covering the common case. See
+  [the note on the two paths](#the-easy-path-and-the-configurable-one).
+- `IterativeSingle`: Boole (default), Simpson, and Trapezoidal rules; pick the rule and interval
+  count with `from_parameters`.
 - Pairwise summation is the default; chain `.with_kahan_summation()` to opt into Kahan.
-- `gaussian_integration::GaussianSingle`: Gauss-Legendre, Gauss-Hermite, and Gauss-Laguerre.
-  Pass the **bare** integrand; the weights already carry the weighting factor.
-- Both implement the `integrator::IntegratorSingleVariable` / `MultiVariable` traits
-  (`get_single`, `get_double`, …); the rules live in `mode`.
+- `GaussianSingle`: Gauss-Legendre, Gauss-Hermite, and Gauss-Laguerre. Pass the **bare**
+  integrand; the weights already carry the weighting factor.
+- Both implement the `IntegratorSingleVariable` / `IntegratorMultiVariable` traits
+  (`integrate`, `single_integral`, `double_integral`, …).
 
 Iterative rules over finite and infinite limits:
 
 ```rust
-use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
-use multicalc::numerical_integration::iterative_integration::IterativeSingle;
+use multicalc::IntegratorSingleVariable;
+use multicalc::IterativeSingle;
 
-let integrator = IterativeSingle::default();                 // Boole's rule, 120 intervals
-let area = integrator.get_single(&|x: f64| 2.0 * x, &[0.0, 2.0]).unwrap();   // 4.0
+let integrator = IterativeSingle::default();     // Boole's rule, 120 intervals
+
+let line = |x: f64| 2.0 * x;
+let limits = [0.0, 2.0];
+let area = integrator.single_integral(&line, &limits).unwrap();   // 4.0
 
 // infinite / semi-infinite limits are supported for decaying integrands
-let bell = integrator
-    .get_single(&|x| (-x * x).exp(), &[f64::NEG_INFINITY, f64::INFINITY])
-    .unwrap();                                               // sqrt(pi)
+let bell_curve = |x: f64| (-x * x).exp();
+let real_line = [f64::NEG_INFINITY, f64::INFINITY];
+let bell = integrator.single_integral(&bell_curve, &real_line).unwrap();   // sqrt(pi)
 ```
 
 Choose the rule and interval count with `from_parameters`:
 
 ```rust
-use multicalc::numerical_integration::iterative_integration::IterativeSingle;
-use multicalc::numerical_integration::mode::IterativeMethod;
-let integrator = IterativeSingle::from_parameters(120, IterativeMethod::Simpsons);
+use multicalc::{IterativeMethod, IterativeSingle};
+
+let interval_count = 120;
+let integrator: IterativeSingle =
+    IterativeSingle::from_parameters(interval_count, IterativeMethod::Simpsons);
 ```
 
 Each Gaussian rule integrates over a fixed domain. Pass the bare integrand `f(x)`; the weights
 already carry the weighting factor:
 
 ```rust
-use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
-use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
-use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
+use multicalc::IntegratorSingleVariable;
+use multicalc::GaussianSingle;
+use multicalc::GaussianQuadratureMethod;
 
 // Gauss-Hermite integrates f(x) * e^(-x^2) over the whole real line.
-let hermite = GaussianSingle::from_parameters(5, GaussianQuadratureMethod::GaussHermite);
-let val = hermite
-    .get_single(&|x| x * x, &[f64::NEG_INFINITY, f64::INFINITY])
-    .unwrap();                                                // sqrt(pi)/2
+let node_count = 5;
+let hermite = GaussianSingle::from_parameters(node_count, GaussianQuadratureMethod::GaussHermite);
+
+let square = |x: f64| x * x;
+let real_line = [f64::NEG_INFINITY, f64::INFINITY];
+let val = hermite.single_integral(&square, &real_line).unwrap();   // sqrt(pi)/2
 ```
 
 | Rule           | Computes                                              |
@@ -208,9 +256,10 @@ users reach them through `GaussianSingle` rather than directly.
 
 ```rust
 use multicalc::gaussian_tables;
-use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
+use multicalc::GaussianQuadratureMethod;
 
-let pairs = gaussian_tables::nodes(GaussianQuadratureMethod::GaussHermite, 5).unwrap();
+let order = 5;
+let pairs = gaussian_tables::nodes(GaussianQuadratureMethod::GaussHermite, order).unwrap();
 for (weight, abscissa) in pairs {
     // weight * f(abscissa) is one term of the 5-point Gauss-Hermite sum
 }
@@ -225,22 +274,24 @@ Errors: an out-of-range order returns `IntegrateError::QuadratureOrderOutOfRange
 Local Taylor models of a function around a point (linear and quadratic) with goodness-of-fit
 metrics.
 
-- `linear_approximation::LinearApproximator`: first-order model.
-- `quadratic_approximation::QuadraticApproximator`: same API, also captures curvature.
-- `get` builds the model; `predict` evaluates it; `get_prediction_metrics` returns MAE, MSE,
+- `LinearApproximator`: first-order model.
+- `QuadraticApproximator`: same API, also captures curvature.
+- `approximate` builds the model; `predict` evaluates it; `prediction_metrics` returns MAE, MSE,
   RMSE, R², and adjusted R² against sample points.
 - Metrics use pairwise summation by default; chain `.with_kahan_summation()` to opt into Kahan.
 
 ```rust
-use multicalc::approximation::linear_approximation::LinearApproximator;
+use multicalc::LinearApproximator;
 use multicalc::scalar_fn;
 
 let f = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] * v[1] + v[2] * v[2] * v[2]);
+let base_point = [1.0, 2.0, 3.0];        // where the model is anchored
 let linear: LinearApproximator = LinearApproximator::default();
-let model = linear.get(&f, &[1.0, 2.0, 3.0]).unwrap();
+let model = linear.approximate(&f, &base_point).unwrap();
 
-let y = model.predict(&[1.1, 2.1, 3.1]);
-// model.get_prediction_metrics(&samples, &f) returns RMSE, R^2, and more
+let nearby = [1.1, 2.1, 3.1];
+let y = model.predict(&nearby);
+// model.prediction_metrics(&samples, &f) returns RMSE, R^2, and more
 ```
 
 `QuadraticApproximator` works the same way and captures curvature as well.
@@ -265,7 +316,7 @@ the ergonomic path and panics on out-of-range like `Vec`. Use `get` / `get_mut` 
 Direct linear solves via LU and Cholesky:
 
 ```rust
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::{Matrix, Vector};
 
 // Solve A·x = b.
 let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
@@ -285,7 +336,7 @@ The singular value decomposition (one-sided Jacobi) gives the pseudo-inverse, mi
 least-squares solve, rank, and condition number for any shape:
 
 ```rust
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::{Matrix, Vector};
 
 // Thin SVD of a tall matrix: A = U · diag(σ) · Vᵀ.
 let a = Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
@@ -303,7 +354,8 @@ let x = svd.solve(Vector::new([1.0, 2.0, 3.0]));
 For an overdetermined linear least-squares fit, use the column-pivoted QR directly:
 
 ```rust
-use multicalc::linear_algebra::{Matrix, PivotedQr, Vector};
+use multicalc::linear_algebra::PivotedQr;
+use multicalc::{Matrix, Vector};
 
 // Least-squares fit of y = a + b*t through (0, 1), (1, 3), (2, 5): a = 1, b = 2.
 let a = Matrix::<3, 2>::new([[1.0, 0.0], [1.0, 1.0], [1.0, 2.0]]);
@@ -336,9 +388,9 @@ Write the residuals `model - data` with `scalar_fn_vec!` and the solver differen
 under autodiff:
 
 ```rust
-use multicalc::optimization::LevenbergMarquardt;
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
-use multicalc::scalar::c;
+use multicalc::LevenbergMarquardt;
+use multicalc::AutoDiffMulti;
+use multicalc::c;
 use multicalc::scalar_fn_vec;
 
 // Fit a*e^(b*t) to (0, 100), (1, 50), (2, 25): the minimum is a = 100, b = -ln 2.
@@ -383,9 +435,9 @@ budget and reports why it stopped as a `RootTermination`.
 - The scalar solvers return a `RootReport`; the system solver returns a `RootReportN`.
 
 ```rust
-use multicalc::root_finding::{Bisection, Newton, NewtonSystem};
-use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
-use multicalc::scalar::c;
+use multicalc::{Bisection, Newton, NewtonSystem};
+use multicalc::{AutoDiffMulti, AutoDiffSingle};
+use multicalc::c;
 use multicalc::{scalar_fn, scalar_fn_vec};
 
 // Bracket a scalar root: f(x) = x^2 - 2 on [0, 2].
@@ -417,28 +469,28 @@ solve and overflow-safe `enorm` from [Linear algebra](#linear-algebra). Full dem
 
 Curl and divergence via autodiff, plus line and flux integrals sampled along a curve.
 
-- `curl::{get_2d, get_3d}` and `divergence::{get_2d, get_3d}` take an explicit derivator (pass
+- `curl_2d` / `curl_3d` and `divergence_2d` / `divergence_3d` take an explicit derivator (pass
   `AutoDiffMulti::default()` for exact results) and a `scalar_fn_vec!` field.
-- `line_integral` and `flux_integral` sample the field, so they take plain closures for the
-  field and the parametric curve.
+- `line_integral_2d` and `flux_integral_2d`, with their 3D and `_custom` forms, sample the field,
+  so they take plain closures for the field and the parametric curve.
 
 ```rust
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
-use multicalc::scalar::c;
+use multicalc::AutoDiffMulti;
+use multicalc::c;
 use multicalc::scalar_fn_vec;
-use multicalc::vector_field::{curl, divergence, line_integral, flux_integral};
+use multicalc::vector_field::{curl_2d, divergence_2d, flux_integral_2d, line_integral_2d};
 
 // field (2xy, 3cos y)
 let field = scalar_fn_vec!(|v: &[f64; 2]| [c(2.0) * v[0] * v[1], c(3.0) * v[1].cos()]);
-let curl_2d = curl::get_2d(AutoDiffMulti::default(), &field, &[1.0, 3.14]).unwrap();
-let div_2d = divergence::get_2d(AutoDiffMulti::default(), &field, &[1.0, 3.14]).unwrap();
+let curl = curl_2d(AutoDiffMulti::default(), &field, &[1.0, 3.14]).unwrap();
+let divergence = divergence_2d(AutoDiffMulti::default(), &field, &[1.0, 3.14]).unwrap();
 
 // field (y, -x) along the unit circle (cos t, sin t)
 let g: [&dyn Fn(&[f64; 2]) -> f64; 2] = [&(|v: &[f64; 2]| v[1]), &(|v: &[f64; 2]| -v[0])];
 let curve: [&dyn Fn(f64) -> f64; 2] = [&(|t: f64| t.cos()), &(|t: f64| t.sin())];
 let limit = [0.0, 2.0 * std::f64::consts::PI];
-let line = line_integral::get_2d(&g, &curve, &limit).unwrap();   // -2*pi
-let flux = flux_integral::get_2d(&g, &curve, &limit).unwrap();   //  0
+let line = line_integral_2d(&g, &curve, &limit).unwrap();   // -2*pi
+let flux = flux_integral_2d(&g, &curve, &limit).unwrap();   //  0
 ```
 
 The 3D curl is `(dVz/dy - dVy/dz, dVx/dz - dVz/dx, dVy/dx - dVx/dy)`.
@@ -459,17 +511,20 @@ Initial-value solvers for `y' = f(t, y)` systems, generic over the state dimensi
   and `with_atol`.
 
 ```rust
-use multicalc::ode::{Rk4, Rk45};
-use multicalc::linear_algebra::Vector;
+use multicalc::{Rk4, Rk45};
+use multicalc::Vector;
 
 // Harmonic oscillator y'' = -y as the first-order system [position, velocity].
 let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
 let y0 = Vector::new([1.0, 0.0]);
 
-let y1 = Rk4::step(&f, 0.0, &y0, 0.1);                                  // one fixed step of size 0.1
+let start_time = 0.0;
+let timestep = 0.1;
+let y1 = Rk4::step(&f, start_time, &y0, timestep);      // one fixed step
 
 // Adaptive solve over one full period returns to the start [1, 0].
-let yf = Rk45::default().solve(&f, 0.0, &y0, core::f64::consts::TAU).unwrap();
+let one_period = core::f64::consts::TAU;
+let yf = Rk45::default().solve(&f, start_time, &y0, one_period).unwrap();
 assert!((yf[0] - 1.0).abs() < 1e-6 && yf[1].abs() < 1e-6);
 ```
 
@@ -477,16 +532,21 @@ Dense output samples a whole grid in one pass, and `for_each_step` lets you trac
 quantity as the solver runs:
 
 ```rust
-use multicalc::ode::Rk45;
-use multicalc::linear_algebra::Vector;
+use multicalc::Rk45;
+use multicalc::Vector;
 
 let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
 let y0 = Vector::new([1.0, 0.0]);
-let solver = Rk45::default().with_rtol(1e-9).with_atol(1e-12);
+let relative_tolerance = 1e-9;
+let absolute_tolerance = 1e-12;
+let solver = Rk45::default()
+    .with_rtol(relative_tolerance)
+    .with_atol(absolute_tolerance);
 
+let start_time = 0.0;
 let times = [0.5, 1.0, 2.0, 3.0];
 let mut out = [Vector::<2, f64>::zeros(); 4];
-solver.solve_on_grid(&f, 0.0, &y0, &times, &mut out).unwrap();
+solver.solve_on_grid(&f, start_time, &y0, &times, &mut out).unwrap();
 ```
 
 Errors: the adaptive solver returns [`IntegrateError`](#error-handling): `StepSizeTooSmall`,
@@ -507,9 +567,9 @@ Because the routines run through the matrix exponential, an autodiff scalar flow
 through them: a single `Dual` recovers a derivative with respect to a parameter.
 
 ```rust
-use multicalc::discretization::{q_discrete_white_noise, van_loan, zoh};
-use multicalc::linear_algebra::Matrix;
-use multicalc::scalar::Dual;
+use multicalc::{q_discrete_white_noise, van_loan, zoh};
+use multicalc::Matrix;
+use multicalc::Dual;
 
 let dt = 0.1;
 
@@ -559,16 +619,20 @@ ordering is `[v; ω]` (linear part first) for `SE2`/`SE3`; the retract is right-
 finite at rest.
 
 ```rust
-use multicalc::spatial::{SE3, SO3};
-use multicalc::linear_algebra::Vector;
+use multicalc::{SE3, SO3};
+use multicalc::Vector;
 
 // A 90° rotation about z, applied to a point.
-let r = SO3::<f64>::exp(Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2]));
-let p = r.act(Vector::new([1.0, 0.0, 0.0]));         // ≈ (0, 1, 0)
+let quarter_turn_about_z = Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2]);
+let r = SO3::<f64>::exp(quarter_turn_about_z);
+
+let point = Vector::new([1.0, 0.0, 0.0]);
+let p = r.act(point);                                // ≈ (0, 1, 0)
 
 // A rigid transform: rotate, then translate.
-let g = SE3::from_parts(r, Vector::new([1.0, 2.0, 3.0]));
-let q = g.act(Vector::new([1.0, 0.0, 0.0]));         // ≈ (1, 3, 3)
+let translation = Vector::new([1.0, 2.0, 3.0]);
+let g = SE3::from_parts(r, translation);
+let q = g.act(point);                                // ≈ (1, 3, 3)
 
 // exp/log round trip on the tangent twist [v; ω].
 let xi = g.log();
@@ -603,25 +667,38 @@ are exact identities. There is no lateral term to silently drop.
 - `OdometryStep`: the process model as a `VectorFn`, for autodiff Jacobians.
 
 ```rust
-use multicalc::kinematics::{BodyTwist, DifferentialDrive, WheelVelocities, integrate};
-use multicalc::scalar::Dual;
-use multicalc::spatial::SE2;
+use multicalc::kinematics::integrate;
+use multicalc::{BodyTwist, DifferentialDrive, WheelVelocities};
+use multicalc::Dual;
+use multicalc::SE2;
 
-// Geometry: a 36 mm wheel radius and a 235 mm track width.
-let dd = DifferentialDrive::new(0.036_f64, 0.235).unwrap();
+let wheel_radius = 0.036_f64;   // 36 mm
+let track_width = 0.235;        // 235 mm between the wheels
+let drive = DifferentialDrive::new(wheel_radius, track_width).unwrap();
 
 // Wheel velocities to a body twist, and back exactly.
-let twist = dd.forward(WheelVelocities::new(10.0, 10.0));   // v = 0.36 m/s, ω = 0
-let wheels = dd.inverse(BodyTwist::new(0.36, 0.0));         // back to (10, 10)
+let wheel_speeds = WheelVelocities::new(10.0, 10.0);        // rad/s on each wheel
+let twist = drive.forward(wheel_speeds);                    // v = 0.36 m/s, ω = 0
+
+let body_motion = BodyTwist::new(0.36, 0.0);                // m/s forward, rad/s turn
+let wheels = drive.inverse(body_motion);                    // back to (10, 10)
 
 // The encoder path: distance travelled -> wheel rotation -> body arc -> pose.
-let rotations = dd.wheel_rotations_from_travel(0.01, 0.012);
-let pose = integrate(SE2::identity(), dd.forward_arc(rotations));
+let left_travel = 0.01;    // metres rolled by each wheel
+let right_travel = 0.012;
+let rotations = drive.wheel_rotations_from_travel(left_travel, right_travel);
+
+let start = SE2::identity();
+let pose = integrate(start, drive.forward_arc(rotations));
 
 // Autodiff straight through an odometry step: d(pose)/d(arc length).
+let arc_length = Dual::variable(0.4);   // the quantity being differentiated
+let turn_rate = Dual::constant(0.3);
+let duration = Dual::constant(1.0);
+
 let step = integrate(
     SE2::<Dual<f64>>::identity(),
-    BodyTwist::new(Dual::variable(0.4), Dual::constant(0.3)).integrate_over(Dual::constant(1.0)),
+    BodyTwist::new(arc_length, turn_rate).integrate_over(duration),
 );
 let dx_ds = step.translation()[0].deriv;
 ```
@@ -657,34 +734,58 @@ and every call after that is total.
   so the working buffer is stack-allocated and the beam geometry is fixed at compile time.
 
 ```rust
-use multicalc::control::{FollowTheGap, Pid, pure_pursuit_curvature};
-use multicalc::linear_algebra::Vector;
-use multicalc::spatial::SE2;
+use multicalc::{FollowTheGap, Pid, pure_pursuit_curvature};
+use multicalc::Vector;
+use multicalc::SE2;
 
 // A speed loop: PID on the forward speed, output limited, derivative filtered.
-let mut speed_loop = Pid::new(2.0_f64, 1.0, 0.05, 0.01)
+let proportional_gain = 2.0_f64;
+let integral_gain = 1.0;
+let derivative_gain = 0.05;
+let timestep = 0.01;
+let lowest_output = -1.0;
+let highest_output = 1.0;
+let derivative_filter_weight = 0.2;
+
+let mut speed_loop = Pid::new(proportional_gain, integral_gain, derivative_gain, timestep)
     .unwrap()
-    .with_output_limits(-1.0, 1.0)
+    .with_output_limits(lowest_output, highest_output)
     .unwrap()
-    .with_derivative_filter(0.2)
+    .with_derivative_filter(derivative_filter_weight)
     .unwrap();
-let command = speed_loop.update(0.4, 0.35); // setpoint 0.4 m/s, measured 0.35 m/s
+
+let setpoint = 0.4;      // m/s we want
+let measurement = 0.35;  // m/s we have
+let command = speed_loop.update(setpoint, measurement);
 
 // Steering toward a point 2 m ahead and 1 m to the left: a left turn, so positive curvature.
-let curvature = pure_pursuit_curvature(SE2::identity(), Vector::new([2.0, 1.0]), 2.0).unwrap();
-let twist = curvature.to_body_twist(0.4);
+let pose = SE2::identity();
+let target = Vector::new([2.0, 1.0]);
+let lookahead_distance = 2.0;
+let curvature = pure_pursuit_curvature(pose, target, lookahead_distance).unwrap();
 
-// Reactive avoidance: 31 beams over 120°, 4 m range, a 0.5 m chassis, a 0.5 m free-range threshold,
-// 0.4 m/s cruise.
+let forward_speed = 0.4;
+let twist = curvature.to_body_twist(forward_speed);
+
+// Reactive avoidance over a 31-beam scan.
+let field_of_view = 2.0 * core::f64::consts::PI / 3.0;   // 120°
+let max_range = 4.0;
+let robot_radius = 0.5;
+let clearance = 0.5;     // a gap must beat this to count as free
+let cruise_speed = 0.4;
+
 let follower: FollowTheGap<31, f64> =
-    FollowTheGap::try_new(2.0 * core::f64::consts::PI / 3.0, 4.0, 0.5, 0.5, 0.4).unwrap();
+    FollowTheGap::try_new(field_of_view, max_range, robot_radius, clearance, cruise_speed).unwrap();
 
 // A clear scan drives straight ahead at cruise speed.
-let output = follower.compute(&[4.0; 31], 0.0).unwrap();
+let goal_angle = 0.0;
+let clear_scan = [4.0; 31];
+let output = follower.compute(&clear_scan, goal_angle).unwrap();
 assert!(output.heading().abs() < 1e-12);
 
 // A wall all round stops, and says why.
-let blocked = follower.compute(&[0.2; 31], 0.0).unwrap();
+let walled_in = [0.2; 31];
+let blocked = follower.compute(&walled_in, goal_angle).unwrap();
 assert!(blocked.is_blocked());
 assert_eq!(blocked.body_twist().linear(), 0.0);
 ```
@@ -736,8 +837,8 @@ the path, and what point should I aim at.
   the default) or `Loop` (wrap to the start). Set it with `with_end_of_path`.
 
 ```rust
-use multicalc::motion::{EndOfPath, PolylinePath};
-use multicalc::linear_algebra::Vector;
+use multicalc::{EndOfPath, PolylinePath};
+use multicalc::Vector;
 
 // An L-shaped path: three units east, then four units north.
 let path: PolylinePath<3, 2, f64> = PolylinePath::try_from_points(&[
@@ -751,13 +852,15 @@ let path: PolylinePath<3, 2, f64> = PolylinePath::try_from_points(&[
 let total = path.total_arc_length();                        // 7.0
 
 // Where is a robot sitting off to the side of the first leg?
-let here = path.closest_point(Vector::new([2.0, 0.5])).unwrap();
+let robot_position = Vector::new([2.0, 0.5]);
+let here = path.closest_point(robot_position).unwrap();
 let on_path = here.point();                                 // (2.0, 0.0)
 let travelled = here.arc_length();                          // 2.0
 let cross_track = here.distance();                          // 0.5
 
 // Aim one unit further along than that.
-let aim = path.lookahead_point(travelled, 1.0).unwrap();    // (3.0, 0.0)
+let lookahead_distance = 1.0;
+let aim = path.lookahead_point(travelled, lookahead_distance).unwrap();   // (3.0, 0.0)
 ```
 
 `try_from_points` and `push` return [`MotionError::CapacityExceeded`] if there is no room for the
@@ -787,28 +890,30 @@ a measurement and shrinks it. Fixed-size, no allocation, and generic over the `N
   changing timestep changes the model between steps.
 
 ```rust
-use multicalc::estimation::{KalmanFilter, KalmanModel};
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::{KalmanFilter, KalmanModel};
+use multicalc::{Matrix, Vector};
 
 // Constant velocity: position integrates velocity over a 1 s step; position is measured.
-let mut filter = KalmanFilter::new(
-    Vector::new([0.0, 0.0]),                    // initial state [position, velocity]
-    Matrix::new([[1.0, 0.0], [0.0, 1.0]]),      // initial covariance
-    KalmanModel {
-        state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
-        measurement_model: Matrix::new([[1.0, 0.0]]),   // position only
-        process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
-        measurement_noise: Matrix::new([[0.1]]),
-    },
-);
+let initial_state = Vector::new([0.0, 0.0]);   // [position, velocity]
+let initial_covariance = Matrix::new([[1.0, 0.0], [0.0, 1.0]]);
+let model = KalmanModel {
+    state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
+    measurement_model: Matrix::new([[1.0, 0.0]]),   // position only
+    process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
+    measurement_noise: Matrix::new([[0.1]]),
+};
+
+let mut filter = KalmanFilter::new(initial_state, initial_covariance, model);
 
 filter.predict();
-filter.update(Vector::new([1.0])).unwrap();
+let measurement = Vector::new([1.0]);
+filter.update(measurement).unwrap();
 let position = filter.state()[0];
 
 // Gate an outlier before folding it in.
 filter.predict();
-filter.update(Vector::new([1.9])).unwrap();
+let outlier = Vector::new([1.9]);
+filter.update(outlier).unwrap();
 let gate = filter.normalized_innovation_squared().unwrap();
 ```
 
@@ -842,9 +947,9 @@ of silent estimator bugs.
   reachable only with a finite-difference backend, as the autodiff default cannot.
 
 ```rust
-use multicalc::estimation::ExtendedKalmanFilter;
-use multicalc::linear_algebra::{Matrix, Vector};
-use multicalc::scalar::{Numeric, VectorFn};
+use multicalc::ExtendedKalmanFilter;
+use multicalc::{Matrix, Vector};
+use multicalc::{Numeric, VectorFn};
 
 // Range to a landmark at (3, 4): nonlinear in the pose, so the linear filter cannot take it.
 struct RangeToLandmark;
@@ -898,9 +1003,9 @@ the price is running hundreds to thousands of samples every step.
   and `weights`.
 
 ```rust
-# use multicalc::estimation::{GaussianLikelihood, ParticleFilter};
-# use multicalc::linear_algebra::{Matrix, Vector};
-# use multicalc::scalar::{Numeric, VectorFn};
+# use multicalc::{GaussianLikelihood, ParticleFilter};
+# use multicalc::{Matrix, Vector};
+# use multicalc::{Numeric, VectorFn};
 // A stationary 2-D point, measured directly with a little noise.
 struct Stationary;
 impl VectorFn<2, 2> for Stationary {
@@ -909,18 +1014,28 @@ impl VectorFn<2, 2> for Stationary {
     }
 }
 
+let particle_count = 1000;
+let initial_mean = Vector::new([0.0, 0.0]);
+let initial_covariance = Matrix::new([[1.0, 0.0], [0.0, 1.0]]);
+let process_noise = Matrix::new([[0.01, 0.0], [0.0, 0.01]]);
+let seed = 7;
+
 let mut filter = ParticleFilter::<2, 2>::new(
-    1000,
-    Vector::new([0.0, 0.0]),                  // initial mean
-    Matrix::new([[1.0, 0.0], [0.0, 1.0]]),    // initial covariance
-    Matrix::new([[0.01, 0.0], [0.0, 0.01]]),  // process noise
-    7,                                        // seed
-).unwrap();
-let sensor = GaussianLikelihood::new(Matrix::new([[0.05, 0.0], [0.0, 0.05]])).unwrap();
+    particle_count,
+    initial_mean,
+    initial_covariance,
+    process_noise,
+    seed,
+)
+.unwrap();
+
+let measurement_noise = Matrix::new([[0.05, 0.0], [0.0, 0.05]]);
+let sensor = GaussianLikelihood::new(measurement_noise).unwrap();
+let measurement = Vector::new([1.0, 2.0]);
 
 for _ in 0..20 {
     filter.predict(&Stationary).unwrap();
-    filter.update(&Stationary, &sensor, Vector::new([1.0, 2.0])).unwrap();
+    filter.update(&Stationary, &sensor, measurement).unwrap();
 }
 assert!((filter.mean()[0] - 1.0).abs() < 0.2);
 ```
@@ -948,19 +1063,21 @@ sensor models, and Monte-Carlo checks need the same thing.
   a seeded simulation repeatable. Not for cryptography.
 
 ```rust
-use multicalc::random::{Pcg32, RandomSource};
+use multicalc::{Pcg32, RandomSource};
 
-let mut generator = Pcg32::new(20260722);
+let seed = 20260722;
+let mut generator = Pcg32::new(seed);
 
 let uniform = generator.next_unit_f64();     // in [0, 1)
 let noise = generator.standard_normal();     // mean 0, standard deviation 1
 
 // The same seed replays the same sequence.
-let mut replay = Pcg32::new(20260722);
+let mut replay = Pcg32::new(seed);
 assert_eq!(replay.next_unit_f64(), uniform);
 
 // A second stream from the same seed draws an independent sequence.
-let mut other = Pcg32::with_stream(20260722, 1);
+let stream = 1;
+let mut other = Pcg32::with_stream(seed, stream);
 let independent = other.standard_normal();
 ```
 
@@ -988,14 +1105,32 @@ are reachable through `core::error::Error::source`. Convert up to the umbrella w
 `.into()`:
 
 ```rust
-use multicalc::error::{CalcError, LinalgError};
+use multicalc::{CalcError, Matrix, Vector};
 
+// One return type covers a function that mixes modules: each `?` converts the module's own
+// error into the umbrella on its way out.
 fn solve() -> Result<(), CalcError> {
-    let err: Result<(), LinalgError> = Err(LinalgError::Singular);
-    err?;            // LinalgError -> CalcError via From
+    let a = Matrix::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    let b = Vector::new([7.0, 19.0, 49.0]);
+
+    let x = a.lu()?.solve(b);          // LinalgError -> CalcError
+    assert!((a * x - b).norm() < 1e-9);
+
+    // A singular matrix returns `LinalgError::Singular` here rather than panicking.
+    let singular = Matrix::<3, 3>::zeros();
+    assert!(singular.lu().is_err());
+
     Ok(())
 }
+# solve().unwrap();
 ```
+
+This is the shape the converted demos use — see
+[linear_algebra.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/linear_algebra.rs),
+[root_finding.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/root_finding.rs),
+and
+[estimation.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/estimation.rs),
+each of which returns `Result<(), CalcError>` from `main` and propagates with `?`.
 
 ## Internals
 

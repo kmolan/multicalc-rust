@@ -10,7 +10,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use multicalc::GaussNewton;
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::scalar::{Numeric, VectorFn};
 
 // Fit y = a + b*t to points on y = 2t + 1; linear residuals converge in one GN step.
@@ -30,8 +30,10 @@ impl VectorFn<2, 3> for LineFit {
 }
 
 fn main() {
+    let initial_guess = [0.0, 0.0];
+
     let report = GaussNewton::<AutoDiffMulti>::default()
-        .minimize(&LineFit, &[0.0, 0.0])
+        .minimize(&LineFit, &initial_guess)
         .expect("gauss-newton did not converge");
 
     let (a, b) = (report.solution[0], report.solution[1]);

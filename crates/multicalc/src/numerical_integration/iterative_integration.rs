@@ -285,25 +285,29 @@ impl<T: Numeric> IntegratorSingleVariable for IterativeSingle<T> {
     ///
     /// # Examples
     /// ```
-    /// use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
-    /// use multicalc::numerical_integration::iterative_integration::IterativeSingle;
+    /// use multicalc::numerical_integration::IntegratorSingleVariable;
+    /// use multicalc::numerical_integration::IterativeSingle;
     ///
-    /// let my_func = |x: f64| 2.0 * x;
+    /// let line = |x: f64| 2.0 * x;
     /// let integrator = IterativeSingle::default();
     ///
-    /// // single integration of 2x over [0, 2] is 4
-    /// let val = integrator.get(&my_func, &[[0.0, 2.0]; 1]).unwrap();
-    /// assert!(f64::abs(val - 4.0) < 1e-6);
+    /// // one integration of 2x over [0, 2] is 4
+    /// let single_limits = [[0.0, 2.0]];
+    /// let area = integrator.integrate(&line, &single_limits).unwrap();
+    /// assert!(f64::abs(area - 4.0) < 1e-6);
     ///
-    /// // double integration over [0, 2] then [-1, 1] is 8
-    /// let val = integrator.get(&my_func, &[[0.0, 2.0], [-1.0, 1.0]]).unwrap();
-    /// assert!(f64::abs(val - 8.0) < 1e-6);
+    /// // integrating twice, over [0, 2] then [-1, 1], is 8
+    /// let double_limits = [[0.0, 2.0], [-1.0, 1.0]];
+    /// let volume = integrator.integrate(&line, &double_limits).unwrap();
+    /// assert!(f64::abs(volume - 8.0) < 1e-6);
     ///
-    /// // an infinite limit, for a decaying integrand: integral of e^(-x^2) over the real line is sqrt(pi)
-    /// let val = integrator.get(&|x| (-x * x).exp(), &[[f64::NEG_INFINITY, f64::INFINITY]]).unwrap();
-    /// assert!(f64::abs(val - std::f64::consts::PI.sqrt()) < 1e-6);
+    /// // an infinite limit, for a decaying integrand
+    /// let bell = |x: f64| (-x * x).exp();
+    /// let real_line = [[f64::NEG_INFINITY, f64::INFINITY]];
+    /// let total = integrator.integrate(&bell, &real_line).unwrap();
+    /// assert!(f64::abs(total - std::f64::consts::PI.sqrt()) < 1e-6);
     /// ```
-    fn get<F: Fn(T) -> T, const NUM_INTEGRATIONS: usize>(
+    fn integrate<F: Fn(T) -> T, const NUM_INTEGRATIONS: usize>(
         &self,
         func: &F,
         integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
@@ -467,18 +471,24 @@ impl<T: Numeric> IntegratorMultiVariable for IterativeMulti<T> {
     ///
     /// # Examples
     /// ```
-    /// use multicalc::numerical_integration::integrator::IntegratorMultiVariable;
-    /// use multicalc::numerical_integration::iterative_integration::IterativeMulti;
+    /// use multicalc::numerical_integration::IntegratorMultiVariable;
+    /// use multicalc::numerical_integration::IterativeMulti;
     ///
-    /// // f(x, y, z) = 2x + yz, integrated over x in [0, 1] with (y, z) = (2, 3); result is 7
-    /// let func = |args: &[f64; 3]| 2.0 * args[0] + args[1] * args[2];
-    /// let point = [1.0, 2.0, 3.0];
+    /// // f(x, y, z) = 2x + yz, integrated over x with (y, z) held at (2, 3); result is 7
+    /// let function = |args: &[f64; 3]| 2.0 * args[0] + args[1] * args[2];
     /// let integrator = IterativeMulti::default();
+    /// let variable_indices = [0];        // integrate over x
+    /// let limits = [[0.0, 1.0]];
+    /// let point = [1.0, 2.0, 3.0];
     ///
-    /// let val = integrator.get([0; 1], &func, &[[0.0, 1.0]; 1], &point).unwrap();
-    /// assert!(f64::abs(val - 7.0) < 1e-6);
+    /// let area = integrator.integrate(variable_indices, &function, &limits, &point).unwrap();
+    /// assert!(f64::abs(area - 7.0) < 1e-6);
     /// ```
-    fn get<F: Fn(&[T; NUM_VARS]) -> T, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
+    fn integrate<
+        F: Fn(&[T; NUM_VARS]) -> T,
+        const NUM_VARS: usize,
+        const NUM_INTEGRATIONS: usize,
+    >(
         &self,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
         func: &F,

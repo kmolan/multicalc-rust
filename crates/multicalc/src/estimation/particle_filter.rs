@@ -262,18 +262,27 @@ impl<const MEASUREMENT_DIMENSION: usize, T: Numeric> Likelihood<MEASUREMENT_DIME
 ///     }
 /// }
 ///
+/// let particle_count = 1000;
+/// let initial_mean = Vector::new([0.0, 0.0]);
+/// let initial_covariance = Matrix::new([[1.0, 0.0], [0.0, 1.0]]);
+/// let process_noise = Matrix::new([[0.01, 0.0], [0.0, 0.01]]);
+/// let seed = 7;
+///
 /// let mut filter = ParticleFilter::<2, 2>::new(
-///     1000,
-///     Vector::new([0.0, 0.0]),                  // initial mean
-///     Matrix::new([[1.0, 0.0], [0.0, 1.0]]),    // initial covariance
-///     Matrix::new([[0.01, 0.0], [0.0, 0.01]]),  // process noise
-///     7,                                        // seed
+///     particle_count,
+///     initial_mean,
+///     initial_covariance,
+///     process_noise,
+///     seed,
 /// )?;
-/// let sensor = GaussianLikelihood::new(Matrix::new([[0.05, 0.0], [0.0, 0.05]]))?;
+///
+/// let measurement_noise = Matrix::new([[0.05, 0.0], [0.0, 0.05]]);
+/// let sensor = GaussianLikelihood::new(measurement_noise)?;
+/// let measurement = Vector::new([1.0, 2.0]);
 ///
 /// for _ in 0..20 {
 ///     filter.predict(&Stationary)?;
-///     filter.update(&Stationary, &sensor, Vector::new([1.0, 2.0]))?;
+///     filter.update(&Stationary, &sensor, measurement)?;
 /// }
 /// // The cloud has settled onto the measured point.
 /// assert!((filter.mean()[0] - 1.0).abs() < 0.2);

@@ -34,7 +34,9 @@ impl<T: Numeric> Wrench<T> {
     /// ```
     /// use multicalc::linear_algebra::Vector;
     /// use multicalc::spatial::Wrench;
-    /// let w = Wrench::new(Vector::new([1.0_f64, 2.0, 3.0]), Vector::new([4.0, 5.0, 6.0]));
+    /// let force = Vector::new([1.0_f64, 2.0, 3.0]);
+    /// let torque = Vector::new([4.0, 5.0, 6.0]);
+    /// let w = Wrench::new(force, torque);
     /// assert_eq!(w.force(), Vector::new([1.0, 2.0, 3.0]));
     /// assert_eq!(w.torque(), Vector::new([4.0, 5.0, 6.0]));
     /// ```

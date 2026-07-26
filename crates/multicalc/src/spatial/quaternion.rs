@@ -218,12 +218,15 @@ impl<T: Numeric> Quaternion<T> {
     /// ```
     /// use multicalc::spatial::Quaternion;
     /// use multicalc::linear_algebra::Vector;
-    /// let q = Quaternion::from_axis_angle(Vector::new([0.0, 0.0, 1.0]),
-    ///                                     core::f64::consts::FRAC_PI_2);
-    /// let p = q.transform_point(Vector::new([1.0, 0.0, 0.0]));
-    /// assert!((p[0] - 0.0).abs() < 1e-12);
-    /// assert!((p[1] - 1.0).abs() < 1e-12);
-    /// assert!((p[2] - 0.0).abs() < 1e-12);
+    /// let axis = Vector::new([0.0, 0.0, 1.0]);
+    /// let angle = core::f64::consts::FRAC_PI_2;
+    /// let rotation = Quaternion::from_axis_angle(axis, angle);
+    ///
+    /// let point = Vector::new([1.0, 0.0, 0.0]);
+    /// let rotated = rotation.transform_point(point);
+    /// assert!((rotated[0] - 0.0).abs() < 1e-12);
+    /// assert!((rotated[1] - 1.0).abs() < 1e-12);
+    /// assert!((rotated[2] - 0.0).abs() < 1e-12);
     /// ```
     #[inline]
     pub fn from_axis_angle(axis: Vector<3, T>, angle: T) -> Self {

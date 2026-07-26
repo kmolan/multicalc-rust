@@ -3,8 +3,8 @@
 use multicalc::error::{DiffError, EstimationError};
 use multicalc::estimation::{CovarianceUpdate, ExtendedKalmanFilter, KalmanFilter, KalmanModel};
 use multicalc::linear_algebra::{Matrix, Vector};
-use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
-use multicalc::numerical_derivative::mode::FiniteDifferenceMode;
+use multicalc::numerical_derivative::FiniteDifferenceMode;
+use multicalc::numerical_derivative::FiniteDifferenceMulti;
 use multicalc::scalar::{Dual, Numeric, VectorFn};
 use multicalc_testkit::tol::{Tol, assert_matrix_close, assert_vector_close};
 use proptest::prelude::*;

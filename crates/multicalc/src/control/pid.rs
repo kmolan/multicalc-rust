@@ -18,14 +18,19 @@ use crate::scalar::Numeric;
 /// ```
 /// use multicalc::control::Pid;
 ///
-/// // Drive a scalar integrator plant `x_next = x + dt * output` to a setpoint.
-/// let dt = 0.01_f64;
-/// let mut controller = Pid::new(2.0, 1.0, 0.0, dt).unwrap();
+/// // Drive a scalar integrator plant `x_next = x + timestep * output` to a setpoint.
+/// let proportional_gain = 2.0_f64;
+/// let integral_gain = 1.0;
+/// let derivative_gain = 0.0;
+/// let timestep = 0.01;
+///
+/// let mut controller =
+///     Pid::new(proportional_gain, integral_gain, derivative_gain, timestep).unwrap();
 /// let setpoint = 1.0;
 /// let mut measurement = 0.0;
 /// for _ in 0..2000 {
 ///     let output = controller.update(setpoint, measurement);
-///     measurement += dt * output;
+///     measurement += timestep * output;
 /// }
 /// assert!((measurement - setpoint).abs() < 1e-3);
 /// ```

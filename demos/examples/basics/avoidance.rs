@@ -91,10 +91,24 @@ fn main() {
     // 2 m corridor the forward-pointing beams never see past about 2 m — a beam 30° off-centre
     // meets the side wall at 1.0 / sin(30°) — so the robot would crawl at half speed the whole way.
     // Scale against distances the corridor can actually produce instead.
-    let follower = FollowTheGap::<BEAMS, f64>::try_new(2.0 * PI / 3.0, 4.0, 0.50, 0.60, 0.40)
-        .unwrap()
-        .with_speed_scaling(0.30, 1.50)
-        .unwrap();
+    let field_of_view = 2.0 * PI / 3.0;
+    let max_range = 4.0;
+    let robot_radius = 0.50;
+    let clearance = 0.60;
+    let cruise_speed = 0.40;
+    let slowest_clear_distance = 0.30;
+    let fastest_clear_distance = 1.50;
+
+    let follower = FollowTheGap::<BEAMS, f64>::try_new(
+        field_of_view,
+        max_range,
+        robot_radius,
+        clearance,
+        cruise_speed,
+    )
+    .unwrap()
+    .with_speed_scaling(slowest_clear_distance, fastest_clear_distance)
+    .unwrap();
 
     // (1) Drive the corridor.
     let summary = run(&map, &lidar, &follower, SEED);

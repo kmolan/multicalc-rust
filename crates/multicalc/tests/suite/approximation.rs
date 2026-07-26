@@ -1,8 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::approximation::linear_approximation::*;
-use multicalc::approximation::quadratic_approximation::*;
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::approximation::*;
+use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::scalar::{Numeric, ScalarFnN, c};
 use multicalc::scalar_fn;
 use proptest::prelude::*;
@@ -17,7 +16,9 @@ fn test_linear_approximation_1() {
 
     let approximator = LinearApproximator::<AutoDiffMulti>::default();
 
-    let result = approximator.get(&function_to_approximate, &point).unwrap();
+    let result = approximator
+        .approximate(&function_to_approximate, &point)
+        .unwrap();
     assert!(f64::abs(function_to_approximate.eval(&point) - result.predict(&point)) < 1e-9);
 
     //now test the prediction metrics. For prediction, generate a list of 1000 points, all centered around the original point
@@ -31,7 +32,7 @@ fn test_linear_approximation_1() {
     }
 
     let prediction_metrics =
-        result.get_prediction_metrics(&prediction_points, &function_to_approximate);
+        result.prediction_metrics(&prediction_points, &function_to_approximate);
 
     assert!(prediction_metrics.root_mean_squared_error < 0.05);
     assert!(prediction_metrics.mean_absolute_error < 0.05);
@@ -50,7 +51,9 @@ fn test_quadratic_approximation_1() {
 
     let approximator = QuadraticApproximator::<AutoDiffMulti>::default();
 
-    let result = approximator.get(&function_to_approximate, &point).unwrap();
+    let result = approximator
+        .approximate(&function_to_approximate, &point)
+        .unwrap();
 
     assert!(f64::abs(function_to_approximate.eval(&point) - result.predict(&point)) < 1e-9);
 
@@ -65,7 +68,7 @@ fn test_quadratic_approximation_1() {
     }
 
     let prediction_metrics =
-        result.get_prediction_metrics(&prediction_points, &function_to_approximate);
+        result.prediction_metrics(&prediction_points, &function_to_approximate);
 
     assert!(prediction_metrics.root_mean_squared_error < 0.01);
     assert!(prediction_metrics.mean_absolute_error < 0.01);
@@ -84,7 +87,9 @@ fn test_linear_approximation_exact() {
     let point = [1.0, 2.0, 3.0];
 
     let approximator = LinearApproximator::<AutoDiffMulti>::default();
-    let result = approximator.get(&function_to_approximate, &point).unwrap();
+    let result = approximator
+        .approximate(&function_to_approximate, &point)
+        .unwrap();
 
     //prediction matches the truth away from the base point, not just at it
     let elsewhere = [4.0, -1.0, 0.5];
@@ -97,7 +102,7 @@ fn test_linear_approximation_exact() {
         *p = [1.0 + s, 2.0 - s, 3.0 + 0.5 * s];
     }
 
-    let metrics = result.get_prediction_metrics(&prediction_points, &function_to_approximate);
+    let metrics = result.prediction_metrics(&prediction_points, &function_to_approximate);
     assert!(metrics.mean_absolute_error < 1e-9);
     assert!(metrics.root_mean_squared_error < 1e-9);
     assert!(f64::abs(metrics.r_squared - 1.0) < 1e-9);
@@ -113,7 +118,7 @@ fn kahan_metrics_exact_on_affine() {
 
     let model = LinearApproximator::<AutoDiffMulti>::default()
         .with_kahan_summation()
-        .get(&truth, &point)
+        .approximate(&truth, &point)
         .unwrap();
 
     let mut points = [[0.0; 3]; 10];
@@ -122,7 +127,7 @@ fn kahan_metrics_exact_on_affine() {
         *p = [1.0 + s, 2.0 - s, 3.0 + 0.5 * s];
     }
 
-    let metrics = model.get_prediction_metrics(&points, &truth);
+    let metrics = model.prediction_metrics(&points, &truth);
 
     assert!(metrics.mean_absolute_error < 1e-9);
     assert!(metrics.root_mean_squared_error < 1e-9);
@@ -140,14 +145,14 @@ fn metrics_are_accurate_on_large_point_set() {
     let a = 6.0;
 
     let approximator = LinearApproximator::<AutoDiffMulti>::default();
-    let result = approximator.get(&truth, &[a]).unwrap();
+    let result = approximator.approximate(&truth, &[a]).unwrap();
 
     let mut prediction_points = [[0.0; 1]; N];
     for (i, p) in prediction_points.iter_mut().enumerate() {
         p[0] = 1.0 + i as f64 * 0.001; //x spread over [1.0, 11.0)
     }
 
-    let metrics = result.get_prediction_metrics(&prediction_points, &truth);
+    let metrics = result.prediction_metrics(&prediction_points, &truth);
 
     //closed-form reference: residual(x) = -(x - a)^2 and y = x^2
     let n = N as f64;
@@ -202,7 +207,7 @@ fn test_linear_approximation_f32() {
     let point = [1.0_f32, 2.0, 3.0];
 
     let approximator = LinearApproximator::<AutoDiffMulti<f32>>::default();
-    let result = approximator.get(&truth, &point).unwrap();
+    let result = approximator.approximate(&truth, &point).unwrap();
 
     let nearby = [1.05_f32, 2.05, 2.95];
     let predicted = result.predict(&nearby);
@@ -261,7 +266,7 @@ proptest! {
         let scale = 1.0 + b.abs() + a0.abs() + a1.abs();
         let tol = approx_tol(scale, 1.0);
         let model = LinearApproximator::<AutoDiffMulti>::default()
-            .get(&f, &point).unwrap();
+            .approximate(&f, &point).unwrap();
 
         let mut points = [[0.0; 2]; 8];
         for (dst, &(x, y)) in points.iter_mut().zip(samples.iter()) {
@@ -273,7 +278,7 @@ proptest! {
             prop_assert!(err < approx_tol(scale, f.eval(p)));
         }
 
-        let metrics = model.get_prediction_metrics(&points, &f);
+        let metrics = model.prediction_metrics(&points, &f);
         prop_assert!(metrics.mean_absolute_error < tol);
         prop_assert!(metrics.root_mean_squared_error < tol);
         prop_assert!(
@@ -308,7 +313,7 @@ proptest! {
         let tol = approx_tol(scale, 1.0);
 
         let model = QuadraticApproximator::<AutoDiffMulti>::default()
-            .get(&f, &point)
+            .approximate(&f, &point)
             .unwrap();
 
         let mut points = [[0.0; 2]; 8];
@@ -321,7 +326,7 @@ proptest! {
             prop_assert!(err < approx_tol(scale, f.eval(p)));
         }
 
-        let metrics = model.get_prediction_metrics(&points, &f);
+        let metrics = model.prediction_metrics(&points, &f);
         prop_assert!(metrics.mean_absolute_error < tol);
         prop_assert!(metrics.root_mean_squared_error < tol);
         prop_assert!(

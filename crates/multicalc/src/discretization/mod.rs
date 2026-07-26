@@ -20,9 +20,11 @@ use crate::scalar::Numeric;
 /// // Double integrator: A = [[0,1],[0,0]], B = [[0],[1]].
 /// let a = Matrix::<2, 2>::new([[0.0, 1.0], [0.0, 0.0]]);
 /// let b = Matrix::<2, 1>::new([[0.0], [1.0]]);
-/// let (f, g) = zoh::<2, 1, 3, f64>(a, b, 0.1)?;
-/// assert!((f[(0, 1)] - 0.1).abs() < 1e-9); // F = [[1, dt], [0, 1]]
-/// assert!((g[(0, 0)] - 0.005).abs() < 1e-9); // G = [[dt²/2], [dt]]
+/// let timestep = 0.1;
+///
+/// let (f, g) = zoh::<2, 1, 3, f64>(a, b, timestep)?;
+/// assert!((f[(0, 1)] - 0.1).abs() < 1e-9); // F = [[1, timestep], [0, 1]]
+/// assert!((g[(0, 0)] - 0.005).abs() < 1e-9); // G = [[timestep²/2], [timestep]]
 /// # Ok(())
 /// # }
 /// ```
@@ -98,8 +100,11 @@ pub fn van_loan<const N: usize, const N2: usize, T: Numeric>(
 ///
 /// ```
 /// use multicalc::discretization::q_discrete_white_noise;
-/// let q = q_discrete_white_noise::<2, f64>(0.1, 2.0);
-/// assert!((q[(1, 1)] - 2.0 * 0.1 * 0.1).abs() < 1e-15); // var · dt²
+/// let timestep = 0.1;
+/// let variance = 2.0;
+///
+/// let q = q_discrete_white_noise::<2, f64>(timestep, variance);
+/// assert!((q[(1, 1)] - 2.0 * 0.1 * 0.1).abs() < 1e-15); // variance · timestep²
 /// ```
 pub fn q_discrete_white_noise<const DIM: usize, T: Numeric>(
     dt: T,

@@ -4,8 +4,8 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::numerical_derivative::hessian::Hessian;
-use multicalc::numerical_derivative::jacobian::Jacobian;
+use multicalc::numerical_derivative::Hessian;
+use multicalc::numerical_derivative::Jacobian;
 use multicalc::scalar::c;
 use multicalc::{scalar_fn, scalar_fn_vec};
 
@@ -15,7 +15,7 @@ fn main() {
     let point = [1.0, 2.0, 3.0];
 
     let jacobian: Jacobian = Jacobian::default();
-    let result = jacobian.get(&f, &point).unwrap();
+    let result = jacobian.evaluate(&f, &point).unwrap();
 
     println!("Jacobian of (x*y*z, x^2 + y^2) at {point:?}:");
     for row in 0..2 {
@@ -36,10 +36,11 @@ fn main() {
 
     // ---- Hessian of f(x, y) = y*sin(x) + 2*x*e^y ----
     let g = scalar_fn!(|v: &[f64; 2]| v[1] * v[0].sin() + c(2.0) * v[0] * v[1].exp());
+    let hessian_point = [1.0, 2.0];
     let hessian: Hessian = Hessian::default();
-    let result = hessian.get(&g, &[1.0, 2.0]).unwrap();
+    let result = hessian.evaluate(&g, &hessian_point).unwrap();
 
-    println!("\nHessian of y*sin(x) + 2*x*e^y at [1, 2]:");
+    println!("\nHessian of y*sin(x) + 2*x*e^y at {hessian_point:?}:");
     for row in 0..2 {
         println!("  [{:.4}, {:.4}]", result[(row, 0)], result[(row, 1)]);
     }

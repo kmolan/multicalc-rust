@@ -9,7 +9,7 @@
 //! diverge.
 
 use multicalc::linear_algebra::Vector;
-use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
+use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::root_finding::{Bisection, Newton, NewtonSystem};
 use multicalc::scalar::{ScalarFn, VectorFn};
 use multicalc_qa::load::*;

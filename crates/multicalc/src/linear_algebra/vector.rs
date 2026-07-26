@@ -168,7 +168,9 @@ impl<const N: usize, T: Numeric> Vector<N, T> {
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    /// assert_eq!(Vector::new([1.0, 2.0]).scale(3.0), Vector::new([3.0, 6.0]));
+    /// let v = Vector::new([1.0, 2.0]);
+    /// let factor = 3.0;
+    /// assert_eq!(v.scale(factor), Vector::new([3.0, 6.0]));
     /// ```
     #[inline]
     pub fn scale(self, scalar: T) -> Self {
@@ -179,8 +181,14 @@ impl<const N: usize, T: Numeric> Vector<N, T> {
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    /// assert_eq!(Vector::new([1.0, 2.0, 3.0]).dot(Vector::new([4.0, 5.0, 6.0])), 32.0);
-    /// assert_eq!(Vector::new([1.0, 0.0]).dot(Vector::new([0.0, 1.0])), 0.0);
+    /// let a = Vector::new([1.0, 2.0, 3.0]);
+    /// let b = Vector::new([4.0, 5.0, 6.0]);
+    /// assert_eq!(a.dot(b), 32.0);
+    ///
+    /// // perpendicular vectors have a zero dot product
+    /// let along_x = Vector::new([1.0, 0.0]);
+    /// let along_y = Vector::new([0.0, 1.0]);
+    /// assert_eq!(along_x.dot(along_y), 0.0);
     /// ```
     #[inline]
     #[must_use]

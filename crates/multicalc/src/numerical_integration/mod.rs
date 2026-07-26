@@ -1,15 +1,17 @@
 //! Numerical integration.
 //!
 //! - [`integral`] — the short way to integrate one function over one interval.
-//! - [`gaussian_integration`] — Gaussian quadrature (nodes from
-//!   [`gaussian_tables`](crate::gaussian_tables)).
-//! - [`iterative_integration`] — iterative refinement of a running estimate.
-//! - [`integrator`] — the shared integrator traits; [`mode`] picks the method.
+//! - [`GaussianSingle`] / [`GaussianMulti`] — Gaussian quadrature (nodes from
+//!   [`gaussian_tables`](crate::gaussian_tables)), picking a family with
+//!   [`GaussianQuadratureMethod`].
+//! - [`IterativeSingle`] / [`IterativeMulti`] — iterative refinement of a running estimate, picking
+//!   a rule with [`IterativeMethod`].
+//! - [`IntegratorSingleVariable`] / [`IntegratorMultiVariable`] — the shared integrator traits.
 
-pub mod gaussian_integration;
-pub mod integrator;
-pub mod iterative_integration;
-pub mod mode;
+mod gaussian_integration;
+mod integrator;
+mod iterative_integration;
+mod mode;
 
 pub use crate::utils::summation::SummationMethod;
 
@@ -40,11 +42,18 @@ use crate::scalar::Numeric;
 /// ```
 /// use multicalc::numerical_integration::integral;
 /// # fn main() -> Result<(), multicalc::error::IntegrateError> {
-/// // 2x over [0, 2] is 4
-/// assert!((integral(&|x: f64| 2.0 * x, [0.0, 2.0])? - 4.0).abs() < 1e-9);
+/// let line = |x: f64| 2.0 * x;
+/// let limits = [0.0, 2.0];
 ///
-/// // a decaying integrand may run to infinity: e^-x over [0, inf) is 1
-/// assert!((integral(&|x: f64| (-x).exp(), [0.0, f64::INFINITY])? - 1.0).abs() < 1e-6);
+/// let area = integral(&line, limits)?;                    // 2x over [0, 2] is 4
+/// assert!((area - 4.0).abs() < 1e-9);
+///
+/// // a decaying integrand may run to infinity
+/// let decay = |x: f64| (-x).exp();
+/// let to_infinity = [0.0, f64::INFINITY];
+///
+/// let tail = integral(&decay, to_infinity)?;              // e^-x over [0, inf) is 1
+/// assert!((tail - 1.0).abs() < 1e-6);
 /// # Ok(())
 /// # }
 /// ```
@@ -53,5 +62,5 @@ pub fn integral<T: Numeric, F: Fn(T) -> T>(
     function: &F,
     limits: [T; 2],
 ) -> Result<T, IntegrateError> {
-    IterativeSingle::<T>::default().get_single(function, &limits)
+    IterativeSingle::<T>::default().single_integral(function, &limits)
 }

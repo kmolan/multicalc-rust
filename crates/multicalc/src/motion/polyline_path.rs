@@ -72,7 +72,12 @@ impl<const DIMENSION: usize, T: Numeric> PathProjection<DIMENSION, T> {
 /// assert!((path.total_arc_length() - 7.0).abs() < 1e-12);
 ///
 /// // Two units along from the start sits on the first leg.
-/// let [x, y] = path.lookahead_point(0.0, 2.0).unwrap().into_array();
+/// let arc_length_so_far = 0.0;
+/// let lookahead_distance = 2.0;
+/// let [x, y] = path
+///     .lookahead_point(arc_length_so_far, lookahead_distance)
+///     .unwrap()
+///     .into_array();
 /// assert!((x - 2.0).abs() < 1e-12 && y.abs() < 1e-12);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]

@@ -1,11 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::numerical_integration::mode::*;
-
 use multicalc::error::IntegrateError;
-use multicalc::numerical_integration::gaussian_integration;
-use multicalc::numerical_integration::integrator::*;
-use multicalc::numerical_integration::iterative_integration;
+use multicalc::numerical_integration::*;
 
 use proptest::prelude::*;
 
@@ -16,11 +12,12 @@ fn test_booles_integration_1() {
 
     let integration_limit = [0.0, 2.0];
 
-    let integrator =
-        iterative_integration::IterativeSingle::from_parameters(100, IterativeMethod::Booles);
+    let integrator = IterativeSingle::from_parameters(100, IterativeMethod::Booles);
 
     //simple integration for x, known to be x*x, expect a value of ~4.00
-    let val = integrator.get_single(&func, &integration_limit).unwrap();
+    let val = integrator
+        .single_integral(&func, &integration_limit)
+        .unwrap();
     assert!(f64::abs(val - 4.0) < 1e-14);
 }
 
@@ -32,12 +29,11 @@ fn test_booles_integration_2() {
     let integration_limit = [0.0, 1.0];
     let point = [1.0, 2.0, 3.0];
 
-    let integrator =
-        iterative_integration::IterativeMulti::from_parameters(100, IterativeMethod::Booles);
+    let integrator = IterativeMulti::from_parameters(100, IterativeMethod::Booles);
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
     let val = integrator
-        .get_single_partial(&func, 0, &integration_limit, &point)
+        .single_partial_integral(&func, 0, &integration_limit, &point)
         .unwrap();
     assert!(f64::abs(val - 7.0) < 1e-25);
 
@@ -45,7 +41,7 @@ fn test_booles_integration_2() {
 
     //partial integration for y, known to be 2.0*x*y + y*y*z/2.0, expect a value of ~10.00
     let val = integrator
-        .get_single_partial(&func, 1, &integration_limit, &point)
+        .single_partial_integral(&func, 1, &integration_limit, &point)
         .unwrap();
     assert!(f64::abs(val - 10.0) < 0.00001);
 
@@ -53,7 +49,7 @@ fn test_booles_integration_2() {
 
     //partial integration for z, known to be 2.0*x*z + y*z*z/2.0, expect a value of ~15.0
     let val = integrator
-        .get_single_partial(&func, 2, &integration_limit, &point)
+        .single_partial_integral(&func, 2, &integration_limit, &point)
         .unwrap();
     assert!(f64::abs(val - 15.0) < 0.00001);
 }
@@ -65,11 +61,12 @@ fn test_booles_integration_3() {
 
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
 
-    let integrator =
-        iterative_integration::IterativeSingle::from_parameters(20, IterativeMethod::Booles);
+    let integrator = IterativeSingle::from_parameters(20, IterativeMethod::Booles);
 
     //simple double integration for 6*x, expect a value of ~24.00
-    let val = integrator.get_double(&func, &integration_limits).unwrap();
+    let val = integrator
+        .double_integral(&func, &integration_limits)
+        .unwrap();
     assert!(f64::abs(val - 24.0) < 0.00001);
 }
 
@@ -80,13 +77,12 @@ fn test_gauss_legendre_quadrature_integration_1() {
 
     let integration_limit = [0.0, 2.0];
 
-    let integrator = gaussian_integration::GaussianSingle::from_parameters(
-        4,
-        GaussianQuadratureMethod::GaussLegendre,
-    );
+    let integrator = GaussianSingle::from_parameters(4, GaussianQuadratureMethod::GaussLegendre);
 
     //simple integration for x, known to be x^4 - x^3, expect a value of ~8.00
-    let val = integrator.get_single(&func, &integration_limit).unwrap();
+    let val = integrator
+        .single_integral(&func, &integration_limit)
+        .unwrap();
     assert!(f64::abs(val - 8.0) < 1e-14);
 }
 
@@ -98,14 +94,11 @@ fn test_gauss_legendre_quadrature_integration_2() {
     let integration_limit = [0.0, 1.0];
     let point = [1.0, 2.0, 3.0];
 
-    let integrator = gaussian_integration::GaussianMulti::from_parameters(
-        2,
-        GaussianQuadratureMethod::GaussLegendre,
-    );
+    let integrator = GaussianMulti::from_parameters(2, GaussianQuadratureMethod::GaussLegendre);
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
     let val = integrator
-        .get_single_partial(&func, 0, &integration_limit, &point)
+        .single_partial_integral(&func, 0, &integration_limit, &point)
         .unwrap();
     assert!(f64::abs(val - 7.0) < 1e-14);
 
@@ -113,7 +106,7 @@ fn test_gauss_legendre_quadrature_integration_2() {
 
     //partial integration for y, known to be 2.0*x*y + y*y*z/2.0, expect a value of ~10.00
     let val = integrator
-        .get_single_partial(&func, 1, &integration_limit, &point)
+        .single_partial_integral(&func, 1, &integration_limit, &point)
         .unwrap();
     assert!(f64::abs(val - 10.0) < 1e-14);
 
@@ -121,7 +114,7 @@ fn test_gauss_legendre_quadrature_integration_2() {
 
     //partial integration for z, known to be 2.0*x*z + y*z*z/2.0, expect a value of ~15.0
     let val = integrator
-        .get_single_partial(&func, 2, &integration_limit, &point)
+        .single_partial_integral(&func, 2, &integration_limit, &point)
         .unwrap();
     assert!(f64::abs(val - 15.0) < 1e-14);
 }
@@ -132,13 +125,12 @@ fn test_gauss_legendre_quadrature_integration_3() {
     let func = |args: f64| -> f64 { 6.0 * args };
 
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
-    let integrator = gaussian_integration::GaussianSingle::from_parameters(
-        2,
-        GaussianQuadratureMethod::GaussLegendre,
-    );
+    let integrator = GaussianSingle::from_parameters(2, GaussianQuadratureMethod::GaussLegendre);
 
     //simple double integration for 6*x, expect a value of ~24.00
-    let val = integrator.get_double(&func, &integration_limits).unwrap();
+    let val = integrator
+        .double_integral(&func, &integration_limits)
+        .unwrap();
     assert!(f64::abs(val - 24.0) < 1e-14);
 }
 
@@ -149,11 +141,12 @@ fn test_simpsons_integration_1() {
 
     let integration_limit = [0.0, 2.0];
 
-    let integrator =
-        iterative_integration::IterativeSingle::from_parameters(200, IterativeMethod::Simpsons);
+    let integrator = IterativeSingle::from_parameters(200, IterativeMethod::Simpsons);
 
     //simple integration for x, known to be x*x, expect a value of ~4.00
-    let val = integrator.get_single(&func, &integration_limit).unwrap();
+    let val = integrator
+        .single_integral(&func, &integration_limit)
+        .unwrap();
     assert!(f64::abs(val - 4.0) < 0.05);
 }
 
@@ -165,12 +158,11 @@ fn test_simpsons_integration_2() {
     let integration_limit = [0.0, 1.0];
     let point = [1.0, 2.0, 3.0];
 
-    let integrator =
-        iterative_integration::IterativeMulti::from_parameters(200, IterativeMethod::Simpsons);
+    let integrator = IterativeMulti::from_parameters(200, IterativeMethod::Simpsons);
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
     let val = integrator
-        .get_single_partial(&func, 0, &integration_limit, &point)
+        .single_partial_integral(&func, 0, &integration_limit, &point)
         .unwrap();
     assert!(f64::abs(val - 7.0) < 0.05);
 
@@ -178,7 +170,7 @@ fn test_simpsons_integration_2() {
 
     //partial integration for y, known to be 2.0*x*y + y*y*z/2.0, expect a value of ~10.00
     let val = integrator
-        .get_single_partial(&func, 1, &integration_limit, &point)
+        .single_partial_integral(&func, 1, &integration_limit, &point)
         .unwrap();
     assert!(f64::abs(val - 10.0) < 0.05);
 
@@ -186,7 +178,7 @@ fn test_simpsons_integration_2() {
 
     //partial integration for z, known to be 2.0*x*z + y*z*z/2.0, expect a value of ~15.0
     let val = integrator
-        .get_single_partial(&func, 2, &integration_limit, &point)
+        .single_partial_integral(&func, 2, &integration_limit, &point)
         .unwrap();
     assert!(f64::abs(val - 15.0) < 0.05);
 }
@@ -198,11 +190,12 @@ fn test_simpsons_integration_3() {
 
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
 
-    let integrator =
-        iterative_integration::IterativeSingle::from_parameters(200, IterativeMethod::Simpsons);
+    let integrator = IterativeSingle::from_parameters(200, IterativeMethod::Simpsons);
 
     //simple double integration for 6*x, expect a value of ~24.00
-    let val = integrator.get_double(&func, &integration_limits).unwrap();
+    let val = integrator
+        .double_integral(&func, &integration_limits)
+        .unwrap();
     assert!(f64::abs(val - 24.0) < 0.05);
 }
 
@@ -214,12 +207,11 @@ fn test_simpsons_integration_4() {
     let integration_limits = [[0.0, 1.0], [0.0, 1.0]];
     let point = [1.0, 1.0, 1.0];
 
-    let integrator =
-        iterative_integration::IterativeMulti::from_parameters(200, IterativeMethod::Simpsons);
+    let integrator = IterativeMulti::from_parameters(200, IterativeMethod::Simpsons);
 
     //double partial integration for first x then y, expect a value of ~1.50
     let val = integrator
-        .get_double_partial(&func, [0, 1], &integration_limits, &point)
+        .double_partial_integral(&func, [0, 1], &integration_limits, &point)
         .unwrap();
     assert!(f64::abs(val - 1.50) < 0.05);
 }
@@ -231,9 +223,8 @@ fn test_trapezoidal_integration_1() {
 
     let integration_limit = [0.0, 2.0];
 
-    let iterator =
-        iterative_integration::IterativeSingle::from_parameters(100, IterativeMethod::Trapezoidal);
-    let val = iterator.get_single(&func, &integration_limit).unwrap();
+    let iterator = IterativeSingle::from_parameters(100, IterativeMethod::Trapezoidal);
+    let val = iterator.single_integral(&func, &integration_limit).unwrap();
 
     assert!(f64::abs(val - 4.0) < 0.00001);
 }
@@ -246,12 +237,11 @@ fn test_trapezoidal_integration_2() {
     let integration_limit = [0.0, 1.0];
     let point = [1.0, 2.0, 3.0];
 
-    let iterator =
-        iterative_integration::IterativeMulti::from_parameters(100, IterativeMethod::Trapezoidal);
+    let iterator = IterativeMulti::from_parameters(100, IterativeMethod::Trapezoidal);
 
     //partial integration for x, known to be x*x + x*y*z, expect a value of ~7.00
     let val = iterator
-        .get_single_partial(&func, 0, &integration_limit, &point)
+        .single_partial_integral(&func, 0, &integration_limit, &point)
         .unwrap();
     assert!(f64::abs(val - 7.0) < 0.00001);
 
@@ -259,7 +249,7 @@ fn test_trapezoidal_integration_2() {
 
     //partial integration for y, known to be 2.0*x*y + y*y*z/2.0, expect a value of ~10.00
     let val = iterator
-        .get_single_partial(&func, 1, &integration_limit, &point)
+        .single_partial_integral(&func, 1, &integration_limit, &point)
         .unwrap();
     assert!(f64::abs(val - 10.0) < 0.00001);
 
@@ -267,7 +257,7 @@ fn test_trapezoidal_integration_2() {
 
     //partial integration for z, known to be 2.0*x*z + y*z*z/2.0, expect a value of ~15.0
     let val = iterator
-        .get_single_partial(&func, 2, &integration_limit, &point)
+        .single_partial_integral(&func, 2, &integration_limit, &point)
         .unwrap();
     assert!(f64::abs(val - 15.0) < 0.00001);
 }
@@ -279,11 +269,12 @@ fn test_trapezoidal_integration_3() {
 
     let integration_limits = [[0.0, 2.0], [0.0, 2.0]];
 
-    let integrator =
-        iterative_integration::IterativeSingle::from_parameters(10, IterativeMethod::Trapezoidal);
+    let integrator = IterativeSingle::from_parameters(10, IterativeMethod::Trapezoidal);
 
     //simple double integration for 6*x, expect a value of ~24.00
-    let val = integrator.get_double(&func, &integration_limits).unwrap();
+    let val = integrator
+        .double_integral(&func, &integration_limits)
+        .unwrap();
     assert!(f64::abs(val - 24.0) < 0.00001);
 }
 
@@ -295,12 +286,11 @@ fn test_trapezoidal_integration_4() {
     let integration_limits = [[0.0, 1.0], [0.0, 2.0]];
     let point = [1.0, 2.0, 3.0];
 
-    let integrator =
-        iterative_integration::IterativeMulti::from_parameters(10, IterativeMethod::Trapezoidal);
+    let integrator = IterativeMulti::from_parameters(10, IterativeMethod::Trapezoidal);
 
     //double partial integration for first x then y, expect a value of ~2.50
     let val = integrator
-        .get_double_partial(&func, [0, 1], &integration_limits, &point)
+        .double_partial_integral(&func, [0, 1], &integration_limits, &point)
         .unwrap();
     assert!(f64::abs(val - 8.0) < 0.00001);
 }
@@ -312,10 +302,10 @@ fn test_error_checking_1() {
 
     let integration_limit = [10.0, 1.0];
 
-    let integrator = iterative_integration::IterativeSingle::default();
+    let integrator = IterativeSingle::default();
 
     //expect failure because integration interval is ill-defined (lower limit is higher than the upper limit)
-    let result = integrator.get_single(&func, &integration_limit);
+    let result = integrator.single_integral(&func, &integration_limit);
     assert!(result.is_err());
     assert!(result.unwrap_err() == IntegrateError::LimitsIllDefined);
 }
@@ -327,11 +317,10 @@ fn test_error_checking_2() {
 
     let integration_limit = [0.0, 1.0];
 
-    let integrator =
-        iterative_integration::IterativeSingle::from_parameters(0, IterativeMethod::Booles);
+    let integrator = IterativeSingle::from_parameters(0, IterativeMethod::Booles);
 
     //expect failure because number of steps is 0
-    let result = integrator.get_single(&func, &integration_limit);
+    let result = integrator.single_integral(&func, &integration_limit);
     assert!(result.is_err());
     assert!(result.unwrap_err() == IntegrateError::IterationsZero);
 }
@@ -346,11 +335,8 @@ fn test_error_checking_3() {
     let integration_limit = [0.0, 2.0];
 
     //Gauss Legendre not valid for n < 1
-    let integrator = gaussian_integration::GaussianSingle::from_parameters(
-        0,
-        GaussianQuadratureMethod::GaussLegendre,
-    );
-    let result = integrator.get_single(&func, &integration_limit);
+    let integrator = GaussianSingle::from_parameters(0, GaussianQuadratureMethod::GaussLegendre);
+    let result = integrator.single_integral(&func, &integration_limit);
     assert!(result.is_err());
     assert!(result.unwrap_err() == IntegrateError::QuadratureOrderOutOfRange);
 }
@@ -363,11 +349,8 @@ fn test_error_checking_4() {
     let integration_limit = [0.0, 2.0];
 
     //Gauss Legendre not valid for n > 30
-    let integrator = gaussian_integration::GaussianSingle::from_parameters(
-        31,
-        GaussianQuadratureMethod::GaussLegendre,
-    );
-    let result = integrator.get_single(&func, &integration_limit);
+    let integrator = GaussianSingle::from_parameters(31, GaussianQuadratureMethod::GaussLegendre);
+    let result = integrator.single_integral(&func, &integration_limit);
     assert!(result.is_err());
     assert!(result.unwrap_err() == IntegrateError::QuadratureOrderOutOfRange);
 }
@@ -379,8 +362,8 @@ fn test_error_checking_5() {
 
     let integration_limit = [0.0, 1.0];
 
-    let integrator = iterative_integration::IterativeSingle::default();
-    let result = integrator.get_single(&func, &integration_limit);
+    let integrator = IterativeSingle::default();
+    let result = integrator.single_integral(&func, &integration_limit);
     assert!(result.is_err());
     assert!(result.unwrap_err() == IntegrateError::NonFinite);
 }
@@ -392,8 +375,8 @@ fn test_error_checking_6() {
 
     let integration_limit = [0.0, 2.0];
 
-    let integrator = gaussian_integration::GaussianSingle::default();
-    let result = integrator.get_single(&func, &integration_limit);
+    let integrator = GaussianSingle::default();
+    let result = integrator.single_integral(&func, &integration_limit);
     assert!(result.is_err());
     assert!(result.unwrap_err() == IntegrateError::NonFinite);
 }
@@ -404,13 +387,12 @@ fn test_gauss_hermite_single() {
     //∫_{-∞}^∞ x² e^{-x²} dx = √π / 2
     let func = |x: f64| -> f64 { x * x };
 
-    let integrator = gaussian_integration::GaussianSingle::from_parameters(
-        5,
-        GaussianQuadratureMethod::GaussHermite,
-    );
+    let integrator = GaussianSingle::from_parameters(5, GaussianQuadratureMethod::GaussHermite);
 
     let integration_limit = [f64::NEG_INFINITY, f64::INFINITY];
-    let val = integrator.get_single(&func, &integration_limit).unwrap();
+    let val = integrator
+        .single_integral(&func, &integration_limit)
+        .unwrap();
 
     let expected = core::f64::consts::PI.sqrt() / 2.0;
     assert!(f64::abs(val - expected) < 1e-10);
@@ -422,13 +404,12 @@ fn test_gauss_laguerre_single() {
     //∫_0^∞ x² e^{-x} dx = 2
     let func = |x: f64| -> f64 { x * x };
 
-    let integrator = gaussian_integration::GaussianSingle::from_parameters(
-        5,
-        GaussianQuadratureMethod::GaussLaguerre,
-    );
+    let integrator = GaussianSingle::from_parameters(5, GaussianQuadratureMethod::GaussLaguerre);
 
     let integration_limit = [0.0, f64::INFINITY];
-    let val = integrator.get_single(&func, &integration_limit).unwrap();
+    let val = integrator
+        .single_integral(&func, &integration_limit)
+        .unwrap();
 
     assert!(f64::abs(val - 2.0) < 1e-9);
 }
@@ -438,10 +419,7 @@ fn test_gauss_hermite_multivariable() {
     //∫∫ x² y² e^{-x²} e^{-y²} dx dy = (√π/2)²
     let func = |args: &[f64; 2]| -> f64 { args[0] * args[0] * args[1] * args[1] };
 
-    let integrator = gaussian_integration::GaussianMulti::from_parameters(
-        5,
-        GaussianQuadratureMethod::GaussHermite,
-    );
+    let integrator = GaussianMulti::from_parameters(5, GaussianQuadratureMethod::GaussHermite);
 
     let integration_limits = [
         [f64::NEG_INFINITY, f64::INFINITY],
@@ -449,7 +427,7 @@ fn test_gauss_hermite_multivariable() {
     ];
     let point = [0.0, 0.0];
     let val = integrator
-        .get([0, 1], &func, &integration_limits, &point)
+        .integrate([0, 1], &func, &integration_limits, &point)
         .unwrap();
 
     let sqrt_pi_half = core::f64::consts::PI.sqrt() / 2.0;
@@ -461,15 +439,12 @@ fn test_gauss_laguerre_multivariable() {
     //∫∫ x² y² e^{-x} e^{-y} dx dy = 2 * 2 = 4
     let func = |args: &[f64; 2]| -> f64 { args[0] * args[0] * args[1] * args[1] };
 
-    let integrator = gaussian_integration::GaussianMulti::from_parameters(
-        5,
-        GaussianQuadratureMethod::GaussLaguerre,
-    );
+    let integrator = GaussianMulti::from_parameters(5, GaussianQuadratureMethod::GaussLaguerre);
 
     let integration_limits = [[0.0, f64::INFINITY], [0.0, f64::INFINITY]];
     let point = [0.0, 0.0];
     let val = integrator
-        .get([0, 1], &func, &integration_limits, &point)
+        .integrate([0, 1], &func, &integration_limits, &point)
         .unwrap();
 
     assert!(f64::abs(val - 4.0) < 1e-8);
@@ -480,10 +455,12 @@ fn test_iterative_infinite_gaussian() {
     //∫_{-∞}^∞ e^{-x²} dx = √π
     let func = |x: f64| -> f64 { f64::exp(-x * x) };
 
-    let integrator = iterative_integration::IterativeSingle::default();
+    let integrator = IterativeSingle::default();
 
     let integration_limit = [f64::NEG_INFINITY, f64::INFINITY];
-    let val = integrator.get_single(&func, &integration_limit).unwrap();
+    let val = integrator
+        .single_integral(&func, &integration_limit)
+        .unwrap();
 
     assert!(f64::abs(val - core::f64::consts::PI.sqrt()) < 1e-3);
 }
@@ -493,10 +470,12 @@ fn test_iterative_semi_infinite_exp() {
     //∫_0^∞ e^{-x} dx = 1
     let func = |x: f64| -> f64 { f64::exp(-x) };
 
-    let integrator = iterative_integration::IterativeSingle::default();
+    let integrator = IterativeSingle::default();
 
     let integration_limit = [0.0, f64::INFINITY];
-    let val = integrator.get_single(&func, &integration_limit).unwrap();
+    let val = integrator
+        .single_integral(&func, &integration_limit)
+        .unwrap();
 
     assert!(f64::abs(val - 1.0) < 1e-3);
 }
@@ -506,10 +485,12 @@ fn test_iterative_semi_infinite_inverse_square() {
     //∫_1^∞ x^{-2} dx = 1
     let func = |x: f64| -> f64 { 1.0 / (x * x) };
 
-    let integrator = iterative_integration::IterativeSingle::default();
+    let integrator = IterativeSingle::default();
 
     let integration_limit = [1.0, f64::INFINITY];
-    let val = integrator.get_single(&func, &integration_limit).unwrap();
+    let val = integrator
+        .single_integral(&func, &integration_limit)
+        .unwrap();
 
     assert!(f64::abs(val - 1.0) < 1e-3);
 }
@@ -519,10 +500,12 @@ fn test_iterative_negative_limits() {
     //∫_{-2}^{1} 2x dx = x² evaluated from -2 to 1 = 1 - 4 = -3
     let func = |x: f64| -> f64 { 2.0 * x };
 
-    let integrator = iterative_integration::IterativeSingle::default();
+    let integrator = IterativeSingle::default();
 
     let integration_limit = [-2.0, 1.0];
-    let val = integrator.get_single(&func, &integration_limit).unwrap();
+    let val = integrator
+        .single_integral(&func, &integration_limit)
+        .unwrap();
 
     assert!(f64::abs(val - (-3.0)) < 1e-9);
 }
@@ -536,15 +519,13 @@ fn test_composite_rule_degree_3_polynomial() {
     let integration_limit = [0.0, 2.0];
 
     //120 is a multiple of 3, so Simpson's 3/8 is exact for cubics here
-    let simpson =
-        iterative_integration::IterativeSingle::from_parameters(120, IterativeMethod::Simpsons);
-    let val = simpson.get_single(&func, &integration_limit).unwrap();
+    let simpson = IterativeSingle::from_parameters(120, IterativeMethod::Simpsons);
+    let val = simpson.single_integral(&func, &integration_limit).unwrap();
     assert!(f64::abs(val - 4.0) < 1e-9);
 
     //120 is a multiple of 4, so Boole's rule is exact too
-    let boole =
-        iterative_integration::IterativeSingle::from_parameters(120, IterativeMethod::Booles);
-    let val = boole.get_single(&func, &integration_limit).unwrap();
+    let boole = IterativeSingle::from_parameters(120, IterativeMethod::Booles);
+    let val = boole.single_integral(&func, &integration_limit).unwrap();
     assert!(f64::abs(val - 4.0) < 1e-9);
 }
 
@@ -571,11 +552,8 @@ fn pairwise_integration_is_accurate_on_long_sum() {
     let exact = core::f64::consts::PI / 4.0;
     let iterations: u64 = 1 << 23;
 
-    let integrator = iterative_integration::IterativeSingle::from_parameters(
-        iterations,
-        IterativeMethod::Trapezoidal,
-    );
-    let pairwise = integrator.get_single(&func, &[0.0, 1.0]).unwrap();
+    let integrator = IterativeSingle::from_parameters(iterations, IterativeMethod::Trapezoidal);
+    let pairwise = integrator.single_integral(&func, &[0.0, 1.0]).unwrap();
     let naive = naive_trapezoidal(iterations, 0.0, 1.0, func);
 
     let pairwise_err = f64::abs(pairwise - exact);
@@ -598,12 +576,9 @@ fn test_booles_integration_f32() {
     //2x integrated over [0, 2] is 4
     let func = |x: f32| -> f32 { 2.0 * x };
 
-    let integrator = iterative_integration::IterativeSingle::<f32>::from_parameters(
-        100,
-        IterativeMethod::Booles,
-    );
+    let integrator = IterativeSingle::<f32>::from_parameters(100, IterativeMethod::Booles);
 
-    let val = integrator.get_single(&func, &[0.0, 2.0]).unwrap();
+    let val = integrator.single_integral(&func, &[0.0, 2.0]).unwrap();
     assert!(f32::abs(val - 4.0) < 1e-3, "got {val}");
 }
 
@@ -612,12 +587,10 @@ fn test_gauss_legendre_integration_f32() {
     //4x^3 - 3x^2 integrated over [0, 2] is 8
     let func = |x: f32| -> f32 { 4.0 * x * x * x - 3.0 * x * x };
 
-    let integrator = gaussian_integration::GaussianSingle::<f32>::from_parameters(
-        4,
-        GaussianQuadratureMethod::GaussLegendre,
-    );
+    let integrator =
+        GaussianSingle::<f32>::from_parameters(4, GaussianQuadratureMethod::GaussLegendre);
 
-    let val = integrator.get_single(&func, &[0.0, 2.0]).unwrap();
+    let val = integrator.single_integral(&func, &[0.0, 2.0]).unwrap();
     assert!(f32::abs(val - 8.0) < 1e-2, "got {val}");
 }
 
@@ -680,29 +653,26 @@ fn iterative_integration_proptest(
         let closed_form = closed_form_from_coeffs(&coeffs, limit);
         let scaled_tol = tolerance_from_coeffs(&coeffs, limit);
 
-        let val = integrator.get_single(&func, &limit).unwrap();
+        let val = integrator.single_integral(&func, &limit).unwrap();
         prop_assert!(f64::abs(val - closed_form) < scaled_tol);
     });
 }
 
 #[test]
 fn proptest_trapezoid_integration_f64() {
-    let iterator =
-        iterative_integration::IterativeSingle::from_parameters(100, IterativeMethod::Trapezoidal);
+    let iterator = IterativeSingle::from_parameters(100, IterativeMethod::Trapezoidal);
     iterative_integration_proptest(1, iterator);
 }
 
 #[test]
 fn proptest_simpsons_integration_f64() {
-    let iterator =
-        iterative_integration::IterativeSingle::from_parameters(120, IterativeMethod::Simpsons);
+    let iterator = IterativeSingle::from_parameters(120, IterativeMethod::Simpsons);
     iterative_integration_proptest(3, iterator);
 }
 
 #[test]
 fn proptest_booles_integration_f64() {
-    let iterator =
-        iterative_integration::IterativeSingle::from_parameters(100, IterativeMethod::Booles);
+    let iterator = IterativeSingle::from_parameters(100, IterativeMethod::Booles);
     iterative_integration_proptest(5, iterator);
 }
 
@@ -785,12 +755,12 @@ fn gauss_integration_proptest(
         let closed_form = gauss_closed_form(quadrature, &coeffs, limit);
         let scaled_tol = gauss_tolerance(quadrature, &coeffs, limit);
 
-        let integrator = gaussian_integration::GaussianSingle::<f64>::from_parameters(
+        let integrator = GaussianSingle::<f64>::from_parameters(
         n,
         quadrature,
         );
 
-        let val = integrator.get_single(&func, &limit).unwrap();
+        let val = integrator.single_integral(&func, &limit).unwrap();
         prop_assert!(f64::abs(val - closed_form) < scaled_tol);
     });
 }
@@ -822,13 +792,10 @@ fn kahan_integration_beats_naive_on_long_sum() {
     let exact = core::f64::consts::PI / 4.0;
     let iterations: u64 = 1 << 23;
 
-    let integrator = iterative_integration::IterativeSingle::from_parameters(
-        iterations,
-        IterativeMethod::Trapezoidal,
-    )
-    .with_kahan_summation();
+    let integrator = IterativeSingle::from_parameters(iterations, IterativeMethod::Trapezoidal)
+        .with_kahan_summation();
 
-    let kahan = integrator.get_single(&func, &[0.0, 1.0]).unwrap();
+    let kahan = integrator.single_integral(&func, &[0.0, 1.0]).unwrap();
     let naive = naive_trapezoidal(iterations, 0.0, 1.0, func);
 
     let kahan_err = f64::abs(kahan - exact);
@@ -844,9 +811,9 @@ fn kahan_integration_beats_naive_on_long_sum() {
 fn iterative_multi_rejects_out_of_range_index() {
     let func = |args: &[f64; 2]| args[0] + args[1];
     let point = [1.0, 2.0];
-    let integrator = iterative_integration::IterativeMulti::default();
+    let integrator = IterativeMulti::default();
     let err = integrator
-        .get([2; 1], &func, &[[0.0, 1.0]; 1], &point)
+        .integrate([2; 1], &func, &[[0.0, 1.0]; 1], &point)
         .unwrap_err();
     assert_eq!(err, IntegrateError::IndexOutOfRange);
 }
@@ -855,9 +822,9 @@ fn iterative_multi_rejects_out_of_range_index() {
 fn gaussian_multi_rejects_out_of_range_index() {
     let func = |args: &[f64; 2]| args[0] + args[1];
     let point = [1.0, 2.0];
-    let integrator = gaussian_integration::GaussianMulti::default();
+    let integrator = GaussianMulti::default();
     let err = integrator
-        .get([2; 1], &func, &[[0.0, 1.0]; 1], &point)
+        .integrate([2; 1], &func, &[[0.0, 1.0]; 1], &point)
         .unwrap_err();
     assert_eq!(err, IntegrateError::IndexOutOfRange);
 }

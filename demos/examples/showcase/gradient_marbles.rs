@@ -16,8 +16,8 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
-use multicalc::numerical_derivative::jacobian::Jacobian;
+use multicalc::numerical_derivative::AutoDiffMulti;
+use multicalc::numerical_derivative::Jacobian;
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc_demos::loop_util::{LatencyRing, Pacer, commas};
 use multicalc_demos::{RerunSink, Rgba, VizError, VizSink};
@@ -149,7 +149,7 @@ fn quantile(vals: &[f64], q: f64) -> f64 {
 fn probe_error(jac: &Jacobian, probes: &[[f64; 2]]) -> f64 {
     let mut max_err = 0.0f64;
     for p in probes {
-        let gradient = jac.get(&Himmelblau, p).expect("probe gradient");
+        let gradient = jac.evaluate(&Himmelblau, p).expect("probe gradient");
         let ad = [gradient[(0, 0)], gradient[(0, 1)]];
         let an = himmelblau_grad(p[0], p[1]);
         max_err = max_err
@@ -239,7 +239,7 @@ fn main() -> Result<(), VizError> {
         let t0 = Instant::now();
         for (i, m) in marbles.iter().enumerate() {
             grads[i] = jac
-                .get(&Himmelblau, &m.pos)
+                .evaluate(&Himmelblau, &m.pos)
                 .ok()
                 .map(|j| [j[(0, 0)], j[(0, 1)]]);
         }

@@ -21,8 +21,9 @@ fn report(label: &str, value: f64, exact: f64) {
 }
 
 fn main() {
-    // A 36 mm wheel radius and a 235 mm track width.
-    let dd = DifferentialDrive::new(0.036_f64, 0.235).unwrap();
+    let wheel_radius = 0.036_f64; // 36 mm
+    let track_width = 0.235; // 235 mm between the wheels
+    let dd = DifferentialDrive::new(wheel_radius, track_width).unwrap();
 
     // (1) Wheel velocities to a body twist. Equal drives straight; opposite spins in place.
     let straight = dd.forward(WheelVelocities::new(10.0, 10.0));
@@ -44,7 +45,8 @@ fn main() {
 
     // (3) Odometry along the exact constant-twist arc, against the closed form for radius v/omega.
     let (v, w, t) = (0.4_f64, 0.9, 1.3);
-    let pose = integrate(SE2::identity(), BodyTwist::new(v, w).integrate_over(t));
+    let start = SE2::identity();
+    let pose = integrate(start, BodyTwist::new(v, w).integrate_over(t));
     let (theta, radius) = (w * t, v / w);
     println!("\nArc of a constant twist (v = 0.4, omega = 0.9) held for 1.3 s");
     let xy = pose.translation();

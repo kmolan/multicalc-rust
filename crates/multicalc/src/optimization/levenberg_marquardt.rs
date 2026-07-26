@@ -2,10 +2,10 @@
 
 use crate::error::SolveError;
 use crate::linear_algebra::Vector;
-use crate::linear_algebra::qr::{PivotedQr, enorm, max, min};
-use crate::numerical_derivative::autodiff::AutoDiffMulti;
-use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-use crate::numerical_derivative::jacobian::Jacobian;
+use crate::linear_algebra::{PivotedQr, enorm, max, min};
+use crate::numerical_derivative::AutoDiffMulti;
+use crate::numerical_derivative::DerivatorMultiVariable;
+use crate::numerical_derivative::Jacobian;
 use crate::optimization::trust_region::determine_lambda_and_parameter_update;
 use crate::optimization::{MinimizationReport, TerminationReason, is_finite, report};
 use crate::scalar::{Numeric, Primal, VectorFn};
@@ -22,13 +22,16 @@ const MAX_TRUST_REGION_TRIALS: usize = 100;
 /// # Examples
 /// ```
 /// use multicalc::optimization::LevenbergMarquardt;
-/// use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+/// use multicalc::numerical_derivative::AutoDiffMulti;
 /// use multicalc::scalar::c;
 /// use multicalc::scalar_fn_vec;
 ///
 /// // Minimize the Rosenbrock residual; the minimum is at (1, 1).
-/// let f = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
-/// let report = LevenbergMarquardt::<AutoDiffMulti>::default().minimize(&f, &[-1.2, 1.0]).unwrap();
+/// let residuals = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
+/// let initial_guess = [-1.2, 1.0];
+///
+/// let solver = LevenbergMarquardt::<AutoDiffMulti>::default();
+/// let report = solver.minimize(&residuals, &initial_guess).unwrap();
 /// assert!((report.solution[0] - 1.0).abs() < 1e-6);
 /// assert!((report.solution[1] - 1.0).abs() < 1e-6);
 /// ```
@@ -162,7 +165,7 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
         let mut first = true;
 
         for _ in 0..self.patience {
-            let j = jacobian.get(f, &x)?;
+            let j = jacobian.evaluate(f, &x)?;
             if !j.is_finite() {
                 return Err(SolveError::NonFinite);
             }

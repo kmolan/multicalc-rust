@@ -18,7 +18,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::root_finding::NewtonSystem;
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc_demos::loop_util::{LatencyRing, commas};
@@ -106,9 +106,11 @@ fn main() -> Result<(), VizError> {
 
     // Built once; solve takes &self. Backtracking stays off (default) — it would smooth away the
     // wild Newton steps that make the filigree.
+    let max_iterations = 24;
+    let residual_tolerance = 1e-13;
     let solver = NewtonSystem::<AutoDiffMulti>::default()
-        .with_max_iterations(24)
-        .with_ftol(1e-13);
+        .with_max_iterations(max_iterations)
+        .with_ftol(residual_tolerance);
 
     let mut basins = CubicBasins {
         roots: roots_at(0.0),

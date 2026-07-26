@@ -20,8 +20,11 @@ use crate::scalar::{Numeric, Primal, ScalarFn};
 /// use multicalc::scalar_fn;
 ///
 /// // f(x) = x² − 2, root at √2 ≈ 1.41421356
-/// let f = scalar_fn!(|x| c(-2.0) + x * x);
-/// let report = Bisection::default().solve(&f, 0.0_f64, 2.0).unwrap();
+/// let function = scalar_fn!(|x| c(-2.0) + x * x);
+/// let lower_bound = 0.0_f64;
+/// let upper_bound = 2.0;
+///
+/// let report = Bisection::default().solve(&function, lower_bound, upper_bound).unwrap();
 /// assert!((report.root - 2.0_f64.sqrt()).abs() < 1e-9);
 /// ```
 pub struct Bisection<T = f64> {

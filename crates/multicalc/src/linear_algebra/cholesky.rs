@@ -97,8 +97,9 @@ impl<const N: usize, T: Numeric> Cholesky<N, T> {
     /// ```
     /// use multicalc::linear_algebra::{Matrix, Vector};
     /// let a = Matrix::<2, 2>::new([[4.0, 2.0], [2.0, 3.0]]);
+    /// let b = Vector::new([8.0, 8.0]);
     /// // A·x = b has the exact solution x = [1, 2].
-    /// let x = a.cholesky().unwrap().solve(Vector::new([8.0, 8.0]));
+    /// let x = a.cholesky().unwrap().solve(b);
     /// assert!((x[0] - 1.0).abs() < 1e-12);
     /// assert!((x[1] - 2.0).abs() < 1e-12);
     /// ```
@@ -131,8 +132,9 @@ impl<const N: usize, T: Numeric> Cholesky<N, T> {
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let a = Matrix::<2, 2>::new([[4.0, 2.0], [2.0, 3.0]]);
+    /// let identity = Matrix::<2, 2>::identity();
     /// // Solving A·X = I gives X = A⁻¹.
-    /// let x = a.cholesky().unwrap().solve_matrix(Matrix::<2, 2>::identity());
+    /// let x = a.cholesky().unwrap().solve_matrix(identity);
     /// let p = a * x;
     /// assert!((p[(0, 0)] - 1.0).abs() < 1e-12);
     /// assert!((p[(1, 1)] - 1.0).abs() < 1e-12);

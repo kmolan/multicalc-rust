@@ -9,12 +9,12 @@ use std::path::PathBuf;
 use criterion::Criterion;
 
 use multicalc::linear_algebra::{Matrix, Vector};
-use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
-use multicalc::numerical_derivative::derivator::DerivatorSingleVariable;
-use multicalc::numerical_derivative::jacobian::Jacobian;
-use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
-use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
-use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
+use multicalc::numerical_derivative::DerivatorSingleVariable;
+use multicalc::numerical_derivative::Jacobian;
+use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
+use multicalc::numerical_integration::GaussianQuadratureMethod;
+use multicalc::numerical_integration::GaussianSingle;
+use multicalc::numerical_integration::IntegratorSingleVariable;
 use multicalc::ode::{Rk4, Rk45};
 use multicalc::root_finding::NewtonSystem;
 use multicalc::scalar::{Numeric, VectorFn, c};
@@ -49,7 +49,7 @@ fn bench_derivative(c: &mut Criterion) {
     let f = scalar_fn!(|x| x * x * x.sin());
     let d = AutoDiffSingle::default();
     c.bench_function("derivative", |b| {
-        b.iter(|| d.get(black_box(3), &f, black_box(1.0)).unwrap())
+        b.iter(|| d.differentiate(black_box(3), &f, black_box(1.0)).unwrap())
     });
 }
 
@@ -59,7 +59,7 @@ fn bench_jacobian_small(c: &mut Criterion) {
     let j: Jacobian = Jacobian::default();
     let p = [1.0, 2.0, 3.0];
     c.bench_function("jacobian_small", |b| {
-        b.iter(|| j.get(&f, black_box(&p)).unwrap())
+        b.iter(|| j.evaluate(&f, black_box(&p)).unwrap())
     });
 }
 
@@ -76,7 +76,7 @@ fn bench_jacobian_large(crit: &mut Criterion) {
     let j: Jacobian = Jacobian::default();
     let p = [0.5, 1.0, 1.5, 0.3, 0.8, 1.2];
     crit.bench_function("jacobian_large", |b| {
-        b.iter(|| j.get(&f, black_box(&p)).unwrap())
+        b.iter(|| j.evaluate(&f, black_box(&p)).unwrap())
     });
 }
 
@@ -85,7 +85,7 @@ fn bench_gauss_quad(c: &mut Criterion) {
     let quad = GaussianSingle::from_parameters(16, GaussianQuadratureMethod::GaussLegendre);
     c.bench_function("gauss_quad", |b| {
         b.iter(|| {
-            quad.get_single(
+            quad.single_integral(
                 &|x: f64| (x.sin() - x.sqrt()) * (-x).exp(),
                 black_box(&[0.0, 1.0]),
             )

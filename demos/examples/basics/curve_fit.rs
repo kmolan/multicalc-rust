@@ -6,7 +6,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use multicalc::LevenbergMarquardt;
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::scalar::{Numeric, VectorFn};
 
 const A_TRUE: f64 = 100.0;
@@ -32,8 +32,11 @@ fn main() {
     let y: [f64; 8] = core::array::from_fn(|i| A_TRUE * (B_TRUE * i as f64).exp());
     let problem = SensorFit { t, y };
 
+    // Deliberately away from the truth (100, -ln 2), so the fit has work to do.
+    let initial_guess = [80.0, -0.3];
+
     let report = LevenbergMarquardt::<AutoDiffMulti>::default()
-        .minimize(&problem, &[80.0, -0.3])
+        .minimize(&problem, &initial_guess)
         .expect("curve fit did not converge");
 
     let (a, b) = (report.solution[0], report.solution[1]);

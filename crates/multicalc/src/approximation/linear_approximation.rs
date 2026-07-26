@@ -1,7 +1,7 @@
 use crate::error::DiffError;
 use crate::linear_algebra::Vector;
-use crate::numerical_derivative::autodiff::AutoDiffMulti;
-use crate::numerical_derivative::derivator::DerivatorMultiVariable;
+use crate::numerical_derivative::AutoDiffMulti;
+use crate::numerical_derivative::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
 use crate::utils::summation::SummationMethod;
 
@@ -66,7 +66,7 @@ impl<const NUM_VARS: usize, T: Numeric> LinearApproximation<NUM_VARS, T> {
     ///
     /// `r_squared` is `NaN` when the truth is constant over `points`;
     /// `adjusted_r_squared` is `NaN` when there are too few points.
-    pub fn get_prediction_metrics<O: ScalarFnN<NUM_VARS>, const NUM_POINTS: usize>(
+    pub fn prediction_metrics<O: ScalarFnN<NUM_VARS>, const NUM_POINTS: usize>(
         &self,
         points: &[[T; NUM_VARS]; NUM_POINTS],
         original_function: &O,
@@ -109,7 +109,7 @@ impl LinearApproximator<AutoDiffMulti> {
     /// An approximator using exact autodiff derivatives.
     ///
     /// ```
-    /// use multicalc::approximation::linear_approximation::LinearApproximator;
+    /// use multicalc::approximation::LinearApproximator;
     ///
     /// const APPROXIMATOR: LinearApproximator = LinearApproximator::new();
     /// ```
@@ -130,7 +130,7 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D> {
 
     /// Opt in to Kahan compensated summation for prediction metrics.
     ///
-    /// Pairwise summation remains the default. Call this before [`Self::get`] so the
+    /// Pairwise summation remains the default. Call this before [`Self::approximate`] so the
     /// resulting [`LinearApproximation`] accumulates metrics with Kahan.
     pub fn with_kahan_summation(mut self) -> Self {
         self.summation = SummationMethod::Kahan;
@@ -144,7 +144,7 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D> {
     ///
     /// # Examples
     /// ```
-    /// use multicalc::approximation::linear_approximation::LinearApproximator;
+    /// use multicalc::approximation::LinearApproximator;
     /// use multicalc::scalar::ScalarFnN;
     /// use multicalc::scalar_fn;
     ///
@@ -153,12 +153,12 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D> {
     ///
     /// let point = [1.0, 2.0, 3.0]; // the point we want to linearize around
     /// let approximator: LinearApproximator = LinearApproximator::default();
-    /// let result = approximator.get(&function_to_approximate, &point).unwrap();
+    /// let result = approximator.approximate(&function_to_approximate, &point).unwrap();
     ///
     /// // the approximation is exact at the base point
     /// assert!(f64::abs(function_to_approximate.eval(&point) - result.predict(&point)) < 1e-12);
     /// ```
-    pub fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
+    pub fn approximate<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
         &self,
         function: &F,
         point: &[D::Scalar; NUM_VARS],
@@ -167,7 +167,9 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D> {
 
         let mut gradient = [<D::Scalar as Numeric>::ZERO; NUM_VARS];
         for (i, slot) in gradient.iter_mut().enumerate() {
-            *slot = self.derivator.get_single_partial(function, i, point)?;
+            *slot = self
+                .derivator
+                .first_partial_derivative(function, i, point)?;
         }
 
         Ok(LinearApproximation {

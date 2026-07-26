@@ -13,8 +13,13 @@ use crate::scalar::Numeric;
 /// use multicalc::kinematics::{BodyTwist, Unicycle};
 /// use multicalc::linear_algebra::Vector;
 /// use multicalc::ode::Rk4;
-/// let plant = Unicycle::new(BodyTwist::new(1.0_f64, 0.0));
-/// let state = Rk4::step(&plant.field(), 0.0, &Vector::new([0.0, 0.0, 0.0]), 0.1);
+/// let command = BodyTwist::new(1.0_f64, 0.0);   // 1 m/s forward, no turn
+/// let plant = Unicycle::new(command);
+///
+/// let start_time = 0.0;
+/// let start_pose = Vector::new([0.0, 0.0, 0.0]);
+/// let timestep = 0.1;
+/// let state = Rk4::step(&plant.field(), start_time, &start_pose, timestep);
 /// assert!((state[0] - 0.1).abs() < 1e-12);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]

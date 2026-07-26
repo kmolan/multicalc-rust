@@ -7,10 +7,10 @@
 //! registry; the golden is the exact integral. Finite-domain polynomial cases
 //! also run an f32 pass against the f32 tolerance.
 
-use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
-use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
-use multicalc::numerical_integration::iterative_integration::IterativeSingle;
-use multicalc::numerical_integration::mode::{GaussianQuadratureMethod, IterativeMethod};
+use multicalc::numerical_integration::GaussianSingle;
+use multicalc::numerical_integration::IntegratorSingleVariable;
+use multicalc::numerical_integration::IterativeSingle;
+use multicalc::numerical_integration::{GaussianQuadratureMethod, IterativeMethod};
 use multicalc_qa::load::*;
 use multicalc_qa::problems::{integrand_f32, integrand_f64};
 
@@ -46,12 +46,12 @@ fn quadrature() {
         let value = match family {
             "iterative" => {
                 IterativeSingle::<f64>::from_parameters(param as u64, iterative_method(method))
-                    .get_single(&f, &limits)
+                    .single_integral(&f, &limits)
                     .unwrap()
             }
             "gaussian" => {
                 GaussianSingle::<f64>::from_parameters(param as usize, gaussian_method(method))
-                    .get_single(&f, &limits)
+                    .single_integral(&f, &limits)
                     .unwrap()
             }
             other => panic!("unknown family {other}"),
@@ -66,12 +66,12 @@ fn quadrature() {
             let value32 = match family {
                 "iterative" => {
                     IterativeSingle::<f32>::from_parameters(param as u64, iterative_method(method))
-                        .get_single(&f32_fn, &limits32)
+                        .single_integral(&f32_fn, &limits32)
                         .unwrap()
                 }
                 "gaussian" => {
                     GaussianSingle::<f32>::from_parameters(param as usize, gaussian_method(method))
-                        .get_single(&f32_fn, &limits32)
+                        .single_integral(&f32_fn, &limits32)
                         .unwrap()
                 }
                 other => panic!("unknown family {other}"),

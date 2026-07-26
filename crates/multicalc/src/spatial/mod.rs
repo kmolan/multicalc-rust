@@ -6,10 +6,10 @@
 
 use crate::scalar::Numeric;
 
-pub mod lie;
-pub mod quaternion;
-pub mod twist;
-pub mod wrench;
+mod lie;
+mod quaternion;
+mod twist;
+mod wrench;
 
 pub use lie::{SE2, SE3, SO2, SO3};
 pub use quaternion::Quaternion;

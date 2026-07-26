@@ -274,17 +274,26 @@ impl<const BEAMS: usize, T: Numeric> FollowTheGap<BEAMS, T> {
     /// ```
     /// use multicalc::control::FollowTheGap;
     ///
-    /// // 31 beams over 120°, 4 m range, a 0.5 m robot, 0.5 m open-space threshold, 0.4 m/s cruise.
+    /// let field_of_view = 2.0 * core::f64::consts::PI / 3.0;   // 120°, over 31 beams
+    /// let max_range = 4.0;
+    /// let robot_radius = 0.5;
+    /// let clearance = 0.5;      // a gap must be this much wider than the robot to count
+    /// let cruise_speed = 0.4;
+    ///
     /// let follower: FollowTheGap<31, f64> =
-    ///     FollowTheGap::try_new(2.0 * core::f64::consts::PI / 3.0, 4.0, 0.5, 0.5, 0.4).unwrap();
+    ///     FollowTheGap::try_new(field_of_view, max_range, robot_radius, clearance, cruise_speed)
+    ///         .unwrap();
     ///
     /// // Nothing in the way: drive straight ahead at cruise speed.
-    /// let output = follower.compute(&[4.0; 31], 0.0).unwrap();
+    /// let goal_angle = 0.0;
+    /// let clear_scan = [4.0; 31];
+    /// let output = follower.compute(&clear_scan, goal_angle).unwrap();
     /// assert!(output.heading().abs() < 1e-12);
-    /// assert!((output.body_twist().linear() - 0.4).abs() < 1e-12);
+    /// assert!((output.body_twist().linear() - cruise_speed).abs() < 1e-12);
     ///
     /// // A wall all round: stop, and say so.
-    /// let blocked = follower.compute(&[0.2; 31], 0.0).unwrap();
+    /// let walled_in = [0.2; 31];
+    /// let blocked = follower.compute(&walled_in, goal_angle).unwrap();
     /// assert!(blocked.is_blocked());
     /// assert_eq!(blocked.body_twist().linear(), 0.0);
     /// ```

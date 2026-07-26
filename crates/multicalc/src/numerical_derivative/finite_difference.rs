@@ -104,7 +104,7 @@ impl<T: Numeric> FiniteDifferenceSingle<T> {
 impl<T: Numeric> DerivatorSingleVariable for FiniteDifferenceSingle<T> {
     type Scalar = T;
 
-    fn get<F: ScalarFn>(&self, order: usize, func: &F, point: T) -> Result<T, DiffError> {
+    fn differentiate<F: ScalarFn>(&self, order: usize, func: &F, point: T) -> Result<T, DiffError> {
         if order == 0 {
             return Err(DiffError::OrderZero);
         }
@@ -166,7 +166,7 @@ impl<T: Numeric> FiniteDifferenceMulti<T> {
 impl<T: Numeric> DerivatorMultiVariable for FiniteDifferenceMulti<T> {
     type Scalar = T;
 
-    fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize, const NUM_ORDER: usize>(
+    fn differentiate<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize, const NUM_ORDER: usize>(
         &self,
         func: &F,
         idx_to_differentiate: &[usize; NUM_ORDER],

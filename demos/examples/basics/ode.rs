@@ -47,8 +47,15 @@ fn harmonic_oscillator() {
     );
 
     // RK45: adaptive solve to t = 2*pi, then dense-output sampling.
-    let solver = Rk45::default().with_rtol(1e-9).with_atol(1e-12);
-    let yf = solver.solve(&f, 0.0, &y0, core::f64::consts::TAU).unwrap();
+    let relative_tolerance = 1e-9;
+    let absolute_tolerance = 1e-12;
+    let solver = Rk45::default()
+        .with_rtol(relative_tolerance)
+        .with_atol(absolute_tolerance);
+
+    let start_time = 0.0;
+    let one_period = core::f64::consts::TAU;
+    let yf = solver.solve(&f, start_time, &y0, one_period).unwrap();
     let e = exact(core::f64::consts::TAU);
     println!("  RK45 adaptive solve to t = 2*pi (rtol 1e-9)");
     println!(

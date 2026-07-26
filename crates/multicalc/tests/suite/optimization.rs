@@ -1,9 +1,9 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use multicalc::error::{LinalgError, SolveError};
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
-use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
-use multicalc::numerical_derivative::jacobian::Jacobian;
+use multicalc::numerical_derivative::AutoDiffMulti;
+use multicalc::numerical_derivative::FiniteDifferenceMulti;
+use multicalc::numerical_derivative::Jacobian;
 use multicalc::optimization::{
     GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason,
 };
@@ -391,9 +391,9 @@ fn embedded_artifact_fit_recovers_parameters() {
 // Jacobian of `f` at `x`. A small value confirms the autodiff derivatives the solvers rely on
 // match an independent finite-difference estimate.
 fn check_jacobian<F: VectorFn<N, M>, const N: usize, const M: usize>(f: &F, x: &[f64; N]) -> f64 {
-    let autodiff = Jacobian::<AutoDiffMulti>::default().get(f, x).unwrap();
+    let autodiff = Jacobian::<AutoDiffMulti>::default().evaluate(f, x).unwrap();
     let finite = Jacobian::from_derivator(FiniteDifferenceMulti::<f64>::default())
-        .get(f, x)
+        .evaluate(f, x)
         .unwrap();
     let mut worst = 0.0_f64;
     for m in 0..M {

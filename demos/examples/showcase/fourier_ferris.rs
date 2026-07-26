@@ -16,9 +16,9 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
-use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
-use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
+use multicalc::numerical_integration::GaussianQuadratureMethod;
+use multicalc::numerical_integration::GaussianSingle;
+use multicalc::numerical_integration::IntegratorSingleVariable;
 use multicalc_demos::loop_util::{LatencyRing, Pacer, commas};
 use multicalc_demos::{RerunSink, Rgba, VizError, VizSink};
 use std::collections::VecDeque;
@@ -152,8 +152,8 @@ fn compute_coefficients(t: &[f64]) -> (Vec<(i32, Cx)>, f64, u64) {
                 let th = omega * tt;
                 y * th.cos() - x * th.sin()
             };
-            let re = gl.get_single(&seg_re, &[ta, tb]).expect("gl re");
-            let im = gl.get_single(&seg_im, &[ta, tb]).expect("gl im");
+            let re = gl.single_integral(&seg_re, &[ta, tb]).expect("gl re");
+            let im = gl.single_integral(&seg_im, &[ta, tb]).expect("gl im");
             c_gl = c_gl.add(Cx::new(re, im));
             node_evals += 2 * GL_ORDER as u64;
 

@@ -1,8 +1,8 @@
 //! Scalar Newton and damped Newton solvers.
 
 use crate::error::{LinalgError, SolveError};
-use crate::numerical_derivative::autodiff::AutoDiffSingle;
-use crate::numerical_derivative::derivator::DerivatorSingleVariable;
+use crate::numerical_derivative::AutoDiffSingle;
+use crate::numerical_derivative::DerivatorSingleVariable;
 use crate::root_finding::{RootReport, RootTermination};
 use crate::scalar::{Numeric, Primal, ScalarFn};
 
@@ -29,9 +29,11 @@ const MAX_BACKTRACK: usize = 20;
 /// use multicalc::scalar_fn;
 ///
 /// // f(x) = x² − 2, root at √2 ≈ 1.41421356
-/// let f = scalar_fn!(|x| c(-2.0) + x * x);
+/// let function = scalar_fn!(|x| c(-2.0) + x * x);
 /// let solver: Newton = Newton::default();
-/// let report = solver.solve(&f, 2.0_f64).unwrap();
+/// let initial_guess = 2.0_f64;
+///
+/// let report = solver.solve(&function, initial_guess).unwrap();
 /// assert!((report.root - 2.0_f64.sqrt()).abs() < 1e-12);
 /// ```
 pub struct Newton<D: DerivatorSingleVariable = AutoDiffSingle> {
@@ -67,7 +69,7 @@ impl<D: DerivatorSingleVariable> Newton<D> {
     /// tolerances of `30 × EPSILON`, budget of 100 iterations, backtracking off.
     ///
     /// ```
-    /// use multicalc::numerical_derivative::autodiff::AutoDiffSingle;
+    /// use multicalc::numerical_derivative::AutoDiffSingle;
     /// use multicalc::root_finding::Newton;
     ///
     /// const D: AutoDiffSingle = AutoDiffSingle::new();
@@ -146,7 +148,7 @@ impl<D: DerivatorSingleVariable> Newton<D> {
                 });
             }
 
-            let dfx = self.derivator.get_single(f, x)?;
+            let dfx = self.derivator.first_derivative(f, x)?;
             if !dfx.is_finite() {
                 return Err(SolveError::NonFinite);
             }

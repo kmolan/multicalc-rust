@@ -6,16 +6,12 @@
 [![Docs](https://docs.rs/multicalc/badge.svg)](https://docs.rs/multicalc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-**Scientific math for real-time embedded systems, in `no_std` stable Rust with near-zero dependencies: state
-estimation, control, kinematics, and Lie groups on a calculus, autodiff, and linear-algebra core in one integrated package.
-No heap, no panics, no `unsafe` - from a 64-bit server down to a bare-metal microcontroller.**
+**Scientific computing that fits on a microcontroller, built and tested from scratch in one integrated package. Estimation, control, kinematics, Lie groups, calculus, autodiff and linear algebra in stable no_std Rust with
+no heap, no panics and no unsafe. Run the same code on your laptop and your Cortex-M0.**
 
 ## Why use it
 
-- **1 kHz loop rate.** The lead showcase localizes a differential-drive
-  robot against a known map with a 2,000-particle filter over 61 noisy lidar beams, then runs a
-  5-state extended Kalman filter fusing 100 Hz wheel odometry, a 200 Hz IMU, and 20 Hz GPS while a
-  Follow-the-Gap controller laps a course of obstacles — predict, fuse, and plan every millisecond.
+- **1 kHz loop rates:** No heap, fixed-size types, bounded work per call. Results in a full robotics control loop at 1 kHz.
 - **Exercise the same math from a server to a microcontroller.** Every commit is built and tested on **six targets**:
   the `x86_64` and `aarch64` Linux hosts and on four bare-metal ABIs (`thumbv7em` soft-float,
   `thumbv7em` hardware-FPU, `thumbv6m`, and `riscv32imc`), running the real math under QEMU.
@@ -57,195 +53,90 @@ No heap, no panics, no `unsafe` - from a 64-bit server down to a bare-metal micr
 - [Approximation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#taylor-approximation): linear and quadratic Taylor models with goodness-of-fit metrics.
 - [Random](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#random): `Pcg32` and the `RandomSource` trait, a seedable `no_std` generator for the particle filter and for stochastic models.
 
-## Tutorial
+## Quick start
 
-The [guide](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md) is a comprehensive tutorial for each module. It shows the full imports,
-expected outputs in comments, error-path notes, and pointers to runnable demos. Start there when you need the complete picture of a feature.
-
-## Example snippets
-
-### Exact derivatives
-
-One formula, differentiated to any order by forward-mode autodiff:
+Two formulas, written once, carried through six modules — each step feeding the next:
 
 ```rust
-use multicalc::numerical_derivative::autodiff::{AutoDiffSingle, AutoDiffMulti};
-use multicalc::numerical_derivative::derivator::{DerivatorSingleVariable, DerivatorMultiVariable};
-use multicalc::scalar_fn;
-
-let f = scalar_fn!(|x| x * x * x);           // f(x) = x^3
-let d = AutoDiffSingle::default();           // forward-mode autodiff, exact
-let first = d.get(1, &f, 2.0).unwrap();      // 12.0
-let third = d.get(3, &f, 2.0).unwrap();      //  6.0
-
-// Partial derivatives of a multivariable function; order = number of indices.
-let g = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1]);          // g(x, y) = x^2 * y
-let dm = AutoDiffMulti::default();
-let dx    = dm.get_single_partial(&g, 0, &[3.0, 4.0]).unwrap(); // dg/dx = 2xy   = 24.0
-let mixed = dm.get(&g, &[0, 1], &[3.0, 4.0]).unwrap();          // d^2g/dxdy = 2x =  6.0
-```
-
-### Integration
-
-Newton-Cotes and Gaussian rules over finite, semi-infinite, and infinite limits:
-
-```rust
-use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
-use multicalc::numerical_integration::iterative_integration::IterativeSingle;
-use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
-use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
-
-let integrator = IterativeSingle::default();     // Boole's rule, 120 intervals
-
-let area = integrator.get_single(&|x: f64| 2.0 * x, &[0.0, 2.0]).unwrap();       // 2x on [0, 2]        -> 4.0
-// decaying integrands may run to a semi-infinite or infinite limit
-let tail = integrator.get_single(&|x: f64| (-x).exp(), &[0.0, f64::INFINITY]).unwrap();  // e^-x on [0, inf)  -> 1.0
-let bell = integrator
-    .get_single(&|x: f64| (-x * x).exp(), &[f64::NEG_INFINITY, f64::INFINITY])
-    .unwrap();                                                                   // e^(-x^2) on R       -> sqrt(pi)
-
-// Gauss-Hermite already carries the e^(-x^2) weight, so pass the bare integrand.
-let gh = GaussianSingle::from_parameters(5, GaussianQuadratureMethod::GaussHermite);
-let moment = gh.get_single(&|x: f64| x * x, &[f64::NEG_INFINITY, f64::INFINITY]).unwrap();  // x^2, weight e^(-x^2) -> sqrt(pi)/2
-```
-
-### Nonlinear curve fitting
-
-Author the residuals `model - data` with `scalar_fn_vec!`; `LevenbergMarquardt` differentiates
-them under autodiff and drives the fit:
-
-```rust
-use multicalc::optimization::LevenbergMarquardt;
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
-use multicalc::scalar::c;
-use multicalc::scalar_fn_vec;
-
-// Fit a*e^(b*t) to (0, 100), (1, 50), (2, 25): the minimum is a = 100, b = -ln 2.
-let residuals = scalar_fn_vec!(|v: &[f64; 2]| [
-    c(-100.0) + v[0],
-    c(-50.0) + v[0] * v[1].exp(),
-    c(-25.0) + v[0] * (c(2.0) * v[1]).exp(),
-]);
-let report = LevenbergMarquardt::<AutoDiffMulti>::default()
-    .minimize(&residuals, &[80.0, -0.3])
-    .unwrap();
-// report.solution ~ [100.0, -0.693]; report.termination says which test converged
-```
-
-### Linear solves
-
-Fixed-size `Matrix` and `Vector` with dimensions as const generics (shape mismatches are
-compile errors):
-
-```rust
-use multicalc::linear_algebra::{Matrix, Vector};
-
-// Solve A·x = b.
-let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
-let b = Vector::new([7.0, 19.0, 49.0]);
-let x = a.solve(b).unwrap();                        // [1, 2, 3]
-
-// A symmetric positive-definite matrix has a faster Cholesky path.
-let s = Matrix::<2, 2>::new([[4.0, 2.0], [2.0, 3.0]]);
-let s_inv = s.cholesky().unwrap().inverse();
-```
-
-### Rotations and rigid-body transforms
-
-`Quaternion` plus the `SO2`/`SE2`/`SO3`/`SE3` Lie groups, generic over the scalar so autodiff
-flows straight through:
-
-```rust
-use multicalc::spatial::{SE3, SO3};
-use multicalc::linear_algebra::Vector;
-
-let r = SO3::<f64>::exp(Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2])); // 90° about z
-let g = SE3::from_parts(r, Vector::new([1.0, 2.0, 3.0]));
-let p = g.act(Vector::new([1.0, 0.0, 0.0]));   // rotate then translate → (1, 3, 3)
-let xi = g.log();                              // 6-vector twist [v; ω]
-```
-
-### Tracking a robot's state
-
-A Kalman filter recovers what you never measure directly — here velocity, from position alone.
-`ExtendedKalmanFilter` takes its process and measurement models as functions instead of matrices and
-re-linearizes them each step, with the Jacobians coming from autodiff, so a nonlinear model needs no
-hand-derived matrices:
-
-```rust
-use multicalc::estimation::{KalmanFilter, KalmanModel};
-use multicalc::linear_algebra::{Matrix, Vector};
-
-// Constant velocity: position integrates velocity over a 1 s step, and only position is measured.
-let mut filter = KalmanFilter::new(
-    Vector::new([0.0, 0.0]),                    // initial state [position, velocity]
-    Matrix::new([[1.0, 0.0], [0.0, 1.0]]),      // initial covariance
-    KalmanModel {
-        state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
-        measurement_model: Matrix::new([[1.0, 0.0]]),   // position only
-        process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
-        measurement_noise: Matrix::new([[0.1]]),
-    },
-);
-
-filter.predict();
-filter.update(Vector::new([1.0])).unwrap();     // the target moved about 1 m
-let velocity = filter.state()[1];               // recovered, though never measured
-
-// Gate an outlier before folding it in.
-let gate = filter.normalized_innovation_squared().unwrap();
-```
-
-### Root finding
-
-Scalar equations and square systems `F(x) = 0`, with exact autodiff derivatives:
-
-```rust
-use multicalc::root_finding::{Bisection, Newton, NewtonSystem};
-use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
-use multicalc::scalar::c;
+use multicalc::prelude::*;
+use multicalc::{Hessian, Jacobian, KalmanFilter, KalmanModel, Matrix, Newton, SE3, SO3, Vector, c};
 use multicalc::{scalar_fn, scalar_fn_vec};
 
-let f = scalar_fn!(|x| c(-2.0) + x * x);       // f(x) = x^2 - 2, root at sqrt(2)
-let bracketed = Bisection::default().solve(&f, 0.0, 2.0).unwrap();          // ~ 1.41421356
-let newton = Newton::<AutoDiffSingle>::default().solve(&f, 2.0).unwrap();   // ~ 1.41421356
+fn main() -> Result<(), CalcError> {
+    // Written once, evaluated at f64 here and at an autodiff number wherever a derivative is asked
+    // for — the formula text never changes.
+    let f = scalar_fn!(|x| x * x * x - c(2.0) * x);                     // f(x)    = x³ - 2x
+    let g = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1] + v[0].sin()); // g(x, y) = x²y + sin x
 
-// Square system: x^2 + y^2 = 4 and x*y = 1.
-let system = scalar_fn_vec!(|v: &[f64; 2]| [c(-4.0) + v[0] * v[0] + v[1] * v[1], c(-1.0) + v[0] * v[1]]);
-let solved = NewtonSystem::<AutoDiffMulti>::default().solve(&system, &[1.5, 0.8]).unwrap();
-// solved.root ~ [1.9319, 0.5176]
+    // Derivatives — exact, by forward-mode autodiff. No step size, no truncation error.
+    let single_point = 2.0_f64;
+    let slope = derivative(&f, single_point);                // f'(2)  = 10
+    let bend = second_derivative(&f, single_point);          // f''(2) = 12
+
+    let point = [1.0_f64, 2.0];
+    let x_index = 0;
+    let dg_dx = partial(&g, x_index, &point)?;
+
+    // The derivative matrices of those same two formulas.
+    let hessian = Hessian::new().evaluate(&g, &point)?;      // 2x2 second derivatives
+    let both = scalar_fn_vec!(|v: &[f64; 2]| [
+        v[0] * v[0] * v[1] + v[0].sin(),
+        v[0] * v[0] * v[0] - c(2.0) * v[0],
+    ]);
+    let jacobian = Jacobian::new().evaluate(&both, &point)?; // 2x2 first derivatives
+
+    // Integration — f again, this time over an interval.
+    let limits = [0.0, 2.0];
+    let area = integral(&|x: f64| f.eval(x), limits)?;       // ∫₀² f = 0
+
+    // Linear algebra — solve H·x = b with the Hessian computed three lines up.
+    let b = Vector::new([1.0, 2.0]);
+    let x = hessian.solve(b)?;
+
+    // Root finding — Newton on the same f, its derivative supplied by autodiff.
+    let initial_guess = 2.0;
+    let root = Newton::new().solve(&f, initial_guess)?.root; // √2 ≈ 1.41421356
+
+    // Rigid-body motion — SO(3)/SE(3), generic over the scalar like everything above.
+    let quarter_turn_about_z = Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2]);
+    let translation = Vector::new([1.0, 2.0, 3.0]);
+    let start = Vector::new([1.0, 0.0, 0.0]);
+
+    let pose = SE3::from_parts(SO3::exp(quarter_turn_about_z), translation);
+    let moved = pose.act(start);                  // rotate, then translate → (1, 3, 3)
+
+    // Estimation — a Kalman filter recovering the velocity it never measures.
+    let initial_state = Vector::new([0.0, 0.0]);  // [position, velocity]
+    let initial_covariance = Matrix::new([[1.0, 0.0], [0.0, 1.0]]);
+    let model = KalmanModel {
+        state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
+        measurement_model: Matrix::new([[1.0, 0.0]]),        // position only
+        process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
+        measurement_noise: Matrix::new([[0.1]]),
+    };
+
+    let mut filter = KalmanFilter::new(initial_state, initial_covariance, model);
+    filter.predict();
+
+    let measurement = Vector::new([1.0]);         // the target moved about 1 m
+    filter.update(measurement)?;
+    let velocity = filter.state()[1];             // recovered, though never measured
+
+    Ok(())
+}
 ```
 
-### ODE integration
+Every fallible call propagates with `?`: each module has its own error enum, and all of them
+convert into the `CalcError` umbrella, so one return type covers a program that mixes modules.
 
-Initial-value solvers for `y' = f(t, y)` systems, generic over the state dimension:
+## Full tutorial
 
-```rust
-use multicalc::ode::{Rk4, Rk45};
-use multicalc::linear_algebra::Vector;
-
-// Harmonic oscillator y'' = -y as the first-order system [position, velocity].
-let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
-let y0 = Vector::new([1.0, 0.0]);
-
-let step = Rk4::step(&f, 0.0, &y0, 0.1);       // one fixed RK4 step of size 0.1
-// adaptive Dormand-Prince 5(4) over one full period returns to the start [1, 0]
-let yf = Rk45::default().solve(&f, 0.0, &y0, core::f64::consts::TAU).unwrap();
-```
-
-Refer to the [guide](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md) for a comprehensive tutorial.
-
-## Error handling
-
-Every fallible call returns a `Result` whose error is the module family's own enum
-(`LinalgError`, `DiffError`, `IntegrateError`, `SolveError`, `KinematicsError`,
-`EstimationError`, `ControlError`, or `MotionError`), each convertible into the `CalcError`
-umbrella. All variants are listed in
-[error.rs](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/src/error.rs).
+Refer to the [guide](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md) for a comprehensive tutorial for each module. It shows the full imports,
+expected outputs in comments, error-path notes, and pointers to runnable demos. Start there when you need the complete picture of a feature.
 
 ## Accuracy
 
-Accuracy is verified against external-library fixtures (`mpmath`, `numpy`, `scipy`, `filterpy`) in
+Verified against external-library fixtures (`mpmath`, `numpy`, `scipy`, `filterpy`) in
 the `multicalc-qa` crate, with per-module tables generated from those fixtures. See
 [benchmarks/README.md](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/README.md)
 for the index, or go straight to

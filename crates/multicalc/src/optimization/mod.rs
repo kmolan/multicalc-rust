@@ -13,8 +13,8 @@
 //! 10 — a clean-room, fixed-size `no_std` reimplementation on this crate's own
 //! [`Vector`](crate::linear_algebra::Vector) and [`Matrix`](crate::linear_algebra::Matrix) types.
 
-pub mod gauss_newton;
-pub mod levenberg_marquardt;
+mod gauss_newton;
+mod levenberg_marquardt;
 pub(crate) mod trust_region;
 
 pub use gauss_newton::GaussNewton;

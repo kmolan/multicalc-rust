@@ -2,6 +2,11 @@
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+// Some guide examples use the alloc-only types, so they are compiled under `alloc` only.
+#[cfg(all(doctest, feature = "alloc"))]
+#[doc = include_str!("../GUIDE.md")]
+pub struct GuideExamples;
+
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 extern crate alloc;
@@ -27,7 +32,7 @@ pub use scalar::Jet;
 pub use scalar::{ScalarFn, ScalarFnN, VectorFn};
 
 /// The plain scalar wrapper, and the marker for numeric constants inside a `scalar_fn!` body.
-pub use scalar::{Primal, c};
+pub use scalar::{Const, Primal, c};
 
 /// Differentiation: the autodiff and finite-difference backends, their shared traits, and the
 /// derivative-matrix types.
@@ -127,5 +132,5 @@ pub mod random;
 pub mod root_finding;
 pub mod scalar;
 pub mod spatial;
-pub mod utils;
+mod utils;
 pub mod vector_field;

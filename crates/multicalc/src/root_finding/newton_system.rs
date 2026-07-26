@@ -2,10 +2,10 @@
 
 use crate::error::SolveError;
 use crate::linear_algebra::Vector;
-use crate::linear_algebra::qr::enorm;
-use crate::numerical_derivative::autodiff::AutoDiffMulti;
-use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-use crate::numerical_derivative::jacobian::Jacobian;
+use crate::linear_algebra::enorm;
+use crate::numerical_derivative::AutoDiffMulti;
+use crate::numerical_derivative::DerivatorMultiVariable;
+use crate::numerical_derivative::Jacobian;
 use crate::root_finding::{RootReportN, RootTermination, all_finite};
 use crate::scalar::{Numeric, Primal, VectorFn};
 
@@ -38,7 +38,9 @@ const MAX_BACKTRACK: usize = 20;
 ///     c(-1.0) + v[0] * v[1],
 /// ]);
 /// let solver: NewtonSystem = NewtonSystem::default();
-/// let report = solver.solve(&f, &[1.5_f64, 0.8]).unwrap();
+/// let initial_guess = [1.5_f64, 0.8];
+///
+/// let report = solver.solve(&f, &initial_guess).unwrap();
 /// assert!(report.residual_norm < 1e-12);
 /// ```
 pub struct NewtonSystem<D: DerivatorMultiVariable = AutoDiffMulti> {
@@ -151,7 +153,7 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
                 });
             }
 
-            let j = jacobian.get(f, &x)?;
+            let j = jacobian.evaluate(f, &x)?;
             if !j.is_finite() {
                 return Err(SolveError::NonFinite);
             }
