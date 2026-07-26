@@ -2,6 +2,10 @@
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+#[cfg(doctest)]
+#[doc = include_str!("../GUIDE.md")]
+pub struct GuideExamples;
+
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 extern crate alloc;

@@ -62,15 +62,104 @@ No heap, no panics, no `unsafe` - from a 64-bit server down to a bare-metal micr
 The [guide](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md) is a comprehensive tutorial for each module. It shows the full imports,
 expected outputs in comments, error-path notes, and pointers to runnable demos. Start there when you need the complete picture of a feature.
 
+## Quick start
+
+Two formulas, written once, carried through six modules — each step feeding the next:
+
+```rust
+use multicalc::prelude::*;
+use multicalc::{Hessian, Jacobian, KalmanFilter, KalmanModel, Matrix, Newton, SE3, SO3, Vector, c};
+use multicalc::{scalar_fn, scalar_fn_vec};
+
+fn main() -> Result<(), CalcError> {
+    // Written once, evaluated at f64 here and at an autodiff number wherever a derivative is asked
+    // for — the formula text never changes.
+    let f = scalar_fn!(|x| x * x * x - c(2.0) * x);                     // f(x)    = x³ - 2x
+    let g = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1] + v[0].sin()); // g(x, y) = x²y + sin x
+
+    // Derivatives — exact, by forward-mode autodiff. No step size, no truncation error.
+    let slope = derivative(&f, 2.0_f64);                     // f'(2)  = 10
+    let bend = second_derivative(&f, 2.0_f64);               // f''(2) = 12
+    let dg_dx = partial(&g, 0, &[1.0_f64, 2.0])?;            // ∂g/∂x at (1, 2)
+
+    // The derivative matrices of those same two formulas.
+    let hessian = Hessian::new().evaluate(&g, &[1.0, 2.0])?;            // 2x2 second derivatives
+    let both = scalar_fn_vec!(|v: &[f64; 2]| [
+        v[0] * v[0] * v[1] + v[0].sin(),
+        v[0] * v[0] * v[0] - c(2.0) * v[0],
+    ]);
+    let jacobian = Jacobian::new().evaluate(&both, &[1.0, 2.0])?;       // 2x2 first derivatives
+
+    // Integration — f again, this time over an interval.
+    let area = integral(&|x: f64| f.eval(x), [0.0, 2.0])?;   // ∫₀² f = 0
+
+    // Linear algebra — solve H·x = b with the Hessian computed three lines up.
+    let x = hessian.solve(Vector::new([1.0, 2.0]))?;
+
+    // Root finding — Newton on the same f, its derivative supplied by autodiff.
+    let root = Newton::new().solve(&f, 2.0)?.root;           // √2 ≈ 1.41421356
+
+    // Rigid-body motion — SO(3)/SE(3), generic over the scalar like everything above.
+    let turn = SO3::exp(Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2]));  // 90° about z
+    let pose = SE3::from_parts(turn, Vector::new([1.0, 2.0, 3.0]));
+    let moved = pose.act(Vector::new([1.0, 0.0, 0.0]));      // rotate, then translate → (1, 3, 3)
+
+    // Estimation — a Kalman filter recovering the velocity it never measures.
+    let mut filter = KalmanFilter::new(
+        Vector::new([0.0, 0.0]),                 // initial state [position, velocity]
+        Matrix::new([[1.0, 0.0], [0.0, 1.0]]),   // initial covariance
+        KalmanModel {
+            state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
+            measurement_model: Matrix::new([[1.0, 0.0]]),    // position only
+            process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
+            measurement_noise: Matrix::new([[0.1]]),
+        },
+    );
+    filter.predict();
+    filter.update(Vector::new([1.0]))?;          // the target moved about 1 m
+    let velocity = filter.state()[1];            // recovered, though never measured
+
+    Ok(())
+}
+```
+
+Every fallible call propagates with `?`: each module has its own error enum, and all of them
+convert into the `CalcError` umbrella, so one return type covers a program that mixes modules.
+
+Import with `use multicalc::prelude::*;` for the traits and one-call functions, plus the types you
+need from the crate root.
+
+**Two ways in, throughout the crate.** The one-call functions — `derivative`, `second_derivative`,
+`partial`, `integral` — need no imported trait and no configuration, and use exact automatic
+differentiation. The strategy objects — `AutoDiffSingle`, `FiniteDifferenceSingle`,
+`IterativeSingle`, `GaussianSingle` — are how you choose a different method, a step size, an
+iteration count, or a derivative order above the second. Both compute the same answers.
+
 ## Example snippets
 
 ### Exact derivatives
 
-One formula, differentiated to any order by forward-mode autodiff:
+The short way, and the configurable way when you need a third derivative:
 
 ```rust
-use multicalc::numerical_derivative::{AutoDiffSingle, AutoDiffMulti};
-use multicalc::numerical_derivative::{DerivatorSingleVariable, DerivatorMultiVariable};
+use multicalc::{derivative, second_derivative, partial};
+use multicalc::scalar_fn;
+
+let f = scalar_fn!(|x| x * x * x);                       // f(x) = x^3
+let first = derivative(&f, 2.0_f64);                     // 12.0
+let second = second_derivative(&f, 2.0_f64);             // 12.0
+
+// One partial of a multivariable function, by variable index.
+let g = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1]);   // g(x, y) = x^2 * y
+let dx = partial(&g, 0, &[3.0_f64, 4.0])?;               // dg/dx = 2xy = 24.0
+# Ok::<(), multicalc::DiffError>(())
+```
+
+Any order, and mixed partials, through the autodiff objects:
+
+```rust
+use multicalc::{AutoDiffSingle, AutoDiffMulti};
+use multicalc::{DerivatorSingleVariable, DerivatorMultiVariable};
 use multicalc::scalar_fn;
 
 let f = scalar_fn!(|x| x * x * x);           // f(x) = x^3
@@ -90,10 +179,10 @@ let mixed = dm.differentiate(&g, &[0, 1], &[3.0, 4.0]).unwrap();          // d^2
 Newton-Cotes and Gaussian rules over finite, semi-infinite, and infinite limits:
 
 ```rust
-use multicalc::numerical_integration::IntegratorSingleVariable;
-use multicalc::numerical_integration::IterativeSingle;
-use multicalc::numerical_integration::GaussianSingle;
-use multicalc::numerical_integration::GaussianQuadratureMethod;
+use multicalc::IntegratorSingleVariable;
+use multicalc::IterativeSingle;
+use multicalc::GaussianSingle;
+use multicalc::GaussianQuadratureMethod;
 
 let integrator = IterativeSingle::default();     // Boole's rule, 120 intervals
 
@@ -115,9 +204,9 @@ Author the residuals `model - data` with `scalar_fn_vec!`; `LevenbergMarquardt` 
 them under autodiff and drives the fit:
 
 ```rust
-use multicalc::optimization::LevenbergMarquardt;
-use multicalc::numerical_derivative::AutoDiffMulti;
-use multicalc::scalar::c;
+use multicalc::LevenbergMarquardt;
+use multicalc::AutoDiffMulti;
+use multicalc::c;
 use multicalc::scalar_fn_vec;
 
 // Fit a*e^(b*t) to (0, 100), (1, 50), (2, 25): the minimum is a = 100, b = -ln 2.
@@ -138,7 +227,7 @@ Fixed-size `Matrix` and `Vector` with dimensions as const generics (shape mismat
 compile errors):
 
 ```rust
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::{Matrix, Vector};
 
 // Solve A·x = b.
 let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
@@ -156,8 +245,8 @@ let s_inv = s.cholesky().unwrap().inverse();
 flows straight through:
 
 ```rust
-use multicalc::spatial::{SE3, SO3};
-use multicalc::linear_algebra::Vector;
+use multicalc::{SE3, SO3};
+use multicalc::Vector;
 
 let r = SO3::<f64>::exp(Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2])); // 90° about z
 let g = SE3::from_parts(r, Vector::new([1.0, 2.0, 3.0]));
@@ -167,33 +256,32 @@ let xi = g.log();                              // 6-vector twist [v; ω]
 
 ### Tracking a robot's state
 
-A Kalman filter recovers what you never measure directly — here velocity, from position alone.
 `ExtendedKalmanFilter` takes its process and measurement models as functions instead of matrices and
 re-linearizes them each step, with the Jacobians coming from autodiff, so a nonlinear model needs no
-hand-derived matrices:
+hand-derived matrices. The linear filter from [Quick start](#quick-start) also reports how
+surprising each measurement was, which is how you reject an outlier before folding it in:
 
 ```rust
-use multicalc::estimation::{KalmanFilter, KalmanModel};
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::{CovarianceUpdate, KalmanFilter, KalmanModel, Matrix, Vector};
 
-// Constant velocity: position integrates velocity over a 1 s step, and only position is measured.
 let mut filter = KalmanFilter::new(
-    Vector::new([0.0, 0.0]),                    // initial state [position, velocity]
-    Matrix::new([[1.0, 0.0], [0.0, 1.0]]),      // initial covariance
+    Vector::new([0.0, 0.0]),
+    Matrix::new([[1.0, 0.0], [0.0, 1.0]]),
     KalmanModel {
         state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
-        measurement_model: Matrix::new([[1.0, 0.0]]),   // position only
+        measurement_model: Matrix::new([[1.0, 0.0]]),
         process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
         measurement_noise: Matrix::new([[0.1]]),
     },
-);
+)
+.with_covariance_update(CovarianceUpdate::Joseph);   // the default; symmetric by construction
 
 filter.predict();
-filter.update(Vector::new([1.0])).unwrap();     // the target moved about 1 m
-let velocity = filter.state()[1];               // recovered, though never measured
+filter.update(Vector::new([1.0]))?;
 
-// Gate an outlier before folding it in.
-let gate = filter.normalized_innovation_squared().unwrap();
+// How far the measurement fell from the prediction, in units of its own uncertainty.
+let gate = filter.normalized_innovation_squared()?;
+# Ok::<(), multicalc::EstimationError>(())
 ```
 
 ### Root finding
@@ -201,9 +289,9 @@ let gate = filter.normalized_innovation_squared().unwrap();
 Scalar equations and square systems `F(x) = 0`, with exact autodiff derivatives:
 
 ```rust
-use multicalc::root_finding::{Bisection, Newton, NewtonSystem};
-use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
-use multicalc::scalar::c;
+use multicalc::{Bisection, Newton, NewtonSystem};
+use multicalc::{AutoDiffMulti, AutoDiffSingle};
+use multicalc::c;
 use multicalc::{scalar_fn, scalar_fn_vec};
 
 let f = scalar_fn!(|x| c(-2.0) + x * x);       // f(x) = x^2 - 2, root at sqrt(2)
@@ -221,8 +309,8 @@ let solved = NewtonSystem::<AutoDiffMulti>::default().solve(&system, &[1.5, 0.8]
 Initial-value solvers for `y' = f(t, y)` systems, generic over the state dimension:
 
 ```rust
-use multicalc::ode::{Rk4, Rk45};
-use multicalc::linear_algebra::Vector;
+use multicalc::{Rk4, Rk45};
+use multicalc::Vector;
 
 // Harmonic oscillator y'' = -y as the first-order system [position, velocity].
 let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);

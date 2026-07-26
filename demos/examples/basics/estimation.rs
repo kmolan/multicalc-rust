@@ -8,12 +8,10 @@
 //! Run with: `cargo run -p multicalc-demos --example estimation`
 //! (or `--no-default-features --features alloc` for the particle-filter section).
 
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-
-use multicalc::discretization::q_discrete_white_noise;
-use multicalc::estimation::{CovarianceUpdate, ExtendedKalmanFilter, KalmanFilter, KalmanModel};
-use multicalc::linear_algebra::{Matrix, Vector};
-use multicalc::scalar::{Dual, Numeric, VectorFn};
+use multicalc::{
+    CalcError, CovarianceUpdate, Dual, ExtendedKalmanFilter, KalmanFilter, KalmanModel, Matrix,
+    Numeric, Vector, VectorFn, q_discrete_white_noise,
+};
 
 fn report(label: &str, value: f64, exact: f64) {
     assert!((value - exact).abs() < 1e-9, "{label}: |err| too large");
@@ -138,9 +136,8 @@ impl VectorFn<3, 4> for BeaconRanges {
 /// the room and pulls in as the beacon ranges rule out where the robot cannot be — the kind of
 /// many-hypotheses belief a single Gaussian cannot hold.
 #[cfg(feature = "alloc")]
-fn particle_filter() {
-    use multicalc::estimation::{GaussianLikelihood, ParticleFilter, ResamplingScheme};
-    use multicalc::random::{Pcg32, RandomSource};
+fn particle_filter() -> Result<(), CalcError> {
+    use multicalc::{GaussianLikelihood, ParticleFilter, Pcg32, RandomSource, ResamplingScheme};
 
     let particle_count = 1500;
     let timestep = 1.0;
@@ -159,12 +156,10 @@ fn particle_filter() {
         Matrix::new([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 4.0]]), // wide prior
         Matrix::new([[0.02, 0.0, 0.0], [0.0, 0.02, 0.0], [0.0, 0.0, 0.01]]), // odometry noise
         7,
-    )
-    .unwrap()
+    )?
     .with_resampling(ResamplingScheme::Systematic);
     let sensor =
-        GaussianLikelihood::new(Matrix::<4, 4>::identity().scale(range_noise * range_noise))
-            .unwrap();
+        GaussianLikelihood::new(Matrix::<4, 4>::identity().scale(range_noise * range_noise))?;
 
     // The true pose the robot actually follows; the filter never sees it. Each measurement is the
     // true ranges plus sensor noise, drawn from a seeded generator so the run reproduces exactly.
@@ -180,8 +175,8 @@ fn particle_filter() {
             true_ranges[i] + range_noise * range_generator.standard_normal()
         }));
 
-        filter.predict(&motion).unwrap();
-        filter.update(&BeaconRanges, &sensor, measurement).unwrap();
+        filter.predict(&motion)?;
+        filter.update(&BeaconRanges, &sensor, measurement)?;
 
         let estimate = filter.mean();
         println!(
@@ -223,6 +218,8 @@ fn particle_filter() {
         (1.0..=particle_count as f64 + 1e-6).contains(&filter.effective_sample_size()),
         "effective sample size stays between one and the particle count"
     );
+
+    Ok(())
 }
 
 /// How far the cloud reaches in position: the square root of the summed weighted variance of the x
@@ -239,13 +236,15 @@ fn position_spread<R: multicalc::random::RandomSource>(
     variance.sqrt()
 }
 
-fn main() {
+// Every fallible call below propagates with `?`. The estimation calls return `EstimationError`,
+// which converts into the `CalcError` umbrella on the way out.
+fn main() -> Result<(), CalcError> {
     // (1) Two steps with no process noise, worked by hand: with P0 = I, R = 1 and z = [1, 2],
     // the posterior is x = [5/3, 2/3] and P = [[2/3, 1/3], [1/3, 1/3]].
     let mut filter = tracker::<f64>(Matrix::identity(), Matrix::zeros(), Matrix::new([[1.0]]));
     for z in [1.0, 2.0] {
         filter.predict();
-        filter.update(Vector::new([z])).unwrap();
+        filter.update(Vector::new([z]))?;
     }
     println!("Exact two-step filter (P0 = I, Q = 0, R = 1, z = [1, 2])");
     report("position", filter.state()[0], 5.0 / 3.0);
@@ -270,7 +269,7 @@ fn main() {
     println!("\nTracking a 1 m/s target from x = [0, 0] with a wide prior");
     for (step, z) in measurements.iter().enumerate() {
         filter.predict();
-        filter.update(Vector::new([*z])).unwrap();
+        filter.update(Vector::new([*z]))?;
         println!(
             "  t = {:>2}s  measured {:>5.2}  ->  position {:>6.3}, velocity {:>6.3}  (trace P {:>7.4})",
             step + 1,
@@ -304,7 +303,7 @@ fn main() {
     .with_covariance_update(CovarianceUpdate::Naive);
     for z in measurements.iter() {
         naive.predict();
-        naive.update(Vector::new([*z])).unwrap();
+        naive.update(Vector::new([*z]))?;
     }
     println!("\nJoseph (default) vs naive covariance update");
     report("state agreement", (naive.state()[0] - position).abs(), 0.0);
@@ -323,7 +322,7 @@ fn main() {
     let control_model = Matrix::<2, 1>::new([[0.5], [1.0]]); // [dt²/2; dt] for dt = 1
     for z in [0.4, 2.1, 4.4, 8.2] {
         driven.predict_with_control(control_model, Vector::new([1.0])); // 1 m/s² command
-        driven.update(Vector::new([z])).unwrap();
+        driven.update(Vector::new([z]))?;
     }
     println!("\nDriven filter (1 m/s² command through the control model)");
     println!(
@@ -339,11 +338,11 @@ fn main() {
     // (5) Innovation gating: the normalized innovation squared flags an outlier measurement.
     let mut gated = tracker::<f64>(Matrix::identity(), Matrix::zeros(), Matrix::new([[0.25]]));
     gated.predict();
-    gated.update(Vector::new([1.0])).unwrap();
-    let consistent = gated.normalized_innovation_squared().unwrap();
+    gated.update(Vector::new([1.0]))?;
+    let consistent = gated.normalized_innovation_squared()?;
     gated.predict();
-    gated.update(Vector::new([50.0])).unwrap();
-    let outlier = gated.normalized_innovation_squared().unwrap();
+    gated.update(Vector::new([50.0]))?;
+    let outlier = gated.normalized_innovation_squared()?;
     println!("\nInnovation gating (yᵀ·S⁻¹·y)");
     println!("  consistent measurement: {consistent:.3}");
     println!("  outlier  measurement:   {outlier:.3}");
@@ -357,7 +356,7 @@ fn main() {
     let mut reference = tracker::<f64>(Matrix::identity(), Matrix::zeros(), Matrix::new([[0.25]]));
     reference.predict();
     let prior_position_variance = reference.covariance()[(0, 0)];
-    reference.update(Vector::new([1.0])).unwrap();
+    reference.update(Vector::new([1.0]))?;
     let gain = prior_position_variance / reference.innovation_covariance()[(0, 0)];
 
     let mut differentiated = tracker::<Dual<f64>>(
@@ -366,9 +365,7 @@ fn main() {
         Matrix::new([[Dual::constant(0.25)]]),
     );
     differentiated.predict();
-    differentiated
-        .update(Vector::new([Dual::variable(1.0)]))
-        .unwrap();
+    differentiated.update(Vector::new([Dual::variable(1.0)]))?;
 
     println!("\nAutodiff: d(position)/d(measurement) equals the Kalman gain");
     report("d(position)/dz", differentiated.state()[0].deriv, gain);
@@ -388,9 +385,7 @@ fn main() {
     };
     let uncertainty_before = trace(extended.covariance());
     // From the true pose the landmark is at range 5, bearing atan2(4, 3).
-    extended
-        .update(&landmark, Vector::new([5.0, 4.0_f64.atan2(3.0)]))
-        .unwrap();
+    extended.update(&landmark, Vector::new([5.0, 4.0_f64.atan2(3.0)]))?;
     let uncertainty_after = trace(extended.covariance());
     println!("\nExtended filter: one range/bearing sighting of a landmark at (3, 4)");
     println!("  uncertainty (trace P): {uncertainty_before:.3} -> {uncertainty_after:.3}");
@@ -413,12 +408,10 @@ fn main() {
         Matrix::new([[0.5]]),
     );
     for z in [0.5, 1.0, 1.5, 2.0] {
-        reduced.predict(&ConstantVelocityMotion).unwrap();
-        reduced
-            .update(&PositionMeasurement, Vector::new([z]))
-            .unwrap();
+        reduced.predict(&ConstantVelocityMotion)?;
+        reduced.update(&PositionMeasurement, Vector::new([z]))?;
         linear.predict();
-        linear.update(Vector::new([z])).unwrap();
+        linear.update(Vector::new([z]))?;
     }
     println!("\nExtended filter reduces to the linear filter on linear models");
     report(
@@ -439,9 +432,7 @@ fn main() {
         Matrix::zeros(),
         Matrix::new([[0.05]]),
     );
-    unwrapped
-        .update(&Compass, Vector::new([measurement]))
-        .unwrap();
+    unwrapped.update(&Compass, Vector::new([measurement]))?;
 
     let mut wrapped = ExtendedKalmanFilter::<1, 1>::new(
         Vector::new([3.1]),
@@ -451,9 +442,7 @@ fn main() {
     );
     let predicted = Compass.eval(wrapped.state().as_array())[0];
     let residual = wrap_to_pi(measurement - predicted);
-    wrapped
-        .update_with_residual(&Compass, Vector::new([residual]))
-        .unwrap();
+    wrapped.update_with_residual(&Compass, Vector::new([residual]))?;
 
     println!("\nAngle wrapping near ±π (true heading error ≈ 0.08 rad)");
     println!(
@@ -477,7 +466,10 @@ fn main() {
     // cloud of weighted samples instead of one Gaussian. It is heap-backed, so it lives behind the
     // `alloc` feature; without it, the rest of the example still runs.
     #[cfg(feature = "alloc")]
-    particle_filter();
+    particle_filter()?;
+
     #[cfg(not(feature = "alloc"))]
     println!("\nParticle-filter section needs --features alloc");
+
+    Ok(())
 }

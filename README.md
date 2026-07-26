@@ -62,11 +62,73 @@ screen is measured live, inside a 1 ms tick.*
 - [Approximation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#taylor-approximation): linear and quadratic Taylor models with goodness-of-fit metrics.
 - [Random](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#random): `Pcg32` and the `RandomSource` trait, a seedable `no_std` generator for the particle filter and for stochastic models.
 
-## Install
+## Quick start
 
-```sh
-cargo add multicalc
+Two formulas, written once, carried through six modules — each step feeding the next:
+
+```rust
+use multicalc::prelude::*;
+use multicalc::{Hessian, Jacobian, KalmanFilter, KalmanModel, Matrix, Newton, SE3, SO3, Vector, c};
+use multicalc::{scalar_fn, scalar_fn_vec};
+
+fn main() -> Result<(), CalcError> {
+    // Written once, evaluated at f64 here and at an autodiff number wherever a derivative is asked
+    // for — the formula text never changes.
+    let f = scalar_fn!(|x| x * x * x - c(2.0) * x);                     // f(x)    = x³ - 2x
+    let g = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1] + v[0].sin()); // g(x, y) = x²y + sin x
+
+    // Derivatives — exact, by forward-mode autodiff. No step size, no truncation error.
+    let slope = derivative(&f, 2.0_f64);                     // f'(2)  = 10
+    let bend = second_derivative(&f, 2.0_f64);               // f''(2) = 12
+    let dg_dx = partial(&g, 0, &[1.0_f64, 2.0])?;            // ∂g/∂x at (1, 2)
+
+    // The derivative matrices of those same two formulas.
+    let hessian = Hessian::new().evaluate(&g, &[1.0, 2.0])?;            // 2x2 second derivatives
+    let both = scalar_fn_vec!(|v: &[f64; 2]| [
+        v[0] * v[0] * v[1] + v[0].sin(),
+        v[0] * v[0] * v[0] - c(2.0) * v[0],
+    ]);
+    let jacobian = Jacobian::new().evaluate(&both, &[1.0, 2.0])?;       // 2x2 first derivatives
+
+    // Integration — f again, this time over an interval.
+    let area = integral(&|x: f64| f.eval(x), [0.0, 2.0])?;   // ∫₀² f = 0
+
+    // Linear algebra — solve H·x = b with the Hessian computed three lines up.
+    let x = hessian.solve(Vector::new([1.0, 2.0]))?;
+
+    // Root finding — Newton on the same f, its derivative supplied by autodiff.
+    let root = Newton::new().solve(&f, 2.0)?.root;           // √2 ≈ 1.41421356
+
+    // Rigid-body motion — SO(3)/SE(3), generic over the scalar like everything above.
+    let turn = SO3::exp(Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2]));  // 90° about z
+    let pose = SE3::from_parts(turn, Vector::new([1.0, 2.0, 3.0]));
+    let moved = pose.act(Vector::new([1.0, 0.0, 0.0]));      // rotate, then translate → (1, 3, 3)
+
+    // Estimation — a Kalman filter recovering the velocity it never measures.
+    let mut filter = KalmanFilter::new(
+        Vector::new([0.0, 0.0]),                 // initial state [position, velocity]
+        Matrix::new([[1.0, 0.0], [0.0, 1.0]]),   // initial covariance
+        KalmanModel {
+            state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
+            measurement_model: Matrix::new([[1.0, 0.0]]),    // position only
+            process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
+            measurement_noise: Matrix::new([[0.1]]),
+        },
+    );
+    filter.predict();
+    filter.update(Vector::new([1.0]))?;          // the target moved about 1 m
+    let velocity = filter.state()[1];            // recovered, though never measured
+
+    Ok(())
+}
 ```
+
+Every fallible call propagates with `?`: each module has its own error enum, and all of them
+convert into the `CalcError` umbrella, so one return type covers a program that mixes modules.
+
+Import with `use multicalc::prelude::*;` for the traits and one-call functions, plus the types you
+need from the crate root. The one-call functions (`derivative`, `partial`, `integral`) cover the
+common case; the strategy objects behind them are how you pick a different method or step size.
 
 ## Tutorial
 
