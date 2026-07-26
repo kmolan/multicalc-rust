@@ -218,8 +218,19 @@ fn check_vector_normalized<const N: usize>(mut v: Vector<N>) -> Result<(), TestC
     let normalized = v.normalized();
     assert_scalar_close(normalized.norm(), 1.0, tol);
 
+    // The normalized and try_normalized operations are identical when normalization is possible.
+    assert_eq!(Some(normalized), v.try_normalized());
+
+    // Create a copy of the vector to test both mutable operations.
+    let mut v_copy = v;
+
+    // In-place normalization gives the same result as returning a copy.
     v.normalize();
-    assert_scalar_close(v.norm(), 1.0, tol);
+    assert_eq!(v, normalized);
+
+    // Fallible in-place normalization also agrees;
+    assert!(v_copy.try_normalize().is_ok());
+    assert_eq!(v_copy, normalized);
 
     Ok(())
 }
@@ -232,8 +243,14 @@ fn zero_vector_normalize() {
     near_zero.normalize();
     assert_eq!(near_zero, Vector::new([1.0f64, 0.0, 0.0]));
 
-    // The zero vector will normalize to NAN
     let mut zero = Vector::new([0.0f64, 0.0, 0.0]);
+
+    // Fallible normalization rejects the zero vector
+    assert_eq!(zero.try_normalized(), None);
+    assert!(zero.try_normalize().is_err());
+    assert_eq!(zero, Vector::new([0.0f64, 0.0, 0.0]));
+
+    // The zero vector will normalize to NAN via the unchecked functions
     assert!(
         zero.normalized()
             .into_array()

@@ -264,6 +264,25 @@ impl<const N: usize, T: Numeric> Vector<N, T> {
         self / self.norm()
     }
 
+    /// Attempts to return a normalized copy of the vector (i.e. one where the norm is equal to 1),
+    /// returning `None` in the case of a zero vector or a vector with a `NAN` entry.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// assert_eq!(Vector::new([30.0, 40.0]).try_normalized(), Some(Vector::new([0.6, 0.8])));
+    /// assert_eq!(Vector::new([0.0, 0.0]).try_normalized(), None);
+    /// assert_eq!(Vector::new([f64::NAN, 0.0]).try_normalized(), None);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn try_normalized(self) -> Option<Self> {
+        let norm = self.norm();
+        if norm.is_nan() || norm == T::ZERO {
+            return None;
+        }
+        Some(self / norm)
+    }
+
     /// Normalize the vector in-place (i.e. after this operation the norm is equal to 1).
     ///
     /// ```
@@ -275,6 +294,36 @@ impl<const N: usize, T: Numeric> Vector<N, T> {
     #[inline]
     pub fn normalize(&mut self) {
         let norm = self.norm();
+        self.do_normalize(norm);
+    }
+
+    /// Attempt to normalize the vector in-place (i.e. after this operation the norm is equal to 1).
+    /// This method returns an error and leaves the vector unchanged if the norm is zero or NAN.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// let mut v = Vector::new([30.0, 40.0]);
+    /// assert!(v.try_normalize().is_ok());
+    /// assert_eq!(v, Vector::new([0.6, 0.8]));
+    ///
+    /// let mut v = Vector::new([0.0, 0.0]);
+    /// assert!(v.try_normalize().is_err());
+    /// assert_eq!(v, Vector::new([0.0, 0.0]));
+    ///
+    /// let mut v = Vector::new([f64::NAN, 1.0]);
+    /// assert!(v.try_normalize().is_err());
+    /// ```
+    #[inline]
+    pub fn try_normalize(&mut self) -> Result<(), &'static str> {
+        let norm = self.norm();
+        if norm.is_nan() || norm == T::ZERO {
+            return Err("Failed to normalize vector");
+        }
+        self.do_normalize(norm);
+        Ok(())
+    }
+
+    fn do_normalize(&mut self, norm: T) {
         for x in self.data.iter_mut() {
             *x = x.safe_div(norm);
         }
