@@ -25,7 +25,7 @@ use crate::scalar::{Dual, HyperDual, Numeric, ScalarFn, ScalarFnN};
 
 /// The derivative of a single-variable function at a point.
 ///
-/// For a third or higher derivative, or to choose finite differences instead, 
+/// For a third or higher derivative, or to choose finite differences instead,
 /// use [`AutoDiffSingle`] or [`FiniteDifferenceSingle`].
 ///
 /// # Examples
