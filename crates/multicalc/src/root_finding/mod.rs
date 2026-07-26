@@ -2,14 +2,14 @@
 //!
 //! - [`Bisection`] — brackets a scalar root and halves the interval within a guaranteed budget.
 //! - [`Newton`] / [`NewtonSystem`] — Newton steps from any
-//!   [`Derivator`](crate::numerical_derivative::derivator) (exact autodiff by default), with an
-//!   optional backtracking line search.
+//!   [`DerivatorSingleVariable`](crate::numerical_derivative::DerivatorSingleVariable) (exact
+//!   autodiff by default), with an optional backtracking line search.
 //!
 //! Every solver takes an iteration budget and reports why it stopped as a [`RootTermination`].
 
-pub mod bisection;
-pub mod newton;
-pub mod newton_system;
+mod bisection;
+mod newton;
+mod newton_system;
 
 pub use bisection::Bisection;
 pub use newton::Newton;

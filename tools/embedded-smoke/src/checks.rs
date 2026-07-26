@@ -17,17 +17,17 @@ use multicalc::control::{FollowTheGap, Pid, pure_pursuit_curvature};
 use multicalc::error::LinalgError;
 use multicalc::estimation::{ExtendedKalmanFilter, KalmanFilter, KalmanModel};
 use multicalc::linear_algebra::{Matrix, Vector};
-use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
-use multicalc::numerical_derivative::derivator::DerivatorSingleVariable;
-use multicalc::numerical_derivative::jacobian::Jacobian;
-use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
-use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
-use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
+use multicalc::numerical_derivative::DerivatorSingleVariable;
+use multicalc::numerical_derivative::Jacobian;
+use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
+use multicalc::numerical_integration::GaussianQuadratureMethod;
+use multicalc::numerical_integration::GaussianSingle;
+use multicalc::numerical_integration::IntegratorSingleVariable;
 use multicalc::root_finding::Newton;
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc::scalar_fn;
 use multicalc::spatial::SE2;
-use multicalc::vector_field::{curl, divergence};
+use multicalc::vector_field::{curl_3d, divergence_3d};
 use multicalc_testkit::problems::{Jac23, Rosenbrock, VField3d, Wien};
 
 use crate::fixtures;
@@ -79,7 +79,9 @@ pub fn lm_fit() -> f64 {
 pub fn autodiff_derivative() -> f64 {
     let f = scalar_fn!(|x| x * x * x);
     let d = AutoDiffSingle::default();
-    let value = d.get(1, &f, black_box(2.0_f64)).expect("derivative");
+    let value = d
+        .differentiate(1, &f, black_box(2.0_f64))
+        .expect("derivative");
     assert_close!("autodiff_derivative", black_box(value), 12.0, 1e-12, 0.0);
     black_box(value)
 }
@@ -90,7 +92,9 @@ pub fn autodiff_derivative() -> f64 {
 pub fn autodiff_derivative_f32() -> f32 {
     let f = scalar_fn!(|x| x * x * x);
     let d = AutoDiffSingle::default();
-    let value: f32 = d.get(1, &f, black_box(2.0_f32)).expect("derivative f32");
+    let value: f32 = d
+        .differentiate(1, &f, black_box(2.0_f32))
+        .expect("derivative f32");
     // f32 tolerance is looser than f64; assert in f32 space directly.
     let ok = (value - 12.0_f32).abs() <= 1e-4;
     if !ok {
@@ -215,7 +219,7 @@ pub fn quadrature_identity() -> f64 {
     let f = |x: f64| 2.0 * x;
     let quad = GaussianSingle::<f64>::from_parameters(4, GaussianQuadratureMethod::GaussLegendre);
     let value = quad
-        .get_single(&f, &black_box([0.0, 2.0]))
+        .single_integral(&f, &black_box([0.0, 2.0]))
         .expect("quadrature");
     assert_close!("quadrature", black_box(value), 4.0, 1e-12, 0.0);
     black_box(value)
@@ -226,7 +230,7 @@ pub fn quadrature_identity() -> f64 {
 #[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
 pub fn jacobian_identity() -> f64 {
     let j = Jacobian::<AutoDiffMulti>::default()
-        .get(&Jac23, &black_box([1.0, 2.0, 3.0]))
+        .evaluate(&Jac23, &black_box([1.0, 2.0, 3.0]))
         .expect("jacobian");
     let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
     for r in 0..2 {
@@ -242,12 +246,12 @@ pub fn jacobian_identity() -> f64 {
 #[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
 pub fn vector_field_identity() -> f64 {
     let point = black_box([1.0, 2.0, 3.0]);
-    let c = curl::get_3d(AutoDiffMulti::default(), &VField3d, &point).expect("curl");
+    let c = curl_3d(AutoDiffMulti::default(), &VField3d, &point).expect("curl");
     let expected_curl = [0.0, 0.0, -2.0];
     for i in 0..3 {
         assert_close!("vfield_curl", black_box(c[i]), expected_curl[i], 1e-12, 0.0);
     }
-    let d = divergence::get_3d(AutoDiffMulti::default(), &VField3d, &point).expect("divergence");
+    let d = divergence_3d(AutoDiffMulti::default(), &VField3d, &point).expect("divergence");
     assert_close!("vfield_div", black_box(d), 2.0, 1e-12, 0.0);
     black_box(d)
 }

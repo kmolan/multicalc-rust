@@ -5,8 +5,8 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::approximation::linear_approximation::LinearApproximator;
-use multicalc::approximation::quadratic_approximation::QuadraticApproximator;
+use multicalc::approximation::LinearApproximator;
+use multicalc::approximation::QuadraticApproximator;
 use multicalc::scalar::{ScalarFnN, c};
 use multicalc::scalar_fn;
 
@@ -16,7 +16,7 @@ fn main() {
     let base = [1.0, 2.0, 3.0];
 
     let linear: LinearApproximator = LinearApproximator::default();
-    let model = linear.get(&f, &base).unwrap();
+    let model = linear.approximate(&f, &base).unwrap();
     // A first-order model is exact at its own expansion point.
     assert!((model.predict(&base) - f.eval(&base)).abs() < 1e-9);
 
@@ -41,7 +41,7 @@ fn main() {
         [1.2, 2.1, 3.2],
         [0.8, 1.9, 2.8],
     ];
-    let metrics = model.get_prediction_metrics(&samples, &f);
+    let metrics = model.prediction_metrics(&samples, &f);
     println!(
         "  over {} points: RMSE = {:.4}, R^2 = {:.5}",
         samples.len(),
@@ -54,7 +54,7 @@ fn main() {
     let base = [0.0, std::f64::consts::FRAC_PI_2, 10.0];
 
     let quadratic: QuadraticApproximator = QuadraticApproximator::default();
-    let model = quadratic.get(&g, &base).unwrap();
+    let model = quadratic.approximate(&g, &base).unwrap();
 
     println!("\nQuadratic model of e^(x/2) + sin(y) + 2z about (0, pi/2, 10)");
     let nearby = [0.1, std::f64::consts::FRAC_PI_2 + 0.1, 10.1];

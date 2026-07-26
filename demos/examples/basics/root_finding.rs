@@ -5,7 +5,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
+use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::root_finding::{Bisection, Newton, NewtonSystem};
 use multicalc::scalar::c;
 use multicalc::{scalar_fn, scalar_fn_vec};

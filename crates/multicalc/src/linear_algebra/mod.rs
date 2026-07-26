@@ -10,21 +10,24 @@
 //! let _ = Vector::new([1.0, 2.0]) + Vector::new([1.0, 2.0, 3.0]);
 //! ```
 
-pub mod cholesky;
-pub mod expm;
-pub mod lu;
-pub mod macros;
-pub mod matrix;
-pub mod qr;
-pub mod svd;
-pub mod vector;
+mod cholesky;
+mod expm;
+mod lu;
+mod macros;
+mod matrix;
+mod qr;
+mod svd;
+mod vector;
 
 pub use cholesky::Cholesky;
 pub use lu::Lu;
 pub use matrix::Matrix;
-pub use qr::PivotedQr;
+pub use qr::{CholeskyFactor, DampedLeastSquares, PivotedQr};
 pub use svd::Svd;
 pub use vector::Vector;
+
+/// Shared numeric helpers, reachable inside the crate now that `qr` is private.
+pub(crate) use qr::{enorm, max, min};
 
 #[cfg(test)]
 mod test;

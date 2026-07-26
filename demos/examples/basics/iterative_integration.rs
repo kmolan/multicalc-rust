@@ -8,11 +8,9 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::numerical_integration::integrator::{
-    IntegratorMultiVariable, IntegratorSingleVariable,
-};
-use multicalc::numerical_integration::iterative_integration::{IterativeMulti, IterativeSingle};
-use multicalc::numerical_integration::mode::IterativeMethod;
+use multicalc::numerical_integration::IterativeMethod;
+use multicalc::numerical_integration::{IntegratorMultiVariable, IntegratorSingleVariable};
+use multicalc::numerical_integration::{IterativeMulti, IterativeSingle};
 
 fn report(label: &str, value: f64, exact: f64) {
     println!(
@@ -25,7 +23,7 @@ fn main() {
     // ---- single variable: int_0^2 2x dx = 4 ----
     let f = |x: f64| 2.0 * x;
     let integrator = IterativeSingle::default(); // Boole's rule, 120 intervals
-    let two_x = integrator.get_single(&f, &[0.0, 2.0]).unwrap();
+    let two_x = integrator.single_integral(&f, &[0.0, 2.0]).unwrap();
     assert!(
         (two_x - 4.0).abs() < 1e-9,
         "Boole is exact for a linear integrand"
@@ -44,7 +42,9 @@ fn main() {
         ("Trapezoid", IterativeMethod::Trapezoidal),
     ] {
         let solver = IterativeMulti::from_parameters(120, method);
-        let val = solver.get([0, 0, 0], &g, &[[0.0, 1.0]; 3], &point).unwrap();
+        let val = solver
+            .integrate([0, 0, 0], &g, &[[0.0, 1.0]; 3], &point)
+            .unwrap();
         report(name, val, exact);
     }
 
@@ -54,21 +54,21 @@ fn main() {
     report(
         "e^(-x^2)",
         integrator
-            .get_single(&bell, &[f64::NEG_INFINITY, f64::INFINITY])
+            .single_integral(&bell, &[f64::NEG_INFINITY, f64::INFINITY])
             .unwrap(),
         std::f64::consts::PI.sqrt(),
     );
     report(
         "e^(-x)",
         integrator
-            .get_single(&|x| (-x).exp(), &[0.0, f64::INFINITY])
+            .single_integral(&|x| (-x).exp(), &[0.0, f64::INFINITY])
             .unwrap(),
         1.0,
     );
     report(
         "x^(-2)",
         integrator
-            .get_single(&|x| 1.0 / (x * x), &[1.0, f64::INFINITY])
+            .single_integral(&|x| 1.0 / (x * x), &[1.0, f64::INFINITY])
             .unwrap(),
         1.0,
     );
@@ -81,7 +81,7 @@ fn main() {
     report(
         "partial",
         multi
-            .get_single_partial(&h, 0, &[0.0, 1.0], &point)
+            .single_partial_integral(&h, 0, &[0.0, 1.0], &point)
             .unwrap(),
         7.0,
     );

@@ -14,19 +14,19 @@ pub trait DerivatorSingleVariable {
     ///
     /// # Examples
     /// ```
-    /// use multicalc::numerical_derivative::derivator::DerivatorSingleVariable;
-    /// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceSingle;
+    /// use multicalc::numerical_derivative::DerivatorSingleVariable;
+    /// use multicalc::numerical_derivative::FiniteDifferenceSingle;
     /// use multicalc::scalar_fn;
     ///
     /// let func = scalar_fn!(|x| x * x * x);
     /// let derivator = FiniteDifferenceSingle::default();
     ///
-    /// let val = derivator.get(1, &func, 2.0).unwrap();
+    /// let val = derivator.differentiate(1, &func, 2.0).unwrap();
     /// assert!(f64::abs(val - 12.0) < 1e-7);
-    /// let val = derivator.get(2, &func, 2.0).unwrap();
+    /// let val = derivator.differentiate(2, &func, 2.0).unwrap();
     /// assert!(f64::abs(val - 12.0) < 1e-5);
     /// ```
-    fn get<F: ScalarFn>(
+    fn differentiate<F: ScalarFn>(
         &self,
         order: usize,
         func: &F,
@@ -34,21 +34,21 @@ pub trait DerivatorSingleVariable {
     ) -> Result<Self::Scalar, DiffError>;
 
     /// Convenience wrapper for the first derivative.
-    fn get_single<F: ScalarFn>(
+    fn first_derivative<F: ScalarFn>(
         &self,
         func: &F,
         point: Self::Scalar,
     ) -> Result<Self::Scalar, DiffError> {
-        self.get(1, func, point)
+        self.differentiate(1, func, point)
     }
 
     /// Convenience wrapper for the second derivative.
-    fn get_double<F: ScalarFn>(
+    fn second_derivative<F: ScalarFn>(
         &self,
         func: &F,
         point: Self::Scalar,
     ) -> Result<Self::Scalar, DiffError> {
-        self.get(2, func, point)
+        self.differentiate(2, func, point)
     }
 }
 
@@ -68,8 +68,8 @@ pub trait DerivatorMultiVariable {
     ///
     /// # Examples
     /// ```
-    /// use multicalc::numerical_derivative::derivator::DerivatorMultiVariable;
-    /// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
+    /// use multicalc::numerical_derivative::DerivatorMultiVariable;
+    /// use multicalc::numerical_derivative::FiniteDifferenceMulti;
     /// use multicalc::scalar_fn;
     ///
     /// // f(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z
@@ -77,11 +77,11 @@ pub trait DerivatorMultiVariable {
     /// let derivator = FiniteDifferenceMulti::default();
     ///
     /// // mixed partial d(df/dx)/dy
-    /// let val = derivator.get(&func, &[0, 1], &[1.0, 2.0, 3.0]).unwrap();
+    /// let val = derivator.differentiate(&func, &[0, 1], &[1.0, 2.0, 3.0]).unwrap();
     /// let expected = f64::cos(1.0) - f64::sin(2.0) + f64::exp(3.0);
     /// assert!(f64::abs(val - expected) < 0.001);
     /// ```
-    fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize, const NUM_ORDER: usize>(
+    fn differentiate<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize, const NUM_ORDER: usize>(
         &self,
         func: &F,
         idx_to_differentiate: &[usize; NUM_ORDER],
@@ -89,23 +89,23 @@ pub trait DerivatorMultiVariable {
     ) -> Result<Self::Scalar, DiffError>;
 
     /// Convenience wrapper for a single partial derivative.
-    fn get_single_partial<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
+    fn first_partial_derivative<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
         &self,
         func: &F,
         idx_to_differentiate: usize,
         point: &[Self::Scalar; NUM_VARS],
     ) -> Result<Self::Scalar, DiffError> {
-        self.get(func, &[idx_to_differentiate], point)
+        self.differentiate(func, &[idx_to_differentiate], point)
     }
 
     /// Convenience wrapper for a second partial derivative.
-    fn get_double_partial<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
+    fn second_partial_derivative<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
         &self,
         func: &F,
         idx_to_differentiate: &[usize; 2],
         point: &[Self::Scalar; NUM_VARS],
     ) -> Result<Self::Scalar, DiffError> {
-        self.get(func, idx_to_differentiate, point)
+        self.differentiate(func, idx_to_differentiate, point)
     }
 
     /// Returns one column of a vector function's Jacobian: the partial derivative of every

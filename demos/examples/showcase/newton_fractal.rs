@@ -18,7 +18,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::root_finding::NewtonSystem;
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc_demos::loop_util::{LatencyRing, commas};

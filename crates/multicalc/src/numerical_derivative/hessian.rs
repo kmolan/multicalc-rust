@@ -23,7 +23,7 @@ impl Hessian<AutoDiffMulti> {
     /// A Hessian using exact autodiff derivatives.
     ///
     /// ```
-    /// use multicalc::numerical_derivative::hessian::Hessian;
+    /// use multicalc::numerical_derivative::Hessian;
     ///
     /// const H: Hessian = Hessian::new();
     /// ```
@@ -55,7 +55,7 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     ///
     /// # Examples
     /// ```
-    /// use multicalc::numerical_derivative::hessian::Hessian;
+    /// use multicalc::numerical_derivative::Hessian;
     /// use multicalc::scalar::c;
     /// use multicalc::scalar_fn;
     ///
@@ -65,10 +65,10 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     ///
     ///
     /// let hessian: Hessian = Hessian::default();
-    /// let result = hessian.get(&my_func, &[1.0, 2.0]).unwrap();
+    /// let result = hessian.evaluate(&my_func, &[1.0, 2.0]).unwrap();
     /// assert!(f64::abs(result[(0, 0)] - (-2.0 * f64::sin(1.0))) < 1e-12);
     /// ```
-    pub fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
+    pub fn evaluate<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
         &self,
         function: &F,
         vector_of_points: &[D::Scalar; NUM_VARS],
@@ -80,7 +80,7 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
         for row_index in 0..NUM_VARS {
             for col_index in 0..NUM_VARS {
                 if result[(row_index, col_index)].is_nan() {
-                    result[(row_index, col_index)] = self.derivator.get_double_partial(
+                    result[(row_index, col_index)] = self.derivator.second_partial_derivative(
                         function,
                         &[row_index, col_index],
                         vector_of_points,

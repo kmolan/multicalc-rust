@@ -21,9 +21,9 @@
 use crate::error::EstimationError;
 use crate::estimation::CovarianceUpdate;
 use crate::linear_algebra::{Matrix, Vector};
-use crate::numerical_derivative::autodiff::AutoDiffMulti;
-use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-use crate::numerical_derivative::jacobian::Jacobian;
+use crate::numerical_derivative::AutoDiffMulti;
+use crate::numerical_derivative::DerivatorMultiVariable;
+use crate::numerical_derivative::Jacobian;
 use crate::scalar::{Numeric, VectorFn};
 
 /// An extended Kalman filter over a `STATE_DIMENSION`-state model with `MEASUREMENT_DIMENSION`
@@ -137,7 +137,7 @@ where
     D: DerivatorMultiVariable<Scalar = T> + Clone,
 {
     /// Builds a filter with an explicit differentiation backend — a
-    /// [`FiniteDifferenceMulti`](crate::numerical_derivative::finite_difference::FiniteDifferenceMulti)
+    /// [`FiniteDifferenceMulti`](crate::numerical_derivative::FiniteDifferenceMulti)
     /// or your own [`DerivatorMultiVariable`]. [`new`](Self::new) is the autodiff default.
     pub fn from_derivator(
         initial_state: Vector<STATE_DIMENSION, T>,
@@ -247,7 +247,7 @@ where
         ProcessModel: VectorFn<STATE_DIMENSION, STATE_DIMENSION>,
     {
         let state_transition = Jacobian::from_derivator(self.derivator.clone())
-            .get(process_model, self.state.as_array())?;
+            .evaluate(process_model, self.state.as_array())?;
 
         let propagated = Vector::new(process_model.eval(self.state.as_array()));
         if !propagated.is_finite() || !state_transition.is_finite() {
@@ -344,7 +344,7 @@ where
         }
 
         let measurement_model_jacobian = Jacobian::from_derivator(self.derivator.clone())
-            .get(measurement_model, self.state.as_array())?;
+            .evaluate(measurement_model, self.state.as_array())?;
 
         self.innovation = residual;
         self.innovation_covariance =

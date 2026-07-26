@@ -69,20 +69,20 @@ expected outputs in comments, error-path notes, and pointers to runnable demos. 
 One formula, differentiated to any order by forward-mode autodiff:
 
 ```rust
-use multicalc::numerical_derivative::autodiff::{AutoDiffSingle, AutoDiffMulti};
-use multicalc::numerical_derivative::derivator::{DerivatorSingleVariable, DerivatorMultiVariable};
+use multicalc::numerical_derivative::{AutoDiffSingle, AutoDiffMulti};
+use multicalc::numerical_derivative::{DerivatorSingleVariable, DerivatorMultiVariable};
 use multicalc::scalar_fn;
 
 let f = scalar_fn!(|x| x * x * x);           // f(x) = x^3
 let d = AutoDiffSingle::default();           // forward-mode autodiff, exact
-let first = d.get(1, &f, 2.0).unwrap();      // 12.0
-let third = d.get(3, &f, 2.0).unwrap();      //  6.0
+let first = d.differentiate(1, &f, 2.0).unwrap();      // 12.0
+let third = d.differentiate(3, &f, 2.0).unwrap();      //  6.0
 
 // Partial derivatives of a multivariable function; order = number of indices.
 let g = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1]);          // g(x, y) = x^2 * y
 let dm = AutoDiffMulti::default();
-let dx    = dm.get_single_partial(&g, 0, &[3.0, 4.0]).unwrap(); // dg/dx = 2xy   = 24.0
-let mixed = dm.get(&g, &[0, 1], &[3.0, 4.0]).unwrap();          // d^2g/dxdy = 2x =  6.0
+let dx    = dm.first_partial_derivative(&g, 0, &[3.0, 4.0]).unwrap(); // dg/dx = 2xy   = 24.0
+let mixed = dm.differentiate(&g, &[0, 1], &[3.0, 4.0]).unwrap();          // d^2g/dxdy = 2x =  6.0
 ```
 
 ### Integration
@@ -90,23 +90,23 @@ let mixed = dm.get(&g, &[0, 1], &[3.0, 4.0]).unwrap();          // d^2g/dxdy = 2
 Newton-Cotes and Gaussian rules over finite, semi-infinite, and infinite limits:
 
 ```rust
-use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
-use multicalc::numerical_integration::iterative_integration::IterativeSingle;
-use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
-use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
+use multicalc::numerical_integration::IntegratorSingleVariable;
+use multicalc::numerical_integration::IterativeSingle;
+use multicalc::numerical_integration::GaussianSingle;
+use multicalc::numerical_integration::GaussianQuadratureMethod;
 
 let integrator = IterativeSingle::default();     // Boole's rule, 120 intervals
 
-let area = integrator.get_single(&|x: f64| 2.0 * x, &[0.0, 2.0]).unwrap();       // 2x on [0, 2]        -> 4.0
+let area = integrator.single_integral(&|x: f64| 2.0 * x, &[0.0, 2.0]).unwrap();       // 2x on [0, 2]        -> 4.0
 // decaying integrands may run to a semi-infinite or infinite limit
-let tail = integrator.get_single(&|x: f64| (-x).exp(), &[0.0, f64::INFINITY]).unwrap();  // e^-x on [0, inf)  -> 1.0
+let tail = integrator.single_integral(&|x: f64| (-x).exp(), &[0.0, f64::INFINITY]).unwrap();  // e^-x on [0, inf)  -> 1.0
 let bell = integrator
-    .get_single(&|x: f64| (-x * x).exp(), &[f64::NEG_INFINITY, f64::INFINITY])
+    .single_integral(&|x: f64| (-x * x).exp(), &[f64::NEG_INFINITY, f64::INFINITY])
     .unwrap();                                                                   // e^(-x^2) on R       -> sqrt(pi)
 
 // Gauss-Hermite already carries the e^(-x^2) weight, so pass the bare integrand.
 let gh = GaussianSingle::from_parameters(5, GaussianQuadratureMethod::GaussHermite);
-let moment = gh.get_single(&|x: f64| x * x, &[f64::NEG_INFINITY, f64::INFINITY]).unwrap();  // x^2, weight e^(-x^2) -> sqrt(pi)/2
+let moment = gh.single_integral(&|x: f64| x * x, &[f64::NEG_INFINITY, f64::INFINITY]).unwrap();  // x^2, weight e^(-x^2) -> sqrt(pi)/2
 ```
 
 ### Nonlinear curve fitting
@@ -116,7 +116,7 @@ them under autodiff and drives the fit:
 
 ```rust
 use multicalc::optimization::LevenbergMarquardt;
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::scalar::c;
 use multicalc::scalar_fn_vec;
 
@@ -202,7 +202,7 @@ Scalar equations and square systems `F(x) = 0`, with exact autodiff derivatives:
 
 ```rust
 use multicalc::root_finding::{Bisection, Newton, NewtonSystem};
-use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
+use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::scalar::c;
 use multicalc::{scalar_fn, scalar_fn_vec};
 

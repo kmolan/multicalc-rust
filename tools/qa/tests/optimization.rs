@@ -8,7 +8,7 @@
 //! quantity), not any library-specific cost scalar.
 
 use multicalc::linear_algebra::Vector;
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::optimization::LevenbergMarquardt;
 use multicalc::scalar::VectorFn;
 use multicalc_qa::load::*;

@@ -1,8 +1,8 @@
 //! Scalar Newton and damped Newton solvers.
 
 use crate::error::{LinalgError, SolveError};
-use crate::numerical_derivative::autodiff::AutoDiffSingle;
-use crate::numerical_derivative::derivator::DerivatorSingleVariable;
+use crate::numerical_derivative::AutoDiffSingle;
+use crate::numerical_derivative::DerivatorSingleVariable;
 use crate::root_finding::{RootReport, RootTermination};
 use crate::scalar::{Numeric, Primal, ScalarFn};
 
@@ -67,7 +67,7 @@ impl<D: DerivatorSingleVariable> Newton<D> {
     /// tolerances of `30 × EPSILON`, budget of 100 iterations, backtracking off.
     ///
     /// ```
-    /// use multicalc::numerical_derivative::autodiff::AutoDiffSingle;
+    /// use multicalc::numerical_derivative::AutoDiffSingle;
     /// use multicalc::root_finding::Newton;
     ///
     /// const D: AutoDiffSingle = AutoDiffSingle::new();
@@ -146,7 +146,7 @@ impl<D: DerivatorSingleVariable> Newton<D> {
                 });
             }
 
-            let dfx = self.derivator.get_single(f, x)?;
+            let dfx = self.derivator.first_derivative(f, x)?;
             if !dfx.is_finite() {
                 return Err(SolveError::NonFinite);
             }

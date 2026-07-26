@@ -1,13 +1,13 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::scalar::c;
 use multicalc::scalar_fn_vec;
 
-use multicalc::vector_field::curl;
-use multicalc::vector_field::divergence;
-use multicalc::vector_field::flux_integral;
-use multicalc::vector_field::line_integral;
+use multicalc::vector_field::{
+    curl_2d, curl_3d, divergence_2d, divergence_3d, flux_integral_2d_custom,
+    flux_integral_3d_custom, line_integral_2d_custom, line_integral_3d_custom,
+};
 
 use multicalc::error::IntegrateError;
 
@@ -30,7 +30,7 @@ fn test_line_integral_1() {
     let integration_limit = [0.0, core::f64::consts::TAU];
 
     //line integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of -2.0*pi
-    let val = line_integral::get_2d_custom(
+    let val = line_integral_2d_custom(
         &vector_field_matrix,
         &transformation_matrix,
         &integration_limit,
@@ -59,7 +59,7 @@ fn test_line_integral_error_1() {
     let integration_limit = [0.0, core::f64::consts::TAU];
 
     //expect error because number of steps is zero
-    let val = line_integral::get_2d_custom(
+    let val = line_integral_2d_custom(
         &vector_field_matrix,
         &transformation_matrix,
         &integration_limit,
@@ -88,7 +88,7 @@ fn test_line_integral_error_2() {
     let integration_limit = [10.0, 0.0];
 
     //expect error because integration limits are ill-defined (lower limit higher than upper limit)
-    let val = line_integral::get_2d_custom(
+    let val = line_integral_2d_custom(
         &vector_field_matrix,
         &transformation_matrix,
         &integration_limit,
@@ -117,7 +117,7 @@ fn test_flux_integral_1() {
     let integration_limit = [0.0, core::f64::consts::TAU];
 
     //flux integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of 0.0
-    let val = flux_integral::get_2d_custom(
+    let val = flux_integral_2d_custom(
         &vector_field_matrix,
         &transformation_matrix,
         &integration_limit,
@@ -154,7 +154,7 @@ fn test_flux_integral_3d_helix() {
     let two_pi = 2.0 * core::f64::consts::PI;
     let integration_limit = [0.0, two_pi];
 
-    let val = flux_integral::get_3d_custom(
+    let val = flux_integral_3d_custom(
         &vector_field_matrix,
         &transformation_matrix,
         &integration_limit,
@@ -173,7 +173,7 @@ fn test_curl_2d_1() {
     let vf = scalar_fn_vec!(|v: &[f64; 2]| [c(2.0) * v[0] * v[1], c(3.0) * v[1].cos()]);
     let point = [1.0, core::f64::consts::PI];
 
-    let val = curl::get_2d(AutoDiffMulti::default(), &vf, &point).unwrap();
+    let val = curl_2d(AutoDiffMulti::default(), &vf, &point).unwrap();
     assert!(f64::abs(val + 2.0) < 1e-12);
 }
 
@@ -183,7 +183,7 @@ fn test_curl_3d_1() {
     let vf = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
     let point = [1.0, 2.0, 3.0];
 
-    let val = curl::get_3d(AutoDiffMulti::default(), &vf, &point).unwrap();
+    let val = curl_3d(AutoDiffMulti::default(), &vf, &point).unwrap();
     assert!(f64::abs(val[0]) < 1e-12);
     assert!(f64::abs(val[1]) < 1e-12);
     assert!(f64::abs(val[2] + 2.0) < 1e-12);
@@ -195,7 +195,7 @@ fn test_divergence_2d_1() {
     let vf = scalar_fn_vec!(|v: &[f64; 2]| [c(2.0) * v[0] * v[1], c(3.0) * v[1].cos()]);
     let point = [1.0, core::f64::consts::PI];
 
-    let val = divergence::get_2d(AutoDiffMulti::default(), &vf, &point).unwrap();
+    let val = divergence_2d(AutoDiffMulti::default(), &vf, &point).unwrap();
     assert!(f64::abs(val - core::f64::consts::TAU) < 1e-12);
 }
 
@@ -205,7 +205,7 @@ fn test_divergence_3d_1() {
     let vf = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
     let point = [0.0, 1.0, 3.0];
 
-    let val = divergence::get_3d(AutoDiffMulti::default(), &vf, &point).unwrap();
+    let val = divergence_3d(AutoDiffMulti::default(), &vf, &point).unwrap();
     assert!(f64::abs(val - 2.0) < 1e-12);
 }
 
@@ -228,7 +228,7 @@ fn test_line_integral_3d_helix() {
     let two_pi = 2.0 * core::f64::consts::PI;
     let integration_limit = [0.0, two_pi];
 
-    let val = line_integral::get_3d_custom(
+    let val = line_integral_3d_custom(
         &vector_field_matrix,
         &transformation_matrix,
         &integration_limit,
@@ -255,7 +255,7 @@ fn test_line_integral_negative_limits() {
 
     let integration_limit = [-2.0, 1.0];
 
-    let val = line_integral::get_2d_custom(
+    let val = line_integral_2d_custom(
         &vector_field_matrix,
         &transformation_matrix,
         &integration_limit,
@@ -272,6 +272,6 @@ fn test_divergence_3d_f32() {
     let vf = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
     let point = [0.0_f32, 1.0, 3.0];
 
-    let val = divergence::get_3d(AutoDiffMulti::<f32>::default(), &vf, &point).unwrap();
+    let val = divergence_3d(AutoDiffMulti::<f32>::default(), &vf, &point).unwrap();
     assert!(f32::abs(val - 2.0) < 1e-6, "got {val}");
 }

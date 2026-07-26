@@ -5,8 +5,8 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
-use multicalc::numerical_derivative::derivator::{DerivatorMultiVariable, DerivatorSingleVariable};
+use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
+use multicalc::numerical_derivative::{DerivatorMultiVariable, DerivatorSingleVariable};
 use multicalc::scalar_fn;
 
 fn report(label: &str, value: f64, exact: f64) {
@@ -27,23 +27,23 @@ fn main() {
     println!("f(x) = x^2 sin(x)  at x = {x}");
     report(
         "f'",
-        derivator.get(1, &f, x).unwrap(),
+        derivator.differentiate(1, &f, x).unwrap(),
         2.0 * x * s + x * x * c,
     );
     report(
         "f''",
-        derivator.get(2, &f, x).unwrap(),
+        derivator.differentiate(2, &f, x).unwrap(),
         2.0 * s + 4.0 * x * c - x * x * s,
     );
     report(
         "f'''",
-        derivator.get(3, &f, x).unwrap(),
+        derivator.differentiate(3, &f, x).unwrap(),
         6.0 * c - 6.0 * x * s - x * x * c,
     );
 
     // convenience wrappers exist for the 1st and 2nd derivative
-    let _ = derivator.get_single(&f, x).unwrap();
-    let _ = derivator.get_double(&f, x).unwrap();
+    let _ = derivator.first_derivative(&f, x).unwrap();
+    let _ = derivator.second_derivative(&f, x).unwrap();
 
     // ---- multi variable: g(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z at (1, 2, 3) ----
     let g =
@@ -57,20 +57,28 @@ fn main() {
     // a single partial derivative, dg/dx = y*cos(x) + cos(y) + y*e^z
     report(
         "dg/dx",
-        multi.get_single_partial(&g, 0, &p).unwrap(),
+        multi.first_partial_derivative(&g, 0, &p).unwrap(),
         2.0 * c + cos2 + 2.0 * e3,
     );
 
     // the derivative order is the number of indices, so no separate "order" argument is needed:
     // d2g/dx2 = -y*sin(x)
-    report("d2g/dx2", multi.get(&g, &[0, 0], &p).unwrap(), -2.0 * s);
+    report(
+        "d2g/dx2",
+        multi.differentiate(&g, &[0, 0], &p).unwrap(),
+        -2.0 * s,
+    );
     // mixed partial d(dg/dx)/dy = cos(x) - sin(y) + e^z
     report(
         "d2g/dx dy",
-        multi.get(&g, &[0, 1], &p).unwrap(),
+        multi.differentiate(&g, &[0, 1], &p).unwrap(),
         c - sin2 + e3,
     );
 
     // third-order mixed partial d2(dg/dy)/dx2 = -sin(x)
-    report("d3g/dx2 dy", multi.get(&g, &[0, 0, 1], &p).unwrap(), -s);
+    report(
+        "d3g/dx2 dy",
+        multi.differentiate(&g, &[0, 0, 1], &p).unwrap(),
+        -s,
+    );
 }

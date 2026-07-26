@@ -10,7 +10,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use multicalc::GaussNewton;
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::scalar::{Numeric, VectorFn};
 
 // Fit y = a + b*t to points on y = 2t + 1; linear residuals converge in one GN step.

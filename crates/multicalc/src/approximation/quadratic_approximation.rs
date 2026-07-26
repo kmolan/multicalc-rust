@@ -1,7 +1,7 @@
 use crate::error::DiffError;
 use crate::linear_algebra::{Matrix, Vector};
-use crate::numerical_derivative::autodiff::AutoDiffMulti;
-use crate::numerical_derivative::derivator::DerivatorMultiVariable;
+use crate::numerical_derivative::AutoDiffMulti;
+use crate::numerical_derivative::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
 use crate::utils::summation::SummationMethod;
 
@@ -65,7 +65,7 @@ impl<const NUM_VARS: usize, T: Numeric> QuadraticApproximation<NUM_VARS, T> {
     ///
     /// `r_squared` is `NaN` when the truth is constant over `points`;
     /// `adjusted_r_squared` is `NaN` when there are too few points.
-    pub fn get_prediction_metrics<O: ScalarFnN<NUM_VARS>, const NUM_POINTS: usize>(
+    pub fn prediction_metrics<O: ScalarFnN<NUM_VARS>, const NUM_POINTS: usize>(
         &self,
         points: &[[T; NUM_VARS]; NUM_POINTS],
         original_function: &O,
@@ -108,7 +108,7 @@ impl QuadraticApproximator<AutoDiffMulti> {
     /// An approximator using exact autodiff derivatives.
     ///
     /// ```
-    /// use multicalc::approximation::quadratic_approximation::QuadraticApproximator;
+    /// use multicalc::approximation::QuadraticApproximator;
     ///
     /// const APPROXIMATOR: QuadraticApproximator = QuadraticApproximator::new();
     /// ```
@@ -129,7 +129,7 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
 
     /// Opt in to Kahan compensated summation for prediction metrics.
     ///
-    /// Pairwise summation remains the default. Call this before [`Self::get`] so the
+    /// Pairwise summation remains the default. Call this before [`Self::approximate`] so the
     /// resulting [`QuadraticApproximation`] accumulates metrics with Kahan.
     pub fn with_kahan_summation(mut self) -> Self {
         self.summation = SummationMethod::Kahan;
@@ -143,7 +143,7 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
     ///
     /// # Examples
     /// ```
-    /// use multicalc::approximation::quadratic_approximation::QuadraticApproximator;
+    /// use multicalc::approximation::QuadraticApproximator;
     /// use multicalc::scalar::{c, ScalarFnN};
     /// use multicalc::scalar_fn;
     ///
@@ -153,12 +153,12 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
     ///
     /// let point = [0.0, 1.57, 10.0]; // the point we want to approximate around
     /// let approximator: QuadraticApproximator = QuadraticApproximator::default();
-    /// let result = approximator.get(&function_to_approximate, &point).unwrap();
+    /// let result = approximator.approximate(&function_to_approximate, &point).unwrap();
     ///
     /// // the approximation is exact at the base point
     /// assert!(f64::abs(function_to_approximate.eval(&point) - result.predict(&point)) < 1e-12);
     /// ```
-    pub fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
+    pub fn approximate<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
         &self,
         function: &F,
         point: &[D::Scalar; NUM_VARS],
@@ -167,7 +167,9 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
 
         let mut gradient = [<D::Scalar as Numeric>::ZERO; NUM_VARS];
         for (i, slot) in gradient.iter_mut().enumerate() {
-            *slot = self.derivator.get_single_partial(function, i, point)?;
+            *slot = self
+                .derivator
+                .first_partial_derivative(function, i, point)?;
         }
 
         // symmetric fill: compute the upper triangle + diagonal once, mirror the rest.
@@ -179,7 +181,7 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
                 if hessian[row][col].is_nan() {
                     hessian[row][col] =
                         self.derivator
-                            .get_double_partial(function, &[row, col], point)?;
+                            .second_partial_derivative(function, &[row, col], point)?;
                     hessian[col][row] = hessian[row][col];
                 }
             }

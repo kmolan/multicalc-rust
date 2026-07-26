@@ -8,16 +8,16 @@
 //! function-valued case also re-checks `f_at_probe` (the function at its point),
 //! which fails loudly if the Rust and Python formulas ever diverge.
 
-use multicalc::approximation::linear_approximation::LinearApproximator;
-use multicalc::approximation::quadratic_approximation::QuadraticApproximator;
+use multicalc::approximation::LinearApproximator;
+use multicalc::approximation::QuadraticApproximator;
 use multicalc::linear_algebra::Vector;
-use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
-use multicalc::numerical_derivative::derivator::{DerivatorMultiVariable, DerivatorSingleVariable};
-use multicalc::numerical_derivative::hessian::Hessian;
-use multicalc::numerical_derivative::jacobian::Jacobian;
+use multicalc::numerical_derivative::Hessian;
+use multicalc::numerical_derivative::Jacobian;
+use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
+use multicalc::numerical_derivative::{DerivatorMultiVariable, DerivatorSingleVariable};
 use multicalc::scalar::{ScalarFn, ScalarFnN, VectorFn};
 use multicalc::scalar_fn;
-use multicalc::vector_field::{curl, divergence, flux_integral, line_integral};
+use multicalc::vector_field::{curl_3d, divergence_3d, flux_integral_2d, line_integral_2d};
 use multicalc_qa::load::*;
 use multicalc_qa::problems::*;
 
@@ -40,7 +40,9 @@ fn calculus() {
                 let point = fx.inputs["point"].as_scalar();
                 let order = fx.inputs["order"].as_int() as usize;
                 let cube = scalar_fn!(|x| x * x * x);
-                let d = AutoDiffSingle::default().get(order, &cube, point).unwrap();
+                let d = AutoDiffSingle::default()
+                    .differentiate(order, &cube, point)
+                    .unwrap();
                 assert_scalar(d, &fx.expected["derivative"], t, "derivative");
                 assert_scalar(
                     cube.eval::<f64>(point),
@@ -58,9 +60,9 @@ fn calculus() {
                     .collect();
                 let d = AutoDiffMulti::default();
                 let val = match axes.as_slice() {
-                    [a] => d.get_single_partial(&G, *a, &point),
-                    [a, b] => d.get(&G, &[*a, *b], &point),
-                    [a, b, c] => d.get(&G, &[*a, *b, *c], &point),
+                    [a] => d.first_partial_derivative(&G, *a, &point),
+                    [a, b] => d.differentiate(&G, &[*a, *b], &point),
+                    [a, b, c] => d.differentiate(&G, &[*a, *b, *c], &point),
                     _ => panic!("unexpected axes {axes:?}"),
                 }
                 .unwrap();
@@ -76,7 +78,7 @@ fn calculus() {
                 "jac_23" => {
                     let p = to_vector::<3>(&fx.inputs["point"]).into_array();
                     let j = Jacobian::<AutoDiffMulti>::default()
-                        .get(&Jac23, &p)
+                        .evaluate(&Jac23, &p)
                         .unwrap();
                     assert_matrix(&j, &fx.expected["jacobian"], t, "jacobian");
                     assert_vector(
@@ -89,7 +91,7 @@ fn calculus() {
                 "jac_66" => {
                     let p = to_vector::<6>(&fx.inputs["point"]).into_array();
                     let j = Jacobian::<AutoDiffMulti>::default()
-                        .get(&Jac66, &p)
+                        .evaluate(&Jac66, &p)
                         .unwrap();
                     assert_matrix(&j, &fx.expected["jacobian"], t, "jacobian");
                     assert_vector(
@@ -104,7 +106,7 @@ fn calculus() {
             "hessian" => {
                 let p = to_vector::<3>(&fx.inputs["point"]).into_array();
                 let h = Hessian::<AutoDiffMulti>::default()
-                    .get(&HessianTarget, &p)
+                    .evaluate(&HessianTarget, &p)
                     .unwrap();
                 assert_matrix(&h, &fx.expected["hessian"], t, "hessian");
                 assert_scalar(
@@ -116,9 +118,9 @@ fn calculus() {
             }
             "curl_div" => {
                 let p = to_vector::<3>(&fx.inputs["point"]).into_array();
-                let c = curl::get_3d(AutoDiffMulti::default(), &VField3d, &p).unwrap();
+                let c = curl_3d(AutoDiffMulti::default(), &VField3d, &p).unwrap();
                 assert_vector(&Vector::new(c), &fx.expected["curl"], t, "curl");
-                let dv = divergence::get_3d(AutoDiffMulti::default(), &VField3d, &p).unwrap();
+                let dv = divergence_3d(AutoDiffMulti::default(), &VField3d, &p).unwrap();
                 assert_scalar(dv, &fx.expected["divergence"], t, "divergence");
                 assert_vector(
                     &Vector::new(VField3d.eval::<f64>(&p)),
@@ -129,28 +131,26 @@ fn calculus() {
             }
             "line_integral" => {
                 let lv = fx.inputs["limits"].as_vector();
-                let val =
-                    line_integral::get_2d(&circle_field(), &circle_transforms(), &[lv[0], lv[1]])
-                        .unwrap();
+                let val = line_integral_2d(&circle_field(), &circle_transforms(), &[lv[0], lv[1]])
+                    .unwrap();
                 assert_scalar(val, &fx.expected["line_integral"], t, "line_integral");
             }
             "flux_integral" => {
                 let lv = fx.inputs["limits"].as_vector();
-                let val =
-                    flux_integral::get_2d(&circle_field(), &circle_transforms(), &[lv[0], lv[1]])
-                        .unwrap();
+                let val = flux_integral_2d(&circle_field(), &circle_transforms(), &[lv[0], lv[1]])
+                    .unwrap();
                 assert_scalar(val, &fx.expected["flux_integral"], t, "flux_integral");
             }
             "approx" => {
                 let p = to_vector::<3>(&fx.inputs["p"]).into_array();
                 let q = to_vector::<3>(&fx.inputs["q"]).into_array();
                 let linear = LinearApproximator::<AutoDiffMulti>::default()
-                    .get(&ApproxTarget, &p)
+                    .approximate(&ApproxTarget, &p)
                     .unwrap()
                     .predict(&q);
                 assert_scalar(linear, &fx.expected["linear_predict"], t, "linear_predict");
                 let quadratic = QuadraticApproximator::<AutoDiffMulti>::default()
-                    .get(&ApproxTarget, &p)
+                    .approximate(&ApproxTarget, &p)
                     .unwrap()
                     .predict(&q);
                 assert_scalar(

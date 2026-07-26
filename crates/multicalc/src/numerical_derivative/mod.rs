@@ -1,15 +1,16 @@
 //! Differentiation: exact automatic differentiation and finite differences.
 //!
 //! - [`derivative`] / [`second_derivative`] / [`partial`] — the short way to take one derivative.
-//! - [`autodiff`] / [`finite_difference`] — the two [`derivator`] backends (autodiff is exact).
-//! - [`jacobian`] / [`hessian`] — derivative matrices of vector- and scalar-valued functions.
+//! - [`AutoDiffSingle`] / [`FiniteDifferenceSingle`] and their multi-variable siblings — the two
+//!   backends behind [`DerivatorSingleVariable`] and [`DerivatorMultiVariable`] (autodiff is exact).
+//! - [`Jacobian`] / [`Hessian`] — derivative matrices of vector- and scalar-valued functions.
 
-pub mod autodiff;
-pub mod derivator;
-pub mod finite_difference;
-pub mod hessian;
-pub mod jacobian;
-pub mod mode;
+mod autodiff;
+mod derivator;
+mod finite_difference;
+mod hessian;
+mod jacobian;
+mod mode;
 
 pub use autodiff::{AutoDiffMulti, AutoDiffSingle};
 pub use derivator::{DerivatorMultiVariable, DerivatorSingleVariable};
@@ -85,5 +86,5 @@ pub fn partial<T: Numeric, F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
     variable_index: usize,
     point: &[T; NUM_VARS],
 ) -> Result<T, DiffError> {
-    AutoDiffMulti::<T>::new().get_single_partial(function, variable_index, point)
+    AutoDiffMulti::<T>::new().first_partial_derivative(function, variable_index, point)
 }

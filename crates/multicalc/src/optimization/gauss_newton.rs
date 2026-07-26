@@ -2,10 +2,10 @@
 
 use crate::error::SolveError;
 use crate::linear_algebra::Vector;
-use crate::linear_algebra::qr::{PivotedQr, enorm, max};
-use crate::numerical_derivative::autodiff::AutoDiffMulti;
-use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-use crate::numerical_derivative::jacobian::Jacobian;
+use crate::linear_algebra::{PivotedQr, enorm, max};
+use crate::numerical_derivative::AutoDiffMulti;
+use crate::numerical_derivative::DerivatorMultiVariable;
+use crate::numerical_derivative::Jacobian;
 use crate::optimization::{MinimizationReport, TerminationReason, is_finite, report};
 use crate::scalar::{Numeric, Primal, VectorFn};
 
@@ -22,7 +22,7 @@ const MAX_BACKTRACK: usize = 20;
 /// # Examples
 /// ```
 /// use multicalc::optimization::GaussNewton;
-/// use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+/// use multicalc::numerical_derivative::AutoDiffMulti;
 /// use multicalc::scalar::c;
 /// use multicalc::scalar_fn_vec;
 ///
@@ -147,7 +147,7 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
         let mut evaluations = 1usize;
 
         for _ in 0..self.patience {
-            let j = jacobian.get(f, &x)?;
+            let j = jacobian.evaluate(f, &x)?;
             if !j.is_finite() {
                 return Err(SolveError::NonFinite);
             }

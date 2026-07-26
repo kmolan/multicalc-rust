@@ -285,25 +285,25 @@ impl<T: Numeric> IntegratorSingleVariable for IterativeSingle<T> {
     ///
     /// # Examples
     /// ```
-    /// use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
-    /// use multicalc::numerical_integration::iterative_integration::IterativeSingle;
+    /// use multicalc::numerical_integration::IntegratorSingleVariable;
+    /// use multicalc::numerical_integration::IterativeSingle;
     ///
     /// let my_func = |x: f64| 2.0 * x;
     /// let integrator = IterativeSingle::default();
     ///
     /// // single integration of 2x over [0, 2] is 4
-    /// let val = integrator.get(&my_func, &[[0.0, 2.0]; 1]).unwrap();
+    /// let val = integrator.integrate(&my_func, &[[0.0, 2.0]; 1]).unwrap();
     /// assert!(f64::abs(val - 4.0) < 1e-6);
     ///
     /// // double integration over [0, 2] then [-1, 1] is 8
-    /// let val = integrator.get(&my_func, &[[0.0, 2.0], [-1.0, 1.0]]).unwrap();
+    /// let val = integrator.integrate(&my_func, &[[0.0, 2.0], [-1.0, 1.0]]).unwrap();
     /// assert!(f64::abs(val - 8.0) < 1e-6);
     ///
     /// // an infinite limit, for a decaying integrand: integral of e^(-x^2) over the real line is sqrt(pi)
-    /// let val = integrator.get(&|x| (-x * x).exp(), &[[f64::NEG_INFINITY, f64::INFINITY]]).unwrap();
+    /// let val = integrator.integrate(&|x| (-x * x).exp(), &[[f64::NEG_INFINITY, f64::INFINITY]]).unwrap();
     /// assert!(f64::abs(val - std::f64::consts::PI.sqrt()) < 1e-6);
     /// ```
-    fn get<F: Fn(T) -> T, const NUM_INTEGRATIONS: usize>(
+    fn integrate<F: Fn(T) -> T, const NUM_INTEGRATIONS: usize>(
         &self,
         func: &F,
         integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
@@ -467,18 +467,22 @@ impl<T: Numeric> IntegratorMultiVariable for IterativeMulti<T> {
     ///
     /// # Examples
     /// ```
-    /// use multicalc::numerical_integration::integrator::IntegratorMultiVariable;
-    /// use multicalc::numerical_integration::iterative_integration::IterativeMulti;
+    /// use multicalc::numerical_integration::IntegratorMultiVariable;
+    /// use multicalc::numerical_integration::IterativeMulti;
     ///
     /// // f(x, y, z) = 2x + yz, integrated over x in [0, 1] with (y, z) = (2, 3); result is 7
     /// let func = |args: &[f64; 3]| 2.0 * args[0] + args[1] * args[2];
     /// let point = [1.0, 2.0, 3.0];
     /// let integrator = IterativeMulti::default();
     ///
-    /// let val = integrator.get([0; 1], &func, &[[0.0, 1.0]; 1], &point).unwrap();
+    /// let val = integrator.integrate([0; 1], &func, &[[0.0, 1.0]; 1], &point).unwrap();
     /// assert!(f64::abs(val - 7.0) < 1e-6);
     /// ```
-    fn get<F: Fn(&[T; NUM_VARS]) -> T, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
+    fn integrate<
+        F: Fn(&[T; NUM_VARS]) -> T,
+        const NUM_VARS: usize,
+        const NUM_INTEGRATIONS: usize,
+    >(
         &self,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
         func: &F,

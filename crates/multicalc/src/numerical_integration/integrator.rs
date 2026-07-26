@@ -85,28 +85,28 @@ pub trait IntegratorSingleVariable {
     /// # Errors
     /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero, or
     /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined.
-    fn get<F: Fn(Self::Scalar) -> Self::Scalar, const NUM_INTEGRATIONS: usize>(
+    fn integrate<F: Fn(Self::Scalar) -> Self::Scalar, const NUM_INTEGRATIONS: usize>(
         &self,
         func: &F,
         integration_limit: &[[Self::Scalar; 2]; NUM_INTEGRATIONS],
     ) -> Result<Self::Scalar, IntegrateError>;
 
     /// Convenience wrapper for a single integral of a single variable function.
-    fn get_single<F: Fn(Self::Scalar) -> Self::Scalar>(
+    fn single_integral<F: Fn(Self::Scalar) -> Self::Scalar>(
         &self,
         func: &F,
         integration_limit: &[Self::Scalar; 2],
     ) -> Result<Self::Scalar, IntegrateError> {
-        self.get(func, &[*integration_limit])
+        self.integrate(func, &[*integration_limit])
     }
 
     /// Convenience wrapper for a double integral of a single variable function.
-    fn get_double<F: Fn(Self::Scalar) -> Self::Scalar>(
+    fn double_integral<F: Fn(Self::Scalar) -> Self::Scalar>(
         &self,
         func: &F,
         integration_limit: &[[Self::Scalar; 2]; 2],
     ) -> Result<Self::Scalar, IntegrateError> {
-        self.get(func, integration_limit)
+        self.integrate(func, integration_limit)
     }
 }
 
@@ -128,7 +128,7 @@ pub trait IntegratorMultiVariable {
     /// # Errors
     /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero, or
     /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined.
-    fn get<
+    fn integrate<
         F: Fn(&[Self::Scalar; NUM_VARS]) -> Self::Scalar,
         const NUM_VARS: usize,
         const NUM_INTEGRATIONS: usize,
@@ -141,7 +141,7 @@ pub trait IntegratorMultiVariable {
     ) -> Result<Self::Scalar, IntegrateError>;
 
     /// Convenience wrapper for a single partial integral of a multi variable function.
-    fn get_single_partial<
+    fn single_partial_integral<
         F: Fn(&[Self::Scalar; NUM_VARS]) -> Self::Scalar,
         const NUM_VARS: usize,
     >(
@@ -151,11 +151,11 @@ pub trait IntegratorMultiVariable {
         integration_limits: &[Self::Scalar; 2],
         point: &[Self::Scalar; NUM_VARS],
     ) -> Result<Self::Scalar, IntegrateError> {
-        self.get([idx_to_integrate], func, &[*integration_limits], point)
+        self.integrate([idx_to_integrate], func, &[*integration_limits], point)
     }
 
     /// Convenience wrapper for a double partial integral of a multi variable function.
-    fn get_double_partial<
+    fn double_partial_integral<
         F: Fn(&[Self::Scalar; NUM_VARS]) -> Self::Scalar,
         const NUM_VARS: usize,
     >(
@@ -165,6 +165,6 @@ pub trait IntegratorMultiVariable {
         integration_limits: &[[Self::Scalar; 2]; 2],
         point: &[Self::Scalar; NUM_VARS],
     ) -> Result<Self::Scalar, IntegrateError> {
-        self.get(idx_to_integrate, func, integration_limits, point)
+        self.integrate(idx_to_integrate, func, integration_limits, point)
     }
 }

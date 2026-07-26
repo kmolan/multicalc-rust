@@ -1,8 +1,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use multicalc::error::{LinalgError, SolveError};
-use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
-use multicalc::numerical_derivative::finite_difference::FiniteDifferenceSingle;
+use multicalc::numerical_derivative::FiniteDifferenceSingle;
+use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::root_finding::{
     Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination,
 };

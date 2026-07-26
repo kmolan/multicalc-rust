@@ -6,7 +6,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use multicalc::LevenbergMarquardt;
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc_demos::{RerunSink, VizError, VizSink};
 

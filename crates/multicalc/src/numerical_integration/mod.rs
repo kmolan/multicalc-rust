@@ -1,15 +1,17 @@
 //! Numerical integration.
 //!
 //! - [`integral`] — the short way to integrate one function over one interval.
-//! - [`gaussian_integration`] — Gaussian quadrature (nodes from
-//!   [`gaussian_tables`](crate::gaussian_tables)).
-//! - [`iterative_integration`] — iterative refinement of a running estimate.
-//! - [`integrator`] — the shared integrator traits; [`mode`] picks the method.
+//! - [`GaussianSingle`] / [`GaussianMulti`] — Gaussian quadrature (nodes from
+//!   [`gaussian_tables`](crate::gaussian_tables)), picking a family with
+//!   [`GaussianQuadratureMethod`].
+//! - [`IterativeSingle`] / [`IterativeMulti`] — iterative refinement of a running estimate, picking
+//!   a rule with [`IterativeMethod`].
+//! - [`IntegratorSingleVariable`] / [`IntegratorMultiVariable`] — the shared integrator traits.
 
-pub mod gaussian_integration;
-pub mod integrator;
-pub mod iterative_integration;
-pub mod mode;
+mod gaussian_integration;
+mod integrator;
+mod iterative_integration;
+mod mode;
 
 pub use crate::utils::summation::SummationMethod;
 
@@ -53,5 +55,5 @@ pub fn integral<T: Numeric, F: Fn(T) -> T>(
     function: &F,
     limits: [T; 2],
 ) -> Result<T, IntegrateError> {
-    IterativeSingle::<T>::default().get_single(function, &limits)
+    IterativeSingle::<T>::default().single_integral(function, &limits)
 }

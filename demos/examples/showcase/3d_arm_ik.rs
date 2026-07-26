@@ -15,7 +15,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use multicalc::linear_algebra::Vector;
-use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
+use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc::spatial::{Quaternion, SE3, SO3};
 use multicalc::{LevenbergMarquardt, SolveError};

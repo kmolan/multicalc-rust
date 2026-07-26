@@ -8,11 +8,9 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::numerical_integration::gaussian_integration::{GaussianMulti, GaussianSingle};
-use multicalc::numerical_integration::integrator::{
-    IntegratorMultiVariable, IntegratorSingleVariable,
-};
-use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
+use multicalc::numerical_integration::GaussianQuadratureMethod;
+use multicalc::numerical_integration::{GaussianMulti, GaussianSingle};
+use multicalc::numerical_integration::{IntegratorMultiVariable, IntegratorSingleVariable};
 
 fn report(label: &str, value: f64, exact: f64) {
     println!(
@@ -29,7 +27,7 @@ fn main() {
     println!("Gauss-Legendre (finite limits):");
     // int_0^2 (4x^3 - 3x^2) dx = 8  (exact: order 5 handles degree <= 9)
     let poly: f64 = legendre
-        .get_single(&|x| 4.0 * x * x * x - 3.0 * x * x, &[0.0, 2.0])
+        .single_integral(&|x| 4.0 * x * x * x - 3.0 * x * x, &[0.0, 2.0])
         .unwrap();
     assert!(
         (poly - 8.0).abs() < 1e-9,
@@ -40,7 +38,7 @@ fn main() {
     report(
         "int_0^1 (sinx-sqrtx)e^-x",
         legendre
-            .get_single(&|x| (x.sin() - x.sqrt()) * (-x).exp(), &[0.0, 1.0])
+            .single_integral(&|x| (x.sin() - x.sqrt()) * (-x).exp(), &[0.0, 1.0])
             .unwrap(),
         -0.13311916,
     );
@@ -54,14 +52,14 @@ fn main() {
     // int x^2 e^(-x^2) = sqrt(pi)/2
     report(
         "int x^2 e^-x^2",
-        hermite.get_single(&|x| x * x, &real_line).unwrap(),
+        hermite.single_integral(&|x| x * x, &real_line).unwrap(),
         sqrt_pi / 2.0,
     );
     // multi-variable: int int x^2 y^2 e^(-x^2-y^2) = (sqrt(pi)/2)^2
     report(
         "int int x^2 y^2 e^-x^2-y^2",
         hermite_m
-            .get(
+            .integrate(
                 [0, 1],
                 &|v: &[f64; 2]| v[0] * v[0] * v[1] * v[1],
                 &[real_line; 2],
@@ -78,14 +76,14 @@ fn main() {
     // int x^2 e^(-x) = 2
     report(
         "int x^2 e^-x",
-        laguerre.get_single(&|x| x * x, &half_line).unwrap(),
+        laguerre.single_integral(&|x| x * x, &half_line).unwrap(),
         2.0,
     );
     // int (4x^3 - 3x^2) e^(-x) = 18
     report(
         "int (4x^3-3x^2) e^-x",
         laguerre
-            .get_single(&|x| 4.0 * x * x * x - 3.0 * x * x, &half_line)
+            .single_integral(&|x| 4.0 * x * x * x - 3.0 * x * x, &half_line)
             .unwrap(),
         18.0,
     );

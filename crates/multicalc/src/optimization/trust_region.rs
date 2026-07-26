@@ -1,7 +1,7 @@
 //! The Levenberg-Marquardt trust-region parameter search (MINPACK `lmpar`).
 
 use crate::linear_algebra::Vector;
-use crate::linear_algebra::qr::{DampedLeastSquares, enorm, max, min};
+use crate::linear_algebra::{DampedLeastSquares, enorm, max, min};
 use crate::scalar::Numeric;
 
 /// The damping parameter and step produced by the trust-region search.
