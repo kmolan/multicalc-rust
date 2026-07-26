@@ -18,7 +18,7 @@ use crate::scalar::Numeric;
 /// assert!((state[0] - 0.1).abs() < 1e-12);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Unicycle<T: Numeric> {
+pub struct Unicycle<T: Numeric = f64> {
     twist: BodyTwist<T>,
 }
 

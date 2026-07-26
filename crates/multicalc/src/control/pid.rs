@@ -30,7 +30,7 @@ use crate::scalar::Numeric;
 /// assert!((measurement - setpoint).abs() < 1e-3);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Pid<T: Numeric> {
+pub struct Pid<T: Numeric = f64> {
     proportional_gain: T,
     integral_gain: T,
     derivative_gain: T,

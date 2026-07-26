@@ -1,6 +1,6 @@
 //! State estimation from noisy measurements.
 //!
-//! - [`KalmanFilter`] — the linear filter, a single Gaussian belief.
+//! - [`KalmanFilter`] — the linear filter, a single Gaussian belief, over a [`KalmanModel`].
 //! - [`ExtendedKalmanFilter`] — nonlinear models, differentiated for their Jacobians each step.
 //! - [`ParticleFilter`] — a cloud of weighted samples, for non-Gaussian or multi-peaked beliefs
 //!   (`alloc` only).
@@ -14,7 +14,7 @@ mod kalman_filter;
 mod particle_filter;
 
 pub use extended_kalman_filter::ExtendedKalmanFilter;
-pub use kalman_filter::{CovarianceUpdate, KalmanFilter};
+pub use kalman_filter::{CovarianceUpdate, KalmanFilter, KalmanModel};
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]

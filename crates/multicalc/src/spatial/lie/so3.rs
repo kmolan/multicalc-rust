@@ -21,7 +21,7 @@ use crate::spatial::lie::{inverse_left_jacobian_so3, left_jacobian_so3, skew3};
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
-pub struct SO3<T: Numeric> {
+pub struct SO3<T: Numeric = f64> {
     q: Quaternion<T>,
 }
 

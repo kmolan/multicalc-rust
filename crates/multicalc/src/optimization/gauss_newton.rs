@@ -51,6 +51,20 @@ impl<D: DerivatorMultiVariable + Default> Default for GaussNewton<D> {
     }
 }
 
+impl GaussNewton<AutoDiffMulti> {
+    /// A solver using exact autodiff derivatives.
+    ///
+    /// ```
+    /// use multicalc::optimization::GaussNewton;
+    ///
+    /// const SOLVER: GaussNewton = GaussNewton::new();
+    /// ```
+    #[inline]
+    pub const fn new() -> Self {
+        Self::from_derivator(AutoDiffMulti::new())
+    }
+}
+
 impl<D: DerivatorMultiVariable> GaussNewton<D> {
     /// Builds a solver with a specific differentiation backend and default settings:
     /// tolerances of `30·EPSILON`, patience `100`, backtracking off.

@@ -29,7 +29,7 @@ use crate::spatial::{small_angle, small_angle_sq};
 
 /// A quaternion `w + x·i + y·j + z·k`, stored scalar-first.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Quaternion<T: Numeric> {
+pub struct Quaternion<T: Numeric = f64> {
     w: T,
     x: T,
     y: T,

@@ -15,7 +15,7 @@ use crate::scalar::Numeric;
 /// The arithmetic and [`Numeric`] methods propagate the derivative by the chain rule, so
 /// `deriv` tracks the first derivative of whatever expression built the value.
 #[derive(Debug, Clone, Copy)]
-pub struct Dual<T: Numeric> {
+pub struct Dual<T: Numeric = f64> {
     /// The value, `f(x)`.
     pub value: T,
     /// The first derivative, `f'(x)`.

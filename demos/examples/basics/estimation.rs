@@ -11,7 +11,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use multicalc::discretization::q_discrete_white_noise;
-use multicalc::estimation::{CovarianceUpdate, ExtendedKalmanFilter, KalmanFilter};
+use multicalc::estimation::{CovarianceUpdate, ExtendedKalmanFilter, KalmanFilter, KalmanModel};
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::scalar::{Dual, Numeric, VectorFn};
 
@@ -32,10 +32,12 @@ fn tracker<T: Numeric>(
     KalmanFilter::new(
         Vector::new([T::ZERO, T::ZERO]),
         initial_covariance,
-        Matrix::new([[T::ONE, T::ONE], [T::ZERO, T::ONE]]),
-        Matrix::new([[T::ONE, T::ZERO]]),
-        process_noise,
-        measurement_noise,
+        KalmanModel {
+            state_transition: Matrix::new([[T::ONE, T::ONE], [T::ZERO, T::ONE]]),
+            measurement_model: Matrix::new([[T::ONE, T::ZERO]]),
+            process_noise,
+            measurement_noise,
+        },
     )
 }
 

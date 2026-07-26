@@ -17,7 +17,7 @@ use crate::scalar::Numeric;
 /// After evaluating a function, `real` holds the value, `eps1`/`eps2` hold the first
 /// derivatives along each seeded direction, and `eps1eps2` holds the second (mixed) derivative.
 #[derive(Debug, Clone, Copy)]
-pub struct HyperDual<T: Numeric> {
+pub struct HyperDual<T: Numeric = f64> {
     /// The value, `f`.
     pub real: T,
     /// First derivative along direction 1.

@@ -26,6 +26,36 @@ pub use scalar::Jet;
 /// finite differences and autodiff.
 pub use scalar::{ScalarFn, ScalarFnN, VectorFn};
 
+/// The plain scalar wrapper, and the marker for numeric constants inside a `scalar_fn!` body.
+pub use scalar::{Primal, c};
+
+/// Differentiation: the autodiff and finite-difference backends, their shared traits, and the
+/// derivative-matrix types.
+pub use numerical_derivative::{
+    AutoDiffMulti, AutoDiffSingle, DerivatorMultiVariable, DerivatorSingleVariable,
+    FiniteDifferenceConfig, FiniteDifferenceMode, FiniteDifferenceMulti, FiniteDifferenceSingle,
+    Hessian, Jacobian,
+};
+
+/// One-call derivatives, needing no imported trait and no configured backend.
+pub use numerical_derivative::{derivative, partial, second_derivative};
+
+/// Integration: the iterative and Gaussian-quadrature backends and their shared traits.
+pub use numerical_integration::{
+    GaussianConfig, GaussianMulti, GaussianQuadratureMethod, GaussianSingle,
+    IntegratorMultiVariable, IntegratorSingleVariable, IterativeConfig, IterativeMethod,
+    IterativeMulti, IterativeSingle, SummationMethod,
+};
+
+/// One-call integration over an interval, on the same terms.
+pub use numerical_integration::integral;
+
+/// Linear and quadratic Taylor models with goodness-of-fit metrics.
+pub use approximation::{
+    LinearApproximation, LinearApproximationPredictionMetrics, LinearApproximator,
+    QuadraticApproximation, QuadraticApproximationPredictionMetrics, QuadraticApproximator,
+};
+
 /// Fixed-size, stack-allocated vector and matrix types.
 pub use linear_algebra::{Matrix, Vector};
 
@@ -48,7 +78,7 @@ pub use spatial::{Twist, Wrench};
 pub use kinematics::{BodyArc, BodyTwist, DifferentialDrive, WheelRotations, WheelVelocities};
 
 /// Linear Kalman filter and Extended Kalman filter
-pub use estimation::{ExtendedKalmanFilter, KalmanFilter};
+pub use estimation::{CovarianceUpdate, ExtendedKalmanFilter, KalmanFilter, KalmanModel};
 
 /// Particle filter (bootstrap/SIR) with pluggable resampling and measurement likelihood.
 #[cfg(feature = "alloc")]
@@ -92,6 +122,7 @@ pub mod numerical_derivative;
 pub mod numerical_integration;
 pub mod ode;
 pub mod optimization;
+pub mod prelude;
 pub mod random;
 pub mod root_finding;
 pub mod scalar;

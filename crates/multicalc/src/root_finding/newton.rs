@@ -48,6 +48,20 @@ impl<D: DerivatorSingleVariable + Default> Default for Newton<D> {
     }
 }
 
+impl Newton<AutoDiffSingle> {
+    /// A solver using exact autodiff derivatives.
+    ///
+    /// ```
+    /// use multicalc::root_finding::Newton;
+    ///
+    /// const SOLVER: Newton = Newton::new();
+    /// ```
+    #[inline]
+    pub const fn new() -> Self {
+        Self::from_derivator(AutoDiffSingle::new())
+    }
+}
+
 impl<D: DerivatorSingleVariable> Newton<D> {
     /// Builds a solver with the given derivator and default settings:
     /// tolerances of `30 × EPSILON`, budget of 100 iterations, backtracking off.

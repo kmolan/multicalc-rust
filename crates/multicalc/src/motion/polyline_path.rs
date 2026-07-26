@@ -16,7 +16,7 @@ pub enum EndOfPath {
 
 /// The result of projecting a query point onto a path.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct PathProjection<const DIMENSION: usize, T: Numeric> {
+pub struct PathProjection<const DIMENSION: usize, T: Numeric = f64> {
     point: Vector<DIMENSION, T>,
     segment_index: usize,
     arc_length: T,
@@ -76,7 +76,7 @@ impl<const DIMENSION: usize, T: Numeric> PathProjection<DIMENSION, T> {
 /// assert!((x - 2.0).abs() < 1e-12 && y.abs() < 1e-12);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct PolylinePath<const MAX_POINTS: usize, const DIMENSION: usize, T: Numeric> {
+pub struct PolylinePath<const MAX_POINTS: usize, const DIMENSION: usize, T: Numeric = f64> {
     points: [Vector<DIMENSION, T>; MAX_POINTS],
     length: usize,
     end_of_path: EndOfPath,

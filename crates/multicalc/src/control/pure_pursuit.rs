@@ -8,7 +8,7 @@ use crate::spatial::SE2;
 
 /// A path curvature, the reciprocal of the turning radius, in units of 1/m. Positive curves left.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Curvature<T: Numeric> {
+pub struct Curvature<T: Numeric = f64> {
     value: T,
 }
 

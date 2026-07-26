@@ -1,7 +1,7 @@
 //! Linear Kalman filter goldens, invariants, and error paths.
 
 use multicalc::error::EstimationError;
-use multicalc::estimation::{CovarianceUpdate, KalmanFilter};
+use multicalc::estimation::{CovarianceUpdate, KalmanFilter, KalmanModel};
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::scalar::{Dual, Numeric};
 use multicalc_testkit::tol::{Tol, assert_matrix_close, assert_vector_close};
@@ -16,10 +16,12 @@ fn constant_velocity_filter<T: Numeric>(
     KalmanFilter::new(
         Vector::new([T::ZERO, T::ZERO]),
         initial_covariance,
-        Matrix::new([[T::ONE, T::ONE], [T::ZERO, T::ONE]]),
-        Matrix::new([[T::ONE, T::ZERO]]),
-        process_noise,
-        measurement_noise,
+        KalmanModel {
+            state_transition: Matrix::new([[T::ONE, T::ONE], [T::ZERO, T::ONE]]),
+            measurement_model: Matrix::new([[T::ONE, T::ZERO]]),
+            process_noise,
+            measurement_noise,
+        },
     )
 }
 
@@ -183,10 +185,12 @@ proptest! {
         let mut filter = KalmanFilter::<2, 1>::new(
             Vector::new([state[0], state[1]]),
             initial_covariance,
-            Matrix::identity(),
-            Matrix::new([[1.0, 0.0]]),
-            Matrix::zeros(),
-            Matrix::new([[1.0]]),
+            KalmanModel {
+                state_transition: Matrix::identity(),
+                measurement_model: Matrix::new([[1.0, 0.0]]),
+                process_noise: Matrix::zeros(),
+                measurement_noise: Matrix::new([[1.0]]),
+            },
         );
         filter.predict();
 

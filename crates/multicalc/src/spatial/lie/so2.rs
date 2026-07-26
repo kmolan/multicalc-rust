@@ -9,7 +9,7 @@ use crate::scalar::Numeric;
 /// so it takes no trigonometry. The group is abelian; `exp`/`log` are exact and need no fallback.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
-pub struct SO2<T: Numeric> {
+pub struct SO2<T: Numeric = f64> {
     c: T,
     s: T,
 }

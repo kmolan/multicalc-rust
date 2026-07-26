@@ -19,10 +19,24 @@ impl<D: DerivatorMultiVariable + Default> Default for Hessian<D> {
     }
 }
 
+impl Hessian<AutoDiffMulti> {
+    /// A Hessian using exact autodiff derivatives.
+    ///
+    /// ```
+    /// use multicalc::numerical_derivative::hessian::Hessian;
+    ///
+    /// const H: Hessian = Hessian::new();
+    /// ```
+    #[inline]
+    pub const fn new() -> Self {
+        Self::from_derivator(AutoDiffMulti::new())
+    }
+}
+
 impl<D: DerivatorMultiVariable> Hessian<D> {
     /// Builds a Hessian from an explicit derivator. Use this to supply a custom derivator,
     /// either one from this crate or your own implementation of [`DerivatorMultiVariable`].
-    pub fn from_derivator(derivator: D) -> Self {
+    pub const fn from_derivator(derivator: D) -> Self {
         Hessian { derivator }
     }
 

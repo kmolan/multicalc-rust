@@ -48,6 +48,20 @@ impl<D: DerivatorMultiVariable + Default> Default for LevenbergMarquardt<D> {
     }
 }
 
+impl LevenbergMarquardt<AutoDiffMulti> {
+    /// A solver using exact autodiff derivatives.
+    ///
+    /// ```
+    /// use multicalc::optimization::LevenbergMarquardt;
+    ///
+    /// const SOLVER: LevenbergMarquardt = LevenbergMarquardt::new();
+    /// ```
+    #[inline]
+    pub const fn new() -> Self {
+        Self::from_derivator(AutoDiffMulti::new())
+    }
+}
+
 impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
     /// Builds a solver with a specific differentiation backend and default settings:
     /// tolerances of `30·EPSILON`, step bound `100`, patience `100`, column scaling on.

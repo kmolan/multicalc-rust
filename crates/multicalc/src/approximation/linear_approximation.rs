@@ -105,9 +105,23 @@ impl<D: DerivatorMultiVariable + Default> Default for LinearApproximator<D> {
     }
 }
 
+impl LinearApproximator<AutoDiffMulti> {
+    /// An approximator using exact autodiff derivatives.
+    ///
+    /// ```
+    /// use multicalc::approximation::linear_approximation::LinearApproximator;
+    ///
+    /// const APPROXIMATOR: LinearApproximator = LinearApproximator::new();
+    /// ```
+    #[inline]
+    pub const fn new() -> Self {
+        Self::from_derivator(AutoDiffMulti::new())
+    }
+}
+
 impl<D: DerivatorMultiVariable> LinearApproximator<D> {
     /// Builds an approximator from an explicit derivator.
-    pub fn from_derivator(derivator: D) -> Self {
+    pub const fn from_derivator(derivator: D) -> Self {
         LinearApproximator {
             derivator,
             summation: SummationMethod::Pairwise,

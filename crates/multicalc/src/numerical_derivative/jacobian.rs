@@ -22,10 +22,24 @@ impl<D: DerivatorMultiVariable + Default> Default for Jacobian<D> {
     }
 }
 
+impl Jacobian<AutoDiffMulti> {
+    /// A Jacobian using exact autodiff derivatives.
+    ///
+    /// ```
+    /// use multicalc::numerical_derivative::jacobian::Jacobian;
+    ///
+    /// const J: Jacobian = Jacobian::new();
+    /// ```
+    #[inline]
+    pub const fn new() -> Self {
+        Self::from_derivator(AutoDiffMulti::new())
+    }
+}
+
 impl<D: DerivatorMultiVariable> Jacobian<D> {
     /// Builds a Jacobian from an explicit derivator. Use this to supply a custom derivator,
     /// either one from this crate or your own implementation of [`DerivatorMultiVariable`].
-    pub fn from_derivator(derivator: D) -> Self {
+    pub const fn from_derivator(derivator: D) -> Self {
         Jacobian { derivator }
     }
 
