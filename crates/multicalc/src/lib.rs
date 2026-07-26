@@ -2,7 +2,8 @@
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-#[cfg(doctest)]
+// Some guide examples use the alloc-only types, so they are compiled under `alloc` only.
+#[cfg(all(doctest, feature = "alloc"))]
 #[doc = include_str!("../GUIDE.md")]
 pub struct GuideExamples;
 
