@@ -68,4 +68,12 @@ Releases are automated from `main`:
 2. When that PR merges, the release workflow publishes to crates.io and creates a `vX.Y.Z` tag and GitHub release whose notes come from the matching changelog section.
 3. The `Cargo.toml` version and the top dated changelog heading must match; a bump with no changelog entry fails the release.
 
+Before step 1, build the docs the way docs.rs will and skim the result — docs.rs only rebuilds on a publish, so a broken page stays broken until the next release:
+
+```sh
+RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc -p multicalc --no-deps --all-features
+```
+
+The `--cfg docsrs` flag is nightly-only and turns on the "Available on crate feature `alloc` only" badges. Check that the `alloc`-gated items (`ParticleFilter`, `Jacobian::get_on_heap`) are present and badged.
+
 Thank you for all the contributions!

@@ -6,7 +6,7 @@
 [![Docs](https://docs.rs/multicalc/badge.svg)](https://docs.rs/multicalc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-**Math for real-time embedded systems, in `no_std` stable Rust with nero-zero dependencies: state
+**Scientific math for real-time embedded systems, in `no_std` stable Rust with near-zero dependencies: state
 estimation, control, kinematics, and Lie groups on a calculus, autodiff, and linear-algebra core in one integrated package.
 No heap, no panics, no `unsafe` - from a 64-bit server down to a bare-metal microcontroller.**
 
@@ -235,9 +235,8 @@ Refer to the [guide](https://github.com/kmolan/multicalc-rust/blob/main/crates/m
 
 ## Error handling
 
-Where a sensible default exists, a "safe" wrapper (such as `get_single` or `get_double`) returns
-the answer directly. Otherwise the call returns a `Result` whose error is the module family's own
-enum (`LinalgError`, `DiffError`, `IntegrateError`, `SolveError`, `KinematicsError`,
+Every fallible call returns a `Result` whose error is the module family's own enum
+(`LinalgError`, `DiffError`, `IntegrateError`, `SolveError`, `KinematicsError`,
 `EstimationError`, `ControlError`, or `MotionError`), each convertible into the `CalcError`
 umbrella. All variants are listed in
 [error.rs](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/src/error.rs).
@@ -266,6 +265,28 @@ with:
 cargo run -p multicalc-demos --example <name>
 ```
 
+## Feature flags
+
+- `alloc` (off by default): enables the heap-based methods for inputs too large for the stack.
+  See [Heap allocation](#heap-allocation).
+
+## Heap allocation
+
+The library allocates nothing by default: every type is fixed-size and lives on the stack. Turning
+on `alloc` pulls in `extern crate alloc` and unlocks exactly two things:
+
+- `estimation::ParticleFilter`, whose cloud of samples is sized at runtime and so cannot be a
+  fixed-size stack type.
+- `numerical_derivative::jacobian::Jacobian::get_on_heap`, which returns a `Vec<Vec<_>>` for
+  Jacobians too large to sit on the stack. The stack-allocated `get` is always available.
+
+Nothing else changes: `no_std`, `forbid(unsafe_code)`, and the no-panic rules hold either way, and
+the feature never pulls in `std`.
+
+## MSRV and edition
+
+Edition 2024, minimum supported Rust version **1.85**.
+
 ## Contributing
 
 See [CONTRIBUTING.md](https://github.com/kmolan/multicalc-rust/blob/main/CONTRIBUTING.md).
@@ -280,28 +301,6 @@ Optimization* (chapters 4 and 10).
 ## License
 
 multicalc is licensed under the MIT license.
-
-### Feature flags
-
-- `alloc` (off by default): enables the heap-based methods for inputs too large for the stack.
-  See [Heap allocation](#heap-allocation).
-
-### Heap allocation
-
-The library allocates nothing by default: every type is fixed-size and lives on the stack. Turning
-on `alloc` pulls in `extern crate alloc` and unlocks exactly two things:
-
-- `estimation::ParticleFilter`, whose cloud of samples is sized at runtime and so cannot be a
-  fixed-size stack type.
-- `numerical_derivative::jacobian::Jacobian::get_on_heap`, which returns a `Vec<Vec<_>>` for
-  Jacobians too large to sit on the stack. The stack-allocated `get` is always available.
-
-Nothing else changes: `no_std`, `forbid(unsafe_code)`, and the no-panic rules hold either way, and
-the feature never pulls in `std`.
-
-### MSRV and edition
-
-Edition 2024, minimum supported Rust version **1.85**.
 
 ## Contact
 

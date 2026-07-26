@@ -6,7 +6,7 @@
 [![Docs](https://docs.rs/multicalc/badge.svg)](https://docs.rs/multicalc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Math for real-time embedded systems, in `no_std` stable Rust with nero-zero dependencies: state
+**Scientific math for real-time embedded systems, in `no_std` stable Rust with near-zero dependencies: state
 estimation, control, kinematics, and Lie groups on a calculus, autodiff, and linear-algebra core in one integrated package.
 No heap, no panics, no `unsafe` - from a 64-bit server down to a bare-metal microcontroller.**
 
