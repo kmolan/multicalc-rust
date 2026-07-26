@@ -173,17 +173,19 @@ re-linearizes them each step, with the Jacobians coming from autodiff, so a nonl
 hand-derived matrices:
 
 ```rust
-use multicalc::estimation::KalmanFilter;
+use multicalc::estimation::{KalmanFilter, KalmanModel};
 use multicalc::linear_algebra::{Matrix, Vector};
 
 // Constant velocity: position integrates velocity over a 1 s step, and only position is measured.
 let mut filter = KalmanFilter::new(
     Vector::new([0.0, 0.0]),                    // initial state [position, velocity]
     Matrix::new([[1.0, 0.0], [0.0, 1.0]]),      // initial covariance
-    Matrix::new([[1.0, 1.0], [0.0, 1.0]]),      // state transition
-    Matrix::new([[1.0, 0.0]]),                  // measurement model: position only
-    Matrix::new([[0.01, 0.0], [0.0, 0.01]]),    // process noise
-    Matrix::new([[0.1]]),                       // measurement noise
+    KalmanModel {
+        state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
+        measurement_model: Matrix::new([[1.0, 0.0]]),   // position only
+        process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
+        measurement_noise: Matrix::new([[0.1]]),
+    },
 );
 
 filter.predict();

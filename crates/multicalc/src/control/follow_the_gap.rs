@@ -25,7 +25,7 @@ use crate::scalar::Numeric;
 /// When nothing is wide enough, the result is a full stop with [`FollowTheGapOutput::is_blocked`] set — the
 /// follower never spins in place. What to do then, such as reversing, is left to the caller.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct FollowTheGap<const BEAMS: usize, T: Numeric> {
+pub struct FollowTheGap<const BEAMS: usize, T: Numeric = f64> {
     /// How wide an angle the scan covers, in radians.
     field_of_view: T,
     /// How far the sensor can see, in metres.
@@ -50,7 +50,7 @@ pub struct FollowTheGap<const BEAMS: usize, T: Numeric> {
 
 /// The result of one reactive step: the motion command plus context.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct FollowTheGapOutput<T: Numeric> {
+pub struct FollowTheGapOutput<T: Numeric = f64> {
     body_twist: BodyTwist<T>,
     heading: T,
     gap_start_index: usize,

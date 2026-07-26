@@ -267,14 +267,16 @@ impl VectorFn<5, 2> for GlobalPosition {
 
 fn bench_kalman_filter_step(c: &mut Criterion) {
     // One predict + update of a constant-velocity tracker: position measured, velocity inferred.
-    use multicalc::estimation::KalmanFilter;
+    use multicalc::estimation::{KalmanFilter, KalmanModel};
     let mut filter = KalmanFilter::<2, 1>::new(
         Vector::new([0.0, 1.0]),
         Matrix::identity(),
-        Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
-        Matrix::new([[1.0, 0.0]]),
-        Matrix::new([[0.05, 0.0], [0.0, 0.05]]),
-        Matrix::new([[0.5]]),
+        KalmanModel {
+            state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
+            measurement_model: Matrix::new([[1.0, 0.0]]),
+            process_noise: Matrix::new([[0.05, 0.0], [0.0, 0.05]]),
+            measurement_noise: Matrix::new([[0.5]]),
+        },
     );
     let measurement = Vector::new([1.0]);
     c.bench_function("kalman_filter_step", |b| {

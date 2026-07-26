@@ -1,7 +1,7 @@
 //! Extended Kalman filter goldens, invariants, and error paths.
 
 use multicalc::error::{DiffError, EstimationError};
-use multicalc::estimation::{CovarianceUpdate, ExtendedKalmanFilter, KalmanFilter};
+use multicalc::estimation::{CovarianceUpdate, ExtendedKalmanFilter, KalmanFilter, KalmanModel};
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
 use multicalc::numerical_derivative::mode::FiniteDifferenceMode;
@@ -102,10 +102,12 @@ fn extended_filter_with_linear_models_matches_linear_filter() {
     let mut linear = KalmanFilter::<2, 1>::new(
         Vector::new([0.0, 0.0]),
         initial_covariance,
-        Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
-        Matrix::new([[1.0, 0.0]]),
-        process_noise,
-        measurement_noise,
+        KalmanModel {
+            state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
+            measurement_model: Matrix::new([[1.0, 0.0]]),
+            process_noise,
+            measurement_noise,
+        },
     );
 
     for step in 0..8 {

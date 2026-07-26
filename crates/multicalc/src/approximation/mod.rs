@@ -10,6 +10,13 @@ pub use crate::utils::summation::SummationMethod;
 pub mod linear_approximation;
 pub mod quadratic_approximation;
 
+pub use linear_approximation::{
+    LinearApproximation, LinearApproximationPredictionMetrics, LinearApproximator,
+};
+pub use quadratic_approximation::{
+    QuadraticApproximation, QuadraticApproximationPredictionMetrics, QuadraticApproximator,
+};
+
 /// Goodness-of-fit metrics shared by the linear and quadratic approximators.
 ///
 /// Returns `(mae, mse, rmse, r_squared, adjusted_r_squared)`. `num_predictors` is the

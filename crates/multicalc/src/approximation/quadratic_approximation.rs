@@ -104,9 +104,23 @@ impl<D: DerivatorMultiVariable + Default> Default for QuadraticApproximator<D> {
     }
 }
 
+impl QuadraticApproximator<AutoDiffMulti> {
+    /// An approximator using exact autodiff derivatives.
+    ///
+    /// ```
+    /// use multicalc::approximation::quadratic_approximation::QuadraticApproximator;
+    ///
+    /// const APPROXIMATOR: QuadraticApproximator = QuadraticApproximator::new();
+    /// ```
+    #[inline]
+    pub const fn new() -> Self {
+        Self::from_derivator(AutoDiffMulti::new())
+    }
+}
+
 impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
     /// Builds an approximator from an explicit derivator.
-    pub fn from_derivator(derivator: D) -> Self {
+    pub const fn from_derivator(derivator: D) -> Self {
         QuadraticApproximator {
             derivator,
             summation: SummationMethod::Pairwise,

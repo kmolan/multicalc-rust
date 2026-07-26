@@ -21,14 +21,14 @@ fn to_wheels<T: Numeric>(r: T, b: T, linear: T, angular: T) -> (T, T) {
 
 /// Wheel angular velocities [rad/s]. Positive drives the body forward.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct WheelVelocities<T: Numeric> {
+pub struct WheelVelocities<T: Numeric = f64> {
     left: T,
     right: T,
 }
 
 /// Wheel angular displacements over one tick `[rad]` — what an encoder reports.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct WheelRotations<T: Numeric> {
+pub struct WheelRotations<T: Numeric = f64> {
     left: T,
     right: T,
 }
@@ -38,7 +38,7 @@ pub struct WheelRotations<T: Numeric> {
 /// The se(2) twist restricted to two degrees of freedom. There is no lateral field: a
 /// differential-drive body cannot slide sideways.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct BodyTwist<T: Numeric> {
+pub struct BodyTwist<T: Numeric = f64> {
     linear: T,
     angular: T,
 }
@@ -48,7 +48,7 @@ pub struct BodyTwist<T: Numeric> {
 /// Arc length, not displacement — the straight-line distance covered is the chord, which is shorter
 /// whenever the heading changes. These are the exponential coordinates of the relative pose.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct BodyArc<T: Numeric> {
+pub struct BodyArc<T: Numeric = f64> {
     linear: T,
     angular: T,
 }
@@ -209,7 +209,7 @@ impl<T: Numeric> BodyArc<T> {
 /// `wheelbase` is the track width: the lateral distance between the two wheel contact points, not a
 /// front-to-rear axle distance.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct DifferentialDrive<T: Numeric> {
+pub struct DifferentialDrive<T: Numeric = f64> {
     wheel_radius: T,
     wheelbase: T,
 }

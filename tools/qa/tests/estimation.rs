@@ -2,7 +2,7 @@
 
 //! Checks the linear Kalman filter against filterpy goldens.
 
-use multicalc::estimation::{ExtendedKalmanFilter, KalmanFilter};
+use multicalc::estimation::{ExtendedKalmanFilter, KalmanFilter, KalmanModel};
 use multicalc::linear_algebra::Vector;
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc_qa::load::*;
@@ -14,10 +14,20 @@ fn build_filter<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize
     KalmanFilter::new(
         to_vector::<STATE_DIMENSION>(&fx.inputs["initial_state"]),
         to_matrix::<STATE_DIMENSION, STATE_DIMENSION>(&fx.inputs["initial_covariance"]),
-        to_matrix::<STATE_DIMENSION, STATE_DIMENSION>(&fx.inputs["state_transition"]),
-        to_matrix::<MEASUREMENT_DIMENSION, STATE_DIMENSION>(&fx.inputs["measurement_model"]),
-        to_matrix::<STATE_DIMENSION, STATE_DIMENSION>(&fx.inputs["process_noise"]),
-        to_matrix::<MEASUREMENT_DIMENSION, MEASUREMENT_DIMENSION>(&fx.inputs["measurement_noise"]),
+        KalmanModel {
+            state_transition: to_matrix::<STATE_DIMENSION, STATE_DIMENSION>(
+                &fx.inputs["state_transition"],
+            ),
+            measurement_model: to_matrix::<MEASUREMENT_DIMENSION, STATE_DIMENSION>(
+                &fx.inputs["measurement_model"],
+            ),
+            process_noise: to_matrix::<STATE_DIMENSION, STATE_DIMENSION>(
+                &fx.inputs["process_noise"],
+            ),
+            measurement_noise: to_matrix::<MEASUREMENT_DIMENSION, MEASUREMENT_DIMENSION>(
+                &fx.inputs["measurement_noise"],
+            ),
+        },
     )
 }
 

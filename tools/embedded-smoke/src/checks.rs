@@ -15,7 +15,7 @@ use core::hint::black_box;
 use multicalc::LevenbergMarquardt;
 use multicalc::control::{FollowTheGap, Pid, pure_pursuit_curvature};
 use multicalc::error::LinalgError;
-use multicalc::estimation::{ExtendedKalmanFilter, KalmanFilter};
+use multicalc::estimation::{ExtendedKalmanFilter, KalmanFilter, KalmanModel};
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::numerical_derivative::autodiff::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::numerical_derivative::derivator::DerivatorSingleVariable;
@@ -313,10 +313,12 @@ pub fn kalman_filter_golden() -> f64 {
     let mut filter = KalmanFilter::<2, 1>::new(
         black_box(Vector::new(fixtures::KALMAN_INITIAL_STATE)),
         Matrix::new(fixtures::KALMAN_INITIAL_COVARIANCE),
-        Matrix::new(fixtures::KALMAN_STATE_TRANSITION),
-        Matrix::new(fixtures::KALMAN_MEASUREMENT_MODEL),
-        Matrix::new(fixtures::KALMAN_PROCESS_NOISE),
-        Matrix::new(fixtures::KALMAN_MEASUREMENT_NOISE),
+        KalmanModel {
+            state_transition: Matrix::new(fixtures::KALMAN_STATE_TRANSITION),
+            measurement_model: Matrix::new(fixtures::KALMAN_MEASUREMENT_MODEL),
+            process_noise: Matrix::new(fixtures::KALMAN_PROCESS_NOISE),
+            measurement_noise: Matrix::new(fixtures::KALMAN_MEASUREMENT_NOISE),
+        },
     );
     for row in fixtures::KALMAN_MEASUREMENTS {
         filter.predict();
@@ -446,10 +448,12 @@ pub fn kalman_filter_identity_f32() -> f32 {
     let mut filter = KalmanFilter::<2, 1, f32>::new(
         black_box(Vector::new([0.0_f32, 0.0])),
         Matrix::identity(),
-        Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
-        Matrix::new([[1.0, 0.0]]),
-        Matrix::zeros(),
-        Matrix::new([[1.0]]),
+        KalmanModel {
+            state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
+            measurement_model: Matrix::new([[1.0, 0.0]]),
+            process_noise: Matrix::zeros(),
+            measurement_noise: Matrix::new([[1.0]]),
+        },
     );
     for measurement in [1.0_f32, 2.0] {
         filter.predict();

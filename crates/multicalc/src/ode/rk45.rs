@@ -7,7 +7,7 @@ use crate::scalar::Numeric;
 
 /// One accepted RK45 step, carrying the data for cubic-Hermite interpolation inside `[t0, t1]`.
 #[derive(Debug, Clone, Copy)]
-pub struct Step<const N: usize, T: Numeric> {
+pub struct Step<const N: usize, T: Numeric = f64> {
     /// Step start time.
     pub t0: T,
     /// Step end time.

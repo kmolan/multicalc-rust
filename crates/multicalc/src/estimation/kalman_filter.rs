@@ -28,6 +28,33 @@ pub enum CovarianceUpdate {
     Naive,
 }
 
+/// The four matrices that describe what a linear Kalman filter is tracking.
+///
+/// # Examples
+/// ```
+/// use multicalc::estimation::KalmanModel;
+/// use multicalc::linear_algebra::Matrix;
+///
+/// // Constant velocity: position integrates velocity over a 1 s step; position is measured.
+/// let model = KalmanModel {
+///     state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
+///     measurement_model: Matrix::new([[1.0, 0.0]]),
+///     process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
+///     measurement_noise: Matrix::new([[0.1]]),
+/// };
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct KalmanModel<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T = f64> {
+    /// How the state moves forward one step on its own.
+    pub state_transition: Matrix<STATE_DIMENSION, STATE_DIMENSION, T>,
+    /// How a measurement is produced from the state.
+    pub measurement_model: Matrix<MEASUREMENT_DIMENSION, STATE_DIMENSION, T>,
+    /// How much uncertainty each step adds.
+    pub process_noise: Matrix<STATE_DIMENSION, STATE_DIMENSION, T>,
+    /// How noisy the measurements are.
+    pub measurement_noise: Matrix<MEASUREMENT_DIMENSION, MEASUREMENT_DIMENSION, T>,
+}
+
 /// A linear Kalman filter over a `STATE_DIMENSION`-state model with `MEASUREMENT_DIMENSION`
 /// measurements.
 ///
@@ -49,17 +76,19 @@ pub enum CovarianceUpdate {
 ///
 /// # Examples
 /// ```
-/// use multicalc::estimation::KalmanFilter;
+/// use multicalc::estimation::{KalmanFilter, KalmanModel};
 /// use multicalc::linear_algebra::{Matrix, Vector};
 /// # fn main() -> Result<(), multicalc::error::EstimationError> {
 /// // Constant velocity: position integrates velocity over a 1 s step; position is measured.
 /// let mut filter = KalmanFilter::new(
-///     Vector::new([0.0, 0.0]),                        // initial state
-///     Matrix::new([[1.0, 0.0], [0.0, 1.0]]),          // initial covariance
-///     Matrix::new([[1.0, 1.0], [0.0, 1.0]]),          // state transition
-///     Matrix::new([[1.0, 0.0]]),                      // measurement model
-///     Matrix::new([[0.01, 0.0], [0.0, 0.01]]),        // process noise
-///     Matrix::new([[0.1]]),                           // measurement noise
+///     Vector::new([0.0, 0.0]),                // initial state
+///     Matrix::new([[1.0, 0.0], [0.0, 1.0]]),  // initial covariance
+///     KalmanModel {
+///         state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
+///         measurement_model: Matrix::new([[1.0, 0.0]]),
+///         process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
+///         measurement_noise: Matrix::new([[0.1]]),
+///     },
 /// );
 /// filter.predict();
 /// filter.update(Vector::new([1.0]))?;
@@ -83,17 +112,14 @@ pub struct KalmanFilter<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSIO
 impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeric>
     KalmanFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T>
 {
-    /// Builds a filter from an initial estimate and the four model matrices.
+    /// Builds a filter from an initial estimate and the model it is tracking.
     ///
     /// The covariance update starts at [`Joseph`](CovarianceUpdate::Joseph); change it with
     /// [`with_covariance_update`](Self::with_covariance_update).
     pub fn new(
         initial_state: Vector<STATE_DIMENSION, T>,
         initial_covariance: Matrix<STATE_DIMENSION, STATE_DIMENSION, T>,
-        state_transition: Matrix<STATE_DIMENSION, STATE_DIMENSION, T>,
-        measurement_model: Matrix<MEASUREMENT_DIMENSION, STATE_DIMENSION, T>,
-        process_noise: Matrix<STATE_DIMENSION, STATE_DIMENSION, T>,
-        measurement_noise: Matrix<MEASUREMENT_DIMENSION, MEASUREMENT_DIMENSION, T>,
+        model: KalmanModel<STATE_DIMENSION, MEASUREMENT_DIMENSION, T>,
     ) -> Self {
         const {
             assert!(
@@ -110,10 +136,10 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
         KalmanFilter {
             state: initial_state,
             covariance: initial_covariance,
-            state_transition,
-            measurement_model,
-            process_noise,
-            measurement_noise,
+            state_transition: model.state_transition,
+            measurement_model: model.measurement_model,
+            process_noise: model.process_noise,
+            measurement_noise: model.measurement_noise,
             innovation: Vector::zeros(),
             innovation_covariance: Matrix::zeros(),
             covariance_update: CovarianceUpdate::Joseph,
@@ -123,16 +149,18 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
     /// Selects how [`update`](Self::update) recomputes the covariance.
     ///
     /// ```
-    /// use multicalc::estimation::{CovarianceUpdate, KalmanFilter};
+    /// use multicalc::estimation::{CovarianceUpdate, KalmanFilter, KalmanModel};
     /// use multicalc::linear_algebra::{Matrix, Vector};
     /// # fn main() -> Result<(), multicalc::error::EstimationError> {
     /// let mut filter = KalmanFilter::new(
     ///     Vector::new([0.0, 0.0]),
     ///     Matrix::new([[1.0, 0.0], [0.0, 1.0]]),
-    ///     Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
-    ///     Matrix::new([[1.0, 0.0]]),
-    ///     Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
-    ///     Matrix::new([[0.1]]),
+    ///     KalmanModel {
+    ///         state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
+    ///         measurement_model: Matrix::new([[1.0, 0.0]]),
+    ///         process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
+    ///         measurement_noise: Matrix::new([[0.1]]),
+    ///     },
     /// )
     /// .with_covariance_update(CovarianceUpdate::Naive);
     /// filter.predict();

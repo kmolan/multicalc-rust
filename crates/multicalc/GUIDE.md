@@ -768,8 +768,11 @@ state forward through a matrix model and grows the covariance by the process noi
 a measurement and shrinks it. Fixed-size, no allocation, and generic over the `Numeric` scalar, so a
 `Dual` state differentiates the whole filter.
 
-- `KalmanFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T>`: built from an initial estimate and the
-  four model matrices — transition, measurement model, process noise, measurement noise.
+- `KalmanFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T>`: built from an initial estimate and a
+  `KalmanModel`.
+- `KalmanModel<STATE_DIMENSION, MEASUREMENT_DIMENSION, T>`: the four matrices that describe what the
+  filter is tracking — transition, measurement model, process noise, measurement noise. Three of
+  them are the same shape, so naming each field is what stops a swapped pair compiling.
 - `predict` / `predict_with_control`: the time step, undriven or with a `control_model ·
   control_input` term. `CONTROL_DIMENSION` lives on the method, so undriven users never meet it.
 - `update`: the measurement step. The only fallible operation in the module.
@@ -779,17 +782,19 @@ a measurement and shrinks it. Fixed-size, no allocation, and generic over the `N
   changing timestep changes the model between steps.
 
 ```rust
-use multicalc::estimation::KalmanFilter;
+use multicalc::estimation::{KalmanFilter, KalmanModel};
 use multicalc::linear_algebra::{Matrix, Vector};
 
 // Constant velocity: position integrates velocity over a 1 s step; position is measured.
 let mut filter = KalmanFilter::new(
     Vector::new([0.0, 0.0]),                    // initial state [position, velocity]
     Matrix::new([[1.0, 0.0], [0.0, 1.0]]),      // initial covariance
-    Matrix::new([[1.0, 1.0], [0.0, 1.0]]),      // state transition
-    Matrix::new([[1.0, 0.0]]),                  // measurement model
-    Matrix::new([[0.01, 0.0], [0.0, 0.01]]),    // process noise
-    Matrix::new([[0.1]]),                       // measurement noise
+    KalmanModel {
+        state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
+        measurement_model: Matrix::new([[1.0, 0.0]]),   // position only
+        process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
+        measurement_noise: Matrix::new([[0.1]]),
+    },
 );
 
 filter.predict();

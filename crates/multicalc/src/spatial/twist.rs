@@ -25,7 +25,7 @@ use crate::scalar::Numeric;
 /// let _: Vector<6, f64> = a.into();
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Twist<T: Numeric> {
+pub struct Twist<T: Numeric = f64> {
     linear: Vector<3, T>,
     angular: Vector<3, T>,
 }

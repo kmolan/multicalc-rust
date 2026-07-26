@@ -12,7 +12,7 @@ use crate::spatial::lie::{
 /// A 3D rigid-body transform: a rotation and a translation. The tangent is `[vx, vy, vz, ωx, ωy, ωz]`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
-pub struct SE3<T: Numeric> {
+pub struct SE3<T: Numeric = f64> {
     rotation: SO3<T>,
     translation: Vector<3, T>,
 }

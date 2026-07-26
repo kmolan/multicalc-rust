@@ -23,7 +23,7 @@ use crate::scalar::Numeric;
 /// assert_eq!(a.scale(2.0).as_array(), [2.0, 4.0, 6.0, 8.0, 10.0, 12.0]);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Wrench<T: Numeric> {
+pub struct Wrench<T: Numeric = f64> {
     force: Vector<3, T>,
     torque: Vector<3, T>,
 }

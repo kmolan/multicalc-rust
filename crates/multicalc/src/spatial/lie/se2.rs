@@ -10,7 +10,7 @@ use crate::spatial::small_angle_sq;
 /// A 2D rigid-body transform: a rotation and a translation. The tangent is `[vx, vy, ω]`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
-pub struct SE2<T: Numeric> {
+pub struct SE2<T: Numeric = f64> {
     rotation: SO2<T>,
     translation: Vector<2, T>,
 }

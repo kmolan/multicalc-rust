@@ -26,7 +26,7 @@ use crate::scalar::Numeric;
 /// assert!((smoother.value() - 10.0).abs() < 1e-9);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct OnePoleLowPass<T: Numeric> {
+pub struct OnePoleLowPass<T: Numeric = f64> {
     smoothing: T,
     state: T,
     initialized: bool,

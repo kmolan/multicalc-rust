@@ -1,5 +1,7 @@
 use multicalc::error::EstimationError;
-use multicalc::estimation::{GaussianLikelihood, KalmanFilter, ParticleFilter, ResamplingScheme};
+use multicalc::estimation::{
+    GaussianLikelihood, KalmanFilter, KalmanModel, ParticleFilter, ResamplingScheme,
+};
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::random::{Pcg32, RandomSource};
 use multicalc::scalar::{Numeric, VectorFn};
@@ -227,10 +229,12 @@ fn converges_to_kalman_on_linear_gaussian_model() {
     let mut kalman = KalmanFilter::new(
         Vector::new([0.0, 0.0]),
         identity_covariance(),
-        Matrix::new([[1.0, dt], [0.0, 1.0]]),
-        Matrix::new([[1.0, 0.0]]),
-        process_noise,
-        measurement_noise,
+        KalmanModel {
+            state_transition: Matrix::new([[1.0, dt], [0.0, 1.0]]),
+            measurement_model: Matrix::new([[1.0, 0.0]]),
+            process_noise,
+            measurement_noise,
+        },
     );
     let mut particle = ParticleFilter::<2, 1>::new(
         20_000,
