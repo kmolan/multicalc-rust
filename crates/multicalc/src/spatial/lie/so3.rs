@@ -100,7 +100,8 @@ impl<T: Numeric> SO3<T> {
     /// The inverse of [`SO3::hat`].
     #[inline]
     pub fn vee(m: Matrix<3, 3, T>) -> Vector<3, T> {
-        Vector::new([m[(2, 1)], m[(0, 2)], m[(1, 0)]])
+        let [[_, _, m02], [m10, _, _], [_, m21, _]] = m.into_array();
+        Vector::new([m21, m02, m10])
     }
 
     /// The adjoint, equal to the rotation matrix (`Ad_R = R`).
@@ -155,7 +156,7 @@ impl<T: Numeric> SO3<T> {
     /// use multicalc::spatial::SO3;
     /// use multicalc::linear_algebra::{Matrix, Vector};
     /// let phi = Vector::new([0.2_f64, -0.1, 0.4]);
-    /// let prod = SO3::left_jacobian(phi) * SO3::left_jacobian_inverse(phi);
+    /// let prod = (SO3::left_jacobian(phi) * SO3::left_jacobian_inverse(phi));
     /// for i in 0..3 { assert!((prod[(i, i)] - 1.0).abs() < 1e-12); }
     /// ```
     #[inline]

@@ -119,7 +119,7 @@ fn damped_accessors() {
     let jtb = j.transpose() * b;
     let mut expected = 0.0_f64;
     for l in 0..3 {
-        let scaled = (jtb[l] / b_norm / j.column(l).norm()).abs();
+        let scaled = (jtb[l] / b_norm / Vector::<4>::from_fn(|r| j[(r, l)]).norm()).abs();
         expected = expected.max(scaled);
     }
     assert!((dls.max_a_t_b_scaled(b_norm) - expected).abs() < 1e-12);

@@ -264,24 +264,22 @@ fn converges_to_kalman_on_linear_gaussian_model() {
             .unwrap();
     }
 
-    let kalman_state = kalman.state();
-    let particle_mean = particle.mean();
     assert!(
-        (particle_mean[0] - kalman_state[0]).abs() < 0.05,
+        (particle.mean()[0] - kalman.state()[0]).abs() < 0.05,
         "position off the Kalman estimate: {} vs {}",
-        particle_mean[0],
-        kalman_state[0]
+        particle.mean()[0],
+        kalman.state()[0]
     );
     assert!(
-        (particle_mean[1] - kalman_state[1]).abs() < 0.10,
+        (particle.mean()[1] - kalman.state()[1]).abs() < 0.10,
         "velocity off the Kalman estimate: {} vs {}",
-        particle_mean[1],
-        kalman_state[1]
+        particle.mean()[1],
+        kalman.state()[1]
     );
     assert!(
-        (particle_mean[0] - truth[0]).abs() < 0.15,
+        (particle.mean()[0] - truth[0]).abs() < 0.15,
         "position off the truth: {} vs {}",
-        particle_mean[0],
+        particle.mean()[0],
         truth[0]
     );
 }

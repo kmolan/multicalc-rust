@@ -65,11 +65,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
                 return Err(LinalgError::Singular);
             }
             if p != k {
-                for c in 0..N {
-                    let tmp = a[(k, c)];
-                    a[(k, c)] = a[(p, c)];
-                    a[(p, c)] = tmp;
-                }
+                a.as_mut_slice_rows().swap(k, p);
                 perm.swap(k, p);
                 sign = -sign;
             }
@@ -78,8 +74,8 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
                 let factor = a[(i, k)] / a[(k, k)];
                 a[(i, k)] = factor;
                 for j in (k + 1)..N {
-                    let term = factor * a[(k, j)];
-                    a[(i, j)] -= term;
+                    let akj = a[(k, j)];
+                    a[(i, j)] -= factor * akj;
                 }
             }
         }
@@ -205,7 +201,8 @@ impl<const N: usize, T: Numeric> Lu<N, T> {
     pub fn solve_matrix<const K: usize>(&self, b: Matrix<N, K, T>) -> Matrix<N, K, T> {
         let mut result = Matrix::zeros();
         for c in 0..K {
-            let x = self.solve(b.column(c));
+            let col = Vector::from_fn(|r| b[(r, c)]);
+            let x = self.solve(col);
             for r in 0..N {
                 result[(r, c)] = x[r];
             }

@@ -76,17 +76,17 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
         let mut result: Matrix<NUM_VARS, NUM_VARS, D::Scalar> =
             Matrix::from_fn(|_, _| <D::Scalar as Numeric>::NAN);
 
-        // explicit indices drive the symmetric mirror write `result[(col, row)]`
         for row_index in 0..NUM_VARS {
             for col_index in 0..NUM_VARS {
                 if result[(row_index, col_index)].is_nan() {
-                    result[(row_index, col_index)] = self.derivator.second_partial_derivative(
+                    let value = self.derivator.second_partial_derivative(
                         function,
                         &[row_index, col_index],
                         vector_of_points,
                     )?;
+                    result[(row_index, col_index)] = value;
                     // a Hessian is symmetric, so mirror instead of recomputing
-                    result[(col_index, row_index)] = result[(row_index, col_index)];
+                    result[(col_index, row_index)] = value;
                 }
             }
         }

@@ -241,9 +241,18 @@ proptest! {
         filter.update(&model, measurement).unwrap();
 
         let covariance = filter.covariance();
-        prop_assert!((covariance[(0, 1)] - covariance[(1, 0)]).abs() < 1e-12);
-        prop_assert!((covariance[(0, 2)] - covariance[(2, 0)]).abs() < 1e-12);
-        prop_assert!((covariance[(1, 2)] - covariance[(2, 1)]).abs() < 1e-12);
+        prop_assert!(
+            (covariance[(0, 1)] - covariance[(1, 0)]).abs()
+            < 1e-12
+        );
+        prop_assert!(
+            (covariance[(0, 2)] - covariance[(2, 0)]).abs()
+            < 1e-12
+        );
+        prop_assert!(
+            (covariance[(1, 2)] - covariance[(2, 1)]).abs()
+            < 1e-12
+        );
         prop_assert!(covariance.cholesky().is_ok());
     }
 

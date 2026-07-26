@@ -126,7 +126,8 @@ fn near_singular() {
         }
     });
     for r in 0..6 {
-        j[(r, 5)] = j[(r, 4)] + 1e-8 * (r as f64 + 1.0);
+        let j4 = j[(r, 4)];
+        j[(r, 5)] = j4 + 1e-8 * (r as f64 + 1.0);
     }
     let (f, ns) = time(100_000, || black_box(j).svd().unwrap());
     let cond = f.condition_number();

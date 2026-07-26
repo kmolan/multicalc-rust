@@ -76,19 +76,16 @@ fn assert_mat_close<const R: usize, const C: usize>(
 ) {
     for i in 0..R {
         for j in 0..C {
-            assert!(
-                (a[(i, j)] - b[(i, j)]).abs() < tol,
-                "({i},{j}): {} vs {}",
-                a[(i, j)],
-                b[(i, j)]
-            );
+            let (aij, bij) = (a[(i, j)], b[(i, j)]);
+            assert!((aij - bij).abs() < tol, "({i},{j}): {aij} vs {bij}");
         }
     }
 }
 
 fn assert_vec_close<const N: usize>(a: Vector<N, f64>, b: Vector<N, f64>, tol: f64) {
     for i in 0..N {
-        assert!((a[i] - b[i]).abs() < tol, "[{i}]: {} vs {}", a[i], b[i]);
+        let (ai, bi) = (a[i], b[i]);
+        assert!((ai - bi).abs() < tol, "[{i}]: {ai} vs {bi}");
     }
 }
 
@@ -520,7 +517,8 @@ fn se3_left_jacobian_finite_at_zero_under_dual() {
     let jl = SE3::left_jacobian(xi);
     for i in 0..6 {
         for j in 0..6 {
-            assert!(jl[(i, j)].value.is_finite() && jl[(i, j)].deriv.is_finite());
+            let cell = jl[(i, j)];
+            assert!(cell.value.is_finite() && cell.deriv.is_finite());
         }
     }
 }

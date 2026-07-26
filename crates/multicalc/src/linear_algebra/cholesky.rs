@@ -142,7 +142,8 @@ impl<const N: usize, T: Numeric> Cholesky<N, T> {
     pub fn solve_matrix<const K: usize>(&self, b: Matrix<N, K, T>) -> Matrix<N, K, T> {
         let mut result = Matrix::zeros();
         for c in 0..K {
-            let x = self.solve(b.column(c));
+            let col = Vector::from_fn(|r| b[(r, c)]);
+            let x = self.solve(col);
             for r in 0..N {
                 result[(r, c)] = x[r];
             }

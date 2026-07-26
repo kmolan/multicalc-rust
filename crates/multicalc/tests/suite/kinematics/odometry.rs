@@ -46,23 +46,24 @@ fn arc_matches_rk45() {
 
         let arc = integrate(SE2::identity(), rate.integrate_over(tf));
         let t = arc.translation();
+        let s = solved;
         assert!(
-            (t[0] - solved[0]).abs() < 1e-9,
+            (t[0] - s[0]).abs() < 1e-9,
             "(v={v}, w={w}) x: arc {} vs rk45 {}",
             t[0],
-            solved[0]
+            s[0]
         );
         assert!(
-            (t[1] - solved[1]).abs() < 1e-9,
+            (t[1] - s[1]).abs() < 1e-9,
             "(v={v}, w={w}) y: arc {} vs rk45 {}",
             t[1],
-            solved[1]
+            s[1]
         );
         assert!(
-            (arc.rotation().log() - solved[2]).abs() < 1e-12,
+            (arc.rotation().log() - s[2]).abs() < 1e-12,
             "(v={v}, w={w}) heading: arc {} vs rk45 {}",
             arc.rotation().log(),
-            solved[2]
+            s[2]
         );
     }
 }

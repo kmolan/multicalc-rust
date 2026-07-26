@@ -14,6 +14,7 @@ use crate::scalar::Numeric;
 /// let b = Matrix::new([[5.0, 6.0], [7.0, 8.0]]);
 ///
 /// assert_eq!(a[(0, 1)], 2.0);
+/// assert_eq!(a.get(0, 1), Some(&2.0));
 /// assert_eq!((a + b).into_array(), [[6.0, 8.0], [10.0, 12.0]]);
 /// assert_eq!((b - a).into_array(), [[4.0, 4.0], [4.0, 4.0]]);
 /// assert_eq!((-a).into_array(), [[-1.0, -2.0], [-3.0, -4.0]]);
@@ -49,6 +50,21 @@ impl<const ROWS: usize, const COLS: usize, T> Matrix<ROWS, COLS, T> {
         }
     }
 
+    // Crate-internal panic path (also used by Index). Public: prefer `[]`; use `get` when fallible.
+    #[inline]
+    #[track_caller]
+    pub(crate) fn at(&self, row: usize, col: usize) -> &T {
+        #[allow(clippy::indexing_slicing)]
+        &self.data[row][col]
+    }
+
+    #[inline]
+    #[track_caller]
+    pub(crate) fn at_mut(&mut self, row: usize, col: usize) -> &mut T {
+        #[allow(clippy::indexing_slicing)]
+        &mut self.data[row][col]
+    }
+
     /// Borrows the rows.
     ///
     /// ```
@@ -59,6 +75,48 @@ impl<const ROWS: usize, const COLS: usize, T> Matrix<ROWS, COLS, T> {
     #[must_use]
     pub const fn as_slice_rows(&self) -> &[[T; COLS]; ROWS] {
         &self.data
+    }
+
+    /// Borrows the rows mutably.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// let mut m = Matrix::new([[1.0, 2.0]]);
+    /// m.as_mut_slice_rows()[0][1] = 9.0;
+    /// assert_eq!(m[(0, 1)], 9.0);
+    /// ```
+    #[inline]
+    pub fn as_mut_slice_rows(&mut self) -> &mut [[T; COLS]; ROWS] {
+        &mut self.data
+    }
+
+    /// Returns a reference to entry `(row, col)`, or `None` if out of range.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// let m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    /// assert_eq!(m.get(1, 0), Some(&3.0));
+    /// assert_eq!(m.get(2, 0), None);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn get(&self, row: usize, col: usize) -> Option<&T> {
+        self.data.get(row).and_then(|r| r.get(col))
+    }
+
+    /// Returns a mutable reference to entry `(row, col)`, or `None` if out of range.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// let mut m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    /// if let Some(x) = m.get_mut(0, 1) {
+    ///     *x = 7.0;
+    /// }
+    /// assert_eq!(m.get(0, 1), Some(&7.0));
+    /// ```
+    #[inline]
+    pub fn get_mut(&mut self, row: usize, col: usize) -> Option<&mut T> {
+        self.data.get_mut(row).and_then(|r| r.get_mut(col))
     }
 
     /// Consumes the matrix, returning its rows.
@@ -80,31 +138,40 @@ impl<const ROWS: usize, const COLS: usize, T: Copy> Matrix<ROWS, COLS, T> {
     #[inline]
     #[must_use]
     pub fn try_from_row_slice(slice: &[T]) -> Option<Self> {
+        // In-bounds by construction: `r < ROWS`, `c < COLS`, and the length was just checked.
+        #[allow(clippy::indexing_slicing)]
         (slice.len() == ROWS * COLS).then(|| Self::from_fn(|r, c| slice[r * COLS + c]))
     }
 
-    /// Copies row `r` into a vector. Panics if `r >= ROWS`.
+    /// Copies row `r`, or `None` if `r >= ROWS`.
     ///
     /// ```
     /// use multicalc::linear_algebra::{Matrix, Vector};
     /// let m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-    /// assert_eq!(m.row(1), Vector::new([3.0, 4.0]));
+    /// assert_eq!(m.try_row(1), Some(Vector::new([3.0, 4.0])));
+    /// assert_eq!(m.try_row(2), None);
     /// ```
     #[inline]
-    pub fn row(&self, r: usize) -> Vector<COLS, T> {
-        Vector::new(self.data[r])
+    #[must_use]
+    pub fn try_row(&self, r: usize) -> Option<Vector<COLS, T>> {
+        self.data.get(r).copied().map(Vector::new)
     }
 
-    /// Copies column `c` into a vector. Panics if `c >= COLS`.
+    /// Copies column `c`, or `None` if `c >= COLS`.
     ///
     /// ```
     /// use multicalc::linear_algebra::{Matrix, Vector};
     /// let m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-    /// assert_eq!(m.column(0), Vector::new([1.0, 3.0]));
+    /// assert_eq!(m.try_column(1), Some(Vector::new([2.0, 4.0])));
+    /// assert_eq!(m.try_column(2), None);
+    /// let empty: Matrix<0, 3> = Matrix::zeros();
+    /// assert_eq!(empty.try_column(0), Some(Vector::<0>::zeros()));
+    /// assert_eq!(empty.try_column(3), None);
     /// ```
     #[inline]
-    pub fn column(&self, c: usize) -> Vector<ROWS, T> {
-        Vector::from_fn(|r| self.data[r][c])
+    #[must_use]
+    pub fn try_column(&self, c: usize) -> Option<Vector<ROWS, T>> {
+        (c < COLS).then(|| Vector::from_fn(|r| self.data[r][c]))
     }
 }
 
@@ -164,9 +231,9 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Matrix<ROWS, COLS, T> {
     #[must_use]
     fn max_abs(self) -> T {
         let mut best = T::ZERO;
-        for r in 0..ROWS {
-            for c in 0..COLS {
-                best = best.max(self[(r, c)].abs());
+        for row in &self.data {
+            for x in row {
+                best = best.max(x.abs());
             }
         }
         best
@@ -208,7 +275,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     pub fn determinant(self) -> T {
         match N {
             0 => T::ONE,
-            1 => self[(0, 0)],
+            1 => self.data[0][0],
             2 => self.determinant_2x2(),
             3 => self.determinant_3x3(),
             4 => self.determinant_4x4(),
@@ -228,7 +295,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let m: Matrix<2, 2> = Matrix::new([[4.0, 7.0], [2.0, 6.0]]);
-    /// let p = m * m.inverse().unwrap();
+    /// let p = (m * m.inverse().unwrap());
     /// assert!((p[(0, 0)] - 1.0).abs() < 1e-12 && (p[(1, 1)] - 1.0).abs() < 1e-12);
     /// assert!(Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 4.0]]).inverse().is_err());
     /// ```
@@ -246,17 +313,17 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
 
     #[inline]
     fn inverse_1x1(mut self) -> Result<Self, LinalgError> {
-        let value = self[(0, 0)];
+        let value = self.data[0][0];
         if Self::det_near_singular(value, value.abs(), 1) {
             return Err(LinalgError::Singular);
         }
-        self[(0, 0)] = T::ONE / value;
+        self.data[0][0] = T::ONE / value;
         Ok(self)
     }
 
     #[inline]
     fn determinant_2x2(self) -> T {
-        self[(0, 0)] * self[(1, 1)] - self[(0, 1)] * self[(1, 0)]
+        self.data[0][0] * self.data[1][1] - self.data[0][1] * self.data[1][0]
     }
 
     #[inline]
@@ -266,20 +333,20 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
             return Err(LinalgError::Singular);
         }
         let scale = T::ONE / determinant;
-        let m = self;
-        self[(0, 0)] = m[(1, 1)] * scale;
-        self[(0, 1)] = -m[(0, 1)] * scale;
-        self[(1, 0)] = -m[(1, 0)] * scale;
-        self[(1, 1)] = m[(0, 0)] * scale;
+        let m = self.data;
+        self.data[0][0] = m[1][1] * scale;
+        self.data[0][1] = -m[0][1] * scale;
+        self.data[1][0] = -m[1][0] * scale;
+        self.data[1][1] = m[0][0] * scale;
         Ok(self)
     }
 
     #[inline]
     fn determinant_3x3(self) -> T {
-        let m = self;
-        m[(0, 0)] * (m[(1, 1)] * m[(2, 2)] - m[(1, 2)] * m[(2, 1)])
-            - m[(0, 1)] * (m[(1, 0)] * m[(2, 2)] - m[(1, 2)] * m[(2, 0)])
-            + m[(0, 2)] * (m[(1, 0)] * m[(2, 1)] - m[(1, 1)] * m[(2, 0)])
+        let m = self.data;
+        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
     }
 
     #[inline]
@@ -289,27 +356,27 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
             return Err(LinalgError::Singular);
         }
         let scale = T::ONE / determinant;
-        let m = self;
+        let m = self.data;
         let adjugate = [
             [
-                m[(1, 1)] * m[(2, 2)] - m[(1, 2)] * m[(2, 1)],
-                m[(0, 2)] * m[(2, 1)] - m[(0, 1)] * m[(2, 2)],
-                m[(0, 1)] * m[(1, 2)] - m[(0, 2)] * m[(1, 1)],
+                m[1][1] * m[2][2] - m[1][2] * m[2][1],
+                m[0][2] * m[2][1] - m[0][1] * m[2][2],
+                m[0][1] * m[1][2] - m[0][2] * m[1][1],
             ],
             [
-                m[(1, 2)] * m[(2, 0)] - m[(1, 0)] * m[(2, 2)],
-                m[(0, 0)] * m[(2, 2)] - m[(0, 2)] * m[(2, 0)],
-                m[(0, 2)] * m[(1, 0)] - m[(0, 0)] * m[(1, 2)],
+                m[1][2] * m[2][0] - m[1][0] * m[2][2],
+                m[0][0] * m[2][2] - m[0][2] * m[2][0],
+                m[0][2] * m[1][0] - m[0][0] * m[1][2],
             ],
             [
-                m[(1, 0)] * m[(2, 1)] - m[(1, 1)] * m[(2, 0)],
-                m[(0, 1)] * m[(2, 0)] - m[(0, 0)] * m[(2, 1)],
-                m[(0, 0)] * m[(1, 1)] - m[(0, 1)] * m[(1, 0)],
+                m[1][0] * m[2][1] - m[1][1] * m[2][0],
+                m[0][1] * m[2][0] - m[0][0] * m[2][1],
+                m[0][0] * m[1][1] - m[0][1] * m[1][0],
             ],
         ];
         for (row, entries) in adjugate.iter().enumerate() {
             for (column, &entry) in entries.iter().enumerate() {
-                self[(row, column)] = entry * scale;
+                self.data[row][column] = entry * scale;
             }
         }
         Ok(self)
@@ -320,22 +387,22 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// adjugate are built from these, so they are computed once and shared.
     #[inline]
     fn row_pair_minors(self) -> ([T; 6], [T; 6]) {
-        let m = self;
+        let m = self.data;
         let top = [
-            m[(0, 0)] * m[(1, 1)] - m[(0, 1)] * m[(1, 0)],
-            m[(0, 0)] * m[(1, 2)] - m[(0, 2)] * m[(1, 0)],
-            m[(0, 0)] * m[(1, 3)] - m[(0, 3)] * m[(1, 0)],
-            m[(0, 1)] * m[(1, 2)] - m[(0, 2)] * m[(1, 1)],
-            m[(0, 1)] * m[(1, 3)] - m[(0, 3)] * m[(1, 1)],
-            m[(0, 2)] * m[(1, 3)] - m[(0, 3)] * m[(1, 2)],
+            m[0][0] * m[1][1] - m[0][1] * m[1][0],
+            m[0][0] * m[1][2] - m[0][2] * m[1][0],
+            m[0][0] * m[1][3] - m[0][3] * m[1][0],
+            m[0][1] * m[1][2] - m[0][2] * m[1][1],
+            m[0][1] * m[1][3] - m[0][3] * m[1][1],
+            m[0][2] * m[1][3] - m[0][3] * m[1][2],
         ];
         let bottom = [
-            m[(2, 0)] * m[(3, 1)] - m[(2, 1)] * m[(3, 0)],
-            m[(2, 0)] * m[(3, 2)] - m[(2, 2)] * m[(3, 0)],
-            m[(2, 0)] * m[(3, 3)] - m[(2, 3)] * m[(3, 0)],
-            m[(2, 1)] * m[(3, 2)] - m[(2, 2)] * m[(3, 1)],
-            m[(2, 1)] * m[(3, 3)] - m[(2, 3)] * m[(3, 1)],
-            m[(2, 2)] * m[(3, 3)] - m[(2, 3)] * m[(3, 2)],
+            m[2][0] * m[3][1] - m[2][1] * m[3][0],
+            m[2][0] * m[3][2] - m[2][2] * m[3][0],
+            m[2][0] * m[3][3] - m[2][3] * m[3][0],
+            m[2][1] * m[3][2] - m[2][2] * m[3][1],
+            m[2][1] * m[3][3] - m[2][3] * m[3][1],
+            m[2][2] * m[3][3] - m[2][3] * m[3][2],
         ];
         (top, bottom)
     }
@@ -359,36 +426,36 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
             return Err(LinalgError::Singular);
         }
         let scale = T::ONE / determinant;
-        let m = self;
+        let m = self.data;
         let adjugate = [
             [
-                m[(1, 1)] * bottom[5] - m[(1, 2)] * bottom[4] + m[(1, 3)] * bottom[3],
-                -m[(0, 1)] * bottom[5] + m[(0, 2)] * bottom[4] - m[(0, 3)] * bottom[3],
-                m[(3, 1)] * top[5] - m[(3, 2)] * top[4] + m[(3, 3)] * top[3],
-                -m[(2, 1)] * top[5] + m[(2, 2)] * top[4] - m[(2, 3)] * top[3],
+                m[1][1] * bottom[5] - m[1][2] * bottom[4] + m[1][3] * bottom[3],
+                -m[0][1] * bottom[5] + m[0][2] * bottom[4] - m[0][3] * bottom[3],
+                m[3][1] * top[5] - m[3][2] * top[4] + m[3][3] * top[3],
+                -m[2][1] * top[5] + m[2][2] * top[4] - m[2][3] * top[3],
             ],
             [
-                -m[(1, 0)] * bottom[5] + m[(1, 2)] * bottom[2] - m[(1, 3)] * bottom[1],
-                m[(0, 0)] * bottom[5] - m[(0, 2)] * bottom[2] + m[(0, 3)] * bottom[1],
-                -m[(3, 0)] * top[5] + m[(3, 2)] * top[2] - m[(3, 3)] * top[1],
-                m[(2, 0)] * top[5] - m[(2, 2)] * top[2] + m[(2, 3)] * top[1],
+                -m[1][0] * bottom[5] + m[1][2] * bottom[2] - m[1][3] * bottom[1],
+                m[0][0] * bottom[5] - m[0][2] * bottom[2] + m[0][3] * bottom[1],
+                -m[3][0] * top[5] + m[3][2] * top[2] - m[3][3] * top[1],
+                m[2][0] * top[5] - m[2][2] * top[2] + m[2][3] * top[1],
             ],
             [
-                m[(1, 0)] * bottom[4] - m[(1, 1)] * bottom[2] + m[(1, 3)] * bottom[0],
-                -m[(0, 0)] * bottom[4] + m[(0, 1)] * bottom[2] - m[(0, 3)] * bottom[0],
-                m[(3, 0)] * top[4] - m[(3, 1)] * top[2] + m[(3, 3)] * top[0],
-                -m[(2, 0)] * top[4] + m[(2, 1)] * top[2] - m[(2, 3)] * top[0],
+                m[1][0] * bottom[4] - m[1][1] * bottom[2] + m[1][3] * bottom[0],
+                -m[0][0] * bottom[4] + m[0][1] * bottom[2] - m[0][3] * bottom[0],
+                m[3][0] * top[4] - m[3][1] * top[2] + m[3][3] * top[0],
+                -m[2][0] * top[4] + m[2][1] * top[2] - m[2][3] * top[0],
             ],
             [
-                -m[(1, 0)] * bottom[3] + m[(1, 1)] * bottom[1] - m[(1, 2)] * bottom[0],
-                m[(0, 0)] * bottom[3] - m[(0, 1)] * bottom[1] + m[(0, 2)] * bottom[0],
-                -m[(3, 0)] * top[3] + m[(3, 1)] * top[1] - m[(3, 2)] * top[0],
-                m[(2, 0)] * top[3] - m[(2, 1)] * top[1] + m[(2, 2)] * top[0],
+                -m[1][0] * bottom[3] + m[1][1] * bottom[1] - m[1][2] * bottom[0],
+                m[0][0] * bottom[3] - m[0][1] * bottom[1] + m[0][2] * bottom[0],
+                -m[3][0] * top[3] + m[3][1] * top[1] - m[3][2] * top[0],
+                m[2][0] * top[3] - m[2][1] * top[1] + m[2][2] * top[0],
             ],
         ];
         for (row, entries) in adjugate.iter().enumerate() {
             for (column, &entry) in entries.iter().enumerate() {
-                self[(row, column)] = entry * scale;
+                self.data[row][column] = entry * scale;
             }
         }
         Ok(self)
@@ -411,16 +478,20 @@ impl<const ROWS: usize, const COLS: usize, T> From<[[T; COLS]; ROWS]> for Matrix
 impl<const ROWS: usize, const COLS: usize, T> Index<(usize, usize)> for Matrix<ROWS, COLS, T> {
     type Output = T;
 
+    /// Panics if `(row, col)` is out of range. Use [`Self::get`] when the index may be invalid.
     #[inline]
+    #[track_caller]
     fn index(&self, (row, col): (usize, usize)) -> &T {
-        &self.data[row][col]
+        self.at(row, col)
     }
 }
 
 impl<const ROWS: usize, const COLS: usize, T> IndexMut<(usize, usize)> for Matrix<ROWS, COLS, T> {
+    /// Panics if `(row, col)` is out of range. Use [`Self::get_mut`] when the index may be invalid.
     #[inline]
+    #[track_caller]
     fn index_mut(&mut self, (row, col): (usize, usize)) -> &mut T {
-        &mut self.data[row][col]
+        self.at_mut(row, col)
     }
 }
 
@@ -428,8 +499,9 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Add for Matrix<ROWS, COLS
     type Output = Self;
 
     #[inline]
-    fn add(self, rhs: Self) -> Self {
-        Matrix::from_fn(|r, c| self[(r, c)] + rhs[(r, c)])
+    fn add(mut self, rhs: Self) -> Self {
+        self += rhs;
+        self
     }
 }
 
@@ -448,8 +520,9 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Sub for Matrix<ROWS, COLS
     type Output = Self;
 
     #[inline]
-    fn sub(self, rhs: Self) -> Self {
-        Matrix::from_fn(|r, c| self[(r, c)] - rhs[(r, c)])
+    fn sub(mut self, rhs: Self) -> Self {
+        self -= rhs;
+        self
     }
 }
 
@@ -468,8 +541,13 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Neg for Matrix<ROWS, COLS
     type Output = Self;
 
     #[inline]
-    fn neg(self) -> Self {
-        Matrix::from_fn(|r, c| -self[(r, c)])
+    fn neg(mut self) -> Self {
+        for row in &mut self.data {
+            for x in row.iter_mut() {
+                *x = -*x;
+            }
+        }
+        self
     }
 }
 
@@ -506,7 +584,13 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Mul<Vector<COLS, T>>
 
     #[inline]
     fn mul(self, rhs: Vector<COLS, T>) -> Vector<ROWS, T> {
-        Vector::from_fn(|r| self.row(r).dot(rhs))
+        Vector::from_fn(|r| {
+            let mut acc = T::ZERO;
+            for c in 0..COLS {
+                acc += self[(r, c)] * rhs[c];
+            }
+            acc
+        })
     }
 }
 

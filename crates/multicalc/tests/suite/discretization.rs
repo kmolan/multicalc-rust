@@ -40,8 +40,9 @@ fn expm_derivative_finite_and_correct() {
         .unwrap();
     for i in 0..3 {
         for j in 0..3 {
-            assert!(ad[(i, j)].deriv.is_finite());
-            assert!((ad[(i, j)].deriv - m[(i, j)]).abs() < 1e-9);
+            let cell = ad[(i, j)];
+            assert!(cell.deriv.is_finite());
+            assert!((cell.deriv - m[(i, j)]).abs() < 1e-9);
         }
     }
 }
@@ -53,9 +54,9 @@ fn zoh_double_integrator() {
     let dt = 0.1;
     let (f, g) = zoh::<2, 1, 3, f64>(a, b, dt).unwrap();
     let want_f = [[1.0, dt], [0.0, 1.0]];
-    for i in 0..2 {
-        for j in 0..2 {
-            assert!((f[(i, j)] - want_f[i][j]).abs() < 1e-9);
+    for (i, row) in want_f.iter().enumerate() {
+        for (j, &want) in row.iter().enumerate() {
+            assert!((f[(i, j)] - want).abs() < 1e-9);
         }
     }
     assert!((g[(0, 0)] - dt * dt / 2.0).abs() < 1e-9);

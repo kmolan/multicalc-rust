@@ -84,9 +84,9 @@ fn ad_jacobian() {
     let result = jacobian.evaluate(&f, &[1.0, 2.0, 3.0]).unwrap();
 
     let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
-    for i in 0..2 {
-        for j in 0..3 {
-            assert!(f64::abs(result[(i, j)] - expected[i][j]) < 1e-12);
+    for (i, row) in expected.iter().enumerate() {
+        for (j, &want) in row.iter().enumerate() {
+            assert!(f64::abs(result[(i, j)] - want) < 1e-12);
         }
     }
 }
@@ -99,9 +99,9 @@ fn ad_jacobian_on_heap() {
     let result = jacobian.evaluate_on_heap(&f, &[1.0, 2.0, 3.0]).unwrap();
 
     let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
-    for i in 0..2 {
-        for j in 0..3 {
-            assert!(f64::abs(result[i][j] - expected[i][j]) < 1e-12);
+    for (i, row) in expected.iter().enumerate() {
+        for (j, &want) in row.iter().enumerate() {
+            assert!(f64::abs(result[i][j] - want) < 1e-12);
         }
     }
 }
@@ -117,9 +117,9 @@ fn ad_hessian() {
         [-2.0 * f64::sin(1.0), f64::cos(1.0) + 2.0 * f64::exp(2.0)],
         [f64::cos(1.0) + 2.0 * f64::exp(2.0), 2.0 * f64::exp(2.0)],
     ];
-    for i in 0..2 {
-        for j in 0..2 {
-            assert!(f64::abs(result[(i, j)] - expected[i][j]) < 1e-12);
+    for (i, row) in expected.iter().enumerate() {
+        for (j, &want) in row.iter().enumerate() {
+            assert!(f64::abs(result[(i, j)] - want) < 1e-12);
         }
     }
 }
@@ -206,9 +206,9 @@ fn ad_jacobian_is_column_seeded() {
 
     // values are unchanged from the old harness
     let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
-    for i in 0..2 {
-        for j in 0..3 {
-            assert!(f64::abs(result[(i, j)] - expected[i][j]) < 1e-12);
+    for (i, row) in expected.iter().enumerate() {
+        for (j, &want) in row.iter().enumerate() {
+            assert!(f64::abs(result[(i, j)] - want) < 1e-12);
         }
     }
 
@@ -243,9 +243,9 @@ fn fd_jacobian_column_matches() {
     let result = jacobian.evaluate(&f, &[1.0, 2.0, 3.0]).unwrap();
 
     let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
-    for i in 0..2 {
-        for j in 0..3 {
-            assert!(f64::abs(result[(i, j)] - expected[i][j]) < 1e-5);
+    for (i, row) in expected.iter().enumerate() {
+        for (j, &want) in row.iter().enumerate() {
+            assert!(f64::abs(result[(i, j)] - want) < 1e-5);
         }
     }
 }

@@ -302,7 +302,10 @@ Errors: the underlying derivatives return [`DiffError`](#error-handling). Full d
 ## Linear algebra
 
 Fixed-size, stack-allocated `Matrix` and `Vector`. Dimensions are const generics, so a shape
-mismatch is a compile error, nothing is heap-allocated, and the math never panics.
+mismatch is a compile error and nothing is heap-allocated. Indexing (`v[i]`, `m[(r, c)]`) is
+the ergonomic path and panics on out-of-range like `Vec`. Use `get` / `get_mut` /
+`try_row` / `try_column` when you want `Option` instead of a panic (panicking `row` /
+`column` were removed).
 
 - `Matrix::lu` → `Lu`: partial-pivoting Doolittle LU; `solve`, `determinant`, `inverse`.
 - `Matrix::cholesky` → `Cholesky`: faster path for symmetric positive-definite matrices.
@@ -573,18 +576,20 @@ let dt = 0.1;
 // Zero-order hold of the double integrator: F = [[1, dt], [0, 1]], G = [[dt^2/2], [dt]].
 let a = Matrix::<2, 2>::new([[0.0, 1.0], [0.0, 0.0]]);
 let b = Matrix::<2, 1>::new([[0.0], [1.0]]);
-let (f, g) = zoh::<2, 1, 3, f64>(a, b, dt).unwrap();      // f[(0, 1)] = dt, g[(1, 0)] = dt
+let (f, g) = zoh::<2, 1, 3, f64>(a, b, dt).unwrap();      // f[(0, 1)] == dt, g[(1, 0)] == dt
 
 // Van Loan process-noise discretization of continuous white noise on velocity.
 let qc = Matrix::<2, 2>::new([[0.0, 0.0], [0.0, 1.0]]);
-let (_f, qd) = van_loan::<2, 4, f64>(a, qc, dt).unwrap(); // qd[(1, 1)] = dt, symmetric
+let (_f, qd) = van_loan::<2, 4, f64>(a, qc, dt).unwrap(); // qd[(1, 1)] == dt, symmetric
 
 // Discrete white-noise model.
-let q = q_discrete_white_noise::<2, f64>(dt, 2.0);        // q[(1, 1)] = 2*dt^2
+let q = q_discrete_white_noise::<2, f64>(dt, 2.0);        // q[(1, 1)] == 2*dt^2
 
 // d/dx expm(x·M) at x = 0 equals M, recovered by one Dual through expm.
 let m = Matrix::<2, 2>::new([[0.2, 0.5], [-0.1, 0.3]]);
-let ad = Matrix::<2, 2, Dual<f64>>::from_fn(|i, j| Dual::new(0.0, m[(i, j)]))
+let ad = Matrix::<2, 2, Dual<f64>>::from_fn(|i, j| {
+  Dual::new(0.0, m[(i, j)])
+})
     .expm()
     .unwrap();
 // ad[(0, 1)].deriv == m[(0, 1)]
