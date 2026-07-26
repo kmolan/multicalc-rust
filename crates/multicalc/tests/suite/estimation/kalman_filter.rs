@@ -97,7 +97,10 @@ proptest! {
         filter.update(Vector::new([measurement])).unwrap();
 
         let covariance = filter.covariance();
-        prop_assert!((covariance[(0, 1)] - covariance[(1, 0)]).abs() < 1e-12);
+        prop_assert!(
+            (covariance[(0, 1)] - covariance[(1, 0)]).abs()
+            < 1e-12
+        );
     }
 
     #[test]

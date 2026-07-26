@@ -86,7 +86,7 @@ fn cholesky_solves() {
     let xm = f.solve_matrix(rhs);
     assert_matrix_close(s * xm, rhs, 1e-12);
     for c in 0..3 {
-        let single = f.solve(rhs.column(c));
+        let single = f.solve(Vector::from_fn(|r| rhs[(r, c)]));
         for r in 0..2 {
             assert!((xm[(r, c)] - single[r]).abs() < 1e-12);
         }

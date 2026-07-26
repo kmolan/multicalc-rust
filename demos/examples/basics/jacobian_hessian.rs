@@ -28,9 +28,9 @@ fn main() {
     }
     println!("  (exact [[6, 3, 2], [2, 4, 0]])");
     let exact = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
-    for i in 0..2 {
-        for j in 0..3 {
-            assert!((result[(i, j)] - exact[i][j]).abs() < 1e-9);
+    for (i, row) in exact.iter().enumerate() {
+        for (j, &want) in row.iter().enumerate() {
+            assert!((result[(i, j)] - want).abs() < 1e-9);
         }
     }
 

@@ -72,12 +72,8 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
         if M < N {
             return Err(LinalgError::Underdetermined);
         }
-        for r in 0..M {
-            for c in 0..N {
-                if !self[(r, c)].is_finite() {
-                    return Err(LinalgError::NonFinite);
-                }
-            }
+        if !self.is_finite() {
+            return Err(LinalgError::NonFinite);
         }
 
         let mut u = self;
@@ -89,8 +85,8 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
             let mut off_max = T::ZERO;
             for p in 0..N {
                 for q in (p + 1)..N {
-                    let cp = u.column(p);
-                    let cq = u.column(q);
+                    let cp = Vector::<M, T>::from_fn(|r| u[(r, p)]);
+                    let cq = Vector::<M, T>::from_fn(|r| u[(r, q)]);
                     let alpha = cp.norm_squared();
                     let beta = cq.norm_squared();
                     let gamma = cp.dot(cq);
@@ -133,7 +129,7 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
         // The column norms are the singular values; normalize U's columns by them.
         let mut singular_values = Vector::<N, T>::zeros();
         for k in 0..N {
-            let sigma = u.column(k).norm();
+            let sigma = Vector::<M, T>::from_fn(|r| u[(r, k)]).norm();
             singular_values[k] = sigma;
             if sigma > T::ZERO {
                 for i in 0..M {
@@ -335,7 +331,8 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
         for k in 0..N {
             let sigma = self.singular_values[k];
             if sigma > tol {
-                z[k] = self.u.column(k).dot(b) / sigma;
+                let uk = Vector::<M, T>::from_fn(|r| self.u[(r, k)]);
+                z[k] = uk.dot(b) / sigma;
             }
         }
         self.v * z

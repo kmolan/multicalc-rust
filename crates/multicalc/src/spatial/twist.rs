@@ -69,9 +69,10 @@ impl<T: Numeric> Twist<T> {
     /// ```
     #[inline]
     pub fn from_array(a: [T; 6]) -> Self {
+        let [vx, vy, vz, wx, wy, wz] = a;
         Twist {
-            linear: Vector::new([a[0], a[1], a[2]]),
-            angular: Vector::new([a[3], a[4], a[5]]),
+            linear: Vector::new([vx, vy, vz]),
+            angular: Vector::new([wx, wy, wz]),
         }
     }
 
@@ -84,9 +85,9 @@ impl<T: Numeric> Twist<T> {
     /// ```
     #[inline]
     pub fn as_array(self) -> [T; 6] {
-        let v = self.linear;
-        let w = self.angular;
-        [v[0], v[1], v[2], w[0], w[1], w[2]]
+        let [vx, vy, vz] = *self.linear.as_array();
+        let [wx, wy, wz] = *self.angular.as_array();
+        [vx, vy, vz, wx, wy, wz]
     }
 
     /// A twist from a flat `[v; ω]` `Vector<6>` (the group-API ordering).

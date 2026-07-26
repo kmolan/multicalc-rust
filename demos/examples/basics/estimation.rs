@@ -234,7 +234,8 @@ fn position_spread<R: multicalc::random::RandomSource>(
     let mean = filter.mean();
     let mut variance = 0.0;
     for (particle, &weight) in filter.particles().iter().zip(filter.weights()) {
-        variance += weight * ((particle[0] - mean[0]).powi(2) + (particle[1] - mean[1]).powi(2));
+        let p = *particle;
+        variance += weight * ((p[0] - mean[0]).powi(2) + (p[1] - mean[1]).powi(2));
     }
     variance.sqrt()
 }

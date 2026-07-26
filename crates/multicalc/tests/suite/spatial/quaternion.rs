@@ -53,7 +53,8 @@ fn assert_close_q(a: Quaternion<f64>, b: Quaternion<f64>, tol: f64) {
 
 fn assert_close_v(a: Vector<3, f64>, b: Vector<3, f64>, tol: f64) {
     for i in 0..3 {
-        assert!((a[i] - b[i]).abs() < tol, "{} vs {}", a[i], b[i]);
+        let (ai, bi) = (a[i], b[i]);
+        assert!((ai - bi).abs() < tol, "{ai} vs {bi}");
     }
 }
 

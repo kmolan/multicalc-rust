@@ -60,7 +60,8 @@ impl<T: Numeric> SO2<T> {
     /// Rotates a 2D point.
     #[inline]
     pub fn act(self, p: Vector<2, T>) -> Vector<2, T> {
-        Vector::new([self.c * p[0] - self.s * p[1], self.s * p[0] + self.c * p[1]])
+        let [px, py] = *p.as_array();
+        Vector::new([self.c * px - self.s * py, self.s * px + self.c * py])
     }
 
     /// The exponential map from the tangent angle.
@@ -84,7 +85,8 @@ impl<T: Numeric> SO2<T> {
     /// The inverse of [`SO2::hat`].
     #[inline]
     pub fn vee(m: Matrix<2, 2, T>) -> T {
-        m[(1, 0)]
+        let [[_, _], [m10, _]] = m.into_array();
+        m10
     }
 
     /// The adjoint, which is `1` (SO(2) is abelian).
@@ -103,7 +105,7 @@ impl<T: Numeric> SO2<T> {
     /// non-finite or degenerate.
     #[inline]
     pub fn try_from_matrix(m: Matrix<2, 2, T>) -> Option<Self> {
-        let (c, s) = (m[(0, 0)], m[(1, 0)]);
+        let [[c, _], [s, _]] = m.into_array();
         let n = (c * c + s * s).sqrt();
         if !n.is_finite() || n <= T::EPSILON {
             None

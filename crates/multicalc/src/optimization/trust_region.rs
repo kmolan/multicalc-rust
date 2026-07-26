@@ -56,7 +56,8 @@ pub(crate) fn determine_lambda_and_parameter_update<const N: usize, T: Numeric>(
             for (i, &wi) in w.iter().enumerate().take(j) {
                 sum += dls.r[(i, j)] * wi;
             }
-            w[j] = (w[j] - sum) / dls.r[(j, j)];
+            let diag_r = dls.r[(j, j)];
+            w[j] = (w[j] - sum) / diag_r;
         }
         let temp = enorm(&w);
         parl = ((fp / delta) / temp) / temp;

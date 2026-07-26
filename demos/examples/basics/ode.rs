@@ -136,7 +136,7 @@ fn acrobot_mass(c2: f64) -> (f64, f64, f64) {
 }
 
 fn acrobot_rhs(_t: f64, y: &Vector<4, f64>) -> Vector<4, f64> {
-    let (th1, th2, w1, w2) = (y[0], y[1], y[2], y[3]);
+    let [th1, th2, w1, w2] = [y[0], y[1], y[2], y[3]];
     let (d11, d12, d22) = acrobot_mass(th2.cos());
     let s2 = th2.sin();
     let h1 = -ACRO_M2 * ACRO_L1 * ACRO_LC2 * s2 * (2.0 * w1 * w2 + w2 * w2);
@@ -151,7 +151,7 @@ fn acrobot_rhs(_t: f64, y: &Vector<4, f64>) -> Vector<4, f64> {
 }
 
 fn acrobot_energy(y: &Vector<4, f64>) -> f64 {
-    let (th1, th2, w1, w2) = (y[0], y[1], y[2], y[3]);
+    let [th1, th2, w1, w2] = [y[0], y[1], y[2], y[3]];
     let (d11, d12, d22) = acrobot_mass(th2.cos());
     let ke = 0.5 * (d11 * w1 * w1 + 2.0 * d12 * w1 * w2 + d22 * w2 * w2);
     let pe = ACRO_G
@@ -178,8 +178,7 @@ const QUAD_IY: f64 = 0.02;
 const QUAD_IZ: f64 = 0.03;
 
 fn quadrotor_rhs(_t: f64, y: &Vector<7, f64>) -> Vector<7, f64> {
-    let (qw, qx, qy, qz) = (y[0], y[1], y[2], y[3]);
-    let (wx, wy, wz) = (y[4], y[5], y[6]);
+    let [qw, qx, qy, qz, wx, wy, wz] = [y[0], y[1], y[2], y[3], y[4], y[5], y[6]];
     let qwd = -0.5 * (qx * wx + qy * wy + qz * wz);
     let qxd = 0.5 * (qw * wx + qy * wz - qz * wy);
     let qyd = 0.5 * (qw * wy - qx * wz + qz * wx);
