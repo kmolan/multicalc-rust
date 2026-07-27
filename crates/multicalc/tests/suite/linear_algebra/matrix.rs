@@ -153,6 +153,8 @@ fn check_matrix_from_diagonal<const N: usize>(diag: [f64; N]) {
             }
         }
     }
+    let extracted_diagonal = m.diagonal();
+    assert_eq!(extracted_diagonal, diag);
 }
 
 proptest! {

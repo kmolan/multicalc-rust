@@ -294,6 +294,13 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
         Matrix::new(rows)
     }
 
+    /// Returns the diagonal entries of the matrix as an array.
+    #[inline]
+    #[must_use]
+    pub fn diagonal(&self) -> [T; N] {
+        core::array::from_fn(|i| self[(i, i)])
+    }
+
     /// The `N`×`N` identity matrix.
     ///
     /// ```
