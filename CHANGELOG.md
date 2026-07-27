@@ -7,27 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-07-26
+
+A feature release adding state estimation, feedback control, wheeled kinematics, and
+waypoint paths, plus a prelude and one-call entry points for the calculus core.
+
 ### Added
 
 - Const-evaluable solver constructors, AutoDiff `new()`, and Gaussian quadrature node
   tables / `nodes`. @rtmongold (#168)
 - Add `Vector`/`Matrix` `get` / `get_mut`, `Matrix::try_row` / `try_column`, and
   `Matrix::as_mut_slice_rows`. @rtmongold (#185)
+- **Kinematics.** A `kinematics` module with `DifferentialDrive`, a unicycle model, and
+  dead-reckoning odometry, plus a `kinematics` demo. @kmolan (#170)
+- **State estimation.** An `estimation` module with `KalmanFilter` and
+  `ExtendedKalmanFilter` (the latter differentiating its nonlinear models for the
+  Jacobians each step), a `CovarianceUpdate` choice for how the covariance is recomputed,
+  cross-validation fixtures, and an `estimation` demo. @kmolan (#175)
+- **Particle filter.** A bootstrap/SIR `ParticleFilter` with pluggable resampling and
+  measurement likelihood, behind the `alloc` feature. @kmolan (#188)
+- **Control.** A `control` module with `Pid`, a one-pole derivative filter
+  (`OnePoleLowPass`), and the pure-pursuit path-following law. @kmolan (#179)
+- **Follow-the-gap.** A reactive obstacle-avoidance controller in `control`, with an
+  `avoidance` demo. @kmolan (#188)
+- **Waypoint paths.** A `motion` module with `PolylinePath` and its arc-length,
+  closest-point, and lookahead queries. @kmolan (#179)
+- **Random numbers.** A `random` module with the `RandomSource` trait and the seedable
+  `Pcg32` generator, giving uniform and normal draws without a heap or `std`. @kmolan (#188)
+- **Prelude and one-call functions.** `multicalc::prelude` for the traits and short
+  functions worth importing together, plus `derivative`, `second_derivative`, `partial`,
+  and `integral`, which need no configured backend. @kmolan (#198)
+- **General N×N determinant and inverse.** Sizes past 4×4 now factor through LU instead of
+  being unsupported; small sizes keep their closed forms. @kirloo (#184)
+- **3D surface flux integral.** `flux_integral_3d` and `flux_integral_3d_custom`.
+  @mubasharameen485-cloud (#172)
+- Property tests that LU and QR factorizations reconstruct their input matrix.
+  @yvoolab (#189)
+- A localization and obstacle-avoidance lap demo, with simulated lidar, an occupancy grid,
+  a particle-filter localizer, latency benchmarks, and embedded smoke fixtures.
+  @kmolan (#192)
+- docs.rs now builds with all features so gated items appear in the published docs.
+  @kmolan (#197)
 
 ### Fixed
 
 - Iterative integrators return `IntegrateError::LimitsIllDefined` instead of `NaN`
   if `classify` fails after validation. @rtmongold (#171)
-- RK45 now handles zero-dimensional states without producing NaN norms. (#159)
+- RK45 now handles zero-dimensional states without producing NaN norms.
+  @terminalchai (#174)
 - 2×2/3×3/4×4 `Matrix::inverse` reject near-singular inputs via an
   `EPSILON`-scaled det check instead of exact `det == 0`. @rtmongold (#181)
 - Spatial small-angle Taylor cutoffs use `30 · EPSILON` and `(30 · EPSILON)²`
   instead of fixed `1e-6` / `1e-12`. @rtmongold (#190)
+- The iterative and Gaussian integrators check their samples and return
+  `IntegrateError::NonFinite`, instead of letting a blown-up integrand propagate into a
+  garbage result. @SAY-5 (#180)
+- The multi-variable integrators bounds-check the variable index and return the new
+  `IntegrateError::IndexOutOfRange`. @Devil1716 (#178)
 
 ### Changed
 
 - Keep panicking `Index` / `IndexMut` as the ergonomic Matrix/Vector access path.
   Remove panicking `row` / `column` (use `try_row` / `try_column`). @rtmongold (#185)
+- **Vector-field functions renamed and re-exported.** `curl::get_2d`,
+  `line_integral::get_2d`, and the rest are now `curl_2d`, `line_integral_2d`, and so on,
+  imported straight from `vector_field`. @kmolan (#199)
+- **Kalman filter takes a `KalmanModel`.** The four model matrices are one named struct
+  instead of four positional constructor arguments. @kmolan (#198)
+- The crate root re-exports the differentiation, integration, and approximation types, so
+  they can be named without their module paths. @kmolan (#198)
+- Rewrote the test suite for readability: table-driven cases, named expectations, and
+  shared helpers. @kmolan (#200)
+- Golden fixture regeneration runs from a script in a local virtualenv with locked,
+  hash-checked dependencies and a pinned timestamp, so a rerun produces the same bytes.
+  @kmolan (#201)
+- Dropped CI caching, which was causing flaky pipeline failures. @kmolan (#173)
 
 ## [0.8.0] - 2026-07-16
 
@@ -212,7 +266,8 @@ A breaking rewrite focused on real-time latency, ease of use, maintainability, a
 
 - The `num-complex` dependency, the `ComplexFloat` generic, and `f32` / complex-number support.
 
-[Unreleased]: https://github.com/kmolan/multicalc-rust/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/kmolan/multicalc-rust/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/kmolan/multicalc-rust/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/kmolan/multicalc-rust/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/kmolan/multicalc-rust/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/kmolan/multicalc-rust/compare/v0.7.0...v0.7.1
