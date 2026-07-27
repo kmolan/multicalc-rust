@@ -12,6 +12,54 @@ use crate::scalar::Numeric;
 ///
 /// `u` has orthonormal columns, `singular_values` holds the σ in descending order (all ≥ 0), and
 /// `v` has orthonormal columns.
+
+
+/// Settings for the one-sided Jacobi SVD.
+#[derive(Debug, Clone, Copy)]
+pub struct SvdSettings {
+    /// Maximum number of Jacobi sweeps before giving up on convergence.
+    max_sweeps: usize,
+}
+
+impl Default for SvdSettings {
+    /// Default budget: 60 sweeps, matching the previous hardcoded behaviour.
+    fn default() -> Self {
+        Self { max_sweeps: 60 }
+    }
+}
+
+impl SvdSettings {
+    /// Sets the maximum number of Jacobi sweeps.
+    #[must_use]
+    pub const fn with_max_sweeps(mut self, max_sweeps: usize) -> Self {
+        self.max_sweeps = max_sweeps;
+        self
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #[derive(Debug, Clone, Copy)]
 #[must_use]
 pub struct Svd<const M: usize, const N: usize, T = f64> {
@@ -68,23 +116,32 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
     ///     }
     /// }
     /// ```
-    pub fn svd(self) -> Result<Svd<M, N, T>, LinalgError> {
-        if M < N {
-            return Err(LinalgError::Underdetermined);
-        }
-        for r in 0..M {
-            for c in 0..N {
-                if !self[(r, c)].is_finite() {
-                    return Err(LinalgError::NonFinite);
-                }
+    /// Decomposes `self` as `U · diag(σ) · Vᵀ` by one-sided Jacobi (thin form, `M ≥ N`), using
+/// the default settings (60 sweeps).
+///
+/// [...existing doc comments yahan rakho jaise the...]
+pub fn svd(self) -> Result<Svd<M, N, T>, LinalgError> {
+    self.svd_with_settings(SvdSettings::default())
+}
+
+/// Same as [`Matrix::svd`] but with configurable settings, such as the sweep budget.
+pub fn svd_with_settings(self, settings: SvdSettings) -> Result<Svd<M, N, T>, LinalgError> {
+    if M < N {
+        return Err(LinalgError::Underdetermined);
+    }
+    for r in 0..M {
+        for c in 0..N {
+            if !self[(r, c)].is_finite() {
+                return Err(LinalgError::NonFinite);
             }
         }
+    }
 
-        let mut u = self;
-        let mut v = Matrix::<N, N, T>::identity();
+    let mut u = self;
+    let mut v = Matrix::<N, N, T>::identity();
 
-        // One-sided Jacobi: rotate column pairs of U until its columns are orthogonal.
-        let max_sweeps = 60;
+    let max_sweeps = settings.max_sweeps;   
+    
         for _ in 0..max_sweeps {
             let mut off_max = T::ZERO;
             for p in 0..N {
