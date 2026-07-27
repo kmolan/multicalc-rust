@@ -182,6 +182,32 @@ fn every_scheme_covers_heavy_particles() {
 }
 
 #[test]
+fn every_scheme_leaves_indices_unchanged_for_empty_weights() {
+    let schemes = [
+        ResamplingScheme::Systematic,
+        ResamplingScheme::Stratified,
+        ResamplingScheme::Multinomial,
+        ResamplingScheme::Residual,
+    ];
+    let weights: [f64; 0] = [];
+
+    for scheme in schemes {
+        let mut random = Pcg32::new(5);
+        let initial_random = random.clone();
+        let mut indices = [7usize, 8, 9];
+
+        scheme.resample_indices(&weights, &mut random, &mut indices);
+
+        assert_eq!(random, initial_random);
+        assert_eq!(
+            indices,
+            [7, 8, 9],
+            "empty weights should leave indices untouched for {scheme:?}"
+        );
+    }
+}
+
+#[test]
 fn incompatible_measurement_degenerates() {
     let particle_count = 200;
     let seed = 3;

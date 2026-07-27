@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `ResamplingScheme::resample_indices` now leaves output indices untouched for empty weights
+  instead of panicking. (#204)
+
 ## [0.9.0] - 2026-07-26
 
 A feature release adding state estimation, feedback control, wheeled kinematics, and

@@ -49,18 +49,24 @@ pub enum ResamplingScheme {
 impl ResamplingScheme {
     /// Fills `indices` with the chosen sample positions for `weights`.
     ///
-    /// `weights` must be normalized and the same length as `indices`. Uniforms are drawn from
-    /// `random` in a fixed order and count so a recorded draw sequence reproduces the result exactly:
-    /// one draw for [`Systematic`](Self::Systematic); one per element for
+    /// For non-empty inputs, `weights` must be normalized and the same length as `indices`. Uniforms
+    /// are drawn from `random` in a fixed order and count so a recorded draw sequence reproduces the
+    /// result exactly: one draw for [`Systematic`](Self::Systematic); one per element for
     /// [`Stratified`](Self::Stratified) and [`Multinomial`](Self::Multinomial); and, for
     /// [`Residual`](Self::Residual), one per leftover slot after the whole-number copies are laid
     /// down.
+    ///
+    /// An empty `weights` slice returns without consuming randomness or modifying `indices`.
     pub fn resample_indices<T: Numeric, R: RandomSource>(
         self,
         weights: &[T],
         random: &mut R,
         indices: &mut [usize],
     ) {
+        if weights.is_empty() {
+            return;
+        }
+
         match self {
             ResamplingScheme::Systematic => systematic(weights, random, indices),
             ResamplingScheme::Stratified => stratified(weights, random, indices),
