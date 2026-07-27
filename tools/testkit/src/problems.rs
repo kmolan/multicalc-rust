@@ -8,32 +8,18 @@
 
 use multicalc::scalar::{Numeric, ScalarFn, ScalarFnN, VectorFn};
 
-/// Returns the `f64` integrand for a quadrature key. Panics on an unknown key.
+/// Returns the integrand for a quadrature key, at whichever scalar the caller
+/// asks for. Panics on an unknown key.
 ///
 /// Gauss-Hermite folds an `e^{-x^2}` weight and Gauss-Laguerre an `e^{-x}` weight
 /// around this integrand; Legendre and the iterative rules integrate it directly.
-pub fn integrand_f64(key: &str) -> fn(f64) -> f64 {
+pub fn integrand<S: Numeric>(key: &str) -> fn(S) -> S {
     match key {
-        "two_x" => |x| 2.0 * x,
-        "quartic" => |x| 4.0 * x * x * x - 3.0 * x * x,
+        "two_x" => |x| S::from_f64(2.0) * x,
+        "quartic" => |x| S::from_f64(4.0) * x * x * x - S::from_f64(3.0) * x * x,
         "cube" => |x| x * x * x,
         "x_squared" => |x| x * x,
-        "inv_1px2" => |x| 1.0 / (1.0 + x * x),
-        "exp_neg" => |x| Numeric::exp(-x),
-        "exp_neg_sq" => |x| Numeric::exp(-(x * x)),
-        other => unreachable!("unknown integrand key {other:?}"),
-    }
-}
-
-/// Returns the `f32` integrand for a quadrature key. Panics on an unknown key.
-pub fn integrand_f32(key: &str) -> fn(f32) -> f32 {
-    match key {
-        "two_x" => |x| 2.0 * x,
-        "quartic" => |x| 4.0 * x * x * x - 3.0 * x * x,
-        "cube" => |x| x * x * x,
-        "x_squared" => |x| x * x,
-        "inv_1px2" => |x| 1.0 / (1.0 + x * x),
-        "exp_neg" => |x| Numeric::exp(-x),
+        "inv_1px2" => |x| S::ONE / (S::ONE + x * x),
         "exp_neg_sq" => |x| Numeric::exp(-(x * x)),
         other => unreachable!("unknown integrand key {other:?}"),
     }
@@ -296,15 +282,65 @@ impl VectorFn<3, 3> for Equilibrium {
     }
 }
 
+/// Rolls `[x, y, heading, speed, turn_rate]` one tick along a turning arc: the
+/// robot swings through an arc set by its speed and turn rate, and heading is
+/// wrapped back into a single revolution.
+///
+/// Mirrors `CoordinatedTurnModel` in `demos/src/sim/kalman_filter_models.rs` and
+/// the model in `tools/qa/gen/generators/estimation.py`; the three must stay in
+/// step.
+pub struct CoordinatedTurn {
+    /// How long one tick lasts.
+    pub timestep: f64,
+}
+
+impl VectorFn<5, 5> for CoordinatedTurn {
+    fn eval<S: Numeric>(&self, state: &[S; 5]) -> [S; 5] {
+        let [x, y, heading, speed, turn_rate] = *state;
+        let dt = S::from_f64(self.timestep);
+        let next_heading = heading + turn_rate * dt;
+        let (next_x, next_y) = if turn_rate.abs() > S::from_f64(1e-6) {
+            let radius = speed / turn_rate;
+            (
+                x + radius * (next_heading.sin() - heading.sin()),
+                y + radius * (heading.cos() - next_heading.cos()),
+            )
+        } else {
+            (
+                x + speed * heading.cos() * dt,
+                y + speed * heading.sin() * dt,
+            )
+        };
+        let wrapped = next_heading - S::TWO_PI * (next_heading / S::TWO_PI).round();
+        [next_x, next_y, wrapped, speed, turn_rate]
+    }
+}
+
+/// A position fix: the sensor sees the first two state components.
+pub struct GlobalPosition;
+impl VectorFn<5, 2> for GlobalPosition {
+    fn eval<S: Numeric>(&self, state: &[S; 5]) -> [S; 2] {
+        [state[0], state[1]]
+    }
+}
+
+/// A pose `[x, y, heading]` that does not move.
+pub struct StationaryPose;
+impl VectorFn<3, 3> for StationaryPose {
+    fn eval<S: Numeric>(&self, pose: &[S; 3]) -> [S; 3] {
+        [pose[0], pose[1], pose[2]]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn integrands_evaluate() {
-        assert_eq!(integrand_f64("two_x")(3.0), 6.0);
-        assert_eq!(integrand_f64("x_squared")(4.0), 16.0);
-        assert_eq!(integrand_f32("cube")(2.0), 8.0);
+        assert_eq!(integrand::<f64>("two_x")(3.0), 6.0);
+        assert_eq!(integrand::<f64>("x_squared")(4.0), 16.0);
+        assert_eq!(integrand::<f32>("cube")(2.0), 8.0);
     }
 
     #[test]

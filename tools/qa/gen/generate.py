@@ -1,7 +1,9 @@
 """Entry point: seed the RNG and run each module's generator in a fixed order.
 
-Writes fixtures under `<out>/v1/**`. Run inside the pinned container so the
-library versions recorded in each fixture match the committed ones.
+Writes one directory of fixtures per module under `<out>`. Run it through
+`generate.sh`, which installs
+the pinned libraries so the versions recorded in each fixture match the committed
+ones.
 """
 
 import argparse
@@ -24,7 +26,9 @@ SEED = 20260706
 
 def main():
     parser = argparse.ArgumentParser(description="Generate QA fixtures.")
-    parser.add_argument("--out", required=True, help="output directory (holds v1/)")
+    parser.add_argument(
+        "--out", required=True, help="output directory (one subdirectory per module)"
+    )
     args = parser.parse_args()
 
     rng = np.random.default_rng(SEED)

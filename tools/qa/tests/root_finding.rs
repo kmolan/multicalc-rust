@@ -17,7 +17,7 @@ use multicalc_qa::problems::*;
 use multicalc_qa::schema::*;
 
 fn run_scalar<F: ScalarFn>(f: &F, fx: &Fixture) {
-    let t = fx.tolerances.get("f64", "host");
+    let t = fx.tolerances.f64;
     let root = match fx.inputs["solver"].as_str() {
         "bisection" => {
             let br = fx.inputs["bracket"].as_vector();
@@ -51,7 +51,7 @@ fn run_scalar<F: ScalarFn>(f: &F, fx: &Fixture) {
 }
 
 fn run_system<F: VectorFn<N, N>, const N: usize>(f: &F, fx: &Fixture) {
-    let t = fx.tolerances.get("f64", "host");
+    let t = fx.tolerances.f64;
     let x0 = to_vector::<N>(&fx.inputs["start"]).into_array();
     let root = NewtonSystem::<AutoDiffMulti>::default()
         .solve(f, &x0)
@@ -69,7 +69,7 @@ fn run_system<F: VectorFn<N, N>, const N: usize>(f: &F, fx: &Fixture) {
 
 #[test]
 fn root_finding() {
-    for fx in load_dir("fixtures/v1/root_finding") {
+    for fx in load_dir("root_finding") {
         match fx.inputs["problem"].as_str() {
             "root_wien" => run_scalar(&Wien, &fx),
             "root_sigmoid" => run_scalar(&Sigmoid, &fx),

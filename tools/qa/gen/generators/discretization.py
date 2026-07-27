@@ -8,18 +8,24 @@ import schema
 
 
 def _tol():
-    return {"f64/host": schema.tol(1e-11, 1e-10), "f32/host": schema.tol(1e-3, 1e-3)}
+    return {"f64": schema.tol(1e-11, 1e-10), "f32": schema.tol(1e-3, 1e-3)}
 
 
 def _expm(out, rng, meta):
-    cases = {f"rand_{n}": rng.uniform(-0.8, 0.8, size=(n, n)) for n in (2, 3, 4, 5)}
-    cases["skew_3"] = np.array([[0.0, -0.3, 0.2], [0.3, 0.0, -0.1], [-0.2, 0.1, 0.0]])
-    cases["nilpotent_3"] = np.array([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [0.0, 0.0, 0.0]])
-    cases["stiff_diag_3"] = np.diag([-5.0, -0.5, -0.05])
-    for name, a in cases.items():
+    # name -> the matrix and how to describe it
+    cases = {f"rand_{n}": (rng.uniform(-0.8, 0.8, size=(n, n)), f"random {n}×{n}")
+             for n in (2, 3, 4, 5)}
+    cases["skew_3"] = (np.array([[0.0, -0.3, 0.2], [0.3, 0.0, -0.1], [-0.2, 0.1, 0.0]]),
+                       "skew-symmetric 3×3")
+    cases["nilpotent_3"] = (np.array([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [0.0, 0.0, 0.0]]),
+                            "nilpotent 3×3")
+    cases["stiff_diag_3"] = (np.diag([-5.0, -0.5, -0.05]), "stiff diagonal 3×3")
+    for name, (a, description) in cases.items():
         inputs = {"kind": schema.string("expm"), "A": schema.matrix(a)}
         expected = {"expm": schema.matrix(scipy.linalg.expm(a))}
-        schema.write_fixture(out, "discretization", f"expm_{name}", meta, _tol(), inputs, expected)
+        schema.write_fixture(out, "discretization", f"expm_{name}", meta, _tol(), inputs, expected,
+                             equation="e^A",
+                             operations=[f"Matrix exponential, {description}"])
 
 
 def _zoh(out, rng, meta):
@@ -31,7 +37,9 @@ def _zoh(out, rng, meta):
         inputs = {"kind": schema.string("zoh"), "A": schema.matrix(a),
                   "B": schema.matrix(b), "dt": schema.scalar(dt)}
         expected = {"F": schema.matrix(f), "G": schema.matrix(g)}
-        schema.write_fixture(out, "discretization", f"zoh_{n}x{m}", meta, _tol(), inputs, expected)
+        schema.write_fixture(out, "discretization", f"zoh_{n}x{m}", meta, _tol(), inputs, expected,
+                             equation="F = e^{A·dt}, G = ∫₀^{dt} e^{A·s}·B ds",
+                             operations=[f"Zero-order hold, state {n} / input {m}"])
 
 
 def _van_loan(out, rng, meta):
@@ -50,7 +58,9 @@ def _van_loan(out, rng, meta):
         inputs = {"kind": schema.string("van_loan"), "A": schema.matrix(a),
                   "Qc": schema.matrix(qc), "dt": schema.scalar(dt)}
         expected = {"F": schema.matrix(f), "Qd": schema.matrix(qd)}
-        schema.write_fixture(out, "discretization", f"van_loan_{n}", meta, _tol(), inputs, expected)
+        schema.write_fixture(out, "discretization", f"van_loan_{n}", meta, _tol(), inputs, expected,
+                             equation="F, Qd from expm([[-A, Qc], [0, Aᵀ]]·dt)",
+                             operations=[f"Van Loan discretization, {n}×{n}"])
 
 
 def _qdwn(out, meta):
@@ -69,13 +79,16 @@ def _qdwn(out, meta):
         inputs = {"kind": schema.string("qdwn"), "dim": schema.integer(dim),
                   "dt": schema.scalar(dt), "variance": schema.scalar(var)}
         expected = {"Q": schema.matrix(q)}
-        schema.write_fixture(out, "discretization", f"qdwn_{dim}", meta, _tol(), inputs, expected)
+        schema.write_fixture(out, "discretization", f"qdwn_{dim}", meta, _tol(), inputs, expected,
+                             equation=f"Q(dt={dt}, variance={var})",
+                             operations=[f"Discrete white-noise process noise, {dim}×{dim}"])
 
 
 def run(out, rng, seed):
     meta = schema.metadata(
         "discretization", seed,
         "entries uniform in [-0.8, 0.8]; SPD Qc = M Mᵀ", libraries=("numpy", "scipy"),
+        reference="SciPy/MINPACK {scipy}",
     )
     _expm(out, rng, meta)
     _zoh(out, rng, meta)

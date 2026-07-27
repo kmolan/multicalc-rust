@@ -12,7 +12,7 @@ use multicalc::numerical_integration::IntegratorSingleVariable;
 use multicalc::numerical_integration::IterativeSingle;
 use multicalc::numerical_integration::{GaussianQuadratureMethod, IterativeMethod};
 use multicalc_qa::load::*;
-use multicalc_qa::problems::{integrand_f32, integrand_f64};
+use multicalc_qa::problems::integrand;
 
 fn iterative_method(s: &str) -> IterativeMethod {
     match s {
@@ -34,15 +34,15 @@ fn gaussian_method(s: &str) -> GaussianQuadratureMethod {
 
 #[test]
 fn quadrature() {
-    for fx in load_dir("fixtures/v1/quadrature") {
-        let integrand = fx.inputs["integrand"].as_str();
+    for fx in load_dir("quadrature") {
+        let integrand_key = fx.inputs["integrand"].as_str();
         let family = fx.inputs["family"].as_str();
         let method = fx.inputs["method"].as_str();
         let param = fx.inputs["param"].as_int();
         let lv = fx.inputs["limits"].as_vector();
         let limits = [lv[0], lv[1]];
 
-        let f = integrand_f64(integrand);
+        let f = integrand::<f64>(integrand_key);
         let value = match family {
             "iterative" => {
                 IterativeSingle::<f64>::from_parameters(param as u64, iterative_method(method))
@@ -56,12 +56,12 @@ fn quadrature() {
             }
             other => panic!("unknown family {other}"),
         };
-        let t = fx.tolerances.get("f64", "host");
-        assert_scalar(value, &fx.expected["integral"], t, integrand);
+        let t = fx.tolerances.f64;
+        assert_scalar(value, &fx.expected["integral"], t, integrand_key);
 
         // f32 pass for the finite-domain polynomial cases (those carry an f32 tolerance).
-        if fx.tolerances.table.contains_key("f32/host") {
-            let f32_fn = integrand_f32(integrand);
+        if let Some(t32) = fx.tolerances.f32 {
+            let f32_fn = integrand::<f32>(integrand_key);
             let limits32 = [limits[0] as f32, limits[1] as f32];
             let value32 = match family {
                 "iterative" => {
@@ -76,11 +76,10 @@ fn quadrature() {
                 }
                 other => panic!("unknown family {other}"),
             };
-            let t32 = fx.tolerances.get("f32", "host");
             let want = fx.expected["integral"].as_scalar();
             assert!(
                 close(value32 as f64, want, t32),
-                "{integrand} f32: got {value32}, want {want}, tol {t32:?}"
+                "{integrand_key} f32: got {value32}, want {want}, tol {t32:?}"
             );
         }
     }

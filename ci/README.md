@@ -39,7 +39,7 @@ semihosting lines need none.
 
 The smoke checks assert against goldens taken from the host QA fixtures, so the target and the
 host share one source of truth. `tools/qa/src/bin/gen_smoke_fixtures.rs` reads the committed
-fixtures under `tools/qa/fixtures/v1` and writes `tools/embedded-smoke/src/fixtures.rs` as
+fixtures under `tools/qa/fixtures` and writes `tools/embedded-smoke/src/fixtures.rs` as
 bit-exact `f64::from_bits` consts. Regenerate with:
 
 ```

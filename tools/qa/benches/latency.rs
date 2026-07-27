@@ -19,6 +19,8 @@ use multicalc::ode::{Rk4, Rk45};
 use multicalc::root_finding::NewtonSystem;
 use multicalc::scalar::{Numeric, VectorFn, c};
 use multicalc::{LevenbergMarquardt, scalar_fn, scalar_fn_vec};
+use multicalc_qa::docs::replace_marked_region;
+use multicalc_qa::problems::{CoordinatedTurn, GlobalPosition, StationaryPose};
 
 /// Diagonally dominant, mildly non-symmetric — well-conditioned and invertible.
 fn general<const N: usize>() -> Matrix<N, N> {
@@ -173,16 +175,6 @@ fn bench_lev_marq(c: &mut Criterion) {
 /// Example taken from https://github.com/destenson/kalman-filter-rs/blob/master/examples/particle_filter_robot.rs
 const BEACONS: [(f64, f64); 4] = [(2.0, 8.0), (8.0, 8.0), (8.0, 2.0), (2.0, 2.0)];
 
-/// A stopped differential-drive robot: the pose `[x, y, heading]` holds. Keeping the robot still
-/// keeps the reused filter near the fixed measurement across the bench's iterations, rather than
-/// driving off and degenerating.
-struct StoppedRobot;
-impl VectorFn<3, 3> for StoppedRobot {
-    fn eval<S: Numeric>(&self, pose: &[S; 3]) -> [S; 3] {
-        [pose[0], pose[1], pose[2]]
-    }
-}
-
 /// The straight-line distance from the robot's position to each beacon.
 struct BeaconRanges;
 impl VectorFn<3, 4> for BeaconRanges {
@@ -210,7 +202,7 @@ fn bench_particle_filter(c: &mut Criterion) {
     )
     .unwrap();
     let sensor = GaussianLikelihood::new(Matrix::<4, 4>::identity().scale(0.09)).unwrap();
-    let motion = StoppedRobot;
+    let motion = StationaryPose;
     let ranges = BeaconRanges;
     // The measurement is the true ranges from the robot's held pose, formed once outside the loop.
     let measurement = Vector::new(ranges.eval(&[5.0, 5.0, 0.0]));
@@ -227,42 +219,6 @@ fn bench_particle_filter(c: &mut Criterion) {
                 .unwrap();
         })
     });
-}
-
-/// Rolls `[x, y, heading, speed, turn_rate]` one tick along a turning arc. Mirrors
-/// `CoordinatedTurn` in `tools/qa/tests/estimation.rs`; the two must stay in step.
-struct CoordinatedTurn {
-    timestep: f64,
-}
-
-impl VectorFn<5, 5> for CoordinatedTurn {
-    fn eval<S: Numeric>(&self, state: &[S; 5]) -> [S; 5] {
-        let [x, y, heading, speed, turn_rate] = *state;
-        let dt = S::from_f64(self.timestep);
-        let next_heading = heading + turn_rate * dt;
-        let (next_x, next_y) = if turn_rate.abs() > S::from_f64(1e-6) {
-            let radius = speed / turn_rate;
-            (
-                x + radius * (next_heading.sin() - heading.sin()),
-                y + radius * (heading.cos() - next_heading.cos()),
-            )
-        } else {
-            (
-                x + speed * heading.cos() * dt,
-                y + speed * heading.sin() * dt,
-            )
-        };
-        let wrapped = next_heading - S::TWO_PI * (next_heading / S::TWO_PI).round();
-        [next_x, next_y, wrapped, speed, turn_rate]
-    }
-}
-
-/// A position fix: the sensor sees the first two state components.
-struct GlobalPosition;
-impl VectorFn<5, 2> for GlobalPosition {
-    fn eval<S: Numeric>(&self, state: &[S; 5]) -> [S; 2] {
-        [state[0], state[1]]
-    }
 }
 
 fn bench_kalman_filter_step(c: &mut Criterion) {
@@ -374,23 +330,9 @@ fn bench_newton_system(crit: &mut Criterion) {
 fn main() {
     let mut c = Criterion::default().configure_from_args();
 
-    bench_derivative(&mut c);
-    bench_jacobian_small(&mut c);
-    bench_jacobian_large(&mut c);
-    bench_gauss_quad(&mut c);
-    bench_lu_solve(&mut c);
-    bench_svd_solve(&mut c);
-    bench_expm(&mut c);
-    bench_rk45_solve(&mut c);
-    bench_rk4_integrate(&mut c);
-    bench_lev_marq(&mut c);
-    bench_newton_system(&mut c);
-    bench_particle_filter(&mut c);
-    bench_kalman_filter_step(&mut c);
-    bench_extended_kalman_filter_step(&mut c);
-    bench_pid_update(&mut c);
-    bench_pure_pursuit(&mut c);
-    bench_follow_the_gap(&mut c);
+    for (_, run, _) in BENCHES {
+        run(&mut c);
+    }
 
     c.final_summary();
 
@@ -399,38 +341,62 @@ fn main() {
 
 // =================== latency.md rendering ===================
 
-/// (bench id, equation) — decides which estimates.json files are read and the table rows.
-const BENCHES: &[(&str, &str)] = &[
-    ("derivative", "d³/dx³(x²·sin x) at x = 1"),
-    ("jacobian_small", "Jacobian of (x·y·z, x²+y²)"),
-    ("jacobian_large", "Jacobian of a 6-in/6-out map"),
-    ("gauss_quad", "∫₀¹ (sin x − √x)·e⁻ˣ dx"),
-    ("lu_solve", "solve A·x = b (10×10)"),
-    ("svd_solve", "least-squares fit (30×3)"),
-    ("expm", "matrix exponential eᴬ (6×6)"),
-    ("rk45_solve", "y″ = −y, adaptive to 2π"),
-    ("rk4_integrate", "y″ = −y, fixed-step to 2π"),
-    ("lev_marq", "fit y = a·eᵇᵗ (8 points)"),
-    ("newton_system", "x²+y² = 4, x·y = 1"),
+/// Every benchmark: its criterion id, the function that runs it, and the equation
+/// shown in the table. One list, so a bench cannot be run without a row or given
+/// a row it never fills.
+type BenchFn = fn(&mut Criterion);
+const BENCHES: &[(&str, BenchFn, &str)] = &[
+    ("derivative", bench_derivative, "d³/dx³(x²·sin x) at x = 1"),
+    (
+        "jacobian_small",
+        bench_jacobian_small,
+        "Jacobian of (x·y·z, x²+y²)",
+    ),
+    (
+        "jacobian_large",
+        bench_jacobian_large,
+        "Jacobian of a 6-in/6-out map",
+    ),
+    ("gauss_quad", bench_gauss_quad, "∫₀¹ (sin x − √x)·e⁻ˣ dx"),
+    ("lu_solve", bench_lu_solve, "solve A·x = b (10×10)"),
+    ("svd_solve", bench_svd_solve, "least-squares fit (30×3)"),
+    ("expm", bench_expm, "matrix exponential eᴬ (6×6)"),
+    ("rk45_solve", bench_rk45_solve, "y″ = −y, adaptive to 2π"),
+    (
+        "rk4_integrate",
+        bench_rk4_integrate,
+        "y″ = −y, fixed-step to 2π",
+    ),
+    ("lev_marq", bench_lev_marq, "fit y = a·eᵇᵗ (8 points)"),
+    ("newton_system", bench_newton_system, "x²+y² = 4, x·y = 1"),
     (
         "particle_filter",
+        bench_particle_filter,
         "1000 particles, diff-drive motion + process noise + systematic resample",
     ),
     (
         "kalman_filter_step",
+        bench_kalman_filter_step,
         "2-state constant velocity, predict + update",
     ),
     (
         "extended_kalman_filter_step",
+        bench_extended_kalman_filter_step,
         "5-state coordinated turn + position fix, autodiff Jacobians, predict + update",
     ),
     (
         "pid_update",
+        bench_pid_update,
         "one PID tick with anti-windup and output limits",
     ),
-    ("pure_pursuit", "κ = 2·sin(α)/L_d toward a lookahead point"),
+    (
+        "pure_pursuit",
+        bench_pure_pursuit,
+        "κ = 2·sin(α)/L_d toward a lookahead point",
+    ),
     (
         "follow_the_gap",
+        bench_follow_the_gap,
         "61-beam scan, widest gap the robot fits through + speed ramp",
     ),
 ];
@@ -473,29 +439,23 @@ fn render_latency_md() {
     let dir = criterion_dir();
     let mut table = String::from("| Operation | Equation | Median | Mean |\n");
     table.push_str("|-----------|----------|-------:|-----:|\n");
-    for (id, equation) in BENCHES {
+    let mut missing = Vec::new();
+    for (id, _, equation) in BENCHES {
         let cell = match read_estimate(&dir, id) {
             Some((median, mean)) => format!("{} | {}", fmt_ns(median), fmt_ns(mean)),
-            None => "n/a | n/a".to_string(),
+            None => {
+                missing.push(*id);
+                "n/a | n/a".to_string()
+            }
         };
         let _ = writeln!(table, "| `{id}` | {equation} | {cell} |");
     }
+    assert!(
+        missing.is_empty(),
+        "no criterion results for {missing:?} — the table would print n/a for them"
+    );
 
     let doc = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../benchmarks/latency.md");
-    let content =
-        std::fs::read_to_string(&doc).unwrap_or_else(|e| unreachable!("read {doc:?}: {e}"));
-    let begin = content
-        .find(BEGIN)
-        .unwrap_or_else(|| unreachable!("no BEGIN in {doc:?}"));
-    let end = content
-        .find(END)
-        .unwrap_or_else(|| unreachable!("no END in {doc:?}"));
-    let new = format!(
-        "{}\n{}\n{}",
-        &content[..begin + BEGIN.len()],
-        table,
-        &content[end..]
-    );
-    std::fs::write(&doc, new).unwrap_or_else(|e| unreachable!("write {doc:?}: {e}"));
+    replace_marked_region(&doc, BEGIN, END, &table);
     println!("updated {}", doc.display());
 }

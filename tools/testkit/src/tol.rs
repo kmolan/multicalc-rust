@@ -8,6 +8,7 @@ use multicalc::scalar::Numeric;
 
 /// Absolute and relative thresholds for one comparison.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Tol {
     pub abs: f64,
     pub rel: f64,
@@ -17,11 +18,6 @@ pub struct Tol {
 /// relative bound: `|got - want| <= abs + rel * max(|got|, |want|)`.
 pub fn close(got: f64, want: f64, t: Tol) -> bool {
     (got - want).abs() <= t.abs + t.rel * got.abs().max(want.abs())
-}
-
-/// Asserts a scalar matches the expected value within `t`.
-pub fn assert_scalar_close(got: f64, want: f64, t: Tol) {
-    assert!(close(got, want, t), "got {got}, want {want}, tol {t:?}");
 }
 
 /// Asserts every component of a vector matches within `t`.
