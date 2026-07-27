@@ -7,6 +7,12 @@ publish = false
 
 [dependencies]
 multicalc = { path = "../../crates/multicalc", default-features = false }
+serde = { version = "1", features = ["derive"], default-features = false, optional = true }
+
+[features]
+# Lets the QA crate read `Tol` straight out of a fixture instead of keeping its
+# own copy. Off by default so the bare-metal builds stay dependency-free.
+serde = ["dep:serde"]
 
 # Test-support crate: assert helpers panic by design and the structural checkers
 # unwrap on known-good factorizations, so opt out of the workspace no-panic lints

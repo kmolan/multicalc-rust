@@ -9,7 +9,7 @@ import schema
 
 def _tol():
     # A filter run compounds per-step error; start here and tighten once the suite is green.
-    return {"f64/host": schema.tol(1e-10, 1e-9), "f32/host": schema.tol(1e-3, 1e-3)}
+    return {"f64": schema.tol(1e-10, 1e-9), "f32": schema.tol(1e-3, 1e-3)}
 
 
 def _run_filter(kf, measurements, controls=None):
@@ -65,6 +65,8 @@ def _constant_velocity_one_dimensional(out, rng, meta):
     schema.write_fixture(
         out, "estimation", "kalman_filter_constant_velocity_one_dimensional",
         meta, _tol(), inputs, _expected(kf),
+        equation="F = [[1, 1], [0, 1]], H = [1, 0]",
+        operations=["Linear Kalman filter, 8 steps, state 2 / measurement 1"],
     )
 
 
@@ -105,6 +107,9 @@ def _constant_velocity_two_dimensional(out, rng, meta):
     schema.write_fixture(
         out, "estimation", "kalman_filter_constant_velocity_two_dimensional",
         meta, _tol(), inputs, _expected(kf),
+        equation="F = blkdiag([[1, 0.5], [0, 1]], [[1, 0.5], [0, 1]]), "
+                 "H = [[1, 0, 0, 0], [0, 0, 1, 0]]",
+        operations=["Linear Kalman filter, 10 steps, state 4 / measurement 2"],
     )
 
 
@@ -145,6 +150,8 @@ def _with_control_input(out, rng, meta):
     schema.write_fixture(
         out, "estimation", "kalman_filter_with_control_input",
         meta, _tol(), inputs, _expected(kf),
+        equation="x⁻ = [[1, 1], [0, 1]]·x + [[0.5], [1]]·u, H = [1, 0]",
+        operations=["Linear Kalman filter with control, 8 steps, control 1"],
     )
 
 
@@ -199,6 +206,8 @@ def _landmark_range_and_bearing(out, rng, meta):
     schema.write_fixture(
         out, "estimation", "extended_kalman_filter_landmark_range_and_bearing",
         meta, _tol(), inputs, _expected(kf),
+        equation="h = [√((3−x)²+(4−y)²), atan2(4−y, 3−x)−θ], F = I",
+        operations=["Extended Kalman filter, 8 steps, state 3 / measurement 2"],
     )
 
 
@@ -294,6 +303,8 @@ def _coordinated_turn_fusion(out, rng, meta):
     schema.write_fixture(
         out, "estimation", "extended_kalman_filter_coordinated_turn_fusion",
         meta, _tol(), inputs, _expected(estimator),
+        equation="f = coordinated turn on [x, y, θ, v, ω], h = [x, y]",
+        operations=["Extended Kalman filter, 8 steps, state 5 / measurement 2"],
     )
 
 
@@ -303,6 +314,7 @@ def run(out, rng, seed):
         "measurements are a constant-velocity truth track plus N(0, 0.5) noise; "
         "controls uniform in [-1, 1]",
         libraries=("numpy", "filterpy"),
+        reference="FilterPy {filterpy}",
     )
     _constant_velocity_one_dimensional(out, rng, meta)
     _constant_velocity_two_dimensional(out, rng, meta)

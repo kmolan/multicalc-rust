@@ -20,7 +20,7 @@ fn run_lm<F: VectorFn<N, M>, const N: usize, const M: usize>(problem: &F, fx: &F
     let report = LevenbergMarquardt::<AutoDiffMulti>::default()
         .minimize(problem, &x0)
         .unwrap();
-    let t = fx.tolerances.get("f64", "host");
+    let t = fx.tolerances.f64;
 
     assert_vector(
         &Vector::new(report.solution),
@@ -36,7 +36,7 @@ fn run_lm<F: VectorFn<N, M>, const N: usize, const M: usize>(problem: &F, fx: &F
 
 #[test]
 fn optimization() {
-    for fx in load_dir("fixtures/v1/optimization") {
+    for fx in load_dir("optimization") {
         match fx.inputs["problem"].as_str() {
             "rosenbrock" => run_lm(&Rosenbrock, &fx),
             "trigonometric6" => run_lm(&Trigonometric6, &fx),

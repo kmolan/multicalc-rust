@@ -60,6 +60,9 @@ the layer that matches and not duplicating another's.
 Shared problem definitions and tolerance helpers live in `tools/testkit`, so a problem is
 declared once and reused across `tests/suite/`, the QA crate, and embedded-smoke.
 
+The QA fixtures are regenerated with `tools/qa/gen/generate.sh`, which needs Python 3.12. See [Regeneration](tools/qa/README.md#regeneration) for what it sets up and when
+to rebuild the lock file.
+
 ## Releasing
 
 Releases are automated from `main`:

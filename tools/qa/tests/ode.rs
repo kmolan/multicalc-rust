@@ -16,7 +16,7 @@ fn run_case<const N: usize>(fx: &Fixture, f: &dyn Fn(f64, &Vector<N>) -> Vector<
     let (rows, cols, states) = fx.expected["states"].as_matrix();
     assert_eq!(cols, N, "{problem}: column count");
     assert_eq!(rows, times.len(), "{problem}: row count");
-    let tol = fx.tolerances.get("f64", "host");
+    let tol = fx.tolerances.f64;
 
     let y0v = Vector::<N>::from_fn(|i| y0[i]);
     let mut out = vec![Vector::<N>::zeros(); times.len()];
@@ -39,7 +39,7 @@ fn run_case<const N: usize>(fx: &Fixture, f: &dyn Fn(f64, &Vector<N>) -> Vector<
 
 #[test]
 fn ode() {
-    for fx in load_dir("fixtures/v1/ode") {
+    for fx in load_dir("ode") {
         match fx.inputs["problem"].as_str() {
             "exp_decay" => run_case(&fx, &ode_exp_decay),
             "harmonic" => run_case(&fx, &ode_harmonic),

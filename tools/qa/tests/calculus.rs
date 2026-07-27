@@ -33,8 +33,8 @@ fn circle_transforms() -> [&'static dyn Fn(f64) -> f64; 2] {
 
 #[test]
 fn calculus() {
-    for fx in load_dir("fixtures/v1/calculus") {
-        let t = fx.tolerances.get("f64", "host");
+    for fx in load_dir("calculus") {
+        let t = fx.tolerances.f64;
         match fx.inputs["op"].as_str() {
             "derivative" => {
                 let point = fx.inputs["point"].as_scalar();

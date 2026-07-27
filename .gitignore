@@ -4,3 +4,4 @@ target/
 __pycache__/
 *.pyc
 smoke-*.txt
+tools/qa/gen/.venv/

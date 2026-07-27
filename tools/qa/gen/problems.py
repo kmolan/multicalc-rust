@@ -18,7 +18,6 @@ def integrand(key):
         "cube": lambda x: x**3,
         "x_squared": lambda x: x**2,
         "inv_1px2": lambda x: 1 / (1 + x**2),
-        "exp_neg": lambda x: mpmath.e ** (-x),
         "exp_neg_sq": lambda x: mpmath.e ** (-(x**2)),
     }
     if key not in table:

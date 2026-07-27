@@ -13,7 +13,7 @@ import schema
 
 
 def _tolerances(f32=(1e-3, 1e-3)):
-    return {"f64/host": schema.tol(1e-11, 1e-10), "f32/host": schema.tol(*f32)}
+    return {"f64": schema.tol(1e-11, 1e-10), "f32": schema.tol(*f32)}
 
 
 def _sample_well_conditioned(rng, rows, cols, max_cond=1e4):
@@ -40,7 +40,9 @@ def _lu(out, rng, meta):
             "x": schema.vector(np.linalg.solve(a, b)),
             "inv": schema.matrix(np.linalg.inv(a)),
         }
-        schema.write_fixture(out, "linalg", f"lu_{n}x{n}", meta, _tolerances(), inputs, expected)
+        schema.write_fixture(out, "linalg", f"lu_{n}x{n}", meta, _tolerances(), inputs, expected,
+                             equation="det(A)",
+                             operations=[f"LU decompose + solve, {n}×{n}"])
 
 
 def _emit_qr(out, meta, a, rows, cols, rng, f32):
@@ -57,7 +59,9 @@ def _emit_qr(out, meta, a, rows, cols, rng, f32):
         "residual_norm": schema.scalar(residual_norm),
     }
     schema.write_fixture(
-        out, "linalg", f"qr_{rows}x{cols}", meta, _tolerances(f32), inputs, expected
+        out, "linalg", f"qr_{rows}x{cols}", meta, _tolerances(f32), inputs, expected,
+        equation="‖Ax − b‖",
+        operations=[f"QR least-squares, {rows}×{cols}"],
     )
 
 
@@ -72,10 +76,10 @@ def _qr(out, rng, meta):
 
 
 def _svd(out, rng, meta):
-    shapes = ((3, 2), (3, 3), (4, 3), (12, 6), (20, 6))
-    f32_for = {(3, 2): (1e-3, 1e-3), (3, 3): (1e-3, 1e-3), (4, 3): (1e-3, 1e-3),
-               (12, 6): (1e-2, 1e-2), (20, 6): (1e-2, 1e-2)}
-    for rows, cols in shapes:
+    # rows, cols, f32 tol
+    shapes = ((3, 2, (1e-3, 1e-3)), (3, 3, (1e-3, 1e-3)), (4, 3, (1e-3, 1e-3)),
+              (12, 6, (1e-2, 1e-2)), (20, 6, (1e-2, 1e-2)))
+    for rows, cols, f32 in shapes:
         a = _sample_well_conditioned(rng, rows, cols)
         b = rng.uniform(-1.0, 1.0, size=rows)
         x_ls, *_ = np.linalg.lstsq(a, b, rcond=None)
@@ -90,7 +94,9 @@ def _svd(out, rng, meta):
             "pinv": schema.matrix(np.linalg.pinv(a)),
         }
         schema.write_fixture(
-            out, "linalg", f"svd_{rows}x{cols}", meta, _tolerances(f32_for[(rows, cols)]), inputs, expected
+            out, "linalg", f"svd_{rows}x{cols}", meta, _tolerances(f32), inputs, expected,
+            equation="σ(A)",
+            operations=[f"SVD, {rows}×{cols}"],
         )
 
 
@@ -110,7 +116,9 @@ def _cholesky(out, rng, meta):
             "x": schema.vector(np.linalg.solve(a, b)),
         }
         schema.write_fixture(
-            out, "linalg", f"cholesky_{n}x{n}", meta, _tolerances(), inputs, expected
+            out, "linalg", f"cholesky_{n}x{n}", meta, _tolerances(), inputs, expected,
+            equation="det(A)",
+            operations=[f"Cholesky decompose + solve, {n}×{n}"],
         )
 
 
@@ -118,6 +126,7 @@ def run(out, rng, seed):
     meta = schema.metadata(
         "linalg", seed, "entries uniform in [-1, 1], ill-conditioned draws rejected",
         libraries=("numpy",),
+        reference="numpy/LAPACK {numpy}",
     )
     _lu(out, rng, meta)
     _qr(out, rng, meta)
