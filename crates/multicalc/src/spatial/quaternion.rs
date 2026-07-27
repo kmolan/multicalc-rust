@@ -397,7 +397,7 @@ impl<T: Numeric> Quaternion<T> {
         let (w, x, y, z) = (self.w, self.x, self.y, self.z);
         let two = T::TWO;
         let sinp = two * (w * y - z * x);
-        if sinp.abs() >= T::ONE - small_angle_sq::<T>() {
+        if sinp.abs() >= T::ONE - small_angle::<T>() {
             // Gimbal lock: at pitch = ±π/2 the standard roll/yaw formulas divide 0/0. Snap pitch
             // to the pole, fix roll = 0, and fold the whole rotation into yaw (sign set by the
             // pole). Reconstruction still matches; only the roll/yaw split is not unique here.
