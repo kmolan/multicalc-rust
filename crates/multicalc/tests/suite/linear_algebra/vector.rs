@@ -1,6 +1,6 @@
 use core::f64::consts::{E, PI};
 use multicalc::linear_algebra::{Matrix, Vector};
-use multicalc_testkit::tol::{Tol, assert_scalar_close};
+use multicalc_testkit::tol::{Tol, assert_scalar_close, assert_vector_close};
 use proptest::prelude::*;
 use proptest::test_runner::TestCaseError;
 
@@ -207,16 +207,18 @@ fn vector_is_finite() {
 }
 
 fn check_vector_normalized<const N: usize>(mut v: Vector<N>) -> Result<(), TestCaseError> {
-    prop_assume!(v.norm().is_finite());
-    prop_assume!(v.norm() > 1e-16);
+    let norm = v.norm();
+    prop_assume!(norm.is_finite());
+    prop_assume!(norm > 1e-16);
 
     let tol = Tol {
-        abs: 0.0,
+        abs: <f64 as multicalc::Numeric>::EPSILON_X30,
         rel: 1e-8,
     };
 
     let normalized = v.normalized();
     assert_scalar_close(normalized.norm(), 1.0, tol);
+    assert_vector_close(&v, &normalized.scale(norm), tol);
 
     // The normalized and try_normalized operations are identical when normalization is possible.
     assert_eq!(Some(normalized), v.try_normalized());
