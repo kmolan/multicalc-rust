@@ -9,6 +9,8 @@ use multicalc::scalar::{Dual, Numeric, VectorFn};
 use multicalc_testkit::tol::{Tol, assert_matrix_close, assert_vector_close};
 use proptest::prelude::*;
 
+use crate::support::{symmetric_positive_definite, trace};
+
 /// Unicycle motion: [x, y, heading] driven by a forward and an angular velocity over one step.
 struct UnicycleMotion {
     timestep: f64,
@@ -72,17 +74,6 @@ impl VectorFn<3, 3> for NonFiniteMotion {
     }
 }
 
-/// A symmetric positive-definite matrix from arbitrary entries as `M·Mᵀ`, ridged so the
-/// factorization is well conditioned rather than merely non-singular.
-fn symmetric_positive_definite<const N: usize>(entries: &[f64]) -> Matrix<N, N> {
-    let m = Matrix::<N, N>::from_fn(|row, column| entries[row * N + column]);
-    m * m.transpose() + Matrix::<N, N>::identity().scale(0.25)
-}
-
-fn trace<const N: usize>(m: Matrix<N, N>) -> f64 {
-    (0..N).map(|i| m[(i, i)]).sum()
-}
-
 // ----- Agreement with the linear filter -----
 
 /// Given linear models, the extended filter must reproduce the linear filter exactly: its Jacobians
@@ -118,13 +109,13 @@ fn extended_filter_with_linear_models_matches_linear_filter() {
         linear.update(measurement).unwrap();
     }
 
-    let t = Tol {
+    let tolerance = Tol {
         abs: 1e-12,
         rel: 0.0,
     };
-    assert_vector_close(&extended.state(), &linear.state(), t);
+    assert_vector_close(&extended.state(), &linear.state(), tolerance);
     assert_matrix_close(extended.covariance(), linear.covariance(), 1e-12);
-    assert_vector_close(&extended.innovation(), &linear.innovation(), t);
+    assert_vector_close(&extended.innovation(), &linear.innovation(), tolerance);
     assert_matrix_close(
         extended.innovation_covariance(),
         linear.innovation_covariance(),
@@ -330,8 +321,8 @@ proptest! {
         let predicted = Vector::new(model.eval(seamed.state().as_array()));
         seamed.update_with_residual(&model, measurement - predicted).unwrap();
 
-        let t = Tol { abs: 1e-12, rel: 0.0 };
-        assert_vector_close(&direct.state(), &seamed.state(), t);
+        let tolerance = Tol { abs: 1e-12, rel: 0.0 };
+        assert_vector_close(&direct.state(), &seamed.state(), tolerance);
         assert_matrix_close(direct.covariance(), seamed.covariance(), 1e-12);
     }
 
@@ -381,8 +372,8 @@ proptest! {
         joseph.update(&model, measurement).unwrap();
         naive.update(&model, measurement).unwrap();
 
-        let t = Tol { abs: 1e-9, rel: 1e-9 };
-        assert_vector_close(&joseph.state(), &naive.state(), t);
+        let tolerance = Tol { abs: 1e-9, rel: 1e-9 };
+        assert_vector_close(&joseph.state(), &naive.state(), tolerance);
         assert_matrix_close(joseph.covariance(), naive.covariance(), 1e-9);
     }
 }

@@ -12,123 +12,112 @@ use multicalc::vector_field::{
 use multicalc::error::IntegrateError;
 
 #[test]
-fn test_line_integral_1() {
+fn line_integral_of_a_rotational_field_around_the_unit_circle() {
     //vector field is (y, -x)
-    //curve is a unit circle, defined by (Cos(t), Sin(t))
+    //curve is defined by (Cos(t), Sin(t))
     //limit t goes from 0->2*pi
 
-    let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [
-        &(|args: &[f64; 2]| -> f64 { args[1] }),
-        &(|args: &[f64; 2]| -> f64 { -args[0] }),
+    let field_components: [&dyn Fn(&[f64; 2]) -> f64; 2] = [
+        &(|point: &[f64; 2]| -> f64 { point[1] }),
+        &(|point: &[f64; 2]| -> f64 { -point[0] }),
     ];
 
-    let transformation_matrix: [&dyn Fn(f64) -> f64; 2] = [
+    let curve: [&dyn Fn(f64) -> f64; 2] = [
         &(|t: f64| -> f64 { t.cos() }),
         &(|t: f64| -> f64 { t.sin() }),
     ];
 
     let integration_limit = [0.0, core::f64::consts::TAU];
+    let total_iterations = 100;
 
-    //line integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of -2.0*pi
-    let val = line_integral_2d_custom(
-        &vector_field_matrix,
-        &transformation_matrix,
+    //expect an answer of -2.0*pi
+    let circulation = line_integral_2d_custom(
+        &field_components,
+        &curve,
         &integration_limit,
-        100,
+        total_iterations,
     )
     .unwrap();
-    assert!(f64::abs(val + core::f64::consts::TAU) < 0.01);
+    assert!(f64::abs(circulation + core::f64::consts::TAU) < 0.01);
 }
 
 #[test]
-fn test_line_integral_error_1() {
+fn line_integral_rejects_a_zero_interval_count() {
     //vector field is (y, -x)
     //curve is a unit circle, defined by (Cos(t), Sin(t))
     //limit t goes from 0->2*pi
 
-    let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [
-        &(|args: &[f64; 2]| -> f64 { args[1] }),
-        &(|args: &[f64; 2]| -> f64 { -args[0] }),
+    let field_components: [&dyn Fn(&[f64; 2]) -> f64; 2] = [
+        &(|point: &[f64; 2]| -> f64 { point[1] }),
+        &(|point: &[f64; 2]| -> f64 { -point[0] }),
     ];
 
-    let transformation_matrix: [&dyn Fn(f64) -> f64; 2] = [
+    let curve: [&dyn Fn(f64) -> f64; 2] = [
         &(|t: f64| -> f64 { t.cos() }),
         &(|t: f64| -> f64 { t.sin() }),
     ];
 
     let integration_limit = [0.0, core::f64::consts::TAU];
 
-    //expect error because number of steps is zero
-    let val = line_integral_2d_custom(
-        &vector_field_matrix,
-        &transformation_matrix,
-        &integration_limit,
-        0,
-    );
-    assert!(val.is_err());
-    assert!(val.unwrap_err() == IntegrateError::IterationsZero);
+    let result = line_integral_2d_custom(&field_components, &curve, &integration_limit, 0);
+    assert!(result.is_err());
+    assert!(result.unwrap_err() == IntegrateError::IterationsZero);
 }
 
 #[test]
-fn test_line_integral_error_2() {
+fn line_integral_rejects_reversed_limits() {
     //vector field is (y, -x)
     //curve is a unit circle, defined by (Cos(t), Sin(t))
-    //limit t goes from 0->2*pi
 
-    let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [
-        &(|args: &[f64; 2]| -> f64 { args[1] }),
-        &(|args: &[f64; 2]| -> f64 { -args[0] }),
+    let field_components: [&dyn Fn(&[f64; 2]) -> f64; 2] = [
+        &(|point: &[f64; 2]| -> f64 { point[1] }),
+        &(|point: &[f64; 2]| -> f64 { -point[0] }),
     ];
 
-    let transformation_matrix: [&dyn Fn(f64) -> f64; 2] = [
+    let curve: [&dyn Fn(f64) -> f64; 2] = [
         &(|t: f64| -> f64 { t.cos() }),
         &(|t: f64| -> f64 { t.sin() }),
     ];
 
+    //lower limit higher than upper limit
     let integration_limit = [10.0, 0.0];
 
-    //expect error because integration limits are ill-defined (lower limit higher than upper limit)
-    let val = line_integral_2d_custom(
-        &vector_field_matrix,
-        &transformation_matrix,
-        &integration_limit,
-        100,
-    );
-    assert!(val.is_err());
-    assert!(val.unwrap_err() == IntegrateError::LimitsIllDefined);
+    let result = line_integral_2d_custom(&field_components, &curve, &integration_limit, 100);
+    assert!(result.is_err());
+    assert!(result.unwrap_err() == IntegrateError::LimitsIllDefined);
 }
 
 #[test]
-fn test_flux_integral_1() {
+fn flux_of_a_rotational_field_through_the_unit_circle_is_zero() {
     //vector field is (y, -x)
-    //curve is a unit circle, defined by (Cos(t), Sin(t))
+    //curve is defined by (Cos(t), Sin(t))
     //limit t goes from 0->2*pi
 
-    let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [
-        &(|args: &[f64; 2]| -> f64 { args[1] }),
-        &(|args: &[f64; 2]| -> f64 { -args[0] }),
+    let field_components: [&dyn Fn(&[f64; 2]) -> f64; 2] = [
+        &(|point: &[f64; 2]| -> f64 { point[1] }),
+        &(|point: &[f64; 2]| -> f64 { -point[0] }),
     ];
 
-    let transformation_matrix: [&dyn Fn(f64) -> f64; 2] = [
+    let curve: [&dyn Fn(f64) -> f64; 2] = [
         &(|t: f64| -> f64 { t.cos() }),
         &(|t: f64| -> f64 { t.sin() }),
     ];
 
     let integration_limit = [0.0, core::f64::consts::TAU];
+    let total_iterations = 100;
 
-    //flux integral of a unit circle curve on our vector field from 0 to 2*pi, expect an answer of 0.0
-    let val = flux_integral_2d_custom(
-        &vector_field_matrix,
-        &transformation_matrix,
+    let flux = flux_integral_2d_custom(
+        &field_components,
+        &curve,
         &integration_limit,
-        100,
+        total_iterations,
     )
     .unwrap();
-    assert!(f64::abs(val + 0.0) < 0.01);
+    assert!(f64::abs(flux + 0.0) < 0.01);
 }
 
 #[test]
-fn test_flux_integral_3d_helix() {
+fn flux_along_a_helix_matches_its_closed_form() {
     // Curve r(t) = (cos(t), sin(t), t)
     // Vector field = (0, 0, z)
     //
@@ -139,13 +128,13 @@ fn test_flux_integral_3d_helix() {
     //
     // Flux = partial_x - partial_y - partial_z = -2*pi^2
 
-    let vector_field_matrix: [&dyn Fn(&[f64; 3]) -> f64; 3] = [
+    let field_components: [&dyn Fn(&[f64; 3]) -> f64; 3] = [
         &(|_: &[f64; 3]| -> f64 { 0.0 }),
         &(|_: &[f64; 3]| -> f64 { 0.0 }),
-        &(|args: &[f64; 3]| -> f64 { args[2] }),
+        &(|point: &[f64; 3]| -> f64 { point[2] }),
     ];
 
-    let transformation_matrix: [&dyn Fn(f64) -> f64; 3] = [
+    let curve: [&dyn Fn(f64) -> f64; 3] = [
         &(|t: f64| -> f64 { t.cos() }),
         &(|t: f64| -> f64 { t.sin() }),
         &(|t: f64| -> f64 { t }),
@@ -153,73 +142,74 @@ fn test_flux_integral_3d_helix() {
 
     let two_pi = 2.0 * core::f64::consts::PI;
     let integration_limit = [0.0, two_pi];
+    let total_iterations = 100;
 
-    let val = flux_integral_3d_custom(
-        &vector_field_matrix,
-        &transformation_matrix,
+    let flux = flux_integral_3d_custom(
+        &field_components,
+        &curve,
         &integration_limit,
-        100,
+        total_iterations,
     )
     .unwrap();
 
     let expected = -2.0 * core::f64::consts::PI * core::f64::consts::PI;
 
-    assert!(f64::abs(val - expected) < 1e-6);
+    assert!(f64::abs(flux - expected) < 1e-6);
 }
 
 #[test]
-fn test_curl_2d_1() {
+fn curl_2d_matches_its_closed_form() {
     //vector field is (2*x*y, 3*cos(y)); curl is known to be -2*x, so -2.0 at x = 1
-    let vf = scalar_fn_vec!(|v: &[f64; 2]| [c(2.0) * v[0] * v[1], c(3.0) * v[1].cos()]);
+    let vector_field = scalar_fn_vec!(|v: &[f64; 2]| [c(2.0) * v[0] * v[1], c(3.0) * v[1].cos()]);
     let point = [1.0, core::f64::consts::PI];
 
-    let val = curl_2d(AutoDiffMulti::default(), &vf, &point).unwrap();
-    assert!(f64::abs(val + 2.0) < 1e-12);
+    let curl = curl_2d(AutoDiffMulti::default(), &vector_field, &point).unwrap();
+    assert!(f64::abs(curl + 2.0) < 1e-12);
 }
 
 #[test]
-fn test_curl_3d_1() {
+fn curl_3d_matches_its_closed_form() {
     //vector field is (y, -x, 2*z); curl is known to be (0, 0, -2)
-    let vf = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
+    let vector_field = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
     let point = [1.0, 2.0, 3.0];
 
-    let val = curl_3d(AutoDiffMulti::default(), &vf, &point).unwrap();
-    assert!(f64::abs(val[0]) < 1e-12);
-    assert!(f64::abs(val[1]) < 1e-12);
-    assert!(f64::abs(val[2] + 2.0) < 1e-12);
+    let curl = curl_3d(AutoDiffMulti::default(), &vector_field, &point).unwrap();
+    assert!(f64::abs(curl[0]) < 1e-12);
+    assert!(f64::abs(curl[1]) < 1e-12);
+    assert!(f64::abs(curl[2] + 2.0) < 1e-12);
 }
 
 #[test]
-fn test_divergence_2d_1() {
+fn divergence_2d_matches_its_closed_form() {
     //vector field is (2*x*y, 3*cos(y)); divergence is 2*y - 3*sin(y), which is 2*pi at y = pi
-    let vf = scalar_fn_vec!(|v: &[f64; 2]| [c(2.0) * v[0] * v[1], c(3.0) * v[1].cos()]);
+    let vector_field = scalar_fn_vec!(|v: &[f64; 2]| [c(2.0) * v[0] * v[1], c(3.0) * v[1].cos()]);
     let point = [1.0, core::f64::consts::PI];
 
-    let val = divergence_2d(AutoDiffMulti::default(), &vf, &point).unwrap();
-    assert!(f64::abs(val - core::f64::consts::TAU) < 1e-12);
+    let divergence = divergence_2d(AutoDiffMulti::default(), &vector_field, &point).unwrap();
+    assert!(f64::abs(divergence - core::f64::consts::TAU) < 1e-12);
 }
 
 #[test]
-fn test_divergence_3d_1() {
+fn divergence_3d_matches_its_closed_form() {
     //vector field is (y, -x, 2*z); divergence is known to be 2.0
-    let vf = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
+    let vector_field = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
     let point = [0.0, 1.0, 3.0];
 
-    let val = divergence_3d(AutoDiffMulti::default(), &vf, &point).unwrap();
-    assert!(f64::abs(val - 2.0) < 1e-12);
+    let divergence = divergence_3d(AutoDiffMulti::default(), &vector_field, &point).unwrap();
+    assert!(f64::abs(divergence - 2.0) < 1e-12);
 }
 
 #[test]
-fn test_line_integral_3d_helix() {
+fn line_integral_along_a_helix_matches_its_closed_form() {
     //helix r(t) = (cos t, sin t, t), with a real z-component (regression for the 3D z typo)
     //vector field is (0, 0, z); the line integral is ∫ z dz = ∫_0^{2π} t dt = 2π²
-    let vector_field_matrix: [&dyn Fn(&[f64; 3]) -> f64; 3] = [
+    let field_components: [&dyn Fn(&[f64; 3]) -> f64; 3] = [
         &(|_: &[f64; 3]| -> f64 { 0.0 }),
         &(|_: &[f64; 3]| -> f64 { 0.0 }),
-        &(|args: &[f64; 3]| -> f64 { args[2] }),
+        &(|point: &[f64; 3]| -> f64 { point[2] }),
     ];
 
-    let transformation_matrix: [&dyn Fn(f64) -> f64; 3] = [
+    let curve: [&dyn Fn(f64) -> f64; 3] = [
         &(|t: f64| -> f64 { t.cos() }),
         &(|t: f64| -> f64 { t.sin() }),
         &(|t: f64| -> f64 { t }),
@@ -227,51 +217,53 @@ fn test_line_integral_3d_helix() {
 
     let two_pi = 2.0 * core::f64::consts::PI;
     let integration_limit = [0.0, two_pi];
+    let total_iterations = 100;
 
-    let val = line_integral_3d_custom(
-        &vector_field_matrix,
-        &transformation_matrix,
+    let circulation = line_integral_3d_custom(
+        &field_components,
+        &curve,
         &integration_limit,
-        100,
+        total_iterations,
     )
     .unwrap();
 
     let expected = 2.0 * core::f64::consts::PI * core::f64::consts::PI;
-    assert!(f64::abs(val - expected) < 1e-6);
+    assert!(f64::abs(circulation - expected) < 1e-6);
 }
 
 #[test]
-fn test_line_integral_negative_limits() {
+fn line_integral_accepts_a_negative_lower_limit() {
     //a [-2.0, 1.0] parameter range must be accepted (regression for the old .abs() check)
     //vector field is (y, x), curve is x = t, y = t. The line integral is
     //∫ y dx + x dy = ∫ t dt + ∫ t dt = 2 * (1/2 - 2) = -3
-    let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] = [
-        &(|args: &[f64; 2]| -> f64 { args[1] }),
-        &(|args: &[f64; 2]| -> f64 { args[0] }),
+    let field_components: [&dyn Fn(&[f64; 2]) -> f64; 2] = [
+        &(|point: &[f64; 2]| -> f64 { point[1] }),
+        &(|point: &[f64; 2]| -> f64 { point[0] }),
     ];
 
-    let transformation_matrix: [&dyn Fn(f64) -> f64; 2] =
-        [&(|t: f64| -> f64 { t }), &(|t: f64| -> f64 { t })];
+    let curve: [&dyn Fn(f64) -> f64; 2] = [&(|t: f64| -> f64 { t }), &(|t: f64| -> f64 { t })];
 
     let integration_limit = [-2.0, 1.0];
+    let total_iterations = 100;
 
-    let val = line_integral_2d_custom(
-        &vector_field_matrix,
-        &transformation_matrix,
+    let circulation = line_integral_2d_custom(
+        &field_components,
+        &curve,
         &integration_limit,
-        100,
+        total_iterations,
     )
     .unwrap();
 
-    assert!(f64::abs(val - (-3.0)) < 1e-9);
+    let expected = -3.0;
+    assert!(f64::abs(circulation - expected) < 1e-9);
 }
 
 #[test]
-fn test_divergence_3d_f32() {
+fn divergence_3d_matches_its_closed_form_at_f32() {
     //field (y, -x, 2z); divergence is 0 + 0 + 2 = 2. The same authored field evaluates at f32.
-    let vf = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
+    let vector_field = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
     let point = [0.0_f32, 1.0, 3.0];
 
-    let val = divergence_3d(AutoDiffMulti::<f32>::default(), &vf, &point).unwrap();
-    assert!(f32::abs(val - 2.0) < 1e-6, "got {val}");
+    let divergence = divergence_3d(AutoDiffMulti::<f32>::default(), &vector_field, &point).unwrap();
+    assert!(f32::abs(divergence - 2.0) < 1e-6, "got {divergence}");
 }

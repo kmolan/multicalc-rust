@@ -22,14 +22,14 @@ impl VectorFn<2, 2> for MeasureBoth {
     }
 }
 
-/// Constant velocity: position moves by `dt · velocity`, velocity holds.
+/// Constant velocity: position moves by `timestep · velocity`, velocity holds.
 struct ConstantVelocity {
-    dt: f64,
+    timestep: f64,
 }
 impl VectorFn<2, 2> for ConstantVelocity {
     fn eval<S: Numeric>(&self, state: &[S; 2]) -> [S; 2] {
-        let dt = S::from_f64(self.dt);
-        [state[0] + dt * state[1], state[1]]
+        let timestep = S::from_f64(self.timestep);
+        [state[0] + timestep * state[1], state[1]]
     }
 }
 
@@ -51,12 +51,14 @@ fn small_noise() -> Matrix<2, 2> {
 
 #[test]
 fn weights_normalize_after_update() {
+    let particle_count = 500;
+    let seed = 1;
     let mut filter = ParticleFilter::<2, 2>::new(
-        500,
+        particle_count,
         Vector::new([0.0, 0.0]),
         identity_covariance(),
         small_noise(),
-        1,
+        seed,
     )
     .unwrap();
     let sensor = GaussianLikelihood::new(Matrix::new([[0.1, 0.0], [0.0, 0.1]])).unwrap();
@@ -66,26 +68,27 @@ fn weights_normalize_after_update() {
         .update(&MeasureBoth, &sensor, Vector::new([0.3, -0.2]))
         .unwrap();
 
-    let total: f64 = filter.weights().iter().sum();
+    let weight_sum: f64 = filter.weights().iter().sum();
     assert!(
-        (total - 1.0).abs() < 1e-12,
-        "weights should sum to one, got {total}"
+        (weight_sum - 1.0).abs() < 1e-12,
+        "weights should sum to one, got {weight_sum}"
     );
     assert!(
-        filter.weights().iter().all(|&w| w >= 0.0),
+        filter.weights().iter().all(|&weight| weight >= 0.0),
         "weights should be non-negative"
     );
 }
 
 #[test]
 fn effective_sample_size_stays_in_bounds() {
-    let count = 400;
+    let particle_count = 400;
+    let seed = 2;
     let mut filter = ParticleFilter::<2, 2>::new(
-        count,
+        particle_count,
         Vector::new([0.0, 0.0]),
         identity_covariance(),
         small_noise(),
-        2,
+        seed,
     )
     .unwrap();
     let sensor = GaussianLikelihood::new(Matrix::new([[0.2, 0.0], [0.0, 0.2]])).unwrap();
@@ -95,32 +98,37 @@ fn effective_sample_size_stays_in_bounds() {
         filter
             .update(&MeasureBoth, &sensor, Vector::new([0.5, 0.5]))
             .unwrap();
-        let ess = filter.effective_sample_size();
-        assert!(ess >= 1.0, "effective sample size below one: {ess}");
+        let effective_sample_size = filter.effective_sample_size();
         assert!(
-            ess <= count as f64 + 1e-6,
-            "effective sample size above count: {ess}"
+            effective_sample_size >= 1.0,
+            "effective sample size below one: {effective_sample_size}"
+        );
+        assert!(
+            effective_sample_size <= particle_count as f64 + 1e-6,
+            "effective sample size above count: {effective_sample_size}"
         );
     }
 
     // A fresh resample restores uniform weights, so the effective sample size returns to the count.
     filter.resample();
-    let ess = filter.effective_sample_size();
+    let effective_sample_size = filter.effective_sample_size();
     assert!(
-        (ess - count as f64).abs() < 1e-9,
-        "resampled cloud should have full sample size: {ess}"
+        (effective_sample_size - particle_count as f64).abs() < 1e-9,
+        "resampled cloud should have full sample size: {effective_sample_size}"
     );
 }
 
 #[test]
 fn same_seed_reproduces_estimate() {
+    let particle_count = 300;
+    let seed = 42;
     let build = || {
         ParticleFilter::<2, 2>::new(
-            300,
+            particle_count,
             Vector::new([0.0, 0.0]),
             identity_covariance(),
             small_noise(),
-            42,
+            seed,
         )
         .unwrap()
     };
@@ -153,8 +161,10 @@ fn every_scheme_covers_heavy_particles() {
     ];
     let weights = [0.1_f64, 0.7, 0.2];
 
+    let seed = 5;
+
     for scheme in schemes {
-        let mut random = Pcg32::new(5);
+        let mut random = Pcg32::new(seed);
         let mut counts = [0usize; 3];
         let mut indices = [0usize; 3];
         for _ in 0..10_000 {
@@ -173,12 +183,14 @@ fn every_scheme_covers_heavy_particles() {
 
 #[test]
 fn incompatible_measurement_degenerates() {
+    let particle_count = 200;
+    let seed = 3;
     let mut filter = ParticleFilter::<2, 2>::new(
-        200,
+        particle_count,
         Vector::new([0.0, 0.0]),
         small_noise(),
         small_noise(),
-        3,
+        seed,
     )
     .unwrap();
 
@@ -193,12 +205,14 @@ fn incompatible_measurement_degenerates() {
 fn non_positive_definite_noise_is_rejected() {
     let not_positive_definite = Matrix::new([[1.0, 2.0], [2.0, 1.0]]);
 
+    let particle_count = 100;
+    let seed = 4;
     let filter = ParticleFilter::<2, 2>::new(
-        100,
+        particle_count,
         Vector::new([0.0, 0.0]),
         identity_covariance(),
         not_positive_definite,
-        4,
+        seed,
     );
     assert_eq!(filter.err(), Some(EstimationError::NotPositiveDefinite));
 
@@ -208,19 +222,21 @@ fn non_positive_definite_noise_is_rejected() {
 
 #[test]
 fn zero_particle_count_is_rejected() {
+    let particle_count = 0;
+    let seed = 4;
     let filter = ParticleFilter::<2, 2>::new(
-        0,
+        particle_count,
         Vector::new([0.0, 0.0]),
         identity_covariance(),
         small_noise(),
-        4,
+        seed,
     );
     assert_eq!(filter.err(), Some(EstimationError::WeightsDegenerate));
 }
 
 #[test]
 fn converges_to_kalman_on_linear_gaussian_model() {
-    let dt = 1.0;
+    let timestep = 1.0;
     let process_noise = Matrix::new([[0.01, 0.0], [0.0, 0.01]]);
     let measurement_noise = Matrix::new([[0.09]]);
     let measurement_standard_deviation = 0.3;
@@ -230,24 +246,27 @@ fn converges_to_kalman_on_linear_gaussian_model() {
         Vector::new([0.0, 0.0]),
         identity_covariance(),
         KalmanModel {
-            state_transition: Matrix::new([[1.0, dt], [0.0, 1.0]]),
+            state_transition: Matrix::new([[1.0, timestep], [0.0, 1.0]]),
             measurement_model: Matrix::new([[1.0, 0.0]]),
             process_noise,
             measurement_noise,
         },
     );
+    let particle_count = 20_000;
+    let seed = 7;
     let mut particle = ParticleFilter::<2, 1>::new(
-        20_000,
+        particle_count,
         Vector::new([0.0, 0.0]),
         identity_covariance(),
         process_noise,
-        7,
+        seed,
     )
     .unwrap();
     let sensor = GaussianLikelihood::new(measurement_noise).unwrap();
 
-    let process = ConstantVelocity { dt };
-    let mut measurement_random = Pcg32::new(99);
+    let process = ConstantVelocity { timestep };
+    let measurement_seed = 99;
+    let mut measurement_random = Pcg32::new(measurement_seed);
     let mut truth = [0.0_f64, 1.0];
 
     for _ in 0..40 {
@@ -292,13 +311,15 @@ fn closure_update_matches_the_model_update() {
     let measurement = Vector::new([0.3, -0.2]);
     let noise = 0.1;
 
+    let particle_count = 1000;
+    let seed = 11;
     let build = || {
         ParticleFilter::<2, 2>::new(
-            1000,
+            particle_count,
             Vector::new([0.0, 0.0]),
             identity_covariance(),
             small_noise(),
-            11,
+            seed,
         )
         .unwrap()
     };
@@ -318,9 +339,9 @@ fn closure_update_matches_the_model_update() {
         through_closure
             .update_with_log_weights(|particle| {
                 // The Gaussian log-weight for isotropic noise: −½ · |measurement − particle|² / σ².
-                let dx = measurement[0] - particle[0];
-                let dy = measurement[1] - particle[1];
-                -0.5 * (dx * dx + dy * dy) / noise
+                let offset_x = measurement[0] - particle[0];
+                let offset_y = measurement[1] - particle[1];
+                -0.5 * (offset_x * offset_x + offset_y * offset_y) / noise
             })
             .unwrap();
     }
@@ -336,12 +357,14 @@ fn closure_update_matches_the_model_update() {
 
 #[test]
 fn a_closure_that_favours_one_region_moves_the_mean() {
+    let particle_count = 2000;
+    let seed = 22;
     let mut filter = ParticleFilter::<2, 2>::new(
-        2000,
+        particle_count,
         Vector::new([0.0, 0.0]),
         identity_covariance(),
         small_noise(),
-        22,
+        seed,
     )
     .unwrap();
 
@@ -350,9 +373,9 @@ fn a_closure_that_favours_one_region_moves_the_mean() {
         filter.predict(&Stationary).unwrap();
         filter
             .update_with_log_weights(|particle| {
-                let dx = target[0] - particle[0];
-                let dy = target[1] - particle[1];
-                -0.5 * (dx * dx + dy * dy) / 0.05
+                let offset_x = target[0] - particle[0];
+                let offset_y = target[1] - particle[1];
+                -0.5 * (offset_x * offset_x + offset_y * offset_y) / 0.05
             })
             .unwrap();
     }
@@ -366,13 +389,14 @@ fn a_closure_that_favours_one_region_moves_the_mean() {
 
 #[test]
 fn a_zero_score_closure_leaves_the_weights_uniform() {
-    let count = 500;
+    let particle_count = 500;
+    let seed = 33;
     let mut filter = ParticleFilter::<2, 2>::new(
-        count,
+        particle_count,
         Vector::new([0.0, 0.0]),
         identity_covariance(),
         small_noise(),
-        33,
+        seed,
     )
     .unwrap();
 
@@ -380,9 +404,9 @@ fn a_zero_score_closure_leaves_the_weights_uniform() {
     // effective sample size stays at the full count.
     filter.update_with_log_weights(|_| 0.0).unwrap();
 
-    let ess = filter.effective_sample_size();
+    let effective_sample_size = filter.effective_sample_size();
     assert!(
-        (ess - count as f64).abs() < 1e-9,
-        "a flat score should leave the full sample size: {ess}"
+        (effective_sample_size - particle_count as f64).abs() < 1e-9,
+        "a flat score should leave the full sample size: {effective_sample_size}"
     );
 }

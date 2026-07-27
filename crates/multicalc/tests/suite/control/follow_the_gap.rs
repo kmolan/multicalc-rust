@@ -9,7 +9,19 @@ use multicalc::error::ControlError;
 // 31 beams over 120°, 4 m range, a 0.5 m robot, a 0.5 m open-space threshold, 0.4 m/s cruise. Beam
 // 15 is the exact centre, and neighbouring beams are (2π/3)/30 = 0.06981… rad apart.
 fn follower() -> FollowTheGap<31, f64> {
-    FollowTheGap::try_new(2.0 * PI / 3.0, 4.0, 0.5, 0.5, 0.4).unwrap()
+    let field_of_view = 2.0 * PI / 3.0;
+    let maximum_range = 4.0;
+    let chassis_width = 0.5;
+    let free_range_threshold = 0.5;
+    let cruise_speed = 0.4;
+    FollowTheGap::try_new(
+        field_of_view,
+        maximum_range,
+        chassis_width,
+        free_range_threshold,
+        cruise_speed,
+    )
+    .unwrap()
 }
 
 #[test]
@@ -140,17 +152,24 @@ fn speed_scales_with_frontal_clearance() {
     // The "ahead" half-angle defaults to field_of_view / 4 = π/6 ≈ 0.5236 rad, covering beams
     // 8..=22. Every case stays above the 0.5 m open-space threshold, so this checks speed scaling,
     // not the blocked path.
-    let follower = follower().with_speed_scaling(1.0, 3.0).unwrap();
-    for (frontal, expected) in [(1.0, 0.0), (2.0, 0.2), (3.0, 0.4)] {
+    let stopping_distance = 1.0;
+    let clear_distance = 3.0;
+    let follower = follower()
+        .with_speed_scaling(stopping_distance, clear_distance)
+        .unwrap();
+    for (frontal_range, expected) in [(1.0, 0.0), (2.0, 0.2), (3.0, 0.4)] {
         let mut ranges = [4.0; 31];
         for range in ranges.iter_mut().take(23).skip(8) {
-            *range = frontal;
+            *range = frontal_range;
         }
         let output = follower.compute(&ranges, 0.0).unwrap();
-        assert!(!output.is_blocked(), "frontal {frontal} m must not block");
+        assert!(
+            !output.is_blocked(),
+            "frontal {frontal_range} m must not block"
+        );
         assert!(
             (output.body_twist().linear() - expected).abs() < 1e-12,
-            "frontal {frontal} m gave {}",
+            "frontal {frontal_range} m gave {}",
             output.body_twist().linear()
         );
     }
@@ -249,8 +268,19 @@ fn beam_angle_spans_the_field_of_view() {
 
 #[test]
 fn clear_scan_runs_at_f32() {
-    let follower: FollowTheGap<31, f32> =
-        FollowTheGap::try_new(2.0 * core::f32::consts::PI / 3.0, 4.0, 0.5, 0.5, 0.4).unwrap();
+    let field_of_view = 2.0 * core::f32::consts::PI / 3.0;
+    let maximum_range = 4.0;
+    let chassis_width = 0.5;
+    let free_range_threshold = 0.5;
+    let cruise_speed = 0.4;
+    let follower: FollowTheGap<31, f32> = FollowTheGap::try_new(
+        field_of_view,
+        maximum_range,
+        chassis_width,
+        free_range_threshold,
+        cruise_speed,
+    )
+    .unwrap();
     let output = follower.compute(&[4.0_f32; 31], 0.0).unwrap();
     assert!(output.heading().abs() < 1e-6);
     assert!((output.body_twist().linear() - 0.4).abs() < 1e-6);

@@ -14,79 +14,116 @@ use std::cell::Cell;
 #[test]
 fn ad_single_derivative() {
     // f(x) = x^3 -> f' = 3x^2, f'' = 6x, f''' = 6
-    let func = scalar_fn!(|x| x * x * x);
-    let d = AutoDiffSingle::default();
+    let function = scalar_fn!(|x| x * x * x);
+    let derivator = AutoDiffSingle::default();
 
-    assert!(f64::abs(d.differentiate(1, &func, 2.0).unwrap() - 12.0) < 1e-12);
-    assert!(f64::abs(d.differentiate(2, &func, 2.0).unwrap() - 12.0) < 1e-12);
-    assert!(f64::abs(d.differentiate(3, &func, 2.0).unwrap() - 6.0) < 1e-12);
+    assert!(f64::abs(derivator.differentiate(1, &function, 2.0).unwrap() - 12.0) < 1e-12);
+    assert!(f64::abs(derivator.differentiate(2, &function, 2.0).unwrap() - 12.0) < 1e-12);
+    assert!(f64::abs(derivator.differentiate(3, &function, 2.0).unwrap() - 6.0) < 1e-12);
 }
 
 #[test]
 fn ad_first_partials() {
     // f(x, y) = 3x^2 + 2xy -> df/dx = 6x + 2y, df/dy = 2x
-    let func = scalar_fn!(|v: &[f64; 2]| c(3.0) * v[0] * v[0] + c(2.0) * v[0] * v[1]);
-    let d = AutoDiffMulti::default();
+    let function = scalar_fn!(|v: &[f64; 2]| c(3.0) * v[0] * v[0] + c(2.0) * v[0] * v[1]);
+    let derivator = AutoDiffMulti::default();
     let point = [1.0, 3.0];
 
-    assert!(f64::abs(d.first_partial_derivative(&func, 0, &point).unwrap() - 12.0) < 1e-12);
-    assert!(f64::abs(d.first_partial_derivative(&func, 1, &point).unwrap() - 2.0) < 1e-12);
+    let x = 0;
+    let partial_x = derivator
+        .first_partial_derivative(&function, x, &point)
+        .unwrap();
+    assert!(f64::abs(partial_x - 12.0) < 1e-12);
+
+    let y = 1;
+    let partial_y = derivator
+        .first_partial_derivative(&function, y, &point)
+        .unwrap();
+    assert!(f64::abs(partial_y - 2.0) < 1e-12);
 }
 
 #[test]
 fn ad_first_partials_transcendental() {
     // f(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z
-    let func = G;
-    let d = AutoDiffMulti::default();
+    let function = G;
+    let derivator = AutoDiffMulti::default();
     let point = [1.0, 2.0, 3.0];
 
     // df/dx = y*cos(x) + cos(y) + y*e^z
-    let dx = 2.0 * f64::cos(1.0) + f64::cos(2.0) + 2.0 * f64::exp(3.0);
-    assert!(f64::abs(d.first_partial_derivative(&func, 0, &point).unwrap() - dx) < 1e-12);
+    let x = 0;
+    let expected_dx = 2.0 * f64::cos(1.0) + f64::cos(2.0) + 2.0 * f64::exp(3.0);
+    let partial_x = derivator
+        .first_partial_derivative(&function, x, &point)
+        .unwrap();
+    assert!(f64::abs(partial_x - expected_dx) < 1e-12);
 
     // df/dz = x*y*e^z
-    let dz = 1.0 * 2.0 * f64::exp(3.0);
-    assert!(f64::abs(d.first_partial_derivative(&func, 2, &point).unwrap() - dz) < 1e-12);
+    let z = 2;
+    let expected_dz = 1.0 * 2.0 * f64::exp(3.0);
+    let partial_z = derivator
+        .first_partial_derivative(&function, z, &point)
+        .unwrap();
+    assert!(f64::abs(partial_z - expected_dz) < 1e-12);
 }
 
 #[test]
 fn ad_second_partials() {
     // f(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z
-    let func = G;
-    let d = AutoDiffMulti::default();
+    let function = G;
+    let derivator = AutoDiffMulti::default();
     let point = [1.0, 2.0, 3.0];
 
+    let x = 0;
+    let y = 1;
+
     // d2f/dx2 = -y*sin(x)
-    let dxx = -2.0 * f64::sin(1.0);
-    assert!(f64::abs(d.second_partial_derivative(&func, &[0, 0], &point).unwrap() - dxx) < 1e-12);
+    let expected_dxx = -2.0 * f64::sin(1.0);
+    let partial_xx = derivator
+        .second_partial_derivative(&function, &[x, x], &point)
+        .unwrap();
+    assert!(f64::abs(partial_xx - expected_dxx) < 1e-12);
 
     // mixed d2f/dx dy = cos(x) - sin(y) + e^z
-    let dxy = f64::cos(1.0) - f64::sin(2.0) + f64::exp(3.0);
-    assert!(f64::abs(d.second_partial_derivative(&func, &[0, 1], &point).unwrap() - dxy) < 1e-12);
+    let expected_dxy = f64::cos(1.0) - f64::sin(2.0) + f64::exp(3.0);
+    let partial_xy = derivator
+        .second_partial_derivative(&function, &[x, y], &point)
+        .unwrap();
+    assert!(f64::abs(partial_xy - expected_dxy) < 1e-12);
 }
 
 #[test]
 fn ad_third_partials() {
     // f = x^3 y^3 z^3:  d3/dx dy dz = 27 x^2 y^2 z^2 = 972;  d3/dx2 dy = 18 x y^2 z^3 = 1944
-    let func = scalar_fn!(|v: &[f64; 3]| v[0].powi(3) * v[1].powi(3) * v[2].powi(3));
-    let d = AutoDiffMulti::default();
+    let function = scalar_fn!(|v: &[f64; 3]| v[0].powi(3) * v[1].powi(3) * v[2].powi(3));
+    let derivator = AutoDiffMulti::default();
     let point = [1.0, 2.0, 3.0];
 
-    assert!(f64::abs(d.differentiate(&func, &[0, 1, 2], &point).unwrap() - 972.0) < 1e-9);
-    assert!(f64::abs(d.differentiate(&func, &[0, 0, 1], &point).unwrap() - 1944.0) < 1e-9);
+    let x = 0;
+    let y = 1;
+    let z = 2;
+
+    let mixed_xyz = derivator
+        .differentiate(&function, &[x, y, z], &point)
+        .unwrap();
+    assert!(f64::abs(mixed_xyz - 972.0) < 1e-9);
+
+    let mixed_xxy = derivator
+        .differentiate(&function, &[x, x, y], &point)
+        .unwrap();
+    assert!(f64::abs(mixed_xxy - 1944.0) < 1e-9);
 }
 
 #[test]
 fn ad_jacobian() {
     // (x*y*z, x^2 + y^2)
-    let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    let function = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
     let jacobian: Jacobian = Jacobian::default();
-    let result = jacobian.evaluate(&f, &[1.0, 2.0, 3.0]).unwrap();
+    let result = jacobian.evaluate(&function, &[1.0, 2.0, 3.0]).unwrap();
 
     let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
-    for (i, row) in expected.iter().enumerate() {
-        for (j, &want) in row.iter().enumerate() {
-            assert!(f64::abs(result[(i, j)] - want) < 1e-12);
+    for (row, expected_row) in expected.iter().enumerate() {
+        for (column, &expected_entry) in expected_row.iter().enumerate() {
+            assert!(f64::abs(result[(row, column)] - expected_entry) < 1e-12);
         }
     }
 }
@@ -94,14 +131,16 @@ fn ad_jacobian() {
 #[test]
 #[cfg(feature = "alloc")]
 fn ad_jacobian_on_heap() {
-    let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    let function = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
     let jacobian: Jacobian = Jacobian::default();
-    let result = jacobian.evaluate_on_heap(&f, &[1.0, 2.0, 3.0]).unwrap();
+    let result = jacobian
+        .evaluate_on_heap(&function, &[1.0, 2.0, 3.0])
+        .unwrap();
 
     let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
-    for (i, row) in expected.iter().enumerate() {
-        for (j, &want) in row.iter().enumerate() {
-            assert!(f64::abs(result[i][j] - want) < 1e-12);
+    for (row, expected_row) in expected.iter().enumerate() {
+        for (column, &expected_entry) in expected_row.iter().enumerate() {
+            assert!(f64::abs(result[row][column] - expected_entry) < 1e-12);
         }
     }
 }
@@ -109,17 +148,17 @@ fn ad_jacobian_on_heap() {
 #[test]
 fn ad_hessian() {
     // f(x, y) = y*sin(x) + 2*x*e^y
-    let func = scalar_fn!(|v: &[f64; 2]| v[1] * v[0].sin() + c(2.0) * v[0] * v[1].exp());
+    let function = scalar_fn!(|v: &[f64; 2]| v[1] * v[0].sin() + c(2.0) * v[0] * v[1].exp());
     let hessian: Hessian = Hessian::default();
-    let result = hessian.evaluate(&func, &[1.0, 2.0]).unwrap();
+    let result = hessian.evaluate(&function, &[1.0, 2.0]).unwrap();
 
     let expected = [
         [-2.0 * f64::sin(1.0), f64::cos(1.0) + 2.0 * f64::exp(2.0)],
         [f64::cos(1.0) + 2.0 * f64::exp(2.0), 2.0 * f64::exp(2.0)],
     ];
-    for (i, row) in expected.iter().enumerate() {
-        for (j, &want) in row.iter().enumerate() {
-            assert!(f64::abs(result[(i, j)] - want) < 1e-12);
+    for (row, expected_row) in expected.iter().enumerate() {
+        for (column, &expected_entry) in expected_row.iter().enumerate() {
+            assert!(f64::abs(result[(row, column)] - expected_entry) < 1e-12);
         }
     }
 }
@@ -127,28 +166,30 @@ fn ad_hessian() {
 #[test]
 fn ad_f32() {
     // x*x at 0.5; first derivative 2x = 1.0, exact under autodiff
-    let func = scalar_fn!(|x| x * x);
-    let d = AutoDiffSingle::<f32>::default();
-    assert!(f32::abs(d.differentiate(1, &func, 0.5_f32).unwrap() - 1.0) < 1e-6);
+    let function = scalar_fn!(|x| x * x);
+    let derivator = AutoDiffSingle::<f32>::default();
+    assert!(f32::abs(derivator.differentiate(1, &function, 0.5_f32).unwrap() - 1.0) < 1e-6);
 }
 
 // ----- autodiff error handling -----
 
 #[test]
 fn ad_error_index_out_of_range() {
-    let func = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] + v[2]);
-    let d = AutoDiffMulti::default();
-    let result = d.first_partial_derivative(&func, 5, &[1.0, 2.0, 3.0]);
+    let function = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] + v[2]);
+    let derivator = AutoDiffMulti::default();
+    let result = derivator.first_partial_derivative(&function, 5, &[1.0, 2.0, 3.0]);
     assert_eq!(result.unwrap_err(), DiffError::IndexOutOfRange);
 }
 
 #[test]
 fn ad_error_order_zero() {
-    let func = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] + v[2]);
-    let d = AutoDiffMulti::default();
-    let idx: [usize; 0] = [];
+    let function = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] + v[2]);
+    let derivator = AutoDiffMulti::default();
+    let variable_indices: [usize; 0] = [];
     assert_eq!(
-        d.differentiate(&func, &idx, &[1.0, 2.0, 3.0]).unwrap_err(),
+        derivator
+            .differentiate(&function, &variable_indices, &[1.0, 2.0, 3.0])
+            .unwrap_err(),
         DiffError::OrderZero
     );
 }
@@ -156,10 +197,11 @@ fn ad_error_order_zero() {
 #[test]
 fn ad_error_order_unsupported() {
     // autodiff multi caps at third order; a fourth-order partial is rejected
-    let func = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] + v[2]);
-    let d = AutoDiffMulti::default();
+    let function = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] + v[2]);
+    let derivator = AutoDiffMulti::default();
     assert_eq!(
-        d.differentiate(&func, &[0, 1, 2, 0], &[1.0, 2.0, 3.0])
+        derivator
+            .differentiate(&function, &[0, 1, 2, 0], &[1.0, 2.0, 3.0])
             .unwrap_err(),
         DiffError::OrderUnsupported
     );
@@ -189,48 +231,53 @@ struct CountingVectorFn {
 }
 
 impl VectorFn<3, 2> for CountingVectorFn {
-    fn eval<S: Numeric>(&self, p: &[S; 3]) -> [S; 2] {
+    fn eval<S: Numeric>(&self, point: &[S; 3]) -> [S; 2] {
         self.calls.set(self.calls.get() + 1);
         // (x*y*z, x^2 + y^2)
-        [p[0] * p[1] * p[2], p[0] * p[0] + p[1] * p[1]]
+        [
+            point[0] * point[1] * point[2],
+            point[0] * point[0] + point[1] * point[1],
+        ]
     }
 }
 
 #[test]
 fn ad_jacobian_is_column_seeded() {
-    let f = CountingVectorFn {
+    let counter = CountingVectorFn {
         calls: Cell::new(0),
     };
     let jacobian: Jacobian = Jacobian::default();
-    let result = jacobian.evaluate(&f, &[1.0, 2.0, 3.0]).unwrap();
+    let result = jacobian.evaluate(&counter, &[1.0, 2.0, 3.0]).unwrap();
 
     // values are unchanged from the old harness
     let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
-    for (i, row) in expected.iter().enumerate() {
-        for (j, &want) in row.iter().enumerate() {
-            assert!(f64::abs(result[(i, j)] - want) < 1e-12);
+    for (row, expected_row) in expected.iter().enumerate() {
+        for (column, &expected_entry) in expected_row.iter().enumerate() {
+            assert!(f64::abs(result[(row, column)] - expected_entry) < 1e-12);
         }
     }
 
     // one evaluation per input column (3), not per cell (2*3 = 6)
-    assert_eq!(f.calls.get(), 3);
+    assert_eq!(counter.calls.get(), 3);
 }
 
 #[test]
 fn ad_jacobian_column_reads_all_outputs() {
     // one seeded pass on input 0 gives d/dx of both outputs: [y*z, 2x] = [6, 2]
-    let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
-    let d = AutoDiffMulti::default();
-    let column = d.jacobian_column(&f, 0, &[1.0, 2.0, 3.0]).unwrap();
+    let function = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    let derivator = AutoDiffMulti::default();
+    let column = derivator
+        .jacobian_column(&function, 0, &[1.0, 2.0, 3.0])
+        .unwrap();
     assert!(f64::abs(column[0] - 6.0) < 1e-12);
     assert!(f64::abs(column[1] - 2.0) < 1e-12);
 }
 
 #[test]
 fn ad_jacobian_column_index_out_of_range() {
-    let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
-    let d = AutoDiffMulti::default();
-    let result = d.jacobian_column(&f, 5, &[1.0, 2.0, 3.0]);
+    let function = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    let derivator = AutoDiffMulti::default();
+    let result = derivator.jacobian_column(&function, 5, &[1.0, 2.0, 3.0]);
     assert_eq!(result.unwrap_err(), DiffError::IndexOutOfRange);
 }
 
@@ -238,14 +285,14 @@ fn ad_jacobian_column_index_out_of_range() {
 fn fd_jacobian_column_matches() {
     // the finite-difference implementation produces the right matrix, matching the analytic
     // values to finite-difference tolerance (unchanged from the per-Component path it replaces)
-    let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    let function = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
     let jacobian = Jacobian::from_derivator(FiniteDifferenceMulti::default());
-    let result = jacobian.evaluate(&f, &[1.0, 2.0, 3.0]).unwrap();
+    let result = jacobian.evaluate(&function, &[1.0, 2.0, 3.0]).unwrap();
 
     let expected = [[6.0, 3.0, 2.0], [2.0, 4.0, 0.0]];
-    for (i, row) in expected.iter().enumerate() {
-        for (j, &want) in row.iter().enumerate() {
-            assert!(f64::abs(result[(i, j)] - want) < 1e-5);
+    for (row, expected_row) in expected.iter().enumerate() {
+        for (column, &expected_entry) in expected_row.iter().enumerate() {
+            assert!(f64::abs(result[(row, column)] - expected_entry) < 1e-5);
         }
     }
 }
@@ -254,12 +301,12 @@ fn fd_jacobian_column_matches() {
 fn fd_jacobian_is_column_seeded() {
     // central difference evaluates the full function twice per input column (2*3 = 6), not twice
     // per matrix cell (2*M*N = 12)
-    let f = CountingVectorFn {
+    let counter = CountingVectorFn {
         calls: Cell::new(0),
     };
     let jacobian = Jacobian::from_derivator(FiniteDifferenceMulti::default());
-    let _ = jacobian.evaluate(&f, &[1.0, 2.0, 3.0]).unwrap();
-    assert_eq!(f.calls.get(), 6);
+    let _ = jacobian.evaluate(&counter, &[1.0, 2.0, 3.0]).unwrap();
+    assert_eq!(counter.calls.get(), 6);
 }
 
 // ----- finite differences: kept as a sparse fallback for the engine and the cases autodiff
@@ -268,24 +315,26 @@ fn fd_jacobian_is_column_seeded() {
 #[test]
 fn fd_single_derivative_modes() {
     // x^2/2, derivative x; check all three finite-difference modes still work
-    let func = scalar_fn!(|x| c(0.5) * x * x);
+    let function = scalar_fn!(|x| c(0.5) * x * x);
     for mode in [
         FiniteDifferenceMode::Forward,
         FiniteDifferenceMode::Backward,
         FiniteDifferenceMode::Central,
     ] {
-        let mut d = FiniteDifferenceSingle::default();
-        d.config.method = mode;
-        assert!(f64::abs(d.differentiate(1, &func, 2.0).unwrap() - 2.0) < 0.001);
+        let mut derivator = FiniteDifferenceSingle::default();
+        derivator.config.method = mode;
+        assert!(f64::abs(derivator.differentiate(1, &function, 2.0).unwrap() - 2.0) < 0.001);
     }
 }
 
 #[test]
 fn fd_step_size_zero_error() {
-    let func = scalar_fn!(|v: &[f64; 3]| v[1] * v[0].sin());
-    let d = FiniteDifferenceMulti::from_parameters(0.0, FiniteDifferenceMode::Central, 1.0);
+    let function = scalar_fn!(|v: &[f64; 3]| v[1] * v[0].sin());
+    let derivator = FiniteDifferenceMulti::from_parameters(0.0, FiniteDifferenceMode::Central, 1.0);
     assert_eq!(
-        d.differentiate(&func, &[0], &[1.0, 2.0, 3.0]).unwrap_err(),
+        derivator
+            .differentiate(&function, &[0], &[1.0, 2.0, 3.0])
+            .unwrap_err(),
         DiffError::StepSizeZero
     );
 }
@@ -316,10 +365,16 @@ struct BivariatePoly {
 }
 
 impl ScalarFnN<2> for BivariatePoly {
-    fn eval<S: Numeric>(&self, p: &[S; 2]) -> S {
-        let (x, y) = (p[0], p[1]);
-        let c = |i| S::from_f64(self.coeffs[i]);
-        c(0) + c(1) * x + c(2) * y + c(3) * x * x + c(4) * x * y + c(5) * y * y
+    fn eval<S: Numeric>(&self, point: &[S; 2]) -> S {
+        let x = point[0];
+        let y = point[1];
+        let coefficient = |index| S::from_f64(self.coeffs[index]);
+        coefficient(0)
+            + coefficient(1) * x
+            + coefficient(2) * y
+            + coefficient(3) * x * x
+            + coefficient(4) * x * y
+            + coefficient(5) * y * y
     }
 }
 
@@ -342,15 +397,16 @@ proptest! {
         x in -2.0f64..2.0,
     ) {
         let scale = 1.0 + coeff_l1(&inner) + coeff_l1(&outer);
-        let f = PolyComp { inner, outer };
-        let h = DEFAULT_STEP_SIZE;
-        let ad = AutoDiffSingle::default().differentiate(1, &f, x).unwrap();
-        let fd = FiniteDifferenceSingle::default();
-        let fd_val = fd.differentiate(1, &f, x).unwrap();
-        let tol = ad_fd_tol(ad, h, 2, 1e3, scale);
+        let composed_polynomial = PolyComp { inner, outer };
+        let step = DEFAULT_STEP_SIZE;
+        let autodiff = AutoDiffSingle::default().differentiate(1, &composed_polynomial, x).unwrap();
+        let finite_difference_derivator = FiniteDifferenceSingle::default();
+        let finite_difference =
+            finite_difference_derivator.differentiate(1, &composed_polynomial, x).unwrap();
+        let tolerance = ad_fd_tol(autodiff, step, 2, 1e3, scale);
         prop_assert!(
-            (fd_val - ad).abs() < tol,
-            "fd={fd_val} ad={ad} tol={tol} x={x}"
+            (finite_difference - autodiff).abs() < tolerance,
+            "fd={finite_difference} ad={autodiff} tol={tolerance} x={x}"
         );
     }
 
@@ -361,18 +417,20 @@ proptest! {
         y in -2.0f64..2.0,
     ) {
         let scale = 1.0 + coeff_l1(&coeffs);
-        let f = BivariatePoly { coeffs };
+        let bivariate = BivariatePoly { coeffs };
         let point = [x, y];
-        let h = DEFAULT_STEP_SIZE;
-        let ad_d = AutoDiffMulti::default();
-        let fd_d = FiniteDifferenceMulti::default();
-        for idx in [0usize, 1] {
-            let ad = ad_d.first_partial_derivative(&f, idx, &point).unwrap();
-            let fd_val = fd_d.first_partial_derivative(&f, idx, &point).unwrap();
-            let tol = ad_fd_tol(ad, h, 2, 1e3, scale);
+        let step = DEFAULT_STEP_SIZE;
+        let autodiff_derivator = AutoDiffMulti::default();
+        let finite_difference_derivator = FiniteDifferenceMulti::default();
+        for variable_index in [0usize, 1] {
+            let autodiff =
+                autodiff_derivator.first_partial_derivative(&bivariate, variable_index, &point).unwrap();
+            let finite_difference =
+                finite_difference_derivator.first_partial_derivative(&bivariate, variable_index, &point).unwrap();
+            let tolerance = ad_fd_tol(autodiff, step, 2, 1e3, scale);
             prop_assert!(
-                (fd_val -ad).abs() < tol,
-                "idx={idx} fd={fd_val} ad={ad} tol={tol}"
+                (finite_difference - autodiff).abs() < tolerance,
+                "idx={variable_index} fd={finite_difference} ad={autodiff} tol={tolerance}"
             );
         }
     }

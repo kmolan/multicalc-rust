@@ -15,5 +15,6 @@ mod random;
 mod root_finding;
 mod scalar;
 mod spatial;
+mod support;
 mod utils;
 mod vector_field;
