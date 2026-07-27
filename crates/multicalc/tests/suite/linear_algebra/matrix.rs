@@ -169,6 +169,29 @@ fn check_matrix_from_diagonal<const N: usize>(diag: [f64; N]) {
     assert_eq!(extracted_diagonal, diag);
 }
 
+fn check_matrix_symmetric_positive_definite<const N: usize>(
+    entries: &[f64],
+    x: Matrix<N, 1>,
+) -> Result<(), TestCaseError> {
+    prop_assume!(x.frobenius_norm() > <f64 as multicalc::Numeric>::EPSILON);
+
+    assert_eq!(entries.len(), N * N);
+    let m: Matrix<N, N> = Matrix::symmetric_positive_definite(entries);
+
+    // Check symmetric
+    for i in 0..N {
+        for j in 0..N {
+            assert_eq!(m[(i, j)], m[(j, i)]);
+        }
+    }
+
+    // Check positive definite
+    let a = x.transpose() * (m * x);
+    assert!(a[(0, 0)] > 0.0);
+
+    Ok(())
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(256))]
 
@@ -285,6 +308,30 @@ proptest! {
     #[test]
     fn matrix_from_diagonal_4x4(diag in prop::array::uniform4(prop::num::f64::NORMAL)) {
         check_matrix_from_diagonal(diag);
+    }
+
+    #[test]
+    fn matrix_symmetric_positive_definite_2x2(
+        entries in prop::collection::vec(prop::num::f64::NORMAL, 4),
+        x in matrix_strategy::<2, 1, _>(prop::num::f64::NORMAL),
+    ) {
+        check_matrix_symmetric_positive_definite(&entries, x)?;
+    }
+
+    #[test]
+    fn matrix_symmetric_positive_definite_3x3(
+        entries in prop::collection::vec(prop::num::f64::NORMAL, 9),
+        x in matrix_strategy::<3, 1, _>(prop::num::f64::NORMAL),
+    ) {
+        check_matrix_symmetric_positive_definite(&entries, x)?;
+    }
+
+    #[test]
+    fn matrix_symmetric_positive_definite_4x4(
+        entries in prop::collection::vec(prop::num::f64::NORMAL, 16),
+        x in matrix_strategy::<4, 1, _>(prop::num::f64::NORMAL),
+    ) {
+        check_matrix_symmetric_positive_definite(&entries, x)?;
     }
 }
 

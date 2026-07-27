@@ -538,6 +538,15 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     }
 }
 
+impl<const N: usize> Matrix<N, N> {
+    /// Builds a symmetric positive-definite matrix from arbitrary entries as `M·Mᵀ`, ridged so the
+    /// factorization is well conditioned rather than merely non-singular.
+    pub fn symmetric_positive_definite(entries: &[f64]) -> Self {
+        let factor = Self::from_fn(|row, column| entries[row * N + column]);
+        factor * factor.transpose() + Self::from_diagonal([0.25; N])
+    }
+}
+
 impl<const ROWS: usize, const COLS: usize, T> From<[[T; COLS]; ROWS]> for Matrix<ROWS, COLS, T> {
     #[inline]
     fn from(data: [[T; COLS]; ROWS]) -> Self {
