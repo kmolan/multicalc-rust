@@ -7,6 +7,8 @@ use multicalc::scalar::{Dual, Numeric};
 use multicalc_testkit::tol::{Tol, assert_matrix_close, assert_vector_close};
 use proptest::prelude::*;
 
+use crate::support::{symmetric_positive_definite, trace};
+
 /// A constant-velocity tracker over a 1 s step: position integrates velocity, position is measured.
 fn constant_velocity_filter<T: Numeric>(
     initial_covariance: Matrix<2, 2, T>,
@@ -25,17 +27,6 @@ fn constant_velocity_filter<T: Numeric>(
     )
 }
 
-/// Builds a symmetric positive-definite matrix from arbitrary entries as `M·Mᵀ`, ridged so the
-/// factorization is well conditioned rather than merely non-singular.
-fn symmetric_positive_definite<const N: usize>(entries: &[f64]) -> Matrix<N, N> {
-    let m = Matrix::<N, N>::from_fn(|row, column| entries[row * N + column]);
-    m * m.transpose() + Matrix::<N, N>::identity().scale(0.25)
-}
-
-fn trace<const N: usize>(m: Matrix<N, N>) -> f64 {
-    (0..N).map(|i| m[(i, i)]).sum()
-}
-
 // ----- Goldens -----
 
 /// Two steps of a noiseless-process constant-velocity tracker, worked by hand:
@@ -50,17 +41,21 @@ fn constant_velocity_two_steps_matches_hand_computation() {
         filter.update(Vector::new([measurement])).unwrap();
     }
 
-    let t = Tol {
+    let tolerance = Tol {
         abs: 1e-12,
         rel: 0.0,
     };
-    assert_vector_close(&filter.state(), &Vector::new([5.0 / 3.0, 2.0 / 3.0]), t);
+    assert_vector_close(
+        &filter.state(),
+        &Vector::new([5.0 / 3.0, 2.0 / 3.0]),
+        tolerance,
+    );
     assert_matrix_close(
         filter.covariance(),
         Matrix::new([[2.0 / 3.0, 1.0 / 3.0], [1.0 / 3.0, 1.0 / 3.0]]),
         1e-12,
     );
-    assert_vector_close(&filter.innovation(), &Vector::new([1.0]), t);
+    assert_vector_close(&filter.innovation(), &Vector::new([1.0]), tolerance);
     assert_matrix_close(filter.innovation_covariance(), Matrix::new([[3.0]]), 1e-12);
 }
 
@@ -139,8 +134,8 @@ proptest! {
             filter.update(Vector::new([measurement])).unwrap();
         }
 
-        let t = Tol { abs: 1e-9, rel: 1e-9 };
-        assert_vector_close(&joseph.state(), &naive.state(), t);
+        let tolerance = Tol { abs: 1e-9, rel: 1e-9 };
+        assert_vector_close(&joseph.state(), &naive.state(), tolerance);
         assert_matrix_close(joseph.covariance(), naive.covariance(), 1e-9);
     }
 

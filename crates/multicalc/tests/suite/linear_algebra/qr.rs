@@ -8,9 +8,9 @@ use proptest::test_runner::TestCaseError;
 
 #[test]
 fn qr_rejects_underdetermined() {
-    let a = Matrix::<2, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
+    let matrix = Matrix::<2, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
     assert!(matches!(
-        PivotedQr::decompose(a),
+        PivotedQr::decompose(matrix),
         Err(LinalgError::Underdetermined)
     ));
 }
@@ -18,13 +18,13 @@ fn qr_rejects_underdetermined() {
 #[test]
 fn qr_solves_square_system() {
     // A x = b with the exact solution x = [1, 1, 1].
-    let a = Matrix::<3, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 10.0]]);
-    let b = Vector::new([6.0, 15.0, 25.0]);
-    let x = PivotedQr::decompose(a)
+    let matrix = Matrix::<3, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 10.0]]);
+    let right_hand_side = Vector::new([6.0, 15.0, 25.0]);
+    let solution = PivotedQr::decompose(matrix)
         .unwrap()
-        .solve_least_squares(b)
+        .solve_least_squares(right_hand_side)
         .unwrap();
-    for value in x.into_array() {
+    for value in solution.into_array() {
         assert!((value - 1.0).abs() < 1e-12);
     }
 }
@@ -32,26 +32,26 @@ fn qr_solves_square_system() {
 #[test]
 fn qr_solves_overdetermined_least_squares() {
     // Fit y = m t + c to three non-collinear points; least-squares gives m = 0.5, c = 7/6.
-    let a = Matrix::<3, 2>::new([[0.0, 1.0], [1.0, 1.0], [2.0, 1.0]]);
-    let b = Vector::new([1.0, 2.0, 2.0]);
-    let x = PivotedQr::decompose(a)
+    let matrix = Matrix::<3, 2>::new([[0.0, 1.0], [1.0, 1.0], [2.0, 1.0]]);
+    let right_hand_side = Vector::new([1.0, 2.0, 2.0]);
+    let solution = PivotedQr::decompose(matrix)
         .unwrap()
-        .solve_least_squares(b)
+        .solve_least_squares(right_hand_side)
         .unwrap();
-    assert!((x[0] - 0.5).abs() < 1e-12);
-    assert!((x[1] - 7.0 / 6.0).abs() < 1e-12);
+    assert!((solution[0] - 0.5).abs() < 1e-12);
+    assert!((solution[1] - 7.0 / 6.0).abs() < 1e-12);
 }
 
 #[test]
 fn qr_solve_rejects_rank_deficient() {
-    let b = Vector::new([1.0, 2.0, 3.0]);
+    let right_hand_side = Vector::new([1.0, 2.0, 3.0]);
 
     // The middle column is zero, so R has an exactly-zero diagonal entry.
-    let zero_col = Matrix::<3, 3>::new([[1.0, 0.0, 2.0], [3.0, 0.0, 4.0], [5.0, 0.0, 6.0]]);
+    let zero_column = Matrix::<3, 3>::new([[1.0, 0.0, 2.0], [3.0, 0.0, 4.0], [5.0, 0.0, 6.0]]);
     assert!(matches!(
-        PivotedQr::decompose(zero_col)
+        PivotedQr::decompose(zero_column)
             .unwrap()
-            .solve_least_squares(b),
+            .solve_least_squares(right_hand_side),
         Err(LinalgError::Singular)
     ));
 
@@ -61,7 +61,7 @@ fn qr_solve_rejects_rank_deficient() {
     assert!(matches!(
         PivotedQr::decompose(dependent)
             .unwrap()
-            .solve_least_squares(b),
+            .solve_least_squares(right_hand_side),
         Err(LinalgError::Singular)
     ));
 }
@@ -70,66 +70,78 @@ fn qr_solve_rejects_rank_deficient() {
 
 // A full-rank 4x3 problem reused across the damped-solve tests.
 fn sample_problem() -> (Matrix<4, 3>, Vector<4>) {
-    let j = Matrix::<4, 3>::new([
+    let jacobian = Matrix::<4, 3>::new([
         [1.0, 2.0, 0.0],
         [0.0, 1.0, 3.0],
         [2.0, 1.0, 1.0],
         [1.0, 0.0, 2.0],
     ]);
-    let b = Vector::new([1.0, 2.0, 3.0, 4.0]);
-    (j, b)
+    let right_hand_side = Vector::new([1.0, 2.0, 3.0, 4.0]);
+    (jacobian, right_hand_side)
 }
 
 #[test]
 fn damped_solve_satisfies_normal_equations() {
-    let (j, b) = sample_problem();
-    let diag = [1.0, 0.5, 2.0];
-    let dls = PivotedQr::decompose(j).unwrap().into_damped(b);
-    let (x, _) = dls.solve_with_diagonal(&diag);
+    let (jacobian, right_hand_side) = sample_problem();
+    let diagonal = [1.0, 0.5, 2.0];
+    let damped = PivotedQr::decompose(jacobian)
+        .unwrap()
+        .into_damped(right_hand_side);
+    let (solution, _) = damped.solve_with_diagonal(&diagonal);
 
     // x must satisfy (JᵀJ + D²) x = Jᵀb.
-    let jtj = j.transpose() * j;
-    let jtb = j.transpose() * b;
-    let lhs =
-        Matrix::<3, 3>::from_fn(|r, c| jtj[(r, c)] + if r == c { diag[r] * diag[r] } else { 0.0 })
-            * x;
-    for i in 0..3 {
-        assert!((lhs[i] - jtb[i]).abs() < 1e-12);
+    let normal_matrix = jacobian.transpose() * jacobian;
+    let normal_right_hand_side = jacobian.transpose() * right_hand_side;
+    let left_side = Matrix::<3, 3>::from_fn(|row, column| {
+        normal_matrix[(row, column)]
+            + if row == column {
+                diagonal[row] * diagonal[row]
+            } else {
+                0.0
+            }
+    }) * solution;
+    for index in 0..3 {
+        assert!((left_side[index] - normal_right_hand_side[index]).abs() < 1e-12);
     }
 }
 
 #[test]
 fn damped_zero_diagonal_matches_least_squares() {
-    let (j, b) = sample_problem();
-    let qr = PivotedQr::decompose(j).unwrap();
-    let expected = qr.solve_least_squares(b).unwrap();
-    let (x, _) = qr.into_damped(b).solve_with_zero_diagonal();
-    for i in 0..3 {
-        assert!((x[i] - expected[i]).abs() < 1e-12);
+    let (jacobian, right_hand_side) = sample_problem();
+    let qr = PivotedQr::decompose(jacobian).unwrap();
+    let expected = qr.solve_least_squares(right_hand_side).unwrap();
+    let (solution, _) = qr.into_damped(right_hand_side).solve_with_zero_diagonal();
+    for index in 0..3 {
+        assert!((solution[index] - expected[index]).abs() < 1e-12);
     }
 }
 
 #[test]
 fn damped_accessors() {
-    let (j, b) = sample_problem();
-    let dls = PivotedQr::decompose(j).unwrap().into_damped(b);
+    let (jacobian, right_hand_side) = sample_problem();
+    let damped = PivotedQr::decompose(jacobian)
+        .unwrap()
+        .into_damped(right_hand_side);
 
     // max_a_t_b_scaled: max over columns of |Jᵀb|ₗ / (b_norm · ‖columnₗ‖).
-    let b_norm = b.norm();
-    let jtb = j.transpose() * b;
+    let b_norm = right_hand_side.norm();
+    let normal_right_hand_side = jacobian.transpose() * right_hand_side;
     let mut expected = 0.0_f64;
-    for l in 0..3 {
-        let scaled = (jtb[l] / b_norm / Vector::<4>::from_fn(|r| j[(r, l)]).norm()).abs();
+    for column in 0..3 {
+        let scaled = (normal_right_hand_side[column]
+            / b_norm
+            / Vector::<4>::from_fn(|row| jacobian[(row, column)]).norm())
+        .abs();
         expected = expected.max(scaled);
     }
-    assert!((dls.max_a_t_b_scaled(b_norm) - expected).abs() < 1e-12);
+    assert!((damped.max_a_t_b_scaled(b_norm) - expected).abs() < 1e-12);
 
     // a_x_norm(x) is ‖J x‖.
-    let x = Vector::new([1.0, -2.0, 0.5]);
-    assert!((dls.a_x_norm(&x) - (j * x).norm()).abs() < 1e-12);
+    let candidate = Vector::new([1.0, -2.0, 0.5]);
+    assert!((damped.a_x_norm(&candidate) - (jacobian * candidate).norm()).abs() < 1e-12);
 
     // is_non_singular: true for the full-rank problem, false once a column goes to zero.
-    assert!(dls.is_non_singular());
+    assert!(damped.is_non_singular());
     let deficient = Matrix::<4, 3>::new([
         [1.0, 0.0, 2.0],
         [3.0, 0.0, 4.0],
@@ -139,7 +151,7 @@ fn damped_accessors() {
     assert!(
         !PivotedQr::decompose(deficient)
             .unwrap()
-            .into_damped(b)
+            .into_damped(right_hand_side)
             .is_non_singular()
     );
 }
@@ -147,46 +159,47 @@ fn damped_accessors() {
 #[test]
 fn qr_fits_vandermonde_polynomial() {
     // Fit a degree-6 polynomial to 20 points on [-1, 1] by QR least squares.
-    let node = |i: usize| -1.0 + 2.0 * i as f64 / 19.0;
-    let vandermonde = Matrix::<20, 7>::from_fn(|i, j| {
-        let t = node(i);
-        (0..j).fold(1.0, |acc, _| acc * t)
+    let node = |index: usize| -1.0 + 2.0 * index as f64 / 19.0;
+    let vandermonde = Matrix::<20, 7>::from_fn(|row, column| {
+        let node_value = node(row);
+        (0..column).fold(1.0, |power, _| power * node_value)
     });
-    let coeffs = [0.5, -1.2, 2.0, 0.3, -0.8, 1.1, -0.4];
-    let b = vandermonde * Vector::new(coeffs);
+    let coefficients = [0.5, -1.2, 2.0, 0.3, -0.8, 1.1, -0.4];
+    let right_hand_side = vandermonde * Vector::new(coefficients);
 
-    let x = PivotedQr::decompose(vandermonde)
+    let solution = PivotedQr::decompose(vandermonde)
         .unwrap()
-        .solve_least_squares(b)
+        .solve_least_squares(right_hand_side)
         .unwrap();
 
     // Every coefficient is recovered and the fit reproduces the samples.
-    for (got, want) in x.into_array().iter().zip(coeffs.iter()) {
+    for (got, want) in solution.into_array().iter().zip(coefficients.iter()) {
         assert!((got - want).abs() < 1e-7, "got {got}, want {want}");
     }
-    assert!((vandermonde * x - b).norm() < 1e-10);
+    assert!((vandermonde * solution - right_hand_side).norm() < 1e-10);
 }
 
 #[test]
 fn qr_factorizes_hilbert_stably() {
     // The Hilbert matrix is famously ill-conditioned (cond(H_8) is about 1.5e10).
-    let hilbert = Matrix::<8, 8>::from_fn(|i, j| 1.0 / ((i + j + 1) as f64));
-    let f = PivotedQr::decompose(hilbert).unwrap();
-    let perm = f.permutation();
-    let q = f.q();
-    let r = f.r();
+    let hilbert = Matrix::<8, 8>::from_fn(|row, column| 1.0 / ((row + column + 1) as f64));
+    let factorization = PivotedQr::decompose(hilbert).unwrap();
+    let permutation = factorization.permutation();
+    let q = factorization.q();
+    let r = factorization.r();
 
     // The factorization stays backward-stable regardless of conditioning.
     assert_identity(q.transpose() * q, 1e-12);
-    let ap = Matrix::<8, 8>::from_fn(|i, c| hilbert[(i, perm[c])]);
-    assert_matrix_close(q * r, ap, 1e-12);
+    let column_permuted =
+        Matrix::<8, 8>::from_fn(|row, column| hilbert[(row, permutation[column])]);
+    assert_matrix_close(q * r, column_permuted, 1e-12);
 
     // Solving is backward-stable (tiny residual) though the solution itself degrades.
-    let x_true = [1.0; 8];
-    let b = hilbert * Vector::new(x_true);
-    let x = f.solve_least_squares(b).unwrap();
-    assert!((hilbert * x - b).norm() < 1e-12);
-    for value in x.into_array() {
+    let true_coefficients = [1.0; 8];
+    let right_hand_side = hilbert * Vector::new(true_coefficients);
+    let solution = factorization.solve_least_squares(right_hand_side).unwrap();
+    assert!((hilbert * solution - right_hand_side).norm() < 1e-12);
+    for value in solution.into_array() {
         assert!((value - 1.0).abs() < 1e-2);
     }
 }
@@ -195,28 +208,33 @@ fn qr_factorizes_hilbert_stably() {
 fn damped_solves_ridge_regression() {
     // Ridge (Tikhonov) regression on an ill-conditioned Vandermonde design:
     // (VᵀV + λ²I) x = Vᵀb, which is exactly the damped solve with a constant diagonal.
-    let node = |i: usize| -1.0 + 2.0 * i as f64 / 14.0;
-    let v = Matrix::<15, 8>::from_fn(|i, j| {
-        let t = node(i);
-        (0..j).fold(1.0, |acc, _| acc * t)
+    let node = |index: usize| -1.0 + 2.0 * index as f64 / 14.0;
+    let design = Matrix::<15, 8>::from_fn(|row, column| {
+        let node_value = node(row);
+        (0..column).fold(1.0, |power, _| power * node_value)
     });
-    let x_true = [0.4, 1.0, -0.6, 0.9, -1.3, 0.5, 0.7, -0.2];
-    let b = v * Vector::new(x_true);
-    let lambda = 0.1;
+    let true_coefficients = [0.4, 1.0, -0.6, 0.9, -1.3, 0.5, 0.7, -0.2];
+    let right_hand_side = design * Vector::new(true_coefficients);
+    let ridge_parameter = 0.1;
 
-    let (x, _) = PivotedQr::decompose(v)
+    let (solution, _) = PivotedQr::decompose(design)
         .unwrap()
-        .into_damped(b)
-        .solve_with_diagonal(&[lambda; 8]);
+        .into_damped(right_hand_side)
+        .solve_with_diagonal(&[ridge_parameter; 8]);
 
     // x satisfies the regularized normal equations.
-    let vtv = v.transpose() * v;
-    let vtb = v.transpose() * b;
-    let lhs =
-        Matrix::<8, 8>::from_fn(|r, c| vtv[(r, c)] + if r == c { lambda * lambda } else { 0.0 })
-            * x;
-    for i in 0..8 {
-        assert!((lhs[i] - vtb[i]).abs() < 1e-8);
+    let normal_matrix = design.transpose() * design;
+    let normal_right_hand_side = design.transpose() * right_hand_side;
+    let left_side = Matrix::<8, 8>::from_fn(|row, column| {
+        normal_matrix[(row, column)]
+            + if row == column {
+                ridge_parameter * ridge_parameter
+            } else {
+                0.0
+            }
+    }) * solution;
+    for index in 0..8 {
+        assert!((left_side[index] - normal_right_hand_side[index]).abs() < 1e-8);
     }
 }
 
@@ -234,31 +252,33 @@ fn damped_solves_ridge_regression() {
 fn check_qr_property<const M: usize, const N: usize>(
     entries: Vec<f64>,
 ) -> Result<(), TestCaseError> {
-    let a = Matrix::<M, N>::try_from_row_slice(&entries).expect("M*N entries");
-    let scale = max_abs(a).max(1.0);
+    let matrix = Matrix::<M, N>::try_from_row_slice(&entries).expect("M*N entries");
+    let scale = max_abs(matrix).max(1.0);
 
     // M >= N is guaranteed by the generators below, so this never hits `Underdetermined`.
-    let f = PivotedQr::decompose(a).unwrap();
-    let r = f.r();
-    let q = f.q();
-    let perm = f.permutation();
+    let factorization = PivotedQr::decompose(matrix).unwrap();
+    let r = factorization.r();
+    let q = factorization.q();
+    let permutation = factorization.permutation();
 
-    let min_diag = (0..N).fold(f64::MAX, |acc, j| acc.min(r[(j, j)].abs()));
-    prop_assume!(min_diag >= 1e-6 * scale);
+    let minimum_diagonal = (0..N).fold(f64::MAX, |smallest, index| {
+        smallest.min(r[(index, index)].abs())
+    });
+    prop_assume!(minimum_diagonal >= 1e-6 * scale);
 
-    let tol = M.max(N) as f64 * scale * f64::EPSILON * 1e3;
+    let tolerance = M.max(N) as f64 * scale * f64::EPSILON * 1e3;
 
     // R is upper-triangular by construction; check anyway as a structural guard.
     for row in 0..N {
-        for col in 0..row {
-            assert_eq!(r[(row, col)], 0.0);
+        for column in 0..row {
+            assert_eq!(r[(row, column)], 0.0);
         }
     }
 
-    assert_identity(q.transpose() * q, tol);
+    assert_identity(q.transpose() * q, tolerance);
 
-    let ap = Matrix::<M, N>::from_fn(|i, c| a[(i, perm[c])]);
-    assert_matrix_close(q * r, ap, tol);
+    let column_permuted = Matrix::<M, N>::from_fn(|row, column| matrix[(row, permutation[column])]);
+    assert_matrix_close(q * r, column_permuted, tolerance);
 
     Ok(())
 }

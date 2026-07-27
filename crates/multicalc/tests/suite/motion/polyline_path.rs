@@ -54,7 +54,12 @@ fn single_point_path_projects_to_that_point() {
     let projection = path.closest_point(Vector::new([5.0, 6.0])).unwrap();
     assert_eq!(projection.segment_index(), 0);
     assert!((projection.distance() - 5.0).abs() < 1e-12);
-    let [x, y] = path.lookahead_point(0.0, 10.0).unwrap().into_array();
+    let from_arc_length = 0.0;
+    let lookahead = 10.0;
+    let [x, y] = path
+        .lookahead_point(from_arc_length, lookahead)
+        .unwrap()
+        .into_array();
     assert!((x - 2.0).abs() < 1e-12 && (y - 2.0).abs() < 1e-12);
 }
 
@@ -69,12 +74,16 @@ fn lookahead_advances_monotonically() {
     ])
     .unwrap();
     let mut previous_x = -1.0;
-    let mut from = 0.0;
-    while from <= 8.0 {
-        let [x, _] = path.lookahead_point(from, 1.0).unwrap().into_array();
+    let mut from_arc_length = 0.0;
+    let lookahead = 1.0;
+    while from_arc_length <= 8.0 {
+        let [x, _] = path
+            .lookahead_point(from_arc_length, lookahead)
+            .unwrap()
+            .into_array();
         assert!(x >= previous_x - 1e-12);
         previous_x = x;
-        from += 0.5;
+        from_arc_length += 0.5;
     }
 }
 
@@ -83,7 +92,12 @@ fn lookahead_inside_first_segment_is_exact_distance() {
     let path: PolylinePath<2, 2, f64> =
         PolylinePath::try_from_points(&[Vector::new([0.0, 0.0]), Vector::new([10.0, 0.0])])
             .unwrap();
-    let [x, y] = path.lookahead_point(0.0, 3.5).unwrap().into_array();
+    let from_arc_length = 0.0;
+    let lookahead = 3.5;
+    let [x, y] = path
+        .lookahead_point(from_arc_length, lookahead)
+        .unwrap()
+        .into_array();
     assert!((x - 3.5).abs() < 1e-12 && y.abs() < 1e-12);
 }
 
@@ -91,7 +105,12 @@ fn lookahead_inside_first_segment_is_exact_distance() {
 fn stop_clamps_past_the_end() {
     let path: PolylinePath<2, 2, f64> =
         PolylinePath::try_from_points(&[Vector::new([0.0, 0.0]), Vector::new([4.0, 0.0])]).unwrap();
-    let [x, y] = path.lookahead_point(0.0, 100.0).unwrap().into_array();
+    let from_arc_length = 0.0;
+    let lookahead = 100.0;
+    let [x, y] = path
+        .lookahead_point(from_arc_length, lookahead)
+        .unwrap()
+        .into_array();
     assert!((x - 4.0).abs() < 1e-12 && y.abs() < 1e-12);
 }
 
@@ -102,7 +121,12 @@ fn loop_wraps_past_the_end() {
             .unwrap()
             .with_end_of_path(EndOfPath::Loop);
     // Total length 4; a target of 5 wraps to 1.
-    let [x, y] = path.lookahead_point(0.0, 5.0).unwrap().into_array();
+    let from_arc_length = 0.0;
+    let lookahead = 5.0;
+    let [x, y] = path
+        .lookahead_point(from_arc_length, lookahead)
+        .unwrap()
+        .into_array();
     assert!((x - 1.0).abs() < 1e-12 && y.abs() < 1e-12);
 }
 
@@ -123,7 +147,12 @@ fn duplicate_waypoints_do_not_divide_by_zero() {
     assert!(projection.distance().is_finite());
     assert!((projection.arc_length() - 1.0).abs() < 1e-12);
 
-    let [x, y] = path.lookahead_point(0.0, 1.0).unwrap().into_array();
+    let from_arc_length = 0.0;
+    let lookahead = 1.0;
+    let [x, y] = path
+        .lookahead_point(from_arc_length, lookahead)
+        .unwrap()
+        .into_array();
     assert!(x.is_finite() && y.is_finite());
 }
 

@@ -8,7 +8,8 @@ use multicalc::scalar::Numeric;
 // ---- steady state -----------------------------------------------------------
 
 fn assert_dc_gain_is_one<T: Numeric>(tolerance: T) {
-    let mut filter = OnePoleLowPass::new(T::from_f64(0.3)).unwrap();
+    let smoothing = T::from_f64(0.3);
+    let mut filter = OnePoleLowPass::new(smoothing).unwrap();
     let input = T::from_f64(5.0);
     for _ in 0..500 {
         filter.filter(input);
@@ -30,8 +31,8 @@ fn dc_gain_is_one_f32() {
 
 fn assert_alpha_one_is_pass_through<T: Numeric>() {
     let mut filter = OnePoleLowPass::new(T::ONE).unwrap();
-    for x in [1.0, -2.0, 3.5, 0.0] {
-        let value = T::from_f64(x);
+    for input in [1.0, -2.0, 3.5, 0.0] {
+        let value = T::from_f64(input);
         assert_eq!(filter.filter(value), value);
     }
 }
@@ -49,7 +50,8 @@ fn alpha_one_is_pass_through_f32() {
 // ---- transient --------------------------------------------------------------
 
 fn assert_step_attenuated_and_monotone<T: Numeric>(tolerance: T) {
-    let mut filter = OnePoleLowPass::new(T::from_f64(0.25)).unwrap();
+    let smoothing = T::from_f64(0.25);
+    let mut filter = OnePoleLowPass::new(smoothing).unwrap();
     filter.filter(T::ZERO); // seed at zero, then step the input to one
     let target = T::ONE;
     let mut previous = T::ZERO;

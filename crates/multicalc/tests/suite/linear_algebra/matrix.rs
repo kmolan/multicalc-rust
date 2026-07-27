@@ -6,30 +6,30 @@ use multicalc_testkit::tol::{assert_identity, assert_matrix_close};
 
 #[test]
 fn matrix_arithmetic() {
-    let a = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-    let b = Matrix::new([[5.0, 6.0], [7.0, 8.0]]);
+    let left = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    let right = Matrix::new([[5.0, 6.0], [7.0, 8.0]]);
 
-    assert_eq!(a + b, Matrix::new([[6.0, 8.0], [10.0, 12.0]]));
-    assert_eq!(b - a, Matrix::new([[4.0, 4.0], [4.0, 4.0]]));
-    assert_eq!(-a, Matrix::new([[-1.0, -2.0], [-3.0, -4.0]]));
-    assert_eq!(a * 2.0, a.scale(2.0));
+    assert_eq!(left + right, Matrix::new([[6.0, 8.0], [10.0, 12.0]]));
+    assert_eq!(right - left, Matrix::new([[4.0, 4.0], [4.0, 4.0]]));
+    assert_eq!(-left, Matrix::new([[-1.0, -2.0], [-3.0, -4.0]]));
+    assert_eq!(left * 2.0, left.scale(2.0));
 
-    let mut c = a;
-    c += b;
-    assert_eq!(c, a + b);
-    c -= b;
-    assert_eq!(c, a);
+    let mut accumulated = left;
+    accumulated += right;
+    assert_eq!(accumulated, left + right);
+    accumulated -= right;
+    assert_eq!(accumulated, left);
 }
 
 #[test]
 fn try_row_column() {
-    let m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    let matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
 
-    assert_eq!(m.try_row(1), Some(Vector::new([3.0, 4.0])));
-    assert_eq!(m.try_row(2), None);
+    assert_eq!(matrix.try_row(1), Some(Vector::new([3.0, 4.0])));
+    assert_eq!(matrix.try_row(2), None);
 
-    assert_eq!(m.try_column(0), Some(Vector::new([1.0, 3.0])));
-    assert_eq!(m.try_column(2), None);
+    assert_eq!(matrix.try_column(0), Some(Vector::new([1.0, 3.0])));
+    assert_eq!(matrix.try_column(2), None);
 
     let empty: Matrix<0, 3> = Matrix::zeros();
     assert_eq!(empty.try_column(0), Some(Vector::<0, f64>::zeros()));
@@ -38,66 +38,70 @@ fn try_row_column() {
 
 #[test]
 fn matrix_multiply() {
-    let a = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-    let b = Matrix::new([[5.0, 6.0], [7.0, 8.0]]);
-    let id: Matrix<2, 2> = Matrix::identity();
+    let left = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    let right = Matrix::new([[5.0, 6.0], [7.0, 8.0]]);
+    let identity: Matrix<2, 2> = Matrix::identity();
 
-    assert_eq!(a * id, a);
-    assert_eq!(id * a, a);
-    assert_eq!((a * b) * a, a * (b * a)); // associativity
+    assert_eq!(left * identity, left);
+    assert_eq!(identity * left, left);
+    assert_eq!((left * right) * left, left * (right * left)); // associativity
 
     // non-square 2x3 * 3x2
-    let p = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
-    let q = Matrix::new([[7.0, 8.0], [9.0, 10.0], [11.0, 12.0]]);
-    assert_eq!(p * q, Matrix::new([[58.0, 64.0], [139.0, 154.0]]));
+    let wide = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
+    let tall = Matrix::new([[7.0, 8.0], [9.0, 10.0], [11.0, 12.0]]);
+    assert_eq!(wide * tall, Matrix::new([[58.0, 64.0], [139.0, 154.0]]));
 
     // matrix x vector
-    assert_eq!(a * Vector::new([1.0, 1.0]), Vector::new([3.0, 7.0]));
+    assert_eq!(left * Vector::new([1.0, 1.0]), Vector::new([3.0, 7.0]));
 }
 
 #[test]
 fn matrix_transpose() {
-    let m = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]); // 2x3
+    let matrix = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]); // 2x3
     assert_eq!(
-        m.transpose(),
+        matrix.transpose(),
         Matrix::new([[1.0, 4.0], [2.0, 5.0], [3.0, 6.0]])
     ); // 3x2
-    assert_eq!(m.transpose().transpose(), m); // involution
+    assert_eq!(matrix.transpose().transpose(), matrix); // involution
 
-    let a = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-    let b = Matrix::new([[5.0, 6.0], [7.0, 8.0]]);
-    assert_eq!((a * b).transpose(), b.transpose() * a.transpose());
+    let left = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    let right = Matrix::new([[5.0, 6.0], [7.0, 8.0]]);
+    assert_eq!(
+        (left * right).transpose(),
+        right.transpose() * left.transpose()
+    );
 }
 
 // ----- determinant & inverse (specialized) -----
 
 #[test]
 fn matrix_determinant() {
-    let id2: Matrix<2, 2> = Matrix::identity();
-    let id3: Matrix<3, 3> = Matrix::identity();
-    assert_eq!(id2.determinant(), 1.0);
-    assert_eq!(id3.determinant(), 1.0);
+    let identity_2x2: Matrix<2, 2> = Matrix::identity();
+    let identity_3x3: Matrix<3, 3> = Matrix::identity();
+    assert_eq!(identity_2x2.determinant(), 1.0);
+    assert_eq!(identity_3x3.determinant(), 1.0);
 
     assert_eq!(Matrix::new([[1.0, 2.0], [3.0, 4.0]]).determinant(), -2.0);
-    assert_eq!(
-        Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 10.0]]).determinant(),
-        -3.0
-    );
+
+    let three_by_three = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 10.0]]);
+    let expected = -3.0;
+    assert_eq!(three_by_three.determinant(), expected);
+
     assert_eq!(Matrix::new([[1.0, 2.0], [2.0, 4.0]]).determinant(), 0.0); // singular
 }
 
 #[test]
 fn matrix_inverse() {
-    let id2: Matrix<2, 2> = Matrix::identity();
-    let id3: Matrix<3, 3> = Matrix::identity();
-    assert_eq!(id2.inverse(), Ok(id2));
-    assert_eq!(id3.inverse(), Ok(id3));
+    let identity_2x2: Matrix<2, 2> = Matrix::identity();
+    let identity_3x3: Matrix<3, 3> = Matrix::identity();
+    assert_eq!(identity_2x2.inverse(), Ok(identity_2x2));
+    assert_eq!(identity_3x3.inverse(), Ok(identity_3x3));
 
-    let a = Matrix::new([[4.0, 7.0], [2.0, 6.0]]);
-    assert_identity(a * a.inverse().unwrap(), 1e-12);
+    let invertible_2x2 = Matrix::new([[4.0, 7.0], [2.0, 6.0]]);
+    assert_identity(invertible_2x2 * invertible_2x2.inverse().unwrap(), 1e-12);
 
-    let b = Matrix::new([[1.0, 2.0, 3.0], [0.0, 1.0, 4.0], [5.0, 6.0, 0.0]]);
-    assert_identity(b * b.inverse().unwrap(), 1e-12);
+    let invertible_3x3 = Matrix::new([[1.0, 2.0, 3.0], [0.0, 1.0, 4.0], [5.0, 6.0, 0.0]]);
+    assert_identity(invertible_3x3 * invertible_3x3.inverse().unwrap(), 1e-12);
 
     // singular -> Err(SingularMatrix)
     let singular2 = Matrix::new([[1.0, 2.0], [2.0, 4.0]]);
@@ -107,13 +111,14 @@ fn matrix_inverse() {
     assert_eq!(singular3.inverse(), Err(LinalgError::Singular));
 
     // Near-singular: det is tiny but nonzero under exact compare.
-    let near2 = Matrix::new([[1.0, 1.0], [1.0, 1.0 + f64::EPSILON]]);
-    assert_ne!(near2.determinant(), 0.0);
-    assert_eq!(near2.inverse(), Err(LinalgError::Singular));
+    let near_singular_2x2 = Matrix::new([[1.0, 1.0], [1.0, 1.0 + f64::EPSILON]]);
+    assert_ne!(near_singular_2x2.determinant(), 0.0);
+    assert_eq!(near_singular_2x2.inverse(), Err(LinalgError::Singular));
 
-    let near3 = Matrix::new([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, f64::EPSILON]]);
-    assert_ne!(near3.determinant(), 0.0);
-    assert_eq!(near3.inverse(), Err(LinalgError::Singular));
+    let near_singular_3x3 =
+        Matrix::new([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, f64::EPSILON]]);
+    assert_ne!(near_singular_3x3.determinant(), 0.0);
+    assert_eq!(near_singular_3x3.inverse(), Err(LinalgError::Singular));
 
     // Tiny but full-rank still inverts (scaled threshold, not absolute eps).
     let tiny = Matrix::<2, 2>::identity().scale(1e-8);
@@ -132,50 +137,44 @@ fn matrix_4x4_determinant_and_inverse() {
     assert_eq!(upper.determinant(), 120.0);
 
     // Reference determinant and inverse from an exact rational solve.
-    let a = Matrix::<4, 4>::new([
+    let symmetric = Matrix::<4, 4>::new([
         [4.0, 3.0, 2.0, 1.0],
         [3.0, 4.0, 3.0, 2.0],
         [2.0, 3.0, 4.0, 3.0],
         [1.0, 2.0, 3.0, 4.0],
     ]);
-    assert_eq!(a.determinant(), 20.0);
+    assert_eq!(symmetric.determinant(), 20.0);
 
-    let inv = a.inverse().unwrap();
-    assert_matrix_close(
-        inv,
-        Matrix::new([
-            [0.6, -0.5, 0.0, 0.1],
-            [-0.5, 1.0, -0.5, 0.0],
-            [0.0, -0.5, 1.0, -0.5],
-            [0.1, 0.0, -0.5, 0.6],
-        ]),
-        1e-12,
-    );
-    assert_identity(a * inv, 1e-12);
+    let inverse = symmetric.inverse().unwrap();
+    let expected = Matrix::new([
+        [0.6, -0.5, 0.0, 0.1],
+        [-0.5, 1.0, -0.5, 0.0],
+        [0.0, -0.5, 1.0, -0.5],
+        [0.1, 0.0, -0.5, 0.6],
+    ]);
+    assert_matrix_close(inverse, expected, 1e-12);
+    assert_identity(symmetric * inverse, 1e-12);
 
     // A non-symmetric matrix, so its (non-symmetric) inverse catches any transpose error in
     // the adjugate. Reference from an exact rational solve.
-    let b = Matrix::<4, 4>::new([
+    let non_symmetric = Matrix::<4, 4>::new([
         [1.0, 2.0, 3.0, 4.0],
         [2.0, 1.0, 0.0, 1.0],
         [0.0, 3.0, 1.0, 2.0],
         [1.0, 0.0, 2.0, 1.0],
     ]);
-    assert_eq!(b.determinant(), -20.0);
+    assert_eq!(non_symmetric.determinant(), -20.0);
 
-    let b_inv = b.inverse().unwrap();
-    assert_matrix_close(
-        b_inv,
-        Matrix::new([
-            [-0.15, 0.45, -0.05, 0.25],
-            [-0.35, 0.05, 0.55, 0.25],
-            [-0.25, -0.25, 0.25, 0.75],
-            [0.65, 0.05, -0.45, -0.75],
-        ]),
-        1e-12,
-    );
-    assert_identity(b * b_inv, 1e-12);
-    assert_identity(b_inv * b, 1e-12);
+    let non_symmetric_inverse = non_symmetric.inverse().unwrap();
+    let expected = Matrix::new([
+        [-0.15, 0.45, -0.05, 0.25],
+        [-0.35, 0.05, 0.55, 0.25],
+        [-0.25, -0.25, 0.25, 0.75],
+        [0.65, 0.05, -0.45, -0.75],
+    ]);
+    assert_matrix_close(non_symmetric_inverse, expected, 1e-12);
+    assert_identity(non_symmetric * non_symmetric_inverse, 1e-12);
+    assert_identity(non_symmetric_inverse * non_symmetric, 1e-12);
 
     // Rows in arithmetic progression are rank-deficient.
     let singular = Matrix::<4, 4>::new([
@@ -188,28 +187,31 @@ fn matrix_4x4_determinant_and_inverse() {
     assert_eq!(singular.inverse(), Err(LinalgError::Singular));
 
     // The same code at f32 round-trips to the identity.
-    let af = Matrix::<4, 4, f32>::new([
+    let single_precision = Matrix::<4, 4, f32>::new([
         [4.0, 3.0, 2.0, 1.0],
         [3.0, 4.0, 3.0, 2.0],
         [2.0, 3.0, 4.0, 3.0],
         [1.0, 2.0, 3.0, 4.0],
     ]);
-    assert_identity(af * af.inverse().unwrap(), 1e-5_f32);
+    assert_identity(
+        single_precision * single_precision.inverse().unwrap(),
+        1e-5_f32,
+    );
 
     // Near-singular: det is tiny but nonzero under exact compare.
-    let near4 = Matrix::<4, 4>::new([
+    let near_singular_4x4 = Matrix::<4, 4>::new([
         [1.0, 0.0, 0.0, 0.0],
         [0.0, 1.0, 0.0, 0.0],
         [0.0, 0.0, 1.0, 0.0],
         [1.0, 1.0, 1.0, f64::EPSILON],
     ]);
-    assert_ne!(near4.determinant(), 0.0);
-    assert_eq!(near4.inverse(), Err(LinalgError::Singular));
+    assert_ne!(near_singular_4x4.determinant(), 0.0);
+    assert_eq!(near_singular_4x4.inverse(), Err(LinalgError::Singular));
 }
 
 #[test]
 fn matrix_5x5_determinant_and_inverse() {
-    let a = Matrix::<5, 5>::new([
+    let subject = Matrix::<5, 5>::new([
         [1.0, 2.0, 3.0, 4.0, 0.0],
         [2.0, 1.0, 0.0, 1.0, 2.0],
         [0.0, 3.0, 1.0, 2.0, 1.0],
@@ -217,9 +219,10 @@ fn matrix_5x5_determinant_and_inverse() {
         [3.0, 1.0, 0.0, 3.0, 1.0],
     ]);
 
-    assert!((a.determinant() - -27.0).abs() < 1e-12);
+    assert!((subject.determinant() - -27.0).abs() < 1e-12);
 
-    let b = Matrix::<5, 5>::new([
+    // Each row is the running sum of the row above it.
+    let cumulative_sums = Matrix::<5, 5>::new([
         [1.0, 1.0, 1.0, 1.0, 1.0],
         [1.0, 2.0, 3.0, 4.0, 5.0],
         [1.0, 3.0, 6.0, 10.0, 15.0],
@@ -227,31 +230,28 @@ fn matrix_5x5_determinant_and_inverse() {
         [1.0, 5.0, 15.0, 35.0, 70.0],
     ]);
 
-    assert_matrix_close(
-        b.inverse().unwrap(),
-        Matrix::<5, 5>::new([
-            [5.0, -10.0, 10.0, -5.0, 1.0],
-            [-10.0, 30.0, -35.0, 19.0, -4.0],
-            [10.0, -35.0, 46.0, -27.0, 6.0],
-            [-5.0, 19.0, -27.0, 17.0, -4.0],
-            [1.0, -4.0, 6.0, -4.0, 1.0],
-        ]),
-        1e-12,
-    );
+    let expected = Matrix::<5, 5>::new([
+        [5.0, -10.0, 10.0, -5.0, 1.0],
+        [-10.0, 30.0, -35.0, 19.0, -4.0],
+        [10.0, -35.0, 46.0, -27.0, 6.0],
+        [-5.0, 19.0, -27.0, 17.0, -4.0],
+        [1.0, -4.0, 6.0, -4.0, 1.0],
+    ]);
+    assert_matrix_close(cumulative_sums.inverse().unwrap(), expected, 1e-12);
 }
 
 #[test]
 fn matrix_solve_agrees_with_lu() {
-    let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
-    let b = Vector::new([7.0, 19.0, 49.0]);
-    let x = a.solve(b).unwrap();
+    let matrix = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    let right_hand_side = Vector::new([7.0, 19.0, 49.0]);
+    let solution = matrix.solve(right_hand_side).unwrap();
 
     // The convenience solver matches an explicit LU solve.
-    let lu_x = a.lu().unwrap().solve(b);
-    for i in 0..3 {
-        assert!((x[i] - lu_x[i]).abs() < 1e-12);
+    let lu_solution = matrix.lu().unwrap().solve(right_hand_side);
+    for index in 0..3 {
+        assert!((solution[index] - lu_solution[index]).abs() < 1e-12);
     }
-    assert!((a * x - b).norm() < 1e-12);
+    assert!((matrix * solution - right_hand_side).norm() < 1e-12);
 
     // A singular system is rejected.
     let singular = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 4.0]]);
@@ -265,12 +265,12 @@ fn matrix_solve_agrees_with_lu() {
 
 #[test]
 fn genericity_f32() {
-    let a = Vector::<3, f32>::new([1.0, 2.0, 2.0]);
-    let b = Vector::<3, f32>::new([2.0, 0.0, 1.0]);
-    assert!((a.norm() - 3.0).abs() < 1e-6);
-    assert!((a.dot(b) - 4.0).abs() < 1e-6);
+    let first = Vector::<3, f32>::new([1.0, 2.0, 2.0]);
+    let second = Vector::<3, f32>::new([2.0, 0.0, 1.0]);
+    assert!((first.norm() - 3.0).abs() < 1e-6);
+    assert!((first.dot(second) - 4.0).abs() < 1e-6);
 
-    let m = Matrix::<2, 2, f32>::new([[1.0, 2.0], [3.0, 4.0]]);
-    let id: Matrix<2, 2, f32> = Matrix::identity();
-    assert_eq!(m * id, m);
+    let matrix = Matrix::<2, 2, f32>::new([[1.0, 2.0], [3.0, 4.0]]);
+    let identity: Matrix<2, 2, f32> = Matrix::identity();
+    assert_eq!(matrix * identity, matrix);
 }

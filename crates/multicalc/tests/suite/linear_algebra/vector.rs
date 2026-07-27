@@ -4,39 +4,39 @@ use multicalc::linear_algebra::{Matrix, Vector};
 
 #[test]
 fn construct_and_access() {
-    let v = Vector::new([1.0, 2.0, 3.0]);
-    assert_eq!(v.get(0), Some(&1.0));
-    assert_eq!(v.into_array(), [1.0, 2.0, 3.0]);
+    let vector = Vector::new([1.0, 2.0, 3.0]);
+    assert_eq!(vector.get(0), Some(&1.0));
+    assert_eq!(vector.into_array(), [1.0, 2.0, 3.0]);
 
-    let mut w = Vector::from([4.0, 5.0]);
-    if let Some(x) = w.get_mut(1) {
-        *x = 9.0;
+    let mut mutable = Vector::from([4.0, 5.0]);
+    if let Some(entry) = mutable.get_mut(1) {
+        *entry = 9.0;
     }
-    assert_eq!(w, Vector::new([4.0, 9.0]));
+    assert_eq!(mutable, Vector::new([4.0, 9.0]));
 
-    let z: Vector<3> = Vector::zeros();
-    assert_eq!(z, Vector::new([0.0, 0.0, 0.0]));
+    let zeros: Vector<3> = Vector::zeros();
+    assert_eq!(zeros, Vector::new([0.0, 0.0, 0.0]));
 
     assert_eq!(
-        Vector::<4>::from_fn(|i| i as f64),
+        Vector::<4>::from_fn(|index| index as f64),
         Vector::new([0.0, 1.0, 2.0, 3.0])
     );
 
-    let mut m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-    assert_eq!(m.get(1, 0), Some(&3.0));
-    if let Some(x) = m.get_mut(0, 1) {
-        *x = 7.0;
+    let mut matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    assert_eq!(matrix.get(1, 0), Some(&3.0));
+    if let Some(entry) = matrix.get_mut(0, 1) {
+        *entry = 7.0;
     }
-    assert_eq!(m.get(0, 1), Some(&7.0));
+    assert_eq!(matrix.get(0, 1), Some(&7.0));
 
-    let id: Matrix<3, 3> = Matrix::identity();
+    let identity: Matrix<3, 3> = Matrix::identity();
     assert_eq!(
-        id.into_array(),
+        identity.into_array(),
         [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
     );
 
     assert_eq!(
-        Matrix::<2, 2>::from_fn(|r, c| (r * 2 + c) as f64),
+        Matrix::<2, 2>::from_fn(|row, column| (row * 2 + column) as f64),
         Matrix::new([[0.0, 1.0], [2.0, 3.0]])
     );
 }
@@ -58,66 +58,66 @@ fn try_from_slice_length() {
 
 #[test]
 fn get_checked_access() {
-    let v = Vector::new([1.0, 2.0, 3.0]);
-    assert_eq!(v.get(0), Some(&1.0));
-    assert_eq!(v.get(3), None);
+    let vector = Vector::new([1.0, 2.0, 3.0]);
+    assert_eq!(vector.get(0), Some(&1.0));
+    assert_eq!(vector.get(3), None);
 
-    let mut w = Vector::new([4.0, 5.0]);
-    if let Some(x) = w.get_mut(1) {
-        *x = 9.0;
+    let mut mutable = Vector::new([4.0, 5.0]);
+    if let Some(entry) = mutable.get_mut(1) {
+        *entry = 9.0;
     }
-    assert_eq!(w.get(1), Some(&9.0));
+    assert_eq!(mutable.get(1), Some(&9.0));
 
-    let mut m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-    assert_eq!(m.get(1, 0), Some(&3.0));
-    assert_eq!(m.get(2, 0), None);
-    assert_eq!(m.get(0, 2), None);
-    if let Some(x) = m.get_mut(0, 1) {
-        *x = 7.0;
+    let mut matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    assert_eq!(matrix.get(1, 0), Some(&3.0));
+    assert_eq!(matrix.get(2, 0), None);
+    assert_eq!(matrix.get(0, 2), None);
+    if let Some(entry) = matrix.get_mut(0, 1) {
+        *entry = 7.0;
     }
-    assert_eq!(m.get(0, 1), Some(&7.0));
+    assert_eq!(matrix.get(0, 1), Some(&7.0));
 
-    m.as_mut_slice_rows()[1][1] = 8.0;
-    assert_eq!(m.get(1, 1), Some(&8.0));
+    matrix.as_mut_slice_rows()[1][1] = 8.0;
+    assert_eq!(matrix.get(1, 1), Some(&8.0));
 }
 
 // ----- vector arithmetic -----
 
 #[test]
 fn vector_arithmetic() {
-    let a = Vector::new([1.0, 2.0, 3.0]);
-    let b = Vector::new([4.0, 5.0, 6.0]);
+    let left = Vector::new([1.0, 2.0, 3.0]);
+    let right = Vector::new([4.0, 5.0, 6.0]);
 
-    assert_eq!(a + b, Vector::new([5.0, 7.0, 9.0]));
-    assert_eq!(b - a, Vector::new([3.0, 3.0, 3.0]));
-    assert_eq!(-a, Vector::new([-1.0, -2.0, -3.0]));
-    assert_eq!(a * 2.0, a.scale(2.0));
-    assert_eq!(a.scale(2.0), Vector::new([2.0, 4.0, 6.0]));
+    assert_eq!(left + right, Vector::new([5.0, 7.0, 9.0]));
+    assert_eq!(right - left, Vector::new([3.0, 3.0, 3.0]));
+    assert_eq!(-left, Vector::new([-1.0, -2.0, -3.0]));
+    assert_eq!(left * 2.0, left.scale(2.0));
+    assert_eq!(left.scale(2.0), Vector::new([2.0, 4.0, 6.0]));
 
-    let mut c = a;
-    c += b;
-    assert_eq!(c, a + b);
-    c -= b;
-    assert_eq!(c, a);
+    let mut accumulated = left;
+    accumulated += right;
+    assert_eq!(accumulated, left + right);
+    accumulated -= right;
+    assert_eq!(accumulated, left);
 }
 
 #[test]
 fn vector_dot_and_norm() {
-    let a: Vector<3> = Vector::new([1.0, 2.0, 3.0]);
-    let b: Vector<3> = Vector::new([4.0, 5.0, 6.0]);
-    assert_eq!(a.dot(b), 32.0);
-    assert!((a.dot(b) - b.dot(a)).abs() < 1e-12); // symmetry
+    let left: Vector<3> = Vector::new([1.0, 2.0, 3.0]);
+    let right: Vector<3> = Vector::new([4.0, 5.0, 6.0]);
+    assert_eq!(left.dot(right), 32.0);
+    assert!((left.dot(right) - right.dot(left)).abs() < 1e-12); // symmetry
     assert_eq!(Vector::new([1.0, 0.0]).dot(Vector::new([0.0, 1.0])), 0.0); // orthogonal
 
     let empty: Vector<0> = Vector::zeros();
     assert_eq!(empty.dot(empty), 0.0);
 
-    let v: Vector<2> = Vector::new([3.0, 4.0]);
-    assert_eq!(v.norm(), 5.0);
-    assert!((v.norm_squared() - v.norm() * v.norm()).abs() < 1e-12);
+    let vector: Vector<2> = Vector::new([3.0, 4.0]);
+    assert_eq!(vector.norm(), 5.0);
+    assert!((vector.norm_squared() - vector.norm() * vector.norm()).abs() < 1e-12);
 
-    let z: Vector<3> = Vector::zeros();
-    assert_eq!(z.norm(), 0.0);
+    let zeros: Vector<3> = Vector::zeros();
+    assert_eq!(zeros.norm(), 0.0);
     assert!(Vector::new([f64::INFINITY, 0.0]).norm().is_infinite());
 }
 
@@ -134,38 +134,42 @@ fn vector_is_finite() {
 
 #[test]
 fn vector_cross_3d() {
-    let x = Vector::new([1.0, 0.0, 0.0]);
-    let y = Vector::new([0.0, 1.0, 0.0]);
-    let z = Vector::new([0.0, 0.0, 1.0]);
-    assert_eq!(x.cross(y), z);
-    assert_eq!(y.cross(z), x);
-    assert_eq!(z.cross(x), y);
-    assert_eq!(x.cross(y), -(y.cross(x))); // anti-commutativity
+    let unit_x = Vector::new([1.0, 0.0, 0.0]);
+    let unit_y = Vector::new([0.0, 1.0, 0.0]);
+    let unit_z = Vector::new([0.0, 0.0, 1.0]);
+    assert_eq!(unit_x.cross(unit_y), unit_z);
+    assert_eq!(unit_y.cross(unit_z), unit_x);
+    assert_eq!(unit_z.cross(unit_x), unit_y);
+    assert_eq!(unit_x.cross(unit_y), -(unit_y.cross(unit_x))); // anti-commutativity
 
-    let a = Vector::new([1.0, 2.0, 3.0]);
-    let b = Vector::new([4.0, 5.0, 6.0]);
-    let axb = a.cross(b);
-    assert_eq!(a.dot(axb), 0.0); // orthogonal to both inputs
-    assert_eq!(b.dot(axb), 0.0);
+    let left = Vector::new([1.0, 2.0, 3.0]);
+    let right = Vector::new([4.0, 5.0, 6.0]);
+    let cross_product = left.cross(right);
+    assert_eq!(left.dot(cross_product), 0.0); // orthogonal to both inputs
+    assert_eq!(right.dot(cross_product), 0.0);
 }
 
 #[test]
 fn vector_cross_2d_and_scalar_triple() {
     assert_eq!(Vector::new([1.0, 0.0]).cross(Vector::new([0.0, 1.0])), 1.0);
-    let a: Vector<2> = Vector::new([2.0, 3.0]);
-    let b: Vector<2> = Vector::new([5.0, 7.0]);
-    assert!((a.cross(b) + b.cross(a)).abs() < 1e-12); // anti-commutativity
-    assert_eq!(a.cross(a), 0.0); // parallel
+    let left: Vector<2> = Vector::new([2.0, 3.0]);
+    let right: Vector<2> = Vector::new([5.0, 7.0]);
+    assert!((left.cross(right) + right.cross(left)).abs() < 1e-12); // anti-commutativity
+    assert_eq!(left.cross(left), 0.0); // parallel
 
-    let x = Vector::new([1.0, 0.0, 0.0]);
-    let y = Vector::new([0.0, 1.0, 0.0]);
-    let z = Vector::new([0.0, 0.0, 1.0]);
-    assert_eq!(x.scalar_triple(y, z), 1.0);
+    let unit_x = Vector::new([1.0, 0.0, 0.0]);
+    let unit_y = Vector::new([0.0, 1.0, 0.0]);
+    let unit_z = Vector::new([0.0, 0.0, 1.0]);
+    assert_eq!(unit_x.scalar_triple(unit_y, unit_z), 1.0);
 
-    let p: Vector<3> = Vector::new([1.0, 2.0, 3.0]);
-    let q: Vector<3> = Vector::new([0.0, 1.0, 4.0]);
-    let r: Vector<3> = Vector::new([5.0, 6.0, 0.0]);
-    assert!((p.scalar_triple(q, r) - q.scalar_triple(r, p)).abs() < 1e-12); // cyclic
-    let m = Matrix::new([p.into_array(), q.into_array(), r.into_array()]);
-    assert!((p.scalar_triple(q, r) - m.determinant()).abs() < 1e-12); // == det([p; q; r])
+    let first: Vector<3> = Vector::new([1.0, 2.0, 3.0]);
+    let second: Vector<3> = Vector::new([0.0, 1.0, 4.0]);
+    let third: Vector<3> = Vector::new([5.0, 6.0, 0.0]);
+    // cyclic
+    assert!(
+        (first.scalar_triple(second, third) - second.scalar_triple(third, first)).abs() < 1e-12
+    );
+    let rows_as_matrix = Matrix::new([first.into_array(), second.into_array(), third.into_array()]);
+    // equals the determinant of the matrix whose rows are the three vectors
+    assert!((first.scalar_triple(second, third) - rows_as_matrix.determinant()).abs() < 1e-12);
 }

@@ -10,22 +10,22 @@ use multicalc::spatial::SE2;
 // ---- helpers ----------------------------------------------------------------
 
 /// The three outputs of one odometry increment from the identity: `[x, y, θ]`.
-fn arc_outputs<T: Numeric>(ds: T, dtheta: T) -> [T; 3] {
-    let pose = integrate(SE2::identity(), BodyArc::new(ds, dtheta));
-    let t = pose.translation();
-    [t[0], t[1], pose.rotation().log()]
+fn arc_outputs<T: Numeric>(arc_length: T, heading_change: T) -> [T; 3] {
+    let pose = integrate(SE2::identity(), BodyArc::new(arc_length, heading_change));
+    let translation = pose.translation();
+    [translation[0], translation[1], pose.rotation().log()]
 }
 
-fn rk4_to(rate: BodyTwist<f64>, dt: f64, tf: f64) -> Vector<3, f64> {
-    let f = Unicycle::new(rate).field();
-    let n = (tf / dt).round() as usize;
-    let mut y = Vector::new([0.0, 0.0, 0.0]);
-    let mut t = 0.0;
-    for _ in 0..n {
-        y = Rk4::step(&f, t, &y, dt);
-        t += dt;
+fn rk4_to(rate: BodyTwist<f64>, timestep: f64, final_time: f64) -> Vector<3, f64> {
+    let field = Unicycle::new(rate).field();
+    let step_count = (final_time / timestep).round() as usize;
+    let mut state = Vector::new([0.0, 0.0, 0.0]);
+    let mut time = 0.0;
+    for _ in 0..step_count {
+        state = Rk4::step(&field, time, &state, timestep);
+        time += timestep;
     }
-    y
+    state
 }
 
 // ---- convergence ------------------------------------------------------------
@@ -33,16 +33,16 @@ fn rk4_to(rate: BodyTwist<f64>, dt: f64, tf: f64) -> Vector<3, f64> {
 #[test]
 fn rk4_of_field_converges_to_integrate() {
     let rate = BodyTwist::new(0.4, 0.9);
-    let tf = 1.0;
+    let final_time = 1.0;
 
-    let truth = integrate(SE2::identity(), rate.integrate_over(tf)).translation();
-    let err = |dt: f64| {
-        let y = rk4_to(rate, dt, tf);
-        ((y[0] - truth[0]).powi(2) + (y[1] - truth[1]).powi(2)).sqrt()
+    let truth = integrate(SE2::identity(), rate.integrate_over(final_time)).translation();
+    let translation_error = |timestep: f64| {
+        let state = rk4_to(rate, timestep, final_time);
+        ((state[0] - truth[0]).powi(2) + (state[1] - truth[1]).powi(2)).sqrt()
     };
 
-    let coarse = err(0.1);
-    let fine = err(0.05);
+    let coarse = translation_error(0.1);
+    let fine = translation_error(0.05);
     let ratio = coarse / fine;
     assert!(
         ratio >= 8.0,
@@ -54,35 +54,36 @@ fn rk4_of_field_converges_to_integrate() {
 
 #[test]
 fn dual_matches_finite_differences() {
-    let p0 = [0.4_f64, 0.3];
-    let h = 1e-6;
+    let start = [0.4_f64, 0.3];
+    let step = 1e-6;
 
-    for k in 0..2 {
-        let ds = if k == 0 {
-            Dual::variable(p0[0])
+    for variable_index in 0..2 {
+        let arc_length = if variable_index == 0 {
+            Dual::variable(start[0])
         } else {
-            Dual::constant(p0[0])
+            Dual::constant(start[0])
         };
-        let dtheta = if k == 1 {
-            Dual::variable(p0[1])
+        let heading_change = if variable_index == 1 {
+            Dual::variable(start[1])
         } else {
-            Dual::constant(p0[1])
+            Dual::constant(start[1])
         };
-        let out = arc_outputs(ds, dtheta);
+        let outputs = arc_outputs(arc_length, heading_change);
 
-        let mut plus = p0;
-        let mut minus = p0;
-        plus[k] += h;
-        minus[k] -= h;
-        let fp = arc_outputs(plus[0], plus[1]);
-        let fm = arc_outputs(minus[0], minus[1]);
+        let mut plus = start;
+        let mut minus = start;
+        plus[variable_index] += step;
+        minus[variable_index] -= step;
+        let outputs_at_plus = arc_outputs(plus[0], plus[1]);
+        let outputs_at_minus = arc_outputs(minus[0], minus[1]);
 
-        for i in 0..3 {
-            let fd = (fp[i] - fm[i]) / (2.0 * h);
+        for output_index in 0..3 {
+            let finite_difference =
+                (outputs_at_plus[output_index] - outputs_at_minus[output_index]) / (2.0 * step);
             assert!(
-                (out[i].deriv - fd).abs() < 1e-6,
-                "k={k} i={i}: dual {} vs fd {fd}",
-                out[i].deriv
+                (outputs[output_index].deriv - finite_difference).abs() < 1e-6,
+                "variable {variable_index} output {output_index}: dual {} vs finite difference {finite_difference}",
+                outputs[output_index].deriv
             );
         }
     }
@@ -92,32 +93,33 @@ fn dual_matches_finite_differences() {
 /// produces NaN for, in both the value and the derivative.
 #[test]
 fn dual_finite_at_exactly_zero_angular() {
-    let ds = 0.4_f64;
+    let arc_length = 0.4_f64;
     // A wider step than the usual 1e-6: `(1−cosθ)/θ` and `sinθ/θ` cancel catastrophically as θ→0,
     // and that error grows as h shrinks. At 1e-6 the finite difference is the inaccurate side (~1e-5
     // off); 1e-4 balances it against truncation and lands near 1e-9. θ = ±1e-4 is still outside the
     // Taylor branch, so the comparison remains meaningful.
-    let h = 1e-4;
+    let step = 1e-4;
 
-    let out = arc_outputs(Dual::constant(ds), Dual::variable(0.0));
-    for (i, o) in out.iter().enumerate() {
+    let outputs = arc_outputs(Dual::constant(arc_length), Dual::variable(0.0));
+    for (output_index, output) in outputs.iter().enumerate() {
         assert!(
-            o.value.is_finite() && o.deriv.is_finite(),
-            "i={i}: value {} deriv {} must be finite",
-            o.value,
-            o.deriv
+            output.value.is_finite() && output.deriv.is_finite(),
+            "output {output_index}: value {} deriv {} must be finite",
+            output.value,
+            output.deriv
         );
     }
 
     // The finite differences straddle the branch, sampling just outside it.
-    let fp = arc_outputs(ds, h);
-    let fm = arc_outputs(ds, -h);
-    for i in 0..3 {
-        let fd = (fp[i] - fm[i]) / (2.0 * h);
+    let outputs_at_plus = arc_outputs(arc_length, step);
+    let outputs_at_minus = arc_outputs(arc_length, -step);
+    for output_index in 0..3 {
+        let finite_difference =
+            (outputs_at_plus[output_index] - outputs_at_minus[output_index]) / (2.0 * step);
         assert!(
-            (out[i].deriv - fd).abs() < 1e-6,
-            "i={i}: dual {} vs fd {fd}",
-            out[i].deriv
+            (outputs[output_index].deriv - finite_difference).abs() < 1e-6,
+            "output {output_index}: dual {} vs finite difference {finite_difference}",
+            outputs[output_index].deriv
         );
     }
 }
@@ -125,34 +127,35 @@ fn dual_finite_at_exactly_zero_angular() {
 #[test]
 fn odometry_step_jacobian_autodiff_vs_fd() {
     // Headings stay well away from ±π, where `SO2::log` wraps and the Jacobian is meaningless.
-    for p0 in [[0.3_f64, -0.2, 0.4, 0.1, 0.05], [0.3, -0.2, 0.4, 0.1, 0.0]] {
+    for start in [[0.3_f64, -0.2, 0.4, 0.1, 0.05], [0.3, -0.2, 0.4, 0.1, 0.0]] {
         // Wide enough to stay clear of the θ→0 cancellation in the `V(θ)` block; see
         // `dual_finite_at_exactly_zero_angular`.
-        let h = 1e-4;
-        for k in 0..5 {
+        let step = 1e-4;
+        for variable_index in 0..5 {
             let mut input = [Dual::constant(0.0); 5];
-            for (j, slot) in input.iter_mut().enumerate() {
-                *slot = if j == k {
-                    Dual::variable(p0[j])
+            for (index, slot) in input.iter_mut().enumerate() {
+                *slot = if index == variable_index {
+                    Dual::variable(start[index])
                 } else {
-                    Dual::constant(p0[j])
+                    Dual::constant(start[index])
                 };
             }
-            let out = OdometryStep.eval(&input);
+            let outputs = OdometryStep.eval(&input);
 
-            let mut plus = p0;
-            let mut minus = p0;
-            plus[k] += h;
-            minus[k] -= h;
-            let fp = OdometryStep.eval(&plus);
-            let fm = OdometryStep.eval(&minus);
+            let mut plus = start;
+            let mut minus = start;
+            plus[variable_index] += step;
+            minus[variable_index] -= step;
+            let outputs_at_plus = OdometryStep.eval(&plus);
+            let outputs_at_minus = OdometryStep.eval(&minus);
 
-            for i in 0..3 {
-                let fd = (fp[i] - fm[i]) / (2.0 * h);
+            for output_index in 0..3 {
+                let finite_difference =
+                    (outputs_at_plus[output_index] - outputs_at_minus[output_index]) / (2.0 * step);
                 assert!(
-                    (out[i].deriv - fd).abs() < 1e-6,
-                    "p0={p0:?} k={k} i={i}: dual {} vs fd {fd}",
-                    out[i].deriv
+                    (outputs[output_index].deriv - finite_difference).abs() < 1e-6,
+                    "start={start:?} variable {variable_index} output {output_index}: dual {} vs finite difference {finite_difference}",
+                    outputs[output_index].deriv
                 );
             }
         }

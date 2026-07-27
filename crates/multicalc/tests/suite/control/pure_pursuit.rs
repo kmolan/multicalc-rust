@@ -69,7 +69,9 @@ fn non_positive_lookahead_and_non_finite_point_are_errors() {
 
 #[test]
 fn to_body_twist_uses_speed_and_curvature() {
-    let twist = Curvature::new(0.5_f64).to_body_twist(2.0);
+    let curvature = Curvature::new(0.5_f64);
+    let forward_speed = 2.0;
+    let twist = curvature.to_body_twist(forward_speed);
     assert_eq!(twist.linear(), 2.0);
     assert_eq!(twist.angular(), 1.0);
 }
@@ -89,9 +91,10 @@ fn curvature_of_lateral<T: Numeric>(lateral: T) -> T {
 fn curvature_derivative_matches_finite_difference() {
     let lateral = 0.5_f64;
     let autodiff = curvature_of_lateral(Dual::variable(lateral)).deriv;
-    let h = 1e-6;
-    let finite_difference =
-        (curvature_of_lateral(lateral + h) - curvature_of_lateral(lateral - h)) / (2.0 * h);
+    let step = 1e-6;
+    let finite_difference = (curvature_of_lateral(lateral + step)
+        - curvature_of_lateral(lateral - step))
+        / (2.0 * step);
     assert!(
         (autodiff - finite_difference).abs() < 1e-7,
         "autodiff {autodiff}, finite difference {finite_difference}"

@@ -16,7 +16,7 @@ const TOL: f64 = 1e-14;
 
 // ---- helpers ----------------------------------------------------------------
 
-fn rand_pose(rng: &mut StdRng) -> SE2<f64> {
+fn random_pose(rng: &mut StdRng) -> SE2<f64> {
     SE2::from_parts(
         SO2::exp(rng.gen_range(-2.5..2.5)),
         Vector::new([rng.gen_range(-3.0..3.0), rng.gen_range(-3.0..3.0)]),
@@ -30,9 +30,9 @@ fn rand_pose(rng: &mut StdRng) -> SE2<f64> {
 /// the `qa` suite, so this chains through to an external reference.
 #[test]
 fn arc_matches_rk45() {
-    let tf = 2.0;
-    for (v, w) in [(0.4, 0.0), (0.4, 0.9), (0.4, -0.9), (0.0, 0.9)] {
-        let rate = BodyTwist::new(v, w);
+    let final_time = 2.0;
+    for (linear_speed, angular_speed) in [(0.4, 0.0), (0.4, 0.9), (0.4, -0.9), (0.0, 0.9)] {
+        let rate = BodyTwist::new(linear_speed, angular_speed);
         let solved = Rk45::<f64>::default()
             .with_rtol(1e-12)
             .with_atol(1e-14)
@@ -40,30 +40,30 @@ fn arc_matches_rk45() {
                 &Unicycle::new(rate).field(),
                 0.0,
                 &Vector::new([0.0, 0.0, 0.0]),
-                tf,
+                final_time,
             )
             .unwrap();
 
-        let arc = integrate(SE2::identity(), rate.integrate_over(tf));
-        let t = arc.translation();
-        let s = solved;
+        let arc = integrate(SE2::identity(), rate.integrate_over(final_time));
+        let arc_translation = arc.translation();
+        let solved_state = solved;
         assert!(
-            (t[0] - s[0]).abs() < 1e-9,
-            "(v={v}, w={w}) x: arc {} vs rk45 {}",
-            t[0],
-            s[0]
+            (arc_translation[0] - solved_state[0]).abs() < 1e-9,
+            "(v={linear_speed}, w={angular_speed}) x: arc {} vs rk45 {}",
+            arc_translation[0],
+            solved_state[0]
         );
         assert!(
-            (t[1] - s[1]).abs() < 1e-9,
-            "(v={v}, w={w}) y: arc {} vs rk45 {}",
-            t[1],
-            s[1]
+            (arc_translation[1] - solved_state[1]).abs() < 1e-9,
+            "(v={linear_speed}, w={angular_speed}) y: arc {} vs rk45 {}",
+            arc_translation[1],
+            solved_state[1]
         );
         assert!(
-            (arc.rotation().log() - s[2]).abs() < 1e-12,
-            "(v={v}, w={w}) heading: arc {} vs rk45 {}",
+            (arc.rotation().log() - solved_state[2]).abs() < 1e-12,
+            "(v={linear_speed}, w={angular_speed}) heading: arc {} vs rk45 {}",
             arc.rotation().log(),
-            s[2]
+            solved_state[2]
         );
     }
 }
@@ -74,33 +74,49 @@ fn arc_matches_rk45() {
 fn one_big_step_equals_many_small_steps() {
     let rate = BodyTwist::new(0.4, 0.9);
     let total = 2.0;
-    let n = 1000;
+    let step_count = 1000;
 
-    let one = integrate(SE2::identity(), rate.integrate_over(total));
+    let one_step = integrate(SE2::identity(), rate.integrate_over(total));
 
-    let small = rate.integrate_over(total / f64::from(n));
-    let mut many = SE2::identity();
-    for _ in 0..n {
-        many = integrate(many, small);
+    let small_increment = rate.integrate_over(total / f64::from(step_count));
+    let mut many_steps = SE2::identity();
+    for _ in 0..step_count {
+        many_steps = integrate(many_steps, small_increment);
     }
 
-    let (a, b) = (one.translation(), many.translation());
-    assert!((a[0] - b[0]).abs() < TOL, "x: {} vs {}", a[0], b[0]);
-    assert!((a[1] - b[1]).abs() < TOL, "y: {} vs {}", a[1], b[1]);
-    assert!((one.rotation().log() - many.rotation().log()).abs() < TOL);
+    let one_step_translation = one_step.translation();
+    let many_step_translation = many_steps.translation();
+    assert!(
+        (one_step_translation[0] - many_step_translation[0]).abs() < TOL,
+        "x: {} vs {}",
+        one_step_translation[0],
+        many_step_translation[0]
+    );
+    assert!(
+        (one_step_translation[1] - many_step_translation[1]).abs() < TOL,
+        "y: {} vs {}",
+        one_step_translation[1],
+        many_step_translation[1]
+    );
+    assert!((one_step.rotation().log() - many_steps.rotation().log()).abs() < TOL);
 }
 
 #[test]
 fn arc_matches_closed_form() {
-    let (v, w, t) = (0.4_f64, 0.9, 1.3);
-    let theta = w * t;
-    let radius = v / w;
+    let linear_speed = 0.4_f64;
+    let angular_speed = 0.9;
+    let time = 1.3;
+    let heading_change = angular_speed * time;
+    let radius = linear_speed / angular_speed;
 
-    let arc = integrate(SE2::identity(), BodyTwist::new(v, w).integrate_over(t));
-    let p = arc.translation();
-    assert!((p[0] - radius * theta.sin()).abs() < TOL);
-    assert!((p[1] - radius * (1.0 - theta.cos())).abs() < TOL);
-    assert!((arc.rotation().log() - theta).abs() < TOL);
+    let arc = integrate(
+        SE2::identity(),
+        BodyTwist::new(linear_speed, angular_speed).integrate_over(time),
+    );
+    let translation = arc.translation();
+    assert!((translation[0] - radius * heading_change.sin()).abs() < TOL);
+    assert!((translation[1] - radius * (1.0 - heading_change.cos())).abs() < TOL);
+    assert!((arc.rotation().log() - heading_change).abs() < TOL);
 }
 
 // ---- degenerate motions -----------------------------------------------------
@@ -108,22 +124,23 @@ fn arc_matches_closed_form() {
 #[test]
 fn zero_angular_is_straight_line() {
     let pose = integrate(SE2::identity(), BodyArc::new(0.5_f64, 0.0));
-    let t = pose.translation();
-    assert!(t[0].is_finite() && t[1].is_finite());
-    assert_eq!(t[0], 0.5);
-    assert_eq!(t[1], 0.0);
+    let translation = pose.translation();
+    assert!(translation[0].is_finite() && translation[1].is_finite());
+    assert_eq!(translation[0], 0.5);
+    assert_eq!(translation[1], 0.0);
     assert_eq!(pose.rotation().log(), 0.0);
 }
 
 #[test]
 fn zero_linear_is_pure_rotation() {
     let mut rng = StdRng::seed_from_u64(0x0d0_1111);
-    let start = rand_pose(&mut rng);
+    let start = random_pose(&mut rng);
     let pose = integrate(start, BodyArc::new(0.0, 0.7));
 
-    let (a, b) = (start.translation(), pose.translation());
-    assert_eq!(a[0], b[0]);
-    assert_eq!(a[1], b[1]);
+    let start_translation = start.translation();
+    let end_translation = pose.translation();
+    assert_eq!(start_translation[0], end_translation[0]);
+    assert_eq!(start_translation[1], end_translation[1]);
 }
 
 // ---- conventions ------------------------------------------------------------
@@ -132,30 +149,33 @@ fn zero_linear_is_pure_rotation() {
 fn is_right_perturbation() {
     let mut rng = StdRng::seed_from_u64(0x0d0_2222);
     for _ in 0..100 {
-        let p = rand_pose(&mut rng);
-        let d = BodyArc::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0));
-        let got = integrate(p, d);
-        let want = p * SE2::exp(Vector::new([d.linear(), 0.0, d.angular()]));
+        let pose = random_pose(&mut rng);
+        let increment = BodyArc::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0));
+        let got = integrate(pose, increment);
+        let want = pose * SE2::exp(Vector::new([increment.linear(), 0.0, increment.angular()]));
         assert_eq!(got, want);
     }
 }
 
 #[test]
 fn identity_start_equals_exp() {
-    let d = BodyArc::new(0.3, -0.4);
-    let got = integrate(SE2::identity(), d);
+    let increment = BodyArc::new(0.3, -0.4);
+    let got = integrate(SE2::identity(), increment);
     let want = SE2::exp(Vector::new([0.3, 0.0, -0.4]));
     assert_eq!(got, want);
 }
 
 #[test]
 fn odometry_step_matches_integrate() {
-    let dd = DifferentialDrive::new(0.036_f64, 0.235).unwrap();
+    let drive = DifferentialDrive::new(0.036_f64, 0.235).unwrap();
     let mut rng = StdRng::seed_from_u64(0x0d0_3333);
     for _ in 0..100 {
-        let p = rand_pose(&mut rng);
-        let d = WheelRotations::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0));
-        assert_eq!(dd.odometry_step(p, d), integrate(p, dd.forward_arc(d)));
+        let pose = random_pose(&mut rng);
+        let increment = WheelRotations::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0));
+        assert_eq!(
+            drive.odometry_step(pose, increment),
+            integrate(pose, drive.forward_arc(increment))
+        );
     }
 }
 
@@ -165,23 +185,35 @@ fn odometry_step_matches_integrate() {
 /// change is the point: it exercises both curvature directions and must return to the start.
 #[test]
 fn figure_eight_closes() {
-    let dd = DifferentialDrive::new(0.036_f64, 0.235).unwrap();
-    let (v, w) = (0.36, 0.9);
-    let n = 2000;
-    let dt = (2.0 * PI / w) / f64::from(n);
+    let drive = DifferentialDrive::new(0.036_f64, 0.235).unwrap();
+    let linear_speed = 0.36;
+    let angular_speed = 0.9;
+    let step_count = 2000;
+    let timestep = (2.0 * PI / angular_speed) / f64::from(step_count);
 
     let mut pose = SE2::identity();
     for sign in [1.0, -1.0] {
-        let rates = dd.inverse(BodyTwist::new(v, w * sign));
-        let d = WheelRotations::new(rates.left() * dt, rates.right() * dt);
-        for _ in 0..n {
-            pose = dd.odometry_step(pose, d);
+        let wheel_rates = drive.inverse(BodyTwist::new(linear_speed, angular_speed * sign));
+        let increment = WheelRotations::new(
+            wheel_rates.left() * timestep,
+            wheel_rates.right() * timestep,
+        );
+        for _ in 0..step_count {
+            pose = drive.odometry_step(pose, increment);
         }
     }
 
-    let t = pose.translation();
-    assert!(t[0].abs() < 1e-9, "x did not close: {}", t[0]);
-    assert!(t[1].abs() < 1e-9, "y did not close: {}", t[1]);
+    let translation = pose.translation();
+    assert!(
+        translation[0].abs() < 1e-9,
+        "x did not close: {}",
+        translation[0]
+    );
+    assert!(
+        translation[1].abs() < 1e-9,
+        "y did not close: {}",
+        translation[1]
+    );
     assert!(
         pose.rotation().log().abs() < 1e-9,
         "heading did not close: {}",
