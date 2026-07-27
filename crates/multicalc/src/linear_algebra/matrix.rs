@@ -229,15 +229,11 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Matrix<ROWS, COLS, T> {
     #[inline]
     #[must_use]
     pub fn frobenius_norm(self) -> T {
-        let total = self.data.into_iter().flatten().fold(T::ZERO, |acc, x| {
-            // Note: implementing `|x|^2` as `x * x` is correct for real numbers,
-            // however would be incorrect for complex numbers. In that case it
-            // should be `x * x.conj()` (i.e. multiplying by the complex conjugate).
-            // If this library is expected to work will complex numbers in the future
-            // then this will need to be updated; the `Numeric` trait would also need
-            // updating to include a complex conjugate operation.
-            acc + x * x
-        });
+        let total = self
+            .data
+            .into_iter()
+            .flatten()
+            .fold(T::ZERO, |acc, x| acc + x * x);
         total.sqrt()
     }
 
