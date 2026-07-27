@@ -356,6 +356,105 @@ mod dual {
         assert!(f64::abs(hypotenuse.deriv - 3.0 / 5.0) < TOL);
     }
 
+    /// #228: `tanh` was built from `sinh/cosh`, so once `|x|` passed the `exp`
+    /// overflow point it computed `inf/inf` — NaN — where the true value has
+    /// simply settled at ±1. `f32`/`f64` override with `libm` and were fine;
+    /// the autodiff scalars took the default and were not.
+    #[test]
+    fn tanh_saturates_on_the_autodiff_scalars() {
+        for &x in &[800.0_f64, -800.0, 90.0, 710.0] {
+            let t = Dual::variable(x).tanh();
+            assert!(
+                f64::abs(t.value - x.signum()) < TOL,
+                "tanh({x}) should saturate to {}, got {}",
+                x.signum(),
+                t.value
+            );
+            assert!(
+                f64::abs(t.deriv) < TOL,
+                "tanh'({x}) should vanish, got {}",
+                t.deriv
+            );
+        }
+
+        // The saturating form must not cost accuracy where the old one worked,
+        // including at the origin, where tanh' = 1 and a signum-based rewrite
+        // would silently return 0.
+        for &x in &[0.0_f64, 1e-8, 0.5, -0.5, 3.0, -3.0] {
+            let t = Dual::variable(x).tanh();
+            assert!(f64::abs(t.value - x.tanh()) < TOL, "tanh({x}) value");
+            assert!(
+                f64::abs(t.deriv - (1.0 - x.tanh() * x.tanh())) < TOL,
+                "tanh'({x}) derivative"
+            );
+        }
+    }
+
+    /// #228: `powf` defaulted to `exp(n · ln self)`, which is NaN for every
+    /// negative base and gives a NaN *derivative* at zero while the value
+    /// happens to come out right — a silent failure. `x.powf(2.0)` has to agree
+    /// with `x * x` in both value and derivative.
+    #[test]
+    fn powf_handles_non_positive_bases() {
+        for &x in &[0.0_f64, -2.0, -0.5, 2.0] {
+            let squared = Dual::variable(x).powf(Dual::constant(2.0));
+            let by_multiplication = {
+                let d = Dual::variable(x);
+                d * d
+            };
+            assert!(
+                f64::abs(squared.value - by_multiplication.value) < TOL,
+                "({x})^2 value: powf gave {}, x*x gave {}",
+                squared.value,
+                by_multiplication.value
+            );
+            assert!(
+                f64::abs(squared.deriv - by_multiplication.deriv) < TOL,
+                "({x})^2 derivative: powf gave {}, x*x gave {}",
+                squared.deriv,
+                by_multiplication.deriv
+            );
+        }
+
+        // Odd integer exponent on a negative base keeps the sign.
+        let cubed = Dual::variable(-2.0_f64).powf(Dual::constant(3.0));
+        assert!(f64::abs(cubed.value + 8.0) < TOL);
+        assert!(f64::abs(cubed.deriv - 12.0) < TOL); // 3·(−2)² = 12
+
+        // n = 1 and n = 0 at the origin, where the exp/ln form divides by -inf.
+        let linear = Dual::variable(0.0_f64).powf(Dual::constant(1.0));
+        assert!(f64::abs(linear.value) < TOL);
+        assert!(f64::abs(linear.deriv - 1.0) < TOL);
+        let unity = Dual::variable(0.0_f64).powf(Dual::constant(0.0));
+        assert!(f64::abs(unity.value - 1.0) < TOL);
+
+        // A negative base with a genuinely fractional exponent has no real
+        // value and must stay NaN rather than inventing one.
+        let undefined = Dual::variable(-2.0_f64).powf(Dual::constant(0.5));
+        assert!(undefined.value.is_nan());
+    }
+
+    /// Guard rail for both fixes: the `f32`/`f64` impls override with `libm`
+    /// and must keep matching the standard library, so the rewritten defaults
+    /// cannot have been "fixed" by loosening what the primitives do.
+    #[test]
+    fn primitive_tanh_and_powf_still_match_std() {
+        for &x in &[0.0_f64, 0.5, -3.0, 90.0, 800.0] {
+            assert!(
+                f64::abs(Numeric::tanh(x) - x.tanh()) < TOL,
+                "f64::tanh({x})"
+            );
+        }
+        for &(b, n) in &[(2.0_f64, 3.5), (0.0, 2.0), (-2.0, 2.0), (-2.0, 3.0)] {
+            let got = Numeric::powf(b, n);
+            let want = b.powf(n);
+            assert!(
+                (got.is_nan() && want.is_nan()) || f64::abs(got - want) < TOL,
+                "f64::powf({b},{n}): got {got}, std {want}"
+            );
+        }
+    }
+
     #[test]
     fn floor_has_zero_derivative() {
         let floored = Dual::variable(2.7_f64).floor();

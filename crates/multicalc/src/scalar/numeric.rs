@@ -173,9 +173,27 @@ pub trait Numeric:
     }
 
     /// Hyperbolic tangent.
+    ///
+    /// Evaluated as `(1 − e^(−2x)) / (1 + e^(−2x))` for `x ≥ 0`, mirrored for
+    /// `x < 0`, rather than as `sinh/cosh`. The quotient form overflows to
+    /// `inf/inf` — that is, NaN — once `|x|` passes about 88 in `f32` or 709
+    /// in `f64`, where the true value has simply settled at ±1. Taking `exp`
+    /// of a non-positive argument cannot overflow: it underflows to zero,
+    /// giving exactly ±1 with a derivative that decays to zero, both correct
+    /// in the limit.
+    ///
+    /// The branch is on the sign rather than a multiply by `signum`, because
+    /// `signum(0)` is zero and would wipe out the derivative at the origin,
+    /// where `tanh'(0) = 1`.
     #[inline]
     fn tanh(self) -> Self {
-        self.sinh() / self.cosh()
+        if self < Self::ZERO {
+            let e = (self * Self::TWO).exp();
+            (e - Self::ONE) / (e + Self::ONE)
+        } else {
+            let e = (-(self * Self::TWO)).exp();
+            (Self::ONE - e) / (Self::ONE + e)
+        }
     }
 
     /// Euclidean distance `√(self² + other²)`, scaled to avoid overflow and underflow.
@@ -192,11 +210,61 @@ pub trait Numeric:
         }
     }
 
-    /// `self` raised to a floating-point power, via `exp(n · ln self)`. Defined for
-    /// `self > 0`; the `f32`/`f64` impls override for negative bases and edge cases.
+    /// `self` raised to a floating-point power.
+    ///
+    /// `exp(n · ln self)` alone is only valid for `self > 0`: `ln` of zero is `-inf` and
+    /// `ln` of a negative is NaN, so the plain form returns NaN — or the right value with
+    /// a NaN derivative — for cases that are perfectly well defined. `x.powf(2.0)` is the
+    /// obvious one; it should agree with `x * x` everywhere, and on the autodiff scalars
+    /// it did not.
+    ///
+    /// Non-positive bases are handled explicitly:
+    ///
+    /// - `self == 0`: the value is `0` for `n > 0` and the derivative is `n · 0^(n−1)`,
+    ///   which is `0` for `n > 1`, `1` for `n == 1`, and divergent below that. Computed
+    ///   directly rather than through `ln 0 = -inf`.
+    /// - `self < 0` with an integral `n`: real-valued, equal to `|self|^n` with the sign
+    ///   of `(-1)^n`. The derivative is `n · self^(n−1)`, carried by rebuilding the
+    ///   expression from `|self|` and applying the sign, so the chain rule stays intact.
+    /// - `self < 0` with a fractional `n`: no real value; stays NaN, matching `libm::pow`.
     #[inline]
     fn powf(self, n: Self) -> Self {
-        (n * self.ln()).exp()
+        if self > Self::ZERO {
+            return (n * self.ln()).exp();
+        }
+
+        if self == Self::ZERO {
+            // 0^0 is 1 by convention; 0^n is 0 for n > 0 and diverges for n < 0.
+            // The derivative n·0^(n-1) is 0 for n > 1, 1 for n == 1, and divergent
+            // otherwise — all of which fall out of powi for integral n.
+            if n == Self::ZERO {
+                return Self::ONE;
+            }
+            if n == Self::ONE {
+                return self;
+            }
+            if n > Self::ONE && n == n.floor() {
+                return self * self * (n - Self::ONE);
+            }
+            return (n * self.ln()).exp();
+        }
+
+        // self < 0. Only an integral exponent has a real value.
+        if n != n.floor() || !n.is_finite() {
+            return (n * self.ln()).exp(); // NaN, as libm::pow gives
+        }
+
+        // |self|^n carries the correct magnitude and the correct |derivative|; the sign
+        // of both follows (-1)^n. Recovering n's parity without leaving the scalar type:
+        // n - 2·floor(n/2) is 0 for even n and 1 for odd n.
+        let magnitude = (n * (-self).ln()).exp();
+        let half = n * Self::HALF;
+        let parity = n - Self::TWO * half.floor();
+        if parity == Self::ZERO {
+            magnitude
+        } else {
+            -magnitude
+        }
     }
 
     /// `self * a + b`. The `f32`/`f64` impls fuse the operation for extra precision.

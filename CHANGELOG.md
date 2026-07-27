@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`tanh` and `powf` on the autodiff scalars.** The `Numeric` defaults broke on exactly
+  the types the crate exists for: `tanh` was `sinh/cosh`, which is `inf/inf` — NaN — once
+  `|x|` passes the `exp` overflow point, and `powf` was `exp(n · ln self)`, which is NaN
+  for every negative base and gives a NaN derivative at zero. `f32`/`f64` override both
+  with `libm` and were unaffected; `Dual`, `HyperDual` and `Jet` took the defaults. `tanh`
+  now saturates to ±1 with a vanishing derivative, and `powf` handles zero and negative
+  bases with integral exponents, keeping the derivatives correct. @DPS0340 (#228)
+
 ## [0.9.0] - 2026-07-26
 
 A feature release adding state estimation, feedback control, wheeled kinematics, and
