@@ -7,11 +7,11 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Scientific computing that fits on a microcontroller, built and tested from scratch in one integrated package. Estimation, control, kinematics, Lie groups, calculus, autodiff and linear algebra in stable no_std Rust with
-no heap, no panics and no unsafe. Run the same code on your laptop and your Cortex-M0.**
+no heap, no panics and no unsafe. Run the same code from your laptop to your Cortex-M0.**
 
 https://github.com/user-attachments/assets/93dee114-67f6-4124-a20d-88a8be50da6f
 
-*A reel of the live [showcase demos](demos#live-showcases): a 2D robot running particle filter localization + EKF sensor fusion + obstacle avoidance over a 1kHz loop rate — then an 8-link SE(3) arm tracking a moving 3D pose. Every number on
+*A reel of the live [showcase demos](demos#live-showcases): a 2D robot running particle filter localization + EKF sensor fusion + obstacle avoidance over a 1kHz loop rate; then an 8-link SE(3) arm tracking a moving 3D pose. Every number on
 screen is measured live, inside a 1 ms tick.*
 
 ## Highlights
@@ -60,7 +60,7 @@ screen is measured live, inside a 1 ms tick.*
 
 ## Quick start
 
-Two formulas, written once, carried through six modules — each step feeding the next:
+Two formulas, written once, carried through six modules, each step feeding the next:
 
 ```rust
 use multicalc::prelude::*;

@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
 **Scientific computing that fits on a microcontroller, built and tested from scratch in one integrated package. Estimation, control, kinematics, Lie groups, calculus, autodiff and linear algebra in stable no_std Rust with
-no heap, no panics and no unsafe. Run the same code on your laptop and your Cortex-M0.**
+no heap, no panics and no unsafe. Run the same code from your laptop to your Cortex-M0.**
 
 ## Why use it
 
@@ -22,7 +22,7 @@ no heap, no panics and no unsafe. Run the same code on your laptop and your Cort
 - **Exact derivatives, not estimates.** Differentiation, Jacobians, Hessians, Newton steps, and
   Levenberg-Marquardt fits use forward-mode automatic differentiation, so derivatives are exact
   to machine precision; finite differences remain available for black-box functions. The extended
-  Kalman filter's Jacobians come from autodiff — none are hand-derived.
+  Kalman filter's Jacobians come from autodiff, none are hand-derived.
 - **Pure safe and panic-free.** `#![forbid(unsafe_code)]`, no C dependencies, and `unwrap`/
   `panic` denied on library paths; every fallible call returns a typed error. Types are fixed-size
   and stack-allocated, and iteration counts are bounded.
@@ -55,7 +55,7 @@ no heap, no panics and no unsafe. Run the same code on your laptop and your Cort
 
 ## Quick start
 
-Two formulas, written once, carried through six modules — each step feeding the next:
+Two formulas, written once, carried through six modules, each step feeding the next:
 
 ```rust
 use multicalc::prelude::*;
