@@ -120,13 +120,7 @@ fn check_matrix_is_finite<const ROWS: usize, const COLS: usize>(m: Matrix<ROWS, 
 fn check_matrix_frobenius_norm<const ROWS: usize, const COLS: usize>(m: Matrix<ROWS, COLS>) {
     let norm = m.frobenius_norm();
     let alt_def = (m * m.transpose()).trace().sqrt();
-    assert_eq!(
-        norm.is_finite(),
-        alt_def.is_finite(),
-        "{} != {}",
-        norm,
-        alt_def
-    );
+    assert_eq!(norm.is_finite(), alt_def.is_finite(), "{norm} != {alt_def}");
     if norm.is_finite() {
         assert_scalar_close(
             norm,
@@ -139,8 +133,26 @@ fn check_matrix_frobenius_norm<const ROWS: usize, const COLS: usize>(m: Matrix<R
     }
 }
 
-fn check_matrix_trace<const N: usize>(m: Matrix<N, N>) {
-    assert_eq!(m.trace(), (0..N).fold(0.0, |acc, i| acc + m[(i, i)]));
+fn check_matrix_trace<const N: usize>(a: Matrix<N, N>, b: Matrix<N, N>) {
+    // Property: `tr(I)=N`
+    let id: Matrix<N, N> = Matrix::identity();
+    assert_eq!(id.trace(), N as f64);
+
+    // Property: `tr(AB)=tr(BA)`
+    let ab = (a * b).trace();
+    let ba = (b * a).trace();
+
+    assert_eq!(ab.is_finite(), ba.is_finite(), "{ab} != {ba}");
+    if ab.is_finite() {
+        assert_scalar_close(
+            ab,
+            ba,
+            Tol {
+                abs: 0.0,
+                rel: 1e-8,
+            },
+        );
+    }
 }
 
 fn check_matrix_from_diagonal<const N: usize>(diag: [f64; N]) {
@@ -223,23 +235,36 @@ proptest! {
     // Note: using `prop::num::f64::NORMAL` as opposed to `prop::num::f64::ANY` because
     // if `NaN` or `Infinity` are involved then the equality check will fail (`NaN != NaN`).
     #[test]
-    fn matrix_trace_1x1(m in matrix_strategy::<1, 1, _>(prop::num::f64::NORMAL)) {
-        check_matrix_trace(m);
+    fn matrix_trace_1x1(
+        a in matrix_strategy::<1, 1, _>(prop::num::f64::NORMAL),
+        b in matrix_strategy::<1, 1, _>(prop::num::f64::NORMAL)
+    ) {
+        check_matrix_trace(a, b);
     }
 
     #[test]
-    fn matrix_trace_2x2(m in matrix_strategy::<2, 2, _>(prop::num::f64::NORMAL)) {
-        check_matrix_trace(m);
+    fn matrix_trace_2x2(
+        a in matrix_strategy::<2, 2, _>(prop::num::f64::NORMAL),
+        b in matrix_strategy::<2, 2, _>(prop::num::f64::NORMAL)
+    ) {
+        check_matrix_trace(a, b);
+
     }
 
     #[test]
-    fn matrix_trace_3x3(m in matrix_strategy::<3, 3, _>(prop::num::f64::NORMAL)) {
-        check_matrix_trace(m);
+    fn matrix_trace_3x3(
+        a in matrix_strategy::<3, 3, _>(prop::num::f64::NORMAL),
+        b in matrix_strategy::<3, 3, _>(prop::num::f64::NORMAL)
+    ) {
+        check_matrix_trace(a, b);
     }
 
     #[test]
-    fn matrix_trace_4x4(m in matrix_strategy::<4, 4, _>(prop::num::f64::NORMAL)) {
-        check_matrix_trace(m);
+    fn matrix_trace_4x4(
+        a in matrix_strategy::<4, 4, _>(prop::num::f64::NORMAL),
+        b in matrix_strategy::<4, 4, _>(prop::num::f64::NORMAL)
+    ) {
+        check_matrix_trace(a, b);
     }
 
     #[test]
