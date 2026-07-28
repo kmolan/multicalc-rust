@@ -17,7 +17,7 @@
   `no_std`, no-alloc, and no-panic rules hold on each target.
 - **Measured against external references:** Each module's results are verified against established libraries like `numpy`, `scipy`, and `filterpy` fixtures within ~1 ulp, thus validating the rust
   implementation. See the
-  [benchmarks](benchmarks).
+  [benchmarks](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks).
 - **Pure safe and panic-free.** `#![forbid(unsafe_code)]`, no C dependencies, and `unwrap`/
   `panic` denied on library paths; every fallible call returns a typed error. Types are fixed-size
   and stack-allocated, and iteration counts are bounded.
