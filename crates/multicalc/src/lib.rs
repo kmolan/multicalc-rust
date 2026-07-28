@@ -79,6 +79,12 @@ pub use spatial::{SE2, SE3, SO2, SO3};
 /// Typed spatial velocity and force in the linear-first `[v; ω]` / `[force; torque]` ordering.
 pub use spatial::{Twist, Wrench};
 
+/// A rigid body's mass, centre of mass, and rotational inertia.
+pub use spatial::SpatialInertia;
+
+/// The pose and velocity of a body free to move in all six directions.
+pub use spatial::FreeJointState;
+
 /// Differential-drive kinematics and SE(2) odometry.
 pub use kinematics::{BodyArc, BodyTwist, DifferentialDrive, WheelRotations, WheelVelocities};
 
@@ -111,7 +117,7 @@ pub use motion::{EndOfPath, PathProjection, PolylinePath};
 /// Per-module-family error enums and the umbrella they convert into.
 pub use error::{
     CalcError, ControlError, DiffError, EstimationError, IntegrateError, KinematicsError,
-    LinalgError, MotionError, SolveError,
+    LinalgError, MotionError, SolveError, SpatialError,
 };
 
 pub mod approximation;

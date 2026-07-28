@@ -3,14 +3,20 @@
 //! - [`Quaternion`] — unit-quaternion rotations.
 //! - [`SO2`] / [`SO3`] / [`SE2`] / [`SE3`] — 2D/3D rotation and rigid-transform Lie groups.
 //! - [`Twist`] / [`Wrench`] — spatial velocity and force in `[v; ω]` / `[force; torque]` ordering.
+//! - [`SpatialInertia`] — a body's mass, centre of mass, and rotational inertia.
+//! - [`FreeJointState`] — the pose and velocity of a body free to move in all six directions.
 
 use crate::scalar::Numeric;
 
+mod free_joint;
+mod inertia;
 mod lie;
 mod quaternion;
 mod twist;
 mod wrench;
 
+pub use free_joint::FreeJointState;
+pub use inertia::SpatialInertia;
 pub use lie::{SE2, SE3, SO2, SO3};
 pub use quaternion::Quaternion;
 pub use twist::Twist;
