@@ -53,6 +53,9 @@ waypoint paths, plus a prelude and one-call entry points for the calculus core.
   @kmolan (#192)
 - docs.rs now builds with all features so gated items appear in the published docs.
   @kmolan (#197)
+- Add `Matrix` methods: `trace`, `frobenius_norm`, `from_diagonal` @birchmd (#191)
+- Add `Vector` methods: `normalize`, `normalized`, `map` @birchmd (#191)
+- Add impl Div<T> where T: Numeric for `Matrix` and `Vector` @birchmd (#191)
 
 ### Fixed
 

@@ -1,6 +1,6 @@
 //! Fixed-size, stack-allocated column vector.
 
-use core::ops::{Add, AddAssign, Index, IndexMut, Mul, Neg, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, Neg, Sub, SubAssign};
 
 use crate::scalar::Numeric;
 
@@ -134,6 +134,22 @@ impl<const N: usize, T> Vector<N, T> {
     pub fn into_array(self) -> [T; N] {
         self.data
     }
+
+    /// Construct a new vector by applying a function to each component.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// let v = Vector::new([1.0, 2.0, 3.0]);
+    /// let u = v.map(|x| 2.0 * x);
+    /// assert_eq!(u, Vector::new([2.0, 4.0, 6.0]));
+    /// ```
+    #[inline]
+    pub fn map<F, U>(self, f: F) -> Vector<N, U>
+    where
+        F: Fn(T) -> U,
+    {
+        Vector::new(self.data.map(f))
+    }
 }
 
 impl<const N: usize, T: Copy> Vector<N, T> {
@@ -236,6 +252,83 @@ impl<const N: usize, T: Numeric> Vector<N, T> {
     pub fn is_finite(self) -> bool {
         self.data.iter().all(|x| x.is_finite())
     }
+
+    /// Returns a normalized copy of the vector (i.e. one where the norm is equal to 1).
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// assert_eq!(Vector::new([30.0, 40.0]).normalized(), Vector::new([0.6, 0.8]));
+    /// ```
+    #[inline]
+    pub fn normalized(self) -> Self {
+        self / self.norm()
+    }
+
+    /// Attempts to return a normalized copy of the vector (i.e. one where the norm is equal to 1),
+    /// returning `None` in the case of a zero vector or a vector with a `NAN` entry.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// assert_eq!(Vector::new([30.0, 40.0]).try_normalized(), Some(Vector::new([0.6, 0.8])));
+    /// assert_eq!(Vector::new([0.0, 0.0]).try_normalized(), None);
+    /// assert_eq!(Vector::new([f64::NAN, 0.0]).try_normalized(), None);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn try_normalized(self) -> Option<Self> {
+        let norm = self.norm();
+        if norm.is_nan() || norm == T::ZERO {
+            return None;
+        }
+        Some(self / norm)
+    }
+
+    /// Normalize the vector in-place (i.e. after this operation the norm is equal to 1).
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// let mut v = Vector::new([30.0, 40.0]);
+    /// v.normalize();
+    /// assert_eq!(v, Vector::new([0.6, 0.8]));
+    /// ```
+    #[inline]
+    pub fn normalize(&mut self) {
+        let norm = self.norm();
+        self.do_normalize(norm);
+    }
+
+    /// Attempt to normalize the vector in-place (i.e. after this operation the norm is equal to 1).
+    /// This method returns `None` and leaves the vector unchanged if the norm is zero or NAN.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// let mut v = Vector::new([30.0, 40.0]);
+    /// assert!(v.try_normalize().is_some());
+    /// assert_eq!(v, Vector::new([0.6, 0.8]));
+    ///
+    /// let mut v = Vector::new([0.0, 0.0]);
+    /// assert!(v.try_normalize().is_none());
+    /// assert_eq!(v, Vector::new([0.0, 0.0]));
+    ///
+    /// let mut v = Vector::new([f64::NAN, 1.0]);
+    /// assert!(v.try_normalize().is_none());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn try_normalize(&mut self) -> Option<()> {
+        let norm = self.norm();
+        if norm.is_nan() || norm == T::ZERO {
+            return None;
+        }
+        self.do_normalize(norm);
+        Some(())
+    }
+
+    fn do_normalize(&mut self, norm: T) {
+        for x in self.data.iter_mut() {
+            *x = x.safe_div(norm);
+        }
+    }
 }
 
 impl<const N: usize, T> From<[T; N]> for Vector<N, T> {
@@ -316,6 +409,15 @@ impl<const N: usize, T: Numeric> Mul<T> for Vector<N, T> {
     #[inline]
     fn mul(self, scalar: T) -> Self {
         self.scale(scalar)
+    }
+}
+
+impl<const N: usize, T: Numeric> Div<T> for Vector<N, T> {
+    type Output = Self;
+
+    #[inline]
+    fn div(self, scalar: T) -> Self {
+        Self::from_fn(|i| self.data[i].safe_div(scalar))
     }
 }
 

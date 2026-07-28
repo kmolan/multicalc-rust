@@ -1,4 +1,16 @@
+use core::f64::consts::{E, PI};
 use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc_testkit::tol::{Tol, assert_scalar_close, assert_vector_close};
+use proptest::prelude::*;
+use proptest::test_runner::TestCaseError;
+
+// A strategy for producing vectors in property-based tests.
+fn vector_strategy<const N: usize, S>(num_strategy: S) -> impl Strategy<Value = Vector<N>>
+where
+    S: Strategy<Value = f64>,
+{
+    prop::array::uniform::<_, N>(num_strategy).prop_map(Vector::new)
+}
 
 // ----- construction & access -----
 
@@ -81,6 +93,37 @@ fn get_checked_access() {
     assert_eq!(matrix.get(1, 1), Some(&8.0));
 }
 
+fn check_vector_map<const N: usize, F: Fn(f64) -> f64>(v: Vector<N>, f: F) {
+    let u = v.map(&f);
+    for (a, b) in u.as_slice().iter().zip(v.as_slice()) {
+        assert_eq!(*a, f(*b));
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    #[test]
+    fn vector_map_1(v in vector_strategy::<1, _>(prop::num::f64::NORMAL)) {
+        check_vector_map(v, |x| x + PI);
+    }
+
+    #[test]
+    fn vector_map_2(v in vector_strategy::<2, _>(prop::num::f64::NORMAL)) {
+        check_vector_map(v, |x| 2.0 * x);
+    }
+
+    #[test]
+    fn vector_map_3(v in vector_strategy::<3, _>(prop::num::f64::NORMAL)) {
+        check_vector_map(v, |x| x - E);
+    }
+
+    #[test]
+    fn vector_map_4(v in vector_strategy::<4, _>(prop::num::f64::NORMAL)) {
+        check_vector_map(v, |x| x * x);
+    }
+}
+
 // ----- vector arithmetic -----
 
 #[test]
@@ -93,12 +136,45 @@ fn vector_arithmetic() {
     assert_eq!(-left, Vector::new([-1.0, -2.0, -3.0]));
     assert_eq!(left * 2.0, left.scale(2.0));
     assert_eq!(left.scale(2.0), Vector::new([2.0, 4.0, 6.0]));
+    assert_eq!(left / 2.0, left.scale(0.5));
 
     let mut accumulated = left;
     accumulated += right;
     assert_eq!(accumulated, left + right);
     accumulated -= right;
     assert_eq!(accumulated, left);
+
+    // Check division by zero behavior
+    let a = Vector::new([
+        1.0,
+        -1.0,
+        0.0,
+        -0.0,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::NAN,
+    ]);
+    let div_zero = a / 0.0;
+    let expected = Vector::new([
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::NAN,
+        f64::NAN,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::NAN,
+    ]);
+    div_zero
+        .into_array()
+        .into_iter()
+        .zip(expected.as_array())
+        .for_each(|(got, want)| {
+            assert_eq!(
+                got.total_cmp(want),
+                core::cmp::Ordering::Equal,
+                "{got} != {want}"
+            );
+        })
 }
 
 #[test]
@@ -128,6 +204,91 @@ fn vector_is_finite() {
     assert!(!Vector::new([1.0, f64::NAN]).is_finite());
     assert!(!Vector::new([f64::INFINITY, 0.0]).is_finite());
     assert!(!Vector::new([0.0, f64::NEG_INFINITY]).is_finite());
+}
+
+fn check_vector_normalized<const N: usize>(mut v: Vector<N>) -> Result<(), TestCaseError> {
+    let norm = v.norm();
+    prop_assume!(norm.is_finite());
+    prop_assume!(norm > 1e-16);
+
+    let tol = Tol {
+        abs: <f64 as multicalc::Numeric>::EPSILON_X30,
+        rel: 1e-8,
+    };
+
+    let normalized = v.normalized();
+    assert_scalar_close(normalized.norm(), 1.0, tol);
+    assert_vector_close(&v, &normalized.scale(norm), tol);
+
+    // The normalized and try_normalized operations are identical when normalization is possible.
+    assert_eq!(Some(normalized), v.try_normalized());
+
+    // Create a copy of the vector to test both mutable operations.
+    let mut v_copy = v;
+
+    // In-place normalization gives the same result as returning a copy.
+    v.normalize();
+    assert_eq!(v, normalized);
+
+    // Fallible in-place normalization also agrees;
+    assert!(v_copy.try_normalize().is_some());
+    assert_eq!(v_copy, normalized);
+
+    Ok(())
+}
+
+#[test]
+fn zero_vector_normalize() {
+    // A vector with any finite non-zero entry (even EPSILON) can still be normalized
+    let mut near_zero = Vector::new([<f64 as multicalc::Numeric>::EPSILON, 0.0, 0.0]);
+    assert_eq!(near_zero.normalized(), Vector::new([1.0f64, 0.0, 0.0]));
+    near_zero.normalize();
+    assert_eq!(near_zero, Vector::new([1.0f64, 0.0, 0.0]));
+
+    let mut zero = Vector::new([0.0f64, 0.0, 0.0]);
+
+    // Fallible normalization rejects the zero vector
+    assert_eq!(zero.try_normalized(), None);
+    assert!(zero.try_normalize().is_none());
+    assert_eq!(zero, Vector::new([0.0f64, 0.0, 0.0]));
+
+    // The zero vector will normalize to NAN via the unchecked functions
+    assert!(
+        zero.normalized()
+            .into_array()
+            .into_iter()
+            .all(|x| x.total_cmp(&f64::NAN).is_eq())
+    );
+    zero.normalize();
+    assert!(
+        zero.into_array()
+            .into_iter()
+            .all(|x| x.total_cmp(&f64::NAN).is_eq())
+    );
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    #[test]
+    fn vector_normalize_1(v in vector_strategy::<1, _>(prop::num::f64::NORMAL)) {
+        check_vector_normalized(v)?;
+    }
+
+    #[test]
+    fn vector_normalize_2(v in vector_strategy::<2, _>(prop::num::f64::NORMAL)) {
+        check_vector_normalized(v)?;
+    }
+
+    #[test]
+    fn vector_normalize_3(v in vector_strategy::<3, _>(prop::num::f64::NORMAL)) {
+        check_vector_normalized(v)?;
+    }
+
+    #[test]
+    fn vector_normalize_4(v in vector_strategy::<4, _>(prop::num::f64::NORMAL)) {
+        check_vector_normalized(v)?;
+    }
 }
 
 // ----- cross products & scalar triple -----
