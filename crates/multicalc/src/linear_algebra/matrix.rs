@@ -291,6 +291,12 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     }
 
     /// Returns the diagonal entries of the matrix as an array.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// let m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    /// assert_eq!(m.diagonal(), [1.0, 4.0]);
+    /// ```
     #[inline]
     #[must_use]
     pub fn diagonal(&self) -> [T; N] {
