@@ -543,6 +543,12 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
 impl<const N: usize> Matrix<N, N> {
     /// Builds a symmetric positive-definite matrix from arbitrary entries as `M·Mᵀ`, ridged so the
     /// factorization is well conditioned rather than merely non-singular.
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// let m = Matrix::<2, 2>::symmetric_positive_definite(&[1.0, 2.0, 3.0, 4.0]);
+    /// assert_eq!(m[(0, 1)], m[(1, 0)]);
+    /// assert!(m[(0, 0)] > 0.0 && m[(1, 1)] > 0.0);
+    /// ```
     pub fn symmetric_positive_definite(entries: &[f64]) -> Self {
         let factor = Self::from_fn(|row, column| entries[row * N + column]);
         factor * factor.transpose() + Self::from_diagonal([0.25; N])
