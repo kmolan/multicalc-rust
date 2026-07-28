@@ -368,6 +368,287 @@ fn transform_point_properties() {
     }
 }
 
+#[test]
+fn inverse_transform_point_undoes_transform_point() {
+    let mut rng = StdRng::seed_from_u64(12);
+
+    for _ in 0..2000 {
+        let quaternion = random_unit_quaternion(&mut rng);
+        let vector = Vector::new([
+            rng.gen_range(-5.0..5.0),
+            rng.gen_range(-5.0..5.0),
+            rng.gen_range(-5.0..5.0),
+        ]);
+
+        // Round trip in both orders.
+        let forward = quaternion.transform_point(vector);
+        assert_vectors_close(quaternion.inverse_transform_point(forward), vector, 1e-10);
+
+        let backward = quaternion.inverse_transform_point(vector);
+        assert_vectors_close(quaternion.transform_point(backward), vector, 1e-10);
+        // Same as rotating by the conjugate explicitly, which is what it saves the caller writing.
+        assert_vectors_close(
+            backward,
+            quaternion.conjugate().transform_point(vector),
+            TOL,
+        );
+        // Matches the transposed matrix action.
+        assert_vectors_close(
+            backward,
+            quaternion.to_rotation_matrix().transpose() * vector,
+            1e-11,
+        );
+    }
+}
+
+// ---- angle between rotations ------------------------------------------------
+
+#[test]
+fn rotation_angle_to_recovers_relative_rotation() {
+    let mut rng = StdRng::seed_from_u64(13);
+
+    for _ in 0..2000 {
+        let first = random_unit_quaternion(&mut rng);
+        let angle = rng.gen_range(0.0..PI);
+        let second = first * Quaternion::from_axis_angle(random_unit_vector(&mut rng), angle);
+
+        assert!((first.rotation_angle_to(second) - angle).abs() < 1e-10);
+        // Symmetric, and blind to the double cover on either side.
+        assert!((second.rotation_angle_to(first) - angle).abs() < 1e-10);
+        assert!((first.rotation_angle_to(-second) - angle).abs() < 1e-10);
+        assert!(((-first).rotation_angle_to(second) - angle).abs() < 1e-10);
+    }
+}
+
+#[test]
+fn rotation_angle_to_takes_the_shortest_path() {
+    let mut rng = StdRng::seed_from_u64(14);
+
+    for _ in 0..1000 {
+        let first = random_unit_quaternion(&mut rng);
+        // Beyond pi the relative rotation is reported the short way round, as 2pi - angle.
+        let angle = rng.gen_range(PI..2.0 * PI);
+        let second = first * Quaternion::from_axis_angle(random_unit_vector(&mut rng), angle);
+        let measured = first.rotation_angle_to(second);
+
+        assert!((0.0..=PI + 1e-12).contains(&measured), "{measured}");
+        assert!((measured - (2.0 * PI - angle)).abs() < 1e-10);
+    }
+}
+
+#[test]
+fn rotation_angle_to_self_is_zero_and_accurate_when_small() {
+    let mut rng = StdRng::seed_from_u64(15);
+
+    for _ in 0..1000 {
+        let quaternion = random_unit_quaternion(&mut rng);
+        assert!(quaternion.rotation_angle_to(quaternion) < TOL);
+        // `q` and `-q` are the same rotation.
+        assert!(quaternion.rotation_angle_to(-quaternion) < TOL);
+    }
+
+    // atan2 measures these to an absolute error of a few epsilon, the floor set by rounding in the
+    // quaternion product itself. `acos` of the dot product cannot: 1 - cos(theta/2) drops below
+    // the double epsilon for theta this small, costing about half the significant digits.
+    let base = Quaternion::from_euler_zyx(0.3, -0.7, 1.2);
+    for exponent in 4..=10 {
+        let angle = 10f64.powi(-exponent);
+        let rotated = base * Quaternion::from_axis_angle(Vector::new([0.0, 0.0, 1.0]), angle);
+        let error = (base.rotation_angle_to(rotated) - angle).abs();
+
+        assert!(error < 1e-15 + angle * 1e-12, "{angle}: {error}");
+    }
+}
+
+// ---- rotation between two directions ----------------------------------------
+
+#[test]
+fn from_two_vectors_maps_one_direction_onto_the_other() {
+    let mut rng = StdRng::seed_from_u64(16);
+
+    for _ in 0..2000 {
+        // Unnormalized inputs: only the directions matter.
+        let from = random_unit_vector(&mut rng) * rng.gen_range(0.1..10.0);
+        let to = random_unit_vector(&mut rng) * rng.gen_range(0.1..10.0);
+        let rotation = Quaternion::from_two_vectors(from, to);
+
+        assert!((rotation.norm() - 1.0).abs() < TOL);
+        assert_vectors_close(
+            rotation.transform_point(from.normalized()),
+            to.normalized(),
+            1e-10,
+        );
+        // Shortest: the rotation angle is exactly the angle between the two directions.
+        let separation = from
+            .normalized()
+            .dot(to.normalized())
+            .clamp(-1.0, 1.0)
+            .acos();
+
+        assert!((Quaternion::identity().rotation_angle_to(rotation) - separation).abs() < 1e-7);
+    }
+}
+
+#[test]
+fn from_two_vectors_handles_opposite_directions() {
+    let mut rng = StdRng::seed_from_u64(17);
+
+    for _ in 0..2000 {
+        let from = random_unit_vector(&mut rng);
+        let rotation = Quaternion::from_two_vectors(from, -from);
+
+        assert!((rotation.norm() - 1.0).abs() < TOL);
+        // The axis is undetermined, but every valid choice still lands on -from by a pi turn.
+        assert_vectors_close(rotation.transform_point(from), -from, 1e-10);
+        assert!((Quaternion::identity().rotation_angle_to(rotation) - PI).abs() < 1e-10);
+    }
+}
+
+#[test]
+fn from_two_vectors_near_opposite_directions() {
+    let mut rng = StdRng::seed_from_u64(18);
+    // Just off antiparallel, down to where the perturbation stops being representable at all.
+    // There is no band of degraded accuracy in front of pi, so one flat tolerance covers the whole
+    // sweep. That is the regression guard on both halves of how the rotation is built.
+    //
+    // On taking the half-angle from norm(a + b): with the common sqrt(2(1 + a.b)) form, `1 + a.b`
+    // is delta^2/2 computed with an absolute error of eps, and the error grows as eps/delta^2
+    // rather than staying flat. It reaches 6e-4 at delta = 1e-6, which this tolerance rejects.
+    //
+    // On taking the axis from a x (a + b): that is perpendicular to `from` however much error
+    // a + b carries, so `from` can only be mislanded within the correct plane, and the eps/delta
+    // relative error of a + b is scaled back down by the delta it turns through. Dividing the axis
+    // by norm(a + b) up front instead of normalizing the quaternion at the end would let the
+    // rounding of a small norm through, and costs the unit-norm assertion below from delta = 1e-9.
+    for exponent in 1..=17 {
+        let perturbation = 10f64.powi(-exponent);
+        for _ in 0..200 {
+            let from = random_unit_vector(&mut rng);
+            let nudge = from.cross(random_unit_vector(&mut rng)).normalized();
+            let to = (-from + nudge * perturbation).normalized();
+            let rotation = Quaternion::from_two_vectors(from, to);
+
+            assert!((rotation.norm() - 1.0).abs() < TOL);
+            assert_vectors_close(rotation.transform_point(from), to, 1e-14);
+        }
+    }
+}
+
+#[test]
+fn from_two_vectors_non_finite_inputs_yield_identity() {
+    let unit = Vector::new([0.0, 0.0, 1.0]);
+
+    // Documented contract: an input that is not finite carries no direction, so there is no
+    // rotation to report and the identity comes back. Previously these normalized to a NaN
+    // vector and every component of the result was NaN.
+    for bad in [f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
+        for polluted in [
+            Vector::new([bad, 0.0, 0.0]),
+            Vector::new([1.0, bad, 0.0]),
+            Vector::new([bad, bad, bad]),
+        ] {
+            assert_quaternions_close(
+                Quaternion::from_two_vectors(polluted, unit),
+                Quaternion::identity(),
+                TOL,
+            );
+            assert_quaternions_close(
+                Quaternion::from_two_vectors(unit, polluted),
+                Quaternion::identity(),
+                TOL,
+            );
+        }
+    }
+}
+
+#[test]
+fn from_two_vectors_extreme_magnitudes() {
+    // Only the direction matters, so scaling either input by any finite amount must not move the
+    // answer, including where the squared norm is not representable. Normalizing through norm()
+    // squares first: at 1e200 that overflows to an infinite norm and the direction collapses to
+    // the zero vector (which used to give a quaternion of norm 0.5), and at 1e-200 it underflows
+    // to a zero norm and the direction is rejected outright (which used to give the identity).
+    let reference = Quaternion::from_two_vectors(
+        Vector::<3, f64>::new([1.0, 0.0, 0.0]),
+        Vector::new([0.0, 1.0, 0.0]),
+    );
+
+    for scale in [
+        1e200,
+        1e-200,
+        f64::MAX,
+        f64::MIN_POSITIVE,
+        5e-324, // subnormal
+        1.0,
+    ] {
+        for (from, to) in [
+            (
+                Vector::<3, f64>::new([scale, 0.0, 0.0]),
+                Vector::new([0.0, 1.0, 0.0]),
+            ),
+            (Vector::new([1.0, 0.0, 0.0]), Vector::new([0.0, scale, 0.0])),
+            (
+                Vector::new([scale, 0.0, 0.0]),
+                Vector::new([0.0, scale, 0.0]),
+            ),
+        ] {
+            let rotation = Quaternion::from_two_vectors(from, to);
+
+            assert!(
+                (rotation.norm() - 1.0).abs() < TOL,
+                "scale {scale:e} gave a non-unit quaternion of norm {}",
+                rotation.norm()
+            );
+            assert_quaternions_close(rotation, reference, TOL);
+        }
+    }
+}
+
+#[test]
+fn from_two_vectors_degenerate_inputs() {
+    let unit = Vector::new([0.0, 0.0, 1.0]);
+    let zero = Vector::<3, f64>::zeros();
+
+    // A direction that does not exist cannot pick out a rotation;
+    // identity, as from_axis_angle does for a zero-length axis.
+    assert_quaternions_close(
+        Quaternion::from_two_vectors(zero, unit),
+        Quaternion::identity(),
+        TOL,
+    );
+    assert_quaternions_close(
+        Quaternion::from_two_vectors(unit, zero),
+        Quaternion::identity(),
+        TOL,
+    );
+    // Already aligned: no rotation, whatever the magnitudes.
+    assert_quaternions_close(
+        Quaternion::from_two_vectors(unit, unit * 7.5),
+        Quaternion::identity(),
+        TOL,
+    );
+}
+
+#[test]
+fn from_two_vectors_f32_including_opposite() {
+    let from = Vector::<3, f32>::new([0.0, 1.0, 0.0]);
+
+    for to in [
+        Vector::new([1.0f32, 0.0, 0.0]),
+        Vector::new([0.0f32, -1.0, 0.0]),
+        Vector::new([0.0f32, 1.0, 0.0]),
+    ] {
+        let rotation = Quaternion::from_two_vectors(from, to);
+
+        assert!((rotation.norm() - 1.0).abs() < 1e-6);
+
+        let rotated = rotation.transform_point(from);
+        for index in 0..3 {
+            assert!((rotated[index] - to[index]).abs() < 1e-6);
+        }
+    }
+}
+
 // ---- autodiff ---------------------------------------------------------------
 
 /// Rotates x̂ by `angle` about ẑ and returns the x-component, which is `cos(angle)`.

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Quaternion::from_two_vectors`, `Quaternion::rotation_angle_to`, and `Quaternion::inverse_transform_point`. (#214)
+
 ### Fixed
 
 - `ResamplingScheme::resample_indices` now leaves output indices untouched for empty weights
