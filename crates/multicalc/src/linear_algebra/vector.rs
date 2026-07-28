@@ -298,29 +298,30 @@ impl<const N: usize, T: Numeric> Vector<N, T> {
     }
 
     /// Attempt to normalize the vector in-place (i.e. after this operation the norm is equal to 1).
-    /// This method returns an error and leaves the vector unchanged if the norm is zero or NAN.
+    /// This method returns `None` and leaves the vector unchanged if the norm is zero or NAN.
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
     /// let mut v = Vector::new([30.0, 40.0]);
-    /// assert!(v.try_normalize().is_ok());
+    /// assert!(v.try_normalize().is_some());
     /// assert_eq!(v, Vector::new([0.6, 0.8]));
     ///
     /// let mut v = Vector::new([0.0, 0.0]);
-    /// assert!(v.try_normalize().is_err());
+    /// assert!(v.try_normalize().is_none());
     /// assert_eq!(v, Vector::new([0.0, 0.0]));
     ///
     /// let mut v = Vector::new([f64::NAN, 1.0]);
-    /// assert!(v.try_normalize().is_err());
+    /// assert!(v.try_normalize().is_none());
     /// ```
     #[inline]
-    pub fn try_normalize(&mut self) -> Result<(), &'static str> {
+    #[must_use]
+    pub fn try_normalize(&mut self) -> Option<()> {
         let norm = self.norm();
         if norm.is_nan() || norm == T::ZERO {
-            return Err("Failed to normalize vector");
+            return None;
         }
         self.do_normalize(norm);
-        Ok(())
+        Some(())
     }
 
     fn do_normalize(&mut self, norm: T) {

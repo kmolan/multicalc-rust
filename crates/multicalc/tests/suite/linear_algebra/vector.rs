@@ -231,7 +231,7 @@ fn check_vector_normalized<const N: usize>(mut v: Vector<N>) -> Result<(), TestC
     assert_eq!(v, normalized);
 
     // Fallible in-place normalization also agrees;
-    assert!(v_copy.try_normalize().is_ok());
+    assert!(v_copy.try_normalize().is_some());
     assert_eq!(v_copy, normalized);
 
     Ok(())
@@ -249,7 +249,7 @@ fn zero_vector_normalize() {
 
     // Fallible normalization rejects the zero vector
     assert_eq!(zero.try_normalized(), None);
-    assert!(zero.try_normalize().is_err());
+    assert!(zero.try_normalize().is_none());
     assert_eq!(zero, Vector::new([0.0f64, 0.0, 0.0]));
 
     // The zero vector will normalize to NAN via the unchecked functions
