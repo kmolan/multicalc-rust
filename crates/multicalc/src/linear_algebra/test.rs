@@ -280,6 +280,7 @@ impl Numeric for Counted {
     const ZERO: Self = Counted(0.0);
     const ONE: Self = Counted(1.0);
     const TWO: Self = Counted(2.0);
+    const THREE: Self = Counted(3.0);
     const HALF: Self = Counted(0.5);
     const TEN: Self = Counted(10.0);
     const HUNDRED: Self = Counted(f64::HUNDRED);
@@ -309,6 +310,9 @@ impl Numeric for Counted {
     }
     fn sqrt(self) -> Self {
         Counted(libm::sqrt(self.0))
+    }
+    fn cbrt(self) -> Self {
+        Counted(libm::cbrt(self.0))
     }
     fn sin(self) -> Self {
         Counted(libm::sin(self.0))

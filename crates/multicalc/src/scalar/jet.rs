@@ -210,6 +210,7 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     const ZERO: Self = Self::constant(T::ZERO);
     const ONE: Self = Self::constant(T::ONE);
     const TWO: Self = Self::constant(T::TWO);
+    const THREE: Self = Self::constant(T::THREE);
     const HALF: Self = Self::constant(T::HALF);
     const TEN: Self = Self::constant(T::TEN);
     const HUNDRED: Self = Self::constant(T::HUNDRED);
@@ -264,6 +265,46 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
             }
             u[k] = (v[k] - acc) / (T::TWO * u[0]);
         }
+        Jet { coeffs: u }
+    }
+
+    /// Cube root via Cauchy-product recurrence.
+    ///
+    /// We want `u = v^(1/3)`, i.e. `u·u·u = v` (Cauchy product). Writing `w = u·u`
+    /// (the Cauchy square, built up incrementally alongside `u`), the coefficient of
+    /// `u_k` in `(u·u·u)_k` is `3·u₀²` (it appears once from `i=k, j=l=0` and twice
+    /// more from `w`'s own `u₀·u_k` term), so:
+    ///
+    /// `uₖ = (vₖ − u₀·Σ_{m=1}^{k-1} uₘ·u₍ₖ₋ₘ₎ − Σ_{i=1}^{k-1} uᵢ·w₍ₖ₋ᵢ₎) / (3u₀²)`
+    ///
+    /// Unbounded at `value == 0`.
+    #[inline]
+    fn cbrt(self) -> Self {
+        let v = &self.coeffs;
+        let mut u = [T::ZERO; N];
+        let mut w = [T::ZERO; N]; // w[j] = (u·u)[j] = Σ_{m=0..=j} u[m]·u[j-m]
+
+        u[0] = v[0].cbrt();
+        w[0] = u[0] * u[0];
+        let three_u0_sq = w[0] + T::TWO * w[0];
+
+        for k in 1..N {
+            // p = Σ_{m=1}^{k-1} u[m]·u[k-m]  (the part of w[k] not involving u[0] or u[k])
+            let mut p = T::ZERO;
+            for m in 1..k {
+                p += u[m] * u[k - m];
+            }
+
+            // acc = everything in (u·u·u)[k] except the 3·u0²·u_k term
+            let mut acc = u[0] * p;
+            for i in 1..k {
+                acc += u[i] * w[k - i];
+            }
+
+            u[k] = (v[k] - acc) / three_u0_sq;
+            w[k] = p + T::TWO * u[0] * u[k]; // complete w[k] now that u[k] is known
+        }
+
         Jet { coeffs: u }
     }
 

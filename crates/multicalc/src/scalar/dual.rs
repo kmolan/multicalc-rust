@@ -164,6 +164,10 @@ impl<T: Numeric> Numeric for Dual<T> {
         value: T::TWO,
         deriv: T::ZERO,
     };
+    const THREE: Self = Dual {
+        value: T::THREE,
+        deriv: T::ZERO,
+    };
     const HALF: Self = Dual {
         value: T::HALF,
         deriv: T::ZERO,
@@ -250,6 +254,15 @@ impl<T: Numeric> Numeric for Dual<T> {
         Dual {
             value: root,
             deriv: self.deriv / (T::TWO * root),
+        }
+    }
+    /// At `value == 0` the derivative is unbounded (`1/(3·0)`) and becomes `inf`/`NaN`.
+    #[inline]
+    fn cbrt(self) -> Self {
+        let root = self.value.cbrt();
+        Dual {
+            value: root,
+            deriv: self.deriv / (T::THREE * root * root),
         }
     }
     #[inline]

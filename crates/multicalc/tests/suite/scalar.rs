@@ -36,6 +36,8 @@ mod numeric_methods {
         assert!((Numeric::log2(7.0_f64) - 7.0_f64.log2()).abs() < TOL);
         assert!((Numeric::log10(7.0_f64) - 7.0_f64.log10()).abs() < TOL);
         assert_eq!(Numeric::mul_add(2.0_f64, 3.0, 1.0), 7.0);
+        assert_eq!(Numeric::sqrt(4.0_f64), 2.0);
+        assert_eq!(Numeric::cbrt(8.0_f64), 2.0);
         assert_eq!(Numeric::recip(4.0_f64), 0.25);
         assert_eq!(Numeric::signum(-3.0_f64), -1.0);
         assert!(Numeric::signum(f64::NAN).is_nan());
@@ -155,6 +157,14 @@ mod dual {
         let root = Dual::variable(4.0_f64).sqrt();
         assert!(f64::abs(root.value - 2.0) < TOL);
         assert!(f64::abs(root.deriv - 0.25) < TOL);
+    }
+
+    #[test]
+    fn cbrt_value_and_derivative() {
+        // f(x) = cbrt(x), f'(x) = 1/(3 x^(2/3)); at x = 27 -> 3 and 1/27
+        let root = Dual::variable(27.0_f64).cbrt();
+        assert!(f64::abs(root.value - 3.0) < TOL);
+        assert!(f64::abs(root.deriv - 1.0 / 27.0) < TOL);
     }
 
     #[test]
@@ -451,6 +461,28 @@ mod hyper_dual {
     }
 
     #[test]
+    fn sqrt_second_derivative() {
+        // f(x) = sqrt(x) -> f' = 1/(2 * sqrt(x)), f'' = -1/(4 * x^3/2)
+        let x = 3.7_f64;
+        let root_x = f64::sqrt(x);
+        let sqrt = HyperDual::variable(x).sqrt();
+        assert!(f64::abs(sqrt.real - root_x) < TOL);
+        assert!(f64::abs(sqrt.eps1 - 0.5 / root_x) < TOL);
+        assert!(f64::abs(sqrt.eps1eps2 - (-0.25 / (x * root_x))) < TOL);
+    }
+
+    #[test]
+    fn cbrt_second_derivative() {
+        // f(x) = cbrt(x) -> f' = 1/(3 * x^2/3), f'' = -2/(9 * x^5/3)
+        let x = 3.7_f64;
+        let root_x = f64::cbrt(x);
+        let cbrt = HyperDual::variable(x).cbrt();
+        assert!(f64::abs(cbrt.real - root_x) < TOL);
+        assert!(f64::abs(cbrt.eps1 - 1.0 / (3.0 * root_x * root_x)) < TOL);
+        assert!(f64::abs(cbrt.eps1eps2 - (-2.0 * root_x / (9.0 * x * x))) < TOL);
+    }
+
+    #[test]
     fn sin_second_derivative() {
         // f(x) = sin(x) -> f' = cos(x), f'' = -sin(x)
         let x = 0.7_f64;
@@ -715,6 +747,18 @@ mod jet {
         assert!(f64::abs(root.derivative(1) - 1.0 / (2.0 * f64::sqrt(x))) < TOL);
         assert!(f64::abs(root.derivative(2) - (-1.0 / (4.0 * x * f64::sqrt(x)))) < TOL);
         assert!(f64::abs(root.derivative(3) - 3.0 / (8.0 * x * x * f64::sqrt(x))) < TOL);
+    }
+
+    #[test]
+    fn cbrt_derivatives_to_third_order() {
+        // f(x) = cbrt(x): f'=1/(3 * x^{2/3}), f''=-2/(9 x^{5/3}), f'''=10/(27 x^{8/3})
+        let x = 1.7_f64;
+        let root_x = f64::cbrt(x);
+        let cbrt = Jet::<f64, 4>::variable(x).cbrt();
+        assert!(f64::abs(cbrt.derivative(0) - root_x) < TOL);
+        assert!(f64::abs(cbrt.derivative(1) - 1.0 / (3.0 * root_x * root_x)) < TOL);
+        assert!(f64::abs(cbrt.derivative(2) - (-2.0 * root_x / (9.0 * x * x))) < TOL);
+        assert!(f64::abs(cbrt.derivative(3) - 10.0 * root_x / (27.0 * x * x * x)) < TOL);
     }
 
     #[test]

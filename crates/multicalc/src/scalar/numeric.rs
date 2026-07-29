@@ -30,6 +30,8 @@ pub trait Numeric:
     const ONE: Self;
     /// The value `2`.
     const TWO: Self;
+    /// The value `3`.
+    const THREE: Self;
     /// The value `0.5`.
     const HALF: Self;
     /// The value `10`.
@@ -78,6 +80,8 @@ pub trait Numeric:
     fn abs(self) -> Self;
     /// Square root.
     fn sqrt(self) -> Self;
+    /// Cube root.
+    fn cbrt(self) -> Self;
     /// Sine, with `self` in radians.
     fn sin(self) -> Self;
     /// Cosine, with `self` in radians.
@@ -305,6 +309,7 @@ impl Numeric for f64 {
     const ZERO: Self = 0.0;
     const ONE: Self = 1.0;
     const TWO: Self = 2.0;
+    const THREE: Self = 3.0;
     const HALF: Self = 0.5;
     const TEN: Self = 10.0;
     const HUNDRED: Self = 100.0;
@@ -339,6 +344,10 @@ impl Numeric for f64 {
     #[inline]
     fn sqrt(self) -> Self {
         libm::sqrt(self)
+    }
+    #[inline]
+    fn cbrt(self) -> Self {
+        libm::cbrt(self)
     }
     #[inline]
     fn sin(self) -> Self {
@@ -464,6 +473,7 @@ impl Numeric for f32 {
     const ZERO: Self = 0.0;
     const ONE: Self = 1.0;
     const TWO: Self = 2.0;
+    const THREE: Self = 3.0;
     const HALF: Self = 0.5;
     const TEN: Self = 10.0;
     const HUNDRED: Self = 100.0;
@@ -498,6 +508,10 @@ impl Numeric for f32 {
     #[inline]
     fn sqrt(self) -> Self {
         libm::sqrtf(self)
+    }
+    #[inline]
+    fn cbrt(self) -> Self {
+        libm::cbrtf(self)
     }
     #[inline]
     fn sin(self) -> Self {

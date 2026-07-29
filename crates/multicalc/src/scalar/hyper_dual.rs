@@ -217,6 +217,12 @@ impl<T: Numeric> Numeric for HyperDual<T> {
         eps2: T::ZERO,
         eps1eps2: T::ZERO,
     };
+    const THREE: Self = HyperDual {
+        real: T::THREE,
+        eps1: T::ZERO,
+        eps2: T::ZERO,
+        eps1eps2: T::ZERO,
+    };
     const HALF: Self = HyperDual {
         real: T::HALF,
         eps1: T::ZERO,
@@ -322,6 +328,14 @@ impl<T: Numeric> Numeric for HyperDual<T> {
         let root = self.real.sqrt();
         let d1 = T::ONE / (T::TWO * root);
         let d2 = -(d1 / (T::TWO * self.real));
+        self.chain(root, d1, d2)
+    }
+    /// At `real == 0` the derivatives are unbounded and become `inf`/`NaN`.
+    #[inline]
+    fn cbrt(self) -> Self {
+        let root = self.real.cbrt();
+        let d1 = T::ONE / (T::THREE * root * root);
+        let d2 = -(T::TWO * d1 * d1 / root);
         self.chain(root, d1, d2)
     }
     #[inline]
