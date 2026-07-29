@@ -316,10 +316,10 @@ the ergonomic path and panics on out-of-range like `Vec`. Use `get` / `get_mut` 
 Direct linear solves via LU and Cholesky:
 
 ```rust
-use multicalc::{Matrix, Vector};
+use multicalc::{Matrix2D, Matrix3D, Vector};
 
 // Solve A·x = b.
-let a = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+let a = Matrix3D::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
 let b = Vector::new([7.0, 19.0, 49.0]);
 let x = a.solve(b).unwrap();                        // [1, 2, 3]
 
@@ -328,7 +328,7 @@ let det = lu.determinant();
 let inv = lu.inverse();
 
 // A symmetric positive-definite matrix has a faster Cholesky path.
-let s = Matrix::<2, 2>::new([[4.0, 2.0], [2.0, 3.0]]);
+let s = Matrix2D::new([[4.0, 2.0], [2.0, 3.0]]);
 let s_inv = s.cholesky().unwrap().inverse();
 ```
 
@@ -512,10 +512,10 @@ Initial-value solvers for `y' = f(t, y)` systems, generic over the state dimensi
 
 ```rust
 use multicalc::{Rk4, Rk45};
-use multicalc::Vector;
+use multicalc::{Vector, Vector2D};
 
 // Harmonic oscillator y'' = -y as the first-order system [position, velocity].
-let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+let f = |_t: f64, y: &Vector2D| Vector::new([y[1], -y[0]]);
 let y0 = Vector::new([1.0, 0.0]);
 
 let start_time = 0.0;
@@ -533,9 +533,9 @@ quantity as the solver runs:
 
 ```rust
 use multicalc::Rk45;
-use multicalc::Vector;
+use multicalc::{Vector, Vector2D};
 
-let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+let f = |_t: f64, y: &Vector2D| Vector::new([y[1], -y[0]]);
 let y0 = Vector::new([1.0, 0.0]);
 let relative_tolerance = 1e-9;
 let absolute_tolerance = 1e-12;
@@ -545,7 +545,7 @@ let solver = Rk45::default()
 
 let start_time = 0.0;
 let times = [0.5, 1.0, 2.0, 3.0];
-let mut out = [Vector::<2, f64>::zeros(); 4];
+let mut out = [Vector2D::zeros(); 4];
 solver.solve_on_grid(&f, start_time, &y0, &times, &mut out).unwrap();
 ```
 
@@ -568,26 +568,26 @@ through them: a single `Dual` recovers a derivative with respect to a parameter.
 
 ```rust
 use multicalc::{q_discrete_white_noise, van_loan, zoh};
-use multicalc::Matrix;
+use multicalc::{Matrix, Matrix2D};
 use multicalc::Dual;
 
 let dt = 0.1;
 
 // Zero-order hold of the double integrator: F = [[1, dt], [0, 1]], G = [[dt^2/2], [dt]].
-let a = Matrix::<2, 2>::new([[0.0, 1.0], [0.0, 0.0]]);
+let a = Matrix2D::new([[0.0, 1.0], [0.0, 0.0]]);
 let b = Matrix::<2, 1>::new([[0.0], [1.0]]);
 let (f, g) = zoh::<2, 1, 3, f64>(a, b, dt).unwrap();      // f[(0, 1)] == dt, g[(1, 0)] == dt
 
 // Van Loan process-noise discretization of continuous white noise on velocity.
-let qc = Matrix::<2, 2>::new([[0.0, 0.0], [0.0, 1.0]]);
+let qc = Matrix2D::new([[0.0, 0.0], [0.0, 1.0]]);
 let (_f, qd) = van_loan::<2, 4, f64>(a, qc, dt).unwrap(); // qd[(1, 1)] == dt, symmetric
 
 // Discrete white-noise model.
 let q = q_discrete_white_noise::<2, f64>(dt, 2.0);        // q[(1, 1)] == 2*dt^2
 
 // d/dx expm(x·M) at x = 0 equals M, recovered by one Dual through expm.
-let m = Matrix::<2, 2>::new([[0.2, 0.5], [-0.1, 0.3]]);
-let ad = Matrix::<2, 2, Dual<f64>>::from_fn(|i, j| {
+let m = Matrix2D::new([[0.2, 0.5], [-0.1, 0.3]]);
+let ad = Matrix2D::<Dual<f64>>::from_fn(|i, j| {
   Dual::new(0.0, m[(i, j)])
 })
     .expm()
@@ -1105,7 +1105,7 @@ are reachable through `core::error::Error::source`. Convert up to the umbrella w
 `.into()`:
 
 ```rust
-use multicalc::{CalcError, Matrix, Vector};
+use multicalc::{CalcError, Matrix, Matrix3D, Vector};
 
 // One return type covers a function that mixes modules: each `?` converts the module's own
 // error into the umbrella on its way out.
@@ -1117,7 +1117,7 @@ fn solve() -> Result<(), CalcError> {
     assert!((a * x - b).norm() < 1e-9);
 
     // A singular matrix returns `LinalgError::Singular` here rather than panicking.
-    let singular = Matrix::<3, 3>::zeros();
+    let singular = Matrix3D::<f64>::zeros();
     assert!(singular.lu().is_err());
 
     Ok(())

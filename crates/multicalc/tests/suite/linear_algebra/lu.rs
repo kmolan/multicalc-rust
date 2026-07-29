@@ -1,5 +1,5 @@
 use multicalc::error::LinalgError;
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Matrix4D, Vector};
 use multicalc_testkit::tol::{assert_identity, assert_matrix_close, lu_reconstructs, max_abs};
 use proptest::prelude::*;
 use proptest::test_runner::TestCaseError;
@@ -10,11 +10,11 @@ use proptest::test_runner::TestCaseError;
 fn lu_reconstructs_pivoted_matrix() {
     // The largest first-column entry is in the last row, forcing a swap.
     lu_reconstructs(
-        Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]),
+        Matrix3D::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]),
         1e-12,
     );
     lu_reconstructs(
-        Matrix::<4, 4>::new([
+        Matrix4D::new([
             [4.0, 3.0, 2.0, 1.0],
             [3.0, 4.0, 3.0, 2.0],
             [2.0, 3.0, 4.0, 3.0],
@@ -24,7 +24,7 @@ fn lu_reconstructs_pivoted_matrix() {
     );
     // The same code at f32.
     lu_reconstructs(
-        Matrix::<3, 3, f32>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]),
+        Matrix3D::<f32>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]),
         1e-5,
     );
 }
@@ -32,10 +32,10 @@ fn lu_reconstructs_pivoted_matrix() {
 #[test]
 fn lu_determinant_matches_direct() {
     // Cross-check against the direct determinant, including the pivot-sign handling.
-    let pivoted = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    let pivoted = Matrix3D::<f64>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
     assert!((pivoted.lu().unwrap().determinant() - pivoted.determinant()).abs() < 1e-12);
 
-    let non_symmetric = Matrix::<4, 4>::new([
+    let non_symmetric = Matrix4D::<f64>::new([
         [1.0, 2.0, 3.0, 4.0],
         [2.0, 1.0, 0.0, 1.0],
         [0.0, 3.0, 1.0, 2.0],
@@ -50,17 +50,17 @@ fn lu_determinant_matches_direct() {
 #[test]
 fn lu_rejects_singular() {
     // A zero column: the pivot search turns up only zeros.
-    let zero_column = Matrix::<3, 3>::new([[1.0, 0.0, 2.0], [3.0, 0.0, 4.0], [5.0, 0.0, 6.0]]);
+    let zero_column = Matrix3D::new([[1.0, 0.0, 2.0], [3.0, 0.0, 4.0], [5.0, 0.0, 6.0]]);
     assert_eq!(zero_column.lu().err(), Some(LinalgError::Singular));
 
     // Dependent rows drive a pivot to zero during elimination.
-    let dependent = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 4.0]]);
+    let dependent = Matrix2D::new([[1.0, 2.0], [2.0, 4.0]]);
     assert_eq!(dependent.lu().err(), Some(LinalgError::Singular));
 }
 
 #[test]
 fn lu_solves() {
-    let matrix = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    let matrix = Matrix3D::<f64>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
     let factorization = matrix.lu().unwrap();
 
     // Single RHS: A·x = b has the exact solution x = [1, 2, 3], with a tiny residual.

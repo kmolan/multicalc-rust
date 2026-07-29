@@ -8,7 +8,7 @@
 use std::hint::black_box;
 use std::time::Instant;
 
-use multicalc::{CalcError, Matrix, Vector};
+use multicalc::{CalcError, Matrix, Matrix2D, Matrix4D, Vector};
 
 /// Mean wall-clock time per call, in nanoseconds, over `iters` runs.
 fn time<T>(iters: u32, mut f: impl FnMut() -> T) -> (T, f64) {
@@ -93,9 +93,9 @@ fn cholesky_report<const N: usize>(a: Matrix<N, N>, label: &str) -> Result<(), C
     Ok(())
 }
 
-fn inverse4_report(a: Matrix<4, 4>, label: &str) -> Result<(), CalcError> {
+fn inverse4_report(a: Matrix4D, label: &str) -> Result<(), CalcError> {
     let (inverse, ns) = time(100_000, || black_box(a).inverse());
-    let identity_err = max_abs(a * inverse?, Matrix::<4, 4>::identity());
+    let identity_err = max_abs(a * inverse?, Matrix4D::identity());
     println!("  {label:<14} {ns:>8.1} ns   identity err {identity_err:.1e}");
     Ok(())
 }
@@ -125,7 +125,7 @@ fn main() -> Result<(), CalcError> {
 
     // Error path: the guard rejects a non-positive-definite matrix before taking a root. This one
     // is expected to fail, so it is matched rather than propagated.
-    let indefinite = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 1.0]]);
+    let indefinite = Matrix2D::new([[1.0, 2.0], [2.0, 1.0]]);
     match indefinite.cholesky() {
         Ok(_) => println!("  {:<14} unexpectedly accepted", "indefinite 2x2"),
         Err(error) => println!("  {:<14} rejected: {error}", "indefinite 2x2"),

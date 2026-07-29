@@ -10,7 +10,7 @@
 use std::hint::black_box;
 use std::time::Instant;
 
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Matrix3D, Matrix6D, Vector};
 
 /// Mean wall-clock time per call, in nanoseconds, over `iters` runs.
 fn time<T>(iters: u32, mut f: impl FnMut() -> T) -> (T, f64) {
@@ -46,7 +46,7 @@ fn max_entry<const R: usize, const C: usize>(a: Matrix<R, C>) -> f64 {
 
 /// Kabsch/Wahba: recover a known rotation from paired point clouds via the 3x3 cross-covariance.
 fn kabsch() {
-    let rot = Matrix::<3, 3>::new([
+    let rot = Matrix3D::new([
         [2.0 / 3.0, -2.0 / 3.0, -1.0 / 3.0],
         [1.0 / 3.0, 2.0 / 3.0, -2.0 / 3.0],
         [2.0 / 3.0, 1.0 / 3.0, 2.0 / 3.0],
@@ -63,7 +63,7 @@ fn kabsch() {
         [-1.0, 0.5, 2.0],
     ];
     // Cross-covariance H = Σ (R·p) pᵀ.
-    let mut h = Matrix::<3, 3>::zeros();
+    let mut h = Matrix3D::<f64>::zeros();
     for p in pts {
         let pv = Vector::new(p);
         let q = rot * pv;
@@ -86,7 +86,7 @@ fn kabsch() {
         rhat = uf * v.transpose();
     }
     let rot_err = max_abs(rhat, rot);
-    let ortho_err = max_abs(rhat.transpose() * rhat, Matrix::<3, 3>::identity());
+    let ortho_err = max_abs(rhat.transpose() * rhat, Matrix3D::identity());
     assert!(
         rot_err < 1e-9 && ortho_err < 1e-9,
         "SVD should recover the rotation"
@@ -118,7 +118,7 @@ fn redundant_arm() {
 
 /// Near kinematic singularity: two joint axes nearly align, so one singular value is tiny.
 fn near_singular() {
-    let mut j = Matrix::<6, 6>::from_fn(|i, jj| {
+    let mut j = Matrix6D::from_fn(|i, jj| {
         if i == jj {
             1.0 + 0.1 * jj as f64
         } else {

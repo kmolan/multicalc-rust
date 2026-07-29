@@ -22,7 +22,7 @@
 
 use core::ops::{Add, Mul, Neg, Sub};
 
-use crate::linear_algebra::{Matrix, Vector};
+use crate::linear_algebra::{Matrix, Matrix3D, Vector, Vector3D};
 use crate::scalar::Numeric;
 
 use crate::spatial::{small_angle, small_angle_sq};
@@ -68,7 +68,7 @@ impl<T: Numeric> Quaternion<T> {
 
     /// Builds a quaternion from a scalar part and a vector part.
     #[inline]
-    pub fn from_scalar_vector(w: T, v: Vector<3, T>) -> Self {
+    pub fn from_scalar_vector(w: T, v: Vector3D<T>) -> Self {
         let [x, y, z] = *v.as_array();
         Quaternion { w, x, y, z }
     }
@@ -99,7 +99,7 @@ impl<T: Numeric> Quaternion<T> {
 
     /// The vector (imaginary) part `[x, y, z]`.
     #[inline]
-    pub fn vec(self) -> Vector<3, T> {
+    pub fn vec(self) -> Vector3D<T> {
         Vector::new([self.x, self.y, self.z])
     }
 
@@ -229,7 +229,7 @@ impl<T: Numeric> Quaternion<T> {
     /// assert!((rotated[2] - 0.0).abs() < 1e-12);
     /// ```
     #[inline]
-    pub fn from_axis_angle(axis: Vector<3, T>, angle: T) -> Self {
+    pub fn from_axis_angle(axis: Vector3D<T>, angle: T) -> Self {
         let an = axis.dot(axis).sqrt();
         if an <= T::EPSILON {
             return Self::identity();
@@ -250,7 +250,7 @@ impl<T: Numeric> Quaternion<T> {
     /// Taylor series in `θ²`, so no `sqrt` is taken there and the AD derivative stays finite at
     /// `φ = 0` (a robot at rest).
     #[inline]
-    pub fn from_scaled_axis(rotvec: Vector<3, T>) -> Self {
+    pub fn from_scaled_axis(rotvec: Vector3D<T>) -> Self {
         let theta_sq = rotvec.dot(rotvec);
         let (w, scale) = if theta_sq < small_angle_sq::<T>() {
             // Taylor in θ²; avoids `sqrt(0)`, whose derivative is NaN.
@@ -292,7 +292,7 @@ impl<T: Numeric> Quaternion<T> {
     /// (orthonormal, determinant +1) rotation is assumed; `None` guards only against a degenerate
     /// pivot that would divide by zero.
     #[inline]
-    pub fn try_from_rotation_matrix(m: Matrix<3, 3, T>) -> Option<Self> {
+    pub fn try_from_rotation_matrix(m: Matrix3D<T>) -> Option<Self> {
         let quarter = T::from_f64(0.25);
         let [[m00, m01, m02], [m10, m11, m12], [m20, m21, m22]] = m.into_array();
         let trace = m00 + m11 + m22;
@@ -335,7 +335,7 @@ impl<T: Numeric> Quaternion<T> {
     /// The 3×3 rotation matrix. Assumes a unit quaternion; call [`Quaternion::normalized`] first
     /// if it may have drifted.
     #[inline]
-    pub fn to_rotation_matrix(self) -> Matrix<3, 3, T> {
+    pub fn to_rotation_matrix(self) -> Matrix3D<T> {
         let (w, x, y, z) = (self.w, self.x, self.y, self.z);
         let two = T::TWO;
         Matrix::new([
@@ -360,7 +360,7 @@ impl<T: Numeric> Quaternion<T> {
     /// The rotation as a `(unit axis, angle)` pair, with `angle` in `[0, π]`. Assumes a unit
     /// quaternion. A near-zero rotation returns the x-axis and a zero angle.
     #[inline]
-    pub fn to_axis_angle(self) -> (Vector<3, T>, T) {
+    pub fn to_axis_angle(self) -> (Vector3D<T>, T) {
         let q = if self.w < T::ZERO { -self } else { self };
         let vn = (q.x * q.x + q.y * q.y + q.z * q.z).sqrt();
         if vn <= T::EPSILON {
@@ -377,7 +377,7 @@ impl<T: Numeric> Quaternion<T> {
     /// [`Quaternion::from_scaled_axis`]. Assumes a unit quaternion; the shortest-path sign fix is
     /// applied so `‖φ‖ ≤ π`.
     #[inline]
-    pub fn to_scaled_axis(self) -> Vector<3, T> {
+    pub fn to_scaled_axis(self) -> Vector3D<T> {
         let q = if self.w < T::ZERO { -self } else { self };
         let vn = (q.x * q.x + q.y * q.y + q.z * q.z).sqrt();
         let coeff = if vn < small_angle::<T>() {
@@ -414,7 +414,7 @@ impl<T: Numeric> Quaternion<T> {
 
     /// Rotates a point by the sandwich product `q · (0, v) · q⁻¹`. Assumes a unit quaternion.
     #[inline]
-    pub fn transform_point(self, v: Vector<3, T>) -> Vector<3, T> {
+    pub fn transform_point(self, v: Vector3D<T>) -> Vector3D<T> {
         let [x, y, z] = *v.as_array();
         let p = Quaternion {
             w: T::ZERO,

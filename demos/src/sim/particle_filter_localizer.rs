@@ -2,7 +2,7 @@
 
 use multicalc::error::EstimationError;
 use multicalc::estimation::ParticleFilter;
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Matrix3D, Vector, Vector3D};
 use multicalc::scalar::{Numeric, VectorFn};
 
 use super::kalman_filter_models::diagonal;
@@ -108,7 +108,7 @@ impl<const BEAMS: usize> GlobalLocalizer<BEAMS> {
     }
 
     /// The best current pose and the spread of the position and heading around it.
-    pub fn estimate(&self) -> (Vector<3, f64>, Matrix<3, 3, f64>) {
+    pub fn estimate(&self) -> (Vector3D, Matrix3D) {
         let particles = self.filter.particles();
         let weights = self.filter.weights();
         let (mut mean_x, mut mean_y, mut sin_sum, mut cos_sum) = (0.0, 0.0, 0.0, 0.0);
@@ -158,7 +158,7 @@ impl<const BEAMS: usize> GlobalLocalizer<BEAMS> {
         self.filter.particles().len()
     }
 
-    pub fn particles(&self) -> &[Vector<3, f64>] {
+    pub fn particles(&self) -> &[Vector3D] {
         self.filter.particles()
     }
 }

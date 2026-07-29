@@ -2,15 +2,15 @@
 //! and scalar-generic behaviour at f32 and under autodiff.
 
 use multicalc::error::SpatialError;
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Matrix3D, Vector, Vector3D};
 use multicalc::scalar::Dual;
 use multicalc::spatial::SpatialInertia;
 
-fn unit_inertia() -> Matrix<3, 3, f64> {
+fn unit_inertia() -> Matrix3D {
     Matrix::from_diagonal([1.0, 1.0, 1.0])
 }
 
-fn origin() -> Vector<3, f64> {
+fn origin() -> Vector3D {
     Vector::new([0.0, 0.0, 0.0])
 }
 

@@ -4,7 +4,7 @@
 
 use std::f64::consts::PI;
 
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Vector, Vector3D, Vector6D};
 use multicalc::scalar::{Dual, Numeric};
 use multicalc::spatial::{SE2, SE3, SO2, SO3};
 use rand::rngs::StdRng;
@@ -14,7 +14,7 @@ const TOL: f64 = 1e-10;
 
 // ---- helpers ----------------------------------------------------------------
 
-fn random_vector3(rng: &mut StdRng) -> Vector<3, f64> {
+fn random_vector3(rng: &mut StdRng) -> Vector3D {
     Vector::new([
         rng.gen_range(-1.0..1.0),
         rng.gen_range(-1.0..1.0),
@@ -22,7 +22,7 @@ fn random_vector3(rng: &mut StdRng) -> Vector<3, f64> {
     ])
 }
 
-fn random_unit_vector3(rng: &mut StdRng) -> Vector<3, f64> {
+fn random_unit_vector3(rng: &mut StdRng) -> Vector3D {
     loop {
         let vector = random_vector3(rng);
         let norm = vector.dot(vector).sqrt();
@@ -32,7 +32,7 @@ fn random_unit_vector3(rng: &mut StdRng) -> Vector<3, f64> {
     }
 }
 
-fn random_twist6(rng: &mut StdRng) -> Vector<6, f64> {
+fn random_twist6(rng: &mut StdRng) -> Vector6D {
     Vector::new([
         rng.gen_range(-1.0..1.0),
         rng.gen_range(-1.0..1.0),

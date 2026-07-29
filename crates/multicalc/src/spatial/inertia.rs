@@ -1,7 +1,7 @@
 //! A rigid body's mass distribution.
 
 use crate::error::SpatialError;
-use crate::linear_algebra::{Matrix, Vector};
+use crate::linear_algebra::{Matrix, Matrix3D, Vector3D};
 use crate::scalar::Numeric;
 
 /// How a rigid body's mass is spread out: how much there is, where it balances, and how hard it is
@@ -25,8 +25,8 @@ use crate::scalar::Numeric;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SpatialInertia<T: Numeric = f64> {
     mass: T,
-    center_of_mass: Vector<3, T>,
-    rotational_inertia: Matrix<3, 3, T>,
+    center_of_mass: Vector3D<T>,
+    rotational_inertia: Matrix3D<T>,
 }
 
 impl<T: Numeric> SpatialInertia<T> {
@@ -55,8 +55,8 @@ impl<T: Numeric> SpatialInertia<T> {
     /// ```
     pub fn new(
         mass: T,
-        center_of_mass: Vector<3, T>,
-        rotational_inertia: Matrix<3, 3, T>,
+        center_of_mass: Vector3D<T>,
+        rotational_inertia: Matrix3D<T>,
     ) -> Result<Self, SpatialError> {
         if !mass.is_finite() || !center_of_mass.is_finite() || !rotational_inertia.is_finite() {
             return Err(SpatialError::NonFinite);
@@ -102,8 +102,8 @@ impl<T: Numeric> SpatialInertia<T> {
     /// ```
     pub fn from_diagonal_inertia(
         mass: T,
-        center_of_mass: Vector<3, T>,
-        diagonal: Vector<3, T>,
+        center_of_mass: Vector3D<T>,
+        diagonal: Vector3D<T>,
     ) -> Result<Self, SpatialError> {
         Self::new(
             mass,
@@ -121,13 +121,13 @@ impl<T: Numeric> SpatialInertia<T> {
 
     /// The point the body balances about, in body axes.
     #[inline]
-    pub fn center_of_mass(self) -> Vector<3, T> {
+    pub fn center_of_mass(self) -> Vector3D<T> {
         self.center_of_mass
     }
 
     /// How the body resists being spun about its balance point, in body axes.
     #[inline]
-    pub fn rotational_inertia(self) -> Matrix<3, 3, T> {
+    pub fn rotational_inertia(self) -> Matrix3D<T> {
         self.rotational_inertia
     }
 
@@ -149,7 +149,7 @@ impl<T: Numeric> SpatialInertia<T> {
     /// let shifted = body.inertia_about(Vector::new([1.0, 0.0, 0.0]));
     /// assert_eq!(shifted.diagonal(), [1.0, 2.0, 2.0]);
     /// ```
-    pub fn inertia_about(self, point: Vector<3, T>) -> Matrix<3, 3, T> {
+    pub fn inertia_about(self, point: Vector3D<T>) -> Matrix3D<T> {
         let offset = point - self.center_of_mass;
         let distance_squared = offset.dot(offset);
         Matrix::from_fn(|row, col| {

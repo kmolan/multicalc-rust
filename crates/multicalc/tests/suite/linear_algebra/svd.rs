@@ -1,5 +1,5 @@
 use multicalc::error::LinalgError;
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Matrix3D, Matrix4D, Matrix6D, Vector, Vector6D};
 use multicalc_testkit::tol::{
     assert_identity, assert_matrix_close, svd_moore_penrose, svd_moore_penrose_f32,
     svd_reconstructs,
@@ -12,7 +12,7 @@ fn svd_reconstructs_various() {
         1e-12,
     );
     svd_reconstructs(
-        Matrix::<3, 3>::new([[4.0, 1.0, 2.0], [1.0, 5.0, 3.0], [2.0, 3.0, 6.0]]),
+        Matrix3D::new([[4.0, 1.0, 2.0], [1.0, 5.0, 3.0], [2.0, 3.0, 6.0]]),
         1e-12,
     );
     svd_reconstructs(
@@ -47,7 +47,7 @@ fn svd_reconstructs_various() {
     );
     // The same code at f32.
     svd_reconstructs(
-        Matrix::<3, 3, f32>::new([[4.0, 1.0, 2.0], [1.0, 5.0, 3.0], [2.0, 3.0, 6.0]]),
+        Matrix3D::<f32>::new([[4.0, 1.0, 2.0], [1.0, 5.0, 3.0], [2.0, 3.0, 6.0]]),
         1e-4,
     );
 }
@@ -56,12 +56,12 @@ fn svd_reconstructs_various() {
 fn svd_singular_values() {
     // A symmetric matrix built from a known spectrum: A = R·diag(σ)·Rᵀ with R a proper rotation,
     // so the singular values are exactly [6, 3, 1].
-    let rotation = Matrix::<3, 3>::new([
+    let rotation = Matrix3D::<f64>::new([
         [2.0 / 3.0, -2.0 / 3.0, -1.0 / 3.0],
         [1.0 / 3.0, 2.0 / 3.0, -2.0 / 3.0],
         [2.0 / 3.0, 1.0 / 3.0, 2.0 / 3.0],
     ]);
-    let spectrum = Matrix::<3, 3>::new([[6.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 1.0]]);
+    let spectrum = Matrix3D::new([[6.0, 0.0, 0.0], [0.0, 3.0, 0.0], [0.0, 0.0, 1.0]]);
     let singular_values = (rotation * spectrum * rotation.transpose())
         .svd()
         .unwrap()
@@ -71,7 +71,7 @@ fn svd_singular_values() {
     }
 
     // Diagonal input: singular values are the sorted absolute diagonal.
-    let diagonal_matrix = Matrix::<4, 4>::from_fn(|row, column| {
+    let diagonal_matrix = Matrix4D::<f64>::from_fn(|row, column| {
         if row == column {
             [3.0, -5.0, 2.0, -1.0][row]
         } else {
@@ -95,7 +95,7 @@ fn svd_pseudo_inverse_conditions() {
         1e-10,
     );
     svd_moore_penrose(
-        Matrix::<3, 3>::new([[4.0, 1.0, 2.0], [1.0, 5.0, 3.0], [2.0, 3.0, 6.0]]),
+        Matrix3D::new([[4.0, 1.0, 2.0], [1.0, 5.0, 3.0], [2.0, 3.0, 6.0]]),
         1e-10,
     );
     svd_moore_penrose(
@@ -112,7 +112,7 @@ fn svd_pseudo_inverse_conditions() {
 
 #[test]
 fn svd_f32_pseudo_inverse_conditions() {
-    svd_moore_penrose_f32(Matrix::<3, 3, f32>::new([
+    svd_moore_penrose_f32(Matrix3D::<f32>::new([
         [4.0, 1.0, 2.0],
         [1.0, 5.0, 3.0],
         [2.0, 3.0, 6.0],
@@ -128,7 +128,7 @@ fn svd_f32_pseudo_inverse_conditions() {
         [0.0, 1.0, 1.0, 3.0],
     ]));
     // The second column is twice the first, and the third is their sum.
-    svd_moore_penrose_f32(Matrix::<3, 3, f32>::new([
+    svd_moore_penrose_f32(Matrix3D::<f32>::new([
         [1.0, 2.0, 3.0],
         [2.0, 4.0, 6.0],
         [3.0, 6.0, 9.0],
@@ -179,7 +179,7 @@ fn svd_error_paths() {
 #[test]
 fn svd_kabsch_rotation_recovery() {
     // A proper rotation (orthonormal, determinant +1).
-    let rotation = Matrix::<3, 3>::new([
+    let rotation = Matrix3D::new([
         [2.0 / 3.0, -2.0 / 3.0, -1.0 / 3.0],
         [1.0 / 3.0, 2.0 / 3.0, -2.0 / 3.0],
         [2.0 / 3.0, 1.0 / 3.0, 2.0 / 3.0],
@@ -197,7 +197,7 @@ fn svd_kabsch_rotation_recovery() {
         [-1.0, 0.5, 2.0],
     ];
     // Cross-covariance H = Σ (R·p) pᵀ.
-    let mut cross_covariance = Matrix::<3, 3>::zeros();
+    let mut cross_covariance = Matrix3D::<f64>::zeros();
     for body_point in body_points {
         let point = Vector::new(body_point);
         let rotated_point = rotation * point;
@@ -251,7 +251,7 @@ fn svd_redundant_jacobian_pseudo_inverse() {
     );
 
     // Minimum-norm resolution: J⁺·v beats any other solution of J·x = v.
-    let task_twist = Vector::<6>::from_fn(|index| index as f64 - 2.5);
+    let task_twist = Vector6D::from_fn(|index| index as f64 - 2.5);
     let minimum_norm_solution = pseudo_inverse * task_twist;
     let null_space_offset = Vector::<7>::from_fn(|index| (index as f64 - 3.0) * 0.7);
     let projected_offset = (pseudo_inverse * jacobian) * null_space_offset;
@@ -266,7 +266,7 @@ fn svd_redundant_jacobian_pseudo_inverse() {
 #[test]
 fn svd_near_singular_jacobian() {
     // A 6x6 Jacobian at a near-singularity: column 5 nearly equals column 4.
-    let mut jacobian = Matrix::<6, 6>::from_fn(|row, column| {
+    let mut jacobian = Matrix6D::from_fn(|row, column| {
         if row == column {
             1.0 + 0.1 * column as f64
         } else {

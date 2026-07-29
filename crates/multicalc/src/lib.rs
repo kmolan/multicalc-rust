@@ -64,6 +64,9 @@ pub use approximation::{
 /// Fixed-size, stack-allocated vector and matrix types.
 pub use linear_algebra::{Matrix, Vector};
 
+/// Type aliases for ease of life
+pub use linear_algebra::{Matrix2D, Matrix3D, Matrix4D, Matrix6D, Vector2D, Vector3D, Vector6D};
+
 /// Zero-order-hold, Van Loan, and white-noise discretization of continuous-time linear systems.
 pub use discretization::{q_discrete_white_noise, van_loan, zoh};
 

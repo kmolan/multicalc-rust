@@ -2,7 +2,7 @@
 
 use core::ops::Mul;
 
-use crate::linear_algebra::{Matrix, Vector};
+use crate::linear_algebra::{Matrix, Matrix3D, Vector, Vector2D, Vector3D};
 use crate::scalar::Numeric;
 use crate::spatial::lie::SO2;
 use crate::spatial::small_angle_sq;
@@ -12,7 +12,7 @@ use crate::spatial::small_angle_sq;
 #[allow(clippy::upper_case_acronyms)]
 pub struct SE2<T: Numeric = f64> {
     rotation: SO2<T>,
-    translation: Vector<2, T>,
+    translation: Vector2D<T>,
 }
 
 impl<T: Numeric> SE2<T> {
@@ -27,7 +27,7 @@ impl<T: Numeric> SE2<T> {
 
     /// A transform from a rotation and translation.
     #[inline]
-    pub fn from_parts(rotation: SO2<T>, translation: Vector<2, T>) -> Self {
+    pub fn from_parts(rotation: SO2<T>, translation: Vector2D<T>) -> Self {
         SE2 {
             rotation,
             translation,
@@ -42,7 +42,7 @@ impl<T: Numeric> SE2<T> {
 
     /// The translation part.
     #[inline]
-    pub fn translation(self) -> Vector<2, T> {
+    pub fn translation(self) -> Vector2D<T> {
         self.translation
     }
 
@@ -67,14 +67,14 @@ impl<T: Numeric> SE2<T> {
 
     /// Applies the transform to a 2D point.
     #[inline]
-    pub fn act(self, p: Vector<2, T>) -> Vector<2, T> {
+    pub fn act(self, p: Vector2D<T>) -> Vector2D<T> {
         self.rotation.act(p) + self.translation
     }
 
     /// The exponential map from a `[vx, vy, ω]` twist. Near ω = 0 the `V(θ)` block uses a Taylor
     /// series, keeping the value and its derivative finite.
     #[inline]
-    pub fn exp(xi: Vector<3, T>) -> Self {
+    pub fn exp(xi: Vector3D<T>) -> Self {
         let [vx, vy, omega] = *xi.as_array();
         let theta_sq = omega * omega;
         let (a, b) = if theta_sq < small_angle_sq::<T>() {
@@ -94,7 +94,7 @@ impl<T: Numeric> SE2<T> {
 
     /// The logarithm, the inverse of [`SE2::exp`], returning `[vx, vy, ω]`.
     #[inline]
-    pub fn log(self) -> Vector<3, T> {
+    pub fn log(self) -> Vector3D<T> {
         let omega = self.rotation.log();
         let theta_sq = omega * omega;
         let (alpha, beta) = if theta_sq < small_angle_sq::<T>() {
@@ -109,7 +109,7 @@ impl<T: Numeric> SE2<T> {
 
     /// The 3×3 adjoint for the `[v; ω]` ordering.
     #[inline]
-    pub fn adjoint(self) -> Matrix<3, 3, T> {
+    pub fn adjoint(self) -> Matrix3D<T> {
         let (c, s) = self.rotation.cos_sin();
         let [tx, ty] = *self.translation.as_array();
         Matrix::new([[c, -s, ty], [s, c, -tx], [T::ZERO, T::ZERO, T::ONE]])
@@ -117,7 +117,7 @@ impl<T: Numeric> SE2<T> {
 
     /// The Lie-algebra element for a `[vx, vy, ω]` twist.
     #[inline]
-    pub fn hat(xi: Vector<3, T>) -> Matrix<3, 3, T> {
+    pub fn hat(xi: Vector3D<T>) -> Matrix3D<T> {
         let [vx, vy, omega] = *xi.as_array();
         Matrix::new([
             [T::ZERO, -omega, vx],
@@ -128,14 +128,14 @@ impl<T: Numeric> SE2<T> {
 
     /// The inverse of [`SE2::hat`].
     #[inline]
-    pub fn vee(m: Matrix<3, 3, T>) -> Vector<3, T> {
+    pub fn vee(m: Matrix3D<T>) -> Vector3D<T> {
         let [[_, _, m02], [m10, _, m12], _] = m.into_array();
         Vector::new([m02, m12, m10])
     }
 
     /// The 3×3 homogeneous transform matrix.
     #[inline]
-    pub fn to_matrix(self) -> Matrix<3, 3, T> {
+    pub fn to_matrix(self) -> Matrix3D<T> {
         let (c, s) = self.rotation.cos_sin();
         let [tx, ty] = *self.translation.as_array();
         Matrix::new([[c, -s, tx], [s, c, ty], [T::ZERO, T::ZERO, T::ONE]])
@@ -143,7 +143,7 @@ impl<T: Numeric> SE2<T> {
 
     /// Builds a transform from a 3×3 homogeneous matrix; `None` if the rotation block is degenerate.
     #[inline]
-    pub fn try_from_matrix(m: Matrix<3, 3, T>) -> Option<Self> {
+    pub fn try_from_matrix(m: Matrix3D<T>) -> Option<Self> {
         let [[m00, m01, m02], [m10, m11, m12], _] = m.into_array();
         let r = SO2::try_from_matrix(Matrix::new([[m00, m01], [m10, m11]]))?;
         Some(SE2 {
@@ -170,7 +170,7 @@ impl<T: Numeric> SE2<T> {
     /// for i in 0..3 { assert!((prod[(i, i)] - 1.0).abs() < 1e-12); }
     /// ```
     #[inline]
-    pub fn left_jacobian(xi: Vector<3, T>) -> Matrix<3, 3, T> {
+    pub fn left_jacobian(xi: Vector3D<T>) -> Matrix3D<T> {
         let [rx, ry, omega] = *xi.as_array();
         let theta_sq = omega * omega;
         // a = sinθ/θ, b = (1−cosθ)/θ (the V(θ) block); p = (1−cosθ)/θ², r = (θ−sinθ)/θ² (q).
@@ -197,14 +197,14 @@ impl<T: Numeric> SE2<T> {
 
     /// The SE(2) right Jacobian `J_r(ξ) = J_l(−ξ)`.
     #[inline]
-    pub fn right_jacobian(xi: Vector<3, T>) -> Matrix<3, 3, T> {
+    pub fn right_jacobian(xi: Vector3D<T>) -> Matrix3D<T> {
         Self::left_jacobian(-xi)
     }
 
     /// The inverse SE(2) left Jacobian `J_l⁻¹(ξ) = [[V⁻¹, −V⁻¹·q], [0, 1]]`, with `q` the same
     /// coupling column as [`SE2::left_jacobian`] and `V⁻¹` the `alpha, beta` block from [`SE2::log`].
     #[inline]
-    pub fn left_jacobian_inverse(xi: Vector<3, T>) -> Matrix<3, 3, T> {
+    pub fn left_jacobian_inverse(xi: Vector3D<T>) -> Matrix3D<T> {
         let [rx, ry, omega] = *xi.as_array();
         let theta_sq = omega * omega;
         // p = (1−cosθ)/θ², r = (θ−sinθ)/θ²: the coupling coefficients of the forward Jacobian.
@@ -236,7 +236,7 @@ impl<T: Numeric> SE2<T> {
 
     /// The inverse SE(2) right Jacobian `J_r⁻¹(ξ) = J_l⁻¹(−ξ)`.
     #[inline]
-    pub fn right_jacobian_inverse(xi: Vector<3, T>) -> Matrix<3, 3, T> {
+    pub fn right_jacobian_inverse(xi: Vector3D<T>) -> Matrix3D<T> {
         Self::left_jacobian_inverse(-xi)
     }
 }

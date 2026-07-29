@@ -2,7 +2,7 @@
 
 use core::ops::Mul;
 
-use crate::linear_algebra::{Matrix, Vector};
+use crate::linear_algebra::{Matrix3D, Vector, Vector3D};
 use crate::scalar::Numeric;
 use crate::spatial::Quaternion;
 use crate::spatial::lie::{inverse_left_jacobian_so3, left_jacobian_so3, skew3};
@@ -72,14 +72,14 @@ impl<T: Numeric> SO3<T> {
 
     /// Rotates a 3D point.
     #[inline]
-    pub fn act(self, p: Vector<3, T>) -> Vector<3, T> {
+    pub fn act(self, p: Vector3D<T>) -> Vector3D<T> {
         self.q.transform_point(p)
     }
 
     /// The exponential map from a rotation vector `φ = θ·n̂`. Near θ = 0 the underlying quaternion
     /// uses a Taylor series, so the derivative stays finite at φ = 0.
     #[inline]
-    pub fn exp(phi: Vector<3, T>) -> Self {
+    pub fn exp(phi: Vector3D<T>) -> Self {
         SO3 {
             q: Quaternion::from_scaled_axis(phi),
         }
@@ -87,38 +87,38 @@ impl<T: Numeric> SO3<T> {
 
     /// The logarithm, returning `φ` with `‖φ‖ ≤ π` (shortest path). Well-defined across θ = π.
     #[inline]
-    pub fn log(self) -> Vector<3, T> {
+    pub fn log(self) -> Vector3D<T> {
         self.q.to_scaled_axis()
     }
 
     /// The Lie-algebra element `[φ]×` (skew-symmetric).
     #[inline]
-    pub fn hat(phi: Vector<3, T>) -> Matrix<3, 3, T> {
+    pub fn hat(phi: Vector3D<T>) -> Matrix3D<T> {
         skew3(phi)
     }
 
     /// The inverse of [`SO3::hat`].
     #[inline]
-    pub fn vee(m: Matrix<3, 3, T>) -> Vector<3, T> {
+    pub fn vee(m: Matrix3D<T>) -> Vector3D<T> {
         let [[_, _, m02], [m10, _, _], [_, m21, _]] = m.into_array();
         Vector::new([m21, m02, m10])
     }
 
     /// The adjoint, equal to the rotation matrix (`Ad_R = R`).
     #[inline]
-    pub fn adjoint(self) -> Matrix<3, 3, T> {
+    pub fn adjoint(self) -> Matrix3D<T> {
         self.q.to_rotation_matrix()
     }
 
     /// The 3×3 rotation matrix.
     #[inline]
-    pub fn to_matrix(self) -> Matrix<3, 3, T> {
+    pub fn to_matrix(self) -> Matrix3D<T> {
         self.q.to_rotation_matrix()
     }
 
     /// Builds a rotation from a 3×3 matrix; `None` if it is degenerate.
     #[inline]
-    pub fn try_from_matrix(m: Matrix<3, 3, T>) -> Option<Self> {
+    pub fn try_from_matrix(m: Matrix3D<T>) -> Option<Self> {
         Quaternion::try_from_rotation_matrix(m).map(|q| SO3 { q })
     }
 
@@ -140,13 +140,13 @@ impl<T: Numeric> SO3<T> {
 
     /// The SO(3) left Jacobian `J_l(φ)`, relating a tangent perturbation to the resulting rotation.
     #[inline]
-    pub fn left_jacobian(phi: Vector<3, T>) -> Matrix<3, 3, T> {
+    pub fn left_jacobian(phi: Vector3D<T>) -> Matrix3D<T> {
         left_jacobian_so3(phi)
     }
 
     /// The SO(3) right Jacobian `J_r(φ) = J_l(−φ)`.
     #[inline]
-    pub fn right_jacobian(phi: Vector<3, T>) -> Matrix<3, 3, T> {
+    pub fn right_jacobian(phi: Vector3D<T>) -> Matrix3D<T> {
         left_jacobian_so3(-phi)
     }
 
@@ -160,13 +160,13 @@ impl<T: Numeric> SO3<T> {
     /// for i in 0..3 { assert!((prod[(i, i)] - 1.0).abs() < 1e-12); }
     /// ```
     #[inline]
-    pub fn left_jacobian_inverse(phi: Vector<3, T>) -> Matrix<3, 3, T> {
+    pub fn left_jacobian_inverse(phi: Vector3D<T>) -> Matrix3D<T> {
         inverse_left_jacobian_so3(phi)
     }
 
     /// The inverse SO(3) right Jacobian `J_r⁻¹(φ) = J_l⁻¹(−φ)`.
     #[inline]
-    pub fn right_jacobian_inverse(phi: Vector<3, T>) -> Matrix<3, 3, T> {
+    pub fn right_jacobian_inverse(phi: Vector3D<T>) -> Matrix3D<T> {
         inverse_left_jacobian_so3(-phi)
     }
 }

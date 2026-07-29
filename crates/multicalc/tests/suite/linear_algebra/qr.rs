@@ -1,5 +1,5 @@
 use multicalc::error::LinalgError;
-use multicalc::linear_algebra::{Matrix, PivotedQr, Vector};
+use multicalc::linear_algebra::{Matrix, Matrix3D, PivotedQr, Vector};
 use multicalc_testkit::tol::{assert_identity, assert_matrix_close, max_abs};
 use proptest::prelude::*;
 use proptest::test_runner::TestCaseError;
@@ -18,7 +18,7 @@ fn qr_rejects_underdetermined() {
 #[test]
 fn qr_solves_square_system() {
     // A x = b with the exact solution x = [1, 1, 1].
-    let matrix = Matrix::<3, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 10.0]]);
+    let matrix = Matrix3D::<f64>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 10.0]]);
     let right_hand_side = Vector::new([6.0, 15.0, 25.0]);
     let solution = PivotedQr::decompose(matrix)
         .unwrap()
@@ -47,7 +47,7 @@ fn qr_solve_rejects_rank_deficient() {
     let right_hand_side = Vector::new([1.0, 2.0, 3.0]);
 
     // The middle column is zero, so R has an exactly-zero diagonal entry.
-    let zero_column = Matrix::<3, 3>::new([[1.0, 0.0, 2.0], [3.0, 0.0, 4.0], [5.0, 0.0, 6.0]]);
+    let zero_column = Matrix3D::new([[1.0, 0.0, 2.0], [3.0, 0.0, 4.0], [5.0, 0.0, 6.0]]);
     assert!(matches!(
         PivotedQr::decompose(zero_column)
             .unwrap()
@@ -57,7 +57,7 @@ fn qr_solve_rejects_rank_deficient() {
 
     // col2 = col0 + col1: dependent columns leave a tiny (not exactly zero) diagonal, which the
     // relative rank tolerance still flags.
-    let dependent = Matrix::<3, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 9.0], [7.0, 8.0, 15.0]]);
+    let dependent = Matrix3D::new([[1.0, 2.0, 3.0], [4.0, 5.0, 9.0], [7.0, 8.0, 15.0]]);
     assert!(matches!(
         PivotedQr::decompose(dependent)
             .unwrap()
@@ -92,7 +92,7 @@ fn damped_solve_satisfies_normal_equations() {
     // x must satisfy (JᵀJ + D²) x = Jᵀb.
     let normal_matrix = jacobian.transpose() * jacobian;
     let normal_right_hand_side = jacobian.transpose() * right_hand_side;
-    let left_side = Matrix::<3, 3>::from_fn(|row, column| {
+    let left_side = Matrix3D::from_fn(|row, column| {
         normal_matrix[(row, column)]
             + if row == column {
                 diagonal[row] * diagonal[row]

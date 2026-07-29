@@ -1,7 +1,7 @@
 //! The motion and measurement models a Kalman filter needs to track a ground vehicle: a turning-arc
 //! process model, and what wheel odometry, an attitude-and-heading sensor, and GPS each see of it.
 
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Vector, Vector2D};
 use multicalc::scalar::{Numeric, VectorFn};
 
 use super::geometry::wrap_angle;
@@ -67,7 +67,7 @@ impl VectorFn<5, 2> for GlobalPositionModel {
 
 /// The difference between an attitude reading `[heading, turn_rate]` and the prediction, with the
 /// heading part folded into (-π, π].
-pub fn attitude_residual(measured: Vector<2, f64>, predicted: Vector<2, f64>) -> Vector<2, f64> {
+pub fn attitude_residual(measured: Vector2D, predicted: Vector2D) -> Vector2D {
     Vector::new([
         wrap_angle(measured[0] - predicted[0]),
         measured[1] - predicted[1],
