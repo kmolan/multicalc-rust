@@ -21,6 +21,8 @@ mod numeric_methods {
         assert_eq!(Numeric::copysign(-3.0_f64, 1.0), 3.0);
         assert_eq!(Numeric::floor(2.7_f64), 2.0);
         assert_eq!(Numeric::floor(-2.1_f64), -3.0);
+        assert_eq!(Numeric::ceil(2.7_f64), 3.0);
+        assert_eq!(Numeric::ceil(-2.1_f64), -2.0);
         assert!((Numeric::asin(0.5_f64) - 0.5_f64.asin()).abs() < TOL);
         assert!((Numeric::acos(0.5_f64) - 0.5_f64.acos()).abs() < TOL);
         assert!((Numeric::atan(0.7_f64) - 0.7_f64.atan()).abs() < TOL);
@@ -93,6 +95,9 @@ mod numeric_methods {
         // floor on an exact integer and a negative.
         assert_eq!(Numeric::floor(-3.0_f64), -3.0);
         assert_eq!(Numeric::floor(-2.1_f64), -3.0);
+        // ceil on an exact integer and a negative.
+        assert_eq!(Numeric::ceil(-3.0_f64), -3.0);
+        assert_eq!(Numeric::ceil(-2.1_f64), -2.0);
     }
 }
 
@@ -400,6 +405,13 @@ mod dual {
     }
 
     #[test]
+    fn ceil_has_zero_derivative() {
+        let ceiled = Dual::variable(2.7_f64).ceil();
+        assert!(f64::abs(ceiled.value - 3.0) < TOL);
+        assert!(f64::abs(ceiled.deriv) < TOL);
+    }
+
+    #[test]
     fn copysign_carries_the_sign_into_the_derivative() {
         let same = Dual::variable(3.0_f64).copysign(Dual::constant(1.0));
         assert!(f64::abs(same.value - 3.0) < TOL && f64::abs(same.deriv - 1.0) < TOL);
@@ -548,6 +560,22 @@ mod hyper_dual {
         assert!(f64::abs(reciprocal.real - 0.5) < TOL);
         assert!(f64::abs(reciprocal.eps1 - (-0.25)) < TOL);
         assert!(f64::abs(reciprocal.eps1eps2 - 0.25) < TOL);
+    }
+
+    #[test]
+    fn floor_has_zero_derivative() {
+        let floored = HyperDual::variable(2.7_f64).floor();
+        assert!(f64::abs(floored.real - 2.0) < TOL);
+        assert!(f64::abs(floored.eps1) < TOL);
+        assert!(f64::abs(floored.eps1eps2) < TOL);
+    }
+
+    #[test]
+    fn ceil_has_zero_derivative() {
+        let ceiled = HyperDual::variable(2.7_f64).ceil();
+        assert!(f64::abs(ceiled.real - 3.0) < TOL);
+        assert!(f64::abs(ceiled.eps1) < TOL);
+        assert!(f64::abs(ceiled.eps1eps2) < TOL);
     }
 
     #[test]
@@ -860,6 +888,24 @@ mod jet {
         for order in 1..4 {
             assert!(f64::abs(constant.coeffs[order]) < TOL);
         }
+    }
+
+    #[test]
+    fn floor_has_zero_derivative() {
+        let floored = Jet::<f64, 4>::variable(2.7_f64).floor();
+        assert!(f64::abs(floored.derivative(0) - 2.0) < TOL);
+        assert!(f64::abs(floored.derivative(1)) < TOL);
+        assert!(f64::abs(floored.derivative(2)) < TOL);
+        assert!(f64::abs(floored.derivative(3)) < TOL);
+    }
+
+    #[test]
+    fn ceil_has_zero_derivative() {
+        let ceiled = Jet::<f64, 4>::variable(2.7_f64).ceil();
+        assert!(f64::abs(ceiled.derivative(0) - 3.0) < TOL);
+        assert!(f64::abs(ceiled.derivative(1)) < TOL);
+        assert!(f64::abs(ceiled.derivative(2)) < TOL);
+        assert!(f64::abs(ceiled.derivative(3)) < TOL);
     }
 
     #[test]

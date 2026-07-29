@@ -338,6 +338,9 @@ impl Numeric for Counted {
     fn floor(self) -> Self {
         Counted(libm::floor(self.0))
     }
+    fn ceil(self) -> Self {
+        Counted(libm::ceil(self.0))
+    }
     fn round(self) -> Self {
         Counted(libm::round(self.0))
     }

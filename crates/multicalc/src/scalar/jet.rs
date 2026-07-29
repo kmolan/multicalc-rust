@@ -446,6 +446,12 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
         Jet::constant(self.coeffs[0].floor())
     }
 
+    /// Largest integer `>= self`; all higher coefficients (the derivatives) are zero.
+    #[inline]
+    fn ceil(self) -> Self {
+        Jet::constant(self.coeffs[0].ceil())
+    }
+
     /// Nearest integer, ties away from zero; all higher coefficients (the derivatives) are zero.
     #[inline]
     fn round(self) -> Self {

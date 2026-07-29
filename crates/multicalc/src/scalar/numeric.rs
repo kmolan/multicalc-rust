@@ -138,6 +138,12 @@ pub trait Numeric:
     /// implementations therefore carry a zero derivative.
     fn floor(self) -> Self;
 
+    /// The largest integer greater than or equal to `self`.
+    ///
+    /// A step function, so its derivative is zero everywhere it is differentiable; the dual
+    /// implementations therefore carry a zero derivative.
+    fn ceil(self) -> Self;
+
     /// The nearest integer to `self`, rounding half away from zero.
     ///
     /// A step function, so its derivative is zero everywhere it is differentiable; the dual
@@ -399,6 +405,10 @@ impl Numeric for f64 {
         libm::floor(self)
     }
     #[inline]
+    fn ceil(self) -> Self {
+        libm::ceil(self)
+    }
+    #[inline]
     fn round(self) -> Self {
         libm::round(self)
     }
@@ -561,6 +571,10 @@ impl Numeric for f32 {
     #[inline]
     fn floor(self) -> Self {
         libm::floorf(self)
+    }
+    #[inline]
+    fn ceil(self) -> Self {
+        libm::ceilf(self)
     }
     #[inline]
     fn round(self) -> Self {

@@ -366,6 +366,15 @@ impl<T: Numeric> Numeric for Dual<T> {
         }
     }
 
+    /// Largest integer `>= self`. A step function, so the derivative is zero.
+    #[inline]
+    fn ceil(self) -> Self {
+        Dual {
+            value: self.value.ceil(),
+            deriv: T::ZERO,
+        }
+    }
+
     /// Nearest integer, ties away from zero. A step function, so the derivative is zero.
     #[inline]
     fn round(self) -> Self {

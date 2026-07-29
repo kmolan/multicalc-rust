@@ -447,6 +447,16 @@ impl<T: Numeric> Numeric for HyperDual<T> {
             eps1eps2: T::ZERO,
         }
     }
+    /// Largest integer `>= self`; the derivatives of a step function are zero.
+    #[inline]
+    fn ceil(self) -> Self {
+        HyperDual {
+            real: self.real.ceil(),
+            eps1: T::ZERO,
+            eps2: T::ZERO,
+            eps1eps2: T::ZERO,
+        }
+    }
 
     /// Nearest integer, ties away from zero; the derivatives of a step function are zero.
     #[inline]
