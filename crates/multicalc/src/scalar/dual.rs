@@ -384,6 +384,16 @@ impl<T: Numeric> Numeric for Dual<T> {
         }
     }
 
+    /// Rounds towards zero, effectively removing the decimal part.
+    /// A step function, so the derivative is zero.
+    #[inline]
+    fn trunc(self) -> Self {
+        Dual {
+            value: self.value.trunc(),
+            deriv: T::ZERO,
+        }
+    }
+
     /// Reflects the value only; the derivative is not inspected.
     #[inline]
     fn is_nan(self) -> bool {

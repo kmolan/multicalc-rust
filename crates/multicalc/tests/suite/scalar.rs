@@ -23,6 +23,8 @@ mod numeric_methods {
         assert_eq!(Numeric::floor(-2.1_f64), -3.0);
         assert_eq!(Numeric::ceil(2.7_f64), 3.0);
         assert_eq!(Numeric::ceil(-2.1_f64), -2.0);
+        assert_eq!(Numeric::trunc(2.7_f64), 2.0);
+        assert_eq!(Numeric::trunc(-2.1_f64), -2.0);
         assert!((Numeric::asin(0.5_f64) - 0.5_f64.asin()).abs() < TOL);
         assert!((Numeric::acos(0.5_f64) - 0.5_f64.acos()).abs() < TOL);
         assert!((Numeric::atan(0.7_f64) - 0.7_f64.atan()).abs() < TOL);
@@ -98,6 +100,9 @@ mod numeric_methods {
         // ceil on an exact integer and a negative.
         assert_eq!(Numeric::ceil(-3.0_f64), -3.0);
         assert_eq!(Numeric::ceil(-2.1_f64), -2.0);
+        // trunc on an exact integer and a negative.
+        assert_eq!(Numeric::trunc(-3.0_f64), -3.0);
+        assert_eq!(Numeric::trunc(-2.1_f64), -2.0);
     }
 }
 
@@ -412,6 +417,13 @@ mod dual {
     }
 
     #[test]
+    fn trunc_has_zero_derivative() {
+        let truncated = Dual::variable(2.7_f64).trunc();
+        assert!(f64::abs(truncated.value - 2.0) < TOL);
+        assert!(f64::abs(truncated.deriv) < TOL);
+    }
+
+    #[test]
     fn copysign_carries_the_sign_into_the_derivative() {
         let same = Dual::variable(3.0_f64).copysign(Dual::constant(1.0));
         assert!(f64::abs(same.value - 3.0) < TOL && f64::abs(same.deriv - 1.0) < TOL);
@@ -576,6 +588,14 @@ mod hyper_dual {
         assert!(f64::abs(ceiled.real - 3.0) < TOL);
         assert!(f64::abs(ceiled.eps1) < TOL);
         assert!(f64::abs(ceiled.eps1eps2) < TOL);
+    }
+
+    #[test]
+    fn trunc_has_zero_derivative() {
+        let truncated = HyperDual::variable(2.7_f64).trunc();
+        assert!(f64::abs(truncated.real - 2.0) < TOL);
+        assert!(f64::abs(truncated.eps1) < TOL);
+        assert!(f64::abs(truncated.eps1eps2) < TOL);
     }
 
     #[test]
@@ -906,6 +926,15 @@ mod jet {
         assert!(f64::abs(ceiled.derivative(1)) < TOL);
         assert!(f64::abs(ceiled.derivative(2)) < TOL);
         assert!(f64::abs(ceiled.derivative(3)) < TOL);
+    }
+
+    #[test]
+    fn trunc_has_zero_derivative() {
+        let truncated = Jet::<f64, 4>::variable(2.7_f64).trunc();
+        assert!(f64::abs(truncated.derivative(0) - 2.0) < TOL);
+        assert!(f64::abs(truncated.derivative(1)) < TOL);
+        assert!(f64::abs(truncated.derivative(2)) < TOL);
+        assert!(f64::abs(truncated.derivative(3)) < TOL);
     }
 
     #[test]

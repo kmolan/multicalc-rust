@@ -458,6 +458,13 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
         Jet::constant(self.coeffs[0].round())
     }
 
+    /// Rounds towards zero, effectively removing the decimal part.
+    /// A step function, so the derivative is zero.
+    #[inline]
+    fn trunc(self) -> Self {
+        Jet::constant(self.coeffs[0].trunc())
+    }
+
     /// Reflects the value only; the higher coefficients are not inspected.
     #[inline]
     fn is_nan(self) -> bool {

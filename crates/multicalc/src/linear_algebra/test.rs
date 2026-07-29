@@ -344,6 +344,9 @@ impl Numeric for Counted {
     fn round(self) -> Self {
         Counted(libm::round(self.0))
     }
+    fn trunc(self) -> Self {
+        Counted(libm::trunc(self.0))
+    }
 
     fn is_nan(self) -> bool {
         self.0.is_nan()

@@ -150,6 +150,12 @@ pub trait Numeric:
     /// implementations therefore carry a zero derivative.
     fn round(self) -> Self;
 
+    /// The rounds a number toward zero, effectively removing the decimal part.
+    ///
+    /// A step function, so its derivative is zero everywhere it is differentiable; the dual
+    /// implementations therefore carry a zero derivative.
+    fn trunc(self) -> Self;
+
     /// Sign of `self`: `1` for positive, `-1` for negative, `0` at zero.
     ///
     /// The derivative is zero wherever it is defined. This default maps NaN and both zeros to
@@ -413,6 +419,10 @@ impl Numeric for f64 {
         libm::round(self)
     }
     #[inline]
+    fn trunc(self) -> Self {
+        libm::trunc(self)
+    }
+    #[inline]
     fn max(self, other: Self) -> Self {
         libm::fmax(self, other)
     }
@@ -579,6 +589,10 @@ impl Numeric for f32 {
     #[inline]
     fn round(self) -> Self {
         libm::roundf(self)
+    }
+    #[inline]
+    fn trunc(self) -> Self {
+        libm::truncf(self)
     }
     #[inline]
     fn max(self, other: Self) -> Self {
