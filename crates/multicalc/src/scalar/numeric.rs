@@ -89,6 +89,14 @@ pub trait Numeric:
     /// Natural logarithm of `self`.
     fn ln(self) -> Self;
 
+    /// Calculates `(e^self) - 1`.
+    /// The default implementation computes the result using `exp` and normal subtraction,
+    /// however overrides for `f32` and `f64` use a more accurate primitive.
+    /// Other implementors of the trait will also likely want to override this method.
+    fn expm1(self) -> Self {
+        self.exp() - Self::ONE
+    }
+
     /// Base 2 logarithm.
     /// The default implementation uses two calls to `ln`.
     /// More efficient overrides are used for `f32` and `f64`.
@@ -341,6 +349,10 @@ impl Numeric for f64 {
         libm::exp(self)
     }
     #[inline]
+    fn expm1(self) -> Self {
+        libm::expm1(self)
+    }
+    #[inline]
     fn ln(self) -> Self {
         libm::log(self)
     }
@@ -490,6 +502,10 @@ impl Numeric for f32 {
     #[inline]
     fn exp(self) -> Self {
         libm::expf(self)
+    }
+    #[inline]
+    fn expm1(self) -> Self {
+        libm::expm1f(self)
     }
     #[inline]
     fn ln(self) -> Self {

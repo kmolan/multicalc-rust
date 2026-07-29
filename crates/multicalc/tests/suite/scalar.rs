@@ -29,6 +29,8 @@ mod numeric_methods {
         assert!((Numeric::tanh(1.1_f64) - 1.1_f64.tanh()).abs() < TOL);
         assert!((Numeric::hypot(3.0_f64, 4.0) - 5.0).abs() < TOL);
         assert!((Numeric::powf(2.0_f64, 3.5) - 2.0_f64.powf(3.5)).abs() < TOL);
+        assert!((Numeric::exp(3.0_f64) - 3.0_f64.exp()).abs() < TOL);
+        assert!((Numeric::expm1(0.03_f64) - 0.03_f64.expm1()).abs() < TOL);
         assert!((Numeric::ln(7.0_f64) - 7.0_f64.ln()).abs() < TOL);
         assert!((Numeric::log2(7.0_f64) - 7.0_f64.log2()).abs() < TOL);
         assert!((Numeric::log10(7.0_f64) - 7.0_f64.log10()).abs() < TOL);
@@ -176,6 +178,11 @@ mod dual {
         let exponential = Dual::variable(x).exp();
         assert!(f64::abs(exponential.value - f64::exp(x)) < TOL);
         assert!(f64::abs(exponential.deriv - f64::exp(x)) < TOL);
+
+        let x = 0.03_f64;
+        let em1 = Dual::variable(x).expm1();
+        assert!(f64::abs(em1.value - f64::expm1(x)) < TOL);
+        assert!(f64::abs(em1.deriv - f64::exp(x)) < TOL);
 
         // f(x) = ln(x), f'(x) = 1/x; at x = 2 -> ln 2 and 0.5
         let logarithm = Dual::variable(2.0_f64).ln();
@@ -479,6 +486,13 @@ mod hyper_dual {
         assert!(f64::abs(exponential.real - f64::exp(x)) < TOL);
         assert!(f64::abs(exponential.eps1 - f64::exp(x)) < TOL);
         assert!(f64::abs(exponential.eps1eps2 - f64::exp(x)) < TOL);
+
+        // f(x) = exp(x) - 1 derivatives match those of exp(x)
+        let x = 0.03_f64;
+        let exponential = HyperDual::variable(x).expm1();
+        assert!(f64::abs(exponential.real - f64::expm1(x)) < TOL);
+        assert!(f64::abs(exponential.eps1 - f64::exp(x)) < TOL);
+        assert!(f64::abs(exponential.eps1eps2 - f64::exp(x)) < TOL);
     }
 
     #[test]
@@ -624,6 +638,13 @@ mod jet {
         let x = 0.4_f64;
         let exponential = Jet::<f64, 6>::variable(x).exp();
         for order in 0..6 {
+            assert!(f64::abs(exponential.derivative(order) - f64::exp(x)) < TOL);
+        }
+
+        // every non-trivial derivative of exp(x) - 1 is exp(x)
+        let exponential = Jet::<f64, 6>::variable(x).expm1();
+        assert!(f64::abs(exponential.derivative(0) - f64::expm1(x)) < TOL);
+        for order in 1..6 {
             assert!(f64::abs(exponential.derivative(order) - f64::exp(x)) < TOL);
         }
     }

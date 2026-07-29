@@ -299,6 +299,14 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
         Jet { coeffs: u }
     }
 
+    #[inline]
+    fn expm1(self) -> Self {
+        let em1 = self.coeffs[0].expm1();
+        let Self { mut coeffs } = self.exp();
+        coeffs[0] = em1;
+        Self { coeffs }
+    }
+
     /// `uₖ = (1/v₀)( vₖ − (1/k) Σ_{j=1..k-1} j·uⱼ·v₍ₖ₋ⱼ₎ )`. Defined for `value > 0`.
     #[inline]
     fn ln(self) -> Self {

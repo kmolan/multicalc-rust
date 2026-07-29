@@ -343,6 +343,12 @@ impl<T: Numeric> Numeric for HyperDual<T> {
         let e = self.real.exp();
         self.chain(e, e, e)
     }
+    #[inline]
+    fn expm1(self) -> Self {
+        let e = self.real.exp();
+        let em1 = self.real.expm1();
+        self.chain(em1, e, e)
+    }
     /// Defined for `real > 0`; at `0` the value is `-inf` and the derivatives unbounded.
     #[inline]
     fn ln(self) -> Self {

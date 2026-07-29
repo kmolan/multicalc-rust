@@ -282,6 +282,15 @@ impl<T: Numeric> Numeric for Dual<T> {
             deriv: e * self.deriv,
         }
     }
+    #[inline]
+    fn expm1(self) -> Self {
+        let e = self.value.exp();
+        let em1 = self.value.expm1();
+        Dual {
+            value: em1,
+            deriv: e * self.deriv,
+        }
+    }
     /// Defined for `value > 0`; at `0` the value is `-inf` and the derivative unbounded.
     #[inline]
     fn ln(self) -> Self {
