@@ -133,12 +133,12 @@ impl<D: DerivatorSingleVariable> Newton<D> {
             }
 
             let dfx = self.derivator.get_single(f, x)?;
-            if !dfx.is_finite() {
-                return Err(SolveError::NonFinite);
-            }
-            if dfx == D::Scalar::ZERO {
-                return Err(SolveError::Linalg(LinalgError::Singular));
-            }
+if !dfx.is_finite() {
+    return Err(SolveError::NonFinite);
+}
+if dfx.abs() <= D::Scalar::EPSILON * fx.abs() {
+    return Err(SolveError::Linalg(LinalgError::Singular));
+}
 
             let step = fx / dfx;
 
