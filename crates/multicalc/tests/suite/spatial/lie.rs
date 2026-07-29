@@ -388,6 +388,35 @@ fn se2_adjoint_identity() {
     }
 }
 
+#[test]
+fn so2_normalized_removes_composition_drift() {
+    let step = SO2::<f32>::from_angle(0.3);
+    let mut rotation = SO2::<f32>::identity();
+
+    // Repeated rotation to accumulate drift.
+    for _ in 0..10_000 {
+        rotation = rotation.compose(step);
+    }
+
+    let (c, s) = rotation.cos_sin();
+    let norm = (c * c + s * s).sqrt();
+    let tolerance = <f32 as Numeric>::EPSILON_X30;
+
+    // The accumulated rotation has drifted away from the unit circle.
+    assert!((norm - 1.0).abs() > tolerance);
+
+    let normalized = rotation.normalized();
+    let (normalized_c, normalized_s) = normalized.cos_sin();
+    let normalized_norm = (normalized_c * normalized_c + normalized_s * normalized_s).sqrt();
+
+    // Normalization pulls SO2 back onto the unit circle.
+    assert!((normalized_norm - 1.0).abs() < tolerance);
+
+    // Scaling the normalized components to reconstruct the input.
+    assert!((normalized_c * norm - c).abs() < tolerance);
+    assert!((normalized_s * norm - s).abs() < tolerance);
+}
+
 // ---- autodiff ---------------------------------------------------------------
 
 #[test]
