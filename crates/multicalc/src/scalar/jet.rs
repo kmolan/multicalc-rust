@@ -316,6 +316,16 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     }
 
     #[inline]
+    fn log2(self) -> Self {
+        let ln2 = T::TWO.ln();
+        let Self { mut coeffs } = self.ln();
+        for x in coeffs.iter_mut() {
+            *x /= ln2;
+        }
+        Self { coeffs }
+    }
+
+    #[inline]
     fn log10(self) -> Self {
         let ln10 = T::TEN.ln();
         let Self { mut coeffs } = self.ln();

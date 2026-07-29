@@ -89,6 +89,14 @@ pub trait Numeric:
     /// Natural logarithm of `self`.
     fn ln(self) -> Self;
 
+    /// Base 2 logarithm.
+    /// The default implementation uses two calls to `ln`.
+    /// More efficient overrides are used for `f32` and `f64`.
+    /// Other implementors of the trait will also likely want to override this method.
+    fn log2(self) -> Self {
+        self.ln() / Self::TWO.ln()
+    }
+
     /// Base 10 logarithm.
     /// The default implementation uses two calls to `ln`.
     /// More efficient overrides are used for `f32` and `f64`.
@@ -337,6 +345,10 @@ impl Numeric for f64 {
         libm::log(self)
     }
     #[inline]
+    fn log2(self) -> Self {
+        libm::log2(self)
+    }
+    #[inline]
     fn log10(self) -> Self {
         libm::log10(self)
     }
@@ -482,6 +494,10 @@ impl Numeric for f32 {
     #[inline]
     fn ln(self) -> Self {
         libm::logf(self)
+    }
+    #[inline]
+    fn log2(self) -> Self {
+        libm::log2f(self)
     }
     #[inline]
     fn log10(self) -> Self {

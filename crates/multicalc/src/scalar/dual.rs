@@ -292,6 +292,14 @@ impl<T: Numeric> Numeric for Dual<T> {
     }
 
     #[inline]
+    fn log2(self) -> Self {
+        Self {
+            value: self.value.log2(),
+            deriv: self.deriv / self.value / T::TWO.ln(),
+        }
+    }
+
+    #[inline]
     fn log10(self) -> Self {
         Self {
             value: self.value.log10(),
