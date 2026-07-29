@@ -168,6 +168,10 @@ impl<T: Numeric> Numeric for Dual<T> {
         value: T::HALF,
         deriv: T::ZERO,
     };
+    const TEN: Self = Dual {
+        value: T::TEN,
+        deriv: T::ZERO,
+    };
     const HUNDRED: Self = Dual {
         value: T::HUNDRED,
         deriv: T::ZERO,
@@ -284,6 +288,14 @@ impl<T: Numeric> Numeric for Dual<T> {
         Dual {
             value: self.value.ln(),
             deriv: self.deriv / self.value,
+        }
+    }
+
+    #[inline]
+    fn log10(self) -> Self {
+        Self {
+            value: self.value.log10(),
+            deriv: self.deriv / self.value / T::TEN.ln(),
         }
     }
 

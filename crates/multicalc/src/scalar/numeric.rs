@@ -32,6 +32,8 @@ pub trait Numeric:
     const TWO: Self;
     /// The value `0.5`.
     const HALF: Self;
+    /// The value `10`.
+    const TEN: Self;
     /// The value `100`.
     const HUNDRED: Self;
     /// Archimedes' constant, π.
@@ -86,6 +88,14 @@ pub trait Numeric:
     fn exp(self) -> Self;
     /// Natural logarithm of `self`.
     fn ln(self) -> Self;
+
+    /// Base 10 logarithm.
+    /// The default implementation uses two calls to `ln`.
+    /// More efficient overrides are used for `f32` and `f64`.
+    /// Other implementors of the trait will also likely want to override this method.
+    fn log10(self) -> Self {
+        self.ln() / Self::TEN.ln()
+    }
 
     /// Four-quadrant arctangent of `self / other`, in radians, taking `self` as the y
     /// coordinate and `other` as the x coordinate. Result in `(-π, π]`.
@@ -272,6 +282,7 @@ impl Numeric for f64 {
     const ONE: Self = 1.0;
     const TWO: Self = 2.0;
     const HALF: Self = 0.5;
+    const TEN: Self = 10.0;
     const HUNDRED: Self = 100.0;
     const PI: Self = core::f64::consts::PI;
     const TWO_PI: Self = core::f64::consts::PI * 2.0;
@@ -324,6 +335,10 @@ impl Numeric for f64 {
     #[inline]
     fn ln(self) -> Self {
         libm::log(self)
+    }
+    #[inline]
+    fn log10(self) -> Self {
+        libm::log10(self)
     }
 
     #[inline]
@@ -414,6 +429,7 @@ impl Numeric for f32 {
     const ONE: Self = 1.0;
     const TWO: Self = 2.0;
     const HALF: Self = 0.5;
+    const TEN: Self = 10.0;
     const HUNDRED: Self = 100.0;
     const PI: Self = core::f32::consts::PI;
     const TWO_PI: Self = core::f32::consts::PI * 2.0;
@@ -466,6 +482,10 @@ impl Numeric for f32 {
     #[inline]
     fn ln(self) -> Self {
         libm::logf(self)
+    }
+    #[inline]
+    fn log10(self) -> Self {
+        libm::log10f(self)
     }
 
     #[inline]

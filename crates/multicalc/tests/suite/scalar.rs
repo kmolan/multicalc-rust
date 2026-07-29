@@ -29,6 +29,8 @@ mod numeric_methods {
         assert!((Numeric::tanh(1.1_f64) - 1.1_f64.tanh()).abs() < TOL);
         assert!((Numeric::hypot(3.0_f64, 4.0) - 5.0).abs() < TOL);
         assert!((Numeric::powf(2.0_f64, 3.5) - 2.0_f64.powf(3.5)).abs() < TOL);
+        assert!((Numeric::ln(7.0_f64) - 7.0_f64.ln()).abs() < TOL);
+        assert!((Numeric::log10(7.0_f64) - 7.0_f64.log10()).abs() < TOL);
         assert_eq!(Numeric::mul_add(2.0_f64, 3.0, 1.0), 7.0);
         assert_eq!(Numeric::recip(4.0_f64), 0.25);
         assert_eq!(Numeric::signum(-3.0_f64), -1.0);
@@ -178,6 +180,11 @@ mod dual {
         let logarithm = Dual::variable(2.0_f64).ln();
         assert!(f64::abs(logarithm.value - f64::ln(2.0)) < TOL);
         assert!(f64::abs(logarithm.deriv - 0.5) < TOL);
+
+        // f(x) = log10(x), f'(x) = 1/(ln(10) * x); at x = 7 -> log10 7 and 1/(7 * ln(10))
+        let log10 = Dual::variable(7.0).log10();
+        assert!(f64::abs(log10.value - f64::log10(7.0)) < TOL);
+        assert!(f64::abs(log10.deriv - (7.0 * 10.0.ln()).recip()) < TOL);
     }
 
     #[test]
@@ -435,6 +442,23 @@ mod hyper_dual {
     }
 
     #[test]
+    fn log_second_derivative() {
+        // f(x) = ln(x) -> f' = 1/x, f'' = -1/x^2
+        let x = 7.0;
+        let ln = HyperDual::variable(x).ln();
+        assert!(f64::abs(ln.real - f64::ln(x)) < TOL);
+        assert!(f64::abs(ln.eps1 - x.recip()) < TOL);
+        assert!(f64::abs(ln.eps1eps2 - (-1.0 / (x * x))) < TOL);
+
+        // f(x) = log10(x) -> f' = 1/(ln10 * x), f'' = -1/(ln10 * x^2)
+        let ln10 = 10.0.ln();
+        let ln = HyperDual::variable(x).log10();
+        assert!(f64::abs(ln.real - f64::log10(x)) < TOL);
+        assert!(f64::abs(ln.eps1 - x.recip() / ln10) < TOL);
+        assert!(f64::abs(ln.eps1eps2 - (-1.0 / (ln10 * x * x))) < TOL);
+    }
+
+    #[test]
     fn exp_is_its_own_second_derivative() {
         // f(x) = exp(x) is its own derivative to all orders
         let x = 1.3_f64;
@@ -654,6 +678,14 @@ mod jet {
         assert!(f64::abs(logarithm.derivative(1) - 1.0 / x) < TOL);
         assert!(f64::abs(logarithm.derivative(2) - (-1.0 / (x * x))) < TOL);
         assert!(f64::abs(logarithm.derivative(3) - 2.0 / (x * x * x)) < TOL);
+
+        // f(x) = log10(x): f'=1/(ln10 * x), f''=-1/(ln10 * x^2), f'''=2/(ln10 * x^3)
+        let ln10 = 10.0.ln();
+        let logarithm = Jet::<f64, 4>::variable(x).log10();
+        assert!(f64::abs(logarithm.derivative(0) - f64::log10(x)) < TOL);
+        assert!(f64::abs(logarithm.derivative(1) - x.recip() / ln10) < TOL);
+        assert!(f64::abs(logarithm.derivative(2) - (-1.0 / (ln10 * x * x))) < TOL);
+        assert!(f64::abs(logarithm.derivative(3) - 2.0 / (ln10 * x * x * x)) < TOL);
     }
 
     #[test]

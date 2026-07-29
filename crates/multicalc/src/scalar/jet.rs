@@ -211,6 +211,7 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     const ONE: Self = Self::constant(T::ONE);
     const TWO: Self = Self::constant(T::TWO);
     const HALF: Self = Self::constant(T::HALF);
+    const TEN: Self = Self::constant(T::TEN);
     const HUNDRED: Self = Self::constant(T::HUNDRED);
     const PI: Self = Self::constant(T::PI);
     const TWO_PI: Self = Self::constant(T::TWO_PI);
@@ -312,6 +313,16 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
             u[k] = (v[k] - acc / T::from_usize(k)) / v[0];
         }
         Jet { coeffs: u }
+    }
+
+    #[inline]
+    fn log10(self) -> Self {
+        let ln10 = T::TEN.ln();
+        let Self { mut coeffs } = self.ln();
+        for x in coeffs.iter_mut() {
+            *x /= ln10;
+        }
+        Self { coeffs }
     }
 
     /// Four-quadrant arctangent. `u = atan2(y, x)` satisfies `(x²+y²)·u′ = x·y′ − y·x′`,

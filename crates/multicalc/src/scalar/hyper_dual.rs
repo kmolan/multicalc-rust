@@ -223,6 +223,12 @@ impl<T: Numeric> Numeric for HyperDual<T> {
         eps2: T::ZERO,
         eps1eps2: T::ZERO,
     };
+    const TEN: Self = HyperDual {
+        real: T::TEN,
+        eps1: T::ZERO,
+        eps2: T::ZERO,
+        eps1eps2: T::ZERO,
+    };
     const HUNDRED: Self = HyperDual {
         real: T::HUNDRED,
         eps1: T::ZERO,
@@ -344,6 +350,16 @@ impl<T: Numeric> Numeric for HyperDual<T> {
             self.real.ln(),
             T::ONE / self.real,
             -(T::ONE / (self.real * self.real)),
+        )
+    }
+
+    #[inline]
+    fn log10(self) -> Self {
+        let ln10 = T::TEN.ln();
+        self.chain(
+            self.real.log10(),
+            T::ONE / self.real / ln10,
+            -(T::ONE / (self.real * self.real)) / ln10,
         )
     }
 
