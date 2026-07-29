@@ -323,6 +323,23 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
         Jet { coeffs: u }
     }
 
+    /// `uₖ = (1/(1 + v₀))( vₖ − (1/k) Σ_{j=1..k-1} j·uⱼ·v₍ₖ₋ⱼ₎ )`. Defined for `value > 0`.
+    #[inline]
+    fn ln_1p(self) -> Self {
+        let v = &self.coeffs;
+        let v0 = v[0] + T::ONE;
+        let mut u = [T::ZERO; N];
+        u[0] = v[0].ln_1p();
+        for k in 1..N {
+            let mut acc = T::ZERO;
+            for j in 1..k {
+                acc += T::from_usize(j) * u[j] * v[k - j];
+            }
+            u[k] = (v[k] - acc / T::from_usize(k)) / v0;
+        }
+        Jet { coeffs: u }
+    }
+
     #[inline]
     fn log2(self) -> Self {
         let ln2 = T::TWO.ln();

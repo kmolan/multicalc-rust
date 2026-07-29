@@ -30,8 +30,9 @@ mod numeric_methods {
         assert!((Numeric::hypot(3.0_f64, 4.0) - 5.0).abs() < TOL);
         assert!((Numeric::powf(2.0_f64, 3.5) - 2.0_f64.powf(3.5)).abs() < TOL);
         assert!((Numeric::exp(3.0_f64) - 3.0_f64.exp()).abs() < TOL);
-        assert!((Numeric::expm1(0.03_f64) - 0.03_f64.expm1()).abs() < TOL);
+        assert!((Numeric::expm1(0.03_f64) - f64::exp_m1(0.03)).abs() < TOL);
         assert!((Numeric::ln(7.0_f64) - 7.0_f64.ln()).abs() < TOL);
+        assert!((Numeric::ln_1p(0.05_f64) - 0.05_f64.ln_1p()).abs() < TOL);
         assert!((Numeric::log2(7.0_f64) - 7.0_f64.log2()).abs() < TOL);
         assert!((Numeric::log10(7.0_f64) - 7.0_f64.log10()).abs() < TOL);
         assert_eq!(Numeric::mul_add(2.0_f64, 3.0, 1.0), 7.0);
@@ -181,13 +182,18 @@ mod dual {
 
         let x = 0.03_f64;
         let em1 = Dual::variable(x).expm1();
-        assert!(f64::abs(em1.value - f64::expm1(x)) < TOL);
+        assert!(f64::abs(em1.value - f64::exp_m1(x)) < TOL);
         assert!(f64::abs(em1.deriv - f64::exp(x)) < TOL);
 
         // f(x) = ln(x), f'(x) = 1/x; at x = 2 -> ln 2 and 0.5
         let logarithm = Dual::variable(2.0_f64).ln();
         assert!(f64::abs(logarithm.value - f64::ln(2.0)) < TOL);
         assert!(f64::abs(logarithm.deriv - 0.5) < TOL);
+
+        // f(x) = ln(1 + x), f'(x) = 1/(1 + x); at x = -0.2 -> ln 0.8 and 1.25
+        let logarithm = Dual::variable(-0.2_f64).ln_1p();
+        assert!(f64::abs(logarithm.value - f64::ln(0.8)) < TOL);
+        assert!(f64::abs(logarithm.deriv - 1.25) < TOL);
 
         // f(x) = log10(x), f'(x) = 1/(ln(10) * x); at x = 7 -> log10 7 and 1/(7 * ln(10))
         let log10 = Dual::variable(7.0).log10();
@@ -476,6 +482,14 @@ mod hyper_dual {
         assert!(f64::abs(log10.real - f64::log10(x)) < TOL);
         assert!(f64::abs(log10.eps1 - x.recip() / ln10) < TOL);
         assert!(f64::abs(log10.eps1eps2 - (-1.0 / (ln10 * x * x))) < TOL);
+
+        // f(x) = ln(1 + x) -> f' = 1/(1 + x), f'' = -1/(1 + x)^2
+        let x = 0.03;
+        let xp1 = x + 1.0;
+        let ln = HyperDual::variable(x).ln_1p();
+        assert!(f64::abs(ln.real - f64::ln_1p(x)) < TOL);
+        assert!(f64::abs(ln.eps1 - xp1.recip()) < TOL);
+        assert!(f64::abs(ln.eps1eps2 - (-1.0 / (xp1 * xp1))) < TOL);
     }
 
     #[test]
@@ -490,7 +504,7 @@ mod hyper_dual {
         // f(x) = exp(x) - 1 derivatives match those of exp(x)
         let x = 0.03_f64;
         let exponential = HyperDual::variable(x).expm1();
-        assert!(f64::abs(exponential.real - f64::expm1(x)) < TOL);
+        assert!(f64::abs(exponential.real - f64::exp_m1(x)) < TOL);
         assert!(f64::abs(exponential.eps1 - f64::exp(x)) < TOL);
         assert!(f64::abs(exponential.eps1eps2 - f64::exp(x)) < TOL);
     }
@@ -643,7 +657,7 @@ mod jet {
 
         // every non-trivial derivative of exp(x) - 1 is exp(x)
         let exponential = Jet::<f64, 6>::variable(x).expm1();
-        assert!(f64::abs(exponential.derivative(0) - f64::expm1(x)) < TOL);
+        assert!(f64::abs(exponential.derivative(0) - f64::exp_m1(x)) < TOL);
         for order in 1..6 {
             assert!(f64::abs(exponential.derivative(order) - f64::exp(x)) < TOL);
         }
@@ -728,6 +742,15 @@ mod jet {
         assert!(f64::abs(logarithm.derivative(1) - x.recip() / ln10) < TOL);
         assert!(f64::abs(logarithm.derivative(2) - (-1.0 / (ln10 * x * x))) < TOL);
         assert!(f64::abs(logarithm.derivative(3) - 2.0 / (ln10 * x * x * x)) < TOL);
+
+        // f(x) = ln(1 + x): f'=1/(1 + x), f''=-1/(1 + x)^2, f'''=2/(1 + x)^3
+        let x = 0.123_f64;
+        let xp1 = x + 1.0;
+        let logarithm = Jet::<f64, 4>::variable(x).ln_1p();
+        assert!(f64::abs(logarithm.derivative(0) - f64::ln_1p(x)) < TOL);
+        assert!(f64::abs(logarithm.derivative(1) - 1.0 / xp1) < TOL);
+        assert!(f64::abs(logarithm.derivative(2) - (-1.0 / (xp1 * xp1))) < TOL);
+        assert!(f64::abs(logarithm.derivative(3) - 2.0 / (xp1 * xp1 * xp1)) < TOL);
     }
 
     #[test]

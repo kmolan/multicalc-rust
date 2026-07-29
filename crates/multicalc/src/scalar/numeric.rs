@@ -97,6 +97,14 @@ pub trait Numeric:
         self.exp() - Self::ONE
     }
 
+    /// Calculates `ln(1 + x)`.
+    /// The default implementation computes the result using `ln` and normal addition,
+    /// however overrides for `f32` and `f64` use a more accurate primitive.
+    /// Other implementors of the trait will also likely want to override this method.
+    fn ln_1p(self) -> Self {
+        (self + Self::ONE).ln()
+    }
+
     /// Base 2 logarithm.
     /// The default implementation uses two calls to `ln`.
     /// More efficient overrides are used for `f32` and `f64`.
@@ -357,6 +365,10 @@ impl Numeric for f64 {
         libm::log(self)
     }
     #[inline]
+    fn ln_1p(self) -> Self {
+        libm::log1p(self)
+    }
+    #[inline]
     fn log2(self) -> Self {
         libm::log2(self)
     }
@@ -510,6 +522,10 @@ impl Numeric for f32 {
     #[inline]
     fn ln(self) -> Self {
         libm::logf(self)
+    }
+    #[inline]
+    fn ln_1p(self) -> Self {
+        libm::log1pf(self)
     }
     #[inline]
     fn log2(self) -> Self {

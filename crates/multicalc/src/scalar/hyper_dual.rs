@@ -360,6 +360,12 @@ impl<T: Numeric> Numeric for HyperDual<T> {
     }
 
     #[inline]
+    fn ln_1p(self) -> Self {
+        let xp1 = self.real + T::ONE;
+        self.chain(self.real.ln_1p(), T::ONE / xp1, -(T::ONE / (xp1 * xp1)))
+    }
+
+    #[inline]
     fn log2(self) -> Self {
         let ln2 = T::TWO.ln();
         self.chain(
