@@ -4,9 +4,11 @@
 //! Eigen, glam, and ROS `tf2`: contains both the raw quaternion algebra and the rotation
 //! helpers. A quaternion represents a rotation only when it has unit norm. The rotation
 //! *constructors* ([`Quaternion::from_axis_angle`], [`Quaternion::from_scaled_axis`],
-//! [`Quaternion::from_euler_zyx`], [`Quaternion::try_from_rotation_matrix`]) return unit output;
+//! [`Quaternion::from_euler_zyx`], [`Quaternion::from_two_vectors`],
+//! [`Quaternion::try_from_rotation_matrix`]) return unit output;
 //! the rotation *queries* ([`Quaternion::to_rotation_matrix`], [`Quaternion::slerp`],
-//! [`Quaternion::transform_point`], [`Quaternion::to_euler_zyx`], [`Quaternion::to_axis_angle`],
+//! [`Quaternion::transform_point`], [`Quaternion::inverse_transform_point`],
+//! [`Quaternion::rotation_angle_to`], [`Quaternion::to_euler_zyx`], [`Quaternion::to_axis_angle`],
 //! [`Quaternion::to_scaled_axis`]) assume unit input — call [`Quaternion::normalized`] first if a
 //! quaternion has drifted.
 //!
@@ -34,6 +36,32 @@ pub struct Quaternion<T: Numeric = f64> {
     x: T,
     y: T,
     z: T,
+}
+
+/// The unit vector along `v`, or `None` when `v` carries no direction: a non-finite component,
+/// or all components zero.
+///
+/// Components are divided by the largest of them in magnitude before the norm is taken, which
+/// keeps the direction of inputs whose squared norm is not representable. Normalizing straight
+/// through `Vector::try_normalized` does not: `norm()` squares first, so `[1e200, 0, 0]` overflows
+/// to an infinite norm and comes back as the zero vector, and `[1e-200, 0, 0]` underflows to a
+/// zero norm and comes back as `None`, though both name a perfectly good axis.
+#[inline]
+fn unit_direction<T: Numeric>(v: Vector<3, T>) -> Option<Vector<3, T>> {
+    if !v.is_finite() {
+        return None;
+    }
+
+    let [x, y, z] = *v.as_array();
+    let scale = x.abs().max(y.abs()).max(z.abs());
+
+    if scale == T::ZERO {
+        return None;
+    }
+
+    // Every component is now at most 1 in magnitude and at least one is exactly 1, so the squared
+    // norm sits in `[1, 3]` and the division below is exact in the exponent.
+    (v / scale).try_normalized()
 }
 
 impl<T: Numeric> Quaternion<T> {
@@ -287,6 +315,77 @@ impl<T: Numeric> Quaternion<T> {
         }
     }
 
+    /// The shortest rotation taking the direction `from` onto the direction `to`, as a unit
+    /// quaternion. Only the directions matter: both inputs are normalized internally, over the
+    /// whole finite range rather than only where the squared norm is representable. An input that
+    /// is non-finite or all zeros carries no direction, and yields the identity rotation.
+    ///
+    /// When the two directions are exactly opposite the rotation is by pi about an axis the inputs
+    /// do not determine: any perpendicular of `from` maps it onto `to`, and one is picked here.
+    ///
+    /// Near-opposite inputs stay accurate to a few eps, with no band of degraded accuracy around
+    /// pi. Two things buy that. The half-angle is taken from `norm(a + b)` rather than from the
+    /// `sqrt(2(1 + a.b))` form, which loses relative accuracy to cancellation exactly there. And
+    /// the axis is `a x (a + b)`, which is perpendicular to `a` whatever error `a + b` carries, so
+    /// `from` is always rotated within the correct plane; the `eps/delta` relative error of
+    /// `a + b` at a separation `delta` from pi is then scaled back down by the `delta` it is
+    /// rotated through, leaving an error flat in eps rather than growing as pi is approached.
+    ///
+    /// ```
+    /// use multicalc::spatial::Quaternion;
+    /// use multicalc::linear_algebra::Vector;
+    ///
+    /// let from = Vector::new([1.0, 0.0, 0.0]);
+    /// let to = Vector::new([0.0, 2.0, 0.0]);
+    /// let rotated = Quaternion::from_two_vectors(from, to).transform_point(from);
+    ///
+    /// assert!((rotated - to.normalized()).norm() < 1e-12);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn from_two_vectors(from: Vector<3, T>, to: Vector<3, T>) -> Self {
+        let (Some(a), Some(b)) = (unit_direction(from), unit_direction(to)) else {
+            return Self::identity();
+        };
+        // `norm(a + b) = 2.cos(theta/2)` for unit inputs, theta the angle between them. Getting the
+        // half-angle from the sum rather than from `sqrt(2(1 + a.b))` matters near `theta = pi`: there
+        // `1 + a.b` is the difference of two nearly equal numbers, so it loses all relative
+        // accuracy at `eps/delta^2` for a separation `delta` from `pi`, while the components of `a + b`
+        // each keep theirs to `eps/delta`.
+        let h = a + b;
+        let h_sq = h.norm_squared();
+        // Only the exactly degenerate case needs the fallback, not a band around it. The axis below
+        // is `a x h`, which is perpendicular to `a` however inaccurate `h` is, so `a` always lands
+        // in the right plane and the leftover error is `delta` times the `eps/delta` relative error
+        // of `h`, i.e. flat in `eps`. That holds until `h` is exactly zero and there is no axis at
+        // all. An `h_sq` that has underflowed to zero from a nonzero `h` lands here too, and is
+        // just as well served: `h_sq = delta^2`, so that needs `delta < 1e-154`, far below the
+        // point where a pi turn is the right answer anyway.
+        if h_sq == T::ZERO {
+            // Antiparallel, where the inputs pin down no axis. Build the pi rotation by crossing
+            // `a` with the principal axis it is least aligned with, which keeps that cross
+            // product's norm at 0.816 or above.
+            let [ax, ay, az] = *a.as_array();
+            let principal = if ax.abs() <= ay.abs() && ax.abs() <= az.abs() {
+                Vector::new([T::ONE, T::ZERO, T::ZERO])
+            } else if ay.abs() <= az.abs() {
+                Vector::new([T::ZERO, T::ONE, T::ZERO])
+            } else {
+                Vector::new([T::ZERO, T::ZERO, T::ONE])
+            };
+
+            return Self::from_scalar_vector(T::ZERO, a.cross(principal).normalized());
+        }
+        // The intended quaternion is `(s/2, (a x b)/s)` for `s = norm(a + b)`, since `a x (a + b)`
+        // is `a x b` with magnitude `sin(theta)` and `sin(theta)/s = sin(theta/2)`. Scaling it by
+        // `s` clears both divisions and leaves `(h_sq/2, a x h)`, whose norm is exactly `s`, so one
+        // normalization recovers the unit result and replaces the `sqrt` and `recip` it drops.
+        // Dividing by `s` instead leaves the norm off by `(eps/delta)^2` just above the cutoff,
+        // where `s` is small enough for its own rounding to show; this way the norm is unit to eps
+        // over the whole range.
+        Self::from_scalar_vector(h_sq * T::HALF, a.cross(h)).normalized()
+    }
+
     /// Builds a unit quaternion from a rotation matrix by Shepperd's method (the largest of the
     /// trace and the three diagonal terms is the pivot, for numerical stability). A proper
     /// (orthonormal, determinant +1) rotation is assumed; `None` guards only against a degenerate
@@ -424,6 +523,55 @@ impl<T: Numeric> Quaternion<T> {
         };
         let r = self * p * self.conjugate();
         Vector::new([r.x, r.y, r.z])
+    }
+
+    /// Rotates a point by the inverse rotation, the sandwich product `q^{-1} . (0, v) . q`.
+    /// Assumes a unit quaternion, for which this exactly undoes [`Quaternion::transform_point`]
+    /// without the caller building the conjugate first.
+    ///
+    /// ```
+    /// use multicalc::spatial::Quaternion;
+    /// use multicalc::linear_algebra::Vector;
+    ///
+    /// let rotation = Quaternion::from_euler_zyx(0.3, -0.7, 1.2);
+    /// let point = Vector::new([1.0, 2.0, 3.0]);
+    /// let roundtrip = rotation.inverse_transform_point(rotation.transform_point(point));
+    ///
+    /// assert!((roundtrip - point).norm() < 1e-12);
+    /// ```
+    // No `#[must_use]`: the returned `Vector` already carries one, and clippy rejects the
+    // duplicate. `rotation_angle_to` returns a bare `T` and does need its own.
+    #[inline]
+    pub fn inverse_transform_point(self, v: Vector<3, T>) -> Vector<3, T> {
+        self.conjugate().transform_point(v)
+    }
+
+    /// The angle in `[0, pi]` between two rotations: the rotation angle of the relative rotation
+    /// `self^{-1} . other`.
+    /// Assumes unit quaternions.
+    ///
+    /// The shortest-path rule applies, so the double cover is respected: `q` and `-q` are the same
+    /// rotation and are zero apart. Measured with `atan2` rather than as `acos` of the dot product,
+    /// which loses about half the significant digits for nearly equal rotations.
+    ///
+    /// ```
+    /// use multicalc::spatial::Quaternion;
+    /// use multicalc::linear_algebra::Vector;
+    ///
+    /// let axis = Vector::<3, f64>::new([0.0, 0.0, 1.0]);
+    /// let first = Quaternion::from_axis_angle(axis, 0.5);
+    /// let second = Quaternion::from_axis_angle(axis, 1.25);
+    ///
+    /// assert!((first.rotation_angle_to(second) - 0.75).abs() < 1e-12);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn rotation_angle_to(self, other: Self) -> T {
+        let r = self.conjugate() * other;
+        let vn = (r.x * r.x + r.y * r.y + r.z * r.z).sqrt();
+
+        // `|w|` rather than `w` folds the `theta > pi` half of the double cover back onto `2pi - theta`.
+        T::TWO * vn.atan2(r.w.abs())
     }
 
     /// Spherical linear interpolation from `self` (`t = 0`) to `other` (`t = 1`). Assumes unit
