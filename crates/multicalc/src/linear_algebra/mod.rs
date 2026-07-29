@@ -24,7 +24,6 @@ pub use qr::{CholeskyFactor, DampedLeastSquares, PivotedQr};
 pub use svd::Svd;
 pub use vector::Vector;
 
-
 // Vector type aliases for ease of life
 pub type Vector2D<T = f64> = Vector<2, T>;
 pub type Vector3D<T = f64> = Vector<3, T>;
