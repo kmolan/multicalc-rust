@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Add `SO2` method `normalized` @elias-taufer 
+- Add `SO2` method `normalized` @elias-taufer (#239)
 
 ### Fixed
 
