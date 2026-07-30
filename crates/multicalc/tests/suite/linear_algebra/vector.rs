@@ -1,5 +1,5 @@
 use core::f64::consts::{E, PI};
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Vector, Vector2D, Vector3D};
 use multicalc_testkit::tol::{Tol, assert_scalar_close, assert_vector_close};
 use proptest::prelude::*;
 use proptest::test_runner::TestCaseError;
@@ -26,7 +26,7 @@ fn construct_and_access() {
     }
     assert_eq!(mutable, Vector::new([4.0, 9.0]));
 
-    let zeros: Vector<3> = Vector::zeros();
+    let zeros: Vector3D = Vector::zeros();
     assert_eq!(zeros, Vector::new([0.0, 0.0, 0.0]));
 
     assert_eq!(
@@ -41,14 +41,14 @@ fn construct_and_access() {
     }
     assert_eq!(matrix.get(0, 1), Some(&7.0));
 
-    let identity: Matrix<3, 3> = Matrix::identity();
+    let identity: Matrix3D = Matrix::identity();
     assert_eq!(
         identity.into_array(),
         [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
     );
 
     assert_eq!(
-        Matrix::<2, 2>::from_fn(|row, column| (row * 2 + column) as f64),
+        Matrix2D::from_fn(|row, column| (row * 2 + column) as f64),
         Matrix::new([[0.0, 1.0], [2.0, 3.0]])
     );
 }
@@ -56,16 +56,16 @@ fn construct_and_access() {
 #[test]
 fn try_from_slice_length() {
     assert_eq!(
-        Vector::<3>::try_from_slice(&[1.0, 2.0, 3.0]),
+        Vector3D::try_from_slice(&[1.0, 2.0, 3.0]),
         Some(Vector::new([1.0, 2.0, 3.0]))
     );
-    assert!(Vector::<3>::try_from_slice(&[1.0, 2.0]).is_none());
+    assert!(Vector3D::try_from_slice(&[1.0, 2.0]).is_none());
 
     assert_eq!(
-        Matrix::<2, 2>::try_from_row_slice(&[1.0, 2.0, 3.0, 4.0]),
+        Matrix2D::try_from_row_slice(&[1.0, 2.0, 3.0, 4.0]),
         Some(Matrix::new([[1.0, 2.0], [3.0, 4.0]]))
     );
-    assert!(Matrix::<2, 2>::try_from_row_slice(&[1.0, 2.0, 3.0]).is_none());
+    assert!(Matrix2D::try_from_row_slice(&[1.0, 2.0, 3.0]).is_none());
 }
 
 #[test]
@@ -179,8 +179,8 @@ fn vector_arithmetic() {
 
 #[test]
 fn vector_dot_and_norm() {
-    let left: Vector<3> = Vector::new([1.0, 2.0, 3.0]);
-    let right: Vector<3> = Vector::new([4.0, 5.0, 6.0]);
+    let left: Vector3D = Vector::new([1.0, 2.0, 3.0]);
+    let right: Vector3D = Vector::new([4.0, 5.0, 6.0]);
     assert_eq!(left.dot(right), 32.0);
     assert!((left.dot(right) - right.dot(left)).abs() < 1e-12); // symmetry
     assert_eq!(Vector::new([1.0, 0.0]).dot(Vector::new([0.0, 1.0])), 0.0); // orthogonal
@@ -188,11 +188,11 @@ fn vector_dot_and_norm() {
     let empty: Vector<0> = Vector::zeros();
     assert_eq!(empty.dot(empty), 0.0);
 
-    let vector: Vector<2> = Vector::new([3.0, 4.0]);
+    let vector: Vector2D = Vector::new([3.0, 4.0]);
     assert_eq!(vector.norm(), 5.0);
     assert!((vector.norm_squared() - vector.norm() * vector.norm()).abs() < 1e-12);
 
-    let zeros: Vector<3> = Vector::zeros();
+    let zeros: Vector3D = Vector::zeros();
     assert_eq!(zeros.norm(), 0.0);
     assert!(Vector::new([f64::INFINITY, 0.0]).norm().is_infinite());
 }
@@ -313,8 +313,8 @@ fn vector_cross_3d() {
 #[test]
 fn vector_cross_2d_and_scalar_triple() {
     assert_eq!(Vector::new([1.0, 0.0]).cross(Vector::new([0.0, 1.0])), 1.0);
-    let left: Vector<2> = Vector::new([2.0, 3.0]);
-    let right: Vector<2> = Vector::new([5.0, 7.0]);
+    let left: Vector2D = Vector::new([2.0, 3.0]);
+    let right: Vector2D = Vector::new([5.0, 7.0]);
     assert!((left.cross(right) + right.cross(left)).abs() < 1e-12); // anti-commutativity
     assert_eq!(left.cross(left), 0.0); // parallel
 
@@ -323,9 +323,9 @@ fn vector_cross_2d_and_scalar_triple() {
     let unit_z = Vector::new([0.0, 0.0, 1.0]);
     assert_eq!(unit_x.scalar_triple(unit_y, unit_z), 1.0);
 
-    let first: Vector<3> = Vector::new([1.0, 2.0, 3.0]);
-    let second: Vector<3> = Vector::new([0.0, 1.0, 4.0]);
-    let third: Vector<3> = Vector::new([5.0, 6.0, 0.0]);
+    let first: Vector3D = Vector::new([1.0, 2.0, 3.0]);
+    let second: Vector3D = Vector::new([0.0, 1.0, 4.0]);
+    let third: Vector3D = Vector::new([5.0, 6.0, 0.0]);
     // cyclic
     assert!(
         (first.scalar_triple(second, third) - second.scalar_triple(third, first)).abs() < 1e-12

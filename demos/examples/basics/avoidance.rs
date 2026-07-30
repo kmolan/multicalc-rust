@@ -10,7 +10,7 @@ use core::f64::consts::PI;
 
 use multicalc::control::FollowTheGap;
 use multicalc::kinematics::Unicycle;
-use multicalc::linear_algebra::Vector;
+use multicalc::linear_algebra::{Vector, Vector3D};
 use multicalc::ode::Rk4;
 use multicalc_demos::sim::{Lidar2d, OccupancyGrid};
 use rand::SeedableRng;
@@ -30,7 +30,7 @@ fn report(label: &str, value: f64) {
 
 /// What one run of the corridor produced.
 struct RunSummary {
-    pose: Vector<3, f64>,
+    pose: Vector3D,
     minimum_clearance: f64,
     travelled: f64,
     blocked_ticks: usize,

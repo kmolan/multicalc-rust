@@ -1,5 +1,5 @@
 use multicalc::Dual;
-use multicalc::linear_algebra::Vector;
+use multicalc::linear_algebra::{Vector, Vector2D};
 use multicalc::ode::Rk4;
 
 // y' = -y, generic over the scalar so the same RHS runs at f64 and through Dual.
@@ -27,7 +27,7 @@ fn exp_decay_matches_closed_form() {
 #[test]
 fn harmonic_matches_closed_form() {
     // y'' = -y as [y2, -y1]; over one period the state returns to [cos, -sin].
-    let harmonic = |_time: f64, state: &Vector<2, f64>| Vector::new([state[1], -state[0]]);
+    let harmonic = |_time: f64, state: &Vector2D| Vector::new([state[1], -state[0]]);
     let final_time = core::f64::consts::TAU;
     let steps = 2000;
     let initial_state = Vector::new([1.0, 0.0]);
@@ -101,7 +101,7 @@ fn ad_through_rk4_matches_fd() {
 #[test]
 fn f32_energy_round_trip() {
     // Harmonic oscillator at f32 over one period conserves y0^2 + y1^2 = 1.
-    let harmonic = |_time: f32, state: &Vector<2, f32>| Vector::new([state[1], -state[0]]);
+    let harmonic = |_time: f32, state: &Vector2D<f32>| Vector::new([state[1], -state[0]]);
     let final_time = core::f32::consts::TAU;
     let steps = 2000;
     let initial_state = Vector::new([1.0, 0.0]);

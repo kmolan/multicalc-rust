@@ -8,7 +8,7 @@ use std::time::Instant;
 use multicalc::control::FollowTheGap;
 use multicalc::estimation::ExtendedKalmanFilter;
 use multicalc::kinematics::{BodyTwist, Unicycle, WheelRotations};
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Vector, Vector3D};
 use multicalc::ode::Rk4;
 use multicalc::scalar::VectorFn;
 use rand::SeedableRng;
@@ -81,10 +81,10 @@ pub enum Phase {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TickRecord {
     pub phase: Phase,
-    pub pose: Vector<3, f64>,     // truth [x, y, heading]
+    pub pose: Vector3D,           // truth [x, y, heading]
     pub estimate: Vector<5, f64>, // fused [x, y, heading, speed, turn_rate]
     pub covariance: Matrix<5, 5, f64>,
-    pub dead_reckoned: Vector<3, f64>, // odometry-only foil
+    pub dead_reckoned: Vector3D, // odometry-only foil
     pub scan: [f64; BEAMS],
     pub gps_fix: Option<[f64; 2]>,
     pub twist: BodyTwist<f64>,
@@ -167,8 +167,8 @@ pub struct LapWorld {
     filter: Option<ExtendedKalmanFilter<5, 2>>,
     phase: Phase,
     rng: Pcg32,
-    pose: Vector<3, f64>,
-    dead_reckoned: Vector<3, f64>,
+    pose: Vector3D,
+    dead_reckoned: Vector3D,
     twist: BodyTwist<f64>,
     tick: u64,
     wheel_angles: [f64; 2], // how far each wheel has turned, for the display

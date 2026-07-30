@@ -2,7 +2,7 @@ use multicalc::error::EstimationError;
 use multicalc::estimation::{
     GaussianLikelihood, KalmanFilter, KalmanModel, ParticleFilter, ResamplingScheme,
 };
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Matrix2D, Vector};
 use multicalc::random::{Pcg32, RandomSource};
 use multicalc::scalar::{Numeric, VectorFn};
 
@@ -41,11 +41,11 @@ impl VectorFn<2, 1> for MeasurePosition {
     }
 }
 
-fn identity_covariance() -> Matrix<2, 2> {
+fn identity_covariance() -> Matrix2D {
     Matrix::new([[1.0, 0.0], [0.0, 1.0]])
 }
 
-fn small_noise() -> Matrix<2, 2> {
+fn small_noise() -> Matrix2D {
     Matrix::new([[0.01, 0.0], [0.0, 0.01]])
 }
 

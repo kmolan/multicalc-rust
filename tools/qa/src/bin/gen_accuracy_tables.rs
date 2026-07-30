@@ -148,6 +148,13 @@ const DOCS: &[Doc] = &[
             ],
         }],
     },
+    Doc {
+        file: "mjcf.md",
+        modules: &[Module {
+            name: "mjcf",
+            cases: &["skydio_x2_free_joint"],
+        }],
+    },
 ];
 
 /// A single float, in trimmed scientific notation: `4e0`, `1.5e-15`, `0`.

@@ -3,7 +3,7 @@
 
 use multicalc::error::KinematicsError;
 use multicalc::kinematics::{BodyTwist, DifferentialDrive, Unicycle, WheelRotations};
-use multicalc::linear_algebra::Vector;
+use multicalc::linear_algebra::Vector3D;
 use multicalc::ode::Rk4;
 use rand_pcg::Pcg32;
 
@@ -27,7 +27,7 @@ pub struct WheeledVehicle {
 /// reported.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TruthStep {
-    pub pose: Vector<3, f64>,
+    pub pose: Vector3D,
     /// How far each wheel turned over the step, in radians.
     pub wheel_rotations: WheelRotations<f64>,
     /// Forward speed the encoders reported over the step.
@@ -69,7 +69,7 @@ impl WheeledVehicle {
     /// motion is untouched.
     pub fn step(
         &self,
-        pose: Vector<3, f64>,
+        pose: Vector3D,
         command: BodyTwist<f64>,
         dt: f64,
         slipping: bool,

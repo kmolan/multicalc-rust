@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use criterion::Criterion;
 
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Matrix4D, Vector, Vector2D};
 use multicalc::numerical_derivative::DerivatorSingleVariable;
 use multicalc::numerical_derivative::Jacobian;
 use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
@@ -134,7 +134,7 @@ fn bench_expm(c: &mut Criterion) {
 
 fn bench_rk45_solve(c: &mut Criterion) {
     // Harmonic oscillator y'' = -y, adaptive solve to t = 2*pi.
-    let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+    let f = |_t: f64, y: &Vector2D| Vector::new([y[1], -y[0]]);
     let y0 = Vector::new([1.0, 0.0]);
     let solver = Rk45::default().with_rtol(1e-9).with_atol(1e-12);
     c.bench_function("rk45_solve", |b| {
@@ -148,7 +148,7 @@ fn bench_rk45_solve(c: &mut Criterion) {
 
 fn bench_rk4_integrate(c: &mut Criterion) {
     // Same harmonic oscillator, fixed-step RK4 (2000 steps), no-op observer.
-    let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+    let f = |_t: f64, y: &Vector2D| Vector::new([y[1], -y[0]]);
     let y0 = Vector::new([1.0, 0.0]);
     let steps = 2000usize;
     let dt = core::f64::consts::TAU / steps as f64;
@@ -201,7 +201,7 @@ fn bench_particle_filter(c: &mut Criterion) {
         7,
     )
     .unwrap();
-    let sensor = GaussianLikelihood::new(Matrix::<4, 4>::identity().scale(0.09)).unwrap();
+    let sensor = GaussianLikelihood::new(Matrix4D::identity().scale(0.09)).unwrap();
     let motion = StationaryPose;
     let ranges = BeaconRanges;
     // The measurement is the true ranges from the robot's held pose, formed once outside the loop.

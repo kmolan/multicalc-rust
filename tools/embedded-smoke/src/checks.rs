@@ -16,7 +16,7 @@ use multicalc::LevenbergMarquardt;
 use multicalc::control::{FollowTheGap, Pid, pure_pursuit_curvature};
 use multicalc::error::LinalgError;
 use multicalc::estimation::{ExtendedKalmanFilter, KalmanFilter, KalmanModel};
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Vector, Vector2D};
 use multicalc::numerical_derivative::DerivatorSingleVariable;
 use multicalc::numerical_derivative::Jacobian;
 use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
@@ -118,9 +118,9 @@ pub fn portable_path() {
 /// No-panic negative path: a fallible decomposition returns a typed `Err` on bad input
 /// instead of crashing.
 pub fn error_path_returns_err() {
-    let singular = black_box(Matrix::<3, 3>::zeros());
+    let singular = black_box(Matrix3D::<f64>::zeros());
     assert!(matches!(singular.lu(), Err(LinalgError::Singular)));
-    let indefinite = black_box(Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 1.0]]));
+    let indefinite = black_box(Matrix2D::new([[1.0, 2.0], [2.0, 1.0]]));
     assert!(matches!(
         indefinite.cholesky(),
         Err(LinalgError::NotPositiveDefinite)
@@ -130,7 +130,7 @@ pub fn error_path_returns_err() {
 /// Golden: singular values of a fixture matrix must match the host QA golden (linalg/svd_3x3).
 /// Returns the values for the cross-ABI guard (emitted on every target).
 pub fn svd_golden() -> [f64; 3] {
-    let a: Matrix<3, 3> = black_box(Matrix::new(fixtures::SVD_3X3_INPUT));
+    let a: Matrix3D = black_box(Matrix::new(fixtures::SVD_3X3_INPUT));
     let sv = a.svd().expect("svd").singular_values();
     for i in 0..3 {
         assert_close!(
@@ -185,7 +185,7 @@ pub fn ode_identity() {
     use multicalc::linear_algebra::Vector;
     use multicalc::ode::{Rk4, Rk45};
 
-    let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+    let f = |_t: f64, y: &Vector2D| Vector::new([y[1], -y[0]]);
     let steps = 2000;
     let dt = core::f64::consts::TAU / steps as f64;
     let yf = Rk4::integrate(

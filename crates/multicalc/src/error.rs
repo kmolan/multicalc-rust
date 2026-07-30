@@ -87,6 +87,20 @@ pub enum KinematicsError {
     NonFinite,
 }
 
+/// Errors from the spatial module (rigid-body inertia).
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
+pub enum SpatialError {
+    /// A body mass was zero or negative.
+    NonPositiveMass,
+    /// A mass, centre-of-mass, or inertia value was infinite or NaN.
+    NonFinite,
+    /// A rotational inertia was not the same read across the diagonal.
+    NotSymmetric,
+    /// A rotational inertia had a diagonal entry that was zero or negative.
+    NonPositiveInertia,
+}
+
 /// Errors from the estimation module (Kalman filtering).
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
@@ -159,6 +173,8 @@ pub enum CalcError {
     Differentiate(DiffError),
     /// A kinematics error.
     Kinematics(KinematicsError),
+    /// A spatial error.
+    Spatial(SpatialError),
     /// An estimation error.
     Estimation(EstimationError),
     /// A control error.
@@ -205,6 +221,11 @@ impl From<SolveError> for CalcError {
 impl From<KinematicsError> for CalcError {
     fn from(e: KinematicsError) -> Self {
         CalcError::Kinematics(e)
+    }
+}
+impl From<SpatialError> for CalcError {
+    fn from(e: SpatialError) -> Self {
+        CalcError::Spatial(e)
     }
 }
 impl From<EstimationError> for CalcError {
@@ -302,6 +323,21 @@ impl core::fmt::Display for KinematicsError {
     }
 }
 
+impl core::fmt::Display for SpatialError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(match self {
+            SpatialError::NonPositiveMass => "body mass must be strictly positive",
+            SpatialError::NonFinite => "mass, centre of mass, or inertia was not finite",
+            SpatialError::NotSymmetric => {
+                "rotational inertia must read the same across the diagonal"
+            }
+            SpatialError::NonPositiveInertia => {
+                "rotational inertia diagonal entries must be strictly positive"
+            }
+        })
+    }
+}
+
 impl core::fmt::Display for EstimationError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -368,6 +404,7 @@ impl core::fmt::Display for CalcError {
             CalcError::Integrate(e) => write!(f, "{e}"),
             CalcError::Differentiate(e) => write!(f, "{e}"),
             CalcError::Kinematics(e) => write!(f, "{e}"),
+            CalcError::Spatial(e) => write!(f, "{e}"),
             CalcError::Estimation(e) => write!(f, "{e}"),
             CalcError::Control(e) => write!(f, "{e}"),
             CalcError::Motion(e) => write!(f, "{e}"),
@@ -381,6 +418,7 @@ impl core::error::Error for IntegrateError {}
 impl core::error::Error for KinematicsError {}
 impl core::error::Error for ControlError {}
 impl core::error::Error for MotionError {}
+impl core::error::Error for SpatialError {}
 
 impl core::error::Error for EstimationError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
@@ -409,6 +447,7 @@ impl core::error::Error for CalcError {
             CalcError::Integrate(e) => Some(e),
             CalcError::Differentiate(e) => Some(e),
             CalcError::Kinematics(e) => Some(e),
+            CalcError::Spatial(e) => Some(e),
             CalcError::Estimation(e) => Some(e),
             CalcError::Control(e) => Some(e),
             CalcError::Motion(e) => Some(e),

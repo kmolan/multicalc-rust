@@ -1,7 +1,7 @@
 //! The unicycle plant as an ODE right-hand side.
 
 use crate::kinematics::differential_drive::BodyTwist;
-use crate::linear_algebra::Vector;
+use crate::linear_algebra::{Vector, Vector3D};
 use crate::scalar::Numeric;
 
 /// The unicycle plant at a held body twist: `f(t, [x, y, θ]) = [v cosθ, v sinθ, ω]`.
@@ -36,7 +36,7 @@ impl<T: Numeric> Unicycle<T> {
 
     /// The state derivative at `state = [x, y, θ]`.
     #[inline]
-    pub fn derivative(self, state: &Vector<3, T>) -> Vector<3, T> {
+    pub fn derivative(self, state: &Vector3D<T>) -> Vector3D<T> {
         let v = self.twist.linear();
         let theta = state[2];
         Vector::new([v * theta.cos(), v * theta.sin(), self.twist.angular()])
@@ -44,7 +44,7 @@ impl<T: Numeric> Unicycle<T> {
 
     /// The derivative as an [`Rk4`](crate::Rk4)/[`Rk45`](crate::Rk45) closure.
     #[inline]
-    pub fn field(self) -> impl Fn(T, &Vector<3, T>) -> Vector<3, T> {
+    pub fn field(self) -> impl Fn(T, &Vector3D<T>) -> Vector3D<T> {
         move |_t, y| self.derivative(y)
     }
 }

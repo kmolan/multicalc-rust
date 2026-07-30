@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Rigid-body inertia and the free joint.** `SpatialInertia` for a body's mass, balance point, and
+  resistance to spinning, and `FreeJointState` for the pose and velocity of a body free to move in
+  all six directions, with a `SpatialError` for the mass properties that do not describe a usable
+  body. @kmolan
+- **MuJoCo model loading.** A `multicalc-mjcf` crate reading one free-floating body out of an MJCF
+  file, working the mass out from the shapes where the file does not state it, checked against
+  MuJoCo's own compile of the same file. Ships with a `model_ingestion` demo. @kmolan
+- `Vector2D` / `Vector3D` / `Vector6D` and `Matrix2D` / `Matrix3D` / `Matrix4D` / `Matrix6D`
+  aliases for the vector and matrix sizes used most, so a call site writes `Vector3D<T>` rather
+  than `Vector<3, T>`. Each names the same type as the long spelling, so the two mix freely and
+  nothing existing has to change. @kmolan
 - `Quaternion::from_two_vectors`, `Quaternion::rotation_angle_to`, and `Quaternion::inverse_transform_point`. (#214)
 
 ### Fixed

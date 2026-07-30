@@ -1,4 +1,4 @@
-use multicalc::linear_algebra::Vector;
+use multicalc::linear_algebra::Vector3D;
 use multicalc_demos::sim::geometry::{box_outline, wrap_angle};
 use multicalc_demos::sim::lidar::Lidar2d;
 use multicalc_demos::sim::occupancy_grid::OccupancyGrid;
@@ -18,7 +18,7 @@ fn test_room() -> OccupancyGrid {
 
 /// Runs the startup turn for `cycles` steps and returns the final estimate, how many guesses
 /// still carry weight, and where the robot truly ended up facing.
-fn localize(seed: u64, cycles: usize) -> (Vector<3, f64>, f64, f64) {
+fn localize(seed: u64, cycles: usize) -> (Vector3D, f64, f64) {
     const BEAMS: usize = 31;
     let grid = test_room();
     let lidar = Lidar2d::<BEAMS>::new(TAU / 3.0, 4.0, 0.0, 0.0);

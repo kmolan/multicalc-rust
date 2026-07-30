@@ -2,19 +2,19 @@
 
 use core::ops::{Add, Neg, Sub};
 
-use crate::linear_algebra::Vector;
+use crate::linear_algebra::{Vector, Vector3D, Vector6D};
 use crate::scalar::Numeric;
 
 /// A spatial velocity (twist), stored linear-first in the crate-wide `[v; ω]` ordering.
 ///
 /// The type owns its layout: the only value constructor takes the linear and angular parts by name,
-/// so an `[ω; v]` mix-up is unrepresentable. Converters to and from a flat `[v; ω]` `Vector<6>` are
+/// so an `[ω; v]` mix-up is unrepresentable. Converters to and from a flat `[v; ω]` `Vector6D` are
 /// the explicit seam to the group API (`SE3::exp` and friends). This is a plain element of a vector
 /// space — `Add`/`Sub`/`Neg`/[`scale`](Twist::scale) act component-wise; the spatial *algebra*
 /// (adjoint action, Lie bracket) is not defined here.
 ///
 /// ```
-/// use multicalc::linear_algebra::Vector;
+/// use multicalc::linear_algebra::Vector6D;
 /// use multicalc::spatial::Twist;
 /// let a = Twist::from_array([1.0_f64, 2.0, 3.0, 4.0, 5.0, 6.0]);
 /// let b = Twist::from_array([1.0_f64; 6]);
@@ -22,12 +22,12 @@ use crate::scalar::Numeric;
 /// assert_eq!((a - b).as_array(), [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]);
 /// assert_eq!((-a).as_array(), [-1.0, -2.0, -3.0, -4.0, -5.0, -6.0]);
 /// assert_eq!(a.scale(2.0).as_array(), [2.0, 4.0, 6.0, 8.0, 10.0, 12.0]);
-/// let _: Vector<6, f64> = a.into();
+/// let _: Vector6D = a.into();
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Twist<T: Numeric = f64> {
-    linear: Vector<3, T>,
-    angular: Vector<3, T>,
+    linear: Vector3D<T>,
+    angular: Vector3D<T>,
 }
 
 impl<T: Numeric> Twist<T> {
@@ -43,7 +43,7 @@ impl<T: Numeric> Twist<T> {
     /// assert_eq!(t.angular(), Vector::new([4.0, 5.0, 6.0]));
     /// ```
     #[inline]
-    pub fn new(linear: Vector<3, T>, angular: Vector<3, T>) -> Self {
+    pub fn new(linear: Vector3D<T>, angular: Vector3D<T>) -> Self {
         Twist { linear, angular }
     }
 
@@ -92,7 +92,7 @@ impl<T: Numeric> Twist<T> {
         [vx, vy, vz, wx, wy, wz]
     }
 
-    /// A twist from a flat `[v; ω]` `Vector<6>` (the group-API ordering).
+    /// A twist from a flat `[v; ω]` `Vector6D` (the group-API ordering).
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
@@ -101,11 +101,11 @@ impl<T: Numeric> Twist<T> {
     /// assert_eq!(t.linear(), Vector::new([1.0, 2.0, 3.0]));
     /// ```
     #[inline]
-    pub fn from_vector(v: Vector<6, T>) -> Self {
+    pub fn from_vector(v: Vector6D<T>) -> Self {
         Self::from_array(v.into_array())
     }
 
-    /// The twist as a flat `[v; ω]` `Vector<6>` for the group API.
+    /// The twist as a flat `[v; ω]` `Vector6D` for the group API.
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
@@ -114,19 +114,19 @@ impl<T: Numeric> Twist<T> {
     /// assert_eq!(t.to_vector(), Vector::new([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]));
     /// ```
     #[inline]
-    pub fn to_vector(self) -> Vector<6, T> {
+    pub fn to_vector(self) -> Vector6D<T> {
         Vector::new(self.as_array())
     }
 
     /// The linear (translational) part `v`.
     #[inline]
-    pub fn linear(self) -> Vector<3, T> {
+    pub fn linear(self) -> Vector3D<T> {
         self.linear
     }
 
     /// The angular (rotational) part `ω`.
     #[inline]
-    pub fn angular(self) -> Vector<3, T> {
+    pub fn angular(self) -> Vector3D<T> {
         self.angular
     }
 
@@ -182,15 +182,15 @@ impl<T: Numeric> Neg for Twist<T> {
     }
 }
 
-impl<T: Numeric> From<Vector<6, T>> for Twist<T> {
-    /// Reinterprets a flat `[v; ω]` `Vector<6>` as a twist.
+impl<T: Numeric> From<Vector6D<T>> for Twist<T> {
+    /// Reinterprets a flat `[v; ω]` `Vector6D` as a twist.
     #[inline]
-    fn from(v: Vector<6, T>) -> Self {
+    fn from(v: Vector6D<T>) -> Self {
         Self::from_vector(v)
     }
 }
 
-impl<T: Numeric> From<Twist<T>> for Vector<6, T> {
+impl<T: Numeric> From<Twist<T>> for Vector6D<T> {
     /// Flattens a twist into `[v; ω]`.
     #[inline]
     fn from(t: Twist<T>) -> Self {
