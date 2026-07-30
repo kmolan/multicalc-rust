@@ -248,3 +248,21 @@ impl<T: Numeric> Mul for SE2<T> {
         self.compose(rhs)
     }
 }
+
+impl<T: Numeric> Default for SE2<T> {
+    /// Returns the identity as default.
+    ///
+    /// ```
+    /// use multicalc::{SE2, SO2, Vector2D};
+    ///
+    /// let default_se2 = SE2::default();
+    /// let se2 = SE2::from_parts(
+    ///     SO2::from_angle(0.3), Vector2D::new([1.0, 2.0])
+    /// );
+    ///
+    /// assert_eq!(default_se2 * se2, se2);
+    /// ```
+    fn default() -> Self {
+        Self::identity()
+    }
+}

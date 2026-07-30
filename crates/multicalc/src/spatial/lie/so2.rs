@@ -193,3 +193,18 @@ impl<T: Numeric> Mul for SO2<T> {
         self.compose(rhs)
     }
 }
+impl<T: Numeric> Default for SO2<T> {
+    /// Returns the identity as default.
+    ///
+    /// ```
+    /// use multicalc::SO2;
+    ///
+    /// let default_so2 = SO2::default();
+    /// let so2 = SO2::<f64>::from_angle(0.3);
+    ///
+    /// assert_eq!(so2 * default_so2, so2);
+    /// ```
+    fn default() -> Self {
+        Self::identity()
+    }
+}

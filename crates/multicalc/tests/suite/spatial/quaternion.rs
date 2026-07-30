@@ -767,3 +767,13 @@ fn near_zero_identities_f64() {
 fn near_zero_identities_f32() {
     near_zero_scaled_axis_roundtrip::<f32>();
 }
+
+#[test]
+fn quaternion_default_is_identity() {
+    let default_quaternion = Quaternion::default();
+    let quaternion = Quaternion::<f64>::from_array([1.0, 2.0, 3.0, 4.0]);
+
+    assert_eq!(default_quaternion, Quaternion::identity());
+    assert_eq!(quaternion * default_quaternion, quaternion);
+    assert_eq!(default_quaternion * quaternion, quaternion);
+}
