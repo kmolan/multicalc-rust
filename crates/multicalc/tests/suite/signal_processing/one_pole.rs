@@ -1,9 +1,9 @@
 //! One-pole low-pass filter tests: DC gain, pass-through, step attenuation, and constructor
 //! rejection, at f32 and f64.
 
-use multicalc::control::OnePoleLowPass;
-use multicalc::error::ControlError;
+use multicalc::error::SignalError;
 use multicalc::scalar::Numeric;
+use multicalc::signal_processing::OnePoleLowPass;
 
 // ---- steady state -----------------------------------------------------------
 
@@ -84,15 +84,15 @@ fn step_is_attenuated_and_monotone_f32() {
 fn new_rejects_out_of_range_and_non_finite() {
     assert_eq!(
         OnePoleLowPass::<f64>::new(-0.1),
-        Err(ControlError::FilterCoefficientOutOfRange)
+        Err(SignalError::CoefficientOutOfRange)
     );
     assert_eq!(
         OnePoleLowPass::<f64>::new(1.5),
-        Err(ControlError::FilterCoefficientOutOfRange)
+        Err(SignalError::CoefficientOutOfRange)
     );
     assert_eq!(
         OnePoleLowPass::<f64>::new(f64::NAN),
-        Err(ControlError::NonFinite)
+        Err(SignalError::NonFinite)
     );
 }
 
@@ -100,11 +100,11 @@ fn new_rejects_out_of_range_and_non_finite() {
 fn from_cutoff_rejects_non_positive_timestep() {
     assert_eq!(
         OnePoleLowPass::<f64>::from_cutoff(5.0, 0.0),
-        Err(ControlError::NonPositiveTimestep)
+        Err(SignalError::NonPositiveTimestep)
     );
     assert_eq!(
         OnePoleLowPass::<f64>::from_cutoff(5.0, -0.01),
-        Err(ControlError::NonPositiveTimestep)
+        Err(SignalError::NonPositiveTimestep)
     );
 }
 
@@ -112,7 +112,7 @@ fn from_cutoff_rejects_non_positive_timestep() {
 fn from_cutoff_rejects_negative_cutoff() {
     assert_eq!(
         OnePoleLowPass::<f64>::from_cutoff(-1.0, 0.01),
-        Err(ControlError::FilterCoefficientOutOfRange)
+        Err(SignalError::FrequencyOutOfRange)
     );
 }
 

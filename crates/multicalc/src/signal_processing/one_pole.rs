@@ -1,6 +1,6 @@
-//! Single-pole low-pass filter used to smooth a noisy signal.
+//! The simplest low-pass filter: a weighted blend of the new sample and the running value.
 
-use crate::error::ControlError;
+use crate::error::SignalError;
 use crate::scalar::Numeric;
 
 /// A one-pole infinite-impulse-response low-pass filter.
@@ -11,7 +11,7 @@ use crate::scalar::Numeric;
 /// transient from a zero initial state.
 ///
 /// ```
-/// use multicalc::control::OnePoleLowPass;
+/// use multicalc::signal_processing::OnePoleLowPass;
 ///
 /// // A weight of 1 keeps all of the new sample, so the output reproduces the input exactly.
 /// let keep_everything = 1.0_f64;
@@ -38,14 +38,14 @@ pub struct OnePoleLowPass<T: Numeric = f64> {
 impl<T: Numeric> OnePoleLowPass<T> {
     /// Builds a filter from a smoothing coefficient in `[0, 1]`.
     ///
-    /// Returns [`ControlError::NonFinite`] if `smoothing` is not finite, or
-    /// [`ControlError::FilterCoefficientOutOfRange`] if it lies outside `[0, 1]`.
-    pub fn new(smoothing: T) -> Result<Self, ControlError> {
+    /// Returns [`SignalError::NonFinite`] if `smoothing` is not finite, or
+    /// [`SignalError::CoefficientOutOfRange`] if it lies outside `[0, 1]`.
+    pub fn new(smoothing: T) -> Result<Self, SignalError> {
         if !smoothing.is_finite() {
-            return Err(ControlError::NonFinite);
+            return Err(SignalError::NonFinite);
         }
         if smoothing < T::ZERO || smoothing > T::ONE {
-            return Err(ControlError::FilterCoefficientOutOfRange);
+            return Err(SignalError::CoefficientOutOfRange);
         }
         Ok(Self {
             smoothing,
@@ -57,18 +57,18 @@ impl<T: Numeric> OnePoleLowPass<T> {
     /// Builds a filter from a cutoff frequency in hertz and a timestep in seconds.
     ///
     /// The smoothing coefficient is `a / (a + 1)` with `a = 2 * pi * cutoff_hz * dt`. Returns
-    /// [`ControlError::NonFinite`] if either argument is not finite,
-    /// [`ControlError::NonPositiveTimestep`] if `dt` is not strictly positive, or
-    /// [`ControlError::FilterCoefficientOutOfRange`] if `cutoff_hz` is negative.
-    pub fn from_cutoff(cutoff_hz: T, dt: T) -> Result<Self, ControlError> {
+    /// [`SignalError::NonFinite`] if either argument is not finite,
+    /// [`SignalError::NonPositiveTimestep`] if `dt` is not strictly positive, or
+    /// [`SignalError::FrequencyOutOfRange`] if `cutoff_hz` is negative.
+    pub fn from_cutoff(cutoff_hz: T, dt: T) -> Result<Self, SignalError> {
         if !cutoff_hz.is_finite() || !dt.is_finite() {
-            return Err(ControlError::NonFinite);
+            return Err(SignalError::NonFinite);
         }
         if dt <= T::ZERO {
-            return Err(ControlError::NonPositiveTimestep);
+            return Err(SignalError::NonPositiveTimestep);
         }
         if cutoff_hz < T::ZERO {
-            return Err(ControlError::FilterCoefficientOutOfRange);
+            return Err(SignalError::FrequencyOutOfRange);
         }
         let a = T::TWO * T::PI * cutoff_hz * dt;
         let smoothing = a / (a + T::ONE);
