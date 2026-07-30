@@ -227,6 +227,15 @@ mod dual {
     }
 
     #[test]
+    fn test_infinite_value_finite_derivative() {
+        // In the limit x -> INFINITY, ln(x) -> INFINITY while d/dx (ln x) -> 0.
+        let x = f64::INFINITY;
+        let y = Dual::variable(x).ln();
+        assert!(y.is_infinite());
+        assert!(y.deriv.is_finite());
+    }
+
+    #[test]
     fn the_chain_rule_holds_through_exp_of_sin() {
         // f(x) = exp(sin(x)), f'(x) = cos(x) exp(sin(x))
         let x = 0.6_f64;
@@ -549,6 +558,16 @@ mod hyper_dual {
     }
 
     #[test]
+    fn test_infinite_value_finite_derivative() {
+        // In the limit x -> INFINITY, ln(x) -> INFINITY while d/dx (ln x) -> 0.
+        let x = f64::INFINITY;
+        let y = HyperDual::variable(x).ln();
+        assert!(y.is_infinite());
+        assert!(y.eps1.is_finite());
+        assert!(y.eps1eps2.is_finite());
+    }
+
+    #[test]
     fn exp_is_its_own_second_derivative() {
         // f(x) = exp(x) is its own derivative to all orders
         let x = 1.3_f64;
@@ -843,6 +862,17 @@ mod jet {
         assert!(f64::abs(logarithm.derivative(1) - 1.0 / xp1) < TOL);
         assert!(f64::abs(logarithm.derivative(2) - (-1.0 / (xp1 * xp1))) < TOL);
         assert!(f64::abs(logarithm.derivative(3) - 2.0 / (xp1 * xp1 * xp1)) < TOL);
+    }
+
+    #[test]
+    fn test_infinite_value_finite_derivative() {
+        // In the limit x -> INFINITY, ln(x) -> INFINITY while d/dx (ln x) -> 0.
+        let x = f64::INFINITY;
+        let y = Jet::<f64, 4>::variable(x).ln();
+        assert!(y.is_infinite());
+        assert!(y.derivative(1).is_finite());
+        assert!(y.derivative(2).is_finite());
+        assert!(y.derivative(3).is_finite());
     }
 
     #[test]

@@ -492,4 +492,9 @@ impl<T: Numeric> Numeric for HyperDual<T> {
     fn is_finite(self) -> bool {
         self.real.is_finite()
     }
+    /// Reflects the real part only; an infinite value can still carry a finite derivative.
+    #[inline]
+    fn is_infinite(self) -> bool {
+        self.real.is_infinite()
+    }
 }

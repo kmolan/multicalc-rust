@@ -315,6 +315,8 @@ pub trait Numeric:
     fn is_nan(self) -> bool;
     /// Returns `true` if `self` is neither infinite nor NaN.
     fn is_finite(self) -> bool;
+    /// Returns `true` if `self` is positive or negative infinity and false otherwise.
+    fn is_infinite(self) -> bool;
 }
 
 impl Numeric for f64 {
@@ -487,6 +489,10 @@ impl Numeric for f64 {
     fn is_finite(self) -> bool {
         f64::is_finite(self)
     }
+    #[inline]
+    fn is_infinite(self) -> bool {
+        f64::is_infinite(self)
+    }
 }
 
 impl Numeric for f32 {
@@ -658,5 +664,9 @@ impl Numeric for f32 {
     #[inline]
     fn is_finite(self) -> bool {
         f32::is_finite(self)
+    }
+    #[inline]
+    fn is_infinite(self) -> bool {
+        f32::is_infinite(self)
     }
 }

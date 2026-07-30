@@ -354,6 +354,9 @@ impl Numeric for Counted {
     fn is_finite(self) -> bool {
         self.0.is_finite()
     }
+    fn is_infinite(self) -> bool {
+        self.0.is_infinite()
+    }
 }
 
 #[test]

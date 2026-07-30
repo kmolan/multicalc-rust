@@ -405,4 +405,9 @@ impl<T: Numeric> Numeric for Dual<T> {
     fn is_finite(self) -> bool {
         self.value.is_finite()
     }
+    /// Reflects the value only; an infinite value can still carry a finite derivative.
+    #[inline]
+    fn is_infinite(self) -> bool {
+        self.value.is_infinite()
+    }
 }

@@ -477,4 +477,10 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     fn is_finite(self) -> bool {
         self.coeffs[0].is_finite()
     }
+
+    /// Reflects the value only; an infinite value can still carry finite coefficients.
+    #[inline]
+    fn is_infinite(self) -> bool {
+        self.coeffs[0].is_infinite()
+    }
 }
