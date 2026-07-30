@@ -2,7 +2,7 @@
 
 use core::ops::Mul;
 
-use crate::linear_algebra::{Matrix, Vector};
+use crate::linear_algebra::{Matrix, Matrix2D, Vector, Vector2D};
 use crate::scalar::Numeric;
 
 /// A 2D rotation, stored as a unit complex number `(cosθ, sinθ)`. Composition is a complex product,
@@ -59,7 +59,7 @@ impl<T: Numeric> SO2<T> {
 
     /// Rotates a 2D point.
     #[inline]
-    pub fn act(self, p: Vector<2, T>) -> Vector<2, T> {
+    pub fn act(self, p: Vector2D<T>) -> Vector2D<T> {
         let [px, py] = *p.as_array();
         Vector::new([self.c * px - self.s * py, self.s * px + self.c * py])
     }
@@ -78,13 +78,13 @@ impl<T: Numeric> SO2<T> {
 
     /// The Lie-algebra element `[[0, −θ], [θ, 0]]`.
     #[inline]
-    pub fn hat(theta: T) -> Matrix<2, 2, T> {
+    pub fn hat(theta: T) -> Matrix2D<T> {
         Matrix::new([[T::ZERO, -theta], [theta, T::ZERO]])
     }
 
     /// The inverse of [`SO2::hat`].
     #[inline]
-    pub fn vee(m: Matrix<2, 2, T>) -> T {
+    pub fn vee(m: Matrix2D<T>) -> T {
         let [[_, _], [m10, _]] = m.into_array();
         m10
     }
@@ -97,14 +97,14 @@ impl<T: Numeric> SO2<T> {
 
     /// The 2×2 rotation matrix.
     #[inline]
-    pub fn to_matrix(self) -> Matrix<2, 2, T> {
+    pub fn to_matrix(self) -> Matrix2D<T> {
         Matrix::new([[self.c, -self.s], [self.s, self.c]])
     }
 
     /// Builds a rotation from a 2×2 matrix, normalizing its first column; `None` if that column is
     /// non-finite or degenerate.
     #[inline]
-    pub fn try_from_matrix(m: Matrix<2, 2, T>) -> Option<Self> {
+    pub fn try_from_matrix(m: Matrix2D<T>) -> Option<Self> {
         let [[c, _], [s, _]] = m.into_array();
         let n = (c * c + s * s).sqrt();
         if !n.is_finite() || n <= T::EPSILON {

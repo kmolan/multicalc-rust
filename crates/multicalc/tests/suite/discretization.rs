@@ -3,17 +3,17 @@
 //! Discretization + matrix-exponential invariants and closed-form checks.
 
 use multicalc::discretization::{q_discrete_white_noise, van_loan, zoh};
-use multicalc::linear_algebra::Matrix;
+use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Matrix4D};
 use multicalc::scalar::Dual;
 use proptest::prelude::*;
 
-fn matrix3(entries: [[f64; 3]; 3]) -> Matrix<3, 3> {
+fn matrix3(entries: [[f64; 3]; 3]) -> Matrix3D {
     Matrix::new(entries)
 }
 
 #[test]
 fn expm_zero_is_identity() {
-    let exponential = Matrix::<4, 4>::zeros().expm().unwrap();
+    let exponential = Matrix4D::<f64>::zeros().expm().unwrap();
     for row in 0..4 {
         for column in 0..4 {
             let expected = if row == column { 1.0 } else { 0.0 };
@@ -36,7 +36,7 @@ fn expm_derivative_finite_and_correct() {
     // d/dx expm(x·M)|_{x=0} = M. One Dual through expm; compare to central FD.
     let generator = matrix3([[0.1, 0.4, -0.2], [0.0, -0.3, 0.5], [0.2, 0.1, 0.05]]);
     let autodiff =
-        Matrix::<3, 3, Dual<f64>>::from_fn(|row, column| Dual::new(0.0, generator[(row, column)]))
+        Matrix3D::<Dual<f64>>::from_fn(|row, column| Dual::new(0.0, generator[(row, column)]))
             .expm()
             .unwrap();
     for row in 0..3 {
@@ -50,7 +50,7 @@ fn expm_derivative_finite_and_correct() {
 
 #[test]
 fn zoh_double_integrator() {
-    let state_matrix = Matrix::<2, 2>::new([[0.0, 1.0], [0.0, 0.0]]);
+    let state_matrix = Matrix2D::new([[0.0, 1.0], [0.0, 0.0]]);
     let input_matrix = Matrix::<2, 1>::new([[0.0], [1.0]]);
     let timestep = 0.1;
     let (discrete_state, discrete_input) =
@@ -99,7 +99,7 @@ proptest! {
     fn expm_times_neg_expm_is_identity(
         v in prop::collection::vec(-0.6f64..0.6, 9)
     ) {
-        let matrix = Matrix::<3, 3>::from_fn(|row, column| v[row * 3 + column]);
+        let matrix = Matrix3D::from_fn(|row, column| v[row * 3 + column]);
         let product = matrix.expm().unwrap() * matrix.scale(-1.0).expm().unwrap();
         for row in 0..3 {
             for column in 0..3 {

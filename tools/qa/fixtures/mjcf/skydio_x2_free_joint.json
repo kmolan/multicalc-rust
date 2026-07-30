@@ -1,0 +1,90 @@
+{
+  "case": "skydio_x2_free_joint",
+  "expected": {
+    "body_position": {
+      "data": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fb999999999999a"
+      ],
+      "kind": "vector"
+    },
+    "body_quaternion": {
+      "data": [
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "center_of_mass": {
+      "data": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3faba0f11f7e2a20"
+      ],
+      "kind": "vector"
+    },
+    "configuration_dimension": {
+      "kind": "int",
+      "v": 7
+    },
+    "free_joint": {
+      "kind": "int",
+      "v": 1
+    },
+    "mass": {
+      "kind": "scalar",
+      "v": "0x3ff5333333333333"
+    },
+    "rotational_inertia": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fa2c402e97a6a4d",
+        "0x3c9be6d2b8a14075",
+        "0xbf613404ea4a8dab",
+        "0x3c9be6d2b8a14074",
+        "0x3f9a05863154056b",
+        "0x3c95f3978ea09610",
+        "0xbf613404ea4a8dac",
+        "0x3c95f3978ea09610",
+        "0x3faefd86a8fc0d5b"
+      ],
+      "rows": 3
+    },
+    "velocity_dimension": {
+      "kind": "int",
+      "v": 6
+    }
+  },
+  "inputs": {
+    "model_file": {
+      "kind": "str",
+      "v": "skydio_x2/x2.xml"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "body mass from 4 ellipsoid rotors (0.25 kg) + 1 ellipsoid hull (0.325 kg)",
+    "generator": "mjcf",
+    "libraries": {
+      "mujoco": "3.2.6"
+    },
+    "operations": [
+      "Menagerie skydio_x2 ingest: mass, centre of mass, inertia about the centre"
+    ],
+    "reference": "MuJoCo 3.2.6",
+    "sampling": "one committed Menagerie model; goldens are MuJoCo's own compile of the same file",
+    "seed": 20260706
+  },
+  "module": "mjcf",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-12,
+      "rel": 1e-11
+    }
+  }
+}

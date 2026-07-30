@@ -3,7 +3,7 @@
 
 use std::f64::consts::PI;
 
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Vector, Vector3D};
 use multicalc::scalar::{Dual, Numeric};
 use multicalc::spatial::Quaternion;
 use rand::rngs::StdRng;
@@ -31,7 +31,7 @@ fn random_unit_quaternion(rng: &mut StdRng) -> Quaternion<f64> {
     }
 }
 
-fn random_unit_vector(rng: &mut StdRng) -> Vector<3, f64> {
+fn random_unit_vector(rng: &mut StdRng) -> Vector3D {
     loop {
         let vector = Vector::new([
             rng.gen_range(-1.0..1.0),
@@ -51,7 +51,7 @@ fn assert_quaternions_close(first: Quaternion<f64>, second: Quaternion<f64>, tol
     }
 }
 
-fn assert_vectors_close(first: Vector<3, f64>, second: Vector<3, f64>, tolerance: f64) {
+fn assert_vectors_close(first: Vector3D, second: Vector3D, tolerance: f64) {
     for index in 0..3 {
         let left = first[index];
         let right = second[index];

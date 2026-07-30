@@ -6,8 +6,7 @@
 [![Docs](https://docs.rs/multicalc/badge.svg)](https://docs.rs/multicalc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Scientific computing that fits on a microcontroller, built and tested from scratch in one integrated package. Estimation, control, kinematics, Lie groups, calculus, autodiff and linear algebra in stable no_std Rust with
-no heap, no panics and no unsafe. Run the same code from your laptop to your Cortex-M0.**
+**Scientific computing that fits on a microcontroller, built and tested from scratch in one integrated package. Estimation, control, kinematics, Lie groups, calculus, autodiff and linear algebra in stable no_std Rust with no heap, no panics and no unsafe.**
 
 https://github.com/user-attachments/assets/93dee114-67f6-4124-a20d-88a8be50da6f
 
@@ -17,22 +16,16 @@ screen is measured live, inside a 1 ms tick.*
 ## Highlights
 
 - **1 kHz loop rates:** No heap, fixed-size types, bounded work per call. Results in a full robotics control loop at 1 kHz.
-- **Exercise the same math from a server to a microcontroller.** Every commit is built and tested on **six targets**:
+- **Tested on six embedded targets:** Every commit is built and tested on **six targets**:
   the `x86_64` and `aarch64` Linux hosts and on four bare-metal ABIs (`thumbv7em` soft-float,
   `thumbv7em` hardware-FPU, `thumbv6m`, and `riscv32imc`), running the real math under QEMU.
   `no_std`, no-alloc, and no-panic rules hold on each target.
-- **Fast, and measured.** Each module's results are verified against established libraries like `numpy`, `scipy`, and `filterpy` fixtures within ~1 ulp, thus validating the rust
+- **Measured against external references:** Each module's results are verified against established libraries like `numpy`, `scipy`, and `filterpy` fixtures within ~1 ulp, thus validating the rust
   implementation. See the
   [benchmarks](benchmarks).
-- **Exact derivatives, not estimates.** Differentiation, Jacobians, Hessians, Newton steps, and
-  Levenberg-Marquardt fits use forward-mode automatic differentiation, so derivatives are exact
-  to machine precision; finite differences remain available for black-box functions. The extended
-  Kalman filter's Jacobians come from autodiff — none are hand-derived.
 - **Pure safe and panic-free.** `#![forbid(unsafe_code)]`, no C dependencies, and `unwrap`/
   `panic` denied on library paths; every fallible call returns a typed error. Types are fixed-size
   and stack-allocated, and iteration counts are bounded.
-- **One dependency.** `no_std`, no heap by default, with transcendentals from
-  [`libm`](https://crates.io/crates/libm).
 
 
 ## What it does
@@ -42,6 +35,7 @@ screen is measured live, inside a 1 ms tick.*
 - [Estimation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#estimation): linear and extended `KalmanFilter`s (autodiff Jacobians, no hand-derived ones) and a `ParticleFilter` for nonlinear, non-Gaussian problems (`alloc` only).
 - [Control](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#control): `Pid` with anti-windup and a filtered derivative, a one-pole low-pass, the `pure_pursuit_curvature` path-following law, and `FollowTheGap` reactive obstacle avoidance over a range scan.
 - [Spatial math](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#spatial-quaternions-and-lie-groups): `Quaternion`, the `SO2`/`SE2`/`SO3`/`SE3` Lie groups for 2D and 3D rotations and rigid-body transforms with left and right Jacobians and their inverses on all four, and `Twist`/`Wrench` screw-theory types.
+- [Rigid-body inertia and the free joint](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#rigid-body-inertia-and-the-free-joint): `SpatialInertia` for a body's mass, balance point, and resistance to spinning, and `FreeJointState` for a body free to move in all six directions — loadable straight from MuJoCo model files with `multicalc-mjcf`.
 - [Kinematics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#kinematics): differential-drive and unicycle maps between wheel and body motion, with exact SE(2) odometry.
 - [Motion](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#motion): `PolylinePath`, a stack-allocated waypoint path with arc-length, closest-point, and lookahead queries.
 
@@ -186,6 +180,9 @@ The published library crate lives in [`crates/multicalc`](crates/multicalc); the
 root is a Cargo workspace. Runnable demos live in the dev-only [`demos/`](demos) crate (basics and
 live Rerun showcases), and [`tools/embedded-smoke`](tools/embedded-smoke) runs `multicalc` on the
 four bare-metal targets (three Cortex-M targets + `riscv32imc`) under QEMU every PR.
+[`crates/multicalc-mjcf`](crates/multicalc-mjcf) reads MuJoCo model files into multicalc types, and
+[`third_party/menagerie`](third_party/menagerie) holds the model files it is tested against, under
+their own upstream licences.
 
 ## Contributing
 

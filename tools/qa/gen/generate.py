@@ -15,6 +15,7 @@ from generators import (
     discretization,
     estimation,
     linalg,
+    mjcf,
     ode,
     optimization,
     quadrature,
@@ -43,6 +44,7 @@ def main():
     # cannot perturb the linalg/discretization streams above.
     calculus.run(args.out, SEED)
     root_finding.run(args.out, SEED)
+    mjcf.run(args.out, SEED)
 
 
 if __name__ == "__main__":

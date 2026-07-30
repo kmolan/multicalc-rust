@@ -1,5 +1,12 @@
 [workspace]
-members = ["crates/multicalc", "tools/embedded-smoke", "tools/qa", "tools/testkit", "demos"]
+members = [
+    "crates/multicalc",
+    "crates/multicalc-mjcf",
+    "tools/embedded-smoke",
+    "tools/qa",
+    "tools/testkit",
+    "demos",
+]
 default-members = ["crates/multicalc"]
 resolver = "3"
 

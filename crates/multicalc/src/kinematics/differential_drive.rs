@@ -1,7 +1,7 @@
 //! Differential-drive geometry: wheel motion to body motion and back.
 
 use crate::error::KinematicsError;
-use crate::linear_algebra::Vector;
+use crate::linear_algebra::{Vector, Vector3D};
 use crate::scalar::Numeric;
 use crate::spatial::SE2;
 
@@ -141,7 +141,7 @@ impl<T: Numeric> BodyTwist<T> {
 
     /// The se(2) tangent `[v, 0, ω]` in the crate-wide `[v; ω]` ordering.
     #[inline]
-    pub fn to_tangent(self) -> Vector<3, T> {
+    pub fn to_tangent(self) -> Vector3D<T> {
         Vector::new([self.linear, T::ZERO, self.angular])
     }
 
@@ -151,7 +151,7 @@ impl<T: Numeric> BodyTwist<T> {
     /// Lossy: `BodyTwist::project_tangent(xi).to_tangent()` equals `xi` only when the
     /// lateral is zero. `tangent_slip` reports what is discarded.
     #[inline]
-    pub fn project_tangent(xi: Vector<3, T>) -> Self {
+    pub fn project_tangent(xi: Vector3D<T>) -> Self {
         let [linear, _, angular] = *xi.as_array();
         BodyTwist { linear, angular }
     }
@@ -159,7 +159,7 @@ impl<T: Numeric> BodyTwist<T> {
     /// The lateral component of `xi`, which [`project_tangent`](Self::project_tangent) discards.
     /// Zero for any motion a differential drive can produce.
     #[inline]
-    pub fn tangent_slip(xi: Vector<3, T>) -> T {
+    pub fn tangent_slip(xi: Vector3D<T>) -> T {
         let [_, lateral, _] = *xi.as_array();
         lateral
     }

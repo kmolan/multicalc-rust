@@ -17,6 +17,8 @@ alloc = ["multicalc/alloc"]
 
 [dependencies]
 multicalc = { path = "../crates/multicalc" }
+# Reads MuJoCo model files into multicalc types, for the model-ingestion example.
+multicalc-mjcf = { path = "../crates/multicalc-mjcf" }
 # Seeded RNG for the sensor simulator, so a run reproduces exactly. Showcase-side only; the core
 # crate stays rand-free. `rand_distr` supplies the Gaussian, which `rand` itself does not carry.
 rand = "0.10.2"
@@ -87,6 +89,10 @@ path = "examples/basics/linear_algebra.rs"
 name = "localized_lap_check"
 path = "examples/basics/localized_lap_check.rs"
 required-features = ["alloc"]
+
+[[example]]
+name = "model_ingestion"
+path = "examples/basics/model_ingestion.rs"
 
 [[example]]
 name = "ode"

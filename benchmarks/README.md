@@ -6,7 +6,7 @@ and **latency** (criterion measurements).
 ## Accuracy
 
 Per-module tables showing multicalc's numerics tested against established external libraries
-(numpy, scipy, mpmath, filterpy). Each row lists the operation, the equation, the tolerance it must match
+(numpy, scipy, mpmath, filterpy, MuJoCo). Each row lists the operation, the equation, the tolerance it must match
 within, and which library it is checked against. The tables are generated from the fixtures under
 [`tools/qa`](../tools/qa) and kept in sync by a CI `git diff` guard.
 
@@ -18,6 +18,7 @@ within, and which library it is checked against. The tables are generated from t
 | root_finding | [`root_finding.md`](root_finding.md) | Scalar and system root finders: bisection, Newton, damped Newton, square-system Newton. |
 | ode | [`ode.md`](ode.md) | RK45 integrator trajectories against scipy `solve_ivp`. |
 | estimation | [`estimation.md`](estimation.md) | Linear and extended Kalman filter predict/update runs against FilterPy, including a coordinated-turn motion model. |
+| mjcf | [`mjcf.md`](mjcf.md) | Reading a MuJoCo model file into a rigid body — mass, balance point, and resistance to spinning — against MuJoCo's own compile of it. |
 
 Regenerate with `cargo run -p multicalc-qa --bin gen_accuracy_tables`; CI fails if a regenerated
 table differs from the committed doc. Runnable, self-checking demos live in [`demos/`](../demos).

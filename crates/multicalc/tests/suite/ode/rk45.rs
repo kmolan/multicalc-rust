@@ -1,5 +1,5 @@
 use multicalc::error::IntegrateError;
-use multicalc::linear_algebra::Vector;
+use multicalc::linear_algebra::{Vector, Vector2D};
 use multicalc::ode::{Rk45, Step};
 use proptest::prelude::*;
 
@@ -19,7 +19,7 @@ fn solve_matches_closed_form() {
     assert!((final_state[0] - (-2.0_f64).exp()).abs() < 1e-7);
 
     // Harmonic oscillator over one period returns to [1, 0].
-    let harmonic = |_time: f64, state: &Vector<2, f64>| Vector::new([state[1], -state[0]]);
+    let harmonic = |_time: f64, state: &Vector2D| Vector::new([state[1], -state[0]]);
     let final_time = core::f64::consts::TAU;
     let final_state = Rk45::default()
         .with_rtol(1e-10)

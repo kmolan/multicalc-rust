@@ -9,7 +9,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::linear_algebra::Vector;
+use multicalc::linear_algebra::{Vector, Vector2D};
 use multicalc::ode::{Rk4, Rk45};
 
 fn main() {
@@ -23,7 +23,7 @@ fn main() {
 
 fn harmonic_oscillator() {
     // y1' = y2 ; y2' = -y1
-    let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+    let f = |_t: f64, y: &Vector2D| Vector::new([y[1], -y[0]]);
     let y0 = Vector::new([1.0, 0.0]);
     let exact = |t: f64| [t.cos(), -t.sin()];
 
@@ -66,7 +66,7 @@ fn harmonic_oscillator() {
     );
 
     let times = [0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-    let mut out = [Vector::<2, f64>::zeros(); 7];
+    let mut out = [Vector2D::zeros(); 7];
     solver
         .solve_on_grid(&f, 0.0, &y0, &times, &mut out)
         .unwrap();

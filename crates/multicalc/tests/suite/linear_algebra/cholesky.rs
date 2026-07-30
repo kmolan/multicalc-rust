@@ -1,13 +1,13 @@
 use multicalc::error::LinalgError;
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Matrix4D, Vector};
 use multicalc_testkit::tol::{assert_identity, assert_matrix_close, cholesky_reconstructs};
 
 #[test]
 fn cholesky_reconstructs_spd() {
-    cholesky_reconstructs(Matrix::<2, 2>::new([[4.0, 2.0], [2.0, 3.0]]), 1e-12);
+    cholesky_reconstructs(Matrix2D::new([[4.0, 2.0], [2.0, 3.0]]), 1e-12);
 
     // A matrix with a known exact factor: L = [[2,0,0],[6,1,0],[-8,5,3]].
-    let known_factor = Matrix::<3, 3>::new([
+    let known_factor = Matrix3D::new([
         [4.0, 12.0, -16.0],
         [12.0, 37.0, -43.0],
         [-16.0, -43.0, 98.0],
@@ -17,7 +17,7 @@ fn cholesky_reconstructs_spd() {
     assert_matrix_close(known_factor.cholesky().unwrap().l(), expected, 1e-12);
 
     // An M·Mᵀ product is symmetric positive-definite for full-rank M.
-    let lower_factor_source = Matrix::<4, 4>::new([
+    let lower_factor_source = Matrix4D::new([
         [2.0, 0.0, 0.0, 0.0],
         [1.0, 3.0, 0.0, 0.0],
         [-1.0, 2.0, 4.0, 0.0],
@@ -27,7 +27,7 @@ fn cholesky_reconstructs_spd() {
 
     // The same code at f32.
     cholesky_reconstructs(
-        Matrix::<3, 3, f32>::new([
+        Matrix3D::<f32>::new([
             [4.0, 12.0, -16.0],
             [12.0, 37.0, -43.0],
             [-16.0, -43.0, 98.0],
@@ -39,21 +39,21 @@ fn cholesky_reconstructs_spd() {
 #[test]
 fn cholesky_rejects_non_pd() {
     // Symmetric but indefinite (eigenvalues 3 and -1).
-    let indefinite = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 1.0]]);
+    let indefinite = Matrix2D::new([[1.0, 2.0], [2.0, 1.0]]);
     assert_eq!(
         indefinite.cholesky().err(),
         Some(LinalgError::NotPositiveDefinite)
     );
 
     // Negative leading diagonal entry.
-    let negative = Matrix::<2, 2>::new([[-4.0, 0.0], [0.0, 1.0]]);
+    let negative = Matrix2D::new([[-4.0, 0.0], [0.0, 1.0]]);
     assert_eq!(
         negative.cholesky().err(),
         Some(LinalgError::NotPositiveDefinite)
     );
 
     // Singular: the second radicand collapses to zero.
-    let singular = Matrix::<2, 2>::new([[1.0, 1.0], [1.0, 1.0]]);
+    let singular = Matrix2D::new([[1.0, 1.0], [1.0, 1.0]]);
     assert_eq!(
         singular.cholesky().err(),
         Some(LinalgError::NotPositiveDefinite)
@@ -63,7 +63,7 @@ fn cholesky_rejects_non_pd() {
 #[test]
 fn cholesky_solves() {
     // Single RHS on a 3x3 SPD system: exact solution, matches LU, tiny residual.
-    let tridiagonal = Matrix::<3, 3>::new([[2.0, 1.0, 0.0], [1.0, 2.0, 1.0], [0.0, 1.0, 2.0]]);
+    let tridiagonal = Matrix3D::<f64>::new([[2.0, 1.0, 0.0], [1.0, 2.0, 1.0], [0.0, 1.0, 2.0]]);
     let exact_solution = Vector::new([1.0, -2.0, 3.0]);
     let right_hand_side = tridiagonal * exact_solution;
     let solution = tridiagonal.cholesky().unwrap().solve(right_hand_side);
@@ -77,7 +77,7 @@ fn cholesky_solves() {
     }
 
     // Multiple RHS: A·X == B, and each column agrees with a single-RHS solve.
-    let small_spd = Matrix::<2, 2>::new([[4.0, 2.0], [2.0, 3.0]]);
+    let small_spd = Matrix2D::new([[4.0, 2.0], [2.0, 3.0]]);
     let factorization = small_spd.cholesky().unwrap();
     let right_hand_sides = Matrix::<2, 3>::new([[8.0, 6.0, 4.0], [8.0, 5.0, 3.0]]);
     let matrix_solution = factorization.solve_matrix(right_hand_sides);
@@ -93,7 +93,7 @@ fn cholesky_solves() {
 
 #[test]
 fn cholesky_determinant_matches() {
-    let known_factor = Matrix::<3, 3>::new([
+    let known_factor = Matrix3D::<f64>::new([
         [4.0, 12.0, -16.0],
         [12.0, 37.0, -43.0],
         [-16.0, -43.0, 98.0],
@@ -107,7 +107,7 @@ fn cholesky_determinant_matches() {
 
 #[test]
 fn cholesky_inverse_matches_lu() {
-    let tridiagonal = Matrix::<3, 3>::new([[2.0, 1.0, 0.0], [1.0, 2.0, 1.0], [0.0, 1.0, 2.0]]);
+    let tridiagonal = Matrix3D::new([[2.0, 1.0, 0.0], [1.0, 2.0, 1.0], [0.0, 1.0, 2.0]]);
     let inverse = tridiagonal.cholesky().unwrap().inverse();
     assert_identity(inverse * tridiagonal, 1e-12);
     assert_identity(tridiagonal * inverse, 1e-12);

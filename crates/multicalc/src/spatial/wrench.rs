@@ -2,7 +2,7 @@
 
 use core::ops::{Add, Neg, Sub};
 
-use crate::linear_algebra::Vector;
+use crate::linear_algebra::{Vector, Vector3D, Vector6D};
 use crate::scalar::Numeric;
 
 /// A spatial force (wrench), stored force-first in the `[force; torque]` ordering — reciprocal to a
@@ -24,8 +24,8 @@ use crate::scalar::Numeric;
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Wrench<T: Numeric = f64> {
-    force: Vector<3, T>,
-    torque: Vector<3, T>,
+    force: Vector3D<T>,
+    torque: Vector3D<T>,
 }
 
 impl<T: Numeric> Wrench<T> {
@@ -41,7 +41,7 @@ impl<T: Numeric> Wrench<T> {
     /// assert_eq!(w.torque(), Vector::new([4.0, 5.0, 6.0]));
     /// ```
     #[inline]
-    pub fn new(force: Vector<3, T>, torque: Vector<3, T>) -> Self {
+    pub fn new(force: Vector3D<T>, torque: Vector3D<T>) -> Self {
         Wrench { force, torque }
     }
 
@@ -90,7 +90,7 @@ impl<T: Numeric> Wrench<T> {
         [fx, fy, fz, tx, ty, tz]
     }
 
-    /// A wrench from a flat `[f; τ]` `Vector<6>`.
+    /// A wrench from a flat `[f; τ]` `Vector6D`.
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
@@ -99,11 +99,11 @@ impl<T: Numeric> Wrench<T> {
     /// assert_eq!(w.force(), Vector::new([1.0, 2.0, 3.0]));
     /// ```
     #[inline]
-    pub fn from_vector(v: Vector<6, T>) -> Self {
+    pub fn from_vector(v: Vector6D<T>) -> Self {
         Self::from_array(v.into_array())
     }
 
-    /// The wrench as a flat `[f; τ]` `Vector<6>`.
+    /// The wrench as a flat `[f; τ]` `Vector6D`.
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
@@ -112,19 +112,19 @@ impl<T: Numeric> Wrench<T> {
     /// assert_eq!(w.to_vector(), Vector::new([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]));
     /// ```
     #[inline]
-    pub fn to_vector(self) -> Vector<6, T> {
+    pub fn to_vector(self) -> Vector6D<T> {
         Vector::new(self.as_array())
     }
 
     /// The force part `f`.
     #[inline]
-    pub fn force(self) -> Vector<3, T> {
+    pub fn force(self) -> Vector3D<T> {
         self.force
     }
 
     /// The torque (moment) part `τ`.
     #[inline]
-    pub fn torque(self) -> Vector<3, T> {
+    pub fn torque(self) -> Vector3D<T> {
         self.torque
     }
 
@@ -180,15 +180,15 @@ impl<T: Numeric> Neg for Wrench<T> {
     }
 }
 
-impl<T: Numeric> From<Vector<6, T>> for Wrench<T> {
-    /// Reinterprets a flat `[f; τ]` `Vector<6>` as a wrench.
+impl<T: Numeric> From<Vector6D<T>> for Wrench<T> {
+    /// Reinterprets a flat `[f; τ]` `Vector6D` as a wrench.
     #[inline]
-    fn from(v: Vector<6, T>) -> Self {
+    fn from(v: Vector6D<T>) -> Self {
         Self::from_vector(v)
     }
 }
 
-impl<T: Numeric> From<Wrench<T>> for Vector<6, T> {
+impl<T: Numeric> From<Wrench<T>> for Vector6D<T> {
     /// Flattens a wrench into `[f; τ]`.
     #[inline]
     fn from(w: Wrench<T>) -> Self {

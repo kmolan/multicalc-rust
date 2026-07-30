@@ -10,7 +10,7 @@
 
 use multicalc::{
     CalcError, CovarianceUpdate, Dual, ExtendedKalmanFilter, KalmanFilter, KalmanModel, Matrix,
-    Numeric, Vector, VectorFn, q_discrete_white_noise,
+    Matrix2D, Matrix3D, Numeric, Vector, VectorFn, q_discrete_white_noise,
 };
 
 fn report(label: &str, value: f64, exact: f64) {
@@ -23,8 +23,8 @@ fn report(label: &str, value: f64, exact: f64) {
 
 /// A constant-velocity tracker over a 1 s step: position integrates velocity, position is measured.
 fn tracker<T: Numeric>(
-    initial_covariance: Matrix<2, 2, T>,
-    process_noise: Matrix<2, 2, T>,
+    initial_covariance: Matrix2D<T>,
+    process_noise: Matrix2D<T>,
     measurement_noise: Matrix<1, 1, T>,
 ) -> KalmanFilter<2, 1, T> {
     KalmanFilter::new(
@@ -137,7 +137,9 @@ impl VectorFn<3, 4> for BeaconRanges {
 /// many-hypotheses belief a single Gaussian cannot hold.
 #[cfg(feature = "alloc")]
 fn particle_filter() -> Result<(), CalcError> {
-    use multicalc::{GaussianLikelihood, ParticleFilter, Pcg32, RandomSource, ResamplingScheme};
+    use multicalc::{
+        GaussianLikelihood, Matrix4D, ParticleFilter, Pcg32, RandomSource, ResamplingScheme,
+    };
 
     let particle_count = 1500;
     let timestep = 1.0;
@@ -158,8 +160,7 @@ fn particle_filter() -> Result<(), CalcError> {
         7,
     )?
     .with_resampling(ResamplingScheme::Systematic);
-    let sensor =
-        GaussianLikelihood::new(Matrix::<4, 4>::identity().scale(range_noise * range_noise))?;
+    let sensor = GaussianLikelihood::new(Matrix4D::identity().scale(range_noise * range_noise))?;
 
     // The true pose the robot actually follows; the filter never sees it. Each measurement is the
     // true ranges plus sensor noise, drawn from a seeded generator so the run reproduces exactly.
@@ -375,9 +376,9 @@ fn main() -> Result<(), CalcError> {
     // landmark. The measurement model is written once as a plain function; its Jacobian is taken by
     // automatic differentiation, so there are no hand-derived Jacobians anywhere.
     let initial_pose = Vector::new([0.0, 0.0, 0.0]); // [x, y, heading] at the origin
-    let initial_covariance = Matrix::<3, 3>::identity(); // a wide, uncertain prior
+    let initial_covariance = Matrix3D::identity(); // a wide, uncertain prior
     let process_noise = Matrix::zeros();
-    let measurement_noise = Matrix::<2, 2>::identity().scale(0.01); // a precise sensor
+    let measurement_noise = Matrix2D::identity().scale(0.01); // a precise sensor
 
     let mut extended = ExtendedKalmanFilter::<3, 2>::new(
         initial_pose,
@@ -406,7 +407,7 @@ fn main() -> Result<(), CalcError> {
     // is what "extended" means. Run the same constant-velocity models through both and compare.
     let initial_state = Vector::new([0.0, 0.0]);
     let initial_covariance = Matrix::identity();
-    let process_noise = Matrix::<2, 2>::identity().scale(0.01);
+    let process_noise = Matrix2D::identity().scale(0.01);
     let measurement_noise = Matrix::new([[0.5]]);
 
     let mut reduced = ExtendedKalmanFilter::<2, 1>::new(

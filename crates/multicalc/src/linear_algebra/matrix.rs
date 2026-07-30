@@ -689,14 +689,3 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Mul<Vector<COLS, T>>
         })
     }
 }
-
-// The 2×2, 3×3, and 4×4 determinant and inverse are written out in closed form. These are the
-// sizes seen most often, and the inline expressions keep them low-latency, sparing them the
-// loops and pivoting a general factorization would need.
-impl<T: Numeric> Matrix<2, 2, T> {}
-
-impl<T: Numeric> Matrix<3, 3, T> {}
-
-// The 4×4 closed form shares the twelve 2×2 row-pair minors between the determinant and the
-// adjugate, so a full inverse costs little more than the determinant alone.
-impl<T: Numeric> Matrix<4, 4, T> {}

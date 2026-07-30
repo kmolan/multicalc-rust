@@ -1,5 +1,5 @@
 use multicalc::error::LinalgError;
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Matrix4D, Vector, Vector3D};
 use multicalc_testkit::tol::{Tol, assert_identity, assert_matrix_close, assert_scalar_close};
 use proptest::prelude::*;
 
@@ -76,7 +76,7 @@ fn try_row_column() {
 fn matrix_multiply() {
     let left = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
     let right = Matrix::new([[5.0, 6.0], [7.0, 8.0]]);
-    let identity: Matrix<2, 2> = Matrix::identity();
+    let identity: Matrix2D = Matrix::identity();
 
     assert_eq!(left * identity, left);
     assert_eq!(identity * left, left);
@@ -339,8 +339,8 @@ proptest! {
 
 #[test]
 fn matrix_determinant() {
-    let identity_2x2: Matrix<2, 2> = Matrix::identity();
-    let identity_3x3: Matrix<3, 3> = Matrix::identity();
+    let identity_2x2: Matrix2D = Matrix::identity();
+    let identity_3x3: Matrix3D = Matrix::identity();
     assert_eq!(identity_2x2.determinant(), 1.0);
     assert_eq!(identity_3x3.determinant(), 1.0);
 
@@ -355,8 +355,8 @@ fn matrix_determinant() {
 
 #[test]
 fn matrix_inverse() {
-    let identity_2x2: Matrix<2, 2> = Matrix::identity();
-    let identity_3x3: Matrix<3, 3> = Matrix::identity();
+    let identity_2x2: Matrix2D = Matrix::identity();
+    let identity_3x3: Matrix3D = Matrix::identity();
     assert_eq!(identity_2x2.inverse(), Ok(identity_2x2));
     assert_eq!(identity_3x3.inverse(), Ok(identity_3x3));
 
@@ -384,14 +384,14 @@ fn matrix_inverse() {
     assert_eq!(near_singular_3x3.inverse(), Err(LinalgError::Singular));
 
     // Tiny but full-rank still inverts (scaled threshold, not absolute eps).
-    let tiny = Matrix::<2, 2>::identity().scale(1e-8);
+    let tiny = Matrix2D::identity().scale(1e-8);
     assert!(tiny.inverse().is_ok());
 }
 
 #[test]
 fn matrix_4x4_determinant_and_inverse() {
     // Upper-triangular: the determinant is the product of the diagonal.
-    let upper = Matrix::<4, 4>::new([
+    let upper = Matrix4D::new([
         [2.0, 1.0, 1.0, 1.0],
         [0.0, 3.0, 1.0, 1.0],
         [0.0, 0.0, 4.0, 1.0],
@@ -400,7 +400,7 @@ fn matrix_4x4_determinant_and_inverse() {
     assert_eq!(upper.determinant(), 120.0);
 
     // Reference determinant and inverse from an exact rational solve.
-    let symmetric = Matrix::<4, 4>::new([
+    let symmetric = Matrix4D::new([
         [4.0, 3.0, 2.0, 1.0],
         [3.0, 4.0, 3.0, 2.0],
         [2.0, 3.0, 4.0, 3.0],
@@ -420,7 +420,7 @@ fn matrix_4x4_determinant_and_inverse() {
 
     // A non-symmetric matrix, so its (non-symmetric) inverse catches any transpose error in
     // the adjugate. Reference from an exact rational solve.
-    let non_symmetric = Matrix::<4, 4>::new([
+    let non_symmetric = Matrix4D::new([
         [1.0, 2.0, 3.0, 4.0],
         [2.0, 1.0, 0.0, 1.0],
         [0.0, 3.0, 1.0, 2.0],
@@ -440,7 +440,7 @@ fn matrix_4x4_determinant_and_inverse() {
     assert_identity(non_symmetric_inverse * non_symmetric, 1e-12);
 
     // Rows in arithmetic progression are rank-deficient.
-    let singular = Matrix::<4, 4>::new([
+    let singular = Matrix4D::new([
         [1.0, 2.0, 3.0, 4.0],
         [5.0, 6.0, 7.0, 8.0],
         [9.0, 10.0, 11.0, 12.0],
@@ -450,7 +450,7 @@ fn matrix_4x4_determinant_and_inverse() {
     assert_eq!(singular.inverse(), Err(LinalgError::Singular));
 
     // The same code at f32 round-trips to the identity.
-    let single_precision = Matrix::<4, 4, f32>::new([
+    let single_precision = Matrix4D::<f32>::new([
         [4.0, 3.0, 2.0, 1.0],
         [3.0, 4.0, 3.0, 2.0],
         [2.0, 3.0, 4.0, 3.0],
@@ -462,7 +462,7 @@ fn matrix_4x4_determinant_and_inverse() {
     );
 
     // Near-singular: det is tiny but nonzero under exact compare.
-    let near_singular_4x4 = Matrix::<4, 4>::new([
+    let near_singular_4x4 = Matrix4D::new([
         [1.0, 0.0, 0.0, 0.0],
         [0.0, 1.0, 0.0, 0.0],
         [0.0, 0.0, 1.0, 0.0],
@@ -505,7 +505,7 @@ fn matrix_5x5_determinant_and_inverse() {
 
 #[test]
 fn matrix_solve_agrees_with_lu() {
-    let matrix = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    let matrix = Matrix3D::<f64>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
     let right_hand_side = Vector::new([7.0, 19.0, 49.0]);
     let solution = matrix.solve(right_hand_side).unwrap();
 
@@ -517,7 +517,7 @@ fn matrix_solve_agrees_with_lu() {
     assert!((matrix * solution - right_hand_side).norm() < 1e-12);
 
     // A singular system is rejected.
-    let singular = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 4.0]]);
+    let singular = Matrix2D::new([[1.0, 2.0], [2.0, 4.0]]);
     assert_eq!(
         singular.solve(Vector::new([1.0, 2.0])).err(),
         Some(LinalgError::Singular)
@@ -528,12 +528,12 @@ fn matrix_solve_agrees_with_lu() {
 
 #[test]
 fn genericity_f32() {
-    let first = Vector::<3, f32>::new([1.0, 2.0, 2.0]);
-    let second = Vector::<3, f32>::new([2.0, 0.0, 1.0]);
+    let first = Vector3D::<f32>::new([1.0, 2.0, 2.0]);
+    let second = Vector3D::<f32>::new([2.0, 0.0, 1.0]);
     assert!((first.norm() - 3.0).abs() < 1e-6);
     assert!((first.dot(second) - 4.0).abs() < 1e-6);
 
-    let matrix = Matrix::<2, 2, f32>::new([[1.0, 2.0], [3.0, 4.0]]);
-    let identity: Matrix<2, 2, f32> = Matrix::identity();
+    let matrix = Matrix2D::<f32>::new([[1.0, 2.0], [3.0, 4.0]]);
+    let identity: Matrix2D<f32> = Matrix::identity();
     assert_eq!(matrix * identity, matrix);
 }

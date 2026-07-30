@@ -6,28 +6,21 @@
 [![Docs](https://docs.rs/multicalc/badge.svg)](https://docs.rs/multicalc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-**Scientific computing that fits on a microcontroller, built and tested from scratch in one integrated package. Estimation, control, kinematics, Lie groups, calculus, autodiff and linear algebra in stable no_std Rust with
-no heap, no panics and no unsafe. Run the same code from your laptop to your Cortex-M0.**
+**Scientific computing that fits on a microcontroller, built and tested from scratch in one integrated package. Estimation, control, kinematics, Lie groups, calculus, autodiff and linear algebra in stable no_std Rust with no heap, no panics and no unsafe.**
 
 ## Why use it
 
 - **1 kHz loop rates:** No heap, fixed-size types, bounded work per call. Results in a full robotics control loop at 1 kHz.
-- **Exercise the same math from a server to a microcontroller.** Every commit is built and tested on **six targets**:
+- **Tested on six embedded targets:** Every commit is built and tested on **six targets**:
   the `x86_64` and `aarch64` Linux hosts and on four bare-metal ABIs (`thumbv7em` soft-float,
   `thumbv7em` hardware-FPU, `thumbv6m`, and `riscv32imc`), running the real math under QEMU.
   `no_std`, no-alloc, and no-panic rules hold on each target.
-- **Fast, and measured.** Each module's results are verified against established libraries like `numpy`, `scipy`, and `filterpy` fixtures within ~1 ulp, thus validating the rust
+- **Measured against external references:** Each module's results are verified against established libraries like `numpy`, `scipy`, and `filterpy` fixtures within ~1 ulp, thus validating the rust
   implementation. See the
   [benchmarks](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks).
-- **Exact derivatives, not estimates.** Differentiation, Jacobians, Hessians, Newton steps, and
-  Levenberg-Marquardt fits use forward-mode automatic differentiation, so derivatives are exact
-  to machine precision; finite differences remain available for black-box functions. The extended
-  Kalman filter's Jacobians come from autodiff, none are hand-derived.
 - **Pure safe and panic-free.** `#![forbid(unsafe_code)]`, no C dependencies, and `unwrap`/
   `panic` denied on library paths; every fallible call returns a typed error. Types are fixed-size
   and stack-allocated, and iteration counts are bounded.
-- **One dependency.** `no_std`, no heap by default, with transcendentals from
-  [`libm`](https://crates.io/crates/libm).
 
 
 ## What it does

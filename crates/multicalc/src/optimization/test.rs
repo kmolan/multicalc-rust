@@ -1,4 +1,4 @@
-use crate::linear_algebra::{Matrix, PivotedQr, Vector};
+use crate::linear_algebra::{Matrix, Matrix3D, PivotedQr, Vector};
 use crate::optimization::trust_region::determine_lambda_and_parameter_update;
 
 // A full-rank 4x3 Jacobian and residual for the trust-region tests.
@@ -48,9 +48,8 @@ fn lmpar_hits_trust_region_boundary() {
     // The step solves the damped normal equations (JᵀJ + λI) p = Jᵀb (D = I here).
     let jtj = j.transpose() * j;
     let jtb = j.transpose() * b;
-    let lhs =
-        Matrix::<3, 3>::from_fn(|r, c| jtj[(r, c)] + if r == c { result.lambda } else { 0.0 })
-            * result.step;
+    let lhs = Matrix3D::from_fn(|r, c| jtj[(r, c)] + if r == c { result.lambda } else { 0.0 })
+        * result.step;
     for i in 0..3 {
         assert!((lhs[i] - jtb[i]).abs() < 1e-10);
     }

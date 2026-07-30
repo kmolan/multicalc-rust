@@ -20,13 +20,13 @@ pub use se3::SE3;
 pub use so2::SO2;
 pub use so3::SO3;
 
-use crate::linear_algebra::{Matrix, Vector};
+use crate::linear_algebra::{Matrix, Matrix3D, Matrix6D, Vector, Vector3D, Vector6D};
 use crate::scalar::Numeric;
 use crate::spatial::small_angle_sq;
 
 /// The 3×3 skew-symmetric matrix `[v]×`, so that `[v]× · p = v × p`.
 #[inline]
-pub(crate) fn skew3<T: Numeric>(v: Vector<3, T>) -> Matrix<3, 3, T> {
+pub(crate) fn skew3<T: Numeric>(v: Vector3D<T>) -> Matrix3D<T> {
     let [x, y, z] = *v.as_array();
     Matrix::new([[T::ZERO, -z, y], [z, T::ZERO, -x], [-y, x, T::ZERO]])
 }
@@ -34,7 +34,7 @@ pub(crate) fn skew3<T: Numeric>(v: Vector<3, T>) -> Matrix<3, 3, T> {
 /// The SO(3) left Jacobian `J_l(φ) = I + c1·[φ]× + c2·[φ]×²`. Near θ = 0 the coefficients use a
 /// Taylor series in θ², so the value and its derivative stay finite at φ = 0. Finite at θ = π.
 #[inline]
-pub(crate) fn left_jacobian_so3<T: Numeric>(phi: Vector<3, T>) -> Matrix<3, 3, T> {
+pub(crate) fn left_jacobian_so3<T: Numeric>(phi: Vector3D<T>) -> Matrix3D<T> {
     let theta_sq = phi.dot(phi);
     let s = skew3(phi);
     let s2 = s * s;
@@ -56,7 +56,7 @@ pub(crate) fn left_jacobian_so3<T: Numeric>(phi: Vector<3, T>) -> Matrix<3, 3, T
 /// The inverse SO(3) left Jacobian `J_l⁻¹(φ) = I − ½·[φ]× + c3·[φ]×²`. The `cot(θ/2)` coefficient
 /// is finite for θ ∈ (0, π], so only θ = 0 needs the Taylor series (θ = π needs no special case).
 #[inline]
-pub(crate) fn inverse_left_jacobian_so3<T: Numeric>(phi: Vector<3, T>) -> Matrix<3, 3, T> {
+pub(crate) fn inverse_left_jacobian_so3<T: Numeric>(phi: Vector3D<T>) -> Matrix3D<T> {
     let theta_sq = phi.dot(phi);
     let s = skew3(phi);
     let s2 = s * s;
@@ -73,7 +73,7 @@ pub(crate) fn inverse_left_jacobian_so3<T: Numeric>(phi: Vector<3, T>) -> Matrix
 /// The Barfoot SE(3) `Q(ρ, φ)` block (Eq. 7.86) used by the 6×6 left Jacobian. Near θ = 0 the
 /// coefficients use a Taylor series in θ², keeping the value and its derivative finite at φ = 0.
 #[inline]
-pub(crate) fn q_matrix_se3<T: Numeric>(rho: Vector<3, T>, phi: Vector<3, T>) -> Matrix<3, 3, T> {
+pub(crate) fn q_matrix_se3<T: Numeric>(rho: Vector3D<T>, phi: Vector3D<T>) -> Matrix3D<T> {
     let theta_sq = phi.dot(phi);
     let p = skew3(rho);
     let ph = skew3(phi);
@@ -105,7 +105,7 @@ pub(crate) fn q_matrix_se3<T: Numeric>(rho: Vector<3, T>, phi: Vector<3, T>) -> 
 /// The SE(3) left Jacobian `J_l(ξ) = [[J, Q], [0, J]]` for the `[v; ω]` ordering, with `J` the
 /// SO(3) left Jacobian of the rotation part and `Q` the Barfoot block.
 #[inline]
-pub(crate) fn left_jacobian_se3<T: Numeric>(xi: Vector<6, T>) -> Matrix<6, 6, T> {
+pub(crate) fn left_jacobian_se3<T: Numeric>(xi: Vector6D<T>) -> Matrix6D<T> {
     let [rx, ry, rz, px, py, pz] = *xi.as_array();
     let rho = Vector::new([rx, ry, rz]);
     let phi = Vector::new([px, py, pz]);
@@ -126,7 +126,7 @@ pub(crate) fn left_jacobian_se3<T: Numeric>(xi: Vector<6, T>) -> Matrix<6, 6, T>
 
 /// The inverse SE(3) left Jacobian `J_l⁻¹(ξ) = [[Jᵢ, −Jᵢ·Q·Jᵢ], [0, Jᵢ]]`.
 #[inline]
-pub(crate) fn inverse_left_jacobian_se3<T: Numeric>(xi: Vector<6, T>) -> Matrix<6, 6, T> {
+pub(crate) fn inverse_left_jacobian_se3<T: Numeric>(xi: Vector6D<T>) -> Matrix6D<T> {
     let [rx, ry, rz, px, py, pz] = *xi.as_array();
     let rho = Vector::new([rx, ry, rz]);
     let phi = Vector::new([px, py, pz]);

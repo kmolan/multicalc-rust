@@ -8,7 +8,7 @@
 
 pub use multicalc_testkit::problems::*;
 
-use multicalc::linear_algebra::Vector;
+use multicalc::linear_algebra::{Vector, Vector2D};
 
 // ODE right-hand sides `y' = f(t, y)`, with the integrator's exact signature so the
 // QA test can pass `&fn`. Each key is mirrored in the Python generator.
@@ -19,7 +19,7 @@ pub fn ode_exp_decay(_t: f64, y: &Vector<1>) -> Vector<1> {
 }
 
 /// Harmonic oscillator `y1' = y2, y2' = -y1`; reference `[cos t, -sin t]`.
-pub fn ode_harmonic(_t: f64, y: &Vector<2>) -> Vector<2> {
+pub fn ode_harmonic(_t: f64, y: &Vector2D) -> Vector2D {
     Vector::new([y[1], -y[0]])
 }
 
@@ -31,7 +31,7 @@ pub fn ode_two_body(_t: f64, y: &Vector<4>) -> Vector<4> {
 }
 
 /// Van der Pol oscillator with `μ = 1`: `y1' = y2, y2' = μ(1 − y1²) y2 − y1`.
-pub fn ode_van_der_pol_mild(_t: f64, y: &Vector<2>) -> Vector<2> {
+pub fn ode_van_der_pol_mild(_t: f64, y: &Vector2D) -> Vector2D {
     let mu = 1.0;
     Vector::new([y[1], mu * (1.0 - y[0] * y[0]) * y[1] - y[0]])
 }

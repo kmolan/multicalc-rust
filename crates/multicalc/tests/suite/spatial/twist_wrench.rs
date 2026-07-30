@@ -65,7 +65,7 @@ fn wrench_converter_roundtrips() {
 fn ops_are_componentwise_and_match_vector() {
     let first_twist = Twist::from_array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
     let second_twist = Twist::from_array([6.0, 5.0, 4.0, 3.0, 2.0, 1.0]);
-    // Each op agrees with doing the same on the underlying Vector<6>.
+    // Each op agrees with doing the same on the underlying Vector6D.
     assert_eq!(
         (first_twist + second_twist).to_vector(),
         first_twist.to_vector() + second_twist.to_vector()

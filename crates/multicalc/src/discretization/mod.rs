@@ -14,11 +14,11 @@ use crate::scalar::Numeric;
 /// `NM` MUST equal `N + M`; a mismatch is a compile error.
 ///
 /// ```
-/// use multicalc::linear_algebra::Matrix;
+/// use multicalc::linear_algebra::{Matrix, Matrix2D};
 /// use multicalc::discretization::zoh;
 /// # fn main() -> Result<(), multicalc::error::LinalgError> {
 /// // Double integrator: A = [[0,1],[0,0]], B = [[0],[1]].
-/// let a = Matrix::<2, 2>::new([[0.0, 1.0], [0.0, 0.0]]);
+/// let a = Matrix2D::new([[0.0, 1.0], [0.0, 0.0]]);
 /// let b = Matrix::<2, 1>::new([[0.0], [1.0]]);
 /// let timestep = 0.1;
 ///
@@ -56,11 +56,11 @@ pub fn zoh<const N: usize, const M: usize, const NM: usize, T: Numeric>(
 /// `N2` MUST equal `2·N`; a mismatch is a compile error.
 ///
 /// ```
-/// use multicalc::linear_algebra::Matrix;
+/// use multicalc::linear_algebra::Matrix2D;
 /// use multicalc::discretization::van_loan;
 /// # fn main() -> Result<(), multicalc::error::LinalgError> {
-/// let a = Matrix::<2, 2>::new([[0.0, 1.0], [0.0, 0.0]]);
-/// let qc = Matrix::<2, 2>::new([[0.0, 0.0], [0.0, 1.0]]);
+/// let a = Matrix2D::new([[0.0, 1.0], [0.0, 0.0]]);
+/// let qc = Matrix2D::new([[0.0, 0.0], [0.0, 1.0]]);
 /// let (_f, qd) = van_loan::<2, 4, f64>(a, qc, 0.1)?;
 /// assert!((qd[(0, 1)] - qd[(1, 0)]).abs() < 1e-12); // symmetric
 /// # Ok(())
