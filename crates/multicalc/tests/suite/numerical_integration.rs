@@ -765,6 +765,7 @@ mod gauss_proptests {
                         GaussianQuadratureMethod::GaussHermite => hermite_moment(degree),
                         #[cfg(feature = "gauss-laguerre")]
                         GaussianQuadratureMethod::GaussLaguerre => laguerre_moment(degree),
+                        _ => unreachable!(),
                     }
             })
             .sum()
@@ -783,6 +784,7 @@ mod gauss_proptests {
             GaussianQuadratureMethod::GaussHermite => hermite_moment,
             #[cfg(feature = "gauss-laguerre")]
             GaussianQuadratureMethod::GaussLaguerre => laguerre_moment,
+            _ => unreachable!(),
         };
 
         let term_sum_abs: f64 = coeffs
