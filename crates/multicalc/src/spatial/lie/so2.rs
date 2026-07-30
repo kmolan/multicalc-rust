@@ -127,8 +127,17 @@ impl<T: Numeric> SO2<T> {
     }
 
     /// The Euclidean norm.
+    ///
+    /// ```
+    /// use multicalc::spatial::SO2;
+    ///
+    /// let rotation = SO2::<f64>::from_angle(0.3);
+    ///
+    /// assert!((rotation.norm() - 1.0).abs() <= <f64 as multicalc::Numeric>::EPSILON);
+    /// ```
     #[inline]
-    fn norm(self) -> T {
+    #[must_use]
+    pub fn norm(self) -> T {
         self.norm_squared().sqrt()
     }
 
@@ -141,7 +150,7 @@ impl<T: Numeric> SO2<T> {
     /// let normalized = rotation.normalized();
     /// let (c, s) = normalized.cos_sin();
     ///
-    /// assert!((c * c + s * s - 1.0).abs() < 1e-12);
+    /// assert!((normalized.norm() - 1.0).abs() <= <f64 as multicalc::Numeric>::EPSILON);
     /// ```
     #[inline]
     pub fn normalized(self) -> Self {
