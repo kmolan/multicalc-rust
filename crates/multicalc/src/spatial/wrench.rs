@@ -195,3 +195,19 @@ impl<T: Numeric> From<Wrench<T>> for Vector6D<T> {
         w.to_vector()
     }
 }
+
+impl<T: Numeric> Default for Wrench<T> {
+    /// Returns the zero wrench as default.
+    ///
+    /// ```
+    /// use multicalc::Wrench;
+    ///
+    /// let default_wrench = Wrench::default();
+    /// let wrench = Wrench::<f64>::from_array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+    ///
+    /// assert_eq!(wrench + default_wrench, wrench);
+    /// ```
+    fn default() -> Self {
+        Self::zeros()
+    }
+}

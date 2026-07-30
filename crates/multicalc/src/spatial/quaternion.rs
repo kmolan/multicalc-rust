@@ -665,3 +665,19 @@ impl<T: Numeric> Mul for Quaternion<T> {
         }
     }
 }
+
+impl<T: Numeric> Default for Quaternion<T> {
+    /// Returns the identity as default.
+    ///
+    /// ```
+    /// use multicalc::Quaternion;
+    ///
+    /// let default_quaternion = Quaternion::default();
+    /// let quaternion = Quaternion::<f64>::from_array([1.0, 2.0, 3.0, 4.0]);
+    ///
+    /// assert_eq!(quaternion * default_quaternion, quaternion);
+    /// ```
+    fn default() -> Self {
+        Self::identity()
+    }
+}

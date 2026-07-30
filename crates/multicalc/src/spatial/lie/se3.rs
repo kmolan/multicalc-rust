@@ -212,3 +212,22 @@ impl<T: Numeric> Mul for SE3<T> {
         self.compose(rhs)
     }
 }
+
+impl<T: Numeric> Default for SE3<T> {
+    /// Returns the identity as default.
+    ///
+    /// ```
+    /// use multicalc::{SE3, SO3, Vector3D};
+    ///
+    /// let default_se3 = SE3::default();
+    /// let se3 = SE3::<f64>::from_parts(
+    ///     SO3::from_quaternion(multicalc::Quaternion::from_array([1.0, 2.0, 3.0, 4.0])),
+    ///     Vector3D::new([1.0, 2.0, 3.0])
+    /// );
+    ///
+    /// assert_eq!(se3 * default_se3, se3);
+    /// ```
+    fn default() -> Self {
+        Self::identity()
+    }
+}

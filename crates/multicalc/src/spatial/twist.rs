@@ -197,3 +197,19 @@ impl<T: Numeric> From<Twist<T>> for Vector6D<T> {
         t.to_vector()
     }
 }
+
+impl<T: Numeric> Default for Twist<T> {
+    /// Returns the zero twist as default.
+    ///
+    /// ```
+    /// use multicalc::Twist;
+    ///
+    /// let default_twist = Twist::default();
+    /// let twist = Twist::<f64>::from_array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+    ///
+    /// assert_eq!(twist + default_twist, twist);
+    /// ```
+    fn default() -> Self {
+        Self::zeros()
+    }
+}

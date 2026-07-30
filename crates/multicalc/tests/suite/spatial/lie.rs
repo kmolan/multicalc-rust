@@ -4,7 +4,7 @@
 
 use std::f64::consts::PI;
 
-use multicalc::linear_algebra::{Matrix, Vector, Vector3D, Vector6D};
+use multicalc::linear_algebra::{Matrix, Vector, Vector2D, Vector3D, Vector6D};
 use multicalc::scalar::{Dual, Numeric};
 use multicalc::spatial::{SE2, SE3, SO2, SO3};
 use rand::rngs::StdRng;
@@ -791,4 +791,47 @@ fn near_zero_exp_log_and_jacobians_f32() {
     for i in 0..3 {
         assert!((back_se2_tiny[i] - tiny_se2[i]).abs() < 1e-5);
     }
+}
+
+#[test]
+fn so2_default_is_identity() {
+    let default_so2 = SO2::default();
+    let so2 = SO2::<f64>::from_angle(0.3);
+
+    assert_eq!(default_so2, SO2::identity());
+    assert_eq!(so2 * default_so2, so2);
+    assert_eq!(default_so2 * so2, so2);
+}
+
+#[test]
+fn so3_default_is_identity() {
+    let default_so3 = SO3::default();
+    let so3 = SO3::<f64>::from_quaternion(multicalc::Quaternion::from_array([1.0, 2.0, 3.0, 4.0]));
+
+    assert_eq!(default_so3, SO3::identity());
+    assert_eq!(so3 * default_so3, so3);
+    assert_eq!(default_so3 * so3, so3);
+}
+
+#[test]
+fn se2_default_is_identity() {
+    let default_se2 = SE2::default();
+    let se2 = SE2::from_parts(SO2::from_angle(0.3), Vector2D::new([1.0, 2.0]));
+
+    assert_eq!(default_se2, SE2::identity());
+    assert_eq!(default_se2 * se2, se2);
+    assert_eq!(se2 * default_se2, se2);
+}
+
+#[test]
+fn se3_default_is_identity() {
+    let default_se3 = SE3::default();
+    let se3 = SE3::<f64>::from_parts(
+        SO3::from_quaternion(multicalc::Quaternion::from_array([1.0, 2.0, 3.0, 4.0])),
+        Vector3D::new([1.0, 2.0, 3.0]),
+    );
+
+    assert_eq!(default_se3, SE3::identity());
+    assert_eq!(se3 * default_se3, se3);
+    assert_eq!(default_se3 * se3, se3);
 }

@@ -178,3 +178,19 @@ impl<T: Numeric> Mul for SO3<T> {
         self.compose(rhs)
     }
 }
+
+impl<T: Numeric> Default for SO3<T> {
+    /// Returns the identity as default.
+    ///
+    /// ```
+    /// use multicalc::SO3;
+    ///
+    /// let default_so3 = SO3::default();
+    /// let so3 = SO3::<f64>::from_quaternion(multicalc::Quaternion::from_array([1.0, 2.0, 3.0, 4.0]));
+    ///
+    /// assert_eq!(so3 * default_so3, so3);
+    /// ```
+    fn default() -> Self {
+        Self::identity()
+    }
+}
