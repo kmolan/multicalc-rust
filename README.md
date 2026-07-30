@@ -35,6 +35,7 @@ screen is measured live, inside a 1 ms tick.*
 - [Estimation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#estimation): linear and extended `KalmanFilter`s (autodiff Jacobians, no hand-derived ones) and a `ParticleFilter` for nonlinear, non-Gaussian problems (`alloc` only).
 - [Control](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#control): `Pid` with anti-windup and a filtered derivative, a one-pole low-pass, the `pure_pursuit_curvature` path-following law, and `FollowTheGap` reactive obstacle avoidance over a range scan.
 - [Spatial math](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#spatial-quaternions-and-lie-groups): `Quaternion`, the `SO2`/`SE2`/`SO3`/`SE3` Lie groups for 2D and 3D rotations and rigid-body transforms with left and right Jacobians and their inverses on all four, and `Twist`/`Wrench` screw-theory types.
+- [Rigid-body inertia and the free joint](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#rigid-body-inertia-and-the-free-joint): `SpatialInertia` for a body's mass, balance point, and resistance to spinning, and `FreeJointState` for a body free to move in all six directions — loadable straight from MuJoCo model files with `multicalc-mjcf`.
 - [Kinematics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#kinematics): differential-drive and unicycle maps between wheel and body motion, with exact SE(2) odometry.
 - [Motion](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#motion): `PolylinePath`, a stack-allocated waypoint path with arc-length, closest-point, and lookahead queries.
 
@@ -179,6 +180,9 @@ The published library crate lives in [`crates/multicalc`](crates/multicalc); the
 root is a Cargo workspace. Runnable demos live in the dev-only [`demos/`](demos) crate (basics and
 live Rerun showcases), and [`tools/embedded-smoke`](tools/embedded-smoke) runs `multicalc` on the
 four bare-metal targets (three Cortex-M targets + `riscv32imc`) under QEMU every PR.
+[`crates/multicalc-mjcf`](crates/multicalc-mjcf) reads MuJoCo model files into multicalc types, and
+[`third_party/menagerie`](third_party/menagerie) holds the model files it is tested against, under
+their own upstream licences.
 
 ## Contributing
 

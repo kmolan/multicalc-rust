@@ -60,6 +60,8 @@ jobs:
         run: cargo test -p multicalc
       - name: Test (alloc feature)
         run: cargo test -p multicalc --features alloc
+      - name: Test (model ingestion)
+        run: cargo test -p multicalc-mjcf
       # All features on: the README and guide examples are compiled here too, and some of
       # them use the alloc-only types.
       - name: Doctests
@@ -94,6 +96,8 @@ jobs:
         run: cargo fmt --all --check
       - name: Clippy
         run: cargo clippy -p multicalc --all-targets --features alloc -- -D warnings
+      - name: Clippy (model ingestion)
+        run: cargo clippy -p multicalc-mjcf --all-targets -- -D warnings
       - name: No nightly features
         run: |
           if grep -rnE '#!\[feature\(|generic_const_exprs' crates/*/src; then
