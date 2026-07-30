@@ -38,6 +38,8 @@ pub trait Numeric:
     const TEN: Self;
     /// The value `100`.
     const HUNDRED: Self;
+    // The value `180`.
+    const ONE_HUNDRED_EIGHTY: Self;
     /// Archimedes' constant, π.
     const PI: Self;
     /// Two times π (the circle constant τ) — one full turn in radians.
@@ -213,6 +215,34 @@ pub trait Numeric:
         self - Self::TWO_PI * (self / Self::TWO_PI).round()
     }
 
+    /// Convert an angle measured in degrees to on measured in radians.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let deg: f64 = 90.0;
+    /// let rad = deg.to_radians();
+    /// assert!((rad - f64::PI / 2.0).abs() < 1e-12);
+    /// ```
+    #[inline]
+    fn to_radians(self) -> Self {
+        self / Self::ONE_HUNDRED_EIGHTY * Self::PI
+    }
+
+    /// Convert an angle measured in radians to on measured in degrees.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let rad: f64 = f64::PI / 4.0;
+    /// let deg = rad.to_degrees();
+    /// assert!((deg - 45.0).abs() < 1e-12);
+    /// ```
+    #[inline]
+    fn to_degrees(self) -> Self {
+        self / Self::PI * Self::ONE_HUNDRED_EIGHTY
+    }
+
     /// Arctangent, in radians.
     #[inline]
     fn atan(self) -> Self {
@@ -348,6 +378,7 @@ impl Numeric for f64 {
     const HALF: Self = 0.5;
     const TEN: Self = 10.0;
     const HUNDRED: Self = 100.0;
+    const ONE_HUNDRED_EIGHTY: Self = 180.0;
     const PI: Self = core::f64::consts::PI;
     const TWO_PI: Self = core::f64::consts::PI * 2.0;
     const EPSILON: Self = f64::EPSILON;
@@ -524,6 +555,7 @@ impl Numeric for f32 {
     const HALF: Self = 0.5;
     const TEN: Self = 10.0;
     const HUNDRED: Self = 100.0;
+    const ONE_HUNDRED_EIGHTY: Self = 180.0;
     const PI: Self = core::f32::consts::PI;
     const TWO_PI: Self = core::f32::consts::PI * 2.0;
     const EPSILON: Self = f32::EPSILON;

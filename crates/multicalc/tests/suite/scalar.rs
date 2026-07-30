@@ -2,6 +2,7 @@
 
 mod numeric_methods {
     use multicalc::scalar::Numeric;
+    use multicalc_testkit::tol::{Tol, assert_scalar_close};
     use proptest::prelude::*;
 
     const TOL: f64 = 1e-12;
@@ -117,6 +118,17 @@ mod numeric_methods {
         assert!((-f64::PI..=f64::PI).contains(&y));
     }
 
+    fn check_deg_rad_roundtrip(x: f64) {
+        // to_degrees and to_radians are inverse functions of each other.
+
+        let tol = Tol {
+            abs: 1e-12,
+            rel: 1e-8,
+        };
+        assert_scalar_close(x.to_degrees().to_radians(), x, tol);
+        assert_scalar_close(x.to_radians().to_degrees(), x, tol);
+    }
+
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(256))]
 
@@ -125,6 +137,10 @@ mod numeric_methods {
             check_wrap_to_pi(x);
         }
 
+        #[test]
+        fn deg_rad_roundtrip(x in prop::num::f64::NORMAL) {
+            check_deg_rad_roundtrip(x);
+        }
     }
 }
 

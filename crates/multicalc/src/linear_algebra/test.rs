@@ -284,6 +284,7 @@ impl Numeric for Counted {
     const HALF: Self = Counted(0.5);
     const TEN: Self = Counted(10.0);
     const HUNDRED: Self = Counted(f64::HUNDRED);
+    const ONE_HUNDRED_EIGHTY: Self = Counted(f64::ONE_HUNDRED_EIGHTY);
     const PI: Self = Counted(core::f64::consts::PI);
     const TWO_PI: Self = Counted(core::f64::consts::TAU);
     const EPSILON: Self = Counted(f64::EPSILON);

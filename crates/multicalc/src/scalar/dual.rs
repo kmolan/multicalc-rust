@@ -180,6 +180,10 @@ impl<T: Numeric> Numeric for Dual<T> {
         value: T::HUNDRED,
         deriv: T::ZERO,
     };
+    const ONE_HUNDRED_EIGHTY: Self = Dual {
+        value: T::ONE_HUNDRED_EIGHTY,
+        deriv: T::ZERO,
+    };
     const PI: Self = Dual {
         value: T::PI,
         deriv: T::ZERO,
