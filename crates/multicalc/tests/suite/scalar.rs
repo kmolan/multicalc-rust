@@ -2,6 +2,8 @@
 
 mod numeric_methods {
     use multicalc::scalar::Numeric;
+    use multicalc_testkit::tol::{Tol, assert_scalar_close};
+    use proptest::prelude::*;
 
     const TOL: f64 = 1e-12;
 
@@ -21,6 +23,10 @@ mod numeric_methods {
         assert_eq!(Numeric::copysign(-3.0_f64, 1.0), 3.0);
         assert_eq!(Numeric::floor(2.7_f64), 2.0);
         assert_eq!(Numeric::floor(-2.1_f64), -3.0);
+        assert_eq!(Numeric::ceil(2.7_f64), 3.0);
+        assert_eq!(Numeric::ceil(-2.1_f64), -2.0);
+        assert_eq!(Numeric::trunc(2.7_f64), 2.0);
+        assert_eq!(Numeric::trunc(-2.1_f64), -2.0);
         assert!((Numeric::asin(0.5_f64) - 0.5_f64.asin()).abs() < TOL);
         assert!((Numeric::acos(0.5_f64) - 0.5_f64.acos()).abs() < TOL);
         assert!((Numeric::atan(0.7_f64) - 0.7_f64.atan()).abs() < TOL);
@@ -29,7 +35,15 @@ mod numeric_methods {
         assert!((Numeric::tanh(1.1_f64) - 1.1_f64.tanh()).abs() < TOL);
         assert!((Numeric::hypot(3.0_f64, 4.0) - 5.0).abs() < TOL);
         assert!((Numeric::powf(2.0_f64, 3.5) - 2.0_f64.powf(3.5)).abs() < TOL);
+        assert!((Numeric::exp(3.0_f64) - 3.0_f64.exp()).abs() < TOL);
+        assert!((Numeric::expm1(0.03_f64) - f64::exp_m1(0.03)).abs() < TOL);
+        assert!((Numeric::ln(7.0_f64) - 7.0_f64.ln()).abs() < TOL);
+        assert!((Numeric::ln_1p(0.05_f64) - 0.05_f64.ln_1p()).abs() < TOL);
+        assert!((Numeric::log2(7.0_f64) - 7.0_f64.log2()).abs() < TOL);
+        assert!((Numeric::log10(7.0_f64) - 7.0_f64.log10()).abs() < TOL);
         assert_eq!(Numeric::mul_add(2.0_f64, 3.0, 1.0), 7.0);
+        assert_eq!(Numeric::sqrt(4.0_f64), 2.0);
+        assert_eq!(Numeric::cbrt(8.0_f64), 2.0);
         assert_eq!(Numeric::recip(4.0_f64), 0.25);
         assert_eq!(Numeric::signum(-3.0_f64), -1.0);
         assert!(Numeric::signum(f64::NAN).is_nan());
@@ -85,6 +99,48 @@ mod numeric_methods {
         // floor on an exact integer and a negative.
         assert_eq!(Numeric::floor(-3.0_f64), -3.0);
         assert_eq!(Numeric::floor(-2.1_f64), -3.0);
+        // ceil on an exact integer and a negative.
+        assert_eq!(Numeric::ceil(-3.0_f64), -3.0);
+        assert_eq!(Numeric::ceil(-2.1_f64), -2.0);
+        // trunc on an exact integer and a negative.
+        assert_eq!(Numeric::trunc(-3.0_f64), -3.0);
+        assert_eq!(Numeric::trunc(-2.1_f64), -2.0);
+        // -pi wraps to pi
+        assert_eq!((-f64::PI).wrap_to_pi(), f64::PI);
+        // pi wraps to -pi
+        assert_eq!(f64::PI.wrap_to_pi(), -f64::PI);
+        // 2π wraps to 0
+        assert_eq!(f64::TWO_PI.wrap_to_pi(), 0.0);
+    }
+
+    fn check_wrap_to_pi(x: f64) {
+        let y = x.wrap_to_pi();
+        assert!((-f64::PI..=f64::PI).contains(&y));
+    }
+
+    fn check_deg_rad_roundtrip(x: f64) {
+        // to_degrees and to_radians are inverse functions of each other.
+
+        let tol = Tol {
+            abs: 1e-12,
+            rel: 1e-8,
+        };
+        assert_scalar_close(x.to_degrees().to_radians(), x, tol);
+        assert_scalar_close(x.to_radians().to_degrees(), x, tol);
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        #[test]
+        fn wrap_to_pi(x in (-5_000_f64)..5_000_f64) {
+            check_wrap_to_pi(x);
+        }
+
+        #[test]
+        fn deg_rad_roundtrip(x in prop::num::f64::NORMAL) {
+            check_deg_rad_roundtrip(x);
+        }
     }
 }
 
@@ -152,6 +208,14 @@ mod dual {
     }
 
     #[test]
+    fn cbrt_value_and_derivative() {
+        // f(x) = cbrt(x), f'(x) = 1/(3 x^(2/3)); at x = 27 -> 3 and 1/27
+        let root = Dual::variable(27.0_f64).cbrt();
+        assert!(f64::abs(root.value - 3.0) < TOL);
+        assert!(f64::abs(root.deriv - 1.0 / 27.0) < TOL);
+    }
+
+    #[test]
     fn sin_cos_and_tan_derivatives() {
         let x = 0.7_f64;
         let sine = Dual::variable(x).sin();
@@ -174,10 +238,39 @@ mod dual {
         assert!(f64::abs(exponential.value - f64::exp(x)) < TOL);
         assert!(f64::abs(exponential.deriv - f64::exp(x)) < TOL);
 
+        let x = 0.03_f64;
+        let em1 = Dual::variable(x).expm1();
+        assert!(f64::abs(em1.value - f64::exp_m1(x)) < TOL);
+        assert!(f64::abs(em1.deriv - f64::exp(x)) < TOL);
+
         // f(x) = ln(x), f'(x) = 1/x; at x = 2 -> ln 2 and 0.5
         let logarithm = Dual::variable(2.0_f64).ln();
         assert!(f64::abs(logarithm.value - f64::ln(2.0)) < TOL);
         assert!(f64::abs(logarithm.deriv - 0.5) < TOL);
+
+        // f(x) = ln(1 + x), f'(x) = 1/(1 + x); at x = -0.2 -> ln 0.8 and 1.25
+        let logarithm = Dual::variable(-0.2_f64).ln_1p();
+        assert!(f64::abs(logarithm.value - f64::ln(0.8)) < TOL);
+        assert!(f64::abs(logarithm.deriv - 1.25) < TOL);
+
+        // f(x) = log10(x), f'(x) = 1/(ln(10) * x); at x = 7 -> log10 7 and 1/(7 * ln(10))
+        let log10 = Dual::variable(7.0).log10();
+        assert!(f64::abs(log10.value - f64::log10(7.0)) < TOL);
+        assert!(f64::abs(log10.deriv - (7.0 * 10.0.ln()).recip()) < TOL);
+
+        // f(x) = log2(x), f'(x) = 1/(ln(2) * x); at x = 7 -> log2 7 and 1/(7 * ln(2))
+        let log2 = Dual::variable(7.0).log2();
+        assert!(f64::abs(log2.value - f64::log2(7.0)) < TOL);
+        assert!(f64::abs(log2.deriv - (7.0 * 2.0.ln()).recip()) < TOL);
+    }
+
+    #[test]
+    fn test_infinite_value_finite_derivative() {
+        // In the limit x -> INFINITY, ln(x) -> INFINITY while d/dx (ln x) -> 0.
+        let x = f64::INFINITY;
+        let y = Dual::variable(x).ln();
+        assert!(y.is_infinite());
+        assert!(y.deriv.is_finite());
     }
 
     #[test]
@@ -364,6 +457,41 @@ mod dual {
     }
 
     #[test]
+    fn ceil_has_zero_derivative() {
+        let ceiled = Dual::variable(2.7_f64).ceil();
+        assert!(f64::abs(ceiled.value - 3.0) < TOL);
+        assert!(f64::abs(ceiled.deriv) < TOL);
+    }
+
+    #[test]
+    fn trunc_has_zero_derivative() {
+        let truncated = Dual::variable(2.7_f64).trunc();
+        assert!(f64::abs(truncated.value - 2.0) < TOL);
+        assert!(f64::abs(truncated.deriv) < TOL);
+    }
+
+    #[test]
+    fn clamp_derivative() {
+        let min: f64 = 0.0;
+        let max: f64 = 1.0;
+
+        // Values above max are replaced with max and zero derivative
+        let clamped = Dual::variable(2.7_f64).clamp(min, max);
+        assert_eq!(clamped.value, max);
+        assert_eq!(clamped.deriv, 0.0);
+
+        // Values below min are replaced with min and zero derivative
+        let clamped = Dual::variable(-2.7_f64).clamp(min, max);
+        assert_eq!(clamped.value, min);
+        assert_eq!(clamped.deriv, 0.0);
+
+        // Values in range are unchanged.
+        let x = Dual::variable(0.5_f64);
+        let clamped = x.clamp(min, max);
+        assert_eq!(x, clamped);
+    }
+
+    #[test]
     fn copysign_carries_the_sign_into_the_derivative() {
         let same = Dual::variable(3.0_f64).copysign(Dual::constant(1.0));
         assert!(f64::abs(same.value - 3.0) < TOL && f64::abs(same.deriv - 1.0) < TOL);
@@ -425,6 +553,28 @@ mod hyper_dual {
     }
 
     #[test]
+    fn sqrt_second_derivative() {
+        // f(x) = sqrt(x) -> f' = 1/(2 * sqrt(x)), f'' = -1/(4 * x^3/2)
+        let x = 3.7_f64;
+        let root_x = f64::sqrt(x);
+        let sqrt = HyperDual::variable(x).sqrt();
+        assert!(f64::abs(sqrt.real - root_x) < TOL);
+        assert!(f64::abs(sqrt.eps1 - 0.5 / root_x) < TOL);
+        assert!(f64::abs(sqrt.eps1eps2 - (-0.25 / (x * root_x))) < TOL);
+    }
+
+    #[test]
+    fn cbrt_second_derivative() {
+        // f(x) = cbrt(x) -> f' = 1/(3 * x^2/3), f'' = -2/(9 * x^5/3)
+        let x = 3.7_f64;
+        let root_x = f64::cbrt(x);
+        let cbrt = HyperDual::variable(x).cbrt();
+        assert!(f64::abs(cbrt.real - root_x) < TOL);
+        assert!(f64::abs(cbrt.eps1 - 1.0 / (3.0 * root_x * root_x)) < TOL);
+        assert!(f64::abs(cbrt.eps1eps2 - (-2.0 * root_x / (9.0 * x * x))) < TOL);
+    }
+
+    #[test]
     fn sin_second_derivative() {
         // f(x) = sin(x) -> f' = cos(x), f'' = -sin(x)
         let x = 0.7_f64;
@@ -435,11 +585,60 @@ mod hyper_dual {
     }
 
     #[test]
+    fn log_second_derivative() {
+        // f(x) = ln(x) -> f' = 1/x, f'' = -1/x^2
+        let x = 7.0;
+        let ln = HyperDual::variable(x).ln();
+        assert!(f64::abs(ln.real - f64::ln(x)) < TOL);
+        assert!(f64::abs(ln.eps1 - x.recip()) < TOL);
+        assert!(f64::abs(ln.eps1eps2 - (-1.0 / (x * x))) < TOL);
+
+        // f(x) = log2(x) -> f' = 1/(ln2 * x), f'' = -1/(ln2 * x^2)
+        let ln2 = 2.0.ln();
+        let log2 = HyperDual::variable(x).log2();
+        assert!(f64::abs(log2.real - f64::log2(x)) < TOL);
+        assert!(f64::abs(log2.eps1 - x.recip() / ln2) < TOL);
+        assert!(f64::abs(log2.eps1eps2 - (-1.0 / (ln2 * x * x))) < TOL);
+
+        // f(x) = log10(x) -> f' = 1/(ln10 * x), f'' = -1/(ln10 * x^2)
+        let ln10 = 10.0.ln();
+        let log10 = HyperDual::variable(x).log10();
+        assert!(f64::abs(log10.real - f64::log10(x)) < TOL);
+        assert!(f64::abs(log10.eps1 - x.recip() / ln10) < TOL);
+        assert!(f64::abs(log10.eps1eps2 - (-1.0 / (ln10 * x * x))) < TOL);
+
+        // f(x) = ln(1 + x) -> f' = 1/(1 + x), f'' = -1/(1 + x)^2
+        let x = 0.03;
+        let xp1 = x + 1.0;
+        let ln = HyperDual::variable(x).ln_1p();
+        assert!(f64::abs(ln.real - f64::ln_1p(x)) < TOL);
+        assert!(f64::abs(ln.eps1 - xp1.recip()) < TOL);
+        assert!(f64::abs(ln.eps1eps2 - (-1.0 / (xp1 * xp1))) < TOL);
+    }
+
+    #[test]
+    fn test_infinite_value_finite_derivative() {
+        // In the limit x -> INFINITY, ln(x) -> INFINITY while d/dx (ln x) -> 0.
+        let x = f64::INFINITY;
+        let y = HyperDual::variable(x).ln();
+        assert!(y.is_infinite());
+        assert!(y.eps1.is_finite());
+        assert!(y.eps1eps2.is_finite());
+    }
+
+    #[test]
     fn exp_is_its_own_second_derivative() {
         // f(x) = exp(x) is its own derivative to all orders
         let x = 1.3_f64;
         let exponential = HyperDual::variable(x).exp();
         assert!(f64::abs(exponential.real - f64::exp(x)) < TOL);
+        assert!(f64::abs(exponential.eps1 - f64::exp(x)) < TOL);
+        assert!(f64::abs(exponential.eps1eps2 - f64::exp(x)) < TOL);
+
+        // f(x) = exp(x) - 1 derivatives match those of exp(x)
+        let x = 0.03_f64;
+        let exponential = HyperDual::variable(x).expm1();
+        assert!(f64::abs(exponential.real - f64::exp_m1(x)) < TOL);
         assert!(f64::abs(exponential.eps1 - f64::exp(x)) < TOL);
         assert!(f64::abs(exponential.eps1eps2 - f64::exp(x)) < TOL);
     }
@@ -451,6 +650,53 @@ mod hyper_dual {
         assert!(f64::abs(reciprocal.real - 0.5) < TOL);
         assert!(f64::abs(reciprocal.eps1 - (-0.25)) < TOL);
         assert!(f64::abs(reciprocal.eps1eps2 - 0.25) < TOL);
+    }
+
+    #[test]
+    fn floor_has_zero_derivative() {
+        let floored = HyperDual::variable(2.7_f64).floor();
+        assert!(f64::abs(floored.real - 2.0) < TOL);
+        assert!(f64::abs(floored.eps1) < TOL);
+        assert!(f64::abs(floored.eps1eps2) < TOL);
+    }
+
+    #[test]
+    fn ceil_has_zero_derivative() {
+        let ceiled = HyperDual::variable(2.7_f64).ceil();
+        assert!(f64::abs(ceiled.real - 3.0) < TOL);
+        assert!(f64::abs(ceiled.eps1) < TOL);
+        assert!(f64::abs(ceiled.eps1eps2) < TOL);
+    }
+
+    #[test]
+    fn trunc_has_zero_derivative() {
+        let truncated = HyperDual::variable(2.7_f64).trunc();
+        assert!(f64::abs(truncated.real - 2.0) < TOL);
+        assert!(f64::abs(truncated.eps1) < TOL);
+        assert!(f64::abs(truncated.eps1eps2) < TOL);
+    }
+
+    #[test]
+    fn clamp_derivative() {
+        let min: f64 = 0.0;
+        let max: f64 = 1.0;
+
+        // Values above max are replaced with max and zero derivative
+        let clamped = HyperDual::variable(2.7_f64).clamp(min, max);
+        assert_eq!(clamped.real, max);
+        assert_eq!(clamped.eps1, 0.0);
+        assert_eq!(clamped.eps1eps2, 0.0);
+
+        // Values below min are replaced with min and zero derivative
+        let clamped = HyperDual::variable(-2.7_f64).clamp(min, max);
+        assert_eq!(clamped.real, min);
+        assert_eq!(clamped.eps1, 0.0);
+        assert_eq!(clamped.eps1eps2, 0.0);
+
+        // Values in range are unchanged.
+        let x = HyperDual::variable(0.5_f64);
+        let clamped = x.clamp(min, max);
+        assert_eq!(x, clamped);
     }
 
     #[test]
@@ -589,6 +835,13 @@ mod jet {
         for order in 0..6 {
             assert!(f64::abs(exponential.derivative(order) - f64::exp(x)) < TOL);
         }
+
+        // every non-trivial derivative of exp(x) - 1 is exp(x)
+        let exponential = Jet::<f64, 6>::variable(x).expm1();
+        assert!(f64::abs(exponential.derivative(0) - f64::exp_m1(x)) < TOL);
+        for order in 1..6 {
+            assert!(f64::abs(exponential.derivative(order) - f64::exp(x)) < TOL);
+        }
     }
 
     #[test]
@@ -646,6 +899,18 @@ mod jet {
     }
 
     #[test]
+    fn cbrt_derivatives_to_third_order() {
+        // f(x) = cbrt(x): f'=1/(3 * x^{2/3}), f''=-2/(9 x^{5/3}), f'''=10/(27 x^{8/3})
+        let x = 1.7_f64;
+        let root_x = f64::cbrt(x);
+        let cbrt = Jet::<f64, 4>::variable(x).cbrt();
+        assert!(f64::abs(cbrt.derivative(0) - root_x) < TOL);
+        assert!(f64::abs(cbrt.derivative(1) - 1.0 / (3.0 * root_x * root_x)) < TOL);
+        assert!(f64::abs(cbrt.derivative(2) - (-2.0 * root_x / (9.0 * x * x))) < TOL);
+        assert!(f64::abs(cbrt.derivative(3) - 10.0 * root_x / (27.0 * x * x * x)) < TOL);
+    }
+
+    #[test]
     fn ln_derivatives_to_third_order() {
         // f(x) = ln(x): f'=1/x, f''=-1/x^2, f'''=2/x^3
         let x = 2.0_f64;
@@ -654,6 +919,42 @@ mod jet {
         assert!(f64::abs(logarithm.derivative(1) - 1.0 / x) < TOL);
         assert!(f64::abs(logarithm.derivative(2) - (-1.0 / (x * x))) < TOL);
         assert!(f64::abs(logarithm.derivative(3) - 2.0 / (x * x * x)) < TOL);
+
+        // f(x) = log2(x): f'=1/(ln2 * x), f''=-1/(ln2 * x^2), f'''=2/(ln2 * x^3)
+        let ln2 = 2.0.ln();
+        let logarithm = Jet::<f64, 4>::variable(x).log2();
+        assert!(f64::abs(logarithm.derivative(0) - f64::log2(x)) < TOL);
+        assert!(f64::abs(logarithm.derivative(1) - x.recip() / ln2) < TOL);
+        assert!(f64::abs(logarithm.derivative(2) - (-1.0 / (ln2 * x * x))) < TOL);
+        assert!(f64::abs(logarithm.derivative(3) - 2.0 / (ln2 * x * x * x)) < TOL);
+
+        // f(x) = log10(x): f'=1/(ln10 * x), f''=-1/(ln10 * x^2), f'''=2/(ln10 * x^3)
+        let ln10 = 10.0.ln();
+        let logarithm = Jet::<f64, 4>::variable(x).log10();
+        assert!(f64::abs(logarithm.derivative(0) - f64::log10(x)) < TOL);
+        assert!(f64::abs(logarithm.derivative(1) - x.recip() / ln10) < TOL);
+        assert!(f64::abs(logarithm.derivative(2) - (-1.0 / (ln10 * x * x))) < TOL);
+        assert!(f64::abs(logarithm.derivative(3) - 2.0 / (ln10 * x * x * x)) < TOL);
+
+        // f(x) = ln(1 + x): f'=1/(1 + x), f''=-1/(1 + x)^2, f'''=2/(1 + x)^3
+        let x = 0.123_f64;
+        let xp1 = x + 1.0;
+        let logarithm = Jet::<f64, 4>::variable(x).ln_1p();
+        assert!(f64::abs(logarithm.derivative(0) - f64::ln_1p(x)) < TOL);
+        assert!(f64::abs(logarithm.derivative(1) - 1.0 / xp1) < TOL);
+        assert!(f64::abs(logarithm.derivative(2) - (-1.0 / (xp1 * xp1))) < TOL);
+        assert!(f64::abs(logarithm.derivative(3) - 2.0 / (xp1 * xp1 * xp1)) < TOL);
+    }
+
+    #[test]
+    fn test_infinite_value_finite_derivative() {
+        // In the limit x -> INFINITY, ln(x) -> INFINITY while d/dx (ln x) -> 0.
+        let x = f64::INFINITY;
+        let y = Jet::<f64, 4>::variable(x).ln();
+        assert!(y.is_infinite());
+        assert!(y.derivative(1).is_finite());
+        assert!(y.derivative(2).is_finite());
+        assert!(y.derivative(3).is_finite());
     }
 
     #[test]
@@ -719,6 +1020,58 @@ mod jet {
         for order in 1..4 {
             assert!(f64::abs(constant.coeffs[order]) < TOL);
         }
+    }
+
+    #[test]
+    fn floor_has_zero_derivative() {
+        let floored = Jet::<f64, 4>::variable(2.7_f64).floor();
+        assert!(f64::abs(floored.derivative(0) - 2.0) < TOL);
+        assert!(f64::abs(floored.derivative(1)) < TOL);
+        assert!(f64::abs(floored.derivative(2)) < TOL);
+        assert!(f64::abs(floored.derivative(3)) < TOL);
+    }
+
+    #[test]
+    fn ceil_has_zero_derivative() {
+        let ceiled = Jet::<f64, 4>::variable(2.7_f64).ceil();
+        assert!(f64::abs(ceiled.derivative(0) - 3.0) < TOL);
+        assert!(f64::abs(ceiled.derivative(1)) < TOL);
+        assert!(f64::abs(ceiled.derivative(2)) < TOL);
+        assert!(f64::abs(ceiled.derivative(3)) < TOL);
+    }
+
+    #[test]
+    fn trunc_has_zero_derivative() {
+        let truncated = Jet::<f64, 4>::variable(2.7_f64).trunc();
+        assert!(f64::abs(truncated.derivative(0) - 2.0) < TOL);
+        assert!(f64::abs(truncated.derivative(1)) < TOL);
+        assert!(f64::abs(truncated.derivative(2)) < TOL);
+        assert!(f64::abs(truncated.derivative(3)) < TOL);
+    }
+
+    #[test]
+    fn clamp_derivative() {
+        let min: f64 = 0.0;
+        let max: f64 = 1.0;
+
+        // Values above max are replaced with max and zero derivative
+        let clamped = Jet::<f64, 4>::variable(2.7_f64).clamp(min, max);
+        assert_eq!(clamped.derivative(0), max);
+        for i in 1..4 {
+            assert_eq!(clamped.derivative(i), 0.0);
+        }
+
+        // Values below min are replaced with min and zero derivative
+        let clamped = Jet::<f64, 4>::variable(-2.7_f64).clamp(min, max);
+        assert_eq!(clamped.derivative(0), min);
+        for i in 1..4 {
+            assert_eq!(clamped.derivative(i), 0.0);
+        }
+
+        // Values in range are unchanged.
+        let x = Jet::<f64, 4>::variable(0.5_f64);
+        let clamped = x.clamp(min, max);
+        assert_eq!(x, clamped);
     }
 
     #[test]

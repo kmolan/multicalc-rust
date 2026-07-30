@@ -280,8 +280,11 @@ impl Numeric for Counted {
     const ZERO: Self = Counted(0.0);
     const ONE: Self = Counted(1.0);
     const TWO: Self = Counted(2.0);
+    const THREE: Self = Counted(3.0);
     const HALF: Self = Counted(0.5);
+    const TEN: Self = Counted(10.0);
     const HUNDRED: Self = Counted(f64::HUNDRED);
+    const ONE_HUNDRED_EIGHTY: Self = Counted(f64::ONE_HUNDRED_EIGHTY);
     const PI: Self = Counted(core::f64::consts::PI);
     const TWO_PI: Self = Counted(core::f64::consts::TAU);
     const EPSILON: Self = Counted(f64::EPSILON);
@@ -292,6 +295,8 @@ impl Numeric for Counted {
     const NEG_INFINITY: Self = Counted(f64::NEG_INFINITY);
     const MAX: Self = Counted(f64::MAX);
     const MIN_POSITIVE: Self = Counted(f64::MIN_POSITIVE);
+
+    type Constant = Self;
 
     fn from_f64(value: f64) -> Self {
         Counted(value)
@@ -308,6 +313,9 @@ impl Numeric for Counted {
     }
     fn sqrt(self) -> Self {
         Counted(libm::sqrt(self.0))
+    }
+    fn cbrt(self) -> Self {
+        Counted(libm::cbrt(self.0))
     }
     fn sin(self) -> Self {
         Counted(libm::sin(self.0))
@@ -333,8 +341,17 @@ impl Numeric for Counted {
     fn floor(self) -> Self {
         Counted(libm::floor(self.0))
     }
+    fn ceil(self) -> Self {
+        Counted(libm::ceil(self.0))
+    }
     fn round(self) -> Self {
         Counted(libm::round(self.0))
+    }
+    fn trunc(self) -> Self {
+        Counted(libm::trunc(self.0))
+    }
+    fn clamp(self, min: Self::Constant, max: Self::Constant) -> Self {
+        Counted(self.0.clamp(min.0, max.0))
     }
 
     fn is_nan(self) -> bool {
@@ -342,6 +359,9 @@ impl Numeric for Counted {
     }
     fn is_finite(self) -> bool {
         self.0.is_finite()
+    }
+    fn is_infinite(self) -> bool {
+        self.0.is_infinite()
     }
 }
 

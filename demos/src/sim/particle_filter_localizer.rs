@@ -173,7 +173,7 @@ impl VectorFn<3, 3> for LocalizationMotion {
         let heading = state[2];
         let next = heading + S::from_f64(self.delta_heading);
         let step = S::from_f64(self.delta_arc_length);
-        let wrapped = next - S::TWO_PI * (next / S::TWO_PI).round();
+        let wrapped = next.wrap_to_pi();
         [
             state[0] + step * heading.cos(),
             state[1] + step * heading.sin(),

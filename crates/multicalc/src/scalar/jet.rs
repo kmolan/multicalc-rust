@@ -210,8 +210,11 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     const ZERO: Self = Self::constant(T::ZERO);
     const ONE: Self = Self::constant(T::ONE);
     const TWO: Self = Self::constant(T::TWO);
+    const THREE: Self = Self::constant(T::THREE);
     const HALF: Self = Self::constant(T::HALF);
+    const TEN: Self = Self::constant(T::TEN);
     const HUNDRED: Self = Self::constant(T::HUNDRED);
+    const ONE_HUNDRED_EIGHTY: Self = Self::constant(T::ONE_HUNDRED_EIGHTY);
     const PI: Self = Self::constant(T::PI);
     const TWO_PI: Self = Self::constant(T::TWO_PI);
     const EPSILON: Self = Self::constant(T::EPSILON);
@@ -222,6 +225,8 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     const NEG_INFINITY: Self = Self::constant(T::NEG_INFINITY);
     const MAX: Self = Self::constant(T::MAX);
     const MIN_POSITIVE: Self = Self::constant(T::MIN_POSITIVE);
+
+    type Constant = T;
 
     #[inline]
     fn from_f64(value: f64) -> Self {
@@ -266,6 +271,46 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
         Jet { coeffs: u }
     }
 
+    /// Cube root via Cauchy-product recurrence.
+    ///
+    /// We want `u = v^(1/3)`, i.e. `u·u·u = v` (Cauchy product). Writing `w = u·u`
+    /// (the Cauchy square, built up incrementally alongside `u`), the coefficient of
+    /// `u_k` in `(u·u·u)_k` is `3·u₀²` (it appears once from `i=k, j=l=0` and twice
+    /// more from `w`'s own `u₀·u_k` term), so:
+    ///
+    /// `uₖ = (vₖ − u₀·Σ_{m=1}^{k-1} uₘ·u₍ₖ₋ₘ₎ − Σ_{i=1}^{k-1} uᵢ·w₍ₖ₋ᵢ₎) / (3u₀²)`
+    ///
+    /// Unbounded at `value == 0`.
+    #[inline]
+    fn cbrt(self) -> Self {
+        let v = &self.coeffs;
+        let mut u = [T::ZERO; N];
+        let mut w = [T::ZERO; N]; // w[j] = (u·u)[j] = Σ_{m=0..=j} u[m]·u[j-m]
+
+        u[0] = v[0].cbrt();
+        w[0] = u[0] * u[0];
+        let three_u0_sq = w[0] + T::TWO * w[0];
+
+        for k in 1..N {
+            // p = Σ_{m=1}^{k-1} u[m]·u[k-m]  (the part of w[k] not involving u[0] or u[k])
+            let mut p = T::ZERO;
+            for m in 1..k {
+                p += u[m] * u[k - m];
+            }
+
+            // acc = everything in (u·u·u)[k] except the 3·u0²·u_k term
+            let mut acc = u[0] * p;
+            for i in 1..k {
+                acc += u[i] * w[k - i];
+            }
+
+            u[k] = (v[k] - acc) / three_u0_sq;
+            w[k] = p + T::TWO * u[0] * u[k]; // complete w[k] now that u[k] is known
+        }
+
+        Jet { coeffs: u }
+    }
+
     #[inline]
     fn sin(self) -> Self {
         self.sin_cos().0
@@ -298,6 +343,14 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
         Jet { coeffs: u }
     }
 
+    #[inline]
+    fn expm1(self) -> Self {
+        let em1 = self.coeffs[0].expm1();
+        let Self { mut coeffs } = self.exp();
+        coeffs[0] = em1;
+        Self { coeffs }
+    }
+
     /// `uₖ = (1/v₀)( vₖ − (1/k) Σ_{j=1..k-1} j·uⱼ·v₍ₖ₋ⱼ₎ )`. Defined for `value > 0`.
     #[inline]
     fn ln(self) -> Self {
@@ -312,6 +365,43 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
             u[k] = (v[k] - acc / T::from_usize(k)) / v[0];
         }
         Jet { coeffs: u }
+    }
+
+    /// `uₖ = (1/(1 + v₀))( vₖ − (1/k) Σ_{j=1..k-1} j·uⱼ·v₍ₖ₋ⱼ₎ )`. Defined for `value > 0`.
+    #[inline]
+    fn ln_1p(self) -> Self {
+        let v = &self.coeffs;
+        let v0 = v[0] + T::ONE;
+        let mut u = [T::ZERO; N];
+        u[0] = v[0].ln_1p();
+        for k in 1..N {
+            let mut acc = T::ZERO;
+            for j in 1..k {
+                acc += T::from_usize(j) * u[j] * v[k - j];
+            }
+            u[k] = (v[k] - acc / T::from_usize(k)) / v0;
+        }
+        Jet { coeffs: u }
+    }
+
+    #[inline]
+    fn log2(self) -> Self {
+        let ln2 = T::TWO.ln();
+        let Self { mut coeffs } = self.ln();
+        for x in coeffs.iter_mut() {
+            *x /= ln2;
+        }
+        Self { coeffs }
+    }
+
+    #[inline]
+    fn log10(self) -> Self {
+        let ln10 = T::TEN.ln();
+        let Self { mut coeffs } = self.ln();
+        for x in coeffs.iter_mut() {
+            *x /= ln10;
+        }
+        Self { coeffs }
     }
 
     /// Four-quadrant arctangent. `u = atan2(y, x)` satisfies `(x²+y²)·u′ = x·y′ − y·x′`,
@@ -359,10 +449,38 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
         Jet::constant(self.coeffs[0].floor())
     }
 
+    /// Largest integer `>= self`; all higher coefficients (the derivatives) are zero.
+    #[inline]
+    fn ceil(self) -> Self {
+        Jet::constant(self.coeffs[0].ceil())
+    }
+
     /// Nearest integer, ties away from zero; all higher coefficients (the derivatives) are zero.
     #[inline]
     fn round(self) -> Self {
         Jet::constant(self.coeffs[0].round())
+    }
+
+    /// Rounds towards zero, effectively removing the decimal part.
+    /// A step function, so the derivative is zero.
+    #[inline]
+    fn trunc(self) -> Self {
+        Jet::constant(self.coeffs[0].trunc())
+    }
+
+    /// Restrict a value to the interval `[min, max]`. Inside this range
+    /// it is the identity function, so nothing changes. Outside this range
+    /// it is a constant function (equal to either `min` or `max`), so the derivative
+    /// is equal to zero.
+    #[inline]
+    fn clamp(self, min: Self::Constant, max: Self::Constant) -> Self {
+        if self.coeffs[0] < min {
+            Jet::constant(min)
+        } else if max < self.coeffs[0] {
+            Jet::constant(max)
+        } else {
+            self
+        }
     }
 
     /// Reflects the value only; the higher coefficients are not inspected.
@@ -376,5 +494,11 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     #[inline]
     fn is_finite(self) -> bool {
         self.coeffs[0].is_finite()
+    }
+
+    /// Reflects the value only; an infinite value can still carry finite coefficients.
+    #[inline]
+    fn is_infinite(self) -> bool {
+        self.coeffs[0].is_infinite()
     }
 }

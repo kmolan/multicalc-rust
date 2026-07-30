@@ -217,14 +217,32 @@ impl<T: Numeric> Numeric for HyperDual<T> {
         eps2: T::ZERO,
         eps1eps2: T::ZERO,
     };
+    const THREE: Self = HyperDual {
+        real: T::THREE,
+        eps1: T::ZERO,
+        eps2: T::ZERO,
+        eps1eps2: T::ZERO,
+    };
     const HALF: Self = HyperDual {
         real: T::HALF,
         eps1: T::ZERO,
         eps2: T::ZERO,
         eps1eps2: T::ZERO,
     };
+    const TEN: Self = HyperDual {
+        real: T::TEN,
+        eps1: T::ZERO,
+        eps2: T::ZERO,
+        eps1eps2: T::ZERO,
+    };
     const HUNDRED: Self = HyperDual {
         real: T::HUNDRED,
+        eps1: T::ZERO,
+        eps2: T::ZERO,
+        eps1eps2: T::ZERO,
+    };
+    const ONE_HUNDRED_EIGHTY: Self = HyperDual {
+        real: T::ONE_HUNDRED_EIGHTY,
         eps1: T::ZERO,
         eps2: T::ZERO,
         eps1eps2: T::ZERO,
@@ -290,6 +308,8 @@ impl<T: Numeric> Numeric for HyperDual<T> {
         eps1eps2: T::ZERO,
     };
 
+    type Constant = T;
+
     #[inline]
     fn from_f64(value: f64) -> Self {
         HyperDual::constant(T::from_f64(value))
@@ -318,6 +338,14 @@ impl<T: Numeric> Numeric for HyperDual<T> {
         let d2 = -(d1 / (T::TWO * self.real));
         self.chain(root, d1, d2)
     }
+    /// At `real == 0` the derivatives are unbounded and become `inf`/`NaN`.
+    #[inline]
+    fn cbrt(self) -> Self {
+        let root = self.real.cbrt();
+        let d1 = T::ONE / (T::THREE * root * root);
+        let d2 = -(T::TWO * d1 * d1 / root);
+        self.chain(root, d1, d2)
+    }
     #[inline]
     fn sin(self) -> Self {
         self.chain(self.real.sin(), self.real.cos(), -(self.real.sin()))
@@ -337,6 +365,12 @@ impl<T: Numeric> Numeric for HyperDual<T> {
         let e = self.real.exp();
         self.chain(e, e, e)
     }
+    #[inline]
+    fn expm1(self) -> Self {
+        let e = self.real.exp();
+        let em1 = self.real.expm1();
+        self.chain(em1, e, e)
+    }
     /// Defined for `real > 0`; at `0` the value is `-inf` and the derivatives unbounded.
     #[inline]
     fn ln(self) -> Self {
@@ -344,6 +378,32 @@ impl<T: Numeric> Numeric for HyperDual<T> {
             self.real.ln(),
             T::ONE / self.real,
             -(T::ONE / (self.real * self.real)),
+        )
+    }
+
+    #[inline]
+    fn ln_1p(self) -> Self {
+        let xp1 = self.real + T::ONE;
+        self.chain(self.real.ln_1p(), T::ONE / xp1, -(T::ONE / (xp1 * xp1)))
+    }
+
+    #[inline]
+    fn log2(self) -> Self {
+        let ln2 = T::TWO.ln();
+        self.chain(
+            self.real.log2(),
+            T::ONE / self.real / ln2,
+            -(T::ONE / (self.real * self.real)) / ln2,
+        )
+    }
+
+    #[inline]
+    fn log10(self) -> Self {
+        let ln10 = T::TEN.ln();
+        self.chain(
+            self.real.log10(),
+            T::ONE / self.real / ln10,
+            -(T::ONE / (self.real * self.real)) / ln10,
         )
     }
 
@@ -395,6 +455,16 @@ impl<T: Numeric> Numeric for HyperDual<T> {
             eps1eps2: T::ZERO,
         }
     }
+    /// Largest integer `>= self`; the derivatives of a step function are zero.
+    #[inline]
+    fn ceil(self) -> Self {
+        HyperDual {
+            real: self.real.ceil(),
+            eps1: T::ZERO,
+            eps2: T::ZERO,
+            eps1eps2: T::ZERO,
+        }
+    }
 
     /// Nearest integer, ties away from zero; the derivatives of a step function are zero.
     #[inline]
@@ -404,6 +474,43 @@ impl<T: Numeric> Numeric for HyperDual<T> {
             eps1: T::ZERO,
             eps2: T::ZERO,
             eps1eps2: T::ZERO,
+        }
+    }
+
+    /// Rounds towards zero, effectively removing the decimal part.
+    /// A step function, so the derivative is zero.
+    #[inline]
+    fn trunc(self) -> Self {
+        HyperDual {
+            real: self.real.trunc(),
+            eps1: T::ZERO,
+            eps2: T::ZERO,
+            eps1eps2: T::ZERO,
+        }
+    }
+
+    /// Restrict a value to the interval `[min, max]`. Inside this range
+    /// it is the identity function, so nothing changes. Outside this range
+    /// it is a constant function (equal to either `min` or `max`), so the derivative
+    /// is equal to zero.
+    #[inline]
+    fn clamp(self, min: Self::Constant, max: Self::Constant) -> Self {
+        if self.real < min {
+            HyperDual {
+                real: min,
+                eps1: T::ZERO,
+                eps2: T::ZERO,
+                eps1eps2: T::ZERO,
+            }
+        } else if max < self.real {
+            HyperDual {
+                real: max,
+                eps1: T::ZERO,
+                eps2: T::ZERO,
+                eps1eps2: T::ZERO,
+            }
+        } else {
+            self
         }
     }
 
@@ -417,5 +524,10 @@ impl<T: Numeric> Numeric for HyperDual<T> {
     #[inline]
     fn is_finite(self) -> bool {
         self.real.is_finite()
+    }
+    /// Reflects the real part only; an infinite value can still carry a finite derivative.
+    #[inline]
+    fn is_infinite(self) -> bool {
+        self.real.is_infinite()
     }
 }

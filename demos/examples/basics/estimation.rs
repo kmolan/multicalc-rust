@@ -84,11 +84,6 @@ impl VectorFn<1, 1> for Compass {
     }
 }
 
-/// Folds an angle into a ±π band by subtracting whole turns.
-fn wrap_to_pi<T: Numeric>(angle: T) -> T {
-    angle - T::TWO_PI * (angle / T::TWO_PI).round()
-}
-
 /// The beacons a robot ranges against to find itself, at the corners of a 10 m square room.
 /// Example taken from https://github.com/destenson/kalman-filter-rs/blob/master/examples/particle_filter_robot.rs
 #[cfg(feature = "alloc")]
@@ -456,7 +451,7 @@ fn main() -> Result<(), CalcError> {
         compass_noise,
     );
     let predicted = Compass.eval(wrapped.state().as_array())[0];
-    let residual = wrap_to_pi(measurement - predicted);
+    let residual = (measurement - predicted).wrap_to_pi();
     wrapped.update_with_residual(&Compass, Vector::new([residual]))?;
 
     println!("\nAngle wrapping near ±π (true heading error ≈ 0.08 rad)");

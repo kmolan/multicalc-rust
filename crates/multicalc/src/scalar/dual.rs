@@ -164,12 +164,24 @@ impl<T: Numeric> Numeric for Dual<T> {
         value: T::TWO,
         deriv: T::ZERO,
     };
+    const THREE: Self = Dual {
+        value: T::THREE,
+        deriv: T::ZERO,
+    };
     const HALF: Self = Dual {
         value: T::HALF,
         deriv: T::ZERO,
     };
+    const TEN: Self = Dual {
+        value: T::TEN,
+        deriv: T::ZERO,
+    };
     const HUNDRED: Self = Dual {
         value: T::HUNDRED,
+        deriv: T::ZERO,
+    };
+    const ONE_HUNDRED_EIGHTY: Self = Dual {
+        value: T::ONE_HUNDRED_EIGHTY,
         deriv: T::ZERO,
     };
     const PI: Self = Dual {
@@ -213,6 +225,8 @@ impl<T: Numeric> Numeric for Dual<T> {
         deriv: T::ZERO,
     };
 
+    type Constant = T;
+
     #[inline]
     fn from_f64(value: f64) -> Self {
         Dual::constant(T::from_f64(value))
@@ -248,6 +262,15 @@ impl<T: Numeric> Numeric for Dual<T> {
             deriv: self.deriv / (T::TWO * root),
         }
     }
+    /// At `value == 0` the derivative is unbounded (`1/(3·0)`) and becomes `inf`/`NaN`.
+    #[inline]
+    fn cbrt(self) -> Self {
+        let root = self.value.cbrt();
+        Dual {
+            value: root,
+            deriv: self.deriv / (T::THREE * root * root),
+        }
+    }
     #[inline]
     fn sin(self) -> Self {
         Dual {
@@ -278,12 +301,45 @@ impl<T: Numeric> Numeric for Dual<T> {
             deriv: e * self.deriv,
         }
     }
+    #[inline]
+    fn expm1(self) -> Self {
+        let e = self.value.exp();
+        let em1 = self.value.expm1();
+        Dual {
+            value: em1,
+            deriv: e * self.deriv,
+        }
+    }
     /// Defined for `value > 0`; at `0` the value is `-inf` and the derivative unbounded.
     #[inline]
     fn ln(self) -> Self {
         Dual {
             value: self.value.ln(),
             deriv: self.deriv / self.value,
+        }
+    }
+
+    #[inline]
+    fn ln_1p(self) -> Self {
+        Dual {
+            value: self.value.ln_1p(),
+            deriv: self.deriv / (self.value + T::ONE),
+        }
+    }
+
+    #[inline]
+    fn log2(self) -> Self {
+        Self {
+            value: self.value.log2(),
+            deriv: self.deriv / self.value / T::TWO.ln(),
+        }
+    }
+
+    #[inline]
+    fn log10(self) -> Self {
+        Self {
+            value: self.value.log10(),
+            deriv: self.deriv / self.value / T::TEN.ln(),
         }
     }
 
@@ -316,12 +372,52 @@ impl<T: Numeric> Numeric for Dual<T> {
         }
     }
 
+    /// Largest integer `>= self`. A step function, so the derivative is zero.
+    #[inline]
+    fn ceil(self) -> Self {
+        Dual {
+            value: self.value.ceil(),
+            deriv: T::ZERO,
+        }
+    }
+
     /// Nearest integer, ties away from zero. A step function, so the derivative is zero.
     #[inline]
     fn round(self) -> Self {
         Dual {
             value: self.value.round(),
             deriv: T::ZERO,
+        }
+    }
+
+    /// Rounds towards zero, effectively removing the decimal part.
+    /// A step function, so the derivative is zero.
+    #[inline]
+    fn trunc(self) -> Self {
+        Dual {
+            value: self.value.trunc(),
+            deriv: T::ZERO,
+        }
+    }
+
+    /// Restrict a value to the interval `[min, max]`. Inside this range
+    /// it is the identity function, so nothing changes. Outside this range
+    /// it is a constant function (equal to either `min` or `max`), so the derivative
+    /// is equal to zero.
+    #[inline]
+    fn clamp(self, min: Self::Constant, max: Self::Constant) -> Self {
+        if self.value < min {
+            Self {
+                value: min,
+                deriv: T::ZERO,
+            }
+        } else if max < self.value {
+            Self {
+                value: max,
+                deriv: T::ZERO,
+            }
+        } else {
+            self
         }
     }
 
@@ -335,5 +431,10 @@ impl<T: Numeric> Numeric for Dual<T> {
     #[inline]
     fn is_finite(self) -> bool {
         self.value.is_finite()
+    }
+    /// Reflects the value only; an infinite value can still carry a finite derivative.
+    #[inline]
+    fn is_infinite(self) -> bool {
+        self.value.is_infinite()
     }
 }
