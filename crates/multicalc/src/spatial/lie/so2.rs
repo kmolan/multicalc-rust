@@ -120,6 +120,47 @@ impl<T: Numeric> SO2<T> {
         self.compose(Self::exp(self.inverse().compose(other).log() * t))
     }
 
+    /// The squared norm `c² + s²`.
+    #[inline]
+    fn norm_squared(self) -> T {
+        self.c * self.c + self.s * self.s
+    }
+
+    /// The Euclidean norm.
+    ///
+    /// ```
+    /// use multicalc::spatial::SO2;
+    ///
+    /// let rotation = SO2::<f64>::from_angle(0.3);
+    ///
+    /// assert!((rotation.norm() - 1.0).abs() <= <f64 as multicalc::Numeric>::EPSILON);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn norm(self) -> T {
+        self.norm_squared().sqrt()
+    }
+
+    /// This rotation renormalized, removing drift accumulated over long composition chains.
+    ///
+    /// ```
+    /// use multicalc::spatial::SO2;
+    ///
+    /// let rotation = SO2::<f64>::from_angle(0.3);
+    /// let normalized = rotation.normalized();
+    /// let (c, s) = normalized.cos_sin();
+    ///
+    /// assert!((normalized.norm() - 1.0).abs() <= <f64 as multicalc::Numeric>::EPSILON);
+    /// ```
+    #[inline]
+    pub fn normalized(self) -> Self {
+        let scale = self.norm().recip();
+        SO2 {
+            c: self.c * scale,
+            s: self.s * scale,
+        }
+    }
+
     /// The SO(2) left Jacobian, which is `1` (SO(2) is abelian).
     #[inline]
     pub fn left_jacobian(_theta: T) -> T {

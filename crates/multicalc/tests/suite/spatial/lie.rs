@@ -388,6 +388,53 @@ fn se2_adjoint_identity() {
     }
 }
 
+#[test]
+fn so2_normalized_removes_composition_drift() {
+    let step = SO2::<f64>::from_angle(0.3);
+    let mut rotation = SO2::<f64>::identity();
+
+    // Repeated rotation to accumulate drift.
+    for _ in 0..10_000 {
+        rotation = rotation.compose(step);
+    }
+
+    let (drifted_c, drifted_s) = rotation.cos_sin();
+    let drifted_norm = rotation.norm();
+    let tolerance = <f64 as multicalc::Numeric>::EPSILON;
+
+    // The accumulated rotation has drifted away from the unit circle.
+    assert!((drifted_norm - 1.0).abs() > tolerance);
+
+    let normalized = rotation.normalized();
+    let (normalized_c, normalized_s) = normalized.cos_sin();
+    let normalized_norm = normalized.norm();
+
+    // Normalization pulls SO2 back onto the unit circle.
+    assert!((normalized_norm - 1.0).abs() <= tolerance);
+
+    // Scaling the normalized components to reconstruct the input.
+    assert!((normalized_c * drifted_norm - drifted_c).abs() <= tolerance);
+    assert!((normalized_s * drifted_norm - drifted_s).abs() <= tolerance);
+}
+
+#[test]
+fn so2_norm() {
+    let tolerance = <f64 as multicalc::Numeric>::EPSILON;
+
+    // The identity has an exact unit norm.
+    assert_eq!(SO2::<f64>::identity().norm(), 1.0);
+
+    // Different rotations have norm 1.
+    for angle in [-3.0, -0.3, 0.0, 0.3, 3.0] {
+        let rotation = SO2::<f64>::from_angle(angle);
+        assert!((rotation.norm() - 1.0).abs() <= tolerance);
+    }
+
+    // The norm remains stable for a very small angle.
+    let rotation = SO2::<f64>::from_angle(<f64 as multicalc::Numeric>::EPSILON_X30);
+    assert!((rotation.norm() - 1.0).abs() <= tolerance);
+}
+
 // ---- autodiff ---------------------------------------------------------------
 
 #[test]

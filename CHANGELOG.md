@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `SO2` methods `norm` and `normalized` @elias-taufer (#239)
 - **Rigid-body inertia and the free joint.** `SpatialInertia` for a body's mass, balance point, and
   resistance to spinning, and `FreeJointState` for the pose and velocity of a body free to move in
   all six directions, with a `SpatialError` for the mass properties that do not describe a usable
