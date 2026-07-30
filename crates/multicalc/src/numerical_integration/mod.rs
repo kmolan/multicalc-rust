@@ -20,6 +20,11 @@ pub mod mode;
 
 pub use crate::utils::summation::SummationMethod;
 
+#[cfg(any(
+    feature = "gauss-legendre",
+    feature = "gauss-hermite",
+    feature = "gauss-laguerre"
+))]
 pub use gaussian_integration::{
     DEFAULT_QUADRATURE_ORDERS, GaussianConfig, GaussianMulti, GaussianSingle,
 };
@@ -27,7 +32,13 @@ pub use integrator::{IntegratorMultiVariable, IntegratorSingleVariable};
 pub use iterative_integration::{
     DEFAULT_TOTAL_ITERATIONS, IterativeConfig, IterativeMulti, IterativeSingle,
 };
-pub use mode::{GaussianQuadratureMethod, IterativeMethod};
+#[cfg(any(
+    feature = "gauss-legendre",
+    feature = "gauss-hermite",
+    feature = "gauss-laguerre"
+))]
+pub use mode::GaussianQuadratureMethod;
+pub use mode::IterativeMethod;
 
 use crate::error::IntegrateError;
 use crate::scalar::Numeric;

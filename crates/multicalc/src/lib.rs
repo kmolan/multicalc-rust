@@ -46,8 +46,15 @@ pub use numerical_derivative::{
 pub use numerical_derivative::{derivative, partial, second_derivative};
 
 /// Integration: the iterative and Gaussian-quadrature backends and their shared traits.
+#[cfg(any(
+    feature = "gauss-legendre",
+    feature = "gauss-hermite",
+    feature = "gauss-laguerre"
+))]
 pub use numerical_integration::{
     GaussianConfig, GaussianMulti, GaussianQuadratureMethod, GaussianSingle,
+};
+pub use numerical_integration::{
     IntegratorMultiVariable, IntegratorSingleVariable, IterativeConfig, IterativeMethod,
     IterativeMulti, IterativeSingle, SummationMethod,
 };
