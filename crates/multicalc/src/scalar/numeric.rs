@@ -192,6 +192,27 @@ pub trait Numeric:
         if self < other { self } else { other }
     }
 
+    /// Folds an angle into a ±π band by subtracting whole turns.
+    ///
+    /// Note: This function can fail to produce a result in the range [-π, π] due to
+    /// loss of precision in floating point numbers.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// // Small-ish number of whole turns removed
+    /// let x: f64 = 0.132 + 10.0 * f64::TWO_PI;
+    /// assert!((x.wrap_to_pi() - 0.132).abs() < 1e-8);
+    ///
+    /// // A very large number fails to be in range due to precision loss.
+    /// let x: f64 = 3.6663732791101215e224;
+    /// assert!(x.wrap_to_pi() < -4e200);
+    /// ```
+    #[inline]
+    fn wrap_to_pi(self) -> Self {
+        self - Self::TWO_PI * (self / Self::TWO_PI).round()
+    }
+
     /// Arctangent, in radians.
     #[inline]
     fn atan(self) -> Self {

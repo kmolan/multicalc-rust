@@ -33,7 +33,7 @@ impl VectorFn<5, 5> for CoordinatedTurnModel {
             )
         };
         // Fold the output heading back into range by subtracting whole turns.
-        let wrapped = next_heading - S::TWO_PI * (next_heading / S::TWO_PI).round();
+        let wrapped = next_heading.wrap_to_pi();
         [next_x, next_y, wrapped, speed, turn_rate]
     }
 }

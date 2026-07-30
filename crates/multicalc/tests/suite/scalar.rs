@@ -2,6 +2,7 @@
 
 mod numeric_methods {
     use multicalc::scalar::Numeric;
+    use proptest::prelude::*;
 
     const TOL: f64 = 1e-12;
 
@@ -103,6 +104,27 @@ mod numeric_methods {
         // trunc on an exact integer and a negative.
         assert_eq!(Numeric::trunc(-3.0_f64), -3.0);
         assert_eq!(Numeric::trunc(-2.1_f64), -2.0);
+        // -pi wraps to pi
+        assert_eq!((-f64::PI).wrap_to_pi(), f64::PI);
+        // pi wraps to -pi
+        assert_eq!(f64::PI.wrap_to_pi(), -f64::PI);
+        // 2π wraps to 0
+        assert_eq!(f64::TWO_PI.wrap_to_pi(), 0.0);
+    }
+
+    fn check_wrap_to_pi(x: f64) {
+        let y = x.wrap_to_pi();
+        assert!((-f64::PI..=f64::PI).contains(&y));
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        #[test]
+        fn wrap_to_pi(x in (-5_000_f64)..5_000_f64) {
+            check_wrap_to_pi(x);
+        }
+
     }
 }
 
