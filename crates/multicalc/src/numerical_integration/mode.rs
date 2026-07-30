@@ -12,6 +12,7 @@ pub enum IterativeMethod {
 /// The Gaussian quadrature family used by the integrators. Each is most accurate for
 /// polynomial-like integrands over its fixed domain.
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub enum GaussianQuadratureMethod {
     /// Integrates `f(x)` over a finite `[a, b]`.
     #[cfg(feature = "gauss-legendre")]
