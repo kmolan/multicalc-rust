@@ -20,6 +20,7 @@ pub struct GaussianConfig {
     pub integration_method: GaussianQuadratureMethod,
 }
 
+#[cfg(feature = "gauss-legendre")]
 impl Default for GaussianConfig {
     /// Gauss-Legendre at [`DEFAULT_QUADRATURE_ORDERS`]; optimal for most generic polynomial equations.
     ///
@@ -27,16 +28,7 @@ impl Default for GaussianConfig {
     fn default() -> Self {
         GaussianConfig {
             order: DEFAULT_QUADRATURE_ORDERS,
-            #[cfg(feature = "gauss-legendre")]
             integration_method: GaussianQuadratureMethod::GaussLegendre,
-            #[cfg(all(not(feature = "gauss-legendre"), feature = "gauss-hermite"))]
-            integration_method: GaussianQuadratureMethod::GaussHermite,
-            #[cfg(all(
-                not(feature = "gauss-legendre"),
-                not(feature = "gauss-hermite"),
-                feature = "gauss-laguerre"
-            ))]
-            integration_method: GaussianQuadratureMethod::GaussLaguerre,
         }
     }
 }
@@ -95,6 +87,7 @@ pub struct GaussianSingle<T = f64> {
     _marker: PhantomData<T>,
 }
 
+#[cfg(feature = "gauss-legendre")]
 impl<T> Default for GaussianSingle<T> {
     fn default() -> Self {
         GaussianSingle {
