@@ -226,6 +226,8 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     const MAX: Self = Self::constant(T::MAX);
     const MIN_POSITIVE: Self = Self::constant(T::MIN_POSITIVE);
 
+    type Constant = T;
+
     #[inline]
     fn from_f64(value: f64) -> Self {
         Self::constant(T::from_f64(value))
@@ -464,6 +466,21 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     #[inline]
     fn trunc(self) -> Self {
         Jet::constant(self.coeffs[0].trunc())
+    }
+
+    /// Restrict a value to the interval `[min, max]`. Inside this range
+    /// it is the identity function, so nothing changes. Outside this range
+    /// it is a constant function (equal to either `min` or `max`), so the derivative
+    /// is equal to zero.
+    #[inline]
+    fn clamp(self, min: Self::Constant, max: Self::Constant) -> Self {
+        if self.coeffs[0] < min {
+            Jet::constant(min)
+        } else if max < self.coeffs[0] {
+            Jet::constant(max)
+        } else {
+            self
+        }
     }
 
     /// Reflects the value only; the higher coefficients are not inspected.

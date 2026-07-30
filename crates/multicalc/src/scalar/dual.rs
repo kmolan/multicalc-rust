@@ -225,6 +225,8 @@ impl<T: Numeric> Numeric for Dual<T> {
         deriv: T::ZERO,
     };
 
+    type Constant = T;
+
     #[inline]
     fn from_f64(value: f64) -> Self {
         Dual::constant(T::from_f64(value))
@@ -395,6 +397,27 @@ impl<T: Numeric> Numeric for Dual<T> {
         Dual {
             value: self.value.trunc(),
             deriv: T::ZERO,
+        }
+    }
+
+    /// Restrict a value to the interval `[min, max]`. Inside this range
+    /// it is the identity function, so nothing changes. Outside this range
+    /// it is a constant function (equal to either `min` or `max`), so the derivative
+    /// is equal to zero.
+    #[inline]
+    fn clamp(self, min: Self::Constant, max: Self::Constant) -> Self {
+        if self.value < min {
+            Self {
+                value: min,
+                deriv: T::ZERO,
+            }
+        } else if max < self.value {
+            Self {
+                value: max,
+                deriv: T::ZERO,
+            }
+        } else {
+            self
         }
     }
 

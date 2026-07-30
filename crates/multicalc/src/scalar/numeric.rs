@@ -71,6 +71,11 @@ pub trait Numeric:
     /// ```
     const MIN_POSITIVE: Self;
 
+    /// The type used to represent constant values.
+    /// For normal numbers (such as `f32` and `f64`) this is simply `Self`.
+    /// For auto differentiation types this is the underlying scalar value.
+    type Constant: Numeric;
+
     /// Converts from `f64`, narrowing if necessary. Used for table values and literals.
     fn from_f64(value: f64) -> Self;
     /// Converts from `u64`, e.g. an iteration count.
@@ -157,6 +162,21 @@ pub trait Numeric:
     /// A step function, so its derivative is zero everywhere it is differentiable; the dual
     /// implementations therefore carry a zero derivative.
     fn trunc(self) -> Self;
+
+    /// Restrict a value to the interval `[min, max]` unless it is NaN.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let min: f64 = -1.0;
+    /// let max: f64 = 2.0;
+    ///
+    /// assert_eq!(Numeric::clamp(17.0, min, max), max);
+    /// assert_eq!(Numeric::clamp(1.0, min, max), 1.0);
+    /// assert_eq!(Numeric::clamp(-1.3, min, max), min);
+    /// assert!(Numeric::clamp(f64::NAN, min, max).is_nan());
+    /// ```
+    fn clamp(self, min: Self::Constant, max: Self::Constant) -> Self;
 
     /// Sign of `self`: `1` for positive, `-1` for negative, `0` at zero.
     ///
@@ -390,6 +410,8 @@ impl Numeric for f64 {
     const MAX: Self = f64::MAX;
     const MIN_POSITIVE: Self = f64::MIN_POSITIVE;
 
+    type Constant = f64;
+
     #[inline]
     fn from_f64(value: f64) -> Self {
         value
@@ -475,6 +497,10 @@ impl Numeric for f64 {
     #[inline]
     fn trunc(self) -> Self {
         libm::trunc(self)
+    }
+    #[inline]
+    fn clamp(self, min: Self::Constant, max: Self::Constant) -> Self {
+        self.clamp(min, max)
     }
     #[inline]
     fn max(self, other: Self) -> Self {
@@ -567,6 +593,8 @@ impl Numeric for f32 {
     const MAX: Self = f32::MAX;
     const MIN_POSITIVE: Self = f32::MIN_POSITIVE;
 
+    type Constant = f32;
+
     #[inline]
     fn from_f64(value: f64) -> Self {
         value as f32
@@ -652,6 +680,10 @@ impl Numeric for f32 {
     #[inline]
     fn trunc(self) -> Self {
         libm::truncf(self)
+    }
+    #[inline]
+    fn clamp(self, min: Self::Constant, max: Self::Constant) -> Self {
+        self.clamp(min, max)
     }
     #[inline]
     fn max(self, other: Self) -> Self {

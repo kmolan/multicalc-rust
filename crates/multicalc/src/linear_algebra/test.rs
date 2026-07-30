@@ -296,6 +296,8 @@ impl Numeric for Counted {
     const MAX: Self = Counted(f64::MAX);
     const MIN_POSITIVE: Self = Counted(f64::MIN_POSITIVE);
 
+    type Constant = Self;
+
     fn from_f64(value: f64) -> Self {
         Counted(value)
     }
@@ -347,6 +349,9 @@ impl Numeric for Counted {
     }
     fn trunc(self) -> Self {
         Counted(libm::trunc(self.0))
+    }
+    fn clamp(self, min: Self::Constant, max: Self::Constant) -> Self {
+        Counted(self.0.clamp(min.0, max.0))
     }
 
     fn is_nan(self) -> bool {

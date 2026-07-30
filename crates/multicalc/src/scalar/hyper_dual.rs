@@ -308,6 +308,8 @@ impl<T: Numeric> Numeric for HyperDual<T> {
         eps1eps2: T::ZERO,
     };
 
+    type Constant = T;
+
     #[inline]
     fn from_f64(value: f64) -> Self {
         HyperDual::constant(T::from_f64(value))
@@ -484,6 +486,31 @@ impl<T: Numeric> Numeric for HyperDual<T> {
             eps1: T::ZERO,
             eps2: T::ZERO,
             eps1eps2: T::ZERO,
+        }
+    }
+
+    /// Restrict a value to the interval `[min, max]`. Inside this range
+    /// it is the identity function, so nothing changes. Outside this range
+    /// it is a constant function (equal to either `min` or `max`), so the derivative
+    /// is equal to zero.
+    #[inline]
+    fn clamp(self, min: Self::Constant, max: Self::Constant) -> Self {
+        if self.real < min {
+            HyperDual {
+                real: min,
+                eps1: T::ZERO,
+                eps2: T::ZERO,
+                eps1eps2: T::ZERO,
+            }
+        } else if max < self.real {
+            HyperDual {
+                real: max,
+                eps1: T::ZERO,
+                eps2: T::ZERO,
+                eps1eps2: T::ZERO,
+            }
+        } else {
+            self
         }
     }
 

@@ -471,6 +471,27 @@ mod dual {
     }
 
     #[test]
+    fn clamp_derivative() {
+        let min: f64 = 0.0;
+        let max: f64 = 1.0;
+
+        // Values above max are replaced with max and zero derivative
+        let clamped = Dual::variable(2.7_f64).clamp(min, max);
+        assert_eq!(clamped.value, max);
+        assert_eq!(clamped.deriv, 0.0);
+
+        // Values below min are replaced with min and zero derivative
+        let clamped = Dual::variable(-2.7_f64).clamp(min, max);
+        assert_eq!(clamped.value, min);
+        assert_eq!(clamped.deriv, 0.0);
+
+        // Values in range are unchanged.
+        let x = Dual::variable(0.5_f64);
+        let clamped = x.clamp(min, max);
+        assert_eq!(x, clamped);
+    }
+
+    #[test]
     fn copysign_carries_the_sign_into_the_derivative() {
         let same = Dual::variable(3.0_f64).copysign(Dual::constant(1.0));
         assert!(f64::abs(same.value - 3.0) < TOL && f64::abs(same.deriv - 1.0) < TOL);
@@ -653,6 +674,29 @@ mod hyper_dual {
         assert!(f64::abs(truncated.real - 2.0) < TOL);
         assert!(f64::abs(truncated.eps1) < TOL);
         assert!(f64::abs(truncated.eps1eps2) < TOL);
+    }
+
+    #[test]
+    fn clamp_derivative() {
+        let min: f64 = 0.0;
+        let max: f64 = 1.0;
+
+        // Values above max are replaced with max and zero derivative
+        let clamped = HyperDual::variable(2.7_f64).clamp(min, max);
+        assert_eq!(clamped.real, max);
+        assert_eq!(clamped.eps1, 0.0);
+        assert_eq!(clamped.eps1eps2, 0.0);
+
+        // Values below min are replaced with min and zero derivative
+        let clamped = HyperDual::variable(-2.7_f64).clamp(min, max);
+        assert_eq!(clamped.real, min);
+        assert_eq!(clamped.eps1, 0.0);
+        assert_eq!(clamped.eps1eps2, 0.0);
+
+        // Values in range are unchanged.
+        let x = HyperDual::variable(0.5_f64);
+        let clamped = x.clamp(min, max);
+        assert_eq!(x, clamped);
     }
 
     #[test]
@@ -1003,6 +1047,31 @@ mod jet {
         assert!(f64::abs(truncated.derivative(1)) < TOL);
         assert!(f64::abs(truncated.derivative(2)) < TOL);
         assert!(f64::abs(truncated.derivative(3)) < TOL);
+    }
+
+    #[test]
+    fn clamp_derivative() {
+        let min: f64 = 0.0;
+        let max: f64 = 1.0;
+
+        // Values above max are replaced with max and zero derivative
+        let clamped = Jet::<f64, 4>::variable(2.7_f64).clamp(min, max);
+        assert_eq!(clamped.derivative(0), max);
+        for i in 1..4 {
+            assert_eq!(clamped.derivative(i), 0.0);
+        }
+
+        // Values below min are replaced with min and zero derivative
+        let clamped = Jet::<f64, 4>::variable(-2.7_f64).clamp(min, max);
+        assert_eq!(clamped.derivative(0), min);
+        for i in 1..4 {
+            assert_eq!(clamped.derivative(i), 0.0);
+        }
+
+        // Values in range are unchanged.
+        let x = Jet::<f64, 4>::variable(0.5_f64);
+        let clamped = x.clamp(min, max);
+        assert_eq!(x, clamped);
     }
 
     #[test]
