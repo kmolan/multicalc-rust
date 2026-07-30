@@ -14,9 +14,12 @@ pub enum IterativeMethod {
 #[derive(Debug, Clone, Copy)]
 pub enum GaussianQuadratureMethod {
     /// Integrates `f(x)` over a finite `[a, b]`.
+    #[cfg(feature = "gauss-legendre")]
     GaussLegendre,
     /// Integrates `f(x) * e^{-x^2}` over the whole real line.
+    #[cfg(feature = "gauss-hermite")]
     GaussHermite,
     /// Integrates `f(x) * e^{-x}` over `[0, +inf)`.
+    #[cfg(feature = "gauss-laguerre")]
     GaussLaguerre,
 }

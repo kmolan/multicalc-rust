@@ -22,10 +22,21 @@ pub struct GaussianConfig {
 
 impl Default for GaussianConfig {
     /// Gauss-Legendre at [`DEFAULT_QUADRATURE_ORDERS`]; optimal for most generic polynomial equations.
+    ///
+    /// Falls back to Gauss-Hermite or Gauss-Laguerre depending on enabled features.
     fn default() -> Self {
         GaussianConfig {
             order: DEFAULT_QUADRATURE_ORDERS,
+            #[cfg(feature = "gauss-legendre")]
             integration_method: GaussianQuadratureMethod::GaussLegendre,
+            #[cfg(all(not(feature = "gauss-legendre"), feature = "gauss-hermite"))]
+            integration_method: GaussianQuadratureMethod::GaussHermite,
+            #[cfg(all(
+                not(feature = "gauss-legendre"),
+                not(feature = "gauss-hermite"),
+                feature = "gauss-laguerre"
+            ))]
+            integration_method: GaussianQuadratureMethod::GaussLaguerre,
         }
     }
 }
@@ -53,13 +64,16 @@ impl GaussianConfig {
         integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
     ) -> Result<(), IntegrateError> {
         for limit in integration_limit {
-            let ok = match self.integration_method {
+            let ok: bool = match self.integration_method {
+                #[cfg(feature = "gauss-legendre")]
                 GaussianQuadratureMethod::GaussLegendre => {
                     limit[0].is_finite() && limit[1].is_finite() && limit[0] < limit[1]
                 }
+                #[cfg(feature = "gauss-hermite")]
                 GaussianQuadratureMethod::GaussHermite => {
                     limit[0] == T::NEG_INFINITY && limit[1] == T::INFINITY
                 }
+                #[cfg(feature = "gauss-laguerre")]
                 GaussianQuadratureMethod::GaussLaguerre => {
                     limit[0] == T::ZERO && limit[1] == T::INFINITY
                 }
@@ -108,6 +122,7 @@ impl<T: Numeric> GaussianSingle<T> {
     /// by `(b-a)/2 * x + (b+a)/2` and the result scaled by `(b-a)/2`. Inner folds of a
     /// single-variable integral are constant in the outer variable, so the inner result is
     /// computed once and reused. Each tabulated `(weight, abscissa)` is converted to `T` in place.
+    #[cfg(feature = "gauss-legendre")]
     fn integrate_legendre<F: Fn(T) -> T, const NUM_INTEGRATIONS: usize>(
         &self,
         level: usize,
@@ -139,6 +154,7 @@ impl<T: Numeric> GaussianSingle<T> {
     /// Gauss-Hermite / Gauss-Laguerre over their fixed domain: nodes are used as-is with no
     /// affine map and no exponential factor, since the tabulated weights already carry the
     /// `e^{-x^2}` / `e^{-x}` weighting function.
+    #[cfg(any(feature = "gauss-hermite", feature = "gauss-laguerre"))]
     fn integrate_canonical<F: Fn(T) -> T>(
         &self,
         level: usize,
@@ -206,9 +222,11 @@ impl<T: Numeric> IntegratorSingleVariable for GaussianSingle<T> {
         self.config.check_limits(integration_limit)?;
 
         match self.config.integration_method {
+            #[cfg(feature = "gauss-legendre")]
             GaussianQuadratureMethod::GaussLegendre => {
                 self.integrate_legendre(NUM_INTEGRATIONS, table, func, integration_limit)
             }
+            #[cfg(any(feature = "gauss-hermite", feature = "gauss-laguerre"))]
             _ => self.integrate_canonical(NUM_INTEGRATIONS, table, func),
         }
     }
@@ -247,6 +265,7 @@ impl<T: Numeric> GaussianMulti<T> {
     /// Gauss-Legendre partial integration over a finite `[a, b]`. The affine-mapped node is
     /// written into the integrated variable's slot before recursing; the inner fold depends
     /// on the outer node, so it is recomputed for each one.
+    #[cfg(feature = "gauss-legendre")]
     fn integrate_legendre<
         F: Fn(&[T; NUM_VARS]) -> T,
         const NUM_VARS: usize,
@@ -295,6 +314,7 @@ impl<T: Numeric> GaussianMulti<T> {
     /// Gauss-Hermite / Gauss-Laguerre partial integration over the fixed domain. The node is
     /// written into the integrated variable's slot as-is (no map, no exponential factor) and
     /// the recursion stays in the same method.
+    #[cfg(any(feature = "gauss-hermite", feature = "gauss-laguerre"))]
     fn integrate_canonical<
         F: Fn(&[T; NUM_VARS]) -> T,
         const NUM_VARS: usize,
@@ -387,6 +407,7 @@ impl<T: Numeric> IntegratorMultiVariable for GaussianMulti<T> {
         }
 
         match self.config.integration_method {
+            #[cfg(feature = "gauss-legendre")]
             GaussianQuadratureMethod::GaussLegendre => self.integrate_legendre(
                 NUM_INTEGRATIONS,
                 idx_to_integrate,
@@ -395,6 +416,7 @@ impl<T: Numeric> IntegratorMultiVariable for GaussianMulti<T> {
                 integration_limits,
                 point,
             ),
+            #[cfg(any(feature = "gauss-hermite", feature = "gauss-laguerre"))]
             _ => self.integrate_canonical(NUM_INTEGRATIONS, idx_to_integrate, table, func, point),
         }
     }

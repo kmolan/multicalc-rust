@@ -21,8 +21,11 @@ proptest = "1.11"
 multicalc-testkit = { path = "../../tools/testkit" }
 
 [features]
-default = []
+default = [ "gauss-legendre", "gauss-hermite", "gauss-laguerre" ]
 alloc = []
+gauss-legendre = []
+gauss-hermite = []
+gauss-laguerre = []
 
 [lints]
 workspace = true

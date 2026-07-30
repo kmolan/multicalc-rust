@@ -128,6 +128,11 @@ pub mod control;
 pub mod discretization;
 pub mod error;
 pub mod estimation;
+#[cfg(any(
+    feature = "gauss-legendre",
+    feature = "gauss-hermite",
+    feature = "gauss-laguerre"
+))]
 pub mod gaussian_tables;
 pub mod kinematics;
 pub mod linear_algebra;

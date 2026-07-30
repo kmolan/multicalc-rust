@@ -6,8 +6,11 @@
 use crate::error::IntegrateError;
 use crate::numerical_integration::GaussianQuadratureMethod;
 
+#[cfg(feature = "gauss-hermite")]
 pub mod hermite;
+#[cfg(feature = "gauss-laguerre")]
 pub mod laguerre;
+#[cfg(feature = "gauss-legendre")]
 pub mod legendre;
 
 /// Highest supported quadrature order.
@@ -30,8 +33,11 @@ pub const fn nodes(
     order: usize,
 ) -> Result<&'static [(f64, f64)], IntegrateError> {
     let table: &[&[(f64, f64)]] = match method {
+        #[cfg(feature = "gauss-legendre")]
         GaussianQuadratureMethod::GaussLegendre => &legendre::LEGENDRE,
+        #[cfg(feature = "gauss-hermite")]
         GaussianQuadratureMethod::GaussHermite => &hermite::HERMITE,
+        #[cfg(feature = "gauss-laguerre")]
         GaussianQuadratureMethod::GaussLaguerre => &laguerre::LAGUERRE,
     };
 
