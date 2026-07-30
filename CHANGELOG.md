@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   aliases for the vector and matrix sizes used most, so a call site writes `Vector3D<T>` rather
   than `Vector<3, T>`. Each names the same type as the long spelling, so the two mix freely and
   nothing existing has to change. @kmolan
+- `Quaternion::from_two_vectors`, `Quaternion::rotation_angle_to`, and `Quaternion::inverse_transform_point`. (#214)
 
 ### Fixed
 
