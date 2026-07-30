@@ -407,9 +407,7 @@ impl core::fmt::Display for EstimationError {
 impl core::fmt::Display for SignalError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            SignalError::NonFinite => {
-                f.write_str("filter parameter contained a non-finite value")
-            }
+            SignalError::NonFinite => f.write_str("filter parameter contained a non-finite value"),
             SignalError::NonPositiveTimestep => f.write_str("timestep must be strictly positive"),
             SignalError::CoefficientOutOfRange => {
                 f.write_str("smoothing coefficient must lie in [0, 1]")
@@ -420,9 +418,7 @@ impl core::fmt::Display for SignalError {
             SignalError::NonPositiveQualityFactor => {
                 f.write_str("quality factor must be strictly positive")
             }
-            SignalError::NegativeThreshold => {
-                f.write_str("deadband threshold cannot be negative")
-            }
+            SignalError::NegativeThreshold => f.write_str("deadband threshold cannot be negative"),
             SignalError::ThresholdsOutOfOrder => {
                 f.write_str("lower switching threshold must be below the upper one")
             }
