@@ -88,6 +88,13 @@ pub trait Numeric:
     /// Square root.
     fn sqrt(self) -> Self;
     /// Cube root.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let x: f64 = 8.0;
+    /// assert_eq!(x.cbrt(), 2.0);
+    /// ```
     fn cbrt(self) -> Self;
     /// Sine, with `self` in radians.
     fn sin(self) -> Self;
@@ -104,6 +111,13 @@ pub trait Numeric:
     /// The default implementation computes the result using `exp` and normal subtraction,
     /// however overrides for `f32` and `f64` use a more accurate primitive.
     /// Other implementors of the trait will also likely want to override this method.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let x: f64 = 0.0;
+    /// assert_eq!(x.expm1(), 0.0);
+    /// ```
     fn expm1(self) -> Self {
         self.exp() - Self::ONE
     }
@@ -112,6 +126,13 @@ pub trait Numeric:
     /// The default implementation computes the result using `ln` and normal addition,
     /// however overrides for `f32` and `f64` use a more accurate primitive.
     /// Other implementors of the trait will also likely want to override this method.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let x: f64 = 0.0;
+    /// assert_eq!(x.ln_1p(), 0.0);
+    /// ```
     fn ln_1p(self) -> Self {
         (self + Self::ONE).ln()
     }
@@ -120,6 +141,13 @@ pub trait Numeric:
     /// The default implementation uses two calls to `ln`.
     /// More efficient overrides are used for `f32` and `f64`.
     /// Other implementors of the trait will also likely want to override this method.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let x: f64 = 2.0;
+    /// assert_eq!(x.log2(), 1.0);
+    /// ```
     fn log2(self) -> Self {
         self.ln() / Self::TWO.ln()
     }
@@ -128,6 +156,13 @@ pub trait Numeric:
     /// The default implementation uses two calls to `ln`.
     /// More efficient overrides are used for `f32` and `f64`.
     /// Other implementors of the trait will also likely want to override this method.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let x: f64 = 10.0;
+    /// assert_eq!(x.log10(), 1.0);
+    /// ```
     fn log10(self) -> Self {
         self.ln() / Self::TEN.ln()
     }
@@ -149,6 +184,13 @@ pub trait Numeric:
     ///
     /// A step function, so its derivative is zero everywhere it is differentiable; the dual
     /// implementations therefore carry a zero derivative.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let x: f64 = 2.1;
+    /// assert_eq!(x.ceil(), 3.0);
+    /// ```
     fn ceil(self) -> Self;
 
     /// The nearest integer to `self`, rounding half away from zero.
@@ -161,6 +203,13 @@ pub trait Numeric:
     ///
     /// A step function, so its derivative is zero everywhere it is differentiable; the dual
     /// implementations therefore carry a zero derivative.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let x: f64 = 2.8;
+    /// assert_eq!(x.trunc(), 2.0);
+    /// ```
     fn trunc(self) -> Self;
 
     /// Restrict a value to the interval `[min, max]` unless it is NaN.
