@@ -12,7 +12,7 @@ default = ["full-smoke"]
 full-smoke = []
 
 [dependencies]
-multicalc = { path = "../../crates/multicalc", default-features = false }
+multicalc = { path = "../../crates/multicalc", default-features = false, features = [ "gauss-legendre" ]}
 multicalc-testkit = { path = "../testkit" }
 
 [target.'cfg(target_arch = "arm")'.dependencies]
