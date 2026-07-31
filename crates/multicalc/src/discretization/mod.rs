@@ -12,6 +12,7 @@ use crate::scalar::Numeric;
 /// `F = expm(A·dt)` and `G = ∫₀^dt expm(A·τ) dτ · B`, via the augmented-matrix exponential.
 ///
 /// `NM` MUST equal `N + M`; a mismatch is a compile error.
+/// Returns [`LinalgError::InvalidTimestep`] if `dt` is negative or non-finite.
 ///
 /// ```
 /// use multicalc::linear_algebra::{Matrix, Matrix2D};
@@ -34,6 +35,9 @@ pub fn zoh<const N: usize, const M: usize, const NM: usize, T: Numeric>(
     dt: T,
 ) -> Result<(Matrix<N, N, T>, Matrix<N, M, T>), LinalgError> {
     const { assert!(NM == N + M, "zoh: NM must equal N + M") };
+    if !dt.is_finite() || dt < T::ZERO {
+        return Err(LinalgError::InvalidTimestep);
+    }
     // Augmented [[A, B], [0, 0]] · dt; its exponential's top blocks are F and G.
     let aug = Matrix::<NM, NM, T>::from_fn(|i, j| {
         if i < N && j < N {
@@ -54,6 +58,7 @@ pub fn zoh<const N: usize, const M: usize, const NM: usize, T: Numeric>(
 /// `F = expm(A·dt)` and `Q_d` the discrete process-noise covariance.
 ///
 /// `N2` MUST equal `2·N`; a mismatch is a compile error.
+/// Returns [`LinalgError::InvalidTimestep`] if `dt` is negative or non-finite.
 ///
 /// ```
 /// use multicalc::linear_algebra::Matrix2D;
@@ -72,6 +77,9 @@ pub fn van_loan<const N: usize, const N2: usize, T: Numeric>(
     dt: T,
 ) -> Result<(Matrix<N, N, T>, Matrix<N, N, T>), LinalgError> {
     const { assert!(N2 == 2 * N, "van_loan: N2 must equal 2*N") };
+    if !dt.is_finite() || dt < T::ZERO {
+        return Err(LinalgError::InvalidTimestep);
+    }
     // Ξ = [[-A, Q_c], [0, Aᵀ]] · dt. From expm(Ξ) = [[.., G12], [0, G22]]: F = G22ᵀ, Q_d = F · G12.
     let xi = Matrix::<N2, N2, T>::from_fn(|i, j| {
         if i < N && j < N {

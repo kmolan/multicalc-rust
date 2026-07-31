@@ -1,7 +1,7 @@
 //! Error types for the crate. Each module family has its own enum; [`CalcError`] is the umbrella
 //! they all convert into.
 
-/// Errors from the linear-algebra module (factorizations, solves, inverses).
+/// Errors from linear algebra and matrix-based discretization.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
 pub enum LinalgError {
@@ -13,6 +13,8 @@ pub enum LinalgError {
     Underdetermined,
     /// A matrix entry was infinite or NaN.
     NonFinite,
+    /// A discretization timestep was negative, infinite, or NaN.
+    InvalidTimestep,
 }
 
 /// Errors from the differentiation modules (finite differences, autodiff, Jacobian, Hessian,
@@ -249,6 +251,7 @@ impl core::fmt::Display for LinalgError {
             LinalgError::NotPositiveDefinite => "matrix is not positive definite",
             LinalgError::Underdetermined => "system is underdetermined (M < N)",
             LinalgError::NonFinite => "matrix contained a non-finite value",
+            LinalgError::InvalidTimestep => "timestep must be finite and non-negative",
         })
     }
 }

@@ -596,8 +596,9 @@ let ad = Matrix2D::<Dual<f64>>::from_fn(|i, j| {
 // ad[(0, 1)].deriv == m[(0, 1)]
 ```
 
-Errors: the matrix-exponential step returns [`LinalgError`](#error-handling) on a non-finite
-input. Full demo:
+Errors: `zoh` and `van_loan` return [`LinalgError::InvalidTimestep`](#error-handling) when `dt` is
+negative or non-finite; errors from the matrix-exponential step are propagated unchanged. Full
+demo:
 [discretization.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/discretization.rs).
 
 ## Spatial: quaternions and Lie groups
@@ -1140,7 +1141,7 @@ through `From`, so a caller that spans families can hold a single type. Every en
 
 | Enum | Raised by | Variants |
 | --- | --- | --- |
-| `LinalgError` | [Linear algebra](#linear-algebra), [Discretization](#discretization) | `Singular`, `NotPositiveDefinite`, `Underdetermined`, `NonFinite` |
+| `LinalgError` | [Linear algebra](#linear-algebra), [Discretization](#discretization) | `Singular`, `NotPositiveDefinite`, `Underdetermined`, `NonFinite`, `InvalidTimestep` |
 | `DiffError` | [Derivatives](#derivatives-jacobians-and-hessians), [Approximation](#taylor-approximation), [Vector calculus](#vector-calculus) | `OrderZero`, `OrderUnsupported`, `StepSizeZero`, `IndexOutOfRange`, `EmptyFunctionSet` |
 | `IntegrateError` | [Integration](#integration), [Gaussian tables](#gaussian-quadrature-tables), [ODE](#ode-integrators) | `IterationsZero`, `LimitsIllDefined`, `QuadratureOrderOutOfRange`, `StepSizeTooSmall`, `DidNotConverge { steps }`, `NonFinite` |
 | `SolveError` | [Optimization](#least-squares-optimization), [Root finding](#root-finding) | `DidNotConverge { iters, residual }`, `NonFinite`, `InvalidBracket`, `Linalg(LinalgError)`, `Diff(DiffError)` |
