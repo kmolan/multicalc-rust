@@ -251,13 +251,18 @@ impl<T: Numeric> SlewRateLimiter<T> {
             return self.state;
         }
 
+        // How far the output may move this call, in each direction.
+        let up = self.rise_per_second * self.dt;
+        let down = self.fall_per_second * self.dt;
+
         let step = target - self.state;
-        let allowed = if step > T::ZERO {
-            self.rise_per_second * self.dt
+        self.state += if step > up {
+            up
+        } else if step < -down {
+            -down
         } else {
-            self.fall_per_second * self.dt
+            step
         };
-        self.state += step.abs().min(allowed).copysign(step);
         self.state
     }
 

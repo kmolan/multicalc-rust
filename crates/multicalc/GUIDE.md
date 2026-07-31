@@ -630,6 +630,12 @@ configuration checked up front, and every call after that is total.
 - `RunningMedian`: their middle value instead, which drops a single bad reading outright.
 - `SavitzkyGolay`: a small curve fitted across the window, reporting the smoothed value together
   with the slope and the bend — one noisy position reading gives a rate and an acceleration.
+- `Deadband`: treats values near zero as zero, in a plain form and one that leaves the band
+  smoothly rather than jumping.
+- `Hysteresis`: a yes-or-no answer with a gap between its thresholds, so a signal sitting near the
+  switching point does not chatter.
+- `SlewRateLimiter`: follows a target without moving faster than its separate rising and falling
+  limits, turning a step into a ramp.
 
 ```rust
 use multicalc::{Biquad, BiquadCascade, BiquadCoefficients, MultiChannelBiquad};
@@ -703,6 +709,31 @@ subtracting two noisy samples multiplies the noise by the sampling rate. Note th
 `SavitzkyGolay::centered` smooths considerably better than `latest` but describes a sample from half
 a window ago — eleven samples at 1 kHz puts its answer five milliseconds behind, which `delay()`
 reports so a loop can account for it.
+
+The last three shape a signal without filtering it. They live here for the same reason the filters
+do: numbers in, numbers out, nothing about robots.
+
+```rust
+use multicalc::{Deadband, Hysteresis, SlewRateLimiter};
+
+// A stick that reads a little off centre at rest. The re-centered form leaves the band smoothly,
+// so a small push gives a small command instead of jumping to a tenth.
+let stick = Deadband::recentered(0.1_f64).unwrap();
+assert_eq!(stick.apply(0.05), 0.0);
+assert!((stick.apply(0.5) - 0.4).abs() < 1e-12);
+
+// A switch that will not chatter: it turns on above 0.6 and off below 0.4, and holds in between.
+let mut warning = Hysteresis::new(0.4_f64, 0.6).unwrap();
+assert!(!warning.update(0.5));
+assert!(warning.update(0.7));
+assert!(warning.update(0.5));
+assert!(!warning.update(0.3));
+
+// A step in the target comes out as a ramp, climbing at one per second on a tenth-second tick.
+let mut command = SlewRateLimiter::new(1.0_f64, 2.0, 0.1).unwrap();
+command.filter(0.0);
+assert!((command.filter(10.0) - 0.1).abs() < 1e-12);
+```
 
 The number worth knowing before picking a filter is `delay_at`. Every filter pays for what it
 removes by putting its output behind its input, and inside a control loop that delay is what eats

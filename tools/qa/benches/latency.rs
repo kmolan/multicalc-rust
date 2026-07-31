@@ -344,33 +344,6 @@ fn bench_multi_channel_biquad_filter(c: &mut Criterion) {
     });
 }
 
-fn bench_moving_average_filter(c: &mut Criterion) {
-    use multicalc::signal_processing::MovingAverage;
-    let mut filter = MovingAverage::<16, f64>::new().unwrap();
-    c.bench_function("moving_average_filter", |b| {
-        b.iter(|| filter.filter(black_box(0.3)))
-    });
-}
-
-fn bench_running_median_filter(c: &mut Criterion) {
-    use multicalc::signal_processing::RunningMedian;
-    let mut filter = RunningMedian::<9, f64>::new().unwrap();
-    c.bench_function("running_median_filter", |b| {
-        b.iter(|| filter.filter(black_box(0.3)))
-    });
-}
-
-fn bench_savitzky_golay_filter(c: &mut Criterion) {
-    use multicalc::signal_processing::SavitzkyGolay;
-    let mut filter = SavitzkyGolay::<11, 3, f64>::latest(0.001).unwrap();
-    c.bench_function("savitzky_golay_filter", |b| {
-        b.iter(|| {
-            filter.filter(black_box(0.3));
-            (filter.first_derivative(), filter.second_derivative())
-        })
-    });
-}
-
 fn bench_newton_system(crit: &mut Criterion) {
     // x^2 + y^2 = 4 and x*y = 1 (circle ∩ hyperbola).
     let system =
@@ -467,21 +440,6 @@ const BENCHES: &[(&str, BenchFn, &str)] = &[
         "multi_channel_biquad_filter",
         bench_multi_channel_biquad_filter,
         "one 3-axis sample through a 50 Hz low-pass",
-    ),
-    (
-        "moving_average_filter",
-        bench_moving_average_filter,
-        "one sample through a 16-wide mean",
-    ),
-    (
-        "running_median_filter",
-        bench_running_median_filter,
-        "one sample through a 9-wide median",
-    ),
-    (
-        "savitzky_golay_filter",
-        bench_savitzky_golay_filter,
-        "one sample through an 11-wide curve fit, value + slope + bend",
     ),
     (
         "follow_the_gap",
