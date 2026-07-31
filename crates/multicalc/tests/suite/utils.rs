@@ -130,10 +130,7 @@ fn wrapped_errors_forward() {
 #[test]
 fn data_carrying_display() {
     assert_eq!(
-        SolveError::DidNotConverge {
-            iters: 7,
-        }
-        .to_string(),
+        SolveError::DidNotConverge { iters: 7 }.to_string(),
         "solver did not converge after 7 iterations"
     );
     assert_eq!(

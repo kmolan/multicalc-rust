@@ -293,10 +293,7 @@ impl core::fmt::Display for SolveError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             SolveError::DidNotConverge { iters } => {
-                write!(
-                    f,
-                    "solver did not converge after {iters} iterations"
-                )
+                write!(f, "solver did not converge after {iters} iterations")
             }
             SolveError::NonFinite => {
                 f.write_str("residual or Jacobian contained a non-finite value")

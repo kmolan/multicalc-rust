@@ -280,8 +280,6 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
             }
         }
 
-        Err(SolveError::DidNotConverge {
-            iters: evaluations,
-        })
+        Err(SolveError::DidNotConverge { iters: evaluations })
     }
 }

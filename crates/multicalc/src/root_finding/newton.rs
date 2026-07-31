@@ -125,8 +125,7 @@ impl<D: DerivatorSingleVariable> Newton<D> {
         &self,
         f: &F,
         x0: D::Scalar,
-    ) -> Result<RootReport<D::Scalar>, SolveError>
-    {
+    ) -> Result<RootReport<D::Scalar>, SolveError> {
         let one = D::Scalar::ONE;
         let half = D::Scalar::HALF;
 

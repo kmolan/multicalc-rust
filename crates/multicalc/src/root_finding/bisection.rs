@@ -83,8 +83,7 @@ impl<T: Numeric> Bisection<T> {
     /// [`NonFinite`](SolveError::NonFinite) if `f` returns a non-finite value,
     /// [`InvalidBracket`](SolveError::InvalidBracket) if `f(a)` and `f(b)` share a sign, or
     /// [`DidNotConverge`](SolveError::DidNotConverge) if the budget is exhausted.
-    pub fn solve<F: ScalarFn>(&self, f: &F, a: T, b: T) -> Result<RootReport<T>, SolveError>
-    {
+    pub fn solve<F: ScalarFn>(&self, f: &F, a: T, b: T) -> Result<RootReport<T>, SolveError> {
         let fa = f.eval(a);
         let fb = f.eval(b);
 

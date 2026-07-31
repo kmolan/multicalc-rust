@@ -224,8 +224,6 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
             }
         }
 
-        Err(SolveError::DidNotConverge {
-            iters: evaluations,
-        })
+        Err(SolveError::DidNotConverge { iters: evaluations })
     }
 }
