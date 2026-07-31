@@ -33,6 +33,14 @@ fn expm_diagonal_is_elementwise_exp() {
 }
 
 #[test]
+fn expm_rejects_non_finite_input() {
+    for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let matrix = Matrix::<1, 1>::new([[value]]);
+        assert_eq!(matrix.expm().err(), Some(LinalgError::NonFinite));
+    }
+}
+
+#[test]
 fn expm_derivative_finite_and_correct() {
     // d/dx expm(x·M)|_{x=0} = M. One Dual through expm; compare to central FD.
     let generator = matrix3([[0.1, 0.4, -0.2], [0.0, -0.3, 0.5], [0.2, 0.1, 0.05]]);

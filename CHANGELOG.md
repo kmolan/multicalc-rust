@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `Matrix::expm` now rejects non-finite inputs before entering its scaling loop. (#202)
 - `ResamplingScheme::resample_indices` now leaves output indices untouched for empty weights
   instead of panicking. (#204)
 - `zoh` and `van_loan` now reject negative or non-finite timesteps before constructing their
