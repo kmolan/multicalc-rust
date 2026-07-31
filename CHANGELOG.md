@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `ResamplingScheme::resample_indices` now leaves output indices untouched for empty weights
   instead of panicking. (#204)
+- `zoh` and `van_loan` now reject negative or non-finite timesteps before constructing their
+  augmented matrices. (#203)
 
 ## [0.9.0] - 2026-07-26
 

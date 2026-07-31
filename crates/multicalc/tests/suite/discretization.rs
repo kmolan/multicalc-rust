@@ -3,6 +3,7 @@
 //! Discretization + matrix-exponential invariants and closed-form checks.
 
 use multicalc::discretization::{q_discrete_white_noise, van_loan, zoh};
+use multicalc::error::LinalgError;
 use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Matrix4D};
 use multicalc::scalar::Dual;
 use proptest::prelude::*;
@@ -81,6 +82,61 @@ fn van_loan_qd_symmetric_and_f_matches_expm() {
             assert!((discrete_noise[(row, column)] - discrete_noise[(column, row)]).abs() < 1e-10);
         }
     }
+}
+
+#[test]
+fn zoh_rejects_negative_timestep() {
+    let state_matrix = Matrix::<1, 1>::new([[1.0]]);
+    let input_matrix = Matrix::<1, 1>::new([[1.0]]);
+
+    assert_eq!(
+        zoh::<1, 1, 2, f64>(state_matrix, input_matrix, -0.1).err(),
+        Some(LinalgError::InvalidTimestep)
+    );
+}
+
+#[test]
+fn van_loan_rejects_negative_timestep() {
+    let state_matrix = Matrix::<1, 1>::new([[1.0]]);
+    let continuous_noise = Matrix::<1, 1>::new([[1.0]]);
+
+    assert_eq!(
+        van_loan::<1, 2, f64>(state_matrix, continuous_noise, -0.1).err(),
+        Some(LinalgError::InvalidTimestep)
+    );
+}
+
+#[test]
+fn discretization_rejects_non_finite_timesteps() {
+    let state_matrix = Matrix::<1, 1>::new([[1.0]]);
+    let input_or_noise_matrix = Matrix::<1, 1>::new([[1.0]]);
+
+    for timestep in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert_eq!(
+            zoh::<1, 1, 2, f64>(state_matrix, input_or_noise_matrix, timestep).err(),
+            Some(LinalgError::InvalidTimestep)
+        );
+        assert_eq!(
+            van_loan::<1, 2, f64>(state_matrix, input_or_noise_matrix, timestep).err(),
+            Some(LinalgError::InvalidTimestep)
+        );
+    }
+}
+
+#[test]
+fn zero_timestep_is_valid() {
+    let state_matrix = Matrix::<1, 1>::new([[1.0]]);
+    let input_or_noise_matrix = Matrix::<1, 1>::new([[1.0]]);
+
+    let (zoh_state, zoh_input) =
+        zoh::<1, 1, 2, f64>(state_matrix, input_or_noise_matrix, 0.0).unwrap();
+    assert_eq!(zoh_state, Matrix::identity());
+    assert_eq!(zoh_input, Matrix::zeros());
+
+    let (van_loan_state, van_loan_noise) =
+        van_loan::<1, 2, f64>(state_matrix, input_or_noise_matrix, 0.0).unwrap();
+    assert_eq!(van_loan_state, Matrix::identity());
+    assert_eq!(van_loan_noise, Matrix::zeros());
 }
 
 #[test]

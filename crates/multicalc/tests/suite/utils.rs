@@ -43,6 +43,10 @@ fn linalg_display_strings() {
         LinalgError::NonFinite,
         "matrix contained a non-finite value"
     ));
+    assert!(renders_as(
+        LinalgError::InvalidTimestep,
+        "timestep must be finite and non-negative"
+    ));
 }
 
 #[test]
