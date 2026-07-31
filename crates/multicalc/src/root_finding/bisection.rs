@@ -2,7 +2,7 @@
 
 use crate::error::SolveError;
 use crate::root_finding::{RootReport, RootTermination, same_sign};
-use crate::scalar::{Numeric, Primal, ScalarFn};
+use crate::scalar::{Numeric, ScalarFn};
 
 /// A bracketed scalar root solver using bisection.
 ///
@@ -83,10 +83,7 @@ impl<T: Numeric> Bisection<T> {
     /// [`NonFinite`](SolveError::NonFinite) if `f` returns a non-finite value,
     /// [`InvalidBracket`](SolveError::InvalidBracket) if `f(a)` and `f(b)` share a sign, or
     /// [`DidNotConverge`](SolveError::DidNotConverge) if the budget is exhausted.
-    pub fn solve<F: ScalarFn>(&self, f: &F, a: T, b: T) -> Result<RootReport<T>, SolveError>
-    where
-        T: Primal,
-    {
+    pub fn solve<F: ScalarFn>(&self, f: &F, a: T, b: T) -> Result<RootReport<T>, SolveError> {
         let fa = f.eval(a);
         let fb = f.eval(b);
 
@@ -116,7 +113,6 @@ impl<T: Numeric> Bisection<T> {
         // Order so lo < hi numerically; the midpoint formula lo + (hi - lo)/2 then
         // always lands strictly inside the interval.
         let (mut lo, mut flo, mut hi) = if a <= b { (a, fa, b) } else { (b, fb, a) };
-        let mut last_residual = fa;
 
         for iter in 1..=self.max_iterations {
             let mid = lo + (hi - lo) * T::HALF;
@@ -124,7 +120,6 @@ impl<T: Numeric> Bisection<T> {
             if !fmid.is_finite() {
                 return Err(SolveError::NonFinite);
             }
-            last_residual = fmid;
             if fmid.abs() <= self.ftol {
                 return Ok(RootReport {
                     root: mid,
@@ -153,7 +148,6 @@ impl<T: Numeric> Bisection<T> {
 
         Err(SolveError::DidNotConverge {
             iters: self.max_iterations,
-            residual: last_residual.abs().to_f64(),
         })
     }
 }

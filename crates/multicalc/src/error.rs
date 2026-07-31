@@ -64,8 +64,6 @@ pub enum SolveError {
     DidNotConverge {
         /// Iterations (or evaluations) spent before giving up.
         iters: usize,
-        /// Residual norm at the final iterate.
-        residual: f64,
     },
     /// A residual or Jacobian value was infinite or NaN.
     NonFinite,
@@ -294,11 +292,8 @@ impl core::fmt::Display for IntegrateError {
 impl core::fmt::Display for SolveError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            SolveError::DidNotConverge { iters, residual } => {
-                write!(
-                    f,
-                    "solver did not converge after {iters} iterations (residual {residual})"
-                )
+            SolveError::DidNotConverge { iters } => {
+                write!(f, "solver did not converge after {iters} iterations")
             }
             SolveError::NonFinite => {
                 f.write_str("residual or Jacobian contained a non-finite value")

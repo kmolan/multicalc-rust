@@ -7,7 +7,7 @@ use crate::numerical_derivative::AutoDiffMulti;
 use crate::numerical_derivative::DerivatorMultiVariable;
 use crate::numerical_derivative::Jacobian;
 use crate::optimization::{MinimizationReport, TerminationReason, is_finite, report};
-use crate::scalar::{Numeric, Primal, VectorFn};
+use crate::scalar::{Numeric, VectorFn};
 
 /// Maximum step halvings per iteration when backtracking is enabled.
 const MAX_BACKTRACK: usize = 20;
@@ -133,7 +133,6 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
     ) -> Result<MinimizationReport<N, D::Scalar>, SolveError>
     where
         D: Clone,
-        D::Scalar: Primal,
         F: VectorFn<N, M>,
     {
         let zero = D::Scalar::ZERO;
@@ -225,9 +224,6 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
             }
         }
 
-        Err(SolveError::DidNotConverge {
-            iters: evaluations,
-            residual: fnorm.to_f64(),
-        })
+        Err(SolveError::DidNotConverge { iters: evaluations })
     }
 }

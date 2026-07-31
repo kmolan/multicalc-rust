@@ -8,7 +8,7 @@ use crate::numerical_derivative::DerivatorMultiVariable;
 use crate::numerical_derivative::Jacobian;
 use crate::optimization::trust_region::determine_lambda_and_parameter_update;
 use crate::optimization::{MinimizationReport, TerminationReason, is_finite, report};
-use crate::scalar::{Numeric, Primal, VectorFn};
+use crate::scalar::{Numeric, VectorFn};
 
 /// Safety cap on the trust-region retries within one outer iteration; the `xtol` test ends the
 /// retries long before this on any real problem.
@@ -137,7 +137,6 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
     ) -> Result<MinimizationReport<N, D::Scalar>, SolveError>
     where
         D: Clone,
-        D::Scalar: Primal,
         F: VectorFn<N, M>,
     {
         let zero = D::Scalar::ZERO;
@@ -281,9 +280,6 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
             }
         }
 
-        Err(SolveError::DidNotConverge {
-            iters: evaluations,
-            residual: fnorm.to_f64(),
-        })
+        Err(SolveError::DidNotConverge { iters: evaluations })
     }
 }

@@ -7,7 +7,7 @@ use crate::numerical_derivative::AutoDiffMulti;
 use crate::numerical_derivative::DerivatorMultiVariable;
 use crate::numerical_derivative::Jacobian;
 use crate::root_finding::{RootReportN, RootTermination, all_finite};
-use crate::scalar::{Numeric, Primal, VectorFn};
+use crate::scalar::{Numeric, VectorFn};
 
 /// Maximum step halvings per iteration when backtracking is enabled.
 const MAX_BACKTRACK: usize = 20;
@@ -128,7 +128,6 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
     ) -> Result<RootReportN<N, D::Scalar>, SolveError>
     where
         D: Clone,
-        D::Scalar: Primal,
         F: VectorFn<N, N>,
     {
         let one = D::Scalar::ONE;
@@ -211,7 +210,6 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
 
         Err(SolveError::DidNotConverge {
             iters: self.max_iterations,
-            residual: fnorm.to_f64(),
         })
     }
 }
