@@ -132,10 +132,9 @@ fn data_carrying_display() {
     assert_eq!(
         SolveError::DidNotConverge {
             iters: 7,
-            residual: 0.5,
         }
         .to_string(),
-        "solver did not converge after 7 iterations (residual 0.5)"
+        "solver did not converge after 7 iterations"
     );
     assert_eq!(
         IntegrateError::DidNotConverge { steps: 12 }.to_string(),

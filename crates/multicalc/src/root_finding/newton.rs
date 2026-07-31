@@ -4,7 +4,7 @@ use crate::error::{LinalgError, SolveError};
 use crate::numerical_derivative::AutoDiffSingle;
 use crate::numerical_derivative::DerivatorSingleVariable;
 use crate::root_finding::{RootReport, RootTermination};
-use crate::scalar::{Numeric, Primal, ScalarFn};
+use crate::scalar::{Numeric, ScalarFn};
 
 /// Maximum step halvings per iteration when backtracking is enabled.
 const MAX_BACKTRACK: usize = 20;
@@ -126,8 +126,6 @@ impl<D: DerivatorSingleVariable> Newton<D> {
         f: &F,
         x0: D::Scalar,
     ) -> Result<RootReport<D::Scalar>, SolveError>
-    where
-        D::Scalar: Primal,
     {
         let one = D::Scalar::ONE;
         let half = D::Scalar::HALF;
@@ -197,7 +195,6 @@ impl<D: DerivatorSingleVariable> Newton<D> {
 
         Err(SolveError::DidNotConverge {
             iters: self.max_iterations,
-            residual: fx.abs().to_f64(),
         })
     }
 }
