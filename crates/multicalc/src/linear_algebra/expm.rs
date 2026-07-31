@@ -9,7 +9,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// approximant. Exact derivatives flow through: the scaling exponent is chosen from the
     /// (primal) 1-norm, an integer that is never differentiated.
     ///
-    /// Returns [`LinalgError::NonFinite`] if the result has a non-finite entry.
+    /// Returns [`LinalgError::NonFinite`] if the input or result has a non-finite entry.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
@@ -20,6 +20,10 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// # }
     /// ```
     pub fn expm(self) -> Result<Matrix<N, N, T>, LinalgError> {
+        if !self.is_finite() {
+            return Err(LinalgError::NonFinite);
+        }
+
         // 1-norm: the largest absolute column sum.
         let mut nrm = T::ZERO;
         for j in 0..N {
