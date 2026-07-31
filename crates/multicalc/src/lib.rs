@@ -75,8 +75,9 @@ pub use ode::{Rk4, Rk45};
 
 /// Filters, smoothers, and signal conditioning.
 pub use signal_processing::{
-    Biquad, BiquadCascade, BiquadCoefficients, MovingAverage, MultiChannelBiquad, OnePoleLowPass,
-    RunningMedian, SavitzkyGolay, harmonic_notch_coefficients,
+    Biquad, BiquadCascade, BiquadCoefficients, Deadband, Hysteresis, MovingAverage,
+    MultiChannelBiquad, OnePoleLowPass, RunningMedian, SavitzkyGolay, SlewRateLimiter,
+    harmonic_notch_coefficients,
 };
 
 /// Quaternion
