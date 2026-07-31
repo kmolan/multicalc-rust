@@ -29,6 +29,7 @@ Every fallible call returns a `Result`, and the error is the module family's own
 - [Vector calculus](#vector-calculus)
 - [ODE integrators](#ode-integrators)
 - [Discretization](#discretization)
+- [Signal processing](#signal-processing)
 - [Spatial: quaternions and Lie groups](#spatial-quaternions-and-lie-groups)
 - [Rigid-body inertia and the free joint](#rigid-body-inertia-and-the-free-joint)
 - [Kinematics](#kinematics)
@@ -601,6 +602,77 @@ negative or non-finite; errors from the matrix-exponential step are propagated u
 demo:
 [discretization.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/discretization.rs).
 
+## Signal processing
+
+Filters for a stream of samples: give a filter a number, get the filtered number back. Fixed-size,
+no allocation, no panics, and generic over the `Numeric` scalar, so the same code runs at `f32` on a
+microcontroller.
+
+Frequencies are in hertz and timesteps in seconds. Every filter is configured once, with the
+configuration checked up front, and every call after that is total.
+
+- `BiquadCoefficients`: the shape of a second-order filter, designed as a `low_pass`, `high_pass`,
+  `band_pass`, or `notch` from a frequency, a sharpness, and the seconds between samples. It also
+  reports on itself: `magnitude_at` and `magnitude_in_decibels_at` for how much of a frequency it
+  keeps, `phase_at` and `delay_at` for how far it shifts one, and `is_stable` for whether weights
+  handed in directly will settle.
+- `Biquad`: the running filter. `set_coefficients` swaps the weights without disturbing the memory
+  of recent samples, so a notch can follow a frequency that moves; `settle_to` starts it where a
+  long run of a value would leave it, skipping the opening transient.
+- `BiquadCascade`: several sections in series, for a sharper cut than one section gives.
+  `harmonic_notch_coefficients` fills one with notches on a frequency and the whole-number multiples
+  above it, which is the shape a spinning motor's vibration takes.
+- `MultiChannelBiquad`: one shape over every component of a `Vector`, each channel keeping its own
+  memory. One object and one call per tick for a three-axis rate sensor.
+- `OnePoleLowPass`: the simplest low-pass, by smoothing weight (`new`) or by cutoff frequency
+  (`from_cutoff`). This is the filter `Pid::with_derivative_filter` puts on the derivative term.
+
+```rust
+use multicalc::{Biquad, BiquadCascade, BiquadCoefficients, MultiChannelBiquad};
+use multicalc::signal_processing::harmonic_notch_coefficients;
+use multicalc::Vector;
+
+let dt = 0.001_f64; // a 1 kHz loop
+
+// A low-pass is about 3 dB down at its own cutoff, and lags by a few milliseconds below it.
+let low_pass = BiquadCoefficients::low_pass(50.0, 0.70710678, dt).unwrap();
+assert!((low_pass.magnitude_in_decibels_at(50.0) + 3.0).abs() < 0.5);
+assert!(low_pass.delay_at(5.0) < 0.01);
+
+// A notch removes one frequency: 2000 samples of a 180 Hz oscillation come out flat.
+let mut notch = Biquad::new(BiquadCoefficients::notch(180.0, 4.0, dt).unwrap());
+let mut last = 0.0;
+for sample in 0..2000 {
+    last = notch.filter((2.0 * core::f64::consts::PI * 180.0 * sample as f64 * dt).sin());
+}
+assert!(last.abs() < 0.05);
+
+// Retuning keeps the memory, so a tracked notch does not step as it moves.
+notch.set_coefficients(BiquadCoefficients::notch(210.0, 4.0, dt).unwrap());
+
+// Notches on 80 Hz and its next two multiples, one section each. The fundamental is 80 Hz and not
+// 180 Hz because a third section on 180 Hz would sit at 540 Hz, past half of a 1 kHz sampling rate.
+let harmonics = harmonic_notch_coefficients::<3, f64>(80.0, 4.0, dt).unwrap();
+let motor_notch = BiquadCascade::new(harmonics);
+for frequency_hz in [80.0, 160.0, 240.0] {
+    assert!(motor_notch.magnitude_at(frequency_hz) < 0.05);
+}
+
+// Three axes through one filter, each keeping its own memory.
+let mut rates = MultiChannelBiquad::new(low_pass);
+let filtered = rates.filter(Vector::new([0.3, -0.7, 1.1]));
+assert!(filtered[0] > 0.0);
+```
+
+The number worth knowing before picking a filter is `delay_at`. Every filter pays for what it
+removes by putting its output behind its input, and inside a control loop that delay is what eats
+the margin the loop has before it starts oscillating — so it is worth reading at the frequency the
+loop works around, not just at the cutoff. A sharper filter or a lower cutoff buys a cleaner signal
+with more delay, and there is no setting that avoids the trade.
+
+Errors: every constructor returns [`SignalError`](#error-handling). Full demo:
+[signal_filters.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/signal_filters.rs).
+
 ## Spatial: quaternions and Lie groups
 
 Rotations, Lie groups, and rigid-body transforms for 2D and 3D. Fixed-size, stack-allocated, no
@@ -763,7 +835,8 @@ Full demo:
 ## Control
 
 Feedback controllers and steering laws for a mobile robot: a PID with anti-windup and a filtered
-derivative, the pure-pursuit path-following law, and Follow-the-Gap reactive avoidance. Fixed-size,
+derivative, the pure-pursuit path-following law, and Follow-the-Gap reactive avoidance. The
+derivative filter itself lives in [Signal processing](#signal-processing). Fixed-size,
 no allocation, no panics, and generic over the `Numeric` scalar, so the same code runs at `f32` on a
 microcontroller.
 
@@ -772,10 +845,9 @@ counter-clockwise. Every controller is configured once, with the configuration v
 and every call after that is total.
 
 - `Pid`: three gains and a fixed timestep. `with_output_limits` clamps the output and stops the
-  integral winding up against the clamp; `with_derivative_filter` puts a one-pole low-pass on the
-  derivative term, which is what makes a D gain usable on a noisy measurement.
-- `OnePoleLowPass`: the filter on its own, by smoothing coefficient (`new`) or by cutoff frequency
-  (`from_cutoff`).
+  integral winding up against the clamp; `with_derivative_filter` puts a low-pass on the derivative
+  term, which is what makes a D gain usable on a noisy measurement — see
+  [Signal processing](#signal-processing) for the filter itself and for sharper ones.
 - `pure_pursuit_curvature`: the exact `κ = 2·sin(α)/L_d` steering curvature toward a lookahead
   point, written in body-frame coordinates. `Curvature::to_body_twist` turns it into a command at a
   chosen speed.

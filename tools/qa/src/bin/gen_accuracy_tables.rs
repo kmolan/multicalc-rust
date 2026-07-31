@@ -155,6 +155,20 @@ const DOCS: &[Doc] = &[
             cases: &["skydio_x2_free_joint"],
         }],
     },
+    Doc {
+        file: "signal_processing.md",
+        modules: &[Module {
+            name: "signal_processing",
+            cases: &[
+                "biquad_low_pass_50hz",
+                "biquad_high_pass_50hz",
+                "biquad_band_pass_180hz",
+                "biquad_notch_180hz",
+                "biquad_cascade_fourth_order_low_pass_80hz",
+                "biquad_harmonic_notch_80hz",
+            ],
+        }],
+    },
 ];
 
 /// A single float, in trimmed scientific notation: `4e0`, `1.5e-15`, `0`.

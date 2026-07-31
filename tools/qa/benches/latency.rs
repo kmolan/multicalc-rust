@@ -312,6 +312,38 @@ fn bench_follow_the_gap(c: &mut Criterion) {
     });
 }
 
+fn bench_biquad_filter(c: &mut Criterion) {
+    use multicalc::signal_processing::{Biquad, BiquadCoefficients};
+    let mut filter = Biquad::new(
+        BiquadCoefficients::low_pass(50.0, core::f64::consts::FRAC_1_SQRT_2, 0.001).unwrap(),
+    );
+    c.bench_function("biquad_filter", |b| {
+        b.iter(|| filter.filter(black_box(0.3)))
+    });
+}
+
+fn bench_biquad_cascade_filter(c: &mut Criterion) {
+    // Notches on 80 Hz and its next two multiples. An 80 Hz fundamental and not 180 Hz: three
+    // sections on 180 Hz would need one at 540 Hz, past half of a 1 kHz sampling rate.
+    use multicalc::signal_processing::{BiquadCascade, harmonic_notch_coefficients};
+    let mut filter =
+        BiquadCascade::new(harmonic_notch_coefficients::<3, f64>(80.0, 4.0, 0.001).unwrap());
+    c.bench_function("biquad_cascade_filter", |b| {
+        b.iter(|| filter.filter(black_box(0.3)))
+    });
+}
+
+fn bench_multi_channel_biquad_filter(c: &mut Criterion) {
+    use multicalc::signal_processing::{BiquadCoefficients, MultiChannelBiquad};
+    let mut filter = MultiChannelBiquad::<3, f64>::new(
+        BiquadCoefficients::low_pass(50.0, core::f64::consts::FRAC_1_SQRT_2, 0.001).unwrap(),
+    );
+    let reading = Vector::new([0.3, -0.7, 1.1]);
+    c.bench_function("multi_channel_biquad_filter", |b| {
+        b.iter(|| filter.filter(black_box(reading)))
+    });
+}
+
 fn bench_newton_system(crit: &mut Criterion) {
     // x^2 + y^2 = 4 and x*y = 1 (circle ∩ hyperbola).
     let system =
@@ -393,6 +425,21 @@ const BENCHES: &[(&str, BenchFn, &str)] = &[
         "pure_pursuit",
         bench_pure_pursuit,
         "κ = 2·sin(α)/L_d toward a lookahead point",
+    ),
+    (
+        "biquad_filter",
+        bench_biquad_filter,
+        "one 2nd-order low-pass sample, 50 Hz at 1 kHz",
+    ),
+    (
+        "biquad_cascade_filter",
+        bench_biquad_cascade_filter,
+        "one sample through a 3-section notch at 80/160/240 Hz",
+    ),
+    (
+        "multi_channel_biquad_filter",
+        bench_multi_channel_biquad_filter,
+        "one 3-axis sample through a 50 Hz low-pass",
     ),
     (
         "follow_the_gap",

@@ -1,0 +1,253 @@
+{
+  "case": "biquad_notch_180hz",
+  "expected": {
+    "feed_forward": {
+      "data": [
+        "0x3fec035d21684cb3",
+        "0xbfe7dad61d96963f",
+        "0x3fec035d21684cb3"
+      ],
+      "kind": "vector"
+    },
+    "feedback": {
+      "data": [
+        "0xbfe7dad61d96963f",
+        "0x3fe806ba42d09966"
+      ],
+      "kind": "vector"
+    },
+    "magnitude": {
+      "data": [
+        "0x3feffffd74f7488a",
+        "0x3fefffc0571f3209",
+        "0x3feffbf08ebefaca",
+        "0x3fefe36fc4e75c2c",
+        "0x3fefa2c06c35198c",
+        "0x3fee773ac32c36ad",
+        "0x3cc217e632551b69",
+        "0x3fe4e6e538e38115",
+        "0x3fef7873bbca0753",
+        "0x3fefed43d82c8770",
+        "0x3feffbd2edccf640"
+      ],
+      "kind": "vector"
+    },
+    "output": {
+      "data": [
+        "0x0000000000000000",
+        "0x3fe528554944d17b",
+        "0x3fe0c826cc9aef64",
+        "0xbfa5b61f1ea16a8a",
+        "0xbfd52c67f6dd1901",
+        "0xbfb6c187824bc522",
+        "0x3fd5b69dd10120a0",
+        "0x3fe0408a3dab2e56",
+        "0x3fd5f3a75f3f23d4",
+        "0x3fbfc9cb27c952b8",
+        "0x3fbd83220ae63634",
+        "0x3fd36632ce3225f9",
+        "0x3fdeb2cda9e4e162",
+        "0x3fdffc2e1b4ab2a7",
+        "0x3fda538b64719f9b",
+        "0x3fd6fb8aa24153a8",
+        "0x3fda8d60ea80c48d",
+        "0x3fe0c11dadc1c294",
+        "0x3fe2e260c7ccdb0a",
+        "0x3fe2b8b630b656e8",
+        "0x3fe1d8512c7bb954",
+        "0x3fe223d1adb78b38",
+        "0x3fe3d34e4dac0c6a",
+        "0x3fe5a6053498a700",
+        "0x3fe68289cee2d453",
+        "0x3fe687b4ab98f280",
+        "0x3fe69fa0ae6946dc",
+        "0x3fe7617a52b48c45",
+        "0x3fe88e008e3845aa",
+        "0x3fe9845ef6477dd3",
+        "0x3fe9fc04acddf84f",
+        "0x3fea37719c6bf11c",
+        "0x3fea9e8d2b643d6f",
+        "0x3feb4cb8c2989d88",
+        "0x3fec083663fecab7",
+        "0x3fec9149b05a24e0",
+        "0x3fece3a9ac16d322",
+        "0x3fed2be0b2e0fded",
+        "0x3fed8e3db71e22ba",
+        "0x3fee0445c1b0f091",
+        "0x3fee6dc849dbb6ec",
+        "0x3feeb78ccba3b9a3",
+        "0x3feeeb5539f6902a",
+        "0x3fef1ec2ef5d942c",
+        "0x3fef5a9111cac208",
+        "0x3fef94f50ad35730",
+        "0x3fefc006d7eaf575",
+        "0x3fefd8b762e8b503",
+        "0x3fefe726a33d8351",
+        "0x3feff3a7ed7d6927",
+        "0x3feffe514735e551",
+        "0x3ff00077e3f29ee2",
+        "0x3feff6d2e4bbf5a1",
+        "0x3fefe1242a80d137",
+        "0x3fefc449e14e38ff",
+        "0x3fefa2b15ad33b76",
+        "0x3fef7ae34a8b74bb",
+        "0x3fef49fe9eca8a9b",
+        "0x3fef0f02e51b03e6",
+        "0x3feecb67981c0098",
+        "0x3fee81146a75aa20",
+        "0x3fee306c3c9274e7",
+        "0x3fedd85dcb7ed473",
+        "0x3fed77e84ce25855"
+      ],
+      "kind": "vector"
+    },
+    "phase": {
+      "data": [
+        "0xbf5983ef62589bcc",
+        "0xbf7fea360f56e4a2",
+        "0xbfa01ef08fff8391",
+        "0xbfb562552e4d4db2",
+        "0xbfc354d6e12fe652",
+        "0xbfd3e6034d8227ab",
+        "0x400731f09d468dcf",
+        "0x3feb7d07e8d8be03",
+        "0x3fc7513667cf2884",
+        "0x3fb1511e836bfdd5",
+        "0x3fa059596e98bc6f"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "design": {
+      "kind": "str",
+      "v": "notch"
+    },
+    "dt": {
+      "kind": "scalar",
+      "v": "0x3f50624dd2f1a9fc"
+    },
+    "frequency_hz": {
+      "kind": "scalar",
+      "v": "0x4066800000000000"
+    },
+    "input": {
+      "data": [
+        "0x0000000000000000",
+        "0x3fe82b3106c2b9f6",
+        "0x3fe5bc03f95ecf2b",
+        "0xbfbad707a9ca5aa9",
+        "0xbfe522c9b24ee43b",
+        "0xbfd41532534e007a",
+        "0x3fe2543fa4c0bbf4",
+        "0x3ff043d9446f2bed",
+        "0x3fe161cf01fdabf0",
+        "0xbfd131816b6dbee6",
+        "0xbfdceac0e7a3d1e7",
+        "0x3fce863a88fae441",
+        "0x3ff0b2882b857017",
+        "0x3ff12969587a8040",
+        "0x3fd4d5333d4b5cd6",
+        "0xbfd3a381f38edd40",
+        "0xbfb0ddc647088e68",
+        "0x3fe9b69bbc954cf2",
+        "0x3ff559149e00fda8",
+        "0x3fee51ced32fde31",
+        "0x3fbe183807222a54",
+        "0xbfc6225523663c8c",
+        "0x3fdc0fed32f866dc",
+        "0x3ff4718d1b11b7d6",
+        "0x3ff688d79c7a323f",
+        "0x3fe6a09e667f3bba",
+        "0x3f74eb0ff7b9d300",
+        "0x3fc11d18e0ac2484",
+        "0x3fef05dbc8943a42",
+        "0x3ff9373bd9ea6690",
+        "0x3ff477c9cf9484cf",
+        "0x3fdc4472456ae772",
+        "0x3fa7810ff7a5e870",
+        "0x3fe21ea859922036",
+        "0x3ff6c879e2e1536b",
+        "0x3ffa6dfc16538500",
+        "0x3ff014dd116493ec",
+        "0x3fcf036f00ae3170",
+        "0x3fd046aed6719eaa",
+        "0x3ff0a88a2138092c",
+        "0x3ffb63f31157194a",
+        "0x3ff8207ca5090df7",
+        "0x3fe59217999974a9",
+        "0x3fc6b82b286b53e0",
+        "0x3fe319ad20a52cb1",
+        "0x3ff753a04be07cbe",
+        "0x3ffc7275ef1c0a1a",
+        "0x3ff31cba948e30cc",
+        "0x3fd86c6614030e64",
+        "0x3fd1a42a9573981a",
+        "0x3ff0000000000012",
+        "0x3ffb92ea89402a79",
+        "0x3ff9d4bc3ae3805f",
+        "0x3fe97dd45eaac50c",
+        "0x3fca678b2b267740",
+        "0x3fe08f08909ecf4a",
+        "0x3ff5e20f1bd273af",
+        "0x3ffc63b064f73a7c",
+        "0x3ff4359650436483",
+        "0x3fda68f4b7209e1a",
+        "0x3fc858d80f69de00",
+        "0x3feae64fb695edce",
+        "0x3ff9af0ee852f33f",
+        "0x3ff97dd112cc51c7"
+      ],
+      "kind": "vector"
+    },
+    "kind": {
+      "kind": "str",
+      "v": "biquad_section"
+    },
+    "probe_hz": {
+      "data": [
+        "0x3ff0000000000000",
+        "0x4014000000000000",
+        "0x4034000000000000",
+        "0x4049000000000000",
+        "0x4054000000000000",
+        "0x405e000000000000",
+        "0x4066800000000000",
+        "0x4069000000000000",
+        "0x4072c00000000000",
+        "0x4079000000000000",
+        "0x407c200000000000"
+      ],
+      "kind": "vector"
+    },
+    "quality_factor": {
+      "kind": "scalar",
+      "v": "0x4010000000000000"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "2nd-order notch, 180 Hz, sharpness 4, 1 kHz",
+    "generator": "signal_processing",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "operations": [
+      "Biquad notch weights",
+      "Biquad notch magnitude and phase",
+      "Biquad notch filtered output"
+    ],
+    "reference": "SciPy 1.14.1",
+    "sampling": "fixed frequencies at a 1 kHz sampling rate; a 5 Hz plus 180 Hz input sequence",
+    "seed": 20260706
+  },
+  "module": "signal_processing",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-11,
+      "rel": 1e-10
+    }
+  }
+}
