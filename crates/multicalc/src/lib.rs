@@ -74,7 +74,7 @@ pub use discretization::{q_discrete_white_noise, van_loan, zoh};
 pub use ode::{Rk4, Rk45};
 
 /// Filters, smoothers, and signal conditioning.
-pub use signal_processing::OnePoleLowPass;
+pub use signal_processing::{Biquad, BiquadCoefficients, OnePoleLowPass};
 
 /// Quaternion
 pub use spatial::Quaternion;
