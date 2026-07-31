@@ -155,6 +155,19 @@ const DOCS: &[Doc] = &[
             cases: &["skydio_x2_free_joint"],
         }],
     },
+    Doc {
+        file: "signal_processing.md",
+        modules: &[Module {
+            name: "signal_processing",
+            cases: &[
+                "gyro_conditioning_chain",
+                "motor_vibration_band_pass",
+                "accelerometer_drift_high_pass",
+                "encoder_curve_fit",
+                "lidar_despiking",
+            ],
+        }],
+    },
 ];
 
 /// A single float, in trimmed scientific notation: `4e0`, `1.5e-15`, `0`.

@@ -116,6 +116,38 @@ pub enum EstimationError {
     WeightsDegenerate,
 }
 
+/// Errors from the signal-processing module (filters, smoothers, and signal conditioning).
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
+pub enum SignalError {
+    /// A frequency, gain, threshold, timestep, or coefficient was infinite or NaN.
+    NonFinite,
+    /// The sampling timestep was not strictly positive.
+    NonPositiveTimestep,
+    /// A smoothing coefficient was outside the closed interval [0, 1].
+    CoefficientOutOfRange,
+    /// A filter frequency was not strictly positive, or reached half the sampling rate.
+    FrequencyOutOfRange,
+    /// A quality factor was not strictly positive.
+    NonPositiveQualityFactor,
+    /// A deadband threshold was negative.
+    NegativeThreshold,
+    /// Switching thresholds were given with the lower one at or above the upper one.
+    ThresholdsOutOfOrder,
+    /// A rate limit was not strictly positive.
+    NonPositiveRate,
+    /// A window length of zero was requested.
+    WindowTooShort,
+    /// An even window length was requested where the middle sample has to be well defined.
+    WindowEvenLength,
+    /// More polynomial terms were requested than the window has samples to fit them.
+    PolynomialOrderTooHigh,
+    /// A cascade section index was past the end of the cascade.
+    SectionIndexOutOfRange,
+    /// A linear-algebra step inside a filter's setup failed.
+    Linalg(LinalgError),
+}
+
 /// Errors from the control module (feedback controllers, filters, path-following laws).
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
@@ -127,6 +159,10 @@ pub enum ControlError {
     /// Output saturation limits were given with minimum greater than maximum.
     InvalidOutputLimits,
     /// A low-pass smoothing coefficient was outside the closed interval [0, 1].
+    #[deprecated(
+        since = "0.10.0",
+        note = "filters now report SignalError::CoefficientOutOfRange"
+    )]
     FilterCoefficientOutOfRange,
     /// The pure-pursuit lookahead distance was not strictly positive.
     NonPositiveLookaheadDistance,
@@ -144,6 +180,8 @@ pub enum ControlError {
     InvalidSpeedScaling,
     /// A goal bias was negative.
     NegativeGoalBias,
+    /// A filter setup error.
+    Signal(SignalError),
 }
 
 /// Errors from the motion module (waypoint paths and their geometric queries).
@@ -177,6 +215,8 @@ pub enum CalcError {
     Spatial(SpatialError),
     /// An estimation error.
     Estimation(EstimationError),
+    /// A signal-processing error.
+    Signal(SignalError),
     /// A control error.
     Control(ControlError),
     /// A motion error.
@@ -196,6 +236,16 @@ impl From<DiffError> for SolveError {
 impl From<DiffError> for EstimationError {
     fn from(e: DiffError) -> Self {
         EstimationError::Diff(e)
+    }
+}
+impl From<LinalgError> for SignalError {
+    fn from(e: LinalgError) -> Self {
+        SignalError::Linalg(e)
+    }
+}
+impl From<SignalError> for ControlError {
+    fn from(e: SignalError) -> Self {
+        ControlError::Signal(e)
     }
 }
 impl From<LinalgError> for CalcError {
@@ -231,6 +281,11 @@ impl From<SpatialError> for CalcError {
 impl From<EstimationError> for CalcError {
     fn from(e: EstimationError) -> Self {
         CalcError::Estimation(e)
+    }
+}
+impl From<SignalError> for CalcError {
+    fn from(e: SignalError) -> Self {
+        CalcError::Signal(e)
     }
 }
 impl From<ControlError> for CalcError {
@@ -349,7 +404,41 @@ impl core::fmt::Display for EstimationError {
     }
 }
 
+impl core::fmt::Display for SignalError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            SignalError::NonFinite => f.write_str("filter parameter contained a non-finite value"),
+            SignalError::NonPositiveTimestep => f.write_str("timestep must be strictly positive"),
+            SignalError::CoefficientOutOfRange => {
+                f.write_str("smoothing coefficient must lie in [0, 1]")
+            }
+            SignalError::FrequencyOutOfRange => {
+                f.write_str("frequency must be above zero and below half the sampling rate")
+            }
+            SignalError::NonPositiveQualityFactor => {
+                f.write_str("quality factor must be strictly positive")
+            }
+            SignalError::NegativeThreshold => f.write_str("deadband threshold cannot be negative"),
+            SignalError::ThresholdsOutOfOrder => {
+                f.write_str("lower switching threshold must be below the upper one")
+            }
+            SignalError::NonPositiveRate => f.write_str("rate limit must be strictly positive"),
+            SignalError::WindowTooShort => f.write_str("window length cannot be zero"),
+            SignalError::WindowEvenLength => f.write_str("window length must be odd"),
+            SignalError::PolynomialOrderTooHigh => {
+                f.write_str("window is too short for the number of polynomial terms")
+            }
+            SignalError::SectionIndexOutOfRange => {
+                f.write_str("cascade section index out of range")
+            }
+            SignalError::Linalg(e) => write!(f, "filter setup failed: {e}"),
+        }
+    }
+}
+
 impl core::fmt::Display for ControlError {
+    // The deprecated variant still needs a message for as long as it is part of the enum.
+    #[allow(deprecated)]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(match self {
             ControlError::NonFinite => {
@@ -380,6 +469,7 @@ impl core::fmt::Display for ControlError {
                 "stopping distance must be non-negative and strictly less than the clear distance"
             }
             ControlError::NegativeGoalBias => "goal bias must not be negative",
+            ControlError::Signal(e) => return write!(f, "{e}"),
         })
     }
 }
@@ -404,6 +494,7 @@ impl core::fmt::Display for CalcError {
             CalcError::Kinematics(e) => write!(f, "{e}"),
             CalcError::Spatial(e) => write!(f, "{e}"),
             CalcError::Estimation(e) => write!(f, "{e}"),
+            CalcError::Signal(e) => write!(f, "{e}"),
             CalcError::Control(e) => write!(f, "{e}"),
             CalcError::Motion(e) => write!(f, "{e}"),
         }
@@ -414,9 +505,26 @@ impl core::error::Error for LinalgError {}
 impl core::error::Error for DiffError {}
 impl core::error::Error for IntegrateError {}
 impl core::error::Error for KinematicsError {}
-impl core::error::Error for ControlError {}
 impl core::error::Error for MotionError {}
 impl core::error::Error for SpatialError {}
+
+impl core::error::Error for SignalError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            SignalError::Linalg(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+impl core::error::Error for ControlError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            ControlError::Signal(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 
 impl core::error::Error for EstimationError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
@@ -447,6 +555,7 @@ impl core::error::Error for CalcError {
             CalcError::Kinematics(e) => Some(e),
             CalcError::Spatial(e) => Some(e),
             CalcError::Estimation(e) => Some(e),
+            CalcError::Signal(e) => Some(e),
             CalcError::Control(e) => Some(e),
             CalcError::Motion(e) => Some(e),
         }

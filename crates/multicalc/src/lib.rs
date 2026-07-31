@@ -73,6 +73,13 @@ pub use discretization::{q_discrete_white_noise, van_loan, zoh};
 /// Fixed-step RK4 and adaptive RK45 (Dormand–Prince) ODE integrators.
 pub use ode::{Rk4, Rk45};
 
+/// Filters, smoothers, and signal conditioning.
+pub use signal_processing::{
+    Biquad, BiquadCascade, BiquadCoefficients, Deadband, Hysteresis, MovingAverage,
+    MultiChannelBiquad, OnePoleLowPass, RunningMedian, SavitzkyGolay, SlewRateLimiter,
+    harmonic_notch_coefficients,
+};
+
 /// Quaternion
 pub use spatial::Quaternion;
 
@@ -108,11 +115,9 @@ pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, Term
 /// Bracketed and Newton root finders for scalar equations and square systems.
 pub use root_finding::{Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination};
 
-/// Feedback control: PID, one-pole derivative filter, the pure-pursuit path-following law, and
-/// Follow-the-Gap reactive avoidance.
-pub use control::{
-    Curvature, FollowTheGap, FollowTheGapOutput, OnePoleLowPass, Pid, pure_pursuit_curvature,
-};
+/// Feedback control: PID, the pure-pursuit path-following law, and Follow-the-Gap reactive
+/// avoidance.
+pub use control::{Curvature, FollowTheGap, FollowTheGapOutput, Pid, pure_pursuit_curvature};
 
 /// Waypoint paths and their arc-length, closest-point, and lookahead queries.
 pub use motion::{EndOfPath, PathProjection, PolylinePath};
@@ -120,7 +125,7 @@ pub use motion::{EndOfPath, PathProjection, PolylinePath};
 /// Per-module-family error enums and the umbrella they convert into.
 pub use error::{
     CalcError, ControlError, DiffError, EstimationError, IntegrateError, KinematicsError,
-    LinalgError, MotionError, SolveError, SpatialError,
+    LinalgError, MotionError, SignalError, SolveError, SpatialError,
 };
 
 pub mod approximation;
@@ -140,6 +145,7 @@ pub mod prelude;
 pub mod random;
 pub mod root_finding;
 pub mod scalar;
+pub mod signal_processing;
 pub mod spatial;
 mod utils;
 pub mod vector_field;

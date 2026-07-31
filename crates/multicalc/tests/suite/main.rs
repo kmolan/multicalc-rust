@@ -14,6 +14,7 @@ mod optimization;
 mod random;
 mod root_finding;
 mod scalar;
+mod signal_processing;
 mod spatial;
 mod support;
 mod utils;

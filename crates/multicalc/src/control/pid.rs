@@ -1,8 +1,8 @@
 //! Fixed-timestep PID controller.
 
-use crate::control::OnePoleLowPass;
 use crate::error::ControlError;
 use crate::scalar::Numeric;
+use crate::signal_processing::OnePoleLowPass;
 
 /// A proportional-integral-derivative controller running at a fixed timestep.
 ///
@@ -102,8 +102,11 @@ impl<T: Numeric> Pid<T> {
 
     /// Sets the smoothing coefficient of the derivative low-pass filter.
     ///
-    /// Returns [`ControlError::NonFinite`] if `smoothing` is not finite, or
-    /// [`ControlError::FilterCoefficientOutOfRange`] if it lies outside `[0, 1]`.
+    /// Returns [`ControlError::Signal`] carrying
+    /// [`SignalError::NonFinite`](crate::error::SignalError::NonFinite) if `smoothing` is not
+    /// finite, or
+    /// [`SignalError::CoefficientOutOfRange`](crate::error::SignalError::CoefficientOutOfRange) if
+    /// it lies outside `[0, 1]`.
     pub fn with_derivative_filter(mut self, smoothing: T) -> Result<Self, ControlError> {
         self.derivative_filter = OnePoleLowPass::new(smoothing)?;
         Ok(self)

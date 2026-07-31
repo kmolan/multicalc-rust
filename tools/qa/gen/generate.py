@@ -20,6 +20,7 @@ from generators import (
     optimization,
     quadrature,
     root_finding,
+    signal_processing,
 )
 
 SEED = 20260706
@@ -45,6 +46,7 @@ def main():
     calculus.run(args.out, SEED)
     root_finding.run(args.out, SEED)
     mjcf.run(args.out, SEED)
+    signal_processing.run(args.out, SEED)
 
 
 if __name__ == "__main__":

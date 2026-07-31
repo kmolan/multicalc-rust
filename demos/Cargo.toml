@@ -107,6 +107,10 @@ name = "root_finding"
 path = "examples/basics/root_finding.rs"
 
 [[example]]
+name = "signal_filters"
+path = "examples/basics/signal_filters.rs"
+
+[[example]]
 name = "svd"
 path = "examples/basics/svd.rs"
 
