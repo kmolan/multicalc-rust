@@ -1,0 +1,231 @@
+{
+  "case": "encoder_curve_fit",
+  "expected": {
+    "centered_first_derivative": {
+      "kind": "scalar",
+      "v": "0x3f803853a010f468"
+    },
+    "centered_first_derivative_weights": {
+      "data": [
+        "0xc046ba2e8ba2e8c0",
+        "0xc0422e8ba2e8ba2c",
+        "0xc03b45d1745d1732",
+        "0xc0322e8ba2e8ba10",
+        "0xc0222e8ba2e8b9e4",
+        "0x3d43c00000000000",
+        "0x40222e8ba2e8ba79",
+        "0x40322e8ba2e8ba4e",
+        "0x403b45d1745d175a",
+        "0x40422e8ba2e8ba31",
+        "0x4046ba2e8ba2e8b3"
+      ],
+      "kind": "vector"
+    },
+    "centered_second_derivative": {
+      "kind": "scalar",
+      "v": "0xc0302be895a55654"
+    },
+    "centered_second_derivative_weights": {
+      "data": [
+        "0x40e112a11e6efe34",
+        "0x40cb5101ca4b3056",
+        "0xc0a236013187756a",
+        "0xc0cb5101ca4b304a",
+        "0xc0d47cc157b86438",
+        "0xc0d6c3817de952e9",
+        "0xc0d47cc157b86439",
+        "0xc0cb5101ca4b304a",
+        "0xc0a236013187756e",
+        "0x40cb5101ca4b3056",
+        "0x40e112a11e6efe33"
+      ],
+      "kind": "vector"
+    },
+    "centered_smoothing_weights": {
+      "data": [
+        "0xbfb57b8644072934",
+        "0x3f957b864407295f",
+        "0x3fba41a41a41a432",
+        "0x3fc49660abdc3233",
+        "0x3fc9101ca4b30574",
+        "0x3fca8e05f7a54bdf",
+        "0x3fc9101ca4b30574",
+        "0x3fc49660abdc3232",
+        "0x3fba41a41a41a432",
+        "0x3f957b864407294e",
+        "0xbfb57b8644072938"
+      ],
+      "kind": "vector"
+    },
+    "centered_value": {
+      "kind": "scalar",
+      "v": "0x3f58ddcc534cf507"
+    },
+    "latest_first_derivative": {
+      "kind": "scalar",
+      "v": "0xbfb2ac0ac66b1dd8"
+    },
+    "latest_first_derivative_weights": {
+      "data": [
+        "0x40602bdc3220395e",
+        "0x4040c880e525980e",
+        "0xc04376c02630eece",
+        "0xc05607292cc157ca",
+        "0xc05c7f1ada67d51e",
+        "0xc05d23351c0bef5e",
+        "0xc057f377f1ada68d",
+        "0xc049dfc6b699f550",
+        "0x402f3c4538b0a1f2",
+        "0x405a92cc157b8648",
+        "0x406b88f377f1adaf"
+      ],
+      "kind": "vector"
+    },
+    "latest_second_derivative": {
+      "kind": "scalar",
+      "v": "0xc0302be895a556c0"
+    },
+    "latest_second_derivative_weights": {
+      "data": [
+        "0x40e112a11e6efe43",
+        "0x40cb5101ca4b303c",
+        "0xc0a23601318775f0",
+        "0xc0cb5101ca4b306e",
+        "0xc0d47cc157b8644d",
+        "0xc0d6c3817de952fd",
+        "0xc0d47cc157b86446",
+        "0xc0cb5101ca4b3052",
+        "0xc0a2360131877598",
+        "0x40cb5101ca4b306c",
+        "0x40e112a11e6efe40"
+      ],
+      "kind": "vector"
+    },
+    "latest_smoothing_weights": {
+      "data": [
+        "0x3fc01ca4b3055f1c",
+        "0x3f8ca4b3055ee128",
+        "0xbfb01ca4b3055f0f",
+        "0xbfbada67d508f3bb",
+        "0xbfbca4b3055ee1db",
+        "0xbfb57b864407296d",
+        "0xbf957b86440729b8",
+        "0x3fb3b13b13b13b1f",
+        "0x3fcada67d508f392",
+        "0x3fd82af70c880e74",
+        "0x3fe292cc157b8660"
+      ],
+      "kind": "vector"
+    },
+    "latest_value": {
+      "kind": "scalar",
+      "v": "0x3f563409b6c1470e"
+    }
+  },
+  "inputs": {
+    "dt": {
+      "kind": "scalar",
+      "v": "0x3f50624dd2f1a9fc"
+    },
+    "input": {
+      "data": [
+        "0x0000000000000000",
+        "0x3f46729775457d6e",
+        "0x3f50626a85ff9867",
+        "0x3f496548440e61f4",
+        "0x3f2179ebc15889c5",
+        "0xbf42d9d7ac1780fc",
+        "0xbf4f99071a589ebe",
+        "0xbf4add37106eb66e",
+        "0xbf2c66e7f51e531f",
+        "0x3f411cfb39a96ae0",
+        "0x3f5066bc3fee8ea4",
+        "0x3f4fa1c00f658504",
+        "0x3f3cd8108f58b527",
+        "0xbf32966e2d997d60",
+        "0xbf4a7027e6e53330",
+        "0xbf4b7a52681b5fab",
+        "0xbf372f00760b16f0",
+        "0x3f39c4a1b4dc97ca",
+        "0x3f507cd861dc7d9b",
+        "0x3f530d154db3938c",
+        "0x3f49d06bf28b02d9",
+        "0x3f18f28899187712",
+        "0xbf41517d8beecb4a",
+        "0xbf480944a7987eea",
+        "0xbf39fcf4d9edf4a7",
+        "0x3f347ae147ae146e",
+        "0x3f50c0df983ab4de",
+        "0x3f5652d9ef43ff9e",
+        "0x3f530bef16f80948",
+        "0x3f41e2c7f190b513",
+        "0xbf220f4e4e103084",
+        "0xbf40714bea6c47e4",
+        "0xbf35c7899252fb0e",
+        "0x3f3362dec2ad0c56",
+        "0x3f515cedd7d033fe",
+        "0x3f599e0806967e42",
+        "0x3f5971075a072328",
+        "0x3f513f0701d6ff1a",
+        "0x3f37310b791b8dd9",
+        "0xbf22eacff0c72e14",
+        "0xbf23cc9d983c57b4",
+        "0x3f3782c3bcbf40ae",
+        "0x3f52867505962cde",
+        "0x3f5cfb0085e7f59e",
+        "0x3f5ff418fd6b7c9e",
+        "0x3f5a381534a9dba6",
+        "0x3f4e8fc6a144a55b",
+        "0x3f35e35e33175a4e",
+        "0x3f242e7c54eb6e78",
+        "0x3f40e8206735422f",
+        "0x3f547ae147ae1475",
+        "0x3f6042f20cd4daa8",
+        "0x3f63405cfe2fb88a",
+        "0x3f61d15557dff5eb",
+        "0x3f59f0fb1d3cae2b",
+        "0x3f4e4d11ccbd7d02",
+        "0x3f4331508d2e2374",
+        "0x3f49908ec5c9cfe0",
+        "0x3f577bbd03d15ae4",
+        "0x3f6234675b515e5e"
+      ],
+      "kind": "vector"
+    },
+    "kind": {
+      "kind": "str",
+      "v": "savitzky_golay"
+    },
+    "polynomial_terms": {
+      "kind": "int",
+      "v": 3
+    },
+    "window": {
+      "kind": "int",
+      "v": 11
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "3-term curve across 11 samples, read at the newest sample and at the middle",
+    "generator": "signal_processing",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "operations": [
+      "Encoder curve fit: weights, value, rate, and acceleration, both read positions"
+    ],
+    "reference": "SciPy 1.14.1",
+    "sampling": "fixed 1 kHz sequences: a gyro reading with motor harmonics, an accelerometer with a slow bias, an encoder counting up a curve, and a range trace with three bad returns",
+    "seed": 20260706
+  },
+  "module": "signal_processing",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-09,
+      "rel": 1e-10
+    }
+  }
+}

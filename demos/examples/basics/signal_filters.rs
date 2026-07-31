@@ -4,7 +4,8 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::signal_processing::{Biquad, BiquadCoefficients};
+use multicalc::random::{Pcg32, RandomSource};
+use multicalc::signal_processing::{Biquad, BiquadCoefficients, RunningMedian, SavitzkyGolay};
 
 const SAMPLE_RATE_HZ: f64 = 1000.0;
 const DT: f64 = 1.0 / SAMPLE_RATE_HZ;
@@ -93,5 +94,86 @@ fn main() {
     assert!(
         (at_cutoff + 3.0).abs() < 0.5,
         "a low-pass is about 3 dB down at its own cutoff"
+    );
+
+    // (4) A rate and an acceleration recovered from a noisy position reading, by fitting a small
+    // curve across the last eleven samples.
+    //
+    // At a hundred samples a second rather than a thousand. Working out a rate divides by the
+    // timestep, so a shorter one magnifies the noise: the same wobble that costs 0.03 of the rate
+    // here would cost 0.3 at 1 kHz, and the acceleration, which divides twice, is ten times worse
+    // again. A rate wanted from a noisy reading needs a longer gap between samples, not a shorter
+    // one.
+    const SLOW_DT: f64 = 0.01;
+    let mut wobble = Pcg32::new(20260731);
+    let noisy_position: Vec<f64> = (0..500)
+        .map(|sample| {
+            let time = sample as f64 * SLOW_DT;
+            0.5 * time * time + 0.002 * (wobble.next_unit_f64() - 0.5)
+        })
+        .collect();
+    let last_time = 499.0 * SLOW_DT;
+
+    let mut fitted = SavitzkyGolay::<11, 3, f64>::latest(SLOW_DT).unwrap();
+    let mut worst_fitted = 0.0_f64;
+    let mut worst_difference = 0.0_f64;
+    for (sample, &reading) in noisy_position.iter().enumerate() {
+        fitted.filter(reading);
+        // What a plain subtraction of the last two readings makes of the same data.
+        let true_rate = sample as f64 * SLOW_DT;
+        if sample >= 20 {
+            let plain_difference = (reading - noisy_position[sample - 1]) / SLOW_DT;
+            worst_fitted = worst_fitted.max((fitted.first_derivative() - true_rate).abs());
+            worst_difference = worst_difference.max((plain_difference - true_rate).abs());
+        }
+    }
+    let fitted_error = (fitted.first_derivative() - last_time).abs();
+
+    println!("\nRate and acceleration from a noisy position, curve fit over 11 samples");
+    println!("  true rate        = {last_time:.5}");
+    println!(
+        "  fitted rate      = {:.5}   (off by {fitted_error:.5})",
+        fitted.first_derivative()
+    );
+    println!(
+        "  fitted bend      = {:.5}   (true 1.00000)",
+        fitted.second_derivative()
+    );
+    // One sample is luck either way, so the comparison is over the whole run.
+    println!(
+        "  worst rate error over the run: curve fit {worst_fitted:.5}, two-sample {worst_difference:.5}"
+    );
+    assert!(fitted_error < 0.05, "the fitted rate should be close");
+    assert!(
+        worst_fitted < worst_difference,
+        "fitting a curve should beat subtracting two noisy samples"
+    );
+    // A second derivative out of noisy data is genuinely loose, and the bound says so.
+    assert!((fitted.second_derivative() - 1.0).abs() < 2.0);
+
+    // (5) One wild reading dropped outright, which no amount of smoothing can do. The same filter
+    // is run twice over the same data, once with a single reading replaced by a wild value, and the
+    // two outputs are compared where the spike lands.
+    let spike_at = 250;
+    let mut with_spike = RunningMedian::<5, f64>::new().unwrap();
+    let mut clean = RunningMedian::<5, f64>::new().unwrap();
+    let (mut spiked_output, mut clean_output) = (0.0, 0.0);
+    for (sample, &reading) in noisy_position.iter().enumerate() {
+        let output = with_spike.filter(if sample == spike_at { 99.0 } else { reading });
+        let untouched = clean.filter(reading);
+        if sample == spike_at {
+            spiked_output = output;
+            clean_output = untouched;
+        }
+    }
+
+    println!("\nA single wild reading of 99.0 through a 5-wide median");
+    println!("  with the wild reading = {spiked_output:.5}");
+    println!("  without it            = {clean_output:.5}");
+    // One bad sample out of five never reaches the middle of the sorted window, so the two agree
+    // exactly rather than merely closely.
+    assert_eq!(
+        spiked_output, clean_output,
+        "the median should not notice one bad reading"
     );
 }

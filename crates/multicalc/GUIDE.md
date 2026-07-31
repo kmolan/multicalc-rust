@@ -626,6 +626,10 @@ configuration checked up front, and every call after that is total.
   memory. One object and one call per tick for a three-axis rate sensor.
 - `OnePoleLowPass`: the simplest low-pass, by smoothing weight (`new`) or by cutoff frequency
   (`from_cutoff`). This is the filter `Pid::with_derivative_filter` puts on the derivative term.
+- `MovingAverage`: the average of the last few samples, added up fresh each time so it cannot drift.
+- `RunningMedian`: their middle value instead, which drops a single bad reading outright.
+- `SavitzkyGolay`: a small curve fitted across the window, reporting the smoothed value together
+  with the slope and the bend — one noisy position reading gives a rate and an acceleration.
 
 ```rust
 use multicalc::{Biquad, BiquadCascade, BiquadCoefficients, MultiChannelBiquad};
@@ -663,6 +667,42 @@ let mut rates = MultiChannelBiquad::new(low_pass);
 let filtered = rates.filter(Vector::new([0.3, -0.7, 1.1]));
 assert!(filtered[0] > 0.0);
 ```
+
+The window filters work from the last few samples rather than from a recurrence:
+
+```rust
+use multicalc::{RunningMedian, SavitzkyGolay};
+
+// A median drops one wild reading outright. An average would carry a fifth of it into the output.
+let mut median = RunningMedian::<5, f64>::new().unwrap();
+for reading in [1.0, 1.1, 0.9, 50.0, 1.05] {
+    median.filter(reading);
+}
+assert_eq!(median.value(), 1.05);
+
+// Three terms fit a curve exactly, so a curve comes back with its slope and bend.
+let dt = 0.001_f64;
+let mut fitted = SavitzkyGolay::<11, 3, f64>::latest(dt).unwrap();
+let mut time = 0.0;
+for sample in 0..200 {
+    time = sample as f64 * dt;
+    fitted.filter(0.5 * time * time);
+}
+assert!((fitted.first_derivative() - time).abs() < 1e-6);
+assert!((fitted.second_derivative() - 1.0).abs() < 1e-6);
+
+// Reading at the newest sample costs no delay; reading at the middle costs half a window.
+assert_eq!(fitted.delay(), 0.0);
+assert!((SavitzkyGolay::<11, 3, f64>::centered(dt).unwrap().delay() - 0.005).abs() < 1e-12);
+```
+
+Which of the three to reach for: a mean for gentle smoothing of a signal whose noise is small and
+even; a median when single readings come back wrong, which is the one case no amount of smoothing
+helps; and a curve fit when a rate or an acceleration is wanted out of the same noisy signal, since
+subtracting two noisy samples multiplies the noise by the sampling rate. Note that
+`SavitzkyGolay::centered` smooths considerably better than `latest` but describes a sample from half
+a window ago — eleven samples at 1 kHz puts its answer five milliseconds behind, which `delay()`
+reports so a loop can account for it.
 
 The number worth knowing before picking a filter is `delay_at`. Every filter pays for what it
 removes by putting its output behind its input, and inside a control loop that delay is what eats

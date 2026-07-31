@@ -160,12 +160,11 @@ const DOCS: &[Doc] = &[
         modules: &[Module {
             name: "signal_processing",
             cases: &[
-                "biquad_low_pass_50hz",
-                "biquad_high_pass_50hz",
-                "biquad_band_pass_180hz",
-                "biquad_notch_180hz",
-                "biquad_cascade_fourth_order_low_pass_80hz",
-                "biquad_harmonic_notch_80hz",
+                "gyro_conditioning_chain",
+                "motor_vibration_band_pass",
+                "accelerometer_drift_high_pass",
+                "encoder_curve_fit",
+                "lidar_despiking",
             ],
         }],
     },

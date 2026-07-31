@@ -1,0 +1,251 @@
+{
+  "case": "accelerometer_drift_high_pass",
+  "expected": {
+    "feed_forward": {
+      "data": [
+        "0x3fee9c0089df44b4",
+        "0xbffe9c0089df44b4",
+        "0x3fee9c0089df44b4"
+      ],
+      "kind": "vector"
+    },
+    "feedback": {
+      "data": [
+        "0xbffe9443604ce5bf",
+        "0x3fed477b66e34752"
+      ],
+      "kind": "vector"
+    },
+    "magnitude": {
+      "data": [
+        "0x3f8477341a3f899e",
+        "0x3fcf07b742953494",
+        "0x3fef0c545e015588",
+        "0x3feff9a8a242e142",
+        "0x3fefff14b46c65b2",
+        "0x3fefffd6617f5800",
+        "0x3feffff9b1ce1ee9",
+        "0x3feffffc5459d3f3",
+        "0x3fefffffb70b84e0",
+        "0x3feffffffd14f0cd",
+        "0x3fefffffffd5d20f"
+      ],
+      "kind": "vector"
+    },
+    "output": {
+      "data": [
+        "0x0000000000000000",
+        "0x3fac4ce0b055335a",
+        "0x3fba8e5aec7dde11",
+        "0x3fc26ca5ec116713",
+        "0x3fc65dc94cdced92",
+        "0x3fc8ff74120253ce",
+        "0x3fca4229f07c5ff8",
+        "0x3fca229f338ae978",
+        "0x3fc8a9d40a467270",
+        "0x3fc5ecc0c82e1636",
+        "0x3fc20b9608206cd4",
+        "0x3fba612eebe471c4",
+        "0x3fae3a6e68f1ea0c",
+        "0x3f85f3e3d746ff70",
+        "0xbfa47ca9294d9304",
+        "0xbfb75784c6c6be56",
+        "0xbfc2057511e3ffe2",
+        "0xbfc7ed41a398aba5",
+        "0xbfcd287647f3f9ae",
+        "0xbfd0c161b1b1757d",
+        "0xbfd2680a68427944",
+        "0xbfd377102831cf52",
+        "0xbfd3e2cd887c4dde",
+        "0xbfd3a585abb27db8",
+        "0xbfd2bf97724d85b2",
+        "0xbfd137793be8fcf4",
+        "0xbfce32fabf73da1b",
+        "0xbfc8eec2f3b5f3ae",
+        "0xbfc2cf591a2d2f5e",
+        "0xbfb81386da9a8f72",
+        "0xbfa36475d90d1a9c",
+        "0x3f941c104718784c",
+        "0x3fb3968e91133482",
+        "0x3fc0bdef72c39b4f",
+        "0x3fc71e1176241e24",
+        "0x3fccb34cfa9835b9",
+        "0x3fd0a625d4c1a870",
+        "0x3fd260414c5bcb30",
+        "0x3fd378d1f59c2d96",
+        "0x3fd3e659c73ac309",
+        "0x3fd3a55aa29c3d9f",
+        "0x3fd2b876ea7a83d9",
+        "0x3fd1285a82cdaa1d",
+        "0x3fce06da14685bb2",
+        "0x3fc8baa01bcfe6ba",
+        "0x3fc29c5ba242a9d2",
+        "0x3fb7c77bbbade74c",
+        "0x3fa337749502f5bc",
+        "0xbf93279cdb10ae48",
+        "0xbfb2e6d5ae26f624",
+        "0xbfc01d97203293f2",
+        "0xbfc62721c6f56efc",
+        "0xbfcb5970d69f2ee6",
+        "0xbfcf859519d03025",
+        "0xbfd142f952cb5398",
+        "0xbfd21fca70741dbe",
+        "0xbfd25190fe4b6260",
+        "0xbfd1d6b29dbe78c9",
+        "0xbfd0b3b59242eae0",
+        "0xbfcde62e9e8946dc",
+        "0xbfc949d9e56095eb",
+        "0xbfc3bca21c636e1f",
+        "0xbfbae28fb3d9216a",
+        "0xbfaa8529041dc3f6"
+      ],
+      "kind": "vector"
+    },
+    "phase": {
+      "data": [
+        "0x4007ff7c8a5cb068",
+        "0x4003162d45290df0",
+        "0x3fe82a2bea815343",
+        "0x3fd2304cc0344d27",
+        "0x3fc64412162a8b54",
+        "0x3fbccbe505730a00",
+        "0x3fb1f15780d2fb38",
+        "0x3faf56d2496fcc94",
+        "0x3fa0890ec476cd62",
+        "0x3f8d93458bdd5ff2",
+        "0x3f7cd5255eee81b2"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "design": {
+      "kind": "str",
+      "v": "high_pass"
+    },
+    "dt": {
+      "kind": "scalar",
+      "v": "0x3f50624dd2f1a9fc"
+    },
+    "frequency_hz": {
+      "kind": "scalar",
+      "v": "0x4024000000000000"
+    },
+    "input": {
+      "data": [
+        "0x0000000000000000",
+        "0x3fad96052a535fcd",
+        "0x3fbd13825f508dd1",
+        "0x3fc52dce149335ab",
+        "0x3fcb1740fd770fa6",
+        "0x3fd0092798b9f671",
+        "0x3fd1f9cff5ef842b",
+        "0x3fd34ceabb6f5417",
+        "0x3fd3f75de131be3e",
+        "0x3fd3f408dfaaacde",
+        "0x3fd343f32e6edbb9",
+        "0x3fd1ee42ee3fbea3",
+        "0x3fcffff82650c124",
+        "0x3fcb1714b5508a75",
+        "0x3fc5503478cf471a",
+        "0x3fbdc31b0209f2c8",
+        "0x3fb00e8eb57961dc",
+        "0x3f8015984bf891f6",
+        "0xbfa7bae2b61cfdac",
+        "0xbfb910646e50e92e",
+        "0xbfc28d677e617ac5",
+        "0xbfc7c5ed9e65280e",
+        "0xbfcc009a0e17f17f",
+        "0xbfcf1540839e7902",
+        "0xbfd0730fa4814687",
+        "0xbfd0b0768cec016a",
+        "0xbfd03fbf7d3e5afc",
+        "0xbfce480028f415a7",
+        "0xbfcaccba2c0b6c86",
+        "0xbfc62b6efc19b615",
+        "0xbfc08c4b255a99b1",
+        "0xbfb440f2e6927f50",
+        "0xbf990328688cc590",
+        "0x3fa0d918c4afe966",
+        "0x3fb7459600475996",
+        "0x3fc2e3a5ca0efebd",
+        "0x3fc9b8decdcb1607",
+        "0x3fcfe64e3c34d15c",
+        "0x3fd29adee15efaa0",
+        "0x3fd4bc6a17e0eeb8",
+        "0x3fd6455ce2f7bd2a",
+        "0x3fd728b32d708350",
+        "0x3fd75f46b5633792",
+        "0x3fd6e80fe215dfc0",
+        "0x3fd5c82f19f0bff6",
+        "0x3fd40abe43d930bf",
+        "0x3fd1c06c199b572f",
+        "0x3fcdfdc9b8db162e",
+        "0x3fc7c01b8f44f07a",
+        "0x3fc10234701bf14b",
+        "0x3fb4060b67a8537d",
+        "0x3f981e83ee001364",
+        "0xbf9dd150764f5e44",
+        "0xbfb3eff13291fdb9",
+        "0xbfbef668d0012304",
+        "0xbfc41013042dfa44",
+        "0xbfc78b3beb3ed73a",
+        "0xbfc9cb51a96ccbac",
+        "0xbfcaba2070b6b3b6",
+        "0xbfca4d67740d3454",
+        "0xbfc88735e49d0f32",
+        "0xbfc575d845e6c50a",
+        "0xbfc13356c1f8292e",
+        "0xbfb7c9122b83f425"
+      ],
+      "kind": "vector"
+    },
+    "kind": {
+      "kind": "str",
+      "v": "biquad_section"
+    },
+    "probe_hz": {
+      "data": [
+        "0x3ff0000000000000",
+        "0x4014000000000000",
+        "0x4034000000000000",
+        "0x4049000000000000",
+        "0x4054000000000000",
+        "0x405e000000000000",
+        "0x4066800000000000",
+        "0x4069000000000000",
+        "0x4072c00000000000",
+        "0x4079000000000000",
+        "0x407c200000000000"
+      ],
+      "kind": "vector"
+    },
+    "quality_factor": {
+      "kind": "scalar",
+      "v": "0x3fe6a09e667f3bcc"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "2nd-order high-pass, 10 Hz, sharpness 0.707, 1 kHz",
+    "generator": "signal_processing",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "operations": [
+      "Drift-removal high-pass: weights, response, and filtered output"
+    ],
+    "reference": "SciPy 1.14.1",
+    "sampling": "fixed 1 kHz sequences: a gyro reading with motor harmonics, an accelerometer with a slow bias, an encoder counting up a curve, and a range trace with three bad returns",
+    "seed": 20260706
+  },
+  "module": "signal_processing",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-11,
+      "rel": 1e-10
+    }
+  }
+}
