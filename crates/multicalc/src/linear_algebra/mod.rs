@@ -15,6 +15,7 @@ mod macros;
 mod matrix;
 mod qr;
 mod svd;
+mod symmetric_eigendecomposition;
 mod vector;
 
 pub use cholesky::Cholesky;
@@ -22,6 +23,7 @@ pub use lu::Lu;
 pub use matrix::Matrix;
 pub use qr::{CholeskyFactor, DampedLeastSquares, PivotedQr};
 pub use svd::Svd;
+pub use symmetric_eigendecomposition::SymmetricEigendecomposition;
 pub use vector::Vector;
 
 // Vector type aliases for ease of life
