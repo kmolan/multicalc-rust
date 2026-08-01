@@ -34,6 +34,7 @@ impl Default for IterativeConfig {
 
 impl IterativeConfig {
     /// Builds a config with an explicit iteration count and rule.
+    #[must_use]
     pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self {
         IterativeConfig {
             total_iterations,
@@ -185,6 +186,7 @@ impl<T> Default for IterativeSingle<T> {
 
 impl<T> IterativeSingle<T> {
     /// custom constructor. Optimal for fine-tuning for more complex equations
+    #[must_use]
     pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self {
         IterativeSingle {
             config: IterativeConfig::from_parameters(total_iterations, integration_method),
@@ -196,6 +198,7 @@ impl<T> IterativeSingle<T> {
     ///
     /// Default is [`SummationMethod::Pairwise`]. Pass [`SummationMethod::Kahan`]
     /// for opt-in compensated summation.
+    #[must_use]
     pub fn with_kahan_summation(mut self) -> Self {
         self.config.summation = SummationMethod::Kahan;
         self
@@ -335,6 +338,7 @@ impl<T> Default for IterativeMulti<T> {
 
 impl<T> IterativeMulti<T> {
     /// custom constructor, optimal for fine-tuning the integrator for more complex equations
+    #[must_use]
     pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self {
         IterativeMulti {
             config: IterativeConfig::from_parameters(total_iterations, integration_method),
@@ -343,6 +347,7 @@ impl<T> IterativeMulti<T> {
     }
 
     /// Opt in to Kahan compensated summation for the composite-rule accumulators.
+    #[must_use]
     pub fn with_kahan_summation(mut self) -> Self {
         self.config.summation = SummationMethod::Kahan;
         self

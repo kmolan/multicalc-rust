@@ -41,6 +41,7 @@ impl<T: Numeric> Wrench<T> {
     /// assert_eq!(w.torque(), Vector::new([4.0, 5.0, 6.0]));
     /// ```
     #[inline]
+    #[must_use]
     pub fn new(force: Vector3D<T>, torque: Vector3D<T>) -> Self {
         Wrench { force, torque }
     }
@@ -52,6 +53,7 @@ impl<T: Numeric> Wrench<T> {
     /// assert_eq!(Wrench::<f64>::zeros().as_array(), [0.0; 6]);
     /// ```
     #[inline]
+    #[must_use]
     pub fn zeros() -> Self {
         Wrench {
             force: Vector::zeros(),
@@ -68,6 +70,7 @@ impl<T: Numeric> Wrench<T> {
     /// assert_eq!(w.torque(), Vector::new([4.0, 5.0, 6.0]));
     /// ```
     #[inline]
+    #[must_use]
     pub fn from_array(a: [T; 6]) -> Self {
         let [vx, vy, vz, wx, wy, wz] = a;
         Wrench {
@@ -84,6 +87,7 @@ impl<T: Numeric> Wrench<T> {
     /// assert_eq!(w.as_array(), [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
     /// ```
     #[inline]
+    #[must_use]
     pub fn as_array(self) -> [T; 6] {
         let [fx, fy, fz] = *self.force.as_array();
         let [tx, ty, tz] = *self.torque.as_array();
@@ -99,6 +103,7 @@ impl<T: Numeric> Wrench<T> {
     /// assert_eq!(w.force(), Vector::new([1.0, 2.0, 3.0]));
     /// ```
     #[inline]
+    #[must_use]
     pub fn from_vector(v: Vector6D<T>) -> Self {
         Self::from_array(v.into_array())
     }
@@ -136,6 +141,7 @@ impl<T: Numeric> Wrench<T> {
     /// assert_eq!(w.scale(2.0).as_array(), [2.0, 4.0, 6.0, 8.0, 10.0, 12.0]);
     /// ```
     #[inline]
+    #[must_use]
     pub fn scale(self, scalar: T) -> Self {
         Wrench {
             force: self.force.scale(scalar),

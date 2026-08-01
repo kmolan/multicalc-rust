@@ -47,6 +47,7 @@ pub struct Quaternion<T: Numeric = f64> {
 /// to an infinite norm and comes back as the zero vector, and `[1e-200, 0, 0]` underflows to a
 /// zero norm and comes back as `None`, though both name a perfectly good axis.
 #[inline]
+#[must_use]
 fn unit_direction<T: Numeric>(v: Vector<3, T>) -> Option<Vector<3, T>> {
     if !v.is_finite() {
         return None;
@@ -67,6 +68,7 @@ fn unit_direction<T: Numeric>(v: Vector<3, T>) -> Option<Vector<3, T>> {
 impl<T: Numeric> Quaternion<T> {
     /// A quaternion from its four components, in `[w, x, y, z]` order.
     #[inline]
+    #[must_use]
     pub fn new(w: T, x: T, y: T, z: T) -> Self {
         Quaternion { w, x, y, z }
     }
@@ -78,6 +80,7 @@ impl<T: Numeric> Quaternion<T> {
     /// assert_eq!(Quaternion::<f64>::identity().as_array(), [1.0, 0.0, 0.0, 0.0]);
     /// ```
     #[inline]
+    #[must_use]
     pub fn identity() -> Self {
         Quaternion {
             w: T::ONE,
@@ -89,6 +92,7 @@ impl<T: Numeric> Quaternion<T> {
 
     /// Builds a quaternion from a `[w, x, y, z]` array.
     #[inline]
+    #[must_use]
     pub fn from_array(a: [T; 4]) -> Self {
         let [w, x, y, z] = a;
         Quaternion { w, x, y, z }
@@ -96,6 +100,7 @@ impl<T: Numeric> Quaternion<T> {
 
     /// Builds a quaternion from a scalar part and a vector part.
     #[inline]
+    #[must_use]
     pub fn from_scalar_vector(w: T, v: Vector3D<T>) -> Self {
         let [x, y, z] = *v.as_array();
         Quaternion { w, x, y, z }
@@ -103,24 +108,28 @@ impl<T: Numeric> Quaternion<T> {
 
     /// The scalar (real) component.
     #[inline]
+    #[must_use]
     pub fn w(self) -> T {
         self.w
     }
 
     /// The `i` component.
     #[inline]
+    #[must_use]
     pub fn x(self) -> T {
         self.x
     }
 
     /// The `j` component.
     #[inline]
+    #[must_use]
     pub fn y(self) -> T {
         self.y
     }
 
     /// The `k` component.
     #[inline]
+    #[must_use]
     pub fn z(self) -> T {
         self.z
     }
@@ -133,12 +142,14 @@ impl<T: Numeric> Quaternion<T> {
 
     /// The components as a `[w, x, y, z]` array.
     #[inline]
+    #[must_use]
     pub fn as_array(self) -> [T; 4] {
         [self.w, self.x, self.y, self.z]
     }
 
     /// The conjugate `w − x·i − y·j − z·k`.
     #[inline]
+    #[must_use]
     pub fn conjugate(self) -> Self {
         Quaternion {
             w: self.w,
@@ -150,18 +161,21 @@ impl<T: Numeric> Quaternion<T> {
 
     /// The squared norm `w² + x² + y² + z²`.
     #[inline]
+    #[must_use]
     pub fn norm_squared(self) -> T {
         self.w * self.w + self.x * self.x + self.y * self.y + self.z * self.z
     }
 
     /// The Euclidean norm.
     #[inline]
+    #[must_use]
     pub fn norm(self) -> T {
         self.norm_squared().sqrt()
     }
 
     /// The four-component dot product.
     #[inline]
+    #[must_use]
     pub fn dot(self, r: Self) -> T {
         self.w * r.w + self.x * r.x + self.y * r.y + self.z * r.z
     }
@@ -169,6 +183,7 @@ impl<T: Numeric> Quaternion<T> {
     /// The inverse `conjugate / norm²`. For a unit quaternion this equals the conjugate. Yields
     /// `inf`/`NaN` for a zero quaternion, exactly as plain-float division does elsewhere.
     #[inline]
+    #[must_use]
     pub fn inverse(self) -> Self {
         self.conjugate() * self.norm_squared().recip()
     }
@@ -176,12 +191,14 @@ impl<T: Numeric> Quaternion<T> {
     /// This quaternion scaled to unit norm. Yields `NaN` components for a zero quaternion, as
     /// plain-float division does; use [`Quaternion::try_normalized`] for a checked version.
     #[inline]
+    #[must_use]
     pub fn normalized(self) -> Self {
         self * self.norm().recip()
     }
 
     /// This quaternion scaled to unit norm, or `None` if the norm is non-finite or underflows.
     #[inline]
+    #[must_use]
     pub fn try_normalized(self) -> Option<Self> {
         let n = self.norm();
         if !n.is_finite() || n <= T::EPSILON {
@@ -195,6 +212,7 @@ impl<T: Numeric> Quaternion<T> {
     /// part. Near `‖v‖ = 0` the `cos‖v‖` and `sin‖v‖/‖v‖` factors use Taylor series in `‖v‖²`,
     /// so no `sqrt` is taken there and the AD derivative stays finite at `v = 0`.
     #[inline]
+    #[must_use]
     pub fn exp(self) -> Self {
         let vn_sq = self.x * self.x + self.y * self.y + self.z * self.z;
         let ew = self.w.exp();
@@ -222,6 +240,7 @@ impl<T: Numeric> Quaternion<T> {
     /// direction is ill-defined, so the branch cut is left unhandled. For rotation logarithms use
     /// [`Quaternion::to_scaled_axis`], which resolves this region via the shortest-path sign fix.
     #[inline]
+    #[must_use]
     pub fn ln(self) -> Self {
         let n = self.norm();
         let vn = (self.x * self.x + self.y * self.y + self.z * self.z).sqrt();
@@ -257,6 +276,7 @@ impl<T: Numeric> Quaternion<T> {
     /// assert!((rotated[2] - 0.0).abs() < 1e-12);
     /// ```
     #[inline]
+    #[must_use]
     pub fn from_axis_angle(axis: Vector3D<T>, angle: T) -> Self {
         let an = axis.dot(axis).sqrt();
         if an <= T::EPSILON {
@@ -278,6 +298,7 @@ impl<T: Numeric> Quaternion<T> {
     /// Taylor series in `θ²`, so no `sqrt` is taken there and the AD derivative stays finite at
     /// `φ = 0` (a robot at rest).
     #[inline]
+    #[must_use]
     pub fn from_scaled_axis(rotvec: Vector3D<T>) -> Self {
         let theta_sq = rotvec.dot(rotvec);
         let (w, scale) = if theta_sq < small_angle_sq::<T>() {
@@ -303,6 +324,7 @@ impl<T: Numeric> Quaternion<T> {
     /// The rotation from ZYX intrinsic Euler angles: `R = Rz(yaw)·Ry(pitch)·Rx(roll)`. The result
     /// is a unit quaternion.
     #[inline]
+    #[must_use]
     pub fn from_euler_zyx(roll: T, pitch: T, yaw: T) -> Self {
         let (cr, sr) = ((roll * T::HALF).cos(), (roll * T::HALF).sin());
         let (cp, sp) = ((pitch * T::HALF).cos(), (pitch * T::HALF).sin());
@@ -391,6 +413,7 @@ impl<T: Numeric> Quaternion<T> {
     /// (orthonormal, determinant +1) rotation is assumed; `None` guards only against a degenerate
     /// pivot that would divide by zero.
     #[inline]
+    #[must_use]
     pub fn try_from_rotation_matrix(m: Matrix3D<T>) -> Option<Self> {
         let quarter = T::from_f64(0.25);
         let [[m00, m01, m02], [m10, m11, m12], [m20, m21, m22]] = m.into_array();
@@ -492,6 +515,7 @@ impl<T: Numeric> Quaternion<T> {
     /// (`pitch = ±π/2`) the roll/yaw split is not unique; this returns `pitch = ±π/2` and a
     /// consistent roll/yaw.
     #[inline]
+    #[must_use]
     pub fn to_euler_zyx(self) -> (T, T, T) {
         let (w, x, y, z) = (self.w, self.x, self.y, self.z);
         let two = T::TWO;
@@ -579,6 +603,7 @@ impl<T: Numeric> Quaternion<T> {
     /// product is negative) and falls back to normalized linear interpolation when the endpoints
     /// are nearly parallel. The result is renormalized.
     #[inline]
+    #[must_use]
     pub fn slerp(self, other: Self, t: T) -> Self {
         let mut d = self.dot(other);
         let mut q2 = other;

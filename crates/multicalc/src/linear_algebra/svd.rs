@@ -276,6 +276,7 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
     }
 
     /// The default cutoff below which a singular value counts as zero.
+    #[must_use]
     fn default_tol(&self) -> T {
         if N == 0 {
             return T::ZERO;

@@ -6,19 +6,23 @@
 use multicalc_mjcf::{MjcfError, RigidBodyModel, load_str};
 
 /// A model file holding whatever the case needs inside its `<worldbody>`.
+#[must_use]
 fn model(inner: &str) -> String {
     format!("<mujoco><worldbody>{inner}</worldbody></mujoco>")
 }
 
+#[must_use]
 fn load(inner: &str) -> RigidBodyModel {
     load_str(&model(inner)).unwrap()
 }
 
+#[must_use]
 fn refuse(inner: &str) -> MjcfError {
     load_str(&model(inner)).unwrap_err()
 }
 
 /// The three numbers down the diagonal of how the body resists being spun.
+#[must_use]
 fn diagonal(body: &RigidBodyModel) -> [f64; 3] {
     let inertia = body.inertia().rotational_inertia();
     [inertia[(0, 0)], inertia[(1, 1)], inertia[(2, 2)]]

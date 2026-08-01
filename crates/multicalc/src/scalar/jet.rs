@@ -24,12 +24,14 @@ pub struct Jet<T: Numeric, const N: usize> {
 impl<T: Numeric, const N: usize> Jet<T, N> {
     /// A jet with explicit coefficients.
     #[inline]
+    #[must_use]
     pub fn new(coeffs: [T; N]) -> Self {
         Jet { coeffs }
     }
 
     /// A constant: value in `coeffs[0]`, all derivatives zero.
     #[inline]
+    #[must_use]
     pub const fn constant(value: T) -> Self {
         let mut coeffs = [T::ZERO; N];
         coeffs[0] = value;
@@ -39,6 +41,7 @@ impl<T: Numeric, const N: usize> Jet<T, N> {
     /// The independent variable, seeded to read every derivative of a single-variable function
     /// (`coeffs[0] = x`, `coeffs[1] = 1`). Requires `N >= 2`.
     #[inline]
+    #[must_use]
     pub fn variable(value: T) -> Self {
         const { assert!(N >= 2, "Jet::variable needs at least 2 coefficients") };
         let mut coeffs = [T::ZERO; N];
@@ -49,18 +52,21 @@ impl<T: Numeric, const N: usize> Jet<T, N> {
 
     /// The value `f(x)` (= `coeffs[0]`).
     #[inline]
+    #[must_use]
     pub fn value(&self) -> T {
         self.coeffs[0]
     }
 
     /// The `k`-th Taylor coefficient `f⁽ᵏ⁾(x) / k!`.
     #[inline]
+    #[must_use]
     pub fn coefficient(&self, k: usize) -> T {
         self.coeffs[k]
     }
 
     /// The `k`-th derivative `f⁽ᵏ⁾(x)` (= `k! · coeffs[k]`).
     #[inline]
+    #[must_use]
     pub fn derivative(&self, k: usize) -> T {
         let mut factorial = T::ONE;
         for i in 2..=k {
@@ -184,6 +190,7 @@ impl<T: Numeric, const N: usize> PartialOrd for Jet<T, N> {
 impl<T: Numeric, const N: usize> Jet<T, N> {
     /// `sin` and `cos` of the jet, computed together (each recurrence needs the other).
     #[inline]
+    #[must_use]
     fn sin_cos(self) -> (Self, Self) {
         let v = &self.coeffs;
         let mut s = [T::ZERO; N];

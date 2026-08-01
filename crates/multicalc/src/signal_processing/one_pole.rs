@@ -24,7 +24,7 @@ use crate::scalar::Numeric;
 /// let mut smoother = OnePoleLowPass::new(half_new_half_old).unwrap();
 /// let steady_input = 10.0;
 /// for _ in 0..64 {
-///     smoother.filter(steady_input);
+///     let _ = smoother.filter(steady_input);
 /// }
 /// assert!((smoother.value() - steady_input).abs() < 1e-9);
 /// ```
@@ -77,6 +77,7 @@ impl<T: Numeric> OnePoleLowPass<T> {
 
     /// Feeds one sample and returns the updated output.
     #[inline]
+    #[must_use]
     pub fn filter(&mut self, input: T) -> T {
         if self.initialized {
             self.state = self.smoothing * input + (T::ONE - self.smoothing) * self.state;

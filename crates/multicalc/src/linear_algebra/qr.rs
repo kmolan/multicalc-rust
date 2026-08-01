@@ -14,6 +14,7 @@ use crate::scalar::Numeric;
 /// Components are split into three magnitude bands. Small and large components are summed
 /// against a running maximum in that band, so every squared term stays within range; only
 /// the mid band is squared directly. This is the MINPACK `enorm` scheme.
+#[must_use]
 pub(crate) fn enorm<T: Numeric>(v: &[T]) -> T {
     // Below `rdwarf`, squaring underflows; above `agiant`, summing the squares overflows.
     let rdwarf = T::MIN_POSITIVE.sqrt();
@@ -69,12 +70,14 @@ pub(crate) fn enorm<T: Numeric>(v: &[T]) -> T {
 
 /// Returns the larger of `a` and `b`. If the two do not compare (a NaN is involved),
 /// returns `a`.
+#[must_use]
 pub(crate) fn max<T: PartialOrd>(a: T, b: T) -> T {
     if b > a { b } else { a }
 }
 
 /// Returns the smaller of `a` and `b`. If the two do not compare (a NaN is involved),
 /// returns `a`.
+#[must_use]
 pub(crate) fn min<T: PartialOrd>(a: T, b: T) -> T {
     if b < a { b } else { a }
 }

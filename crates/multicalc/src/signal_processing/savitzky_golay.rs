@@ -33,7 +33,7 @@ use crate::scalar::Numeric;
 /// let mut time = 0.0;
 /// for sample in 0..200 {
 ///     time = sample as f64 * dt;
-///     fitted.filter(0.5 * time * time);
+///     let _ = fitted.filter(0.5 * time * time);
 /// }
 /// assert!((fitted.first_derivative() - time).abs() < 1e-6);
 /// assert!((fitted.second_derivative() - 1.0).abs() < 1e-6);
@@ -95,6 +95,7 @@ impl<const WINDOW: usize, const POLYNOMIAL_TERMS: usize, T: Numeric>
 
     /// Feeds one sample and returns the smoothed value of the window it now sits in.
     #[inline]
+    #[must_use]
     pub fn filter(&mut self, input: T) -> T {
         if self.initialized {
             self.samples[self.next] = input;
@@ -199,6 +200,7 @@ impl<const WINDOW: usize, const POLYNOMIAL_TERMS: usize, T: Numeric>
 
     /// The window against one weight row, walked oldest to newest from the write index.
     #[inline]
+    #[must_use]
     fn weighted_sum(&self, weights: &[T; WINDOW]) -> T {
         let mut total = T::ZERO;
         #[allow(clippy::needless_range_loop)]

@@ -31,6 +31,7 @@ pub struct HyperDual<T: Numeric = f64> {
 impl<T: Numeric> HyperDual<T> {
     /// A hyper-dual number with explicit components.
     #[inline]
+    #[must_use]
     pub fn new(real: T, eps1: T, eps2: T, eps1eps2: T) -> Self {
         HyperDual {
             real,
@@ -42,6 +43,7 @@ impl<T: Numeric> HyperDual<T> {
 
     /// A constant, whose derivatives are all zero.
     #[inline]
+    #[must_use]
     pub fn constant(real: T) -> Self {
         HyperDual {
             real,
@@ -55,6 +57,7 @@ impl<T: Numeric> HyperDual<T> {
     /// single-variable function. For a mixed partial, seed two inputs on separate directions with
     /// `new(xᵢ, 1, 0, 0)` and `new(xⱼ, 0, 1, 0)`.
     #[inline]
+    #[must_use]
     pub fn variable(real: T) -> Self {
         HyperDual {
             real,
@@ -69,6 +72,7 @@ impl<T: Numeric> HyperDual<T> {
     /// With `val = φ(real)`, `d1 = φ'(real)`, `d2 = φ''(real)`, this carries the chain rule
     /// through to second order.
     #[inline]
+    #[must_use]
     fn chain(self, val: T, d1: T, d2: T) -> Self {
         HyperDual {
             real: val,
@@ -80,6 +84,7 @@ impl<T: Numeric> HyperDual<T> {
 
     /// The reciprocal `1/self`, via `φ(x) = 1/x` (`φ' = -1/x²`, `φ'' = 2/x³`).
     #[inline]
+    #[must_use]
     fn recip(self) -> Self {
         let t = T::ONE / self.real;
         self.chain(t, -(t * t), T::TWO * t * t * t)

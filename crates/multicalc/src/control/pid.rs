@@ -113,6 +113,7 @@ impl<T: Numeric> Pid<T> {
     }
 
     /// Advances the controller one timestep and returns the saturated output.
+    #[must_use]
     pub fn update(&mut self, setpoint: T, measurement: T) -> T {
         let error = setpoint - measurement;
         let proportional_term = self.proportional_gain * error;

@@ -142,6 +142,7 @@ impl<T: Numeric> Hysteresis<T> {
 
     /// Feeds one value and returns the answer it leaves behind.
     #[inline]
+    #[must_use]
     pub fn update(&mut self, input: T) -> bool {
         if input > self.upper {
             self.is_high = true;
@@ -184,7 +185,7 @@ impl<T: Numeric> Hysteresis<T> {
 /// // A jump to 10 comes out as a ramp: a tenth of a unit per call.
 /// assert!((limited.filter(10.0) - 0.1).abs() < 1e-12);
 /// for _ in 0..9 {
-///     limited.filter(10.0);
+///     let _ = limited.filter(10.0);
 /// }
 /// assert!((limited.value() - 1.0).abs() < 1e-12);
 ///
@@ -244,6 +245,7 @@ impl<T: Numeric> SlewRateLimiter<T> {
 
     /// Moves one step toward the target and returns where the output now sits.
     #[inline]
+    #[must_use]
     pub fn filter(&mut self, target: T) -> T {
         if !self.initialized {
             self.state = target;

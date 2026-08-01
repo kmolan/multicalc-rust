@@ -29,6 +29,7 @@ const ROTATIONAL_INERTIA: [[f64; 3]; 3] = [
 
 const TOLERANCE: f64 = 1e-12;
 
+#[must_use]
 fn x2() -> RigidBodyModel {
     let path =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../third_party/menagerie/skydio_x2/x2.xml");

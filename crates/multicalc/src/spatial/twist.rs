@@ -43,6 +43,7 @@ impl<T: Numeric> Twist<T> {
     /// assert_eq!(t.angular(), Vector::new([4.0, 5.0, 6.0]));
     /// ```
     #[inline]
+    #[must_use]
     pub fn new(linear: Vector3D<T>, angular: Vector3D<T>) -> Self {
         Twist { linear, angular }
     }
@@ -54,6 +55,7 @@ impl<T: Numeric> Twist<T> {
     /// assert_eq!(Twist::<f64>::zeros().as_array(), [0.0; 6]);
     /// ```
     #[inline]
+    #[must_use]
     pub fn zeros() -> Self {
         Twist {
             linear: Vector::zeros(),
@@ -70,6 +72,7 @@ impl<T: Numeric> Twist<T> {
     /// assert_eq!(t.angular(), Vector::new([4.0, 5.0, 6.0]));
     /// ```
     #[inline]
+    #[must_use]
     pub fn from_array(a: [T; 6]) -> Self {
         let [vx, vy, vz, wx, wy, wz] = a;
         Twist {
@@ -86,6 +89,7 @@ impl<T: Numeric> Twist<T> {
     /// assert_eq!(t.as_array(), [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
     /// ```
     #[inline]
+    #[must_use]
     pub fn as_array(self) -> [T; 6] {
         let [vx, vy, vz] = *self.linear.as_array();
         let [wx, wy, wz] = *self.angular.as_array();
@@ -101,6 +105,7 @@ impl<T: Numeric> Twist<T> {
     /// assert_eq!(t.linear(), Vector::new([1.0, 2.0, 3.0]));
     /// ```
     #[inline]
+    #[must_use]
     pub fn from_vector(v: Vector6D<T>) -> Self {
         Self::from_array(v.into_array())
     }
@@ -138,6 +143,7 @@ impl<T: Numeric> Twist<T> {
     /// assert_eq!(t.scale(2.0).as_array(), [2.0, 4.0, 6.0, 8.0, 10.0, 12.0]);
     /// ```
     #[inline]
+    #[must_use]
     pub fn scale(self, scalar: T) -> Self {
         Twist {
             linear: self.linear.scale(scalar),

@@ -32,6 +32,7 @@ impl Default for GaussianConfig {
 
 impl GaussianConfig {
     /// Builds a config with an explicit order and quadrature family.
+    #[must_use]
     pub const fn from_parameters(
         order: usize,
         integration_method: GaussianQuadratureMethod,
@@ -92,6 +93,7 @@ impl<T> Default for GaussianSingle<T> {
 
 impl<T> GaussianSingle<T> {
     /// custom constructor, optimal for fine-tuning for specific cases
+    #[must_use]
     pub const fn from_parameters(
         order: usize,
         integration_method: GaussianQuadratureMethod,
@@ -232,6 +234,7 @@ impl<T> Default for GaussianMulti<T> {
 
 impl<T> GaussianMulti<T> {
     /// custom constructor, optimal for fine-tuning for specific cases
+    #[must_use]
     pub const fn from_parameters(
         order: usize,
         integration_method: GaussianQuadratureMethod,

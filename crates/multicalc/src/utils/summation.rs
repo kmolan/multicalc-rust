@@ -30,6 +30,7 @@ pub(crate) struct PairwiseSum<T: Numeric> {
 
 impl<T: Numeric> PairwiseSum<T> {
     #[inline]
+    #[must_use]
     pub(crate) fn new() -> Self {
         Self {
             tree: [T::ZERO; LEVELS],
@@ -70,6 +71,7 @@ impl<T: Numeric> PairwiseSum<T> {
     }
 
     #[inline]
+    #[must_use]
     pub(crate) fn total(&self) -> T {
         // Combine the live tree slots (smallest first) with the partial block. Scan only up
         // to the highest occupied level (~log2 n): an unfilled block leaves the tree empty,
@@ -110,6 +112,7 @@ pub(crate) struct KahanSum<T: Numeric> {
 
 impl<T: Numeric> KahanSum<T> {
     #[inline]
+    #[must_use]
     pub(crate) fn new() -> Self {
         Self {
             sum: T::ZERO,
@@ -126,6 +129,7 @@ impl<T: Numeric> KahanSum<T> {
     }
 
     #[inline]
+    #[must_use]
     pub(crate) fn total(&self) -> T {
         self.sum
     }
@@ -138,6 +142,7 @@ pub(crate) enum Acc<T: Numeric> {
 
 impl<T: Numeric> Acc<T> {
     #[inline]
+    #[must_use]
     pub(crate) fn new(method: SummationMethod) -> Self {
         match method {
             SummationMethod::Pairwise => Acc::Pairwise(PairwiseSum::new()),
@@ -154,6 +159,7 @@ impl<T: Numeric> Acc<T> {
     }
 
     #[inline]
+    #[must_use]
     pub(crate) fn total(self) -> T {
         match self {
             Acc::Pairwise(a) => a.total(),

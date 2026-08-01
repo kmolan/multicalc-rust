@@ -17,6 +17,7 @@ pub struct SO2<T: Numeric = f64> {
 impl<T: Numeric> SO2<T> {
     /// The zero rotation.
     #[inline]
+    #[must_use]
     pub fn identity() -> Self {
         SO2 {
             c: T::ONE,
@@ -26,6 +27,7 @@ impl<T: Numeric> SO2<T> {
 
     /// The rotation by `theta` radians.
     #[inline]
+    #[must_use]
     pub fn from_angle(theta: T) -> Self {
         SO2 {
             c: theta.cos(),
@@ -35,12 +37,14 @@ impl<T: Numeric> SO2<T> {
 
     /// The `(cos, sin)` components.
     #[inline]
+    #[must_use]
     pub fn cos_sin(self) -> (T, T) {
         (self.c, self.s)
     }
 
     /// Composition (also available as `*`).
     #[inline]
+    #[must_use]
     pub fn compose(self, rhs: Self) -> Self {
         SO2 {
             c: self.c * rhs.c - self.s * rhs.s,
@@ -50,6 +54,7 @@ impl<T: Numeric> SO2<T> {
 
     /// The inverse rotation.
     #[inline]
+    #[must_use]
     pub fn inverse(self) -> Self {
         SO2 {
             c: self.c,
@@ -66,12 +71,14 @@ impl<T: Numeric> SO2<T> {
 
     /// The exponential map from the tangent angle.
     #[inline]
+    #[must_use]
     pub fn exp(theta: T) -> Self {
         Self::from_angle(theta)
     }
 
     /// The logarithm, the tangent angle in `(−π, π]`.
     #[inline]
+    #[must_use]
     pub fn log(self) -> T {
         self.s.atan2(self.c)
     }
@@ -84,6 +91,7 @@ impl<T: Numeric> SO2<T> {
 
     /// The inverse of [`SO2::hat`].
     #[inline]
+    #[must_use]
     pub fn vee(m: Matrix2D<T>) -> T {
         let [[_, _], [m10, _]] = m.into_array();
         m10
@@ -91,6 +99,7 @@ impl<T: Numeric> SO2<T> {
 
     /// The adjoint, which is `1` (SO(2) is abelian).
     #[inline]
+    #[must_use]
     pub fn adjoint(self) -> T {
         T::ONE
     }
@@ -104,6 +113,7 @@ impl<T: Numeric> SO2<T> {
     /// Builds a rotation from a 2×2 matrix, normalizing its first column; `None` if that column is
     /// non-finite or degenerate.
     #[inline]
+    #[must_use]
     pub fn try_from_matrix(m: Matrix2D<T>) -> Option<Self> {
         let [[c, _], [s, _]] = m.into_array();
         let n = (c * c + s * s).sqrt();
@@ -116,12 +126,14 @@ impl<T: Numeric> SO2<T> {
 
     /// Geodesic interpolation; `t = 0` gives `self`, `t = 1` gives `other`.
     #[inline]
+    #[must_use]
     pub fn interpolate(self, other: Self, t: T) -> Self {
         self.compose(Self::exp(self.inverse().compose(other).log() * t))
     }
 
     /// The squared norm `c² + s²`.
     #[inline]
+    #[must_use]
     fn norm_squared(self) -> T {
         self.c * self.c + self.s * self.s
     }
@@ -153,6 +165,7 @@ impl<T: Numeric> SO2<T> {
     /// assert!((normalized.norm() - 1.0).abs() <= <f64 as multicalc::Numeric>::EPSILON);
     /// ```
     #[inline]
+    #[must_use]
     pub fn normalized(self) -> Self {
         let scale = self.norm().recip();
         SO2 {
@@ -163,24 +176,28 @@ impl<T: Numeric> SO2<T> {
 
     /// The SO(2) left Jacobian, which is `1` (SO(2) is abelian).
     #[inline]
+    #[must_use]
     pub fn left_jacobian(_theta: T) -> T {
         T::ONE
     }
 
     /// The SO(2) right Jacobian, which is `1` (SO(2) is abelian).
     #[inline]
+    #[must_use]
     pub fn right_jacobian(_theta: T) -> T {
         T::ONE
     }
 
     /// The inverse SO(2) left Jacobian, which is `1` (SO(2) is abelian).
     #[inline]
+    #[must_use]
     pub fn left_jacobian_inverse(_theta: T) -> T {
         T::ONE
     }
 
     /// The inverse SO(2) right Jacobian, which is `1` (SO(2) is abelian).
     #[inline]
+    #[must_use]
     pub fn right_jacobian_inverse(_theta: T) -> T {
         T::ONE
     }
