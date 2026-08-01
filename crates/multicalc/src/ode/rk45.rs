@@ -68,33 +68,44 @@ impl<T: Numeric> Default for Rk45<T> {
 
 impl<T: Numeric> Rk45<T> {
     /// Sets the relative tolerance (default `1e-6`).
+    /// ```compile_fail
+    /// #![deny(unused_must_use)]
+    /// use multicalc::ode::Rk45;
+    /// Rk45::default().with_rtol(1e-8); //discarded builder result
+    /// ```
+    #[must_use]
     pub fn with_rtol(mut self, rtol: T) -> Self {
         self.rtol = rtol;
         self
     }
     /// Sets the absolute tolerance (default `1e-9`).
+    #[must_use]
     pub fn with_atol(mut self, atol: T) -> Self {
         self.atol = atol;
         self
     }
     /// Sets the first step size; `0` (the default) auto-selects it.
+    #[must_use]
     pub fn with_first_step(mut self, h: T) -> Self {
         self.first_step = h;
         self
     }
     /// Sets the minimum step magnitude; falling below it returns [`IntegrateError::StepSizeTooSmall`].
     /// `0` (the default) disables the floor.
+    #[must_use]
     pub fn with_min_step(mut self, h: T) -> Self {
         self.min_step = h;
         self
     }
     /// Sets the maximum step magnitude (default unbounded).
+    #[must_use]
     pub fn with_max_step(mut self, h: T) -> Self {
         self.max_step = h;
         self
     }
     /// Sets the maximum number of step attempts before [`IntegrateError::DidNotConverge`]
     /// (default `100_000`).
+    #[must_use]
     pub fn with_max_steps(mut self, n: usize) -> Self {
         self.max_steps = n;
         self
@@ -103,6 +114,7 @@ impl<T: Numeric> Rk45<T> {
 
 /// RMS of `err_i / (atol + rtol * max(|y0_i|, |y1_i|))` over the components.
 /// Returns `T::ZERO` when `N == 0`.
+#[must_use]
 fn error_norm<const N: usize, T: Numeric>(
     err: &Vector<N, T>,
     y0: &Vector<N, T>,
@@ -124,6 +136,7 @@ fn error_norm<const N: usize, T: Numeric>(
 
 /// RMS of `v_i / (atol + rtol * |y_i|)` — used by the initial-step heuristic.
 /// Returns `T::ZERO` when `N == 0`.
+#[must_use]
 fn scaled_norm<const N: usize, T: Numeric>(
     v: &Vector<N, T>,
     y: &Vector<N, T>,
@@ -220,6 +233,7 @@ impl<T: Numeric> Rk45<T> {
     /// scaled norms of `y0` and `f0`, take one explicit Euler probe to estimate the second
     /// derivative, then combine them for a step matched to the method order (5). `f0` is
     /// `f(t0, y0)` and `span` is `|tf − t0|`; the result never exceeds `max_step` or `span`.
+    #[must_use]
     fn select_initial_step<const N: usize, F>(
         &self,
         f: &F,

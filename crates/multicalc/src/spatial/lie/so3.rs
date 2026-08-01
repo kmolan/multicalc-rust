@@ -31,6 +31,7 @@ pub struct SO3<T: Numeric = f64> {
 impl<T: Numeric> SO3<T> {
     /// The zero rotation.
     #[inline]
+    #[must_use]
     pub fn identity() -> Self {
         SO3 {
             q: Quaternion::identity(),
@@ -40,30 +41,35 @@ impl<T: Numeric> SO3<T> {
     /// From a quaternion, normalized to unit norm. Yields NaN components for a zero quaternion, as
     /// float division does; use [`SO3::try_from_quaternion`] for a checked version.
     #[inline]
+    #[must_use]
     pub fn from_quaternion(q: Quaternion<T>) -> Self {
         SO3 { q: q.normalized() }
     }
 
     /// From a quaternion, or `None` if its norm is non-finite or underflows.
     #[inline]
+    #[must_use]
     pub fn try_from_quaternion(q: Quaternion<T>) -> Option<Self> {
         q.try_normalized().map(|q| SO3 { q })
     }
 
     /// The underlying unit quaternion.
     #[inline]
+    #[must_use]
     pub fn quaternion(self) -> Quaternion<T> {
         self.q
     }
 
     /// Composition (also available as `*`).
     #[inline]
+    #[must_use]
     pub fn compose(self, rhs: Self) -> Self {
         SO3 { q: self.q * rhs.q }
     }
 
     /// The inverse rotation.
     #[inline]
+    #[must_use]
     pub fn inverse(self) -> Self {
         SO3 {
             q: self.q.conjugate(),
@@ -79,6 +85,7 @@ impl<T: Numeric> SO3<T> {
     /// The exponential map from a rotation vector `φ = θ·n̂`. Near θ = 0 the underlying quaternion
     /// uses a Taylor series, so the derivative stays finite at φ = 0.
     #[inline]
+    #[must_use]
     pub fn exp(phi: Vector3D<T>) -> Self {
         SO3 {
             q: Quaternion::from_scaled_axis(phi),
@@ -118,12 +125,14 @@ impl<T: Numeric> SO3<T> {
 
     /// Builds a rotation from a 3×3 matrix; `None` if it is degenerate.
     #[inline]
+    #[must_use]
     pub fn try_from_matrix(m: Matrix3D<T>) -> Option<Self> {
         Quaternion::try_from_rotation_matrix(m).map(|q| SO3 { q })
     }
 
     /// Geodesic interpolation (slerp); `t = 0` gives `self`, `t = 1` gives `other`.
     #[inline]
+    #[must_use]
     pub fn interpolate(self, other: Self, t: T) -> Self {
         SO3 {
             q: self.q.slerp(other.q, t),
@@ -132,6 +141,7 @@ impl<T: Numeric> SO3<T> {
 
     /// This rotation renormalized, removing drift accumulated over long composition chains.
     #[inline]
+    #[must_use]
     pub fn normalized(self) -> Self {
         SO3 {
             q: self.q.normalized(),

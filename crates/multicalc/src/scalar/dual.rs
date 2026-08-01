@@ -25,12 +25,14 @@ pub struct Dual<T: Numeric = f64> {
 impl<T: Numeric> Dual<T> {
     /// A dual number with an explicit value and derivative.
     #[inline]
+    #[must_use]
     pub fn new(value: T, deriv: T) -> Self {
         Dual { value, deriv }
     }
 
     /// A constant, whose derivative with respect to the variable is zero.
     #[inline]
+    #[must_use]
     pub fn constant(value: T) -> Self {
         Dual {
             value,
@@ -40,6 +42,7 @@ impl<T: Numeric> Dual<T> {
 
     /// The independent variable, seeded with derivative one.
     #[inline]
+    #[must_use]
     pub fn variable(value: T) -> Self {
         Dual {
             value,

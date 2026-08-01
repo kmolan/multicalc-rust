@@ -3,6 +3,7 @@ use crate::numerical_integration::DEFAULT_TOTAL_ITERATIONS;
 use crate::scalar::Numeric;
 
 /// Builds the curve position [transformations[0](t), ..., transformations[N-1](t)].
+#[must_use]
 fn curve_point<T: Numeric, const N: usize>(transformations: &[&dyn Fn(T) -> T; N], t: T) -> [T; N] {
     let mut point = [T::ZERO; N];
     for i in 0..N {

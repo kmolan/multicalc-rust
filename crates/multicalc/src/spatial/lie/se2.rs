@@ -18,6 +18,7 @@ pub struct SE2<T: Numeric = f64> {
 impl<T: Numeric> SE2<T> {
     /// The identity transform.
     #[inline]
+    #[must_use]
     pub fn identity() -> Self {
         SE2 {
             rotation: SO2::identity(),
@@ -27,6 +28,7 @@ impl<T: Numeric> SE2<T> {
 
     /// A transform from a rotation and translation.
     #[inline]
+    #[must_use]
     pub fn from_parts(rotation: SO2<T>, translation: Vector2D<T>) -> Self {
         SE2 {
             rotation,
@@ -36,6 +38,7 @@ impl<T: Numeric> SE2<T> {
 
     /// The rotation part.
     #[inline]
+    #[must_use]
     pub fn rotation(self) -> SO2<T> {
         self.rotation
     }
@@ -48,6 +51,7 @@ impl<T: Numeric> SE2<T> {
 
     /// Composition (also available as `*`).
     #[inline]
+    #[must_use]
     pub fn compose(self, rhs: Self) -> Self {
         SE2 {
             rotation: self.rotation.compose(rhs.rotation),
@@ -57,6 +61,7 @@ impl<T: Numeric> SE2<T> {
 
     /// The inverse transform.
     #[inline]
+    #[must_use]
     pub fn inverse(self) -> Self {
         let r_inv = self.rotation.inverse();
         SE2 {
@@ -74,6 +79,7 @@ impl<T: Numeric> SE2<T> {
     /// The exponential map from a `[vx, vy, ω]` twist. Near ω = 0 the `V(θ)` block uses a Taylor
     /// series, keeping the value and its derivative finite.
     #[inline]
+    #[must_use]
     pub fn exp(xi: Vector3D<T>) -> Self {
         let [vx, vy, omega] = *xi.as_array();
         let theta_sq = omega * omega;
@@ -143,6 +149,7 @@ impl<T: Numeric> SE2<T> {
 
     /// Builds a transform from a 3×3 homogeneous matrix; `None` if the rotation block is degenerate.
     #[inline]
+    #[must_use]
     pub fn try_from_matrix(m: Matrix3D<T>) -> Option<Self> {
         let [[m00, m01, m02], [m10, m11, m12], _] = m.into_array();
         let r = SO2::try_from_matrix(Matrix::new([[m00, m01], [m10, m11]]))?;
@@ -154,6 +161,7 @@ impl<T: Numeric> SE2<T> {
 
     /// Geodesic interpolation; `t = 0` gives `self`, `t = 1` gives `other`.
     #[inline]
+    #[must_use]
     pub fn interpolate(self, other: Self, t: T) -> Self {
         self.compose(Self::exp(self.inverse().compose(other).log() * t))
     }

@@ -44,6 +44,7 @@ impl<T: Numeric> FreeJointState<T> {
     /// assert_eq!(state.velocity(), Twist::zeros());
     /// ```
     #[inline]
+    #[must_use]
     pub fn new(pose: SE3<T>, velocity: Twist<T>) -> Self {
         FreeJointState { pose, velocity }
     }
@@ -58,6 +59,7 @@ impl<T: Numeric> FreeJointState<T> {
     /// );
     /// ```
     #[inline]
+    #[must_use]
     pub fn identity() -> Self {
         FreeJointState {
             pose: SE3::identity(),
@@ -92,6 +94,7 @@ impl<T: Numeric> FreeJointState<T> {
     ///
     /// assert!(FreeJointState::from_generalized_vectors([0.0_f64; 7], [0.0; 6]).is_none());
     /// ```
+    #[must_use]
     pub fn from_generalized_vectors(position: [T; 7], velocity: [T; 6]) -> Option<Self> {
         let [x, y, z, w, qx, qy, qz] = position;
         let orientation = Quaternion::new(w, qx, qy, qz).try_normalized()?;

@@ -22,7 +22,7 @@ fn assert_low_pass_passes_a_constant<T: Numeric>(tolerance: T) {
     let mut filter = Biquad::new(coefficients);
     let input = T::from_f64(5.0);
     for _ in 0..500 {
-        filter.filter(input);
+        let _ = filter.filter(input);
     }
     assert!((filter.value() - input).abs() < tolerance);
 }
@@ -43,7 +43,7 @@ fn assert_high_pass_blocks_a_constant<T: Numeric>(tolerance: T) {
             .unwrap();
     let mut filter = Biquad::new(coefficients);
     for _ in 0..500 {
-        filter.filter(T::from_f64(5.0));
+        let _ = filter.filter(T::from_f64(5.0));
     }
     assert!(filter.value().abs() < tolerance);
 }
@@ -121,7 +121,7 @@ fn swapping_weights_keeps_the_output_continuous() {
     // A notch passes a constant untouched, so this settles on 1.
     let mut running = Biquad::new(first);
     for _ in 0..1000 {
-        running.filter(1.0);
+        let _ = running.filter(1.0);
     }
     running.set_coefficients(second);
     assert!((running.filter(1.0) - 1.0).abs() < 0.03);

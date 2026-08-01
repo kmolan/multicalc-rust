@@ -32,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `zoh` and `van_loan` now reject negative or non-finite timesteps before constructing their
   augmented matrices. (#203)
 
+### Changed
+
+- Apply `#[must_use]` consistently across `multicalc` (and `multicalc-mjcf`) on
+  value-returning accessors, builders, and helpers, so discarded results warn under
+  `unused_must_use`. Engine constructors and returns already covered by `Result` /
+  `Vector` / `Matrix` stay unmarked. @rtmongold (#251)
+
 ## [0.9.0] - 2026-07-26
 
 A feature release adding state estimation, feedback control, wheeled kinematics, and

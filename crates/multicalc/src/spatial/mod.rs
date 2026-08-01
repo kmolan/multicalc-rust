@@ -26,6 +26,7 @@ pub use wrench::Wrench;
 /// Also used for eps-scale proximity checks (e.g. Euler gimbal lock vs ±1).
 /// Scaled as `30 · EPSILON` so each scalar type gets a type-appropriate cutoff.
 #[inline]
+#[must_use]
 pub(crate) fn small_angle<T: Numeric>() -> T {
     T::EPSILON_X30
 }
@@ -33,6 +34,7 @@ pub(crate) fn small_angle<T: Numeric>() -> T {
 /// Squared small-angle threshold, `(30 · EPSILON)²`, for branches on θ² / ‖v‖² before
 /// `sqrt`.
 #[inline]
+#[must_use]
 pub(crate) fn small_angle_sq<T: Numeric>() -> T {
     small_angle::<T>() * small_angle::<T>()
 }

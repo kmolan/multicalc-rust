@@ -53,6 +53,7 @@ impl<const ROWS: usize, const COLS: usize, T> Matrix<ROWS, COLS, T> {
     // Crate-internal panic path (also used by Index). Public: prefer `[]`; use `get` when fallible.
     #[inline]
     #[track_caller]
+    #[must_use]
     pub(crate) fn at(&self, row: usize, col: usize) -> &T {
         #[allow(clippy::indexing_slicing)]
         &self.data[row][col]
@@ -394,6 +395,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     }
 
     #[inline]
+    #[must_use]
     fn determinant_2x2(self) -> T {
         self.data[0][0] * self.data[1][1] - self.data[0][1] * self.data[1][0]
     }
@@ -414,6 +416,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     }
 
     #[inline]
+    #[must_use]
     fn determinant_3x3(self) -> T {
         let m = self.data;
         m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
@@ -458,6 +461,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// indexed by column pair `01, 02, 03, 12, 13, 23`. Both the 4×4 determinant and its
     /// adjugate are built from these, so they are computed once and shared.
     #[inline]
+    #[must_use]
     fn row_pair_minors(self) -> ([T; 6], [T; 6]) {
         let m = self.data;
         let top = [
@@ -480,6 +484,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     }
 
     #[inline]
+    #[must_use]
     fn determinant_4x4(self) -> T {
         let (top, bottom) = self.row_pair_minors();
         top[0] * bottom[5] - top[1] * bottom[4] + top[2] * bottom[3] + top[3] * bottom[2]

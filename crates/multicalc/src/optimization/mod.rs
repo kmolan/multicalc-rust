@@ -50,6 +50,7 @@ pub struct MinimizationReport<const N: usize, T = f64> {
 }
 
 /// Whether every element of `v` is finite.
+#[must_use]
 pub(crate) fn is_finite<const K: usize, T: Numeric>(v: &[T; K]) -> bool {
     v.iter().all(|value| value.is_finite())
 }

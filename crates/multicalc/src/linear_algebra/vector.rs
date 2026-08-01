@@ -87,6 +87,7 @@ impl<const N: usize, T> Vector<N, T> {
     // Crate-internal panic path (also used by Index). Public: prefer `[]`; use `get` when fallible.
     #[inline]
     #[track_caller]
+    #[must_use]
     pub(crate) fn at(&self, i: usize) -> &T {
         #[allow(clippy::indexing_slicing)]
         &self.data[i]

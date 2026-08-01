@@ -159,6 +159,7 @@ fn residual<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indices:
 }
 
 /// The smallest source whose cumulative weight reaches `draw`.
+#[must_use]
 fn draw_from_weights<T: Numeric>(weights: &[T], draw: T) -> usize {
     let mut running_sum = T::ZERO;
     for (source, &weight) in weights.iter().enumerate() {
@@ -171,6 +172,7 @@ fn draw_from_weights<T: Numeric>(weights: &[T], draw: T) -> usize {
 }
 
 /// The smallest source whose cumulative fractional remainder reaches `draw`.
+#[must_use]
 fn draw_from_remainders<T: Numeric>(
     weights: &[T],
     count_scalar: T,
@@ -194,6 +196,7 @@ fn draw_from_remainders<T: Numeric>(
 pub trait Likelihood<const MEASUREMENT_DIMENSION: usize, T: Numeric> {
     /// The log of the (unnormalized) weight for a particle whose model predicts `predicted` when the
     /// sensor read `measurement`. Larger means a better match.
+    #[must_use]
     fn log_weight(
         &self,
         predicted: &[T; MEASUREMENT_DIMENSION],

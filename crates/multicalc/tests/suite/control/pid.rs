@@ -96,7 +96,7 @@ fn reset_zeroes_the_integral() {
     let mut controller =
         Pid::new(proportional_gain, integral_gain, derivative_gain, timestep).unwrap();
     for _ in 0..100 {
-        controller.update(1.0, 0.0);
+        let _ = controller.update(1.0, 0.0);
     }
     assert!(controller.integral() != 0.0);
     controller.reset();
@@ -159,7 +159,7 @@ fn output_of_one_step<T: Numeric>(setpoint: T) -> T {
     let timestep = T::from_f64(0.01);
     let mut controller =
         Pid::new(proportional_gain, integral_gain, derivative_gain, timestep).unwrap();
-    controller.update(setpoint, T::ZERO);
+    let _ = controller.update(setpoint, T::ZERO);
     controller.update(setpoint, T::from_f64(0.3))
 }
 
