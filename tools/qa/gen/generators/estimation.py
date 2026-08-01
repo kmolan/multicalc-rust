@@ -12,6 +12,15 @@ def _tol():
     return {"f64": schema.tol(1e-10, 1e-9), "f32": schema.tol(1e-3, 1e-3)}
 
 
+def _unscented_tol(default_spread):
+    # At the shipped spread of alpha = 1e-3 the middle point carries a weight near -10^6, so the
+    # covariance is a difference of large nearly-equal numbers and a few digits go with it. A wider
+    # spread keeps every weight ordinary and holds the same bound the other filters do.
+    if default_spread:
+        return {"f64": schema.tol(1e-8, 1e-7), "f32": schema.tol(1e-2, 1e-2)}
+    return {"f64": schema.tol(1e-10, 1e-9), "f32": schema.tol(1e-3, 1e-3)}
+
+
 def _run_filter(kf, measurements, controls=None):
     """Steps the filter over the measurement sequence, returning its final quantities."""
     for index, z in enumerate(measurements):
@@ -155,6 +164,22 @@ def _with_control_input(out, rng, meta):
     )
 
 
+def _coordinated_turn_step(state, timestep):
+    """One tick along the turning arc. Mirrors CoordinatedTurn in
+    tools/testkit/src/problems.rs and CoordinatedTurnModel in
+    demos/src/sim/kalman_filter_models.rs; the three must stay in step."""
+    x, y, heading, speed, turn_rate = state
+    next_heading = heading + turn_rate * timestep
+    radius = speed / turn_rate
+    return np.array([
+        x + radius * (np.sin(next_heading) - np.sin(heading)),
+        y + radius * (np.cos(heading) - np.cos(next_heading)),
+        next_heading,
+        speed,
+        turn_rate,
+    ])
+
+
 def _landmark_range_and_bearing(out, rng, meta):
     """A stationary pose observed by range and bearing to one known landmark: nonlinear h, linear f."""
     from filterpy.kalman import ExtendedKalmanFilter
@@ -229,18 +254,7 @@ def _coordinated_turn_fusion(out, rng, meta):
     true_initial_state = np.array([0.0, 0.0, 0.0, 1.0, 0.3])
 
     def advance_state(state):
-        """One tick along the turning arc. Mirrors CoordinatedTurnModel in
-        demos/src/sim/kalman_filter_models.rs; the two must stay in step."""
-        x, y, heading, speed, turn_rate = state
-        next_heading = heading + turn_rate * timestep
-        radius = speed / turn_rate
-        return np.array([
-            x + radius * (np.sin(next_heading) - np.sin(heading)),
-            y + radius * (np.cos(heading) - np.cos(next_heading)),
-            next_heading,
-            speed,
-            turn_rate,
-        ])
+        return _coordinated_turn_step(state, timestep)
 
     def transition_jacobian(state):
         """How each output of advance_state changes with each input."""
@@ -308,6 +322,115 @@ def _coordinated_turn_fusion(out, rng, meta):
     )
 
 
+def _unscented_coordinated_turn_fusion(out, rng, meta):
+    """The turning-vehicle track again, sampled at a spread of points rather than linearized."""
+    from filterpy.kalman import MerweScaledSigmaPoints, UnscentedKalmanFilter
+
+    timestep, steps = 0.1, 8
+    alpha, beta, kappa = 1e-3, 2.0, 0.0
+    process_noise = np.diag([1e-7, 1e-7, 1e-7, 4e-4, 4e-4])
+    measurement_noise = np.diag([0.09, 0.09])
+    initial_state = np.array([0.2, -0.1, 0.05, 0.9, 0.25])
+    initial_covariance = np.diag([0.5, 0.5, 0.2, 0.2, 0.2])
+    true_initial_state = np.array([0.0, 0.0, 0.0, 1.0, 0.3])
+
+    true_state = true_initial_state.copy()
+    measurements = np.zeros((steps, 2))
+    for step in range(steps):
+        true_state = _coordinated_turn_step(true_state, timestep)
+        measurements[step] = true_state[:2] + rng.normal(0.0, 0.3, size=2)
+
+    points = MerweScaledSigmaPoints(n=5, alpha=alpha, beta=beta, kappa=kappa)
+    estimator = UnscentedKalmanFilter(
+        dim_x=5, dim_z=2, dt=timestep,
+        fx=lambda state, _dt: _coordinated_turn_step(state, timestep),
+        hx=lambda state: state[:2].copy(),
+        points=points,
+    )
+    estimator.x = initial_state.copy()
+    estimator.P = initial_covariance.copy()
+    estimator.Q, estimator.R = process_noise, measurement_noise
+    for measurement in measurements:
+        estimator.predict()
+        estimator.update(measurement)
+
+    inputs = {
+        "kind": schema.string("unscented_kalman_filter"),
+        "case": schema.string("coordinated_turn_fusion"),
+        "timestep": schema.scalar(timestep),
+        "alpha": schema.scalar(alpha),
+        "beta": schema.scalar(beta),
+        "kappa": schema.scalar(kappa),
+        "process_noise": schema.matrix(process_noise),
+        "measurement_noise": schema.matrix(measurement_noise),
+        "initial_state": schema.vector(initial_state),
+        "initial_covariance": schema.matrix(initial_covariance),
+        "measurements": schema.matrix(measurements),
+    }
+    schema.write_fixture(
+        out, "estimation", "unscented_kalman_filter_coordinated_turn_fusion",
+        meta, _unscented_tol(True), inputs, _expected(estimator),
+        equation="f = coordinated turn on [x, y, θ, v, ω], h = [x, y], α = 1e-3",
+        operations=["Unscented Kalman filter, 8 steps, state 5 / measurement 2, spread 1e-3"],
+    )
+
+
+def _unscented_landmark_range_and_bearing(out, rng, meta):
+    """The landmark sighting again, with the points spread wide enough to sample the curve."""
+    from filterpy.kalman import MerweScaledSigmaPoints, UnscentedKalmanFilter
+
+    landmark = np.array([3.0, 4.0])
+    steps = 8
+    alpha, beta, kappa = 0.3, 2.0, 0.0
+    process_noise = np.eye(3) * 0.001
+    measurement_noise = np.diag([0.1, 0.05])
+    initial_state = np.array([0.2, -0.1, 0.05])
+    initial_covariance = np.eye(3) * 0.5
+    truth = np.array([0.0, 0.0, 0.0])
+
+    def measure(state):
+        offset = landmark - state[:2]
+        return np.array([np.hypot(offset[0], offset[1]),
+                         np.arctan2(offset[1], offset[0]) - state[2]])
+
+    exact = measure(truth)
+    zs = exact + rng.normal(0.0, [0.1, 0.05], size=(steps, 2))
+
+    points = MerweScaledSigmaPoints(n=3, alpha=alpha, beta=beta, kappa=kappa)
+    estimator = UnscentedKalmanFilter(
+        dim_x=3, dim_z=2, dt=1.0,
+        fx=lambda state, _dt: state.copy(),
+        hx=measure,
+        points=points,
+    )
+    estimator.x = initial_state.copy()
+    estimator.P = initial_covariance.copy()
+    estimator.Q, estimator.R = process_noise, measurement_noise
+    for z in zs:
+        estimator.predict()
+        estimator.update(z)
+
+    inputs = {
+        "kind": schema.string("unscented_kalman_filter"),
+        "case": schema.string("landmark_range_and_bearing"),
+        "landmark": schema.vector(landmark),
+        "alpha": schema.scalar(alpha),
+        "beta": schema.scalar(beta),
+        "kappa": schema.scalar(kappa),
+        "process_noise": schema.matrix(process_noise),
+        "measurement_noise": schema.matrix(measurement_noise),
+        "initial_state": schema.vector(initial_state),
+        "initial_covariance": schema.matrix(initial_covariance),
+        "measurements": schema.matrix(zs),
+    }
+    schema.write_fixture(
+        out, "estimation", "unscented_kalman_filter_landmark_range_and_bearing",
+        meta, _unscented_tol(False), inputs, _expected(estimator),
+        equation="h = [√((3−x)²+(4−y)²), atan2(4−y, 3−x)−θ], f = I, α = 0.3",
+        operations=["Unscented Kalman filter, 8 steps, state 3 / measurement 2, spread 0.3"],
+    )
+
+
 def run(out, rng, seed):
     meta = schema.metadata(
         "estimation", seed,
@@ -321,3 +444,5 @@ def run(out, rng, seed):
     _with_control_input(out, rng, meta)
     _landmark_range_and_bearing(out, rng, meta)
     _coordinated_turn_fusion(out, rng, meta)
+    _unscented_coordinated_turn_fusion(out, rng, meta)
+    _unscented_landmark_range_and_bearing(out, rng, meta)

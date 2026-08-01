@@ -1428,6 +1428,87 @@ filter.predict(&Stationary).unwrap();
 filter.update(&RangeToLandmark, Vector::new([5.5])).unwrap();
 ```
 
+### Unscented filter
+
+`UnscentedKalmanFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T>` takes the same `VectorFn` models
+the extended filter does, and handles their curvature a different way. Rather than flattening the
+model to a straight line at the current estimate, it picks `2·STATE_DIMENSION + 1` points spread
+around it, pushes each one through the model untouched, and rebuilds the estimate from where they
+land. **The model is never differentiated, so it does not have to be smooth** — a lookup table, a
+saturating actuator, or a branch on a threshold works here and does not work in a filter that needs
+a derivative. On a strongly curved model the answer is usually closer than one straight-line fit
+gets.
+
+- `new`: the same four matrices as the extended filter — initial estimate, initial covariance,
+  process noise, measurement noise.
+- `with_scaling(alpha, beta, kappa)`: how far the points spread and how the middle one is weighted.
+  `alpha` = 1e-3, `beta` = 2, `kappa` = 0 by default. It returns a `Result` rather than chaining,
+  because a spread that works out to zero or less has no points to place and is worth catching where
+  it is written rather than a step later.
+- `with_regularization(epsilon)`: adds `epsilon` to the diagonal before the covariance is
+  factorized. Off by default and never applied on its own — a covariance that cannot be factorized
+  returns `EstimationError::NotPositiveDefinite`, and quietly nudging it would hide a filter that
+  has gone wrong.
+- `predict(&process_model)` / `update(&measurement_model, measurement)` /
+  `update_with_residual(&measurement_model, residual)`: as on the extended filter. `update` works
+  from the points `predict` left behind, so predict first — with no prediction the gain is zero and
+  the estimate does not move.
+- The accessors and `normalized_innovation_squared` are shared with the other two filters. There is
+  no `CovarianceUpdate` here: Joseph and naive are two ways of writing one step this filter does not
+  have. Its covariance is made exactly symmetric every time it is formed instead.
+
+```rust
+use multicalc::UnscentedKalmanFilter;
+use multicalc::{Matrix, Vector};
+use multicalc::{Numeric, VectorFn};
+
+// Range to a landmark at (3, 4), measured by a sensor that saturates at 6 — a model with a corner
+// in it, which no derivative describes and this filter does not need one for.
+struct SaturatingRange;
+impl VectorFn<2, 1> for SaturatingRange {
+    fn eval<S: Numeric>(&self, state: &[S; 2]) -> [S; 1] {
+        let to_landmark_x = S::from_f64(3.0) - state[0];
+        let to_landmark_y = S::from_f64(4.0) - state[1];
+        let range = (to_landmark_x * to_landmark_x + to_landmark_y * to_landmark_y).sqrt();
+        let ceiling = S::from_f64(6.0);
+        [if range > ceiling { ceiling } else { range }]
+    }
+}
+
+// A stationary target: the state carries over unchanged.
+struct Stationary;
+impl VectorFn<2, 2> for Stationary {
+    fn eval<S: Numeric>(&self, state: &[S; 2]) -> [S; 2] {
+        [state[0], state[1]]
+    }
+}
+
+let mut filter = UnscentedKalmanFilter::<2, 1>::new(
+    Vector::new([0.0, 0.0]),                  // initial state, 5.0 from the landmark
+    Matrix::new([[1.0, 0.0], [0.0, 1.0]]),
+    Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
+    Matrix::new([[0.1]]),
+)
+.with_scaling(0.3, 2.0, 0.0)
+.unwrap();
+
+filter.predict(&Stationary).unwrap();
+filter.update(&SaturatingRange, Vector::new([5.5])).unwrap();
+let position = filter.state();
+```
+
+One thing this filter asks that the other two do not. It averages the points it gets back, so an
+angle that the process model wraps into a ±π band is a trap: two points a hair apart end up at +π
+and −π, and their average is nothing like either. Let an angular state component run past ±π inside
+the model and wrap it afterwards through `set_state`. The points themselves sit a fraction of a
+standard deviation apart, so nothing else this filter averages can straddle the boundary — but the
+innovation can, which is what `update_with_residual` is for, exactly as on the extended filter.
+
+Which of the two nonlinear filters to reach for comes down to the model. The extended filter is
+cheaper when the model is cheap to differentiate and gently curved. This one costs
+`2·STATE_DIMENSION + 1` evaluations per step instead of a derivative, and earns that back on a
+sharply curved model, or on any model a derivative does not describe.
+
 ### Particle filter
 
 `ParticleFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T, R>` carries a cloud of weighted state
@@ -1546,7 +1627,7 @@ through `From`, so a caller that spans families can hold a single type. Every en
 | `IntegrateError` | [Integration](#integration), [Gaussian tables](#gaussian-quadrature-tables), [ODE](#ode-integrators) | `IterationsZero`, `LimitsIllDefined`, `QuadratureOrderOutOfRange`, `StepSizeTooSmall`, `DidNotConverge { steps }`, `NonFinite` |
 | `SolveError` | [Optimization](#least-squares-optimization), [Root finding](#root-finding) | `DidNotConverge { iters, residual }`, `NonFinite`, `InvalidBracket`, `Linalg(LinalgError)`, `Diff(DiffError)` |
 | `KinematicsError` | [Kinematics](#kinematics) | `NonPositiveParameter`, `NonFinite` |
-| `EstimationError` | [Estimation](#estimation) | `NotPositiveDefinite`, `NonFinite`, `Diff(DiffError)`, `WeightsDegenerate` |
+| `EstimationError` | [Estimation](#estimation) | `NotPositiveDefinite`, `NonFinite`, `Diff(DiffError)`, `WeightsDegenerate`, `InvalidTuning` |
 | `CalcError` | umbrella | `Linalg`, `Solve`, `Integrate`, `Differentiate`, `Kinematics`, `Estimation` |
 
 `SolveError` wraps `LinalgError` and `DiffError` (a solver step can fail in either), and both

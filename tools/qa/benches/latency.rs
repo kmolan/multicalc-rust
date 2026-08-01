@@ -6,7 +6,7 @@
 use std::hint::black_box;
 use std::path::PathBuf;
 
-use criterion::Criterion;
+use criterion::{BatchSize, Criterion};
 
 use multicalc::linear_algebra::{Matrix, Matrix4D, Vector, Vector2D};
 use multicalc::numerical_derivative::DerivatorSingleVariable;
@@ -273,6 +273,45 @@ fn bench_extended_kalman_filter_step(c: &mut Criterion) {
     });
 }
 
+fn bench_unscented_kalman_filter_step(c: &mut Criterion) {
+    // One predict + update of the same 5-state coordinated-turn filter, sampled at a spread of
+    // points instead of linearized: the other side of the accuracy-for-evaluations trade.
+    // Each iteration starts from a fresh copy of the same belief, which the untimed setup hands
+    // over. Reusing one filter for millions of ticks against a single repeated measurement lets the
+    // heading uncertainty — nothing in a position fix observes it — grow until the sampled points
+    // straddle ±π, where this motion model wraps its own heading and averaging them stops meaning
+    // anything. That is a property of the run, not of one step, and it is not what this row times.
+    use multicalc::estimation::UnscentedKalmanFilter;
+    let motion = CoordinatedTurn { timestep: 0.001 };
+    let initial = UnscentedKalmanFilter::<5, 2>::new(
+        Vector::new([0.0, 0.0, 0.0, 1.0, 0.3]),
+        Matrix::from_fn(|i, j| if i == j { 0.5 } else { 0.0 }),
+        Matrix::from_fn(|i, j| {
+            if i != j {
+                0.0
+            } else if i < 3 {
+                1e-7
+            } else {
+                4e-4
+            }
+        }),
+        Matrix::from_fn(|i, j| if i == j { 0.09 } else { 0.0 }),
+    );
+    let measurement = Vector::new([0.001, 0.0]);
+    c.bench_function("unscented_kalman_filter_step", |b| {
+        b.iter_batched(
+            || initial,
+            |mut filter| {
+                filter.predict(black_box(&motion)).unwrap();
+                filter
+                    .update(black_box(&GlobalPosition), black_box(measurement))
+                    .unwrap();
+            },
+            BatchSize::SmallInput,
+        )
+    });
+}
+
 fn bench_polynomial_evaluate(c: &mut Criterion) {
     use multicalc::Polynomial;
     let polynomial = Polynomial::<8, f64>::new([0.2, -1.1, 0.4, 2.0, -0.3, 0.05, 0.9, -0.15]);
@@ -481,6 +520,11 @@ const BENCHES: &[(&str, BenchFn, &str)] = &[
         "extended_kalman_filter_step",
         bench_extended_kalman_filter_step,
         "5-state coordinated turn + position fix, autodiff Jacobians, predict + update",
+    ),
+    (
+        "unscented_kalman_filter_step",
+        bench_unscented_kalman_filter_step,
+        "5-state coordinated turn + position fix, 11 sampled points, predict + update",
     ),
     (
         "polynomial_evaluate",

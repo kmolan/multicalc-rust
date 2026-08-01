@@ -128,6 +128,8 @@ const DOCS: &[Doc] = &[
                 "kalman_filter_with_control_input",
                 "extended_kalman_filter_landmark_range_and_bearing",
                 "extended_kalman_filter_coordinated_turn_fusion",
+                "unscented_kalman_filter_coordinated_turn_fusion",
+                "unscented_kalman_filter_landmark_range_and_bearing",
             ],
         }],
     },

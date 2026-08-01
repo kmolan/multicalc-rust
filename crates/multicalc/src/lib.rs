@@ -98,8 +98,10 @@ pub use spatial::FreeJointState;
 /// Differential-drive kinematics and SE(2) odometry.
 pub use kinematics::{BodyArc, BodyTwist, DifferentialDrive, WheelRotations, WheelVelocities};
 
-/// Linear Kalman filter and Extended Kalman filter
-pub use estimation::{CovarianceUpdate, ExtendedKalmanFilter, KalmanFilter, KalmanModel};
+/// Linear Kalman filter, Extended Kalman filter, and Unscented Kalman filter
+pub use estimation::{
+    CovarianceUpdate, ExtendedKalmanFilter, KalmanFilter, KalmanModel, UnscentedKalmanFilter,
+};
 
 /// Particle filter (bootstrap/SIR) with pluggable resampling and measurement likelihood.
 #[cfg(feature = "alloc")]
