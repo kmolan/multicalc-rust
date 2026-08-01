@@ -114,6 +114,8 @@ pub enum EstimationError {
     /// Every particle weight underflowed to zero — the measurement is incompatible with the whole
     /// cloud.
     WeightsDegenerate,
+    /// A filter tuning value did not describe a usable spread of sigma points.
+    InvalidTuning,
 }
 
 /// Errors from the signal-processing module (filters, smoothers, and signal conditioning).
@@ -463,6 +465,7 @@ impl core::fmt::Display for EstimationError {
             EstimationError::NonFinite => f.write_str("filter value was not finite"),
             EstimationError::Diff(e) => write!(f, "{e}"),
             EstimationError::WeightsDegenerate => f.write_str("all particle weights were zero"),
+            EstimationError::InvalidTuning => f.write_str("invalid filter tuning"),
         }
     }
 }
