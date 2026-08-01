@@ -33,6 +33,17 @@ fn general<const N: usize>() -> Matrix<N, N> {
     })
 }
 
+/// Symmetric and diagonally dominant, so its eigenvalues are well separated.
+fn symmetric<const N: usize>() -> Matrix<N, N> {
+    Matrix::from_fn(|i, j| {
+        if i == j {
+            (N + 2) as f64
+        } else {
+            1.0 / (1.0 + (i + j) as f64)
+        }
+    })
+}
+
 /// Residual struct for the Levenberg–Marquardt bench: y = a·e^(b·t).
 struct SensorFit<const M: usize> {
     t: [f64; M],
@@ -130,6 +141,14 @@ fn bench_expm(c: &mut Criterion) {
     // Matrix exponential of a fixed 6x6.
     let m = general::<6>();
     c.bench_function("expm", |b| b.iter(|| black_box(m).expm().unwrap()));
+}
+
+fn bench_symmetric_eigen(c: &mut Criterion) {
+    // Eigenvalues and directions of a fixed symmetric 6x6.
+    let m = symmetric::<6>();
+    c.bench_function("symmetric_eigen", |b| {
+        b.iter(|| black_box(m).symmetric_eigendecomposition().unwrap())
+    });
 }
 
 fn bench_rk45_solve(c: &mut Criterion) {
@@ -498,6 +517,11 @@ const BENCHES: &[(&str, BenchFn, &str)] = &[
     ("lu_solve", bench_lu_solve, "solve A·x = b (10×10)"),
     ("svd_solve", bench_svd_solve, "least-squares fit (30×3)"),
     ("expm", bench_expm, "matrix exponential eᴬ (6×6)"),
+    (
+        "symmetric_eigen",
+        bench_symmetric_eigen,
+        "eigenvalues and directions (6×6)",
+    ),
     ("rk45_solve", bench_rk45_solve, "y″ = −y, adaptive to 2π"),
     (
         "rk4_integrate",
