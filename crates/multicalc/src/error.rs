@@ -194,6 +194,47 @@ pub enum MotionError {
     CapacityExceeded,
     /// A query required more waypoints than the path contains.
     PathTooShort,
+    /// There is not exactly one duration for each pair of waypoints.
+    SegmentCountMismatch,
+    /// A segment duration was zero or negative.
+    DurationNotPositive,
+    /// The planner holds fewer free derivatives than this many segments needs.
+    WorkspaceTooSmall,
+    /// The trajectory's linear system could not be factorized.
+    Linalg(LinalgError),
+    /// A polynomial the trajectory is built from could not be formed.
+    Polynomial(PolynomialError),
+}
+
+/// Errors from polynomial construction, evaluation, and root finding.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
+pub enum PolynomialError {
+    /// A coefficient, node, or sample was infinite or NaN.
+    NonFinite,
+    /// The highest coefficient is zero, so the polynomial is not of the degree asked for.
+    LeadingCoefficientZero,
+    /// The result needs more coefficients than the polynomial has room for.
+    DegreeOverflow,
+    /// More terms than the polynomial can hold.
+    CapacityExceeded,
+    /// There is nothing to evaluate.
+    Empty,
+    /// A variable index past the number of variables the polynomial has.
+    VariableOutOfRange,
+    /// Two interpolation points share the same position.
+    DuplicateNode,
+    /// Fewer samples were given than the number of coefficients to fit.
+    TooFewSamples,
+    /// A piece covers zero or a negative amount of the parameter.
+    SpanNotPositive,
+    /// Root isolation ran out of steps before separating every root.
+    DidNotConverge {
+        /// How many halving steps were taken.
+        steps: usize,
+    },
+    /// A fit or an endpoint solve could not be factorized.
+    Linalg(LinalgError),
 }
 
 /// Umbrella over the per-module-family errors. Fallible operations return their family enum; this
@@ -221,6 +262,8 @@ pub enum CalcError {
     Control(ControlError),
     /// A motion error.
     Motion(MotionError),
+    /// A polynomial error.
+    Polynomial(PolynomialError),
 }
 
 impl From<LinalgError> for SolveError {
@@ -241,6 +284,21 @@ impl From<DiffError> for EstimationError {
 impl From<LinalgError> for SignalError {
     fn from(e: LinalgError) -> Self {
         SignalError::Linalg(e)
+    }
+}
+impl From<LinalgError> for PolynomialError {
+    fn from(e: LinalgError) -> Self {
+        PolynomialError::Linalg(e)
+    }
+}
+impl From<LinalgError> for MotionError {
+    fn from(e: LinalgError) -> Self {
+        MotionError::Linalg(e)
+    }
+}
+impl From<PolynomialError> for MotionError {
+    fn from(e: PolynomialError) -> Self {
+        MotionError::Polynomial(e)
     }
 }
 impl From<SignalError> for ControlError {
@@ -296,6 +354,11 @@ impl From<ControlError> for CalcError {
 impl From<MotionError> for CalcError {
     fn from(e: MotionError) -> Self {
         CalcError::Motion(e)
+    }
+}
+impl From<PolynomialError> for CalcError {
+    fn from(e: PolynomialError) -> Self {
+        CalcError::Polynomial(e)
     }
 }
 
@@ -476,11 +539,58 @@ impl core::fmt::Display for ControlError {
 
 impl core::fmt::Display for MotionError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(match self {
-            MotionError::NonFinite => "waypoint coordinate was not finite",
-            MotionError::CapacityExceeded => "more waypoints than the path capacity allows",
-            MotionError::PathTooShort => "query required more waypoints than the path contains",
-        })
+        match self {
+            MotionError::NonFinite => f.write_str("waypoint coordinate was not finite"),
+            MotionError::CapacityExceeded => {
+                f.write_str("more waypoints than the path capacity allows")
+            }
+            MotionError::PathTooShort => {
+                f.write_str("query required more waypoints than the path contains")
+            }
+            MotionError::SegmentCountMismatch => {
+                f.write_str("one duration is needed for each pair of waypoints")
+            }
+            MotionError::DurationNotPositive => {
+                f.write_str("segment duration was zero or negative")
+            }
+            MotionError::WorkspaceTooSmall => {
+                f.write_str("more segments than the planner's free-derivative capacity holds")
+            }
+            MotionError::Linalg(e) => write!(f, "trajectory system could not be solved: {e}"),
+            MotionError::Polynomial(e) => write!(f, "trajectory piece could not be formed: {e}"),
+        }
+    }
+}
+
+impl core::fmt::Display for PolynomialError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            PolynomialError::NonFinite => f.write_str("polynomial value was not finite"),
+            PolynomialError::LeadingCoefficientZero => {
+                f.write_str("highest polynomial coefficient is zero")
+            }
+            PolynomialError::DegreeOverflow => {
+                f.write_str("result needs more coefficients than the polynomial holds")
+            }
+            PolynomialError::CapacityExceeded => {
+                f.write_str("more terms than the polynomial holds")
+            }
+            PolynomialError::Empty => f.write_str("there is nothing to evaluate"),
+            PolynomialError::VariableOutOfRange => {
+                f.write_str("variable index past the number of variables")
+            }
+            PolynomialError::DuplicateNode => {
+                f.write_str("two interpolation points share the same position")
+            }
+            PolynomialError::TooFewSamples => f.write_str("fewer samples than coefficients to fit"),
+            PolynomialError::SpanNotPositive => f.write_str("piece span was zero or negative"),
+            PolynomialError::DidNotConverge { steps } => {
+                write!(f, "root isolation stopped after {steps} steps")
+            }
+            PolynomialError::Linalg(e) => {
+                write!(f, "polynomial system could not be solved: {e}")
+            }
+        }
     }
 }
 
@@ -497,6 +607,7 @@ impl core::fmt::Display for CalcError {
             CalcError::Signal(e) => write!(f, "{e}"),
             CalcError::Control(e) => write!(f, "{e}"),
             CalcError::Motion(e) => write!(f, "{e}"),
+            CalcError::Polynomial(e) => write!(f, "{e}"),
         }
     }
 }
@@ -505,8 +616,26 @@ impl core::error::Error for LinalgError {}
 impl core::error::Error for DiffError {}
 impl core::error::Error for IntegrateError {}
 impl core::error::Error for KinematicsError {}
-impl core::error::Error for MotionError {}
 impl core::error::Error for SpatialError {}
+
+impl core::error::Error for MotionError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            MotionError::Linalg(e) => Some(e),
+            MotionError::Polynomial(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+impl core::error::Error for PolynomialError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            PolynomialError::Linalg(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 
 impl core::error::Error for SignalError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
@@ -558,6 +687,7 @@ impl core::error::Error for CalcError {
             CalcError::Signal(e) => Some(e),
             CalcError::Control(e) => Some(e),
             CalcError::Motion(e) => Some(e),
+            CalcError::Polynomial(e) => Some(e),
         }
     }
 }
