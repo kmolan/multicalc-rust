@@ -14,6 +14,7 @@
 //! A product needs more coefficients than either input holds, so operations that grow — multiply,
 //! compose, divide — take the output size from the caller and report when it is too small.
 
+mod construction;
 // The file carries the same name as the module because it holds the module's namesake type.
 #[allow(clippy::module_inception)]
 mod polynomial;
