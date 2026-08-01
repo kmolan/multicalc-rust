@@ -271,6 +271,71 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
         result
     }
 
+    /// ```
+    /// use multicalc::Polynomial;
+    ///
+    /// // 1 - 2x + 3x², whose derivative is -2 + 6x
+    /// let p = Polynomial::new([1.0, -2.0, 3.0]);
+    /// assert_eq!(p.derivative().coefficients(), &[-2.0, 6.0, 0.0]);
+    /// ```
+    #[must_use]
+    pub fn derivative(&self) -> Self {
+        let mut result = Self::zeros();
+        for (power, slot) in result.coefficients.iter_mut().enumerate() {
+            if let Some(above) = self.coefficient(power + 1) {
+                *slot = above * T::from_usize(power + 1);
+            }
+        }
+        result
+    }
+
+    /// The derivative applied `order` times.
+    ///
+    /// ```
+    /// use multicalc::Polynomial;
+    ///
+    /// // 1 - 2x + 3x², differentiated twice, is 6
+    /// let p = Polynomial::new([1.0, -2.0, 3.0]);
+    /// assert_eq!(p.nth_derivative(2).coefficients(), &[6.0, 0.0, 0.0]);
+    /// assert!(p.nth_derivative(3).is_zero());
+    /// ```
+    #[must_use]
+    pub fn nth_derivative(&self, order: usize) -> Self {
+        if order >= COEFFICIENT_COUNT {
+            return Self::zeros();
+        }
+        let mut result = *self;
+        for _ in 0..order {
+            result = result.derivative();
+        }
+        result
+    }
+
+    /// The area under the curve between `lower` and `upper`.
+    ///
+    /// This adds up each term's contribution directly, so it needs no spare coefficient however
+    /// high the polynomial's degree.
+    ///
+    /// ```
+    /// use multicalc::Polynomial;
+    ///
+    /// // 3x² from 0 to 2 covers 8
+    /// let p: Polynomial<3> = Polynomial::new([0.0, 0.0, 3.0]);
+    /// assert!((p.definite_integral(0.0, 2.0) - 8.0).abs() < 1e-12);
+    /// ```
+    #[must_use]
+    pub fn definite_integral(&self, lower: T, upper: T) -> T {
+        let mut total = T::ZERO;
+        let mut lower_power = lower;
+        let mut upper_power = upper;
+        for (power, coefficient) in self.coefficients.iter().enumerate() {
+            total += *coefficient * (upper_power - lower_power) / T::from_usize(power + 1);
+            lower_power *= lower;
+            upper_power *= upper;
+        }
+        total
+    }
+
     /// Every coefficient multiplied by `factor`.
     ///
     /// ```
@@ -427,36 +492,6 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
         Ok((quotient, remainder))
     }
 
-    /// Divides by `x - root`, giving the quotient and what is left over.
-    ///
-    /// The quotient keeps the same number of slots, with the highest one zero. The leftover equals
-    /// [`evaluate`](Self::evaluate) at `root`, so it is zero exactly when `root` really is a root.
-    ///
-    /// ```
-    /// use multicalc::Polynomial;
-    ///
-    /// // x² - 3x + 2, which is (x - 1)(x - 2)
-    /// let p: Polynomial<3> = Polynomial::new([2.0, -3.0, 1.0]);
-    /// let (quotient, leftover) = p.deflate(1.0);
-    /// assert_eq!(quotient.coefficients(), &[-2.0, 1.0, 0.0]); // x - 2
-    /// assert!(leftover.abs() < 1e-12);
-    /// ```
-    #[must_use]
-    pub fn deflate(&self, root: T) -> (Self, T) {
-        let mut quotient = Self::zeros();
-        let mut carry = T::ZERO;
-        for power in (0..COEFFICIENT_COUNT).rev() {
-            let coefficient = self.coefficient(power).unwrap_or(T::ZERO);
-            carry = carry.mul_add(root, coefficient);
-            if let Some(lower) = power.checked_sub(1)
-                && let Some(slot) = quotient.coefficients.get_mut(lower)
-            {
-                *slot = carry;
-            }
-        }
-        (quotient, carry)
-    }
-
     /// The polynomial shifted along its variable: the value at `x` here is the original's value at
     /// `x + offset`.
     ///
@@ -472,8 +507,20 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
         let mut shifted = Self::zeros();
         let mut working = *self;
         for slot in shifted.coefficients.iter_mut() {
-            let (quotient, leftover) = working.deflate(offset);
-            *slot = leftover;
+            // Dividing by `x - offset` leaves the value at `offset` behind, which is the next
+            // coefficient of the answer. The quotient is what the following round divides.
+            let mut quotient = Self::zeros();
+            let mut carry = T::ZERO;
+            for power in (0..COEFFICIENT_COUNT).rev() {
+                let coefficient = working.coefficient(power).unwrap_or(T::ZERO);
+                carry = carry.mul_add(offset, coefficient);
+                if let Some(lower) = power.checked_sub(1)
+                    && let Some(target) = quotient.coefficients.get_mut(lower)
+                {
+                    *target = carry;
+                }
+            }
+            *slot = carry;
             working = quotient;
         }
         shifted
