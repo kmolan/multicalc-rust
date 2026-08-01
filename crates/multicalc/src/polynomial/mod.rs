@@ -4,6 +4,8 @@
 //!   multiply-and-add. One call returns the value and as many derivatives as asked for.
 //! - [`RealRoots`] — the real roots a polynomial has, in increasing order.
 //! - [`PiecewisePolynomial`] — a curve made of polynomial pieces, each on its own 0-to-1 clock.
+//! - [`MultivariatePolynomial`] and [`MultivariateTerm`] — a polynomial in several variables, held
+//!   as a list of terms so its size grows with the number of terms rather than with the degree.
 //!
 //! Roots up to the fourth power come from exact closed form solutions.
 //! Past that, [`Polynomial::count_real_roots`] says how many real roots a range holds and
@@ -16,12 +18,15 @@
 //! compose, divide — take the output size from the caller and report when it is too small.
 
 mod construction;
+mod macros;
+mod multivariate;
 mod piecewise;
 // The file carries the same name as the module because it holds the module's namesake type.
 #[allow(clippy::module_inception)]
 mod polynomial;
 mod roots;
 
+pub use multivariate::{MultivariatePolynomial, MultivariateTerm};
 pub use piecewise::PiecewisePolynomial;
 pub use polynomial::Polynomial;
 pub use roots::RealRoots;

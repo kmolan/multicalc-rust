@@ -116,7 +116,9 @@ pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, Term
 pub use root_finding::{Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination};
 
 /// Polynomials by their coefficients, in pieces, and in several variables.
-pub use polynomial::{PiecewisePolynomial, Polynomial, RealRoots};
+pub use polynomial::{
+    MultivariatePolynomial, MultivariateTerm, PiecewisePolynomial, Polynomial, RealRoots,
+};
 
 /// Feedback control: PID, the pure-pursuit path-following law, and Follow-the-Gap reactive
 /// avoidance.
