@@ -37,7 +37,7 @@ fn assert_reproduces_a_curve_of_its_own_order<T: Numeric>(
     let mut time = 0.0;
     for sample in 0..SAMPLES {
         time = sample as f64 * DT;
-        fitted.filter(T::from_f64(curve(time)));
+        let _ = fitted.filter(T::from_f64(curve(time)));
     }
 
     assert!((fitted.value() - T::from_f64(curve(time))).abs() < value_tolerance);
@@ -62,7 +62,7 @@ fn assert_centered_reproduces_the_curve_at_its_own_delay<T: Numeric>(tolerance: 
     let mut time = 0.0;
     for sample in 0..SAMPLES {
         time = sample as f64 * DT;
-        fitted.filter(T::from_f64(curve(time)));
+        let _ = fitted.filter(T::from_f64(curve(time)));
     }
 
     // Half of an eleven-sample window at a millisecond a sample.
@@ -98,7 +98,7 @@ fn smoothing_beats_a_plain_difference_on_noise() {
         let time = sample as f64 * DT;
         let wobble = 0.002 * (noise.next_unit_f64() - 0.5);
         let reading = (2.0 * core::f64::consts::PI * 2.0 * time).sin() + wobble;
-        fitted.filter(reading);
+        let _ = fitted.filter(reading);
 
         let true_slope =
             2.0 * core::f64::consts::PI * 2.0 * (2.0 * core::f64::consts::PI * 2.0 * time).cos();
@@ -119,7 +119,7 @@ fn assert_a_line_has_no_bend<T: Numeric>() {
     let mut fitted = SavitzkyGolay::<9, 2, T>::latest(T::from_f64(DT)).unwrap();
     for sample in 0..50 {
         let time = sample as f64 * DT;
-        fitted.filter(T::from_f64(3.0 * time + 1.0));
+        let _ = fitted.filter(T::from_f64(3.0 * time + 1.0));
     }
     // Two terms describe a straight line, so there is no bend to report at all.
     assert_eq!(fitted.second_derivative(), T::ZERO);

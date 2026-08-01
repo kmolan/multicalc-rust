@@ -26,6 +26,7 @@ use crate::spatial::{SE2, SO2};
 /// assert!((pose.rotation().log() - 0.1).abs() < 1e-12);
 /// ```
 #[inline]
+#[must_use]
 pub fn integrate<T: Numeric>(pose: SE2<T>, d: BodyArc<T>) -> SE2<T> {
     pose * SE2::exp(Vector::new([d.linear(), T::ZERO, d.angular()]))
 }

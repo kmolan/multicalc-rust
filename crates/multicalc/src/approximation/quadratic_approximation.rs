@@ -36,6 +36,7 @@ impl<const NUM_VARS: usize, T: Numeric> QuadraticApproximation<NUM_VARS, T> {
     /// Evaluates the approximation at `x`. The `½` keeps the quadratic term correct for
     /// both diagonal and off-diagonal Hessian entries.
     #[inline]
+    #[must_use]
     pub fn predict(&self, x: &[T; NUM_VARS]) -> T {
         let dx = Vector::from(*x) - Vector::from(self.point);
         let hessian = Matrix::from(self.hessian);
@@ -43,16 +44,19 @@ impl<const NUM_VARS: usize, T: Numeric> QuadraticApproximation<NUM_VARS, T> {
     }
 
     /// The base point the approximation is centered on.
+    #[must_use]
     pub fn point(&self) -> &[T; NUM_VARS] {
         &self.point
     }
 
     /// The gradient at the base point.
+    #[must_use]
     pub fn gradient(&self) -> &[T; NUM_VARS] {
         &self.gradient
     }
 
     /// The Hessian matrix at the base point.
+    #[must_use]
     pub fn hessian(&self) -> &[[T; NUM_VARS]; NUM_VARS] {
         &self.hessian
     }
@@ -65,6 +69,7 @@ impl<const NUM_VARS: usize, T: Numeric> QuadraticApproximation<NUM_VARS, T> {
     ///
     /// `r_squared` is `NaN` when the truth is constant over `points`;
     /// `adjusted_r_squared` is `NaN` when there are too few points.
+    #[must_use]
     pub fn prediction_metrics<O: ScalarFnN<NUM_VARS>, const NUM_POINTS: usize>(
         &self,
         points: &[[T; NUM_VARS]; NUM_POINTS],
@@ -131,6 +136,7 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
     ///
     /// Pairwise summation remains the default. Call this before [`Self::approximate`] so the
     /// resulting [`QuadraticApproximation`] accumulates metrics with Kahan.
+    #[must_use]
     pub fn with_kahan_summation(mut self) -> Self {
         self.summation = SummationMethod::Kahan;
         self

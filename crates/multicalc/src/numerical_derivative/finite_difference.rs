@@ -12,6 +12,7 @@ use crate::scalar::{Numeric, ScalarFn, ScalarFnN, VectorFn};
 /// Low and high sample offsets (in units of the step size) and the divisor factor
 /// for each finite-difference mode.
 #[inline]
+#[must_use]
 fn offsets<T: Numeric>(method: FiniteDifferenceMode) -> (T, T, T) {
     match method {
         FiniteDifferenceMode::Forward => (T::ZERO, T::ONE, T::ONE),
@@ -45,6 +46,7 @@ impl<T: Numeric> Default for FiniteDifferenceConfig<T> {
 
 impl<T: Numeric> FiniteDifferenceConfig<T> {
     /// Builds a config with explicit parameters.
+    #[must_use]
     pub fn from_parameters(step: T, method: FiniteDifferenceMode, multiplier: T) -> Self {
         FiniteDifferenceConfig {
             step_size: step,
@@ -78,6 +80,7 @@ impl<T: Numeric> Default for FiniteDifferenceSingle<T> {
 
 impl<T: Numeric> FiniteDifferenceSingle<T> {
     /// Builds a differentiator with explicit parameters.
+    #[must_use]
     pub fn from_parameters(step: T, method: FiniteDifferenceMode, multiplier: T) -> Self {
         FiniteDifferenceSingle {
             config: FiniteDifferenceConfig::from_parameters(step, method, multiplier),
@@ -85,6 +88,7 @@ impl<T: Numeric> FiniteDifferenceSingle<T> {
     }
 
     #[inline]
+    #[must_use]
     fn diff<F: ScalarFn>(&self, order: usize, func: &F, point: T, step: T) -> T {
         let (lo, hi, denom) = offsets::<T>(self.config.method);
 
@@ -129,6 +133,7 @@ impl<T: Numeric> Default for FiniteDifferenceMulti<T> {
 
 impl<T: Numeric> FiniteDifferenceMulti<T> {
     /// Builds a differentiator with explicit parameters.
+    #[must_use]
     pub fn from_parameters(step: T, method: FiniteDifferenceMode, multiplier: T) -> Self {
         FiniteDifferenceMulti {
             config: FiniteDifferenceConfig::from_parameters(step, method, multiplier),
@@ -136,6 +141,7 @@ impl<T: Numeric> FiniteDifferenceMulti<T> {
     }
 
     #[inline]
+    #[must_use]
     fn diff<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize, const NUM_ORDER: usize>(
         &self,
         order: usize,

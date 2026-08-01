@@ -36,6 +36,7 @@ impl GeomDefaults {
     }
 
     /// A copy of these settings with everything `other` states written over the top.
+    #[must_use]
     pub(crate) fn overridden_by(&self, other: &GeomDefaults) -> GeomDefaults {
         GeomDefaults {
             geom_type: other.geom_type.clone().or_else(|| self.geom_type.clone()),
@@ -109,6 +110,7 @@ pub(crate) fn elements<'a, 'input>(
 }
 
 /// The first child element of `node` with the given tag.
+#[must_use]
 pub(crate) fn element<'a, 'input>(
     node: Node<'a, 'input>,
     tag: &'static str,
@@ -135,6 +137,7 @@ pub(crate) fn unit_quaternion(
 }
 
 /// The error for an attribute that does not hold the numbers it should.
+#[must_use]
 pub(crate) fn bad_attribute(node: Node, attribute: &str, text: &str) -> MjcfError {
     MjcfError::BadAttribute {
         element: node.tag_name().name().to_owned(),

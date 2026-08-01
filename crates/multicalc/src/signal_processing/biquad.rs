@@ -272,6 +272,7 @@ impl<T: Numeric> BiquadCoefficients<T> {
 
     /// The response at one frequency, as the real and imaginary part of the input side followed by
     /// the real and imaginary part of the output side.
+    #[must_use]
     fn response_parts(&self, frequency_hz: T) -> (T, T, T, T) {
         let angle = T::TWO * T::PI * frequency_hz * self.dt;
         let cosine = angle.cos();
@@ -353,6 +354,7 @@ impl<T: Numeric> BiquadCoefficients<T> {
     /// Divides the six raw weights through by the leading output weight and keeps the five that
     /// are left. [`Self::build`] reaches this only after its arguments pass
     /// [`Self::check_design`], which leaves the divisor above one.
+    #[must_use]
     fn from_unnormalized(feed_forward: [T; 3], feedback: [T; 3], dt: T) -> Self {
         let leading = feedback[0];
         Self {
@@ -400,7 +402,7 @@ impl<T: Numeric> BiquadCoefficients<T> {
 /// // A notch passes a steady input through, so this settles on 1.
 /// let mut running = Biquad::new(BiquadCoefficients::notch(180.0_f64, 4.0, 0.001).unwrap());
 /// for _ in 0..1000 {
-///     running.filter(1.0);
+///     let _ = running.filter(1.0);
 /// }
 ///
 /// // Moving the notch to 210 Hz barely disturbs the output.
@@ -424,6 +426,7 @@ impl<T: Numeric> Biquad<T> {
     /// Builds a filter at rest from a set of weights.
     ///
     /// This cannot fail: the weights were checked when they were designed.
+    #[must_use]
     pub fn new(coefficients: BiquadCoefficients<T>) -> Self {
         Self {
             coefficients,
@@ -435,6 +438,7 @@ impl<T: Numeric> Biquad<T> {
 
     /// Feeds one sample and returns the filtered output.
     #[inline]
+    #[must_use]
     pub fn filter(&mut self, input: T) -> T {
         let feed_forward = self.coefficients.feed_forward();
         let feedback = self.coefficients.feedback();

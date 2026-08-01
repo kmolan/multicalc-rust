@@ -51,6 +51,7 @@ impl<const WINDOW: usize, T: Numeric> MovingAverage<WINDOW, T> {
 
     /// Feeds one sample and returns the average of the window it now sits in.
     #[inline]
+    #[must_use]
     pub fn filter(&mut self, input: T) -> T {
         push(
             &mut self.samples,
@@ -104,7 +105,7 @@ impl<const WINDOW: usize, T: Numeric> MovingAverage<WINDOW, T> {
 ///
 /// let mut median = RunningMedian::<5, f64>::new().unwrap();
 /// for reading in [1.0, 1.1, 0.9, 50.0, 1.05] {
-///     median.filter(reading);
+///     let _ = median.filter(reading);
 /// }
 ///
 /// // The one wild reading does not move the answer at all.
@@ -147,6 +148,7 @@ impl<const WINDOW: usize, T: Numeric> RunningMedian<WINDOW, T> {
 
     /// Feeds one sample and returns the middle value of the window it now sits in.
     #[inline]
+    #[must_use]
     pub fn filter(&mut self, input: T) -> T {
         push(
             &mut self.samples,

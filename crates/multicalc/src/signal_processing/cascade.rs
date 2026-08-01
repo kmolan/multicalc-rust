@@ -22,7 +22,7 @@ use crate::signal_processing::{Biquad, BiquadCoefficients};
 ///
 /// // A steady input still comes through untouched.
 /// for _ in 0..500 {
-///     cascade.filter(5.0);
+///     let _ = cascade.filter(5.0);
 /// }
 /// assert!((cascade.value() - 5.0).abs() < 1e-9);
 /// ```
@@ -33,6 +33,7 @@ pub struct BiquadCascade<const SECTIONS: usize, T: Numeric = f64> {
 
 impl<const SECTIONS: usize, T: Numeric> BiquadCascade<SECTIONS, T> {
     /// Builds a cascade at rest, one section per set of weights.
+    #[must_use]
     pub fn new(coefficients: [BiquadCoefficients<T>; SECTIONS]) -> Self {
         Self {
             sections: core::array::from_fn(|index| Biquad::new(coefficients[index])),
@@ -41,6 +42,7 @@ impl<const SECTIONS: usize, T: Numeric> BiquadCascade<SECTIONS, T> {
 
     /// Feeds one sample through every section in order and returns what comes out the far end.
     #[inline]
+    #[must_use]
     pub fn filter(&mut self, input: T) -> T {
         let mut value = input;
         for section in &mut self.sections {
@@ -151,7 +153,7 @@ impl<const SECTIONS: usize, T: Numeric> BiquadCascade<SECTIONS, T> {
 /// // Three axes held steady come through untouched, each on its own.
 /// let reading = Vector::new([1.0, -2.0, 0.5]);
 /// for _ in 0..500 {
-///     filter.filter(reading);
+///     let _ = filter.filter(reading);
 /// }
 /// let settled = filter.value();
 /// for channel in 0..3 {
@@ -165,6 +167,7 @@ pub struct MultiChannelBiquad<const CHANNELS: usize, T: Numeric = f64> {
 
 impl<const CHANNELS: usize, T: Numeric> MultiChannelBiquad<CHANNELS, T> {
     /// Builds a filter at rest, giving every channel the same shape and its own memory.
+    #[must_use]
     pub fn new(coefficients: BiquadCoefficients<T>) -> Self {
         Self {
             channels: core::array::from_fn(|_| Biquad::new(coefficients)),

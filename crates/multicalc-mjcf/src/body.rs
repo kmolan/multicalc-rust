@@ -175,6 +175,7 @@ fn shifted(mass: f64, offset: Vector3D) -> Matrix3D {
 }
 
 /// The error for an attribute the file has to carry and does not.
+#[must_use]
 fn required(node: Node, attribute: &str) -> MjcfError {
     bad_attribute(
         node,

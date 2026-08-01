@@ -11,7 +11,7 @@ fn assert_average_of_a_constant_is_that_constant<T: Numeric>(tolerance: T) {
     let mut average = MovingAverage::<8, T>::new().unwrap();
     let input = T::from_f64(3.0);
     for _ in 0..20 {
-        average.filter(input);
+        let _ = average.filter(input);
     }
     assert!((average.value() - input).abs() < tolerance);
 }
@@ -43,10 +43,10 @@ fn average_is_exact_on_a_known_window() {
 fn average_does_not_drift_at_single_precision() {
     let mut average = MovingAverage::<16, f32>::new().unwrap();
     for _ in 0..100_000 {
-        average.filter(1.0e6);
+        let _ = average.filter(1.0e6);
     }
     for _ in 0..16 {
-        average.filter(0.0);
+        let _ = average.filter(0.0);
     }
     assert!(average.value().abs() < 1.0);
 }
@@ -76,7 +76,7 @@ fn assert_median_of_a_constant_is_that_constant<T: Numeric>() {
     let mut median = RunningMedian::<7, T>::new().unwrap();
     let input = T::from_f64(2.5);
     for _ in 0..10 {
-        median.filter(input);
+        let _ = median.filter(input);
     }
     assert_eq!(median.value(), input);
 }

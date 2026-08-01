@@ -11,14 +11,17 @@
 /// A source of random 32-bit words, and the uniform and normal draws built from them.
 pub trait RandomSource {
     /// The next raw 32-bit word.
+    #[must_use]
     fn next_u32(&mut self) -> u32;
 
     /// The next 64-bit word, from two 32-bit words (high word first).
+    #[must_use]
     fn next_u64(&mut self) -> u64 {
         ((self.next_u32() as u64) << 32) | (self.next_u32() as u64)
     }
 
     /// A uniform draw in the half-open range 0.0 up to 1.0, with 53 bits of precision.
+    #[must_use]
     fn next_unit_f64(&mut self) -> f64 {
         // Top 53 bits scaled into [0, 1); the low 11 bits are dropped so the result never reaches 1.
         (self.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
@@ -28,6 +31,7 @@ pub trait RandomSource {
     ///
     /// Uses the polar pair method and returns one of the pair, consuming two uniform draws. The
     /// first draw is nudged off zero so the logarithm stays finite.
+    #[must_use]
     fn standard_normal(&mut self) -> f64 {
         let mut first = self.next_unit_f64();
         if first <= f64::MIN_POSITIVE {

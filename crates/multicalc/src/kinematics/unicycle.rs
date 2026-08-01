@@ -30,6 +30,7 @@ pub struct Unicycle<T: Numeric = f64> {
 impl<T: Numeric> Unicycle<T> {
     /// A plant holding `twist`.
     #[inline]
+    #[must_use]
     pub fn new(twist: BodyTwist<T>) -> Self {
         Unicycle { twist }
     }

@@ -62,6 +62,7 @@ pub struct FollowTheGapOutput<T: Numeric = f64> {
 impl<T: Numeric> FollowTheGapOutput<T> {
     /// A full stop, used when no gap is wide enough for the robot.
     #[inline]
+    #[must_use]
     fn stopped(minimum_clearance: T) -> Self {
         FollowTheGapOutput {
             body_twist: BodyTwist::new(T::ZERO, T::ZERO),
@@ -425,6 +426,7 @@ impl<const BEAMS: usize, T: Numeric> FollowTheGap<BEAMS, T> {
 
     /// The angle for a beam whose index is already known to be in range.
     #[inline]
+    #[must_use]
     fn beam_angle_unchecked(&self, index: usize) -> T {
         // `try_new` is the only way to build this and rejects fewer than two beams, so `BEAMS - 1`
         // never underflows.
@@ -440,6 +442,7 @@ impl<const BEAMS: usize, T: Numeric> FollowTheGap<BEAMS, T> {
     /// ranges) and the angle between them, and the third side is the gap. Measuring it in metres is
     /// what matters — the same spread of beams is a wide gap at four metres but a tight one at forty
     /// centimetres.
+    #[must_use]
     fn gap_width(&self, beam_ranges: &[T; BEAMS], start: usize, end: usize) -> Option<T> {
         let before = start.checked_sub(1)?;
         let after = end.checked_add(1).filter(|&index| index < BEAMS)?;
@@ -460,6 +463,7 @@ impl<const BEAMS: usize, T: Numeric> FollowTheGap<BEAMS, T> {
     /// An edge that runs off the scan has no obstacle, so it gets no inward margin, matching
     /// [`Self::gap_width`]. If the two margins overlap, the low bound ends up above the high one;
     /// the caller handles that case.
+    #[must_use]
     fn aim_bounds(&self, beam_ranges: &[T; BEAMS], start: usize, end: usize) -> (T, T) {
         let half_width = self.chassis_width * T::HALF;
         let inset = |index: usize| match beam_ranges.get(index) {

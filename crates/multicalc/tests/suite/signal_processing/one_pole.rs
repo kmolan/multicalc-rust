@@ -12,7 +12,7 @@ fn assert_dc_gain_is_one<T: Numeric>(tolerance: T) {
     let mut filter = OnePoleLowPass::new(smoothing).unwrap();
     let input = T::from_f64(5.0);
     for _ in 0..500 {
-        filter.filter(input);
+        let _ = filter.filter(input);
     }
     assert!((filter.value() - input).abs() < tolerance);
 }
@@ -52,7 +52,7 @@ fn alpha_one_is_pass_through_f32() {
 fn assert_step_attenuated_and_monotone<T: Numeric>(tolerance: T) {
     let smoothing = T::from_f64(0.25);
     let mut filter = OnePoleLowPass::new(smoothing).unwrap();
-    filter.filter(T::ZERO); // seed at zero, then step the input to one
+    let _ = filter.filter(T::ZERO); // seed at zero, then step the input to one
     let target = T::ONE;
     let mut previous = T::ZERO;
     // Strict checks only while the gap to the target stays above f32 resolution.
@@ -63,7 +63,7 @@ fn assert_step_attenuated_and_monotone<T: Numeric>(tolerance: T) {
         previous = output;
     }
     for _ in 0..200 {
-        filter.filter(target);
+        let _ = filter.filter(target);
     }
     assert!((filter.value() - target).abs() < tolerance);
 }
@@ -119,7 +119,7 @@ fn from_cutoff_rejects_negative_cutoff() {
 #[test]
 fn reset_clears_state() {
     let mut filter = OnePoleLowPass::new(0.5_f64).unwrap();
-    filter.filter(3.0);
+    let _ = filter.filter(3.0);
     filter.reset();
     assert_eq!(filter.value(), 0.0);
     // The next sample seeds the filter again, so it passes straight through.

@@ -40,6 +40,7 @@ pub(crate) struct Component<'a, F, const N: usize, const M: usize> {
 impl<'a, F: VectorFn<N, M>, const N: usize, const M: usize> Component<'a, F, N, M> {
     /// Wraps output `index` of `func`. `N`/`M` are inferred from the function's [`VectorFn`] impl.
     #[inline]
+    #[must_use]
     pub fn new(func: &'a F, index: usize) -> Self {
         Component { func, index }
     }
@@ -63,6 +64,7 @@ pub struct Const(f64);
 /// Marks a scalar constant in a `scalar_fn!` body. Place it on the left of the operator
 /// (`c(2.0) * x`, `c(1.0) + x`); the constant takes the function's scalar type.
 #[inline]
+#[must_use]
 pub fn c(value: f64) -> Const {
     Const(value)
 }

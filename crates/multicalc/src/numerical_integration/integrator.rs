@@ -44,6 +44,7 @@ pub(crate) fn is_finite<T: Numeric>(sample: T) -> Result<T, IntegrateError> {
 /// semi-infinite domain sits at `t = 0` and is perfectly regular, so it is included;
 /// only an infinite end needs the `T::EPSILON` inset that keeps the transform away from
 /// its singular limit.
+#[must_use]
 pub(crate) fn t_bounds<T: Numeric>(d: &Domain<T>) -> (T, T) {
     match d {
         Domain::Finite(a, b) => (*a, *b),
@@ -55,6 +56,7 @@ pub(crate) fn t_bounds<T: Numeric>(d: &Domain<T>) -> (T, T) {
 
 /// Maps a sample `t` to its position `x` and the Jacobian `dx/dt` for a domain.
 /// Finite domains are the identity, so the finite path pays nothing extra.
+#[must_use]
 pub(crate) fn map_sample<T: Numeric>(d: &Domain<T>, t: T) -> (T, T) {
     match *d {
         Domain::Finite(_, _) => (t, T::ONE),

@@ -145,7 +145,7 @@ fn rate_limited_output_never_moves_faster_than_its_limit() {
 fn rate_limited_output_reaches_a_held_target() {
     let (rise, dt, target) = (1.5_f64, 0.01, 3.0);
     let mut limited = SlewRateLimiter::new(rise, 0.5, dt).unwrap();
-    limited.filter(0.0);
+    let _ = limited.filter(0.0);
 
     let steps = (target / (rise * dt)).ceil() as usize + 10;
     for _ in 0..steps {
