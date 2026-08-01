@@ -127,8 +127,7 @@ fn main() -> Result<(), CalcError> {
 }
 ```
 
-Every fallible call propagates with `?`: each module has its own error enum, and all of them
-convert into the `CalcError` umbrella, so one return type covers a program that mixes modules.
+Every fallible call propagates with `?`: each module has its own error enum, and all of them convert into the `CalcError` umbrella, so one return type covers a program that mixes modules.
 
 ## Full tutorial
 
