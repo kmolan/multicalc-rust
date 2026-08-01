@@ -2,6 +2,11 @@
 //!
 //! - [`Polynomial`] — a fixed number of coefficients, lowest power first, evaluated by repeated
 //!   multiply-and-add. One call returns the value and as many derivatives as asked for.
+//! - [`RealRoots`] — the real roots a polynomial has, in increasing order.
+//!
+//! Roots up to the fourth power come from exact closed form solutions.
+//! Past that, [`Polynomial::count_real_roots`] says how many real roots a range holds and
+//! [`Polynomial::real_roots_in`] finds them within a step budget.
 //!
 //! Everything is generic over [`Numeric`](crate::Numeric), works without the standard library, and
 //! allocates nothing.
@@ -12,5 +17,7 @@
 // The file carries the same name as the module because it holds the module's namesake type.
 #[allow(clippy::module_inception)]
 mod polynomial;
+mod roots;
 
 pub use polynomial::Polynomial;
+pub use roots::RealRoots;
