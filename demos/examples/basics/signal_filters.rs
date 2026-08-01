@@ -118,7 +118,7 @@ fn main() {
     let mut worst_fitted = 0.0_f64;
     let mut worst_difference = 0.0_f64;
     for (sample, &reading) in noisy_position.iter().enumerate() {
-        fitted.filter(reading);
+        let _ = fitted.filter(reading);
         // What a plain subtraction of the last two readings makes of the same data.
         let true_rate = sample as f64 * SLOW_DT;
         if sample >= 20 {
