@@ -2,7 +2,9 @@
 
 //! Checks the linear Kalman filter against filterpy goldens.
 
-use multicalc::estimation::{ExtendedKalmanFilter, KalmanFilter, KalmanModel};
+use multicalc::estimation::{
+    ExtendedKalmanFilter, KalmanFilter, KalmanModel, UnscentedKalmanFilter,
+};
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc_qa::load::*;
@@ -216,6 +218,83 @@ fn extended_kalman_filter_cases() {
             "landmark_range_and_bearing" => run_landmark_range_and_bearing(&fx),
             "coordinated_turn_fusion" => run_coordinated_turn_fusion(&fx),
             case => panic!("unregistered extended kalman filter case {case:?}"),
+        }
+    }
+}
+
+fn build_unscented<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize>(
+    fx: &Fixture,
+) -> UnscentedKalmanFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION> {
+    UnscentedKalmanFilter::new(
+        to_vector::<STATE_DIMENSION>(&fx.inputs["initial_state"]),
+        to_matrix::<STATE_DIMENSION, STATE_DIMENSION>(&fx.inputs["initial_covariance"]),
+        to_matrix::<STATE_DIMENSION, STATE_DIMENSION>(&fx.inputs["process_noise"]),
+        to_matrix::<MEASUREMENT_DIMENSION, MEASUREMENT_DIMENSION>(&fx.inputs["measurement_noise"]),
+    )
+    .with_scaling(
+        fx.inputs["alpha"].as_scalar(),
+        fx.inputs["beta"].as_scalar(),
+        fx.inputs["kappa"].as_scalar(),
+    )
+    .unwrap()
+}
+
+fn run_unscented_coordinated_turn_fusion(fx: &Fixture) {
+    let motion = CoordinatedTurn {
+        timestep: fx.inputs["timestep"].as_scalar(),
+    };
+    let mut filter = build_unscented::<5, 2>(fx);
+
+    let (steps, _, measurements) = fx.inputs["measurements"].as_matrix();
+    for step in 0..steps {
+        filter.predict(&motion).unwrap();
+        let measurement = Vector::from_fn(|i| measurements[step * 2 + i]);
+        filter.update(&GlobalPosition, measurement).unwrap();
+    }
+
+    assert_final_estimate(
+        &filter.state(),
+        &filter.covariance(),
+        &filter.innovation(),
+        &filter.innovation_covariance(),
+        fx,
+    );
+}
+
+fn run_unscented_landmark_range_and_bearing(fx: &Fixture) {
+    let landmark = fx.inputs["landmark"].as_vector();
+    let model = LandmarkRangeAndBearing {
+        landmark_x: landmark[0],
+        landmark_y: landmark[1],
+    };
+    let mut filter = build_unscented::<3, 2>(fx);
+
+    let (steps, _, measurements) = fx.inputs["measurements"].as_matrix();
+    for step in 0..steps {
+        filter.predict(&StationaryPose).unwrap();
+        let measurement = Vector::from_fn(|i| measurements[step * 2 + i]);
+        filter.update(&model, measurement).unwrap();
+    }
+
+    assert_final_estimate(
+        &filter.state(),
+        &filter.covariance(),
+        &filter.innovation(),
+        &filter.innovation_covariance(),
+        fx,
+    );
+}
+
+#[test]
+fn unscented_kalman_filter_cases() {
+    for fx in load_dir("estimation") {
+        if fx.inputs["kind"].as_str() != "unscented_kalman_filter" {
+            continue;
+        }
+        match fx.inputs["case"].as_str() {
+            "coordinated_turn_fusion" => run_unscented_coordinated_turn_fusion(&fx),
+            "landmark_range_and_bearing" => run_unscented_landmark_range_and_bearing(&fx),
+            case => panic!("unregistered unscented kalman filter case {case:?}"),
         }
     }
 }

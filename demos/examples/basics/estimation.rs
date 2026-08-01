@@ -2,6 +2,8 @@
 //! target — an exact two-step hand check, a noisy track, Joseph vs naive covariance, a control
 //! input, innovation gating, and one `Dual` derivative through an update. The extended filter adds a
 //! nonlinear landmark range/bearing sighting, its reduction to the linear filter, and angle wrapping.
+//! The unscented filter closes the Kalman set by sampling the model instead of differentiating it,
+//! on a sensor with a corner in it that no derivative describes.
 //! With `--features alloc`, a closing section locates a differential-drive robot from beacon ranges
 //! with a particle filter.
 //!
@@ -10,7 +12,7 @@
 
 use multicalc::{
     CalcError, CovarianceUpdate, Dual, ExtendedKalmanFilter, KalmanFilter, KalmanModel, Matrix,
-    Matrix2D, Matrix3D, Numeric, Vector, VectorFn, q_discrete_white_noise,
+    Matrix2D, Matrix3D, Numeric, UnscentedKalmanFilter, Vector, VectorFn, q_discrete_white_noise,
 };
 
 fn report(label: &str, value: f64, exact: f64) {
@@ -472,7 +474,51 @@ fn main() -> Result<(), CalcError> {
         "the plain residual throws the estimate across the circle"
     );
 
-    // (10) A particle filter, the nonlinear, non-Gaussian cousin of the Kalman filters: it carries a
+    // (10) The unscented filter: instead of flattening the model to a straight line, it pushes a
+    // spread of points through the model untouched and rebuilds the estimate from where they land.
+    // The model here saturates at 6 — a corner no derivative describes — and this filter never asks
+    // for one.
+    struct SaturatingRange;
+    impl VectorFn<2, 1> for SaturatingRange {
+        fn eval<S: Numeric>(&self, state: &[S; 2]) -> [S; 1] {
+            let to_landmark_x = S::from_f64(3.0) - state[0];
+            let to_landmark_y = S::from_f64(4.0) - state[1];
+            let range = (to_landmark_x * to_landmark_x + to_landmark_y * to_landmark_y).sqrt();
+            let ceiling = S::from_f64(6.0);
+            [if range > ceiling { ceiling } else { range }]
+        }
+    }
+    struct StationaryPoint;
+    impl VectorFn<2, 2> for StationaryPoint {
+        fn eval<S: Numeric>(&self, state: &[S; 2]) -> [S; 2] {
+            [state[0], state[1]]
+        }
+    }
+
+    let mut unscented = UnscentedKalmanFilter::<2, 1>::new(
+        Vector::new([0.0, 0.0]),
+        Matrix2D::identity(),
+        Matrix2D::identity().scale(0.01),
+        Matrix::new([[0.1]]),
+    )
+    .with_scaling(0.3, 2.0, 0.0)?;
+    let uncertainty_before = trace(unscented.covariance());
+    unscented.predict(&StationaryPoint)?;
+    unscented.update(&SaturatingRange, Vector::new([5.5]))?;
+    let uncertainty_after = trace(unscented.covariance());
+    println!("\nUnscented filter: a range sensor that saturates, with no derivative taken");
+    println!(
+        "  estimate: [{:.3}, {:.3}]",
+        unscented.state()[0],
+        unscented.state()[1]
+    );
+    println!("  uncertainty (trace P): {uncertainty_before:.3} -> {uncertainty_after:.3}");
+    assert!(
+        unscented.state()[0] < 0.0 && unscented.state()[1] < 0.0,
+        "a longer range than predicted moves the estimate away from the landmark"
+    );
+
+    // (11) A particle filter, the nonlinear, non-Gaussian cousin of the Kalman filters: it carries a
     // cloud of weighted samples instead of one Gaussian. It is heap-backed, so it lives behind the
     // `alloc` feature; without it, the rest of the example still runs.
     #[cfg(feature = "alloc")]

@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nothing existing has to change. @kmolan
 - `Quaternion::from_two_vectors`, `Quaternion::rotation_angle_to`, and `Quaternion::inverse_transform_point`. (#214)
 - Add `Default` trait implementation for spatial types `Quaternion`, `SO2`, `SO3`, `SE2`, `SE3`, `Twist`, `Wrench`. @elias-taufer (#244)
+- **Unscented Kalman filter.** `UnscentedKalmanFilter` handles a curved model by pushing a spread of
+  points through it and rebuilding the estimate from where they land, so the model is never
+  differentiated and does not have to be smooth. Tuning through `with_scaling` and
+  `with_regularization`, both of which reject a value that does not describe a usable spread with
+  the new `EstimationError::InvalidTuning`. Checked against FilterPy. @kmolan (#78)
 
 ### Fixed
 
