@@ -83,13 +83,13 @@ fn is_zero_and_leading_coefficient() {
 
 #[test]
 fn try_resize_grows_and_refuses_to_lose_a_term() {
-    // 1 + 2x, with two spare slots.
+    // 1 + 2x, with room for two more coefficients.
     let p: Polynomial<4> = Polynomial::new([1.0, 2.0, 0.0, 0.0]);
 
     let grown: Polynomial<7> = p.try_resize().unwrap();
     assert_eq!(grown.coefficients(), &[1.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
 
-    // Two slots still hold every term; one would drop the 2x.
+    // Two coefficients still hold every term; one would drop the 2x.
     let shrunk: Polynomial<2> = p.try_resize().unwrap();
     assert_eq!(shrunk.coefficients(), &[1.0, 2.0]);
     assert!(p.try_resize::<1>().is_none());
@@ -106,7 +106,7 @@ fn multiply_into_matches_hand_expansion() {
     let product = left.multiply_into::<3, 5>(&right).unwrap();
     assert_eq!(product.coefficients(), &[3.0, 5.0, -1.0, 9.0, -4.0]);
 
-    // Four slots cannot hold the x⁴ term.
+    // Four coefficients cannot hold the x⁴ term.
     assert_eq!(
         left.multiply_into::<3, 4>(&right),
         Err(PolynomialError::DegreeOverflow)

@@ -12,10 +12,10 @@ use crate::scalar::Numeric;
 /// `[1.0, -2.0, 3.0]` means `1 - 2x + 3x²`. That one order holds everywhere in the module.
 ///
 /// The array is always `COEFFICIENT_COUNT` long, which is one more than the highest power the
-/// polynomial can hold. Unused top slots are zero, and a polynomial that fills fewer of them is
-/// still the same value — [`degree`](Self::degree) reports the highest power that is actually
-/// there. Storage is a plain array, so the type is `Copy`, sits on the stack, and allocates
-/// nothing.
+/// polynomial can hold. Coefficients above the polynomial's degree are zero, and one that uses
+/// fewer of them is still the same value — [`degree`](Self::degree) reports the highest power that
+/// is actually there. Storage is a plain array, so the type is `Copy`, sits on the stack, and
+/// allocates nothing.
 ///
 /// ```
 /// use multicalc::Polynomial;
@@ -87,7 +87,8 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
         &self.coefficients
     }
 
-    /// The coefficient multiplying `x^power`, or `None` when the polynomial has no slot that high.
+    /// The coefficient multiplying `x^power`, or `None` when the polynomial holds no coefficient
+    /// that high.
     ///
     /// ```
     /// use multicalc::Polynomial;
@@ -109,7 +110,7 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
     /// ```
     /// use multicalc::Polynomial;
     ///
-    /// // 1 + 2x, with a spare slot on top
+    /// // 1 + 2x, with room for one more coefficient
     /// let p = Polynomial::new([1.0, 2.0, 0.0]);
     /// assert_eq!(p.degree(), Some(1));
     /// assert_eq!(Polynomial::<3>::zeros().degree(), None);
@@ -170,19 +171,19 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
 
     /// The same polynomial with room for a different number of coefficients.
     ///
-    /// Growing fills the new top slots with zero. Shrinking returns `None` when it would drop a
+    /// Growing fills the new coefficients with zero. Shrinking returns `None` when it would drop a
     /// coefficient that is not exactly zero, so the value can never change silently.
     ///
     /// ```
     /// use multicalc::Polynomial;
     ///
-    /// // 1 + 2x, held in four slots
+    /// // 1 + 2x, with room for four coefficients
     /// let p = Polynomial::new([1.0, 2.0, 0.0, 0.0]);
     ///
     /// let grown: Polynomial<6> = p.try_resize().unwrap();
     /// assert_eq!(grown.coefficients(), &[1.0, 2.0, 0.0, 0.0, 0.0, 0.0]);
     ///
-    /// // Two slots still hold every term, but one would drop the 2x.
+    /// // Two coefficients still hold every term, but one would drop the 2x.
     /// assert_eq!(p.try_resize::<2>().unwrap().coefficients(), &[1.0, 2.0]);
     /// assert!(p.try_resize::<1>().is_none());
     /// ```
@@ -357,7 +358,7 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
     ///
     /// A product runs to the sum of the two degrees, which neither input's size gives, so `OUT` is
     /// named by the caller. Returns [`PolynomialError::DegreeOverflow`] when a term of the product
-    /// lands past the last slot and is not zero.
+    /// lands past the last coefficient and is not zero.
     ///
     /// ```
     /// use multicalc::Polynomial;
@@ -368,7 +369,7 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
     /// let product = left.multiply_into::<2, 3>(&right).unwrap();
     /// assert_eq!(product.coefficients(), &[2.0, 1.0, -1.0]);
     ///
-    /// // Two slots cannot hold the x² term.
+    /// // Two coefficients cannot hold the x² term.
     /// assert!(left.multiply_into::<2, 2>(&right).is_err());
     /// ```
     pub fn multiply_into<const OTHER: usize, const OUT: usize>(
@@ -393,8 +394,8 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
     /// caller's size.
     ///
     /// The result runs to the two degrees multiplied together, so `OUT` is named by the caller.
-    /// Returns [`PolynomialError::DegreeOverflow`] when a term lands past the last slot and is not
-    /// zero.
+    /// Returns [`PolynomialError::DegreeOverflow`] when a term lands past the last coefficient and
+    /// is not zero.
     ///
     /// ```
     /// use multicalc::Polynomial;
@@ -426,17 +427,17 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
     /// The three sizes are, in order, the divisor's, the quotient's, and the remainder's. Neither
     /// output's size follows from the inputs, so the caller names both. Returns
     /// [`PolynomialError::LeadingCoefficientZero`] when the divisor is zero everywhere, and
-    /// [`PolynomialError::DegreeOverflow`] when either output has too few slots.
+    /// [`PolynomialError::DegreeOverflow`] when either output has too few coefficients.
     ///
     /// ```
     /// use multicalc::Polynomial;
     ///
     /// // x³ + 2x² - x - 2, which factors as (x + 2)(x + 1)(x - 1)
     /// let p = Polynomial::new([-2.0, -1.0, 2.0, 1.0]);
-    /// // x + 2, in two slots
+    /// // x + 2, in two coefficients
     /// let divisor = Polynomial::new([2.0, 1.0]);
     ///
-    /// // Two slots for the divisor, four for the quotient, two for the remainder.
+    /// // Two coefficients for the divisor, four for the quotient, two for the remainder.
     /// let (quotient, remainder) = p.divide::<2, 4, 2>(&divisor).unwrap();
     /// assert_eq!(quotient.coefficients(), &[-1.0, 0.0, 1.0, 0.0]); // x² - 1
     /// assert!(remainder.is_zero());
