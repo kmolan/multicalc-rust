@@ -1,0 +1,96 @@
+{
+  "case": "least_squares_cubic_fit",
+  "expected": {
+    "result": {
+      "data": [
+        "0x3ff806d07d31660e",
+        "0xbfffdd03ef5fecb8",
+        "0x3fe800a8d81b10d0",
+        "0x3fcff2ac0ea6500f"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "kind": {
+      "kind": "str",
+      "v": "coefficients"
+    },
+    "nodes": {
+      "data": [
+        "0xc008000000000000",
+        "0xc004cccccccccccd",
+        "0xc00199999999999a",
+        "0xbffccccccccccccc",
+        "0xbff6666666666666",
+        "0xbff0000000000000",
+        "0xbfe3333333333330",
+        "0xbfc9999999999990",
+        "0x3fc99999999999a0",
+        "0x3fe3333333333334",
+        "0x3ff0000000000000",
+        "0x3ff6666666666668",
+        "0x3ffcccccccccccd0",
+        "0x400199999999999a",
+        "0x4004ccccccccccce",
+        "0x4008000000000000",
+        "0x400b333333333334",
+        "0x400e666666666668",
+        "0x4010cccccccccccd",
+        "0x4012666666666667"
+      ],
+      "kind": "vector"
+    },
+    "values": {
+      "data": [
+        "0x401e079f34e3c224",
+        "0x401d6fae0485ba6c",
+        "0x401b6786887e7a77",
+        "0x40184b24d710929d",
+        "0x4013ed24acdf7a15",
+        "0x401025ea1506b209",
+        "0x40076e59f9878074",
+        "0x3ffed74adcfe9eb3",
+        "0x3ff2334015a2d45d",
+        "0x3fe3090673193e59",
+        "0x3fe1ef13670b8d87",
+        "0x3fecde36ae6a6f52",
+        "0x3ffdb5920cb85830",
+        "0x400af7bcdd84a1e2",
+        "0x4016d83726c9efa5",
+        "0x4021f33bb4530c63",
+        "0x402a7c5c7b48e986",
+        "0x40327b1bf019e71e",
+        "0x4038de9864125f3b",
+        "0x40404069b41aa91a"
+      ],
+      "kind": "vector"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "the closest cubic to twenty samples off 1.5 \u2212 2x + 0.75x\u00b2 + 0.25x\u00b3 with noise",
+    "generator": "polynomial",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "operations": [
+      "least-squares coefficients"
+    ],
+    "reference": "NumPy 2.1.3",
+    "sampling": "hand-chosen coefficients and factored polynomials with known roots",
+    "seed": 20260706
+  },
+  "module": "polynomial",
+  "schema_version": 2,
+  "tolerances": {
+    "f32": {
+      "abs": 0.0001,
+      "rel": 0.0001
+    },
+    "f64": {
+      "abs": 1e-08,
+      "rel": 1e-08
+    }
+  }
+}

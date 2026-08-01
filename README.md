@@ -37,7 +37,7 @@ screen is measured live, inside a 1 ms tick.*
 - [Spatial math](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#spatial-quaternions-and-lie-groups): `Quaternion`, the `SO2`/`SE2`/`SO3`/`SE3` Lie groups for 2D and 3D rotations and rigid-body transforms with left and right Jacobians and their inverses on all four, and `Twist`/`Wrench` screw-theory types.
 - [Rigid-body inertia and the free joint](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#rigid-body-inertia-and-the-free-joint): `SpatialInertia` for a body's mass, balance point, and resistance to spinning, and `FreeJointState` for a body free to move in all six directions — loadable straight from MuJoCo model files with `multicalc-mjcf`.
 - [Kinematics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#kinematics): differential-drive and unicycle maps between wheel and body motion, with exact SE(2) odometry.
-- [Motion](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#motion): `PolylinePath`, a stack-allocated waypoint path with arc-length, closest-point, and lookahead queries.
+- [Motion](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#motion): `PolylinePath` for waypoint paths with arc-length, closest-point, and lookahead queries, and `MinimumSnapPlanner` for the smoothest trajectory through them.
 
 ### Core math
 
@@ -45,6 +45,7 @@ screen is measured live, inside a 1 ms tick.*
 - [Linear algebra](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#linear-algebra): fixed-size, stack-allocated `Matrix` and `Vector` with LU, Cholesky, column-pivoted QR, SVD, and the matrix exponential `expm`: solves, general N×N determinant and inverse, pseudo-inverse, and condition number.
 - [Least-squares optimization](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#least-squares-optimization): `LevenbergMarquardt` and `GaussNewton` solvers for nonlinear curve fitting.
 - [Root finding](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#root-finding): bracketed bisection and Newton solvers for scalar equations and square systems, with an optional damped line search.
+- [Polynomials](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#polynomials): `Polynomial` for evaluation with any number of derivatives in one pass, arithmetic, calculus, fitting and real roots; `PiecewisePolynomial` for curves made of pieces; and `MultivariatePolynomial` for several variables with symbolic partial derivatives.
 - [Integration](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#integration): iterative Newton-Cotes rules (Boole, Simpson, Trapezoidal) and Gaussian quadrature (Legendre, Hermite, Laguerre) over finite, semi-infinite, and infinite limits.
 - [ODE integrators](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#ode-integrators): fixed-step `Rk4` and adaptive `Rk45` (Dormand-Prince 5(4)) with PI step control and dense output.
 - [Discretization](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#discretization): zero-order hold, Van Loan, and discrete white-noise models for continuous-time linear systems.
@@ -126,8 +127,7 @@ fn main() -> Result<(), CalcError> {
 }
 ```
 
-Every fallible call propagates with `?`: each module has its own error enum, and all of them
-convert into the `CalcError` umbrella, so one return type covers a program that mixes modules.
+Every fallible call propagates with `?`: each module has its own error enum, and all of them convert into the `CalcError` umbrella, so one return type covers a program that mixes modules.
 
 ## Full tutorial
 

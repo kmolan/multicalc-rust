@@ -16,8 +16,10 @@ from generators import (
     estimation,
     linalg,
     mjcf,
+    motion,
     ode,
     optimization,
+    polynomial,
     quadrature,
     root_finding,
     signal_processing,
@@ -47,6 +49,8 @@ def main():
     root_finding.run(args.out, SEED)
     mjcf.run(args.out, SEED)
     signal_processing.run(args.out, SEED)
+    polynomial.run(args.out, SEED)
+    motion.run(args.out, SEED)
 
 
 if __name__ == "__main__":

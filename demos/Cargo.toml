@@ -91,6 +91,10 @@ path = "examples/basics/localized_lap_check.rs"
 required-features = ["alloc"]
 
 [[example]]
+name = "minimum_snap_trajectory"
+path = "examples/basics/minimum_snap_trajectory.rs"
+
+[[example]]
 name = "model_ingestion"
 path = "examples/basics/model_ingestion.rs"
 
@@ -101,6 +105,10 @@ path = "examples/basics/ode.rs"
 [[example]]
 name = "optimization_solvers"
 path = "examples/basics/optimization_solvers.rs"
+
+[[example]]
+name = "polynomials"
+path = "examples/basics/polynomials.rs"
 
 [[example]]
 name = "root_finding"
