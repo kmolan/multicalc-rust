@@ -26,6 +26,7 @@ mod piecewise;
 mod polynomial;
 mod roots;
 
+pub(crate) use construction::endpoint_mapping_inverse;
 pub use multivariate::{MultivariatePolynomial, MultivariateTerm};
 pub use piecewise::PiecewisePolynomial;
 pub use polynomial::Polynomial;

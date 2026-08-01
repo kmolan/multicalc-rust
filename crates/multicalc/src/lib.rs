@@ -124,8 +124,11 @@ pub use polynomial::{
 /// avoidance.
 pub use control::{Curvature, FollowTheGap, FollowTheGapOutput, Pid, pure_pursuit_curvature};
 
-/// Waypoint paths and their arc-length, closest-point, and lookahead queries.
-pub use motion::{EndOfPath, PathProjection, PolylinePath};
+/// Waypoint paths, planned trajectories, and their arc-length, closest-point, and lookahead queries.
+pub use motion::{
+    BoundaryDerivatives, EndOfPath, MinimumSnapPlanner, PathProjection, PolylinePath,
+    durations_from_average_speed,
+};
 
 /// Per-module-family error enums and the umbrella they convert into.
 pub use error::{
