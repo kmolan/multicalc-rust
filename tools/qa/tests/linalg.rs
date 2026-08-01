@@ -4,10 +4,11 @@
 //!
 //! Cross-implementation comparisons use only gauge-free quantities (determinant,
 //! inverse, solve, least-squares solution, residual norm, singular values,
-//! pseudo-inverse, and the unique Cholesky factor). Raw Q/R/U/V are verified only
-//! through multicalc's own reconstruction identities, never against numpy's
-//! factors. The f64 result carries the golden; f32 re-runs the same input and
-//! checks a mathematical identity only.
+//! pseudo-inverse, the unique Cholesky factor, and a symmetric matrix's
+//! eigenvalues, determinant, and condition number). Raw Q/R/U/V and eigenvector
+//! matrices are verified only through multicalc's own reconstruction identities,
+//! never against numpy's factors. The f64 result carries the golden; f32 re-runs
+//! the same input and checks a mathematical identity only.
 
 use multicalc::linear_algebra::{Matrix, PivotedQr};
 use multicalc_qa::load::*;
@@ -204,6 +205,73 @@ fn cholesky() {
             3 => run_cholesky::<3>(&fx),
             4 => run_cholesky::<4>(&fx),
             n => panic!("unregistered cholesky shape {n}"),
+        }
+    }
+}
+
+// ----- symmetric eigendecomposition -----
+
+fn run_symmetric_eigen<const N: usize>(fx: &Fixture) {
+    let a = to_matrix::<N, N>(&fx.inputs["A"]);
+    let t = fx.tolerances.f64;
+
+    let f = a.symmetric_eigendecomposition().unwrap();
+    assert_vector(
+        &f.eigenvalues(),
+        &fx.expected["eigenvalues"],
+        t,
+        "eigenvalues",
+    );
+    assert_scalar(f.determinant(), &fx.expected["det"], t, "det");
+    assert_scalar(
+        f.condition_number(),
+        &fx.expected["condition_number"],
+        t,
+        "condition_number",
+    );
+
+    // Self-identities from multicalc's own factors.
+    let (values, vectors) = (f.eigenvalues(), f.eigenvectors());
+    let recon = Matrix::<N, N>::from_fn(|i, j| {
+        (0..N)
+            .map(|k| vectors[(i, k)] * values[k] * vectors[(j, k)])
+            .sum()
+    });
+    assert_matrix_close(&recon, &a, t, "V*L*Vt");
+    assert_matrix_close(
+        &(vectors.transpose() * vectors),
+        &Matrix::identity(),
+        t,
+        "VtV",
+    );
+
+    // f32 identity only.
+    let a32 = to_matrix_f32::<N, N>(&fx.inputs["A"]);
+    let f32_decomposition = a32.symmetric_eigendecomposition().unwrap();
+    let (values32, vectors32) = (
+        f32_decomposition.eigenvalues(),
+        f32_decomposition.eigenvectors(),
+    );
+    let recon32 = Matrix::<N, N, f32>::from_fn(|i, j| {
+        (0..N)
+            .map(|k| vectors32[(i, k)] * values32[k] * vectors32[(j, k)])
+            .sum()
+    });
+    assert_matrix_close_f32(&recon32, &a32, f32_tolerance(fx), "V*L*Vt f32");
+}
+
+#[test]
+fn symmetric_eigen() {
+    for fx in load_dir("linalg") {
+        if fx.inputs["decomp"].as_str() != "symmetric_eigen" {
+            continue;
+        }
+        let (rows, _) = fx.inputs["A"].shape();
+        match rows {
+            3 => run_symmetric_eigen::<3>(&fx),
+            4 => run_symmetric_eigen::<4>(&fx),
+            6 => run_symmetric_eigen::<6>(&fx),
+            n => panic!("unregistered symmetric eigen shape {n}"),
         }
     }
 }

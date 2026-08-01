@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Symmetric eigendecomposition.** `Matrix::symmetric_eigendecomposition` gives the eigenvalues of
+  a symmetric matrix, largest first, together with the directions belonging to them, by rotating
+  away the off-diagonal entries a pair at a time. `clamped` raises every eigenvalue to a floor and
+  rebuilds the matrix, which is what turns a covariance that has drifted below zero back into one a
+  filter can keep using. A matrix that does not read the same across the diagonal is rejected with
+  the new `LinalgError::NotSymmetric`. @kmolan
 - Add `SO2` methods `norm` and `normalized` @elias-taufer (#239)
 - **Rigid-body inertia and the free joint.** `SpatialInertia` for a body's mass, balance point, and
   resistance to spinning, and `FreeJointState` for the pose and velocity of a body free to move in

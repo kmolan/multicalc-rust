@@ -1,6 +1,7 @@
-//! Stress test of the fixed-size linear solves — LU and Cholesky factorizations and the direct
-//! 4x4 inverse — reporting per-call latency and approximation error (reconstruction, solve
-//! residual, and inverse identity error) on well- and ill-conditioned inputs.
+//! Stress test of the fixed-size linear solves — LU and Cholesky factorizations, the symmetric
+//! eigendecomposition, and the direct 4x4 inverse — reporting per-call latency and approximation
+//! error (reconstruction, solve residual, inverse identity error, and how far the eigenvector
+//! directions are from being at right angles) on well- and ill-conditioned inputs.
 //!
 //! Latency is illustrative in a debug build; run with `--release` for representative numbers:
 //! `cargo run -p multicalc-demos --release --example linear_algebra`
@@ -52,6 +53,17 @@ fn spd<const N: usize>() -> Matrix<N, N> {
     Matrix::from_fn(|i, j| if i == j { (N + 1) as f64 } else { 1.0 })
 }
 
+/// Symmetric with well-separated eigenvalues: diagonally dominant with a decaying off-diagonal.
+fn symmetric<const N: usize>() -> Matrix<N, N> {
+    Matrix::from_fn(|i, j| {
+        if i == j {
+            (N + 2) as f64
+        } else {
+            1.0 / (1.0 + (i + j) as f64)
+        }
+    })
+}
+
 fn lu_report<const N: usize>(a: Matrix<N, N>, label: &str) -> Result<(), CalcError> {
     let x_true = Vector::<N>::from_fn(|i| 1.0 + i as f64);
     let b = a * x_true;
@@ -93,6 +105,32 @@ fn cholesky_report<const N: usize>(a: Matrix<N, N>, label: &str) -> Result<(), C
     Ok(())
 }
 
+fn symmetric_eigen_report<const N: usize>(a: Matrix<N, N>, label: &str) -> Result<(), CalcError> {
+    let (decomposition, ns) = time(20_000, || black_box(a).symmetric_eigendecomposition());
+    let f = decomposition?;
+
+    let values = f.eigenvalues();
+    let vectors = f.eigenvectors();
+
+    // Reconstruction: V·diag(λ)·Vᵀ == A.
+    let recon = max_abs(
+        a,
+        Matrix::<N, N>::from_fn(|r, c| {
+            (0..N)
+                .map(|k| vectors[(r, k)] * values[k] * vectors[(c, k)])
+                .sum()
+        }),
+    );
+    // The directions should be at right angles and of unit length, so VᵀV is the identity.
+    let right_angles = max_abs(vectors.transpose() * vectors, Matrix::identity());
+    let condition = f.condition_number();
+
+    println!(
+        "  {label:<14} {ns:>8.1} ns   A-VLVt {recon:.1e}   VtV-I {right_angles:.1e}   cond {condition:.1e}"
+    );
+    Ok(())
+}
+
 fn inverse4_report(a: Matrix4D, label: &str) -> Result<(), CalcError> {
     let (inverse, ns) = time(100_000, || black_box(a).inverse());
     let identity_err = max_abs(a * inverse?, Matrix4D::identity());
@@ -129,6 +167,31 @@ fn main() -> Result<(), CalcError> {
     match indefinite.cholesky() {
         Ok(_) => println!("  {:<14} unexpectedly accepted", "indefinite 2x2"),
         Err(error) => println!("  {:<14} rejected: {error}", "indefinite 2x2"),
+    }
+
+    println!("\nSymmetric eigendecomposition - eigenvalues + directions:");
+    symmetric_eigen_report(symmetric::<4>(), "symmetric 4x4")?;
+    symmetric_eigen_report(symmetric::<8>(), "symmetric 8x8")?;
+    symmetric_eigen_report(hilbert::<6>(), "Hilbert 6x6")?;
+
+    // Conditioning: raising every eigenvalue to a floor and rebuilding is what turns a covariance
+    // that has drifted below zero back into one a filter can keep using.
+    let drifted = Matrix2D::new([[1.0, 2.0], [2.0, 1.0]]);
+    let before = drifted.symmetric_eigendecomposition()?;
+    let repaired = before.clamped(0.5);
+    let after = repaired.symmetric_eigendecomposition()?.eigenvalues();
+    let before_values = before.eigenvalues();
+    println!(
+        "  {:<14} eigenvalues {:.2}, {:.2} -> {:.2}, {:.2}",
+        "clamped 2x2", before_values[0], before_values[1], after[0], after[1]
+    );
+
+    // Error path: a matrix that does not read the same across the diagonal is rejected rather than
+    // quietly decomposed as if it did. Expected to fail, so it is matched rather than propagated.
+    let lopsided = Matrix2D::new([[1.0, 2.0], [-2.0, 1.0]]);
+    match lopsided.symmetric_eigendecomposition() {
+        Ok(_) => println!("  {:<14} unexpectedly accepted", "lopsided 2x2"),
+        Err(error) => println!("  {:<14} rejected: {error}", "lopsided 2x2"),
     }
 
     println!("\nDirect 4x4 inverse:");
