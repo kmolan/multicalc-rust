@@ -354,6 +354,14 @@ fn remainder<const COEFFICIENT_COUNT: usize, T: Numeric>(
     Some(Polynomial::new(working))
 }
 
+/// Adds a range to the waiting list, when there is still room for one.
+fn add_range<T: Numeric>(pending: &mut [(T, T)], length: &mut usize, range: (T, T)) {
+    if let Some(slot) = pending.get_mut(*length) {
+        *slot = range;
+        *length += 1;
+    }
+}
+
 /// How many times the chain's values change sign at `at`, skipping any that land exactly on zero.
 fn sign_changes<const COEFFICIENT_COUNT: usize, T: Numeric>(
     chain: &[Polynomial<COEFFICIENT_COUNT, T>; COEFFICIENT_COUNT],
@@ -432,11 +440,11 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
             length = 1;
         }
         // Its derivative comes next, unless it is a flat line with nothing to differentiate.
-        if degree >= 1
-            && let Some(slot) = chain.get_mut(1)
-        {
-            *slot = self.derivative();
-            length = 2;
+        if degree >= 1 {
+            if let Some(slot) = chain.get_mut(1) {
+                *slot = self.derivative();
+                length = 2;
+            }
         }
 
         while length < COEFFICIENT_COUNT {
@@ -525,11 +533,8 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
         let mut pending = [(T::ZERO, T::ZERO); COEFFICIENT_COUNT];
         let mut pending_length = 0;
         // Start with the whole range, unless it is empty of roots.
-        if count_between(lower, upper) > 0
-            && let Some(slot) = pending.get_mut(0)
-        {
-            *slot = (lower, upper);
-            pending_length = 1;
+        if count_between(lower, upper) > 0 {
+            add_range(&mut pending, &mut pending_length, (lower, upper));
         }
 
         let mut roots = RealRoots::new();
@@ -572,11 +577,12 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
             for (piece_lower, piece_upper) in [(range_lower, middle), (middle, range_upper)] {
                 // An empty half is dropped here rather than pushed and thrown away later, which is
                 // what keeps the waiting list short enough to fit.
-                if count_between(piece_lower, piece_upper) > 0
-                    && let Some(slot) = pending.get_mut(pending_length)
-                {
-                    *slot = (piece_lower, piece_upper);
-                    pending_length += 1;
+                if count_between(piece_lower, piece_upper) > 0 {
+                    add_range(
+                        &mut pending,
+                        &mut pending_length,
+                        (piece_lower, piece_upper),
+                    );
                 }
             }
         }

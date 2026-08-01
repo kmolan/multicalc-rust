@@ -189,8 +189,10 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
     /// ```
     #[must_use]
     pub fn try_resize<const OTHER: usize>(&self) -> Option<Polynomial<OTHER, T>> {
-        if let Some(dropped) = self.coefficients.get(OTHER..)
-            && dropped.iter().any(|coefficient| *coefficient != T::ZERO)
+        if self
+            .coefficients
+            .get(OTHER..)
+            .is_some_and(|dropped| dropped.iter().any(|coefficient| *coefficient != T::ZERO))
         {
             return None;
         }
@@ -515,8 +517,9 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
             for power in (0..COEFFICIENT_COUNT).rev() {
                 let coefficient = working.coefficient(power).unwrap_or(T::ZERO);
                 carry = carry.mul_add(offset, coefficient);
-                if let Some(lower) = power.checked_sub(1)
-                    && let Some(target) = quotient.coefficients.get_mut(lower)
+                if let Some(target) = power
+                    .checked_sub(1)
+                    .and_then(|lower| quotient.coefficients.get_mut(lower))
                 {
                     *target = carry;
                 }

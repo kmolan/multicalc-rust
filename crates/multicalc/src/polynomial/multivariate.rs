@@ -393,17 +393,14 @@ impl<const VARIABLES: usize, const MAX_TERMS: usize, T: Numeric>
                 continue;
             };
             // Look for a term already kept that raises everything to the same powers.
-            let mut merged = false;
-            for earlier in 0..kept {
-                if let Some(existing) = self.terms.get_mut(earlier)
-                    && existing.exponents == term.exponents
-                {
-                    existing.coefficient += term.coefficient;
-                    merged = true;
-                    break;
-                }
-            }
-            if !merged && let Some(slot) = self.terms.get_mut(kept) {
+            let match_found = self.terms.get_mut(..kept).and_then(|kept_terms| {
+                kept_terms
+                    .iter_mut()
+                    .find(|existing| existing.exponents == term.exponents)
+            });
+            if let Some(existing) = match_found {
+                existing.coefficient += term.coefficient;
+            } else if let Some(slot) = self.terms.get_mut(kept) {
                 *slot = term;
                 kept += 1;
             }
