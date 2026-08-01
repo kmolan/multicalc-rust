@@ -168,6 +168,45 @@ const DOCS: &[Doc] = &[
             ],
         }],
     },
+    Doc {
+        file: "polynomial.md",
+        modules: &[Module {
+            name: "polynomial",
+            cases: &[
+                "horner_degree7",
+                "derivative_degree5",
+                "definite_integral_degree5",
+                "product_degree3_by_degree4",
+                "composition_degree3_in_degree2",
+                "roots_quadratic",
+                "roots_quadratic_dominant_linear",
+                "roots_cubic_three_real",
+                "roots_cubic_one_real",
+                "roots_quartic_four_real",
+                "roots_quartic_two_real",
+                "roots_degree6_sturm",
+                "interpolation_five_points",
+                "least_squares_cubic_fit",
+                "bivariate_evaluation",
+                "bivariate_partial_derivatives",
+                "trivariate_evaluation",
+                "bivariate_product",
+                "bivariate_substitution",
+            ],
+        }],
+    },
+    Doc {
+        file: "motion.md",
+        modules: &[Module {
+            name: "motion",
+            cases: &[
+                "minimum_snap_single_segment_3d",
+                "minimum_snap_three_segments_3d",
+                "minimum_snap_three_segments_moving_ends_3d",
+                "minimum_snap_seven_segments_3d",
+            ],
+        }],
+    },
 ];
 
 /// A single float, in trimmed scientific notation: `4e0`, `1.5e-15`, `0`.

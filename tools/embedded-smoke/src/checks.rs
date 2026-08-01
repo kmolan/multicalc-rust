@@ -23,6 +23,9 @@ use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::numerical_integration::GaussianQuadratureMethod;
 use multicalc::numerical_integration::GaussianSingle;
 use multicalc::numerical_integration::IntegratorSingleVariable;
+use multicalc::polynomial::{
+    MultivariatePolynomial, MultivariateTerm, PiecewisePolynomial, Polynomial,
+};
 use multicalc::root_finding::Newton;
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc::scalar_fn;
@@ -503,4 +506,184 @@ pub fn pid_step() -> f64 {
     }
     assert_close!("pid_settled", black_box(measurement), setpoint, 0.01, 0.0);
     black_box(measurement)
+}
+
+/// Identity: a degree-7 polynomial's value and first two derivatives at `x = 0.5`, against
+/// hand-computed constants. Repeated multiply-and-add over eight coefficients, so it adds
+/// almost nothing to `.text` and no new library surface. Returns the value. Canary set.
+pub fn polynomial_evaluate() -> f64 {
+    // 1 + 2x + 3x² + 4x³ + 5x⁴ + 6x⁵ + 7x⁶ + 8x⁷ at x = 1/2, where every power of a half is
+    // exact, so the three answers below are exact too.
+    let polynomial = Polynomial::<8, f64>::new(black_box([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]));
+    let [value, slope, bend] = polynomial.evaluate_with_derivatives(black_box(0.5));
+
+    assert_close!("polynomial_value", black_box(value), 3.921875, 1e-12, 0.0);
+    assert_close!("polynomial_slope", black_box(slope), 14.5625, 1e-12, 0.0);
+    assert_close!("polynomial_bend", black_box(bend), 71.625, 1e-12, 0.0);
+    black_box(value)
+}
+
+/// Identity: the roots of `(x − 1)(x − 2)` are 1 and 2. Pulls in `sqrt` and `copysign`, both
+/// already linked by the canary's SVD check, so it adds no new library surface on the M0.
+/// Returns the first root. Canary set.
+pub fn polynomial_quadratic_roots() -> f64 {
+    let quadratic = Polynomial::<3, f64>::new(black_box([2.0, -3.0, 1.0]));
+    let roots = quadratic.real_roots().expect("quadratic roots");
+
+    assert!(roots.len() == 2, "polynomial_quadratic_root_count");
+    let found = roots.as_slice();
+    assert_close!("polynomial_root_0", black_box(found[0]), 1.0, 1e-12, 0.0);
+    assert_close!("polynomial_root_1", black_box(found[1]), 2.0, 1e-12, 0.0);
+    black_box(found[0])
+}
+
+/// Golden: the four real roots of `x(x − 1)(x − 2)(x − 4)` against the host QA golden
+/// (polynomial/roots_quartic_four_real). Returns root 0. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn polynomial_roots_golden() -> f64 {
+    let quartic = Polynomial::<5, f64>::new(black_box(fixtures::POLYNOMIAL_QUARTIC_COEFFICIENTS));
+    let roots = quartic.real_roots().expect("quartic roots");
+
+    assert!(
+        roots.len() == fixtures::POLYNOMIAL_QUARTIC_ROOTS.len(),
+        "polynomial_quartic_root_count"
+    );
+    for (index, want) in fixtures::POLYNOMIAL_QUARTIC_ROOTS.iter().enumerate() {
+        assert_close!(
+            "polynomial_quartic_root",
+            black_box(roots.as_slice()[index]),
+            *want,
+            fixtures::POLYNOMIAL_QUARTIC_ABS,
+            fixtures::POLYNOMIAL_QUARTIC_REL
+        );
+    }
+    black_box(roots.as_slice()[0])
+}
+
+/// Identity: the six roots of `(x + 3)(x + 1)(x − 0.5)(x − 2)(x − 4)(x − 7)`, found by counting
+/// sign changes and halving rather than by a formula. The deepest polynomial path on target —
+/// a chain of seven polynomials plus the range stack. Returns root 0. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn polynomial_sturm_identity() -> f64 {
+    let degree6 =
+        Polynomial::<7, f64>::new(black_box([84.0, -131.0, -126.5, 104.5, 5.5, -9.5, 1.0]));
+    let bound = degree6.cauchy_root_bound().expect("root bound");
+    let roots = degree6
+        .real_roots_in(black_box(-bound), black_box(bound), 1e-9, 200)
+        .expect("roots by halving");
+
+    assert!(roots.len() == 6, "polynomial_sturm_root_count");
+    let expected = [-3.0, -1.0, 0.5, 2.0, 4.0, 7.0];
+    for (index, want) in expected.iter().enumerate() {
+        assert_close!(
+            "polynomial_sturm_root",
+            black_box(roots.as_slice()[index]),
+            *want,
+            1e-8,
+            0.0
+        );
+    }
+    black_box(roots.as_slice()[0])
+}
+
+/// Golden: the planned trajectory a controller follows, evaluated on target. Builds the
+/// piecewise curve straight from the host golden's coefficients and compares position, velocity
+/// and acceleration at the fixture's own sample times. **This is the hot-loop path** — planning
+/// stays host-side. Returns the first sampled position component. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn piecewise_polynomial_golden() -> f64 {
+    let mut pieces = [[Polynomial::<8, f64>::zeros(); 3]; 3];
+    for (segment, piece) in pieces.iter_mut().enumerate() {
+        for (axis, slot) in piece.iter_mut().enumerate() {
+            *slot = Polynomial::new(fixtures::MINIMUM_SNAP_COEFFICIENTS[segment * 3 + axis]);
+        }
+    }
+    let trajectory = PiecewisePolynomial::<3, 8, 3, f64>::try_from_pieces(
+        black_box(&pieces),
+        black_box(&fixtures::MINIMUM_SNAP_DURATIONS),
+    )
+    .expect("trajectory");
+
+    let mut first = 0.0;
+    for (sample, time) in fixtures::MINIMUM_SNAP_SAMPLE_TIMES.iter().enumerate() {
+        let orders = trajectory
+            .evaluate_with_derivatives::<3>(black_box(*time))
+            .expect("trajectory state");
+        for (order, found) in orders.iter().enumerate() {
+            let want = fixtures::MINIMUM_SNAP_SAMPLED_STATES[sample * 3 + order];
+            for axis in 0..3 {
+                assert_close!(
+                    "piecewise_state",
+                    black_box(found[axis]),
+                    want[axis],
+                    fixtures::MINIMUM_SNAP_ABS,
+                    fixtures::MINIMUM_SNAP_REL
+                );
+            }
+        }
+        if sample == 0 {
+            first = orders[0][0];
+        }
+    }
+    black_box(first)
+}
+
+/// Identity: `3x²y + 2xy − 1` at `(1.5, −2.0)` and its slopes there, against hand-computed
+/// values. Exercises raising to a whole-number power on target. Returns the value. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn multivariate_identity() -> f64 {
+    let polynomial = MultivariatePolynomial::<2, 3, f64>::try_from_terms(&[
+        MultivariateTerm::new(3.0, [2, 1]),
+        MultivariateTerm::new(2.0, [1, 1]),
+        MultivariateTerm::new(-1.0, [0, 0]),
+    ])
+    .expect("multivariate");
+
+    let point = black_box([1.5, -2.0]);
+    // 3·2.25·(−2) + 2·1.5·(−2) − 1
+    let value = polynomial.evaluate(&point);
+    assert_close!("multivariate_value", black_box(value), -20.5, 1e-12, 0.0);
+
+    // 6xy + 2y, and 3x² + 2x.
+    let gradient = polynomial.gradient_at(&point);
+    assert_close!(
+        "multivariate_slope_x",
+        black_box(gradient[0]),
+        -22.0,
+        1e-12,
+        0.0
+    );
+    assert_close!(
+        "multivariate_slope_y",
+        black_box(gradient[1]),
+        9.75,
+        1e-12,
+        0.0
+    );
+    black_box(value)
+}
+
+/// The degree-7 evaluation again in `f32`, widened on the way out. Single precision is where
+/// soft-float and a hardware FPU are most likely to disagree, which is what the cross-ABI guard
+/// exists to catch. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn polynomial_evaluate_identity_f32() -> f64 {
+    let polynomial = Polynomial::<8, f32>::new(black_box([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]));
+    let [value, slope]: [f32; 2] = polynomial.evaluate_with_derivatives(black_box(0.5_f32));
+
+    assert_close!(
+        "polynomial_value_f32",
+        black_box(f64::from(value)),
+        3.921875,
+        1e-5,
+        0.0
+    );
+    assert_close!(
+        "polynomial_slope_f32",
+        black_box(f64::from(slope)),
+        14.5625,
+        1e-5,
+        0.0
+    );
+    black_box(f64::from(value))
 }

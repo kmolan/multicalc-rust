@@ -1,0 +1,297 @@
+{
+  "case": "minimum_snap_three_segments_moving_ends_3d",
+  "expected": {
+    "coefficients": {
+      "cols": 8,
+      "kind": "matrix",
+      "row_major": [
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fcbc6d8a6b57e39",
+        "0xbfdc6929220bab75",
+        "0x3fd249f8688c7740",
+        "0xbfae21dccedc574c",
+        "0x0000000000000000",
+        "0xbd16000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x4029e6b6de47cc51",
+        "0xc032bd5a75d8c2f9",
+        "0x4022eb5f8210bfcb",
+        "0xbffabb0ba53830f4",
+        "0x0000000000000000",
+        "0xbce0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ffab77f5216a5ee",
+        "0xbffbf4f9ffffd29a",
+        "0x3fe59664234209c0",
+        "0xbfb8db763b7d82bb",
+        "0x3ff0000000000000",
+        "0x3ff6d347d48dfcd3",
+        "0xbfc8eeceebfc5005",
+        "0x3fd236095adb3276",
+        "0x3ff226248b6e9b75",
+        "0x3fd0e6b5417d2c3f",
+        "0xbff6fffbae3746ca",
+        "0x3fe0ba73094841ad",
+        "0x4000000000000000",
+        "0x401301b12f70b614",
+        "0xc019ee4ec0df2e84",
+        "0xc030726f4102a186",
+        "0x402b14daeecb44f6",
+        "0x403648f24af1fc39",
+        "0xc039751955d76141",
+        "0x401b3d40e37808be",
+        "0x3fe0000000000000",
+        "0x3fff7465f4280605",
+        "0x3ff686fe7f817c0f",
+        "0xc002e7a4f4840cdb",
+        "0xbffc0837ca846676",
+        "0x3fffbe79ed4c5496",
+        "0xbfada484451363e8",
+        "0xbfc7a9c45a05db04",
+        "0x4008000000000000",
+        "0x4001cf1829caf9f7",
+        "0xbfd39e048735cf6e",
+        "0xbff87ff9405da27c",
+        "0xbfd54358d0e7f823",
+        "0x3feb7121163a09f9",
+        "0x3fe2a35476d40bc7",
+        "0xbfdfc06a0edfa9b9",
+        "0x3ff0000000000000",
+        "0x4002ecd9cb12d034",
+        "0x40181a3aa6dac296",
+        "0xc014f85cf6ab1655",
+        "0xc01e6558989b625a",
+        "0x401071f200a2604b",
+        "0x40174a4d6621e8b5",
+        "0xc00bde62c7c3f5ff",
+        "0x3ff8000000000000",
+        "0xbfea8bc7dec33a0a",
+        "0xbfe69c6173b63d1a",
+        "0x3ff745251d1c9a7d",
+        "0x3fd5bc8606f431b4",
+        "0xbfe78c01d536be98",
+        "0xbfd6aeaf9b862708",
+        "0x3fd545eb6f7ff6d8"
+      ],
+      "rows": 9
+    },
+    "sampled_states": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0xbd16000000000000",
+        "0xbce0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fe01e467349e4af",
+        "0x3fd6f29034bcb05e",
+        "0x3fae7c2fd4100527",
+        "0x3ff045505774034a",
+        "0x4001ae5894752e33",
+        "0x3fd9e72b75c5d991",
+        "0xbf2bf287adb04400",
+        "0x401e3006f0bf8b58",
+        "0x3ffc750a247100b3",
+        "0x3ff0000000000000",
+        "0x4000000000000000",
+        "0x3fe0000000000000",
+        "0x3fee6f0a70bd5119",
+        "0x40095796e9eb9d70",
+        "0x3ff4f843f81aaeae",
+        "0xbfc6299b7c6e8004",
+        "0xc0170cb7c7e2d404",
+        "0x3ff406378dc86e46",
+        "0x3ff7a4fd90f867b7",
+        "0x4003da1e46965065",
+        "0x3ff35e97da613136",
+        "0x3ff07c196212e6cf",
+        "0xbff7d46adfb56c71",
+        "0x3ff51554a94f4167",
+        "0x3fe48ee7ea19e2bb",
+        "0xc02160963ac27cda",
+        "0xbff41ffd33ecf80c",
+        "0x4000e56e4af0c231",
+        "0x3ff2fb43ec5ab68a",
+        "0x3ffa2aed90e3676a",
+        "0x3ff8ed538ca6c283",
+        "0xc003b1ed80e8de10",
+        "0x3fd1c0c8beff734d",
+        "0x3ff374c98ac35274",
+        "0x4015eaa8aa1fb884",
+        "0xc003df49e7fa6803",
+        "0x4008000000000000",
+        "0x3ff0000000000000",
+        "0x3ff8000000000000",
+        "0x3ffdae7d9afcf5f1",
+        "0x3fff8ac05274b057",
+        "0xbfe61f268ef805b3",
+        "0xbfdb3f064a03a019",
+        "0x4020bce19e89b1cc",
+        "0xbfef676ae7d2714f",
+        "0x400e215c99e05496",
+        "0x4003fbf832a4bacf",
+        "0x3ff2302068ffc571",
+        "0x3ff06d2ca36aa9b5",
+        "0x400696f622837447",
+        "0xbfe25914aeed22d2",
+        "0xc004275463ee919e",
+        "0xc014dd0da7eb1067",
+        "0x3ff31e2fc0e115cc",
+        "0x400fe55f8694165b",
+        "0x4008c188a4170e4a",
+        "0x3ff02110b89e1268",
+        "0x3fc4398dc8e384bc",
+        "0x3fc41adecfabc160",
+        "0xbfb8e4877532306c",
+        "0xbff56851831e833c",
+        "0xc015196b5bdb66a7",
+        "0x3fe9dea59d766527",
+        "0x4010000000000001",
+        "0x4008000000000003",
+        "0x3feffffffffffffc",
+        "0xbcf9000000000000",
+        "0xbfe0000000000026",
+        "0x0000000000000000",
+        "0xbd20aaaaaaaaaaab",
+        "0x3d1638e38e38e38e",
+        "0x3cf638e38e38e38e"
+      ],
+      "rows": 27
+    },
+    "state_tolerance": {
+      "data": [
+        "0x3e112e0be826d695",
+        "0x3e112e0be826d695"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "durations": {
+      "data": [
+        "0x3ff0000000000000",
+        "0x3ff8000000000000",
+        "0x3ff3333333333333"
+      ],
+      "kind": "vector"
+    },
+    "end_acceleration": {
+      "data": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "end_jerk": {
+      "data": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "end_velocity": {
+      "data": [
+        "0x0000000000000000",
+        "0xbfe0000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "sample_times": {
+      "data": [
+        "0x0000000000000000",
+        "0x3fe0000000000000",
+        "0x3ff0000000000000",
+        "0x3ff8000000000000",
+        "0x4000000000000000",
+        "0x4004000000000000",
+        "0x4008000000000000",
+        "0x400b333333333333",
+        "0x400d99999999999a"
+      ],
+      "kind": "vector"
+    },
+    "segment_count": {
+      "kind": "int",
+      "v": 3
+    },
+    "start_acceleration": {
+      "data": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "start_jerk": {
+      "data": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "start_velocity": {
+      "data": [
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "waypoints": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x4000000000000000",
+        "0x3fe0000000000000",
+        "0x4008000000000000",
+        "0x3ff0000000000000",
+        "0x3ff8000000000000",
+        "0x4010000000000000",
+        "0x4008000000000000",
+        "0x3ff0000000000000"
+      ],
+      "rows": 4
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "the same four waypoints, entered and left while already moving",
+    "generator": "motion",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "operations": [
+      "segment coefficients",
+      "position, velocity and acceleration at nine times"
+    ],
+    "reference": "NumPy 2.1.3",
+    "sampling": "hand-chosen waypoints with durations either given or from an average speed",
+    "seed": 20260706
+  },
+  "module": "motion",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-07,
+      "rel": 1e-07
+    }
+  }
+}

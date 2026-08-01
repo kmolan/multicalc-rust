@@ -1,0 +1,87 @@
+{
+  "case": "horner_degree7",
+  "expected": {
+    "orders": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x40013d3163246794",
+        "0xc02b88fbd929d267",
+        "0x40535b35ce182668",
+        "0xc072cd02a9930be1",
+        "0x3fddefc000000001",
+        "0xbfed254cccccccce",
+        "0xc002a1cccccccccc",
+        "0x40285a999999999a",
+        "0x3fc999999999999a",
+        "0xbff199999999999a",
+        "0x3fe999999999999a",
+        "0x4028000000000000",
+        "0xbfabab86698a6c08",
+        "0xbf702a2d66661200",
+        "0x40150a64b402a728",
+        "0x402d40f4397846b8",
+        "0x403e67387363fad3",
+        "0x40546eb5a568dab6",
+        "0x40669ebbba55d1c4",
+        "0x40733f10cb295e9e"
+      ],
+      "rows": 5
+    }
+  },
+  "inputs": {
+    "coefficients": {
+      "data": [
+        "0x3fc999999999999a",
+        "0xbff199999999999a",
+        "0x3fd999999999999a",
+        "0x4000000000000000",
+        "0xbfd3333333333333",
+        "0x3fa999999999999a",
+        "0x3feccccccccccccd",
+        "0xbfc3333333333333"
+      ],
+      "kind": "vector"
+    },
+    "kind": {
+      "kind": "str",
+      "v": "evaluation"
+    },
+    "points": {
+      "data": [
+        "0xbff4cccccccccccd",
+        "0xbfd0000000000000",
+        "0x0000000000000000",
+        "0x3fd7ae147ae147ae",
+        "0x3ffccccccccccccd"
+      ],
+      "kind": "vector"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "p(x) = 0.2 \u2212 1.1x + 0.4x\u00b2 + 2x\u00b3 \u2212 0.3x\u2074 + 0.05x\u2075 + 0.9x\u2076 \u2212 0.15x\u2077",
+    "generator": "polynomial",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "operations": [
+      "value and first three derivatives at five points"
+    ],
+    "reference": "NumPy 2.1.3",
+    "sampling": "hand-chosen coefficients and factored polynomials with known roots",
+    "seed": 20260706
+  },
+  "module": "polynomial",
+  "schema_version": 2,
+  "tolerances": {
+    "f32": {
+      "abs": 0.0001,
+      "rel": 0.0001
+    },
+    "f64": {
+      "abs": 1e-12,
+      "rel": 1e-12
+    }
+  }
+}

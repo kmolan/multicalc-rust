@@ -4,6 +4,8 @@
 // Wien golden: root_finding/wien_newton.
 // Kalman golden: estimation/kalman_filter_constant_velocity_one_dimensional.
 // Coordinated-turn golden: estimation/extended_kalman_filter_coordinated_turn_fusion.
+// Polynomial-roots golden: polynomial/roots_quartic_four_real.
+// Trajectory golden: motion/minimum_snap_three_segments_3d.
 // Reduced (canary) builds use a subset, so some consts may be unused.
 // Left unformatted: this file's shape comes from the generator, and rustfmt would
 // collapse some literals so a regenerate-and-diff check could never come out clean.
@@ -310,3 +312,281 @@ pub const COORDINATED_TURN_EXPECTED_STATE: [f64; 5] = [
 /// Comparison tolerance for the extended filter check (from the fixture's f64 tolerance).
 pub const COORDINATED_TURN_ABS: f64 = 1e-10;
 pub const COORDINATED_TURN_REL: f64 = 1e-9;
+
+/// Coefficients of x(x − 1)(x − 2)(x − 4), lowest power first, from polynomial/roots_quartic_four_real.
+pub const POLYNOMIAL_QUARTIC_COEFFICIENTS: [f64; 5] = [
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0xc020000000000000),
+    f64::from_bits(0x402c000000000000),
+    f64::from_bits(0xc01c000000000000),
+    f64::from_bits(0x3ff0000000000000),
+];
+
+/// Expected real roots of that quartic, ascending.
+pub const POLYNOMIAL_QUARTIC_ROOTS: [f64; 4] = [
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x3feffffffffffff8),
+    f64::from_bits(0x4000000000000004),
+    f64::from_bits(0x400ffffffffffffc),
+];
+
+/// Comparison tolerance for the polynomial roots check (from the fixture's f64 tolerance).
+pub const POLYNOMIAL_QUARTIC_ABS: f64 = 1e-9;
+pub const POLYNOMIAL_QUARTIC_REL: f64 = 1e-9;
+
+/// Segment durations of the planned trajectory, from motion/minimum_snap_three_segments_3d.
+pub const MINIMUM_SNAP_DURATIONS: [f64; 3] = [
+    f64::from_bits(0x3ff0000000000000),
+    f64::from_bits(0x3ff8000000000000),
+    f64::from_bits(0x3ff3333333333333),
+];
+
+/// Its segment coefficients, one row per segment and axis (row = segment · 3 + axis).
+pub const MINIMUM_SNAP_COEFFICIENTS: [[f64; 8]; 9] = [
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0xbcd0000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x4013b349c622638b),
+        f64::from_bits(0xc01a178b1ef1bf01),
+        f64::from_bits(0x40091a69d514ab6c),
+        f64::from_bits(0xbfe1479c8dd7d1f6),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0xbd04000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x40293f8f0f01d4cd),
+        f64::from_bits(0xc0321ce95f350a04),
+        f64::from_bits(0x40222c76d5718c4e),
+        f64::from_bits(0xbff99199304a686b),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0xbce0000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ffab77f5216a5ee),
+        f64::from_bits(0xbffbf4f9ffffd29a),
+        f64::from_bits(0x3fe59664234209c0),
+        f64::from_bits(0xbfb8db763b7d82bb),
+    ],
+    [
+        f64::from_bits(0x3ff0000000000000),
+        f64::from_bits(0x4009980c02d5f944),
+        f64::from_bits(0x3fbc5bc022c4d258),
+        f64::from_bits(0xc0169023287bccf7),
+        f64::from_bits(0x40036501c12b3c8f),
+        f64::from_bits(0x401d4c78dbd20b94),
+        f64::from_bits(0xc01d40ce1828d035),
+        f64::from_bits(0x3ffe520a091b8d93),
+    ],
+    [
+        f64::from_bits(0x4000000000000000),
+        f64::from_bits(0x401399846f1758a5),
+        f64::from_bits(0xc017c4812672862d),
+        f64::from_bits(0xc0304b00fabecd1c),
+        f64::from_bits(0x40289bd6d4eab4db),
+        f64::from_bits(0x4035a2c0b6ba63f5),
+        f64::from_bits(0xc037ea165ac61c65),
+        f64::from_bits(0x40193ca988afda04),
+    ],
+    [
+        f64::from_bits(0x3fe0000000000000),
+        f64::from_bits(0x3fff7465f4280605),
+        f64::from_bits(0x3ff686fe7f817c0f),
+        f64::from_bits(0xc002e7a4f4840cdb),
+        f64::from_bits(0xbffc0837ca846676),
+        f64::from_bits(0x3fffbe79ed4c5496),
+        f64::from_bits(0xbfada484451363e8),
+        f64::from_bits(0xbfc7a9c45a05db04),
+    ],
+    [
+        f64::from_bits(0x4008000000000000),
+        f64::from_bits(0x3ffc384aab1f4606),
+        f64::from_bits(0x3fe6115f7c0bb89b),
+        f64::from_bits(0xbff598e7b51ed3b0),
+        f64::from_bits(0xbffc5913f630c4fb),
+        f64::from_bits(0x3ff0fd6cae3b8fe4),
+        f64::from_bits(0x3ff8f6d2a1bd8c53),
+        f64::from_bits(0xbfee867c1b9d4bc0),
+    ],
+    [
+        f64::from_bits(0x3ff0000000000000),
+        f64::from_bits(0x3ffc4f44ead49ecc),
+        f64::from_bits(0x4017669766dd8f1d),
+        f64::from_bits(0xc010c20bfa0e5613),
+        f64::from_bits(0xc01c8612b29559cf),
+        f64::from_bits(0x400be6a6fda24d7b),
+        f64::from_bits(0x40153be49fc45e5a),
+        f64::from_bits(0xc008c3042709180a),
+    ],
+    [
+        f64::from_bits(0x3ff8000000000000),
+        f64::from_bits(0xbfea8bc7dec33a0a),
+        f64::from_bits(0xbfe69c6173b63d1a),
+        f64::from_bits(0x3ff745251d1c9a7d),
+        f64::from_bits(0x3fd5bc8606f431b4),
+        f64::from_bits(0xbfe78c01d536be98),
+        f64::from_bits(0xbfd6aeaf9b862708),
+        f64::from_bits(0x3fd545eb6f7ff6d8),
+    ],
+];
+
+/// The times the trajectory is sampled at, shared with the host suite.
+pub const MINIMUM_SNAP_SAMPLE_TIMES: [f64; 9] = [
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x3fe0000000000000),
+    f64::from_bits(0x3ff0000000000000),
+    f64::from_bits(0x3ff8000000000000),
+    f64::from_bits(0x4000000000000000),
+    f64::from_bits(0x4004000000000000),
+    f64::from_bits(0x4008000000000000),
+    f64::from_bits(0x400b333333333333),
+    f64::from_bits(0x400d99999999999a),
+];
+
+/// Position, velocity and acceleration there (row = sample · 3 + order).
+pub const MINIMUM_SNAP_SAMPLED_STATES: [[f64; 3]; 27] = [
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0xbcd0000000000000),
+        f64::from_bits(0xbd04000000000000),
+        f64::from_bits(0xbce0000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x3fc30b65fe297450),
+        f64::from_bits(0x3fd68efa00d00826),
+        f64::from_bits(0x3fae7c2fd4100527),
+    ],
+    [
+        f64::from_bits(0x3fee82458b791639),
+        f64::from_bits(0x400172396f702800),
+        f64::from_bits(0x3fd9e72b75c5d991),
+    ],
+    [
+        f64::from_bits(0x400d240a1b118abd),
+        f64::from_bits(0x401e1f33fe89fc89),
+        f64::from_bits(0x3ffc750a247100b3),
+    ],
+    [
+        f64::from_bits(0x3ff0000000000000),
+        f64::from_bits(0x4000000000000000),
+        f64::from_bits(0x3fe0000000000000),
+    ],
+    [
+        f64::from_bits(0x4001100801e3fb83),
+        f64::from_bits(0x400a2205e9747631),
+        f64::from_bits(0x3ff4f843f81aaeae),
+    ],
+    [
+        f64::from_bits(0x3fb9351c90aef3dc),
+        f64::from_bits(0xc0152072ccd793b6),
+        f64::from_bits(0x3ff406378dc86e46),
+    ],
+    [
+        f64::from_bits(0x3ffebb3ce1dcde23),
+        f64::from_bits(0x4004a538613f6c51),
+        f64::from_bits(0x3ff35e97da613136),
+    ],
+    [
+        f64::from_bits(0x3ff5c75d33851fd1),
+        f64::from_bits(0xbff3e17dc06af20b),
+        f64::from_bits(0x3ff51554a94f4167),
+    ],
+    [
+        f64::from_bits(0xc001018a36ae92b9),
+        f64::from_bits(0xc0219a8b664b163e),
+        f64::from_bits(0xbff41ffd33ecf80c),
+    ],
+    [
+        f64::from_bits(0x4003626157e6a093),
+        f64::from_bits(0x3ff58ff78b53942b),
+        f64::from_bits(0x3ffa2aed90e3676a),
+    ],
+    [
+        f64::from_bits(0x3fec26e56e1de98b),
+        f64::from_bits(0xc004560f710e46df),
+        f64::from_bits(0x3fd1c0c8beff734d),
+    ],
+    [
+        f64::from_bits(0x3fe02b45bf6fcf07),
+        f64::from_bits(0x4011b4eba1804544),
+        f64::from_bits(0xc003df49e7fa6803),
+    ],
+    [
+        f64::from_bits(0x4008000000000000),
+        f64::from_bits(0x3ff0000000000000),
+        f64::from_bits(0x3ff8000000000000),
+    ],
+    [
+        f64::from_bits(0x3ff7843e3944ba5b),
+        f64::from_bits(0x3ff7976419068455),
+        f64::from_bits(0xbfe61f268ef805b3),
+    ],
+    [
+        f64::from_bits(0x3feea659f3659cd8),
+        f64::from_bits(0x40204022076f319b),
+        f64::from_bits(0xbfef676ae7d2714f),
+    ],
+    [
+        f64::from_bits(0x400dc8b0aad6c533),
+        f64::from_bits(0x400265d66dff533b),
+        f64::from_bits(0x3ff2302068ffc571),
+    ],
+    [
+        f64::from_bits(0x3ff23485dcde2d07),
+        f64::from_bits(0x400568b7d0637131),
+        f64::from_bits(0xbfe25914aeed22d2),
+    ],
+    [
+        f64::from_bits(0xc002039b099dd37e),
+        f64::from_bits(0xc00e1727b2328d5f),
+        f64::from_bits(0x3ff31e2fc0e115cc),
+    ],
+    [
+        f64::from_bits(0x400fdd36b25736f8),
+        f64::from_bits(0x4007a0580bf3804e),
+        f64::from_bits(0x3ff02110b89e1268),
+    ],
+    [
+        f64::from_bits(0x3fc9f9fb61d4cab8),
+        f64::from_bits(0x3fe1a15343f75d60),
+        f64::from_bits(0xbfb8e4877532306c),
+    ],
+    [
+        f64::from_bits(0xbffa93d39014d734),
+        f64::from_bits(0xc0118df26c491c6e),
+        f64::from_bits(0x3fe9dea59d766527),
+    ],
+    [
+        f64::from_bits(0x4010000000000000),
+        f64::from_bits(0x4008000000000003),
+        f64::from_bits(0x3feffffffffffffc),
+    ],
+    [
+        f64::from_bits(0xbcf4000000000000),
+        f64::from_bits(0x3d1e000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0xbd1638e38e38e38e),
+        f64::from_bits(0x3d3638e38e38e38e),
+        f64::from_bits(0x3cf638e38e38e38e),
+    ],
+];
+
+/// Comparison tolerance for the trajectory check (from the fixture's f64 tolerance).
+pub const MINIMUM_SNAP_ABS: f64 = 1e-7;
+pub const MINIMUM_SNAP_REL: f64 = 1e-7;

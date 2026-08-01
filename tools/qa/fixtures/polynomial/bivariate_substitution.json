@@ -1,0 +1,73 @@
+{
+  "case": "bivariate_substitution",
+  "expected": {
+    "result": {
+      "data": [
+        "0xbff0000000000000",
+        "0x400b333333333333",
+        "0x4014666666666666"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "kind": {
+      "kind": "str",
+      "v": "multivariate_substitution"
+    },
+    "terms": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x4008000000000000",
+        "0x4000000000000000",
+        "0x3ff0000000000000",
+        "0x4000000000000000",
+        "0x3ff0000000000000",
+        "0x3ff0000000000000",
+        "0xbff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "rows": 3
+    },
+    "value": {
+      "kind": "scalar",
+      "v": "0x3ffb333333333333"
+    },
+    "variable": {
+      "kind": "int",
+      "v": 1
+    },
+    "variable_count": {
+      "kind": "int",
+      "v": 2
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "3x\u00b2y + 2xy \u2212 1 with y fixed at 1.7",
+    "generator": "polynomial",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "operations": [
+      "the one-variable coefficients left behind"
+    ],
+    "reference": "NumPy 2.1.3",
+    "sampling": "hand-chosen coefficients and factored polynomials with known roots",
+    "seed": 20260706
+  },
+  "module": "polynomial",
+  "schema_version": 2,
+  "tolerances": {
+    "f32": {
+      "abs": 0.0001,
+      "rel": 0.0001
+    },
+    "f64": {
+      "abs": 1e-12,
+      "rel": 1e-12
+    }
+  }
+}

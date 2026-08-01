@@ -273,6 +273,72 @@ fn bench_extended_kalman_filter_step(c: &mut Criterion) {
     });
 }
 
+fn bench_polynomial_evaluate(c: &mut Criterion) {
+    use multicalc::Polynomial;
+    let polynomial = Polynomial::<8, f64>::new([0.2, -1.1, 0.4, 2.0, -0.3, 0.05, 0.9, -0.15]);
+    c.bench_function("polynomial_evaluate", |b| {
+        b.iter(|| polynomial.evaluate_with_derivatives::<3>(black_box(0.37)))
+    });
+}
+
+fn bench_polynomial_real_roots_sturm(c: &mut Criterion) {
+    // The degree-6 polynomial from the fixtures, past where any formula reaches.
+    use multicalc::Polynomial;
+    let polynomial = Polynomial::<7, f64>::new([84.0, -131.0, -126.5, 104.5, 5.5, -9.5, 1.0]);
+    let bound = polynomial.cauchy_root_bound().unwrap();
+    c.bench_function("polynomial_real_roots_sturm", |b| {
+        b.iter(|| {
+            polynomial
+                .real_roots_in(black_box(-bound), black_box(bound), 1e-10, 400)
+                .unwrap()
+        })
+    });
+}
+
+fn bench_multivariate_evaluate(c: &mut Criterion) {
+    use multicalc::{MultivariatePolynomial, MultivariateTerm};
+    let polynomial = MultivariatePolynomial::<3, 8, f64>::try_from_terms(&[
+        MultivariateTerm::new(1.5, [2, 1, 0]),
+        MultivariateTerm::new(-0.5, [0, 2, 1]),
+        MultivariateTerm::new(2.0, [1, 1, 1]),
+        MultivariateTerm::new(0.25, [3, 0, 0]),
+        MultivariateTerm::new(-1.0, [0, 0, 2]),
+        MultivariateTerm::new(0.75, [1, 0, 1]),
+        MultivariateTerm::new(0.4, [2, 0, 1]),
+        MultivariateTerm::new(-0.2, [0, 1, 2]),
+    ])
+    .unwrap();
+    c.bench_function("multivariate_evaluate", |b| {
+        b.iter(|| polynomial.evaluate(black_box(&[1.3, -0.7, 2.1])))
+    });
+}
+
+fn bench_minimum_snap_plan(c: &mut Criterion) {
+    // The seven-segment loop from the motion fixtures, planned from scratch each time.
+    use multicalc::motion::{MinimumSnapPlanner, durations_from_average_speed};
+    let waypoints = [
+        Vector::new([0.0, 0.0, 0.0]),
+        Vector::new([7.0, 0.0, 1.0]),
+        Vector::new([7.0, 7.0, 2.5]),
+        Vector::new([0.0, 7.0, 1.5]),
+        Vector::new([0.0, 0.0, 2.0]),
+        Vector::new([3.5, 3.5, 2.5]),
+        Vector::new([7.0, 3.5, 1.0]),
+        Vector::new([3.5, 0.0, 0.5]),
+    ];
+    let mut durations = [0.0_f64; 7];
+    durations_from_average_speed(&waypoints, 3.0, &mut durations).unwrap();
+
+    let planner = MinimumSnapPlanner::<8, 21, 3, f64>::new();
+    c.bench_function("minimum_snap_plan", |b| {
+        b.iter(|| {
+            planner
+                .plan(black_box(&waypoints), black_box(&durations))
+                .unwrap()
+        })
+    });
+}
+
 fn bench_pid_update(c: &mut Criterion) {
     use multicalc::control::Pid;
     let mut controller = Pid::new(2.0, 1.0, 0.05, 0.001)
@@ -415,6 +481,26 @@ const BENCHES: &[(&str, BenchFn, &str)] = &[
         "extended_kalman_filter_step",
         bench_extended_kalman_filter_step,
         "5-state coordinated turn + position fix, autodiff Jacobians, predict + update",
+    ),
+    (
+        "polynomial_evaluate",
+        bench_polynomial_evaluate,
+        "p(x) and its first two derivatives, seventh power",
+    ),
+    (
+        "polynomial_real_roots_sturm",
+        bench_polynomial_real_roots_sturm,
+        "six real roots of a sixth-power polynomial",
+    ),
+    (
+        "multivariate_evaluate",
+        bench_multivariate_evaluate,
+        "an eight-term polynomial in three variables",
+    ),
+    (
+        "minimum_snap_plan",
+        bench_minimum_snap_plan,
+        "smoothest path through 8 waypoints in 3D",
     ),
     (
         "pid_update",

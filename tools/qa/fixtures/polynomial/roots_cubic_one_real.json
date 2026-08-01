@@ -1,0 +1,52 @@
+{
+  "case": "roots_cubic_one_real",
+  "expected": {
+    "roots": {
+      "data": [
+        "0xbfe5d5a11e52f89b"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "coefficients": {
+      "data": [
+        "0x3ff0000000000000",
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000"
+      ],
+      "kind": "vector"
+    },
+    "kind": {
+      "kind": "str",
+      "v": "roots"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "x\u00b3 + x + 1",
+    "generator": "polynomial",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "operations": [
+      "real roots, ascending"
+    ],
+    "reference": "NumPy 2.1.3",
+    "sampling": "hand-chosen coefficients and factored polynomials with known roots",
+    "seed": 20260706
+  },
+  "module": "polynomial",
+  "schema_version": 2,
+  "tolerances": {
+    "f32": {
+      "abs": 0.0001,
+      "rel": 0.0001
+    },
+    "f64": {
+      "abs": 1e-09,
+      "rel": 1e-09
+    }
+  }
+}

@@ -112,6 +112,10 @@ fn along_one_axis<const DIMENSION: usize, T: Numeric>(
 /// includes a matrix factorization, so it is not bounded per tick. Plan once, off the loop; the
 /// [`PiecewisePolynomial`] it returns is what the loop evaluates, and that *is* bounded.
 ///
+/// It is not small on the stack either: planning a three-segment path in three dimensions measures
+/// about 12.5 KB on a Cortex-M4, and that grows with the square of `MAX_FREE_DERIVATIVES`. Evaluating
+/// the result costs a few hundred bytes. On a chip, plan on the host and ship the trajectory.
+///
 /// `MAX_FREE_DERIVATIVES` must be at least `3 × (MAX_SEGMENTS - 1)` — three values are chosen at
 /// each waypoint between the first and last. Stable Rust cannot work that out from `MAX_SEGMENTS`,
 /// so it is given separately and checked at runtime:
