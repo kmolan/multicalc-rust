@@ -35,10 +35,10 @@ pub struct Discretization;
 pub struct SignalProcessing;
 #[doc = include_str!("../tutorials/spatial-quaternions-and-lie-groups.md")]
 pub struct SpatialQuaternionsAndLieGroups;
-#[doc = include_str!("../tutorials/rigid-body-inertia-and-the-free-joint.md")]
-pub struct RigidBodyInertiaAndTheFreeJoint;
-#[doc = include_str!("../tutorials/rigid-body-dynamics-and-rotor-mixing.md")]
-pub struct RigidBodyDynamicsAndRotorMixing;
+#[doc = include_str!("../tutorials/rigid-body-dynamics.md")]
+pub struct RigidBodyDynamics;
+#[doc = include_str!("../tutorials/plant.md")]
+pub struct Plant;
 #[doc = include_str!("../tutorials/kinematics.md")]
 pub struct Kinematics;
 #[doc = include_str!("../tutorials/control.md")]
