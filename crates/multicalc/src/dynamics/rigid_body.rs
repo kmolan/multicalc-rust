@@ -30,15 +30,17 @@ pub const STATE_DIMENSION: usize = 13;
 /// use multicalc::linear_algebra::Vector;
 /// use multicalc::spatial::SpatialInertia;
 ///
-/// let inertia = SpatialInertia::from_diagonal_inertia(
-///     0.8_f64,
-///     Vector::new([0.0, 0.0, 0.0]),
-///     Vector::new([0.005, 0.007, 0.009]),
-/// )
-/// .unwrap();
-/// let body = RigidBody::new(inertia, Vector::new([0.0, 0.0, -9.81])).unwrap();
+/// // A small flying machine that balances on its own origin.
+/// let mass = 0.8_f64;
+/// let balance_point = Vector::new([0.0, 0.0, 0.0]);
+/// let resistance_to_spinning = Vector::new([0.005, 0.007, 0.009]);
+/// let earth_gravity = Vector::new([0.0, 0.0, -9.81]);
 ///
-/// assert_eq!(body.inertia().mass(), 0.8);
+/// let inertia =
+///     SpatialInertia::from_diagonal_inertia(mass, balance_point, resistance_to_spinning).unwrap();
+/// let body = RigidBody::new(inertia, earth_gravity).unwrap();
+///
+/// assert_eq!(body.inertia().mass(), mass);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RigidBody<T: Numeric = f64> {
@@ -101,24 +103,33 @@ impl<T: Numeric> RigidBody<T> {
     /// use multicalc::linear_algebra::Vector;
     /// use multicalc::spatial::{SO3, SpatialInertia, Wrench};
     ///
-    /// let inertia = SpatialInertia::from_diagonal_inertia(
-    ///     2.0_f64,
-    ///     Vector::new([0.0, 0.0, 0.0]),
-    ///     Vector::new([1.0, 1.0, 1.0]),
-    /// )
-    /// .unwrap();
-    /// let body = RigidBody::new(inertia, Vector::new([0.0, 0.0, -9.81])).unwrap();
+    /// let mass = 2.0_f64;
+    /// let gravity_strength = 9.81;
+    /// let balance_point = Vector::new([0.0, 0.0, 0.0]);
+    /// let resistance_to_spinning = Vector::new([1.0, 1.0, 1.0]);
+    /// let earth_gravity = Vector::new([0.0, 0.0, -gravity_strength]);
+    ///
+    /// let inertia =
+    ///     SpatialInertia::from_diagonal_inertia(mass, balance_point, resistance_to_spinning)
+    ///         .unwrap();
+    /// let body = RigidBody::new(inertia, earth_gravity).unwrap();
     ///
     /// // Level, not turning, nothing pushing on it: it falls.
     /// let level = SO3::identity();
-    /// let still = Vector::new([0.0, 0.0, 0.0]);
-    /// let falling = body.accelerations(level, still, Wrench::zeros());
-    /// assert!((falling.linear() - Vector::new([0.0, 0.0, -9.81])).norm() < 1e-12);
+    /// let not_turning = Vector::new([0.0, 0.0, 0.0]);
+    /// let nothing_applied = Wrench::zeros();
+    ///
+    /// let falling = body.accelerations(level, not_turning, nothing_applied);
+    /// assert!((falling.linear() - earth_gravity).norm() < 1e-12);
     /// assert!(falling.angular().norm() < 1e-12);
     ///
-    /// // Pushing up with exactly its own weight holds it still.
-    /// let hover = Wrench::new(Vector::new([0.0, 0.0, 19.62]), Vector::new([0.0, 0.0, 0.0]));
-    /// let held = body.accelerations(level, still, hover);
+    /// // Pushing straight up with exactly its own weight holds it still.
+    /// let weight = mass * gravity_strength;
+    /// let push_up = Vector::new([0.0, 0.0, weight]);
+    /// let no_turn = Vector::new([0.0, 0.0, 0.0]);
+    /// let hover = Wrench::new(push_up, no_turn);
+    ///
+    /// let held = body.accelerations(level, not_turning, hover);
     /// assert!(held.linear().norm() < 1e-12);
     /// ```
     #[must_use]
@@ -152,7 +163,7 @@ impl<T: Numeric> RigidBody<T> {
     }
 
     /// How the thirteen numbers change with time, ready to hand to an integrator.
-    /// 
+    ///
     /// index  0  1  2   3   4   5   6   7  8  9   10 11 12
     ///        px py pz  qw  qx  qy  qz  vx vy vz  ωx ωy ωz
     /// p — position in world frame
@@ -172,20 +183,37 @@ impl<T: Numeric> RigidBody<T> {
     /// use multicalc::ode::Rk4;
     /// use multicalc::spatial::{FreeJointState, SE3, SpatialInertia, Twist, Wrench};
     ///
-    /// let inertia = SpatialInertia::from_diagonal_inertia(
-    ///     1.0_f64,
-    ///     Vector::new([0.0, 0.0, 0.0]),
-    ///     Vector::new([0.01, 0.01, 0.02]),
-    /// )
-    /// .unwrap();
-    /// let body = RigidBody::new(inertia, Vector::new([0.0, 0.0, -9.81])).unwrap();
+    /// let mass = 1.0_f64;
+    /// let gravity_strength = 9.81;
+    /// let balance_point = Vector::new([0.0, 0.0, 0.0]);
+    /// let resistance_to_spinning = Vector::new([0.01, 0.01, 0.02]);
+    /// let earth_gravity = Vector::new([0.0, 0.0, -gravity_strength]);
     ///
-    /// // Dropped from rest: after one second it has fallen about 4.9 m.
-    /// let start = state_vector_from_free_joint(FreeJointState::new(SE3::identity(), Twist::zeros()));
-    /// let rate = |_t: f64, y: &Vector<13, f64>| body.state_derivative(y, Wrench::zeros());
-    /// let after = Rk4::integrate(&rate, 0.0, &start, 0.001, 1000, |_t, _y| {});
-    /// assert!((after[2] + 4.905).abs() < 1e-9);
-    /// assert!((after[9] + 9.81).abs() < 1e-9);
+    /// let inertia =
+    ///     SpatialInertia::from_diagonal_inertia(mass, balance_point, resistance_to_spinning)
+    ///         .unwrap();
+    /// let body = RigidBody::new(inertia, earth_gravity).unwrap();
+    ///
+    /// // Sitting at the origin, not moving and not turning, with nothing pushing on it.
+    /// let at_rest = FreeJointState::new(SE3::identity(), Twist::zeros());
+    /// let start = state_vector_from_free_joint(at_rest);
+    /// let nothing_applied = Wrench::zeros();
+    /// let rate = |_time: f64, state: &Vector<13, f64>| {
+    ///     body.state_derivative(state, nothing_applied)
+    /// };
+    ///
+    /// // Dropped and left alone for one second.
+    /// let start_time = 0.0;
+    /// let step = 0.001;
+    /// let step_count = 1000;
+    /// let fall_time = 1.0;
+    /// let after = Rk4::integrate(&rate, start_time, &start, step, step_count, |_time, _state| {});
+    ///
+    /// // It has fallen about 4.9 m and is heading down at about 9.8 m/s.
+    /// let expected_fall = 0.5 * gravity_strength * fall_time * fall_time;
+    /// let expected_speed = gravity_strength * fall_time;
+    /// assert!((after[2] + expected_fall).abs() < 1e-9);
+    /// assert!((after[9] + expected_speed).abs() < 1e-9);
     /// ```
     pub fn state_derivative(
         self,
@@ -228,7 +256,13 @@ pub fn state_vector_from_free_joint<T: Numeric>(
 ) -> Vector<STATE_DIMENSION, T> {
     let place = state.generalized_position();
     let motion = state.generalized_velocity();
-    Vector::from_fn(|index| if index < 7 { place[index] } else { motion[index - 7] })
+    Vector::from_fn(|index| {
+        if index < 7 {
+            place[index]
+        } else {
+            motion[index - 7]
+        }
+    })
 }
 
 /// A free body's pose and motion, read back out of the thirteen numbers.

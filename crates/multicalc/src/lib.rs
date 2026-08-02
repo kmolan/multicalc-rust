@@ -138,10 +138,17 @@ pub use motion::{
     durations_from_average_speed,
 };
 
+/// A single rigid body's motion under the forces on it, and the state an integrator carries.
+pub use dynamics::{RigidBody, RigidBodyAcceleration};
+
+/// Sharing a wanted push and turn out across a set of rotors.
+pub use plant::{MultirotorMixer, RotorCommands, RotorSpin};
+
 /// Per-module-family error enums and the umbrella they convert into.
 pub use error::{
-    CalcError, ControlError, DiffError, EstimationError, IntegrateError, KinematicsError,
-    LinalgError, MotionError, PolynomialError, SignalError, SolveError, SpatialError,
+    CalcError, ControlError, DiffError, DynamicsError, EstimationError, IntegrateError,
+    KinematicsError, LinalgError, MotionError, PlantError, PolynomialError, SignalError,
+    SolveError, SpatialError,
 };
 
 pub mod approximation;
@@ -158,6 +165,7 @@ pub mod numerical_derivative;
 pub mod numerical_integration;
 pub mod ode;
 pub mod optimization;
+pub mod plant;
 pub mod polynomial;
 pub mod prelude;
 pub mod random;
