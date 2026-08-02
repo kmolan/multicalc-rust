@@ -46,7 +46,7 @@ jobs:
         run: cargo test -p multicalc --features alloc
       - name: Test (model ingestion)
         run: cargo test -p multicalc-mjcf
-      # All features on: the README and guide examples are compiled here too, and some of
+      # All features on: the README and tutorial examples are compiled here too, and some of
       # them use the alloc-only types.
       - name: Doctests
         run: cargo test -p multicalc --all-features --doc

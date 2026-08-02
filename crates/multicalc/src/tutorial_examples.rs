@@ -1,0 +1,55 @@
+//! Pulls every tutorial page into the doctest run, so the examples in `tutorials/` are compiled
+//! and checked and cannot go stale. Some pages use the alloc-only types, so the whole module is
+//! compiled under `alloc` only. Each page needs a line here; a test in the suite checks that none
+//! were missed.
+
+#[doc = include_str!("../tutorials/README.md")]
+pub struct Overview;
+#[doc = include_str!("../tutorials/importing.md")]
+pub struct Importing;
+#[doc = include_str!("../tutorials/scalars-and-automatic-differentiation.md")]
+pub struct ScalarsAndAutomaticDifferentiation;
+#[doc = include_str!("../tutorials/derivatives-jacobians-and-hessians.md")]
+pub struct DerivativesJacobiansAndHessians;
+#[doc = include_str!("../tutorials/integration.md")]
+pub struct Integration;
+#[doc = include_str!("../tutorials/gaussian-quadrature-tables.md")]
+pub struct GaussianQuadratureTables;
+#[doc = include_str!("../tutorials/taylor-approximation.md")]
+pub struct TaylorApproximation;
+#[doc = include_str!("../tutorials/linear-algebra.md")]
+pub struct LinearAlgebra;
+#[doc = include_str!("../tutorials/least-squares-optimization.md")]
+pub struct LeastSquaresOptimization;
+#[doc = include_str!("../tutorials/root-finding.md")]
+pub struct RootFinding;
+#[doc = include_str!("../tutorials/polynomials.md")]
+pub struct Polynomials;
+#[doc = include_str!("../tutorials/vector-calculus.md")]
+pub struct VectorCalculus;
+#[doc = include_str!("../tutorials/ode-integrators.md")]
+pub struct OdeIntegrators;
+#[doc = include_str!("../tutorials/discretization.md")]
+pub struct Discretization;
+#[doc = include_str!("../tutorials/signal-processing.md")]
+pub struct SignalProcessing;
+#[doc = include_str!("../tutorials/spatial-quaternions-and-lie-groups.md")]
+pub struct SpatialQuaternionsAndLieGroups;
+#[doc = include_str!("../tutorials/rigid-body-inertia-and-the-free-joint.md")]
+pub struct RigidBodyInertiaAndTheFreeJoint;
+#[doc = include_str!("../tutorials/rigid-body-dynamics-and-rotor-mixing.md")]
+pub struct RigidBodyDynamicsAndRotorMixing;
+#[doc = include_str!("../tutorials/kinematics.md")]
+pub struct Kinematics;
+#[doc = include_str!("../tutorials/control.md")]
+pub struct Control;
+#[doc = include_str!("../tutorials/motion.md")]
+pub struct Motion;
+#[doc = include_str!("../tutorials/estimation.md")]
+pub struct Estimation;
+#[doc = include_str!("../tutorials/random.md")]
+pub struct Random;
+#[doc = include_str!("../tutorials/error-handling.md")]
+pub struct ErrorHandling;
+#[doc = include_str!("../tutorials/internals.md")]
+pub struct Internals;
