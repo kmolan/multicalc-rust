@@ -147,6 +147,7 @@ pub use error::{
 pub mod approximation;
 pub mod control;
 pub mod discretization;
+pub mod dynamics;
 pub mod error;
 pub mod estimation;
 pub mod gaussian_tables;
