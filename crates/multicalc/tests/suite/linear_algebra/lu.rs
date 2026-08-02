@@ -59,6 +59,21 @@ fn lu_rejects_singular() {
 }
 
 #[test]
+fn lu_rejects_a_pivot_negligible_against_the_largest() {
+    // Put the negligible pivot first so the check must retain the smallest pivot seen when a
+    // larger one appears later. The matrix is invertible in exact arithmetic but too
+    // ill-conditioned for the documented LU/inverse contract.
+    let near_singular = Matrix::<5, 5>::from_diagonal([1e-300, 1.0, 1.0, 1.0, 1.0]);
+    assert_eq!(near_singular.lu().err(), Some(LinalgError::Singular));
+    assert_eq!(near_singular.inverse().err(), Some(LinalgError::Singular));
+
+    // The threshold is relative: uniformly tiny, well-conditioned matrices remain valid.
+    let uniformly_scaled = Matrix::<5, 5>::from_diagonal([1e-300, 2e-300, 3e-300, 4e-300, 5e-300]);
+    assert!(uniformly_scaled.lu().is_ok());
+    assert!(uniformly_scaled.inverse().is_ok());
+}
+
+#[test]
 fn lu_solves() {
     let matrix = Matrix3D::<f64>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
     let factorization = matrix.lu().unwrap();

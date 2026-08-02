@@ -28,8 +28,9 @@ pub struct Lu<const N: usize, T = f64> {
 impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// Factorizes `self` by Doolittle LU with partial pivoting.
     ///
-    /// Returns [`LinalgError::Singular`] if a pivot column is entirely zero — the largest
-    /// available pivot is zero — rather than dividing by it.
+    /// Returns [`LinalgError::Singular`] if a pivot column is entirely zero, or if the smallest
+    /// pivot is at most `EPSILON` times the largest pivot, rather than returning a factorization
+    /// whose solves divide by a negligible value.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
@@ -49,6 +50,8 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
         let mut a = self;
         let mut perm: [usize; N] = core::array::from_fn(|i| i);
         let mut sign = T::ONE;
+        let mut smallest_pivot = T::MAX;
+        let mut largest_pivot = T::ZERO;
 
         for k in 0..N {
             // Partial pivot: largest magnitude in column k on or below the diagonal.
@@ -61,9 +64,11 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
                     p = i;
                 }
             }
-            if a[(p, k)] == T::ZERO {
+            if best == T::ZERO {
                 return Err(LinalgError::Singular);
             }
+            smallest_pivot = smallest_pivot.min(best);
+            largest_pivot = largest_pivot.max(best);
             if p != k {
                 a.as_mut_slice_rows().swap(k, p);
                 perm.swap(k, p);
@@ -78,6 +83,10 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
                     a[(i, j)] -= factor * akj;
                 }
             }
+        }
+
+        if smallest_pivot <= T::EPSILON * largest_pivot {
+            return Err(LinalgError::Singular);
         }
 
         Ok(Lu { lu: a, perm, sign })

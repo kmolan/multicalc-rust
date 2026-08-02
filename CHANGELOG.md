@@ -43,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- LU factorization now rejects a pivot that is negligible relative to the largest pivot instead
+  of returning unusable solves and inverses. (#207)
 - `Matrix::expm` now rejects non-finite inputs before entering its scaling loop. (#202)
 - `ResamplingScheme::resample_indices` now leaves output indices untouched for empty weights
   instead of panicking. (#204)
