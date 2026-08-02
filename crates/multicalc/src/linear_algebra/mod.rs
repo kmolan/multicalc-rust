@@ -7,21 +7,29 @@
 //!   [`Matrix6D`] — short names for the sizes that come up most, so a call site writes
 //!   `Vector3D<T>` rather than `Vector<3, T>`. Each is the same type as what it stands for, so
 //!   the two spellings mix freely.
+//! - [`solve_discrete_riccati`] — the steady-state cost-to-go an optimal linear feedback law is
+//!   built from.
+//! - [`solve_discrete_lyapunov`] — solves `Aᵀ·P·A − P + Q = 0`, which is how a closed loop is
+//!   shown to settle.
 
 mod cholesky;
 mod expm;
 mod lu;
+mod lyapunov;
 mod macros;
 mod matrix;
 mod qr;
+mod riccati;
 mod svd;
 mod symmetric_eigendecomposition;
 mod vector;
 
 pub use cholesky::Cholesky;
 pub use lu::Lu;
+pub use lyapunov::solve_discrete_lyapunov;
 pub use matrix::Matrix;
 pub use qr::{CholeskyFactor, DampedLeastSquares, PivotedQr};
+pub use riccati::solve_discrete_riccati;
 pub use svd::Svd;
 pub use symmetric_eigendecomposition::SymmetricEigendecomposition;
 pub use vector::Vector;
