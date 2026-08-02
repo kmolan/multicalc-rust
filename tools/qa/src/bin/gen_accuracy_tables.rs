@@ -135,16 +135,17 @@ const DOCS: &[Doc] = &[
         file: "estimation.md",
         modules: &[Module {
             name: "estimation",
+            // One row per filter. Every fixture still runs in `cargo test -p multicalc-qa`; the
+            // ones left out here are second cases for a filter already shown.
             cases: &[
                 "kalman_filter_constant_velocity_one_dimensional",
-                "kalman_filter_constant_velocity_two_dimensional",
                 "kalman_filter_with_control_input",
-                "extended_kalman_filter_landmark_range_and_bearing",
                 "extended_kalman_filter_coordinated_turn_fusion",
                 "unscented_kalman_filter_coordinated_turn_fusion",
-                "unscented_kalman_filter_landmark_range_and_bearing",
                 "error_state_kalman_filter_imu_trajectory",
                 "triad_attitude_from_two_directions",
+                "mahony_attitude_filter",
+                "madgwick_attitude_filter",
             ],
         }],
     },

@@ -4,7 +4,7 @@
 
 use multicalc::estimation::{
     ErrorStateKalmanFilter, ExtendedKalmanFilter, ImuNoise, KalmanFilter, KalmanModel,
-    NominalState, NominalStateFn, UnscentedKalmanFilter,
+    MadgwickFilter, MahonyFilter, NominalState, NominalStateFn, UnscentedKalmanFilter,
 };
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::scalar::{Numeric, VectorFn};
@@ -453,6 +453,98 @@ fn run_triad_attitude_from_two_directions(fx: &Fixture) {
     );
 }
 
+fn run_mahony_attitude_filter(fx: &Fixture) {
+    let timestep = fx.inputs["timestep"].as_scalar();
+    let initial_orientation = SO3::from_quaternion(Quaternion::from_array(
+        *to_vector::<4>(&fx.inputs["initial_orientation"]).as_array(),
+    ));
+    let mut filter = MahonyFilter::new(initial_orientation)
+        .with_proportional_gain(fx.inputs["proportional_gain"].as_scalar())
+        .with_integral_gain(fx.inputs["integral_gain"].as_scalar())
+        .with_reference_directions(
+            to_vector::<3>(&fx.inputs["upward_reference"]),
+            to_vector::<3>(&fx.inputs["north_reference"]),
+        );
+
+    let (steps, _, gyroscope_readings) = fx.inputs["gyroscope_readings"].as_matrix();
+    let (_, _, accelerometer_readings) = fx.inputs["accelerometer_readings"].as_matrix();
+    let (_, _, magnetometer_readings) = fx.inputs["magnetometer_readings"].as_matrix();
+
+    for step in 0..steps {
+        let gyroscope_reading = Vector::from_fn(|axis| gyroscope_readings[step * 3 + axis]);
+        let accelerometer_reading = Vector::from_fn(|axis| accelerometer_readings[step * 3 + axis]);
+        let magnetometer_reading = Vector::from_fn(|axis| magnetometer_readings[step * 3 + axis]);
+        filter
+            .step(
+                gyroscope_reading,
+                accelerometer_reading,
+                Some(magnetometer_reading),
+                timestep,
+            )
+            .unwrap();
+    }
+
+    let t = fx.tolerances.f64;
+    assert_vector(
+        &canonical_quaternion(filter.orientation()),
+        &fx.expected["orientation"],
+        t,
+        "orientation",
+    );
+    assert_vector(
+        &filter.gyroscope_bias(),
+        &fx.expected["gyroscope_bias"],
+        t,
+        "gyroscope_bias",
+    );
+}
+
+fn run_madgwick_attitude_filter(fx: &Fixture) {
+    let timestep = fx.inputs["timestep"].as_scalar();
+    let initial_orientation = SO3::from_quaternion(Quaternion::from_array(
+        *to_vector::<4>(&fx.inputs["initial_orientation"]).as_array(),
+    ));
+    let mut filter = MadgwickFilter::new(initial_orientation)
+        .with_correction_gain(fx.inputs["correction_gain"].as_scalar())
+        .with_bias_gain(fx.inputs["bias_gain"].as_scalar())
+        .with_reference_directions(
+            to_vector::<3>(&fx.inputs["upward_reference"]),
+            to_vector::<3>(&fx.inputs["north_reference"]),
+        );
+
+    let (steps, _, gyroscope_readings) = fx.inputs["gyroscope_readings"].as_matrix();
+    let (_, _, accelerometer_readings) = fx.inputs["accelerometer_readings"].as_matrix();
+    let (_, _, magnetometer_readings) = fx.inputs["magnetometer_readings"].as_matrix();
+
+    for step in 0..steps {
+        let gyroscope_reading = Vector::from_fn(|axis| gyroscope_readings[step * 3 + axis]);
+        let accelerometer_reading = Vector::from_fn(|axis| accelerometer_readings[step * 3 + axis]);
+        let magnetometer_reading = Vector::from_fn(|axis| magnetometer_readings[step * 3 + axis]);
+        filter
+            .step(
+                gyroscope_reading,
+                accelerometer_reading,
+                Some(magnetometer_reading),
+                timestep,
+            )
+            .unwrap();
+    }
+
+    let t = fx.tolerances.f64;
+    assert_vector(
+        &canonical_quaternion(filter.orientation()),
+        &fx.expected["orientation"],
+        t,
+        "orientation",
+    );
+    assert_vector(
+        &filter.gyroscope_bias(),
+        &fx.expected["gyroscope_bias"],
+        t,
+        "gyroscope_bias",
+    );
+}
+
 #[test]
 fn error_state_kalman_filter_cases() {
     for fx in load_dir("estimation") {
@@ -475,6 +567,20 @@ fn triad_cases() {
         match fx.inputs["case"].as_str() {
             "attitude_from_two_directions" => run_triad_attitude_from_two_directions(&fx),
             case => panic!("unregistered triad case {case:?}"),
+        }
+    }
+}
+
+#[test]
+fn attitude_filter_cases() {
+    for fx in load_dir("estimation") {
+        if fx.inputs["kind"].as_str() != "attitude_filter" {
+            continue;
+        }
+        match fx.inputs["case"].as_str() {
+            "mahony_gyroscope_accelerometer_magnetometer" => run_mahony_attitude_filter(&fx),
+            "madgwick_gyroscope_accelerometer_magnetometer" => run_madgwick_attitude_filter(&fx),
+            case => panic!("unregistered attitude filter case {case:?}"),
         }
     }
 }

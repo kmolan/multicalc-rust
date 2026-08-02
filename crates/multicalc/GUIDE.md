@@ -1928,6 +1928,97 @@ assert!(learned.is_finite());
 Full demo:
 [error_state_estimation.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/error_state_estimation.rs).
 
+### Attitude filters
+
+`MahonyFilter<T>` and `MadgwickFilter<T>` work out which way a body is facing, and what its
+turn-rate sensor reads when the body is not turning, from a turn-rate sensor, a push sensor, and
+optionally a magnetometer. They carry a facing and a three-number offset and nothing else — no
+place, no speed, no spread. When a spread is wanted, that is `ErrorStateKalmanFilter`'s job, at
+roughly a hundred times the arithmetic; these are a handful of cross products and one exponential a
+tick, the same work whatever the readings are.
+
+A turn-rate sensor alone gives a smooth facing that slowly wanders. A push sensor alone says which
+way is down but jumps about whenever the body is pushed; a magnetometer alone says which way is
+north and is easily disturbed. Both filters take the turn rate as the answer and nudge it, every
+tick, by however far the other two say it is off. They differ only in how they nudge:
+
+- `MahonyFilter` nudges harder the more wrong it is — a `with_proportional_gain` term acting now,
+  and a `with_integral_gain` term that turns the running total of those nudges into the offset
+  estimate. Set the integral gain to zero and no offset is learned, at the price of a small
+  permanent lean whenever the sensor really does have one.
+- `MadgwickFilter` always nudges by the same amount and takes only the direction from the readings.
+  That makes `with_correction_gain`, in radians per second, the whole tuning story: it is how fast
+  the filter is willing to walk toward the sensors, and it does not change whether the facing is a
+  degree out or ninety. `with_bias_gain` says how much of that walking to blame on a sensor offset;
+  set it to zero for the published filter's behaviour, which learns none.
+
+Shared by both:
+
+- `new(initial_orientation)`: the only thing without a default. The starting facing usually comes
+  from `SO3::from_two_direction_pairs` on a still body.
+- `with_reference_directions(upward_reference, north_reference)`: which way is up and which way is
+  north, in world axes. Starts at `(0, 0, 1)` and `(1, 0, 0)`. Both go in at once so their order
+  cannot matter, and north is squared up against up before it is stored.
+- `step(gyroscope_reading, accelerometer_reading, magnetometer_reading, timestep)`: one tick. The
+  magnetometer is an `Option`, so a tick without one — or with one that is not to be trusted — is
+  a `None` rather than a separate call. `step_without_magnetometer` is the same thing spelled
+  shorter.
+- `orientation()` and `gyroscope_bias()`: what it has worked out. `set_orientation` and
+  `set_gyroscope_bias` put a value back, for re-seeding from a still-body fix or restoring a saved
+  offset at start-up.
+
+The magnetometer's world direction is worked out afresh each tick rather than taken as a setting:
+the measured field is turned into world axes, its upward part is kept as it is, and everything left
+over is laid along north. So the magnetometer only ever moves the heading, and a caller who does
+not know how steeply the local field dips cannot get a lasting lean out of it.
+
+Three things will look like bugs and are not. Without a magnetometer the heading rides on the
+turn-rate sensor alone and slowly wanders — only the lean is pinned, because down is the only
+direction a push sensor can see. A body in free fall has no usable down at all: the push reading
+goes to nothing, contributes nothing, and the facing coasts on the turn rate until the body is
+caught. And `MadgwickFilter` never quite stands still even when it is exactly right, because a
+fixed-rate walk always takes a step; that step, `with_correction_gain` times the timestep, is its
+error floor.
+
+Neither filter can tell a sustained push from gravity. A body accelerating steadily gives a push
+reading that is confidently wrong about down, and both will believe it — which is the honest reason
+these are the error-state filter's complement rather than its replacement.
+
+The facing is pulled back onto unit length every tick. The step itself already gives a true
+rotation; the pull back is there because these filters are the ones expected to run for hours at a
+kilohertz in single precision with nothing else watching for drift.
+
+```rust
+use multicalc::{MadgwickFilter, MahonyFilter, SO3, Vector};
+
+// Starting off level by about a tenth of a radian, on a body that is in fact still and level.
+let tilt = Vector::new([0.1, -0.05, 0.0]);
+let tilted = SO3::exp(tilt);
+let mut mahony = MahonyFilter::new(tilted);
+let mut madgwick = MadgwickFilter::new(tilted);
+
+// A still body reads one gravity upward, and a field pointing north and 60 degrees down.
+let gravity_strength = 9.81;
+let not_turning = Vector::new([0.0, 0.0, 0.0]);
+let one_gravity_up = Vector::new([0.0, 0.0, gravity_strength]);
+let dip: f64 = 60.0_f64.to_radians();
+let field = Vector::new([dip.cos(), 0.0, -dip.sin()]);
+let timestep = 0.005;
+let ticks = 12_000; // a minute at 200 Hz
+
+for _ in 0..ticks {
+    mahony.step(not_turning, one_gravity_up, Some(field), timestep).unwrap();
+    madgwick.step(not_turning, one_gravity_up, Some(field), timestep).unwrap();
+}
+
+// Both have found level, and neither was leaned over by the steeply dipping field.
+assert!(mahony.orientation().log().norm() < 1e-3);
+assert!(madgwick.orientation().log().norm() < 1e-3);
+```
+
+Full demo:
+[attitude_filter.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/attitude_filter.rs).
+
 ### Particle filter
 
 `ParticleFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T, R>` carries a cloud of weighted state
