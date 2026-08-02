@@ -59,24 +59,15 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
             return Err(LinalgError::NonFinite);
         }
 
-        // Reject a matrix that does not read the same across the diagonal, and in the same walk
-        // record the largest entry, which sets the scale everything below is measured against.
+        if !self.is_symmetric() {
+            return Err(LinalgError::NotSymmetric);
+        }
+
+        // The largest entry sets the scale everything below is measured against.
         let mut largest_entry = T::ZERO;
         for row in 0..N {
-            largest_entry = largest_entry.max(self[(row, row)].abs());
-            for column in (row + 1)..N {
-                let upper = self[(row, column)];
-                let lower = self[(column, row)];
-                // The two only have to agree to within rounding, not exactly, so a matrix that
-                // has drifted a little is still accepted while a genuinely lopsided one is not.
-                // How much they are allowed to differ grows with how big they are, because
-                // bigger numbers are stored more coarsely; the floor at one stops the allowance
-                // from shrinking to exact equality for entries near zero.
-                let scale = upper.abs().max(lower.abs()).max(T::ONE);
-                if (upper - lower).abs() > T::EPSILON_X30 * scale {
-                    return Err(LinalgError::NotSymmetric);
-                }
-                largest_entry = largest_entry.max(upper.abs()).max(lower.abs());
+            for column in 0..N {
+                largest_entry = largest_entry.max(self[(row, column)].abs());
             }
         }
 

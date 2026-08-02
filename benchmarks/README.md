@@ -18,6 +18,7 @@ within, and which library it is checked against. The tables are generated from t
 | root_finding | [`root_finding.md`](root_finding.md) | Scalar and system root finders: bisection, Newton, damped Newton, square-system Newton. |
 | ode | [`ode.md`](ode.md) | RK45 integrator trajectories against scipy `solve_ivp`. |
 | estimation | [`estimation.md`](estimation.md) | Linear and extended Kalman filter predict/update runs against FilterPy, including a coordinated-turn motion model. |
+| control | [`control.md`](control.md) | Riccati solver, and the Lyapunov certificate against scipy, plus the geometric attitude law's conventions. |
 | signal_processing | [`signal_processing.md`](signal_processing.md) | Biquad design, frequency response, and filtered output against `scipy.signal`, including a fourth-order cascade and a harmonic notch. |
 | mjcf | [`mjcf.md`](mjcf.md) | Reading a MuJoCo model file into a rigid body — mass, balance point, and resistance to spinning — against MuJoCo's own compile of it. |
 | polynomial | [`polynomial.md`](polynomial.md) | Evaluation, derivatives, areas, products, composition, interpolation, fitting, exact real roots, and polynomials in several variables, against numpy. |

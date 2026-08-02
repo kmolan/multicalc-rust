@@ -67,6 +67,9 @@ pub use linear_algebra::{Matrix, Vector};
 /// Type aliases for ease of life
 pub use linear_algebra::{Matrix2D, Matrix3D, Matrix4D, Matrix6D, Vector2D, Vector3D, Vector6D};
 
+/// Solvers for the two matrix equations behind optimal linear feedback.
+pub use linear_algebra::{solve_discrete_lyapunov, solve_discrete_riccati};
+
 /// Zero-order-hold, Van Loan, and white-noise discretization of continuous-time linear systems.
 pub use discretization::{q_discrete_white_noise, van_loan, zoh};
 
@@ -122,9 +125,12 @@ pub use polynomial::{
     MultivariatePolynomial, MultivariateTerm, PiecewisePolynomial, Polynomial, RealRoots,
 };
 
-/// Feedback control: PID, the pure-pursuit path-following law, and Follow-the-Gap reactive
-/// avoidance.
-pub use control::{Curvature, FollowTheGap, FollowTheGapOutput, Pid, pure_pursuit_curvature};
+/// Feedback control: PID, optimal linear state feedback, attitude control on rotations, the
+/// pure-pursuit path-following law, and Follow-the-Gap reactive avoidance.
+pub use control::{
+    Curvature, FollowTheGap, FollowTheGapOutput, GeometricAttitudeController, Lqr, Pid,
+    ThrustCommand, pure_pursuit_curvature, thrust_command_from_acceleration,
+};
 
 /// Waypoint paths, planned trajectories, and their arc-length, closest-point, and lookahead queries.
 pub use motion::{

@@ -96,6 +96,8 @@ fn main() -> ! {
             checks::extended_kalman_filter_golden(),
             checks::pure_pursuit_identity(),
             checks::follow_the_gap_identity(),
+            checks::lqr_identity(),
+            checks::geometric_attitude_identity(),
             checks::kalman_filter_identity_f32(),
             checks::polynomial_roots_golden(),
             checks::polynomial_sturm_identity(),
@@ -143,6 +145,8 @@ fn main() -> ! {
             extended_kalman,
             pure_pursuit,
             follow_the_gap,
+            lqr,
+            geometric_attitude,
             kalman_f32,
             poly_root0,
             poly_sturm0,
@@ -162,6 +166,8 @@ fn main() -> ! {
         let _ = hprintln!("SMOKE_VAL_extended_kalman={:e}", extended_kalman);
         let _ = hprintln!("SMOKE_VAL_pure_pursuit={:e}", pure_pursuit);
         let _ = hprintln!("SMOKE_VAL_follow_the_gap={:e}", follow_the_gap);
+        let _ = hprintln!("SMOKE_VAL_lqr={:e}", lqr);
+        let _ = hprintln!("SMOKE_VAL_geometric_attitude={:e}", geometric_attitude);
         let _ = hprintln!("SMOKE_VAL_kalman_f32={:e}", kalman_f32);
         let _ = hprintln!("SMOKE_VAL_poly_root0={:e}", poly_root0);
         let _ = hprintln!("SMOKE_VAL_poly_sturm0={:e}", poly_sturm0);

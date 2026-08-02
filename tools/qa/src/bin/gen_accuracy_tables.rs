@@ -139,6 +139,22 @@ const DOCS: &[Doc] = &[
         }],
     },
     Doc {
+        file: "control.md",
+        modules: &[Module {
+            name: "control",
+            // One flying machine end to end — design its position loop, prove that loop
+            // settles, hold the attitude it asks for — plus a cart balancing a pole, which is
+            // the harder design of the two. The other control fixtures are checked by the QA
+            // suite without adding a row here.
+            cases: &[
+                "riccati_quadrotor_hover",
+                "lyapunov_closed_loop_quadrotor_hover",
+                "riccati_cart_pole",
+                "geometric_attitude_general",
+            ],
+        }],
+    },
+    Doc {
         file: "root_finding.md",
         modules: &[Module {
             name: "root_finding",

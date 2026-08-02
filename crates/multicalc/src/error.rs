@@ -17,6 +17,11 @@ pub enum LinalgError {
     NotSymmetric,
     /// A discretization timestep was negative, infinite, or NaN.
     InvalidTimestep,
+    /// A matrix-equation solver ran out of its iteration budget before settling.
+    DidNotConverge {
+        /// Iterations spent before giving up.
+        iters: usize,
+    },
 }
 
 /// Errors from the differentiation modules (finite differences, autodiff, Jacobian, Hessian,
@@ -184,6 +189,18 @@ pub enum ControlError {
     InvalidSpeedScaling,
     /// A goal bias was negative.
     NegativeGoalBias,
+    /// A controller gain was zero or negative.
+    NonPositiveGain,
+    /// A rotational inertia did not read the same across the diagonal.
+    NotSymmetricInertia,
+    /// A rotational inertia was not positive definite.
+    NonPositiveInertia,
+    /// A wanted acceleration cancelled gravity exactly, leaving no direction to push in.
+    UndefinedThrustDirection,
+    /// The push would be straight along the wanted heading, so the heading cannot be set.
+    UndefinedHeadingDirection,
+    /// A matrix step inside a controller's setup failed.
+    Linalg(LinalgError),
     /// A filter setup error.
     Signal(SignalError),
 }
@@ -310,6 +327,11 @@ impl From<SignalError> for ControlError {
         ControlError::Signal(e)
     }
 }
+impl From<LinalgError> for ControlError {
+    fn from(e: LinalgError) -> Self {
+        ControlError::Linalg(e)
+    }
+}
 impl From<LinalgError> for CalcError {
     fn from(e: LinalgError) -> Self {
         CalcError::Linalg(e)
@@ -368,14 +390,19 @@ impl From<PolynomialError> for CalcError {
 
 impl core::fmt::Display for LinalgError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(match self {
-            LinalgError::Singular => "matrix is singular or rank-deficient",
-            LinalgError::NotPositiveDefinite => "matrix is not positive definite",
-            LinalgError::Underdetermined => "system is underdetermined (M < N)",
-            LinalgError::NonFinite => "matrix contained a non-finite value",
-            LinalgError::NotSymmetric => "matrix must read the same across the diagonal",
-            LinalgError::InvalidTimestep => "timestep must be finite and non-negative",
-        })
+        match self {
+            LinalgError::Singular => f.write_str("matrix is singular or rank-deficient"),
+            LinalgError::NotPositiveDefinite => f.write_str("matrix is not positive definite"),
+            LinalgError::Underdetermined => f.write_str("system is underdetermined (M < N)"),
+            LinalgError::NonFinite => f.write_str("matrix contained a non-finite value"),
+            LinalgError::NotSymmetric => {
+                f.write_str("matrix must read the same across the diagonal")
+            }
+            LinalgError::InvalidTimestep => f.write_str("timestep must be finite and non-negative"),
+            LinalgError::DidNotConverge { iters } => {
+                write!(f, "matrix equation did not settle after {iters} iterations")
+            }
+        }
     }
 }
 
@@ -538,6 +565,18 @@ impl core::fmt::Display for ControlError {
                 "stopping distance must be non-negative and strictly less than the clear distance"
             }
             ControlError::NegativeGoalBias => "goal bias must not be negative",
+            ControlError::NonPositiveGain => "controller gain must be strictly positive",
+            ControlError::NotSymmetricInertia => {
+                "rotational inertia must read the same across the diagonal"
+            }
+            ControlError::NonPositiveInertia => "rotational inertia must be positive definite",
+            ControlError::UndefinedThrustDirection => {
+                "wanted acceleration cancels gravity, leaving no direction to push in"
+            }
+            ControlError::UndefinedHeadingDirection => {
+                "the push is straight along the wanted heading, so the heading cannot be set"
+            }
+            ControlError::Linalg(e) => return write!(f, "{e}"),
             ControlError::Signal(e) => return write!(f, "{e}"),
         })
     }
@@ -656,6 +695,7 @@ impl core::error::Error for ControlError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
             ControlError::Signal(e) => Some(e),
+            ControlError::Linalg(e) => Some(e),
             _ => None,
         }
     }

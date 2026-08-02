@@ -46,6 +46,10 @@ name = "autodiff_scalars"
 path = "examples/basics/autodiff_scalars.rs"
 
 [[example]]
+name = "control_loops"
+path = "examples/basics/control_loops.rs"
+
+[[example]]
 name = "curve_fit"
 path = "examples/basics/curve_fit.rs"
 

@@ -1,8 +1,10 @@
 mod cholesky;
 mod lu;
+mod lyapunov;
 mod macros;
 mod matrix;
 mod qr;
+mod riccati;
 mod svd;
 mod symmetric_eigendecomposition;
 mod vector;

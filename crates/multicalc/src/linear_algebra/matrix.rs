@@ -304,6 +304,39 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
         core::array::from_fn(|i| self[(i, i)])
     }
 
+    /// True when the matrix reads the same across the diagonal.
+    ///
+    /// Each pair only has to agree to within rounding, not exactly, so a matrix that has drifted a
+    /// little is still accepted while a genuinely lopsided one is not. How much a pair is allowed
+    /// to differ grows with how big the entries are, because bigger numbers are stored more
+    /// coarsely; the floor at one stops the allowance from shrinking to exact equality for entries
+    /// near zero.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// assert!(Matrix::new([[1.0, 2.0], [2.0, 3.0]]).is_symmetric());
+    /// assert!(!Matrix::new([[1.0, 2.0], [-2.0, 3.0]]).is_symmetric());
+    ///
+    /// // A pair that has drifted by a couple of rounding steps still counts as matching.
+    /// let drifted = Matrix::new([[1.0, 2.0], [2.0 + 4.0 * f64::EPSILON, 3.0]]);
+    /// assert!(drifted.is_symmetric());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn is_symmetric(self) -> bool {
+        for row in 0..N {
+            for column in (row + 1)..N {
+                let upper = self[(row, column)];
+                let lower = self[(column, row)];
+                let scale = upper.abs().max(lower.abs()).max(T::ONE);
+                if (upper - lower).abs() > T::EPSILON_X30 * scale {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
     /// The `N`×`N` identity matrix.
     ///
     /// ```

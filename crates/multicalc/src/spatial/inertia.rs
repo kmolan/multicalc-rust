@@ -64,15 +64,8 @@ impl<T: Numeric> SpatialInertia<T> {
         if mass <= T::ZERO {
             return Err(SpatialError::NonPositiveMass);
         }
-        for (row, col) in [(0, 1), (0, 2), (1, 2)] {
-            let upper = rotational_inertia[(row, col)];
-            let lower = rotational_inertia[(col, row)];
-            // Scaling by the larger of the two keeps this meaningful for both f32 and f64 and for
-            // large tensors; the floor at one stops it collapsing to exact equality near zero.
-            let scale = upper.abs().max(lower.abs()).max(T::ONE);
-            if (upper - lower).abs() > T::EPSILON_X30 * scale {
-                return Err(SpatialError::NotSymmetric);
-            }
+        if !rotational_inertia.is_symmetric() {
+            return Err(SpatialError::NotSymmetric);
         }
         for index in 0..3 {
             if rotational_inertia[(index, index)] <= T::ZERO {

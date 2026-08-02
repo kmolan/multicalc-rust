@@ -12,6 +12,7 @@ import numpy as np
 
 from generators import (
     calculus,
+    control,
     discretization,
     estimation,
     linalg,
@@ -51,6 +52,7 @@ def main():
     signal_processing.run(args.out, SEED)
     polynomial.run(args.out, SEED)
     motion.run(args.out, SEED)
+    control.run(args.out, SEED)
 
 
 if __name__ == "__main__":
