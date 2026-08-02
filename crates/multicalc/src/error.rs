@@ -221,7 +221,7 @@ pub enum DynamicsError {
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
 pub enum PlantError {
-    /// A rotor position, ratio, or thrust limit was infinite or NaN.
+    /// A rotor position, ratio, thrust limit, lag time, or tick length was infinite or NaN.
     NonFinite,
     /// An arm length was zero or negative.
     NonPositiveArmLength,
@@ -231,6 +231,10 @@ pub enum PlantError {
     InvalidThrustLimits,
     /// The rotors are placed so that some wanted turn cannot be produced at all.
     RotorLayoutNotIndependent,
+    /// A rotor's lag time was zero or negative.
+    NonPositiveTimeConstant,
+    /// A tick length was zero or negative.
+    NonPositiveTimestep,
     /// The rotor layout could not be turned into a set of per-rotor commands.
     Linalg(LinalgError),
 }
@@ -662,6 +666,10 @@ impl core::fmt::Display for PlantError {
             PlantError::RotorLayoutNotIndependent => {
                 f.write_str("rotor layout cannot produce every wanted push and turn")
             }
+            PlantError::NonPositiveTimeConstant => {
+                f.write_str("rotor lag time must be strictly positive")
+            }
+            PlantError::NonPositiveTimestep => f.write_str("tick length must be strictly positive"),
             PlantError::Linalg(e) => write!(f, "rotor layout could not be inverted: {e}"),
         }
     }

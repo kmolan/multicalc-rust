@@ -1,6 +1,7 @@
 //! Rigid-body dynamics and rotor mixing: a body tumbling with nothing acting on it, a body
-//! dropped from rest, a four-rotor machine holding a hover, a roll command split across its
-//! rotors, and a command bigger than the rotors can give.
+//! dropped from rest, a four-rotor machine holding a hover, the moment those rotors take to catch
+//! up to what they are asked for, a roll command split across its rotors, and a command bigger
+//! than the rotors can give.
 //!
 //! Run with: `cargo run -p multicalc-demos --example rigid_body_dynamics`
 
@@ -9,7 +10,7 @@
 use multicalc::dynamics::{RigidBody, free_joint_from_state_vector, state_vector_from_free_joint};
 use multicalc::linear_algebra::{Matrix, Vector, Vector3D};
 use multicalc::ode::Rk4;
-use multicalc::plant::MultirotorMixer;
+use multicalc::plant::{MultirotorMixer, RotorLag};
 use multicalc::spatial::{FreeJointState, SE3, SO3, SpatialInertia, Twist, Wrench};
 
 const GRAVITY_STRENGTH: f64 = 9.81;
@@ -18,11 +19,14 @@ const ARM_LENGTH: f64 = 0.15;
 const TORQUE_PER_THRUST: f64 = 0.016;
 const MINIMUM_THRUST: f64 = 0.0;
 const MAXIMUM_THRUST: f64 = 5.0;
+const LAG_TIME: f64 = 0.02;
+const TICK: f64 = 0.001;
 
 fn main() {
     free_tumble();
     free_fall();
     hover();
+    spool_up();
     roll_command();
     over_the_limit();
 }
@@ -195,6 +199,80 @@ fn hover() {
     );
     for axis in 0..3 {
         assert!(after[axis].abs() < 1e-9, "a hovering machine must stay put");
+    }
+}
+
+// ----- the moment the rotors take to catch up -----
+
+fn spool_up() {
+    let mixer = mixer();
+    let mut rotors = RotorLag::<4, f64>::new(LAG_TIME, TICK).unwrap();
+
+    let weight = MASS * GRAVITY_STRENGTH;
+    let asked_for = mixer.rotor_thrusts(weight, no_turn()).thrusts();
+    let even_share = weight / 4.0;
+
+    println!(
+        "\nThe same hover command, but the rotors take {LAG_TIME} s to catch up ({TICK} s ticks)"
+    );
+    println!("  asked for {even_share:.6} N from each rotor, from a standstill");
+
+    // Follow one rotor for three lag times, reporting where it has got to at each one.
+    let ticks_in_one_lag_time = (LAG_TIME / TICK) as usize;
+    for lag_time_number in 1..=3 {
+        for _ in 0..ticks_in_one_lag_time {
+            let _ = rotors.stepped(asked_for);
+        }
+        let reached = rotors.thrusts()[0];
+        println!(
+            "  after {:.2} s it is giving {:.6} N — {:.1}% of what it was asked for",
+            f64::from(lag_time_number) * LAG_TIME,
+            reached,
+            100.0 * reached / even_share
+        );
+    }
+
+    // One lag time closes a little under two thirds of the gap, every time.
+    let mut fresh = RotorLag::<4, f64>::new(LAG_TIME, TICK).unwrap();
+    for _ in 0..ticks_in_one_lag_time {
+        let _ = fresh.stepped(asked_for);
+    }
+    let closed_fraction = fresh.thrusts()[0] / even_share;
+    let closed_in_one_lag_time = 1.0 - (-1.0_f64).exp();
+    assert!(
+        (closed_fraction - closed_in_one_lag_time).abs() < 1e-12,
+        "one lag time should close a little under two thirds of the gap"
+    );
+
+    // What the body actually feels on the first tick is a long way short of its own weight, which
+    // is why a machine asked to hover from a standstill drops before it climbs.
+    let mut from_rest = RotorLag::<4, f64>::new(LAG_TIME, TICK).unwrap();
+    let first_tick = from_rest.stepped(asked_for);
+    let felt = mixer.wrench(first_tick);
+    println!(
+        "  on the first tick the body feels {:.6} N, not the {:.6} N it asked for",
+        felt.force()[2],
+        weight
+    );
+    assert!(
+        felt.force()[2] < weight,
+        "the first tick cannot deliver the whole command"
+    );
+
+    // Held there, they settle on exactly what was asked for.
+    let long_enough_to_settle = 2000;
+    for _ in 0..long_enough_to_settle {
+        let _ = from_rest.stepped(asked_for);
+    }
+    println!(
+        "  held there, they settle on {:.6} N each",
+        from_rest.thrusts()[0]
+    );
+    for rotor in 0..4 {
+        assert!(
+            (from_rest.thrusts()[rotor] - even_share).abs() < 1e-12,
+            "the rotors should settle on exactly what was asked for"
+        );
     }
 }
 

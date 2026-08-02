@@ -3,8 +3,9 @@
 Runnable demos for [`multicalc`](../crates/multicalc), in two flavors:
 
 - **Basics**: headless, terminating programs, one per module. Each prints its results against
-  the known analytic value (with the `|err|`) and self-checks with an assert. No viewer, no
-  feature flags; they depend only on `multicalc`.
+  the known analytic value (with the `|err|`) and self-checks with an assert. No viewer, and no
+  feature flags bar `localized_lap_check`. They depend only on `multicalc`, except
+  `model_ingestion`, which also reads a model file through `multicalc-mjcf`.
 - **Showcases**: live [Rerun](https://rerun.io) demos that render an animated scene and stream
   live-measured speed and accuracy. They require the `rerun` feature (on by default) and a
   version-matched viewer.
@@ -24,11 +25,14 @@ cargo run -p multicalc-demos --example <name>
 | Example | Module(s) | What it shows |
 | --- | --- | --- |
 | `approximation` | `approximation` | Linear and quadratic (Taylor) approximations, `predict`, and goodness-of-fit metrics. |
+| `attitude_filter` | `estimation`, `ode::ExponentialMap` | `MahonyFilter` and `MadgwickFilter` on identical readings: a starting facing taken off a still body from which way is down and which way is north, then a tumble on a turn-rate sensor carrying an offset neither filter was told about, with both recovering the facing and the offset. |
 | `autodiff_scalars` | `scalar` | Use `Dual` and `HyperDual` directly: evaluate a generic `Numeric` function and read f, f′, f″ from the result fields (no derivator). |
 | `avoidance` | `control::follow_the_gap`, `ode` | Follow-the-Gap steering a simulated lidar scan through a corridor with a pillar: gap selection, RK4-integrated commands, and the walled-in full-stop case. |
+| `control_loops` | `control`, `motion`, `discretization` | Four feedback loops: `Pid` on a motor, `Lqr` on a cart carrying a pole, `GeometricAttitudeController` on a tumbling body, and all of it together flying a set of waypoints and coming home. |
 | `curve_fit` | `optimization` | Levenberg-Marquardt fit of `y = a·e^(b·t)` to sensor samples with exact autodiff Jacobians; prints recovered `a`, `b`, and `\|err\|`. |
 | `differentiation` | `numerical_derivative` | Single- and multi-variable derivatives (orders 1-3, partials, mixed partials) by autodiff. |
 | `discretization` | `discretization`, `linear_algebra::expm` | ZOH on a double integrator, Van Loan process-noise discretization, the filterpy `q_discrete_white_noise` model, and a one-`Dual` derivative through the matrix exponential. |
+| `error_state_estimation` | `estimation` | `ErrorStateKalmanFilter` driven by an IMU: a starting facing off a still body, a short tumble on turn-rate readings alone, then a room tracker and a heading aid folded in, with the injected sensor offsets converging on their true values. |
 | `estimation` | `estimation`, `discretization::q_discrete_white_noise` | A linear Kalman filter tracking a constant-velocity target: an exact two-step hand check, velocity recovered from position-only measurements, Joseph vs naive covariance, a control input, innovation gating of an outlier, and a one-`Dual` derivative through an update that reproduces the Kalman gain. |
 | `gaussian_integration` | `numerical_integration::gaussian_integration` | Gauss-Legendre (finite), Gauss-Hermite and Gauss-Laguerre (infinite), with the bare-integrand convention. |
 | `iterative_integration` | `numerical_integration::iterative_integration` | Boole / Simpson / Trapezoidal rules, multi-variable partial integrals, and infinite / semi-infinite limits. |
@@ -37,9 +41,14 @@ cargo run -p multicalc-demos --example <name>
 | `lie_groups` | `spatial` | SO(3)/SE(3) compose, act on a point, exp/log round trips, geodesic interpolation, and a one-`Dual` autodiff derivative pushed through `exp` ∘ `act`. |
 | `linear_algebra` | `linear_algebra` | LU and Cholesky factorizations, linear solves, and the direct 4x4 inverse under a latency + approximation-error stress test on well- and ill-conditioned inputs. |
 | `localized_lap_check` | `estimation`, `control`, `kinematics` | The headless acceptance gate for the `2d_localization_obstacle_avoidance` showcase: drives 600,000 seeded ticks and asserts zero contacts, a fused position RMS under 5 cm, fusion beating dead reckoning threefold, and the per-tick cost. Needs `--features alloc`. |
+| `minimum_snap_trajectory` | `motion` | `MinimumSnapPlanner` planning a trajectory off the loop, then evaluating it inside one. |
+| `model_ingestion` | `spatial`, `multicalc-mjcf` | Loads a MuJoCo model file and reports the body's mass, balance point, and how hard it is to spin, along with the free joint's state layout. |
 | `ode` | `ode` | Fixed-step RK4 and adaptive RK45 on the harmonic oscillator (known solution) plus an acrobot, a tumbling quadrotor, and an outer-solar-system N-body, reporting error and conserved-quantity drift. |
 | `optimization_solvers` | `optimization` | Gauss-Newton on a well-conditioned linear residual (`y = a + b·t`); when GN is enough vs LM (`curve_fit`). |
+| `polynomials` | `polynomial` | Evaluating a polynomial with its derivatives in one pass, finding its real roots, building one from data, and several variables with symbolic partials. |
+| `rigid_body_dynamics` | `dynamics`, `plant` | A body tumbling with nothing acting on it and a body dropped from rest, both checked against what is conserved; then four rotors holding a hover, the moment they take to catch up to what they are asked for, a roll command split across them, and a command bigger than the rotors have. |
 | `root_finding` | `root_finding` | Bracketed bisection, Newton with exact derivatives, damped (backtracking) Newton rescuing a far start, and a square-system Newton solve, each printed against its known root. |
+| `signal_filters` | `signal_processing`, `random` | A notch removing a single tone and a low-pass letting the slow part through, plus `RunningMedian` and `SavitzkyGolay` smoothing on a seeded noisy signal. |
 | `svd` | `linear_algebra::svd` | Singular value decomposition and Moore-Penrose pseudo-inverse under a robotics stress test (Kabsch rotation recovery, a redundant-arm pseudo-inverse, a near-singular Jacobian, and an overdetermined fit) with latency + approximation error. |
 | `vector_field` | `vector_field` | Curl, divergence, line integrals and flux integrals. |
 

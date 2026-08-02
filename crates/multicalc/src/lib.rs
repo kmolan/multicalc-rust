@@ -146,8 +146,9 @@ pub use motion::{
 /// A single rigid body's motion under the forces on it, and the state an integrator carries.
 pub use dynamics::{RigidBody, RigidBodyAcceleration};
 
-/// Sharing a wanted push and turn out across a set of rotors.
-pub use plant::{MultirotorMixer, RotorCommands, RotorSpin};
+/// Sharing a wanted push and turn out across a set of rotors, and how quickly a rotor catches up
+/// to what it was asked for.
+pub use plant::{MultirotorMixer, RotorCommands, RotorLag, RotorSpin};
 
 /// Per-module-family error enums and the umbrella they convert into.
 pub use error::{
