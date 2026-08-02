@@ -13,6 +13,7 @@ use multicalc::spatial::FreeJointState;
 use multicalc_qa::load::*;
 
 /// The vendored models the fixtures name, which sit outside this crate.
+#[must_use]
 fn menagerie() -> std::path::PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../third_party/menagerie")
 }

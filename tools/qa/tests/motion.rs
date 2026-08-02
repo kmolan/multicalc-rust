@@ -16,6 +16,7 @@ use multicalc_qa::schema::*;
 /// Sized for the largest fixture: seven segments needs eighteen free values.
 type Planner = MinimumSnapPlanner<8, 21, 3, f64>;
 
+#[must_use]
 fn boundary(fx: &Fixture, prefix: &str) -> BoundaryDerivatives<3, f64> {
     BoundaryDerivatives {
         velocity: to_vector::<3>(&fx.inputs[&format!("{prefix}_velocity")]),

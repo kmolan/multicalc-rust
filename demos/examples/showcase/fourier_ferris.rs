@@ -54,28 +54,35 @@ struct Cx {
 
 impl Cx {
     const ZERO: Cx = Cx { re: 0.0, im: 0.0 };
+    #[must_use]
     fn new(re: f64, im: f64) -> Cx {
         Cx { re, im }
     }
+    #[must_use]
     fn add(self, o: Cx) -> Cx {
         Cx::new(self.re + o.re, self.im + o.im)
     }
+    #[must_use]
     fn sub(self, o: Cx) -> Cx {
         Cx::new(self.re - o.re, self.im - o.im)
     }
+    #[must_use]
     fn mul(self, o: Cx) -> Cx {
         Cx::new(
             self.re * o.re - self.im * o.im,
             self.re * o.im + self.im * o.re,
         )
     }
+    #[must_use]
     fn scale(self, s: f64) -> Cx {
         Cx::new(self.re * s, self.im * s)
     }
+    #[must_use]
     fn abs(self) -> f64 {
         self.re.hypot(self.im)
     }
     /// e^{iθ}.
+    #[must_use]
     fn expi(theta: f64) -> Cx {
         Cx::new(theta.cos(), theta.sin())
     }
@@ -83,6 +90,7 @@ impl Cx {
 
 /// Chord-length parameterization: `t[j]` is the cumulative chord length up to vertex `j`, over the
 /// closed loop, normalized to [0, 1]. Returns `N_PTS + 1` breakpoints with `t[N_PTS] = 1`.
+#[must_use]
 fn chord_params() -> Vec<f64> {
     let mut seg = [0.0; N_PTS];
     let mut total = 0.0;
@@ -104,6 +112,7 @@ fn chord_params() -> Vec<f64> {
 
 /// The exact integral of `z(t) e^{-iωt}` over one linear segment `z(t) = a + b·(t − ta)`,
 /// `t ∈ [ta, tb]`, by antiderivative — the closed-form reference for the quadrature.
+#[must_use]
 fn closed_segment(a: Cx, b: Cx, ta: f64, tb: f64, omega: f64) -> Cx {
     let dj = tb - ta;
     if omega == 0.0 {
@@ -122,6 +131,7 @@ fn closed_segment(a: Cx, b: Cx, ta: f64, tb: f64, omega: f64) -> Cx {
 
 /// Computes every Fourier coefficient by Gauss-Legendre, the exact coefficient in closed form, the
 /// max GL-vs-closed error, and the total quadrature node-evaluation count.
+#[must_use]
 fn compute_coefficients(t: &[f64]) -> (Vec<(i32, Cx)>, f64, u64) {
     let gl = GaussianSingle::from_parameters(GL_ORDER, GaussianQuadratureMethod::GaussLegendre);
     let mut coeffs = Vec::new();
@@ -172,6 +182,7 @@ fn compute_coefficients(t: &[f64]) -> (Vec<(i32, Cx)>, f64, u64) {
 }
 
 /// Active harmonic count for the reveal phase, and whether this tick begins a fresh reveal.
+#[must_use]
 fn reveal_state(reveal_clock: u64, max_h: usize) -> usize {
     let full = ((max_h.max(2) - 2) / 2) as u64 * REVEAL_STEP_TICKS;
     let cycle = full + 2 * REVOLUTION_TICKS; // reveal, then hold two revolutions
@@ -225,7 +236,7 @@ fn main() -> Result<(), VizError> {
     let mut prev_active = 0usize;
     let mut n: i64 = 0;
     loop {
-        pacer.wait(); // pace to the next 1 ms boundary
+        let _ = pacer.wait(); // pace to the next 1 ms boundary
         n += 1;
         rr.set_sequence("tick", n);
 

@@ -26,6 +26,7 @@ pub struct InertialReading {
 }
 
 impl InertialMeasurementUnit {
+    #[must_use]
     pub fn new(heading_noise: f64, yaw_rate_noise: f64, heading_bias: f64) -> Self {
         InertialMeasurementUnit {
             heading_noise,
@@ -36,6 +37,7 @@ impl InertialMeasurementUnit {
 
     /// Reads the true heading and turn rate, each with added noise; the heading also carries the
     /// fixed offset. The reported heading is folded back into (-π, π].
+    #[must_use]
     pub fn read(&self, true_heading: f64, true_yaw_rate: f64, rng: &mut Pcg32) -> InertialReading {
         InertialReading {
             heading: wrap_angle(

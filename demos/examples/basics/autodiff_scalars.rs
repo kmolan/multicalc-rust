@@ -8,6 +8,7 @@ use multicalc::scalar::{Dual, HyperDual, Numeric};
 
 /// f(x) = x^2 + sin(x) — generic over the scalar, so one definition drives f64,
 /// Dual, and HyperDual on the same code path.
+#[must_use]
 fn f<T: Numeric>(x: T) -> T {
     x * x * x.sin()
 }

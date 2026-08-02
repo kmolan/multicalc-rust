@@ -24,6 +24,7 @@ const NULL_MAGNITUDE: f64 = 1e-6;
 /// SciPy always reports within one turn of zero, while a chain here adds its sections up and runs
 /// past that on purpose. Comparing the difference within a turn is the comparison that holds for
 /// both.
+#[must_use]
 fn phase_difference(got: f64, want: f64) -> f64 {
     let turn = 2.0 * core::f64::consts::PI;
     let mut difference = (got - want) % turn;
@@ -194,9 +195,9 @@ fn recover_weights<const WINDOW: usize, const TERMS: usize>(
 ) -> Vector<WINDOW> {
     Vector::from_fn(|position| {
         let mut filter = build();
-        filter.filter(0.0);
+        let _ = filter.filter(0.0);
         for sample in 0..WINDOW {
-            filter.filter(if sample == position { 1.0 } else { 0.0 });
+            let _ = filter.filter(if sample == position { 1.0 } else { 0.0 });
         }
         read(&filter)
     })
@@ -239,7 +240,7 @@ fn encoder_curve_fit() {
 
             let mut filter = build();
             for sample in fx.inputs["input"].as_vector() {
-                filter.filter(sample);
+                let _ = filter.filter(sample);
             }
             for (quantity, got) in [
                 ("value", filter.value()),

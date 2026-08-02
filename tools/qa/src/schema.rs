@@ -16,9 +16,11 @@ pub const SCHEMA_VERSION: u32 = 2;
 pub struct F64(pub u64);
 
 impl F64 {
+    #[must_use]
     pub fn from_f64(x: f64) -> Self {
         F64(x.to_bits())
     }
+    #[must_use]
     pub fn to_f64(self) -> f64 {
         f64::from_bits(self.0)
     }
@@ -65,6 +67,7 @@ pub enum Value {
 }
 
 impl Value {
+    #[must_use]
     pub fn as_scalar(&self) -> f64 {
         match self {
             Value::Scalar { v } => v.to_f64(),
@@ -72,6 +75,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn as_vector(&self) -> Vec<f64> {
         match self {
             Value::Vector { data } => data.iter().map(|b| b.to_f64()).collect(),
@@ -79,6 +83,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn as_matrix(&self) -> (usize, usize, Vec<f64>) {
         match self {
             Value::Matrix {
@@ -91,6 +96,7 @@ impl Value {
     }
 
     /// The `(rows, cols)` of a matrix value, without decoding its entries.
+    #[must_use]
     pub fn shape(&self) -> (usize, usize) {
         match self {
             Value::Matrix { rows, cols, .. } => (*rows, *cols),
@@ -98,6 +104,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn as_int(&self) -> i64 {
         match self {
             Value::Int { v } => *v,
@@ -105,6 +112,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
             Value::Str { v } => v,

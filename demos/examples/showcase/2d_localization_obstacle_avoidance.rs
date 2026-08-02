@@ -50,6 +50,7 @@ const TICK_RATE_HERTZ: f64 = 1000.0; // the rate that budget comes from: one tic
 ///
 /// For [[a, b], [b, c]] the two spreads are (a + c)/2 ± sqrt(((a − c)/2)² + b²), the long axis
 /// points at 0.5·atan2(2b, a − c), and the semi-axes are 2·sqrt(spread) for the 2σ contour.
+#[must_use]
 fn covariance_ellipse(
     center: [f64; 2],
     covariance: &Matrix<5, 5, f64>,
@@ -74,6 +75,7 @@ fn covariance_ellipse(
 }
 
 /// A short strip from `pose` in its heading direction, to show which way the robot faces.
+#[must_use]
 fn heading_tick(pose: [f64; 3], length: f64) -> Vec<[f64; 2]> {
     vec![
         [pose[0], pose[1]],
@@ -85,6 +87,7 @@ fn heading_tick(pose: [f64; 3], length: f64) -> Vec<[f64; 2]> {
 }
 
 /// The centres of every occupied cell, for drawing the map walls as a point cloud.
+#[must_use]
 fn wall_points(grid: &OccupancyGrid) -> Vec<[f64; 2]> {
     let origin = grid.origin();
     let cell = grid.resolution();
@@ -108,6 +111,7 @@ fn wall_points(grid: &OccupancyGrid) -> Vec<[f64; 2]> {
 /// changes as it turns. The tread marks carry the motion instead: they slide along the wheel by
 /// exactly the distance its rim has rolled, so the wheels visibly drive the robot forward, and on a
 /// turn on the spot the two sets of marks run opposite ways.
+#[must_use]
 fn wheel_shapes(
     pose: [f64; 3],
     wheelbase: f64,
@@ -155,6 +159,7 @@ fn wheel_shapes(
 }
 
 /// The direction beam `index` points, from straight ahead, positive to the left.
+#[must_use]
 fn beam_angle(index: usize, beams: usize) -> f64 {
     -FIELD_OF_VIEW / 2.0 + FIELD_OF_VIEW * index as f64 / (beams - 1) as f64
 }

@@ -19,6 +19,7 @@ pub struct Pacer {
 
 impl Pacer {
     /// Starts the pacer; the first [`wait`](Pacer::wait) returns near one tick from now.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             next: Instant::now() + TICK,
@@ -30,6 +31,7 @@ impl Pacer {
     ///
     /// If the loop fell more than 5 ms behind it resyncs to now instead of bursting through a run
     /// of catch-up ticks, counting the event as an overrun.
+    #[must_use]
     pub fn wait(&mut self) -> i64 {
         if let Some(coarse) = self.next.checked_sub(Duration::from_micros(300)) {
             let now = Instant::now();
@@ -49,6 +51,7 @@ impl Pacer {
     }
 
     /// How many times the loop fell far enough behind to force a resync.
+    #[must_use]
     pub fn overruns(&self) -> u64 {
         self.overruns
     }
@@ -83,6 +86,7 @@ pub struct LatencyRing {
 
 impl LatencyRing {
     /// A ring holding the most recent `cap` samples.
+    #[must_use]
     pub fn new(cap: usize) -> Self {
         Self {
             buf: Vec::with_capacity(cap),
@@ -102,6 +106,7 @@ impl LatencyRing {
     }
 
     /// Percentiles over the current window, or `None` if no samples have been recorded.
+    #[must_use]
     pub fn summary(&self) -> Option<Percentiles> {
         if self.buf.is_empty() {
             return None;
@@ -119,6 +124,7 @@ impl LatencyRing {
 }
 
 /// Formats an integer with thousands separators, e.g. `61204` -> `"61,204"` (for hud counts).
+#[must_use]
 pub fn commas(n: u64) -> String {
     let s = n.to_string();
     let len = s.len();

@@ -49,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   value-returning accessors, builders, and helpers, so discarded results warn under
   `unused_must_use`. Engine constructors and returns already covered by `Result` /
   `Vector` / `Matrix` stay unmarked. @rtmongold (#251)
+- Apply `#[must_use]` consistently across demos and host tools (`testkit`, `qa`) on
+  value-returning accessors, queries, and helpers, so discarded results warn under
+  `unused_must_use`. Returns already covered by `Result` / `Vector` / `Matrix`
+  stay unmarked; `embedded-smoke` is excluded. @rtmongold (#258)
 
 ## [0.9.0] - 2026-07-26
 

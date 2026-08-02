@@ -60,12 +60,14 @@ impl VectorFn<2, 1> for Himmelblau {
     }
 }
 
+#[must_use]
 fn himmelblau_f(x: f64, y: f64) -> f64 {
     let a = x * x + y - 11.0;
     let b = x + y * y - 7.0;
     a * a + b * b
 }
 
+#[must_use]
 fn himmelblau_grad(x: f64, y: f64) -> [f64; 2] {
     let a = x * x + y - 11.0;
     let b = x + y * y - 7.0;
@@ -76,6 +78,7 @@ fn himmelblau_grad(x: f64, y: f64) -> [f64; 2] {
 struct Lcg(u64);
 
 impl Lcg {
+    #[must_use]
     fn unit(&mut self) -> f64 {
         self.0 = self
             .0
@@ -100,6 +103,7 @@ fn respawn(marbles: &mut [Marble], rng: &mut Lcg) {
     }
 }
 
+#[must_use]
 fn srgb_to_linear(c: f64) -> f64 {
     if c <= 0.04045 {
         c / 12.92
@@ -108,6 +112,7 @@ fn srgb_to_linear(c: f64) -> f64 {
     }
 }
 
+#[must_use]
 fn linear_to_srgb(l: f64) -> f64 {
     if l <= 0.0031308 {
         12.92 * l
@@ -117,6 +122,7 @@ fn linear_to_srgb(l: f64) -> f64 {
 }
 
 /// A color on the `lo`→`hi` ramp at `t ∈ [0, 1]`, lerped in linear-sRGB space.
+#[must_use]
 fn ramp(lo: [u8; 3], hi: [u8; 3], t: f64) -> Rgba {
     let t = t.clamp(0.0, 1.0);
     let channel = |a: u8, b: u8| {
@@ -135,6 +141,7 @@ fn ramp(lo: [u8; 3], hi: [u8; 3], t: f64) -> Rgba {
 }
 
 /// The `q`-quantile of `vals` (floored at a small positive value to keep it a safe divisor).
+#[must_use]
 fn quantile(vals: &[f64], q: f64) -> f64 {
     if vals.is_empty() {
         return 1.0;
@@ -146,6 +153,7 @@ fn quantile(vals: &[f64], q: f64) -> f64 {
 }
 
 /// Max autodiff-vs-analytic gradient error over the fixed probe set.
+#[must_use]
 fn probe_error(jac: &Jacobian, probes: &[[f64; 2]]) -> f64 {
     let mut max_err = 0.0f64;
     for p in probes {
@@ -227,7 +235,7 @@ fn main() -> Result<(), VizError> {
 
     let mut n: i64 = 0;
     loop {
-        pacer.wait(); // pace to the next 1 ms boundary
+        let _ = pacer.wait(); // pace to the next 1 ms boundary
         n += 1;
         rr.set_sequence("tick", n);
 
