@@ -2,8 +2,9 @@
 
 use crate::error::DynamicsError;
 use crate::linear_algebra::{Matrix3D, Vector, Vector3D};
+use crate::ode::ExponentialMap;
 use crate::scalar::Numeric;
-use crate::spatial::{FreeJointState, Quaternion, SO3, SpatialInertia, Wrench};
+use crate::spatial::{FreeJointState, Quaternion, SE3, SO3, SpatialInertia, Twist, Wrench};
 
 /// How many numbers it takes to say where a free body is and how it is moving.
 /// index  0  1  2   3   4   5   6   7  8  9   10 11 12
@@ -160,6 +161,93 @@ impl<T: Numeric> RigidBody<T> {
         let linear = balance_point_acceleration - orientation.act(swing);
 
         RigidBodyAcceleration { linear, angular }
+    }
+
+    /// Moves a body one tick forward under the forces on it.
+    ///
+    /// `state` is where the body is and how it is moving, `applied_wrench` is everything pushing
+    /// and turning it apart from gravity — read in the body's own axes, with the turning part taken
+    /// about the body frame's origin — and `dt` is how long the tick lasts.
+    ///
+    /// The direction the body faces is carried forward as a turn rather than as four loose numbers,
+    /// so what comes back is still a true rotation to within rounding, with no drift to scale away.
+    /// Everything is read once at the start of the tick and once half way through, and the whole
+    /// state is moved with the half-way values, so the error shrinks with the square of the tick
+    /// length. That is coarser than handing [`RigidBody::state_derivative`] to
+    /// [`Rk4`](crate::ode::Rk4), which shrinks with the fourth power but lets the direction drift;
+    /// pick by which of the two matters more for the run.
+    ///
+    /// Nothing here can fail and nothing is allocated: two goes at working out the accelerations
+    /// and two turns composed on.
+    ///
+    /// ```
+    /// use multicalc::dynamics::RigidBody;
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::spatial::{FreeJointState, SE3, SpatialInertia, Twist, Wrench};
+    ///
+    /// let mass = 1.0_f64;
+    /// let gravity_strength = 9.81;
+    /// let balance_point = Vector::new([0.0, 0.0, 0.0]);
+    /// let resistance_to_spinning = Vector::new([0.01, 0.01, 0.02]);
+    /// let earth_gravity = Vector::new([0.0, 0.0, -gravity_strength]);
+    ///
+    /// let inertia =
+    ///     SpatialInertia::from_diagonal_inertia(mass, balance_point, resistance_to_spinning)
+    ///         .unwrap();
+    /// let body = RigidBody::new(inertia, earth_gravity).unwrap();
+    ///
+    /// // Let go while spinning about its own z axis, with nothing pushing on it.
+    /// let spinning = Twist::new(Vector::new([0.0, 0.0, 0.0]), Vector::new([0.0, 0.0, 3.0]));
+    /// let mut state = FreeJointState::new(SE3::identity(), spinning);
+    /// let nothing_applied = Wrench::zeros();
+    ///
+    /// let step = 0.001;
+    /// let step_count = 1000;
+    /// for _ in 0..step_count {
+    ///     state = body.stepped(state, nothing_applied, step);
+    /// }
+    ///
+    /// // One second on it has fallen about 4.9 m and turned 3 rad about z.
+    /// let fall_time = 1.0;
+    /// let expected_fall = 0.5 * gravity_strength * fall_time * fall_time;
+    /// assert!((state.pose().translation()[2] + expected_fall).abs() < 1e-9);
+    /// assert!((state.pose().rotation().log()[2] - 3.0).abs() < 1e-9);
+    /// // The direction it faces is still a true rotation.
+    /// let facing = state.pose().rotation().quaternion();
+    /// assert!((facing.norm() - 1.0).abs() < 1e-12);
+    /// ```
+    #[must_use]
+    pub fn stepped(
+        self,
+        state: FreeJointState<T>,
+        applied_wrench: Wrench<T>,
+        dt: T,
+    ) -> FreeJointState<T> {
+        let pose = state.pose();
+        let orientation = pose.rotation();
+        let position = pose.translation();
+        let velocity = state.velocity();
+        let linear_velocity = velocity.linear();
+        let angular_rate = velocity.angular();
+        let half = dt * T::HALF;
+
+        let at_start = self.accelerations(orientation, angular_rate, applied_wrench);
+        let half_way_orientation = ExponentialMap::attitude_step(orientation, angular_rate, half);
+        let half_way_linear_velocity = linear_velocity + at_start.linear() * half;
+        let half_way_angular_rate = angular_rate + at_start.angular() * half;
+
+        let half_way =
+            self.accelerations(half_way_orientation, half_way_angular_rate, applied_wrench);
+
+        let next_orientation = ExponentialMap::attitude_step(orientation, half_way_angular_rate, dt);
+        let next_position = position + half_way_linear_velocity * dt;
+        let next_linear_velocity = linear_velocity + half_way.linear() * dt;
+        let next_angular_rate = angular_rate + half_way.angular() * dt;
+
+        FreeJointState::new(
+            SE3::from_parts(next_orientation, next_position),
+            Twist::new(next_linear_velocity, next_angular_rate),
+        )
     }
 
     /// How the thirteen numbers change with time, ready to hand to an integrator.
