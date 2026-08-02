@@ -78,8 +78,10 @@ impl<T: Numeric> GeometricAttitudeController<T> {
 
     /// Returns how far the body is from pointing the way it should, as a small rotation.
     ///
-    /// The vector points along the axis the body has to turn about, and its length grows with how
-    /// far off it is. It shrinks again past a quarter turn and reaches zero at a half turn, which
+    /// The vector says which way the body is turned away from where it should be: it points along
+    /// the axis of that turn, and its length grows with how far off it is. The torque pushes back
+    /// the other way. The length shrinks again past a quarter turn and reaches zero at a half turn,
+    /// which
     /// is a balance point the law cannot push away from — a body started exactly upside down needs
     /// a nudge before this closes the gap.
     pub fn attitude_error(attitude: SO3<T>, desired_attitude: SO3<T>) -> Vector3D<T> {

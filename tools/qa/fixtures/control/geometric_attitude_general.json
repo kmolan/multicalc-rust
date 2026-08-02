@@ -1,0 +1,126 @@
+{
+  "case": "geometric_attitude_general",
+  "expected": {
+    "attitude_error": {
+      "data": [
+        "0x3fdb58b79716c2b2",
+        "0xbfdbf921133cbaa2",
+        "0x3fe3e303a9b9c305"
+      ],
+      "kind": "vector"
+    },
+    "torque": {
+      "data": [
+        "0xc00d72860d1c03b9",
+        "0x4009720e4bf6fa0d",
+        "0xc0125eafa48866dd"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "R": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fe529357368e822",
+        "0xbfe7bff76cf1d4f3",
+        "0xbfbbe4bc14791f64",
+        "0x3fe42fb4d5848a79",
+        "0x3fe41f22073e5d14",
+        "0xbfdd185b5015c4a9",
+        "0x3fd9fa922cba7fb7",
+        "0x3fcdaea1e4c13586",
+        "0x3fec49baa2437d15"
+      ],
+      "rows": 3
+    },
+    "R_desired": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fef9a274990f9ae",
+        "0xbfb07b24abfc62ff",
+        "0x3fc25b2b9b0a2f4e",
+        "0x3fa1af612db7d324",
+        "0x3fef52dc63767540",
+        "0x3fc9cd0c842a5428",
+        "0xbfc3a114493a438a",
+        "0xbfc8d89e018644fa",
+        "0x3fef016237ea7031"
+      ],
+      "rows": 3
+    },
+    "attitude_gain": {
+      "kind": "scalar",
+      "v": "0x4018000000000000"
+    },
+    "inertia": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3f95810624dd2f1b",
+        "0x3f60624dd2f1a9fc",
+        "0x3f50624dd2f1a9fc",
+        "0x3f60624dd2f1a9fc",
+        "0x3f9374bc6a7ef9db",
+        "0x3f689374bc6a7efa",
+        "0x3f50624dd2f1a9fc",
+        "0x3f689374bc6a7efa",
+        "0x3fa374bc6a7ef9db"
+      ],
+      "rows": 3
+    },
+    "omega": {
+      "data": [
+        "0x3feccccccccccccd",
+        "0xbfe0000000000000",
+        "0x3fd6666666666666"
+      ],
+      "kind": "vector"
+    },
+    "omega_desired": {
+      "data": [
+        "0x3fb999999999999a",
+        "0x3fc999999999999a",
+        "0xbfd3333333333333"
+      ],
+      "kind": "vector"
+    },
+    "omega_desired_derivative": {
+      "data": [
+        "0x3fa999999999999a",
+        "0xbf947ae147ae147b",
+        "0x3f847ae147ae147b"
+      ],
+      "kind": "vector"
+    },
+    "rate_gain": {
+      "kind": "scalar",
+      "v": "0x3ff3333333333333"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "\u03c4 = \u2212k_R\u00b7e_R \u2212 k_\u03c9\u00b7e_\u03c9 + \u03c9\u00d7(J\u03c9) \u2212 J(\u03c9\u00d7R\u1d40R_d\u00b7\u03c9_d \u2212 R\u1d40R_d\u00b7\u03c9\u0307_d)",
+    "generator": "control",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "operations": [
+      "Geometric attitude, tilted and turning"
+    ],
+    "reference": "SciPy 1.14.1",
+    "sampling": "fixed textbook systems plus entries uniform in [-1, 1] from a generator-local stream; stable matrices rescaled to a largest growth factor of 0.9; SPD costs are M\u00b7M\u1d40 + I",
+    "seed": 20260706
+  },
+  "module": "control",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-12,
+      "rel": 1e-12
+    }
+  }
+}

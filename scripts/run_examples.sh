@@ -7,6 +7,7 @@ set -euo pipefail
 basics=(
   approximation
   autodiff_scalars
+  control_loops
   curve_fit
   differentiation
   discretization

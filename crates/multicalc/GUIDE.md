@@ -396,9 +396,17 @@ let b = Vector::new([1.0, 3.0, 5.0]);
 let x = PivotedQr::decompose(a).unwrap().solve_least_squares(b).unwrap();
 ```
 
+Two matrix equations round out the module, both solved by iterations that double their reach each
+pass. `solve_discrete_riccati` finds the steady-state cost-to-go behind an optimal linear feedback
+law, and puts its answer back into the equation before returning it. `solve_discrete_lyapunov`
+solves `Aᵀ·P·A − P + Q = 0`, which is how a closed loop is shown to settle: an answer exists only
+when repeated application of `A` shrinks every direction, so not finding one is the verdict rather
+than a failure. Both are `O(n³)` per pass on a fixed budget, and both belong at design time.
+
 Errors: factorizations and solves return [`LinalgError`](#error-handling): `Singular`,
 `NotPositiveDefinite`, `Underdetermined` (a least-squares system with `M < N`), `NotSymmetric` (a
-matrix that does not read the same across the diagonal), or `NonFinite`.
+matrix that does not read the same across the diagonal), `NonFinite`, or `DidNotConverge` (a
+matrix-equation solver that ran out of its budget).
 
 Credits: the QR factorization, damped solve, and overflow-safe norm port MINPACK's `qrfac`,
 `qrsolv`, and `enorm` (Moré, Garbow, Hillstrom; public domain, netlib). LU and Cholesky follow
@@ -1127,8 +1135,10 @@ Full demo:
 
 ## Control
 
-Feedback controllers and steering laws for a mobile robot: a PID with anti-windup and a filtered
-derivative, the pure-pursuit path-following law, and Follow-the-Gap reactive avoidance. The
+Feedback controllers and steering laws: a PID with anti-windup and a filtered derivative, an
+optimal linear feedback law with a check that the loop it closes settles, attitude control for a
+rigid body, the piece that joins those last two together, the pure-pursuit path-following law, and
+Follow-the-Gap reactive avoidance. The
 derivative filter itself lives in [Signal processing](#signal-processing). Fixed-size,
 no allocation, no panics, and generic over the `Numeric` scalar, so the same code runs at `f32` on a
 microcontroller.
@@ -1140,7 +1150,22 @@ and every call after that is total.
 - `Pid`: three gains and a fixed timestep. `with_output_limits` clamps the output and stops the
   integral winding up against the clamp; `with_derivative_filter` puts a low-pass on the derivative
   term, which is what makes a D gain usable on a noisy measurement — see
-  [Signal processing](#signal-processing) for the filter itself and for sharper ones.
+  [Signal processing](#signal-processing) for the filter itself and for sharper ones. The derivative
+  acts on the measurement, so a jump in the setpoint does not send a spike through the derivative
+  gain; when the setpoint holds still the two are the same thing. `set_gains` retunes without the
+  output stepping, and `resume_from` takes over from a command driven some other way without a step
+  either.
+- `Lqr`: an optimal linear feedback law. Give it how the state moves, how the input pushes it, and
+  what state error and input effort cost; it solves for the best trade-off once and hands back a
+  gain. `control` and `control_tracking` are then matrix-vector products. `certify_stability`
+  checks the loop actually settles — a design-time check, not a per-tick one.
+- `GeometricAttitudeController`: attitude control for a rigid body, worked on rotations rather than
+  on angles, so there is no orientation it breaks down at and no wrap-around to handle. It cancels
+  the body's own gyroscopic torque and follows the target's turn rate, so it tracks a moving target.
+- `thrust_command_from_acceleration`: what joins the two. A body whose rotors only push one way
+  cannot accelerate sideways without tipping first, so a wanted acceleration is really two commands
+  — an attitude to reach and a push to apply once there. Give it what a position loop wants and
+  which way the body should face, and it hands back both.
 - `pure_pursuit_curvature`: the exact `κ = 2·sin(α)/L_d` steering curvature toward a lookahead
   point, written in body-frame coordinates. `Curvature::to_body_twist` turns it into a command at a
   chosen speed.
@@ -1204,6 +1229,83 @@ assert!(blocked.is_blocked());
 assert_eq!(blocked.body_twist().linear(), 0.0);
 ```
 
+```rust
+use multicalc::SO3;
+use multicalc::control::{GeometricAttitudeController, Lqr, thrust_command_from_acceleration};
+use multicalc::linear_algebra::{Matrix, Vector};
+
+// A cart carrying its speed forward, pushed by one input, at a 0.1 s timestep.
+let state_transition = Matrix::<2, 2>::new([[1.0, 0.1], [0.0, 1.0]]);
+let input_model = Matrix::<2, 1>::new([[0.005], [0.1]]);
+let state_cost = Matrix::<2, 2>::identity();
+let input_cost = Matrix::<1, 1>::new([[1.0]]);
+
+let controller = Lqr::new(state_transition, input_model, state_cost, input_cost).unwrap();
+
+// Once, at startup: check the loop this closes actually settles.
+let certificate = controller.certify_stability().unwrap();
+assert!(certificate.cholesky().is_ok());
+
+// Every tick after that is one matrix-vector product.
+let mut state = Vector::new([1.0, 0.0]);
+for _ in 0..400 {
+    let input = controller.control(state);
+    state = state_transition * state + input_model * input;
+}
+assert!(state.norm() < 1e-6);
+
+// Attitude: a body tipped about x is pushed back the other way.
+let inertia = Matrix::<3, 3>::from_diagonal([0.02, 0.02, 0.04]);
+let attitude_controller = GeometricAttitudeController::new(6.0, 1.2, inertia).unwrap();
+let level = SO3::<f64>::identity();
+let still = Vector::new([0.0, 0.0, 0.0]);
+let tipped = SO3::exp(Vector::new([0.1, 0.0, 0.0]));
+let torque = attitude_controller.torque(tipped, still, level, still, still);
+assert!(torque[0] < 0.0);
+
+// Joining the two: a flying body asked to speed up along x has to tip that way first.
+let gravity = 9.81;
+let facing_along_x = 0.0;
+let command =
+    thrust_command_from_acceleration(Vector::new([2.0, 0.0, 0.0]), facing_along_x, gravity)
+        .unwrap();
+assert!(command.thrust_acceleration() > gravity);
+
+// That attitude is what the attitude loop is given, and a body already there needs no torque.
+let settled = attitude_controller.torque(
+    command.attitude(),
+    still,
+    command.attitude(),
+    still,
+    still,
+);
+assert!(settled.norm() < 1e-14);
+```
+
+Both the Riccati solve behind `Lqr::new` and the certificate behind `certify_stability` cost
+`O(n³)` per pass over a budget of passes. They belong at startup or on the bench, never inside the
+loop; the gain they produce is what the loop uses. The certificate reports that a loop does not
+settle by failing to find an answer at all, which is the honest verdict rather than a number that
+looks plausible. A certificate that is found but is not positive definite means the state cost
+cannot see every direction the state can move in — the loop may still settle, but this check cannot
+say so.
+
+The three fit together as two loops at two rates, which is how a flying machine is normally built.
+The outer one holds position: it takes where the body is against where it should be and says what
+acceleration would close the gap. `thrust_command_from_acceleration` turns that into an attitude to
+reach and a push to apply, because a body whose rotors only push one way has to tip before it can
+accelerate sideways. The inner one holds that attitude. The inner loop runs several times faster
+than the outer, which is exactly why the attitude controller is its own block rather than folded
+into a single law. `demos/examples/basics/control_loops.rs` flies a set of waypoints and returns
+home on this arrangement, with the path coming from
+[Motion](#motion)'s minimum-snap planner.
+
+One limit worth stating: the attitude loop is given a target that holds still between outer-loop
+updates, so the target's own turning is not fed forward. That is the usual move-and-hold
+arrangement and it tracks a path well at ordinary speeds; reading the target's turn rate out of a
+path's third and fourth derivatives is what buys the last of the tracking accuracy, and it is not
+part of this module yet.
+
 `FollowTheGap` makes two passes over the scan. First it cleans the scan: a beam that is non-finite
 or non-positive counts as a dropped return and reads as free space at maximum range. Then it finds
 every run of consecutive beams above the free-range threshold, throws out any run whose two bounding
@@ -1226,6 +1328,7 @@ than inventing a heading. The recovery policy — rotating in place until a gap 
 the caller.
 
 Full demos:
+[control_loops.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/control_loops.rs),
 [avoidance.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/avoidance.rs)
 and
 [2d_localization_obstacle_avoidance.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/2d_localization_obstacle_avoidance.rs)

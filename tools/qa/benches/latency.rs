@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 use criterion::{BatchSize, Criterion};
 
+use multicalc::control::Lqr;
 use multicalc::linear_algebra::{Matrix, Matrix4D, Vector, Vector2D};
 use multicalc::numerical_derivative::DerivatorSingleVariable;
 use multicalc::numerical_derivative::Jacobian;
@@ -408,6 +409,38 @@ fn bench_pid_update(c: &mut Criterion) {
     });
 }
 
+/// The cart-and-pole system the LQR benches use, discretized at a 0.02 s timestep.
+fn cart_pole_design() -> (Matrix<4, 4>, Matrix<4, 1>, Matrix<4, 4>, Matrix<1, 1>) {
+    let state_transition = Matrix::<4, 4>::new([
+        [1.0, 0.02, 0.0, 0.0],
+        [0.0, 1.0, 0.0196, 0.0],
+        [0.0, 0.0, 1.0, 0.02],
+        [0.0, 0.0, 0.4316, 1.0],
+    ]);
+    let input_model = Matrix::<4, 1>::new([[0.0002], [0.02], [-0.0004], [-0.04]]);
+    let state_cost = Matrix::<4, 4>::from_diagonal([10.0, 1.0, 10.0, 1.0]);
+    let input_cost = Matrix::<1, 1>::new([[0.1]]);
+    (state_transition, input_model, state_cost, input_cost)
+}
+
+fn bench_lqr_design(c: &mut Criterion) {
+    // Same system as the control bench, timed for the once-per-startup solve rather than the tick.
+    let (state_transition, input_model, state_cost, input_cost) = cart_pole_design();
+    c.bench_function("lqr_design", |b| {
+        b.iter(|| {
+            black_box(
+                Lqr::new(
+                    black_box(state_transition),
+                    black_box(input_model),
+                    black_box(state_cost),
+                    black_box(input_cost),
+                )
+                .unwrap(),
+            )
+        });
+    });
+}
+
 fn bench_pure_pursuit(c: &mut Criterion) {
     use multicalc::control::pure_pursuit_curvature;
     use multicalc::spatial::SE2;
@@ -574,6 +607,11 @@ const BENCHES: &[(&str, BenchFn, &str)] = &[
         "pid_update",
         bench_pid_update,
         "one PID tick with anti-windup and output limits",
+    ),
+    (
+        "lqr_design",
+        bench_lqr_design,
+        "solve the Riccati equation and form K, 4 states / 1 input",
     ),
     (
         "pure_pursuit",

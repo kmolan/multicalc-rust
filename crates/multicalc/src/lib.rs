@@ -125,9 +125,12 @@ pub use polynomial::{
     MultivariatePolynomial, MultivariateTerm, PiecewisePolynomial, Polynomial, RealRoots,
 };
 
-/// Feedback control: PID, the pure-pursuit path-following law, and Follow-the-Gap reactive
-/// avoidance.
-pub use control::{Curvature, FollowTheGap, FollowTheGapOutput, Pid, pure_pursuit_curvature};
+/// Feedback control: PID, optimal linear state feedback, attitude control on rotations, the
+/// pure-pursuit path-following law, and Follow-the-Gap reactive avoidance.
+pub use control::{
+    Curvature, FollowTheGap, FollowTheGapOutput, GeometricAttitudeController, Lqr, Pid,
+    ThrustCommand, pure_pursuit_curvature, thrust_command_from_acceleration,
+};
 
 /// Waypoint paths, planned trajectories, and their arc-length, closest-point, and lookahead queries.
 pub use motion::{

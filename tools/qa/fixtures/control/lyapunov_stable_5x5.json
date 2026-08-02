@@ -1,0 +1,126 @@
+{
+  "case": "lyapunov_stable_5x5",
+  "expected": {
+    "P": {
+      "cols": 5,
+      "kind": "matrix",
+      "row_major": [
+        "0x402fa0de68bf4dee",
+        "0xc02129421ead0779",
+        "0x3ffef41ef9514efc",
+        "0xbffa94a2958ca78a",
+        "0xc000e0760c1b3c59",
+        "0xc02129421ead077a",
+        "0x40257d77ea75d3cf",
+        "0xc001474406585586",
+        "0x3ffadfc8a9e09235",
+        "0x400d6cea5767c673",
+        "0x3ffef41ef9514eef",
+        "0xc00147440658557f",
+        "0x403016687dbaa0fb",
+        "0x40058068a61f0ead",
+        "0xc02459771056ec6c",
+        "0xbffa94a2958ca790",
+        "0x3ffadfc8a9e09234",
+        "0x40058068a61f0ea9",
+        "0x4024f107999fe9ce",
+        "0xbff8699d4f0cfb6c",
+        "0xc000e0760c1b3c54",
+        "0x400d6cea5767c66e",
+        "0xc02459771056ec6c",
+        "0xbff8699d4f0cfb6e",
+        "0x40232cda7a669329"
+      ],
+      "rows": 5
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 5,
+      "kind": "matrix",
+      "row_major": [
+        "0xbfb1a2461b042cc3",
+        "0xbfd251d7b972f340",
+        "0x3fe27c770304cac1",
+        "0xbfd59a56a58e8abf",
+        "0xbfdad100c9191367",
+        "0xbfcc4b3c8f8fcf99",
+        "0xbfc6848d0ecfaf47",
+        "0xbfdc2a3b09c11a22",
+        "0xbfc80f3396374d6a",
+        "0x3fcf138b8fae772e",
+        "0xbfe2180d8170c184",
+        "0x3fe1e1297b48ee06",
+        "0xbfcc084cfe2bf482",
+        "0x3fb44a2d5f713bd5",
+        "0x3fc6b6603024a3f3",
+        "0xbfd9e5d5251b8469",
+        "0x3fdef1cac733c7f5",
+        "0xbfc0c42abc845d45",
+        "0xbfe44f75e9734207",
+        "0x3fcdd92a8a549886",
+        "0x3fd5b9db2cec67fc",
+        "0x3fc9d2eb29063486",
+        "0xbfcdaa388fa11da9",
+        "0xbfe248585ee18bf6",
+        "0x3fcb6aa4298e8351"
+      ],
+      "rows": 5
+    },
+    "Q": {
+      "cols": 5,
+      "kind": "matrix",
+      "row_major": [
+        "0x4004bca6db18e7bb",
+        "0x3fbac4ec7d95960a",
+        "0x3fdbfa9ac9859032",
+        "0x3fd0435c52249e87",
+        "0xbfd250cd481103a7",
+        "0x3fbac4ec7d95960a",
+        "0x400a613ac0d46dba",
+        "0x3ffa107ed60624a7",
+        "0x3ffa3e75904076f3",
+        "0x3fc5b00ee17a739b",
+        "0x3fdbfa9ac9859032",
+        "0x3ffa107ed60624a7",
+        "0x400822298683926f",
+        "0x3ff9039d8755af66",
+        "0xbfed3247fc2ee621",
+        "0x3fd0435c52249e87",
+        "0x3ffa3e75904076f3",
+        "0x3ff9039d8755af66",
+        "0x40061214499a6590",
+        "0xbf8f3ef1dd411f4a",
+        "0xbfd250cd481103a7",
+        "0x3fc5b00ee17a739b",
+        "0xbfed3247fc2ee621",
+        "0xbf8f3ef1dd411f4a",
+        "0x40068a0a9b80ccd7"
+      ],
+      "rows": 5
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "A\u1d40PA \u2212 P + Q = 0",
+    "generator": "control",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "operations": [
+      "Lyapunov certificate, 5\u00d75"
+    ],
+    "reference": "SciPy 1.14.1",
+    "sampling": "fixed textbook systems plus entries uniform in [-1, 1] from a generator-local stream; stable matrices rescaled to a largest growth factor of 0.9; SPD costs are M\u00b7M\u1d40 + I",
+    "seed": 20260706
+  },
+  "module": "control",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-09,
+      "rel": 1e-09
+    }
+  }
+}

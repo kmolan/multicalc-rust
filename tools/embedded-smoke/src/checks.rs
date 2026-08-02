@@ -13,7 +13,10 @@
 use core::hint::black_box;
 
 use multicalc::LevenbergMarquardt;
-use multicalc::control::{FollowTheGap, Pid, pure_pursuit_curvature};
+use multicalc::SO3;
+use multicalc::control::{
+    FollowTheGap, GeometricAttitudeController, Lqr, Pid, pure_pursuit_curvature,
+};
 use multicalc::error::LinalgError;
 use multicalc::estimation::{ExtendedKalmanFilter, KalmanFilter, KalmanModel};
 use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Vector, Vector2D};
@@ -506,6 +509,57 @@ pub fn pid_step() -> f64 {
     }
     assert_close!("pid_settled", black_box(measurement), setpoint, 0.01, 0.0);
     black_box(measurement)
+}
+
+/// Identity: an optimal feedback law built for a cart carrying its speed forward brings a state
+/// started away from zero back home, and the loop it closes certifies as settling. Returns the
+/// distance left at the end. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn lqr_identity() -> f64 {
+    let state_transition = Matrix::<2, 2>::new([[1.0, 0.1], [0.0, 1.0]]);
+    let input_model = Matrix::<2, 1>::new([[0.005], [0.1]]);
+    let controller = Lqr::new(
+        black_box(state_transition),
+        input_model,
+        Matrix::<2, 2>::identity(),
+        Matrix::<1, 1>::identity(),
+    )
+    .expect("lqr design");
+    controller.certify_stability().expect("lqr certificate");
+
+    let mut state = Vector::new([1.0, 0.0]);
+    for _ in 0..400 {
+        let input = controller.control(state);
+        state = state_transition * state + input_model * input;
+    }
+    assert_close!("lqr_settled", black_box(state.norm()), 0.0, 1e-6, 0.0);
+    black_box(state.norm())
+}
+
+/// Identity: a body already pointing the right way and not turning needs no torque, and a body
+/// tipped about x is pushed back the other way. Returns the x torque of the tipped case. Full set
+/// only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn geometric_attitude_identity() -> f64 {
+    let inertia = Matrix::<3, 3>::from_diagonal([0.02, 0.02, 0.04]);
+    let controller =
+        GeometricAttitudeController::new(6.0, 1.2, inertia).expect("attitude controller");
+    let level = SO3::<f64>::identity();
+    let still = Vector::new([0.0, 0.0, 0.0]);
+
+    let at_target = controller.torque(level, still, level, still, still);
+    assert_close!(
+        "attitude_at_target",
+        black_box(at_target.norm()),
+        0.0,
+        1e-12,
+        0.0
+    );
+
+    let tipped = SO3::exp(black_box(Vector::new([0.1, 0.0, 0.0])));
+    let pushed_back = controller.torque(tipped, still, level, still, still);
+    assert!(pushed_back[0] < 0.0, "attitude_pushes_back");
+    black_box(pushed_back[0])
 }
 
 /// Identity: a degree-7 polynomial's value and first two derivatives at `x = 0.5`, against
