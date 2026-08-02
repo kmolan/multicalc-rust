@@ -2,6 +2,7 @@
 mod approximation;
 mod control;
 mod discretization;
+mod dynamics;
 mod estimation;
 mod gaussian_tables;
 mod kinematics;
@@ -11,6 +12,7 @@ mod numerical_derivative;
 mod numerical_integration;
 mod ode;
 mod optimization;
+mod plant;
 mod polynomial;
 mod random;
 mod root_finding;

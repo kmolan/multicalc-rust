@@ -179,6 +179,16 @@ const DOCS: &[Doc] = &[
         }],
     },
     Doc {
+        file: "dynamics.md",
+        modules: &[Module {
+            name: "dynamics",
+            cases: &[
+                "free_body_spinning_no_torque",
+                "free_body_tilted_with_wrench",
+            ],
+        }],
+    },
+    Doc {
         file: "signal_processing.md",
         modules: &[Module {
             name: "signal_processing",
