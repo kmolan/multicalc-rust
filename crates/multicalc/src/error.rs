@@ -17,6 +17,11 @@ pub enum LinalgError {
     NotSymmetric,
     /// A discretization timestep was negative, infinite, or NaN.
     InvalidTimestep,
+    /// A matrix-equation solver ran out of its iteration budget before settling.
+    DidNotConverge {
+        /// Iterations spent before giving up.
+        iters: usize,
+    },
 }
 
 /// Errors from the differentiation modules (finite differences, autodiff, Jacobian, Hessian,
@@ -368,14 +373,19 @@ impl From<PolynomialError> for CalcError {
 
 impl core::fmt::Display for LinalgError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(match self {
-            LinalgError::Singular => "matrix is singular or rank-deficient",
-            LinalgError::NotPositiveDefinite => "matrix is not positive definite",
-            LinalgError::Underdetermined => "system is underdetermined (M < N)",
-            LinalgError::NonFinite => "matrix contained a non-finite value",
-            LinalgError::NotSymmetric => "matrix must read the same across the diagonal",
-            LinalgError::InvalidTimestep => "timestep must be finite and non-negative",
-        })
+        match self {
+            LinalgError::Singular => f.write_str("matrix is singular or rank-deficient"),
+            LinalgError::NotPositiveDefinite => f.write_str("matrix is not positive definite"),
+            LinalgError::Underdetermined => f.write_str("system is underdetermined (M < N)"),
+            LinalgError::NonFinite => f.write_str("matrix contained a non-finite value"),
+            LinalgError::NotSymmetric => {
+                f.write_str("matrix must read the same across the diagonal")
+            }
+            LinalgError::InvalidTimestep => f.write_str("timestep must be finite and non-negative"),
+            LinalgError::DidNotConverge { iters } => {
+                write!(f, "matrix equation did not settle after {iters} iterations")
+            }
+        }
     }
 }
 
