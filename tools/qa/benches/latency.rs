@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use criterion::{BatchSize, Criterion};
 
 use multicalc::control::Lqr;
+use multicalc::dynamics::RigidBody;
 use multicalc::estimation::{ErrorStateKalmanFilter, ImuNoise, NominalState};
 use multicalc::linear_algebra::{Matrix, Matrix4D, Vector, Vector2D};
 use multicalc::numerical_derivative::AutoDiffMulti;
@@ -17,7 +18,7 @@ use multicalc::ode::Rk45;
 use multicalc::root_finding::NewtonSystem;
 use multicalc::scalar::{Numeric, VectorFn, c};
 use multicalc::scalar_fn_vec;
-use multicalc::spatial::SO3;
+use multicalc::spatial::{FreeJointState, SE3, SO3, SpatialInertia, Twist, Wrench};
 use multicalc_qa::docs::replace_marked_region;
 use multicalc_qa::problems::{CoordinatedTurn, GlobalPosition, StationaryPose};
 
@@ -109,6 +110,28 @@ fn bench_rk45_solve(c: &mut Criterion) {
                 .solve(&f, 0.0, black_box(&y0), core::f64::consts::TAU)
                 .unwrap()
         })
+    });
+}
+
+fn bench_rigid_body_step(c: &mut Criterion) {
+    // One 1 ms tick of a small flying machine under gravity and a steady push.
+    let inertia = SpatialInertia::from_diagonal_inertia(
+        0.8,
+        Vector::new([0.0, 0.0, 0.0]),
+        Vector::new([0.005, 0.007, 0.009]),
+    )
+    .unwrap();
+    let body = RigidBody::new(inertia, Vector::new([0.0, 0.0, -9.81])).unwrap();
+    let state = FreeJointState::new(
+        SE3::identity(),
+        Twist::new(Vector::new([1.5, 0.0, 2.0]), Vector::new([7.0, 3.0, 5.0])),
+    );
+    let wrench = Wrench::new(
+        Vector::new([0.0, 0.0, 8.0]),
+        Vector::new([0.02, -0.01, 0.005]),
+    );
+    c.bench_function("rigid_body_step", |b| {
+        b.iter(|| body.stepped(black_box(state), black_box(wrench), 0.001))
     });
 }
 
@@ -411,6 +434,11 @@ const BENCHES: &[(&str, BenchFn, &str)] = &[
         "eigenvalues and directions (6×6)",
     ),
     ("rk45_solve", bench_rk45_solve, "y″ = −y, adaptive to 2π"),
+    (
+        "rigid_body_step",
+        bench_rigid_body_step,
+        "one 1 ms tick of a free body: gravity + steady push, orientation on the manifold",
+    ),
     ("newton_system", bench_newton_system, "x²+y² = 4, x·y = 1"),
     (
         "particle_filter",

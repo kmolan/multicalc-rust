@@ -272,3 +272,124 @@ fn the_derivative_can_be_differentiated() {
 
     assert!((differentiated - by_hand).abs() < 1e-6);
 }
+
+// How far apart two orientations are, in radians.
+fn angle_between(a: SO3<f64>, b: SO3<f64>) -> f64 {
+    (a.inverse() * b).log().norm()
+}
+
+// A steady body-axes push and turn, the same one the tumbling tests below share.
+fn steady_push() -> Wrench<f64> {
+    Wrench::new(
+        Vector::new([0.0, 0.0, 8.0]),
+        Vector::new([0.02, -0.01, 0.005]),
+    )
+}
+
+#[test]
+fn stepped_free_fall_matches_the_closed_form() {
+    // Gravity never changes, and a half-way step carries an unchanging acceleration exactly, so
+    // this has to land on the closed form and not merely near it.
+    let body = balanced_body::<f64>(0.8, [0.005, 0.007, 0.009], earth_gravity());
+    let mut state = FreeJointState::new(SE3::identity(), Twist::zeros());
+    let step = 1e-3;
+    for _ in 0..1000 {
+        state = body.stepped(state, Wrench::zeros(), step);
+    }
+
+    let fall_time = 1.0;
+    let expected_fall = 0.5 * 9.81 * fall_time * fall_time;
+    assert!((state.pose().translation()[2] + expected_fall).abs() < 1e-12);
+    assert!((state.velocity().linear()[2] + 9.81 * fall_time).abs() < 1e-12);
+}
+
+#[test]
+fn stepped_holds_a_steady_spin() {
+    // Equal resistance about every axis means nothing eats into the spin, so a body left alone
+    // keeps turning at the rate it started with and simply piles up the turn.
+    let body = balanced_body::<f64>(0.8, [0.006, 0.006, 0.006], no_gravity());
+    let spinning = Twist::new(zeros(), Vector::new([0.0, 0.0, 3.0]));
+    let mut state = FreeJointState::new(SE3::identity(), spinning);
+    let step = 1e-3;
+    for _ in 0..1000 {
+        state = body.stepped(state, Wrench::zeros(), step);
+    }
+
+    assert!((state.velocity().angular() - Vector::new([0.0, 0.0, 3.0])).norm() < 1e-12);
+    assert!((state.pose().rotation().log() - Vector::new([0.0, 0.0, 3.0])).norm() < 1e-9);
+}
+
+#[test]
+fn stepped_keeps_the_orientation_a_true_rotation() {
+    // Twenty seconds of hard tumbling under a steady push: the direction the body faces is
+    // composed on rather than integrated, so it never leaves unit length to be scaled back.
+    let body = balanced_body::<f64>(0.8, [0.005, 0.007, 0.009], earth_gravity());
+    let tumbling = Twist::new(zeros(), Vector::new([7.0, 3.0, 5.0]));
+    let mut state = FreeJointState::new(SE3::identity(), tumbling);
+    let step = 1e-3;
+    for _ in 0..20_000 {
+        state = body.stepped(state, steady_push(), step);
+    }
+
+    let facing = state.pose().rotation().quaternion();
+    assert!((facing.norm() - 1.0).abs() < 1e-12);
+}
+
+#[test]
+fn stepped_converges_second_order() {
+    // Halving the tick should cut the endpoint error by about four, in where the body ends up as
+    // well as in which way it faces.
+    let body = balanced_body::<f64>(0.8, [0.005, 0.007, 0.009], earth_gravity());
+    let tumbling = Twist::new(zeros(), Vector::new([2.0, -1.0, 3.0]));
+    let start = FreeJointState::new(SE3::identity(), tumbling);
+    let final_time = 0.5;
+
+    let after = |steps: usize| {
+        let step = final_time / steps as f64;
+        let mut state = start;
+        for _ in 0..steps {
+            state = body.stepped(state, steady_push(), step);
+        }
+        state
+    };
+
+    let reference = after(500_000);
+    let endpoint_error = |steps: usize| {
+        let state = after(steps);
+        angle_between(state.pose().rotation(), reference.pose().rotation())
+            + (state.pose().translation() - reference.pose().translation()).norm()
+    };
+    let ratio = endpoint_error(500) / endpoint_error(1000);
+    assert!((3.2..=4.8).contains(&ratio), "convergence ratio {ratio}");
+}
+
+#[test]
+fn stepped_agrees_with_the_thirteen_number_path() {
+    // The same run two ways: the state carried whole with the direction on the manifold, and the
+    // thirteen loose numbers handed to RK4. A stray half, a composition from the wrong side, or a
+    // world-for-body frame slip shows up here even though each path is self-consistent on its own.
+    let body = balanced_body::<f64>(0.8, [0.005, 0.007, 0.009], earth_gravity());
+    let tumbling = Twist::new(zeros(), Vector::new([2.0, -1.0, 3.0]));
+    let start = FreeJointState::new(SE3::identity(), tumbling);
+    let step = 1e-4;
+    let steps = 200;
+
+    let mut stepped = start;
+    for _ in 0..steps {
+        stepped = body.stepped(stepped, steady_push(), step);
+    }
+
+    let start_numbers = state_vector_from_free_joint(start);
+    let rate = |_time: f64, state: &Vector<13, f64>| body.state_derivative(state, steady_push());
+    let by_rk4 = Rk4::integrate(&rate, 0.0, &start_numbers, step, steps, |_, _| {});
+    let by_rk4 = free_joint_from_state_vector(&by_rk4).unwrap();
+
+    assert!(
+        (stepped.pose().translation() - by_rk4.pose().translation()).norm() < 1e-6,
+        "the two paths put the body in different places"
+    );
+    assert!(
+        angle_between(stepped.pose().rotation(), by_rk4.pose().rotation()) < 1e-6,
+        "the two paths point the body in different directions"
+    );
+}

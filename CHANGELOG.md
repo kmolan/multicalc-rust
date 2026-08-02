@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Orientation integrator.** `ExponentialMap` turns a body's orientation forward by the turn it
+  makes over the step, so what comes back is still a true rotation with nothing to scale back —
+  `attitude_step` at a steady turn rate, `attitude_step_with_angular_acceleration` and
+  `integrate_attitude` using the rate half way through the step. `RigidBody::stepped` moves a whole
+  free body one tick forward the same way. Both are coarser than `Rk4`, which is the trade for an
+  orientation that never drifts. @kmolan
 - **Symmetric eigendecomposition.** `Matrix::symmetric_eigendecomposition` gives the eigenvalues of
   a symmetric matrix, largest first, together with the directions belonging to them, by rotating
   away the off-diagonal entries a pair at a time. `clamped` raises every eigenvalue to a floor and
