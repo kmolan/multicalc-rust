@@ -239,7 +239,8 @@ impl<T: Numeric> RigidBody<T> {
         let half_way =
             self.accelerations(half_way_orientation, half_way_angular_rate, applied_wrench);
 
-        let next_orientation = ExponentialMap::attitude_step(orientation, half_way_angular_rate, dt);
+        let next_orientation =
+            ExponentialMap::attitude_step(orientation, half_way_angular_rate, dt);
         let next_position = position + half_way_linear_velocity * dt;
         let next_linear_velocity = linear_velocity + half_way.linear() * dt;
         let next_angular_rate = angular_rate + half_way.angular() * dt;

@@ -120,7 +120,15 @@ const DOCS: &[Doc] = &[
         file: "ode.md",
         modules: &[Module {
             name: "ode",
-            cases: &["exp_decay", "harmonic", "van_der_pol_mild", "two_body"],
+            cases: &[
+                "exp_decay",
+                "harmonic",
+                "van_der_pol_mild",
+                "two_body",
+                "prescribed_rate_attitude_first_order",
+                "prescribed_rate_attitude_second_order",
+                "tumbling_free_body",
+            ],
         }],
     },
     Doc {

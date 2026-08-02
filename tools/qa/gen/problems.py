@@ -165,6 +165,28 @@ def residual(key):
 # --- ODE right-hand sides y' = f(t, y), mirroring ../src/problems.rs ---
 
 
+def _quaternion_rate(q, omega):
+    """q̇ = ½ q ⊗ [0, ω], with the leading number first."""
+    w, x, y, z = q
+    ox, oy, oz = omega
+    return 0.5 * np.array([
+        -x * ox - y * oy - z * oz,
+        w * ox + y * oz - z * oy,
+        w * oy - x * oz + z * ox,
+        w * oz + x * oy - y * ox,
+    ])
+
+
+def _rotation_from_quaternion(q):
+    """The rotation matrix a unit quaternion names, leading number first."""
+    w, x, y, z = q / np.linalg.norm(q)
+    return np.array([
+        [1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+        [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+        [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)],
+    ])
+
+
 def ode_rhs(key):
     def exp_decay(t, y):
         return np.array([-y[0]])
@@ -181,11 +203,42 @@ def ode_rhs(key):
         mu = 1.0
         return np.array([y[1], mu * (1 - y[0] ** 2) * y[1] - y[0]])
 
+    def prescribed_rate_attitude(t, y):
+        # ω(t) = [0.8·cos(1.3 t), 0.5·sin(0.7 t), 1.1], about the body's own axes.
+        omega = np.array([
+            0.8 * np.cos(1.3 * t),
+            0.5 * np.sin(0.7 * t),
+            1.1,
+        ])
+        return _quaternion_rate(y, omega)
+
+    def tumbling_free_body(t, y):
+        # [px, py, pz, qw, qx, qy, qz, vx, vy, vz, ωx, ωy, ωz], the crate's own order.
+        mass = 0.8
+        rotational_inertia = np.diag([0.005, 0.007, 0.009])
+        inverse_rotational_inertia = np.linalg.inv(rotational_inertia)
+        gravity = np.array([0.0, 0.0, -9.81])
+        force = np.array([0.0, 0.0, 8.0])
+        torque = np.array([0.02, -0.01, 0.005])
+
+        q = y[3:7]
+        velocity = y[7:10]
+        omega = y[10:13]
+
+        # The balance point sits on the body's origin, so there is no swing term.
+        spin_resistance = np.cross(omega, rotational_inertia @ omega)
+        angular = inverse_rotational_inertia @ (torque - spin_resistance)
+        linear = _rotation_from_quaternion(q) @ force / mass + gravity
+
+        return np.concatenate([velocity, _quaternion_rate(q, omega), linear, angular])
+
     table = {
         "exp_decay": exp_decay,
         "harmonic": harmonic,
         "two_body": two_body,
         "van_der_pol_mild": van_der_pol_mild,
+        "prescribed_rate_attitude": prescribed_rate_attitude,
+        "tumbling_free_body": tumbling_free_body,
     }
     if key not in table:
         raise KeyError(f"unknown ode key {key!r}")

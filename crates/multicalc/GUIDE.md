@@ -742,6 +742,11 @@ Initial-value solvers for `y' = f(t, y)` systems, generic over the state dimensi
   `solve` integrates to a target time, `solve_on_grid` fills requested sample times via dense
   output, and `for_each_step` exposes each accepted step. Tolerances are set with `with_rtol`
   and `with_atol`.
+- `ExponentialMap`: turns an orientation forward by the turn it makes over the step, so what comes
+  back is still a true rotation and there is nothing to scale back. `attitude_step` takes a steady
+  turn rate, `attitude_step_with_angular_acceleration` uses the rate half way through the step
+  instead, and `integrate_attitude` runs a fixed number of steps asking a callback for the rate as
+  it goes.
 
 ```rust
 use multicalc::{Rk4, Rk45};
@@ -782,8 +787,46 @@ let mut out = [Vector2D::zeros(); 4];
 solver.solve_on_grid(&f, start_time, &y0, &times, &mut out).unwrap();
 ```
 
+Stepping an orientation is the one case where the state is not a plain list of numbers. Four
+orientation numbers stepped by `Rk4` or `Rk45` slowly leave unit length and have to be scaled back,
+and that scaling is a correction with no physical meaning. `ExponentialMap` avoids the problem
+instead of correcting it: the turn made over the step is composed onto the orientation, which keeps
+it a true rotation to within rounding.
+
+The trade is accuracy. `attitude_step` takes the turn rate as steady across the step, so its error
+shrinks in proportion to the step size; `attitude_step_with_angular_acceleration` and
+`integrate_attitude` use the rate half way through and shrink with the square of it. Both are
+coarser than `Rk4`, which shrinks with the fourth power — so pick by whether a drifting orientation
+or a coarser step hurts more for the run at hand.
+
+```rust
+use multicalc::ode::ExponentialMap;
+use multicalc::spatial::SO3;
+use multicalc::{Vector, Vector3D};
+
+// A body turning at a steady 1 rad/s about its own z axis, for a quarter turn.
+let steady = |_time: f64, _orientation: SO3<f64>| Vector::new([0.0, 0.0, 1.0]);
+let steps = 100;
+let timestep = core::f64::consts::FRAC_PI_2 / steps as f64;
+
+let facing = ExponentialMap::integrate_attitude(
+    &steady,
+    0.0,
+    SO3::identity(),
+    timestep,
+    steps,
+    |_time, _orientation| {},
+);
+
+// The x axis has swung onto the y axis, and the orientation is still a true rotation.
+let swung: Vector3D<f64> = facing.act(Vector::new([1.0, 0.0, 0.0]));
+assert!((swung[1] - 1.0).abs() < 1e-12);
+assert!((facing.quaternion().norm() - 1.0).abs() < 1e-14);
+```
+
 Errors: the adaptive solver returns [`IntegrateError`](#error-handling): `StepSizeTooSmall`,
-`DidNotConverge { steps }`, or `NonFinite`. Full demo (harmonic oscillator plus an acrobot,
+`DidNotConverge { steps }`, or `NonFinite`. `ExponentialMap` has no error path at all — every one
+of its steps is a fixed handful of small products. Full demo (harmonic oscillator plus an acrobot,
 a tumbling quadrotor, and an N-body model):
 [ode.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/ode.rs).
 
@@ -1096,6 +1139,14 @@ twists it about z. The mixer holds that relation and the way back through it, bo
 once, so asking for a push and a turn costs one small matrix product. Its answer comes back as a
 `Wrench`, which is exactly what `RigidBody` takes — so the two join up with nothing in between.
 
+`RigidBody::stepped` closes the loop the other way: hand it the state, the wrench, and how long the
+tick lasts, and it hands back the state a tick later. It reads the accelerations once at the start
+of the tick and once half way through and moves the whole state with the half-way values, and it
+carries the direction the body faces forward as a turn rather than as four loose numbers — so the
+orientation stays a true rotation with nothing to scale back. The error shrinks with the square of
+the tick length, coarser than handing `state_derivative` to `Rk4`, which shrinks with the fourth
+power but lets the orientation drift.
+
 ```rust
 use multicalc::dynamics::{RigidBody, state_vector_from_free_joint};
 use multicalc::linear_algebra::{Matrix, Vector};
@@ -1150,11 +1201,41 @@ assert!(after[2].abs() < 1e-9);
 # Ok::<(), multicalc::CalcError>(())
 ```
 
+```rust
+use multicalc::dynamics::RigidBody;
+use multicalc::linear_algebra::Vector;
+use multicalc::spatial::{FreeJointState, SE3, SpatialInertia, Twist, Wrench};
+
+let mass = 0.8_f64;
+let balance_point = Vector::new([0.0, 0.0, 0.0]);
+let resistance_to_spinning = Vector::new([0.005, 0.007, 0.009]);
+let earth_gravity = Vector::new([0.0, 0.0, -9.81]);
+
+let inertia =
+    SpatialInertia::from_diagonal_inertia(mass, balance_point, resistance_to_spinning)?;
+let body = RigidBody::new(inertia, earth_gravity)?;
+
+// Thrown while tumbling, with nothing pushing on it, and followed for a second.
+let thrown = Twist::new(Vector::new([1.5, 0.0, 2.0]), Vector::new([7.0, 3.0, 5.0]));
+let mut state = FreeJointState::new(SE3::identity(), thrown);
+let nothing_applied = Wrench::zeros();
+
+let tick = 0.001;
+for _ in 0..1000 {
+    state = body.stepped(state, nothing_applied, tick);
+}
+
+// A second of tumbling and the direction it faces is still a true rotation.
+let facing = state.pose().rotation().quaternion();
+assert!((facing.norm() - 1.0).abs() < 1e-13);
+# Ok::<(), multicalc::CalcError>(())
+```
+
 Errors: `RigidBody::new` returns [`DynamicsError`](#error-handling): `NonFinite`,
 `NonPositiveInertia`, or `Linalg`. `MultirotorMixer::new` and `quadrotor_x` return
 [`PlantError`](#error-handling): `NonFinite`, `NonPositiveArmLength`, `NonPositiveTorqueRatio`,
 `InvalidThrustLimits`, `RotorLayoutNotIndependent`, or `Linalg`. Everything on the per-tick path —
-`accelerations`, `state_derivative`, `rotor_thrusts`, and `wrench` — is infallible.
+`accelerations`, `state_derivative`, `stepped`, `rotor_thrusts`, and `wrench` — is infallible.
 
 A saturated command does not produce the push and turn that was asked for, because what was left
 over has nowhere to go. `RotorCommands::saturated` says when that happened, so an outer loop can

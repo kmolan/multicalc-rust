@@ -1,6 +1,7 @@
 //! ODE integrators: fixed-step RK4 and adaptive RK45 (Dormand–Prince) on the harmonic
 //! oscillator and three real dynamical systems — a two-link manipulator (acrobot), a
-//! torque-free tumbling quadrotor, and an outer-solar-system N-body model. For the harmonic
+//! torque-free tumbling quadrotor (stepped three ways, including one that keeps the orientation
+//! a true rotation), and an outer-solar-system N-body model. For the harmonic
 //! case the exact solution is known; the other three have no closed form, so accuracy is
 //! reported as the drift in a conserved quantity (energy, kinetic energy, quaternion norm).
 //! These figures reproduce the accuracy table in `benches/ode.md`.
@@ -9,8 +10,9 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::linear_algebra::{Vector, Vector2D};
-use multicalc::ode::{Rk4, Rk45};
+use multicalc::linear_algebra::{Vector, Vector2D, Vector3D};
+use multicalc::ode::{ExponentialMap, Rk4, Rk45};
+use multicalc::spatial::SO3;
 
 fn main() {
     harmonic_oscillator();
@@ -210,6 +212,46 @@ fn quadrotor_qnorm(y: &Vector<7, f64>) -> f64 {
     (y[0] * y[0] + y[1] * y[1] + y[2] * y[2] + y[3] * y[3]).sqrt()
 }
 
+// How fast the tumble's spin is changing, with nothing pushing on the body.
+#[must_use]
+fn quadrotor_spin_change(rate: Vector3D<f64>) -> Vector3D<f64> {
+    Vector::new([
+        (QUAD_IY - QUAD_IZ) * rate[1] * rate[2] / QUAD_IX,
+        (QUAD_IZ - QUAD_IX) * rate[2] * rate[0] / QUAD_IY,
+        (QUAD_IX - QUAD_IY) * rate[0] * rate[1] / QUAD_IZ,
+    ])
+}
+
+// The same tumble, with the spin stepped by RK4 and the direction the body faces carried
+// forward as a turn. Returns the largest drift in spin energy and in orientation length.
+#[must_use]
+fn quadrotor_exp_map_drift(rate0: Vector3D<f64>, dt: f64, steps: usize) -> (f64, f64) {
+    let spin_rate = |_time: f64, rate: &Vector3D<f64>| quadrotor_spin_change(*rate);
+    let kinetic_energy = |rate: &Vector3D<f64>| {
+        0.5 * (QUAD_IX * rate[0] * rate[0]
+            + QUAD_IY * rate[1] * rate[1]
+            + QUAD_IZ * rate[2] * rate[2])
+    };
+
+    let energy0 = kinetic_energy(&rate0);
+    let mut orientation = SO3::<f64>::identity();
+    let mut rate = rate0;
+    let mut worst_energy = 0.0_f64;
+    let mut worst_length = 0.0_f64;
+    for step in 0..steps {
+        orientation = ExponentialMap::attitude_step_with_angular_acceleration(
+            orientation,
+            rate,
+            quadrotor_spin_change(rate),
+            dt,
+        );
+        rate = Rk4::step(&spin_rate, step as f64 * dt, &rate, dt);
+        worst_energy = worst_energy.max((kinetic_energy(&rate) - energy0).abs());
+        worst_length = worst_length.max((orientation.quaternion().norm() - 1.0).abs());
+    }
+    (worst_energy, worst_length)
+}
+
 fn quadrotor_attitude() {
     let y0 = Vector::new([1.0, 0.0, 0.0, 0.0, 0.1, 5.0, 0.1]);
     let tf = 20.0;
@@ -222,6 +264,17 @@ fn quadrotor_attitude() {
     println!("\nQuadrotor attitude (torque-free tumble, N=7): drift over [0, 20]");
     println!("  RK4  (dt = 1e-3)   max|KE - KE0| = {ke_rk4:.2e}   max||q| - 1| = {qn_rk4:.2e}");
     println!("  RK45 (rtol 1e-9)   max|KE - KE0| = {ke_rk45:.2e}   max||q| - 1| = {qn_rk45:.2e}");
+
+    let rate0 = Vector::new([0.1, 5.0, 0.1]);
+    let (ke_exp, qn_exp) = quadrotor_exp_map_drift(rate0, dt, steps);
+    println!("  exp-map (dt = 1e-3)  max|KE - KE0| = {ke_exp:.2e}   max||q| - 1| = {qn_exp:.2e}");
+    println!(
+        "    the spin is stepped by RK4 either way; the difference is that the direction the\n     body faces is carried forward as a turn, so it never leaves unit length to be scaled back"
+    );
+    assert!(
+        qn_exp < 1e-13,
+        "carrying the orientation as a turn should hold unit length to rounding"
+    );
 }
 
 // ----- C. Solar-system N-body (Sun + 4 outer planets), N = 20 -----
