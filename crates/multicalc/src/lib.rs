@@ -109,6 +109,9 @@ pub use estimation::{
 /// Error-state filter for an IMU.
 pub use estimation::{ErrorStateKalmanFilter, ImuNoise, NominalState, NominalStateFn};
 
+/// Light attitude filters for a turn-rate sensor fused with an accelerometer and a magnetometer.
+pub use estimation::{MadgwickFilter, MahonyFilter};
+
 /// Particle filter (bootstrap/SIR) with pluggable resampling and measurement likelihood.
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
