@@ -1,9 +1,9 @@
 //! A single body free to move in all six directions, and how it responds to the forces on it.
 
 use crate::error::DynamicsError;
-use crate::linear_algebra::{Matrix3D, Vector3D};
+use crate::linear_algebra::{Matrix3D, Vector, Vector3D};
 use crate::scalar::Numeric;
-use crate::spatial::{SO3, SpatialInertia, Wrench};
+use crate::spatial::{FreeJointState, Quaternion, SO3, SpatialInertia, Wrench};
 
 /// How many numbers it takes to say where a free body is and how it is moving.
 /// index  0  1  2   3   4   5   6   7  8  9   10 11 12
@@ -150,6 +150,105 @@ impl<T: Numeric> RigidBody<T> {
 
         RigidBodyAcceleration { linear, angular }
     }
+
+    /// How the thirteen numbers change with time, ready to hand to an integrator.
+    /// 
+    /// index  0  1  2   3   4   5   6   7  8  9   10 11 12
+    ///        px py pz  qw  qx  qy  qz  vx vy vz  ωx ωy ωz
+    /// p — position in world frame
+    /// q — orientation in body frame
+    /// v — linear velocity in world frame
+    /// ω — angular velocity in body frame
+    ///
+    /// The four orientation numbers drift away from unit length as an integrator steps, so they
+    /// are scaled back to unit length before they are read as a direction. The four numbers
+    /// themselves are left to drift and the caller scales them when it wants to. A state whose
+    /// four orientation numbers are all zero names no direction, and the whole derivative comes
+    /// back as zeros rather than a guess.
+    ///
+    /// ```
+    /// use multicalc::dynamics::{RigidBody, state_vector_from_free_joint};
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::ode::Rk4;
+    /// use multicalc::spatial::{FreeJointState, SE3, SpatialInertia, Twist, Wrench};
+    ///
+    /// let inertia = SpatialInertia::from_diagonal_inertia(
+    ///     1.0_f64,
+    ///     Vector::new([0.0, 0.0, 0.0]),
+    ///     Vector::new([0.01, 0.01, 0.02]),
+    /// )
+    /// .unwrap();
+    /// let body = RigidBody::new(inertia, Vector::new([0.0, 0.0, -9.81])).unwrap();
+    ///
+    /// // Dropped from rest: after one second it has fallen about 4.9 m.
+    /// let start = state_vector_from_free_joint(FreeJointState::new(SE3::identity(), Twist::zeros()));
+    /// let rate = |_t: f64, y: &Vector<13, f64>| body.state_derivative(y, Wrench::zeros());
+    /// let after = Rk4::integrate(&rate, 0.0, &start, 0.001, 1000, |_t, _y| {});
+    /// assert!((after[2] + 4.905).abs() < 1e-9);
+    /// assert!((after[9] + 9.81).abs() < 1e-9);
+    /// ```
+    pub fn state_derivative(
+        self,
+        state: &Vector<STATE_DIMENSION, T>,
+        applied_wrench: Wrench<T>,
+    ) -> Vector<STATE_DIMENSION, T> {
+        let stored = Quaternion::new(state[3], state[4], state[5], state[6]);
+        let Some(unit) = stored.try_normalized() else {
+            return Vector::zeros();
+        };
+        let angular_rate = Vector::new([state[10], state[11], state[12]]);
+        let acceleration =
+            self.accelerations(SO3::from_quaternion(unit), angular_rate, applied_wrench);
+
+        let (w, x, y, z) = (stored.w(), stored.x(), stored.y(), stored.z());
+        let [rate_x, rate_y, rate_z] = *angular_rate.as_array();
+        let facing = [
+            T::HALF * (-x * rate_x - y * rate_y - z * rate_z),
+            T::HALF * (w * rate_x + y * rate_z - z * rate_y),
+            T::HALF * (w * rate_y + z * rate_x - x * rate_z),
+            T::HALF * (w * rate_z + x * rate_y - y * rate_x),
+        ];
+        let linear = acceleration.linear();
+        let angular = acceleration.angular();
+
+        Vector::new([
+            state[7], state[8], state[9], facing[0], facing[1], facing[2], facing[3], linear[0],
+            linear[1], linear[2], angular[0], angular[1], angular[2],
+        ])
+    }
+}
+
+/// The thirteen numbers an integrator carries, taken from a free body's pose and motion.
+///
+/// The order is where the body is (3), which way it faces as four numbers with the leading one
+/// first (4), how fast it is moving in world axes (3), and how fast it is turning in its own axes
+/// (3) — the free joint's own seven place numbers followed by its six motion numbers.
+pub fn state_vector_from_free_joint<T: Numeric>(
+    state: FreeJointState<T>,
+) -> Vector<STATE_DIMENSION, T> {
+    let place = state.generalized_position();
+    let motion = state.generalized_velocity();
+    Vector::from_fn(|index| if index < 7 { place[index] } else { motion[index - 7] })
+}
+
+/// A free body's pose and motion, read back out of the thirteen numbers.
+///
+/// Returns `None` when the four numbers saying which way the body faces are all zero, which names
+/// no direction. Anything else is scaled to unit length first, so a slightly drifted orientation
+/// is accepted.
+#[must_use]
+pub fn free_joint_from_state_vector<T: Numeric>(
+    state: &Vector<STATE_DIMENSION, T>,
+) -> Option<FreeJointState<T>> {
+    let mut place = [T::ZERO; 7];
+    let mut motion = [T::ZERO; 6];
+    for (index, value) in place.iter_mut().enumerate() {
+        *value = state[index];
+    }
+    for (index, value) in motion.iter_mut().enumerate() {
+        *value = state[index + 7];
+    }
+    FreeJointState::from_generalized_vectors(place, motion)
 }
 
 /// How quickly a body's motion is changing.
