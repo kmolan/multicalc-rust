@@ -51,18 +51,8 @@ pub fn solve_discrete_lyapunov<const N: usize, T: Numeric>(
         return Err(LinalgError::NonFinite);
     }
 
-    // The cost has to read the same across the diagonal, though only to within rounding: how much
-    // a pair is allowed to differ grows with how big the entries are, with a floor at one so the
-    // allowance does not shrink to exact equality near zero.
-    for row in 0..N {
-        for column in (row + 1)..N {
-            let upper = q[(row, column)];
-            let lower = q[(column, row)];
-            let scale = upper.abs().max(lower.abs()).max(T::ONE);
-            if (upper - lower).abs() > T::EPSILON_X30 * scale {
-                return Err(LinalgError::NotSymmetric);
-            }
-        }
+    if !q.is_symmetric() {
+        return Err(LinalgError::NotSymmetric);
     }
 
     let mut total = q;
