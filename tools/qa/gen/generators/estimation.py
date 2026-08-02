@@ -467,6 +467,18 @@ def run(out, rng, seed):
     )
     _triad_attitude_from_two_directions(out, rng, triad_meta)
 
+    attitude_meta = schema.metadata(
+        "estimation", seed,
+        "a steady turn with a slow sway, sensed by a turn-rate sensor with a fixed offset plus "
+        "noise, a push sensor seeing gravity and the sway, and a field pointing north and 60 "
+        "degrees down",
+        libraries=("numpy", "scipy"),
+        reference="in-house numpy transcription of the Mahony and Madgwick attitude filters",
+    )
+    track = _attitude_track(rng)
+    _mahony_gyroscope_accelerometer_magnetometer(out, rng, attitude_meta, track)
+    _madgwick_gyroscope_accelerometer_magnetometer(out, rng, attitude_meta, track)
+
 
 def _error_state_tol():
     # A 200-step run with 30 corrections compounds, so this is looser than a single-operation
@@ -725,4 +737,207 @@ def _triad_attitude_from_two_directions(out, rng, meta):
         meta, {"f64": schema.tol(1e-13, 1e-12), "f32": schema.tol(1e-5, 1e-5)}, inputs, expected,
         equation="R = [r1 r2 r3] * [o1 o2 o3]^T from two direction pairs",
         operations=["Attitude from two direction pairs (down + north), noiseless"],
+    )
+
+
+def _attitude_filter_tol():
+    # 400 steps of compounding, and the two implementations reach the same numbers by different
+    # orderings inside the rotation exponential, so this sits where the error-state row sits
+    # rather than at a single-operation bound.
+    return {"f64": schema.tol(1e-9, 1e-8), "f32": schema.tol(1e-2, 1e-2)}
+
+
+def _attitude_track(rng):
+    """A body turning steadily and swaying gently for four seconds, and the readings its own
+    sensors would have produced from that.
+
+    The push sensor sees gravity plus the sway, so the filter's down reference is imperfect in
+    exactly the way a real one is. The field points north and 60 degrees down, which is nothing
+    like the level north the filters reference by default -- the point of the per-tick flattening
+    is that this cannot lean the answer.
+    """
+    from scipy.spatial.transform import Rotation
+
+    dt, steps = 0.01, 400
+    gravity = np.array([0.0, 0.0, -9.81])
+    dip = np.deg2rad(60.0)
+    field_in_world = np.array([np.cos(dip), 0.0, -np.sin(dip)])
+
+    turn_rate = np.array([0.3, -0.2, 0.5])
+    gyroscope_bias = np.array([0.02, -0.015, 0.01])
+    gyroscope_noise = 0.02
+    accelerometer_noise = 0.05
+    magnetometer_noise = 0.01
+
+    orientation = Rotation.identity()
+    gyroscope_readings = np.zeros((steps, 3))
+    accelerometer_readings = np.zeros((steps, 3))
+    magnetometer_readings = np.zeros((steps, 3))
+    for step in range(steps):
+        time = step * dt
+        world_push = np.array([0.5 * np.sin(2.0 * np.pi * 0.5 * time), 0.0, 0.0])
+        proper_push = orientation.inv().apply(world_push - gravity)
+
+        gyroscope_readings[step] = (
+            turn_rate + gyroscope_bias + rng.normal(0.0, gyroscope_noise, 3)
+        )
+        accelerometer_readings[step] = proper_push + rng.normal(0.0, accelerometer_noise, 3)
+        magnetometer_readings[step] = orientation.inv().apply(field_in_world) + rng.normal(
+            0.0, magnetometer_noise, 3
+        )
+        orientation = orientation * Rotation.from_rotvec(turn_rate * dt)
+
+    return dt, gyroscope_readings, accelerometer_readings, magnetometer_readings
+
+
+def _attitude_correction(orientation, accelerometer, magnetometer, upward, north):
+    """The small turn that would bring the estimate onto the readings, the same for both filters.
+
+    Each reading gives a direction the body sees and a direction the world is known to have; the
+    cross product of the two is the turn between them, and the two add. The field's world
+    direction is rebuilt every call: the measurement is turned into world axes, its upward part is
+    kept, and everything left over is laid along north.
+    """
+    total = np.zeros(3)
+
+    norm = np.linalg.norm(accelerometer)
+    if norm > 0.0:
+        measured = accelerometer / norm
+        total = total + np.cross(measured, orientation.inv().apply(upward))
+
+    if magnetometer is not None:
+        norm = np.linalg.norm(magnetometer)
+        if norm > 0.0:
+            measured = magnetometer / norm
+            in_world = orientation.apply(measured)
+            vertical = float(np.dot(in_world, upward))
+            horizontal = np.sqrt(max(1.0 - vertical * vertical, 0.0))
+            reference = north * horizontal + upward * vertical
+            total = total + np.cross(measured, orientation.inv().apply(reference))
+
+    return total
+
+
+def _mahony_gyroscope_accelerometer_magnetometer(out, rng, meta, track):
+    """A Mahony attitude filter over four seconds of a turning, swaying body.
+
+    An in-house transcription of the filter rather than a third-party one -- no package in the
+    pinned set implements it. It pins the crate against an independent writing of the same
+    equations, not against a trusted third party, so a shared misreading would agree with itself.
+    That is what the crate's own identity tests are for: the still-body fixed point, the
+    gyroscope-only path against the exponential-map integrator, convergence from an arbitrary
+    start, and the hand-stepped single tick that pins the order of operations.
+    """
+    from scipy.spatial.transform import Rotation
+
+    dt, gyroscope_readings, accelerometer_readings, magnetometer_readings = track
+    upward = np.array([0.0, 0.0, 1.0])
+    north = np.array([1.0, 0.0, 0.0])
+    proportional_gain, integral_gain = 1.0, 0.3
+
+    initial = Rotation.from_rotvec([0.05, -0.03, 0.02])
+    orientation = initial
+    bias = np.zeros(3)
+    for step in range(len(gyroscope_readings)):
+        correction = _attitude_correction(
+            orientation,
+            accelerometer_readings[step],
+            magnetometer_readings[step],
+            upward,
+            north,
+        )
+        # The offset moves first, so the turn rate is corrected by the offset this tick worked out.
+        bias = bias - integral_gain * correction * dt
+        corrected_rate = gyroscope_readings[step] - bias + proportional_gain * correction
+        orientation = orientation * Rotation.from_rotvec(corrected_rate * dt)
+
+    inputs = {
+        "kind": schema.string("attitude_filter"),
+        "case": schema.string("mahony_gyroscope_accelerometer_magnetometer"),
+        "timestep": schema.scalar(dt),
+        "gyroscope_readings": schema.matrix(gyroscope_readings),
+        "accelerometer_readings": schema.matrix(accelerometer_readings),
+        "magnetometer_readings": schema.matrix(magnetometer_readings),
+        "initial_orientation": schema.vector(_scalar_first(initial)),
+        "upward_reference": schema.vector(upward),
+        "north_reference": schema.vector(north),
+        "proportional_gain": schema.scalar(proportional_gain),
+        "integral_gain": schema.scalar(integral_gain),
+    }
+    expected = {
+        "orientation": schema.vector(_scalar_first(orientation)),
+        "gyroscope_bias": schema.vector(bias),
+    }
+    schema.write_fixture(
+        out, "estimation", "mahony_attitude_filter",
+        meta, _attitude_filter_tol(), inputs, expected,
+        equation="e = sum(m_hat x R^T r_hat), b- = b - kI*e*dt, w_c = w - b + kP*e, "
+                 "R- = R x exp(w_c*dt)",
+        operations=["Mahony attitude filter, 400 steps, turn-rate + push + field readings, "
+                    "facing and turn-rate offset"],
+    )
+
+
+def _madgwick_gyroscope_accelerometer_magnetometer(out, rng, meta, track):
+    """A Madgwick attitude filter over the same four seconds, on the same readings.
+
+    An in-house transcription of the filter rather than a third-party one -- no package in the
+    pinned set implements it. It pins the crate against an independent writing of the same
+    equations, not against a trusted third party, so a shared misreading would agree with itself.
+    That is what the crate's own identity tests are for: the still-body fixed point, the
+    gyroscope-only path against the exponential-map integrator, convergence from an arbitrary
+    start, and the hand-stepped single tick that pins the order of operations.
+
+    The facing is carried forward by composing the turn made over the step, matching the crate,
+    rather than by the published version's add-and-renormalize.
+    """
+    from scipy.spatial.transform import Rotation
+
+    dt, gyroscope_readings, accelerometer_readings, magnetometer_readings = track
+    upward = np.array([0.0, 0.0, 1.0])
+    north = np.array([1.0, 0.0, 0.0])
+    correction_gain, bias_gain = 0.3, 0.05
+
+    initial = Rotation.from_rotvec([0.05, -0.03, 0.02])
+    orientation = initial
+    bias = np.zeros(3)
+    for step in range(len(gyroscope_readings)):
+        correction = _attitude_correction(
+            orientation,
+            accelerometer_readings[step],
+            magnetometer_readings[step],
+            upward,
+            north,
+        )
+        norm = np.linalg.norm(correction)
+        direction = correction / norm if norm > 0.0 else np.zeros(3)
+        # The offset moves first, so the turn rate is corrected by the offset this tick worked out.
+        bias = bias - bias_gain * direction * dt
+        corrected_rate = gyroscope_readings[step] - bias + correction_gain * direction
+        orientation = orientation * Rotation.from_rotvec(corrected_rate * dt)
+
+    inputs = {
+        "kind": schema.string("attitude_filter"),
+        "case": schema.string("madgwick_gyroscope_accelerometer_magnetometer"),
+        "timestep": schema.scalar(dt),
+        "gyroscope_readings": schema.matrix(gyroscope_readings),
+        "accelerometer_readings": schema.matrix(accelerometer_readings),
+        "magnetometer_readings": schema.matrix(magnetometer_readings),
+        "initial_orientation": schema.vector(_scalar_first(initial)),
+        "upward_reference": schema.vector(upward),
+        "north_reference": schema.vector(north),
+        "correction_gain": schema.scalar(correction_gain),
+        "bias_gain": schema.scalar(bias_gain),
+    }
+    expected = {
+        "orientation": schema.vector(_scalar_first(orientation)),
+        "gyroscope_bias": schema.vector(bias),
+    }
+    schema.write_fixture(
+        out, "estimation", "madgwick_attitude_filter",
+        meta, _attitude_filter_tol(), inputs, expected,
+        equation="e = sum(m_hat x R^T r_hat), b- = b - zeta*e_hat*dt, w_c = w - b + beta*e_hat, "
+                 "R- = R x exp(w_c*dt)",
+        operations=["Madgwick attitude filter, 400 steps, turn-rate + push + field readings, "
+                    "facing and turn-rate offset"],
     )

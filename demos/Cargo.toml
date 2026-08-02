@@ -42,6 +42,10 @@ name = "approximation"
 path = "examples/basics/approximation.rs"
 
 [[example]]
+name = "attitude_filter"
+path = "examples/basics/attitude_filter.rs"
+
+[[example]]
 name = "autodiff_scalars"
 path = "examples/basics/autodiff_scalars.rs"
 

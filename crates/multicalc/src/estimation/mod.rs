@@ -6,13 +6,19 @@
 //!   differentiated.
 //! - [`ErrorStateKalmanFilter`] — an IMU-driven filter tracking a body's place, motion, facing,
 //!   and its own sensors' steady offsets, with the facing kept on the rotation group.
+//! - [`MahonyFilter`] — a body's facing from a turn-rate sensor pulled onto an accelerometer and a
+//!   magnetometer, harder the more wrong it is.
+//! - [`MadgwickFilter`] — the same, nudged a fixed amount each tick instead.
 //! - [`ParticleFilter`] — a cloud of weighted samples, for non-Gaussian or multi-peaked beliefs
 //!   (`alloc` only).
 //! - [`CovarianceUpdate`] — how the Kalman filters recompute the covariance.
 
+mod attitude_correction;
 mod error_state_kalman_filter;
 mod extended_kalman_filter;
 mod kalman_filter;
+mod madgwick_filter;
+mod mahony_filter;
 mod unscented_kalman_filter;
 
 #[cfg(feature = "alloc")]
@@ -24,6 +30,8 @@ pub use error_state_kalman_filter::{
 };
 pub use extended_kalman_filter::ExtendedKalmanFilter;
 pub use kalman_filter::{CovarianceUpdate, KalmanFilter, KalmanModel};
+pub use madgwick_filter::MadgwickFilter;
+pub use mahony_filter::MahonyFilter;
 pub use unscented_kalman_filter::UnscentedKalmanFilter;
 
 #[cfg(feature = "alloc")]

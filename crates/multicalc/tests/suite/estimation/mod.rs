@@ -1,3 +1,4 @@
+mod attitude_filter;
 mod error_state_kalman_filter;
 mod extended_kalman_filter;
 mod kalman_filter;
