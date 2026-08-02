@@ -205,6 +205,36 @@ pub enum ControlError {
     Signal(SignalError),
 }
 
+/// Errors from the dynamics module (how a rigid body moves under the forces on it).
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
+pub enum DynamicsError {
+    /// A mass, inertia, or gravity value was infinite or NaN.
+    NonFinite,
+    /// A rotational inertia was not positive definite.
+    NonPositiveInertia,
+    /// The rotational inertia could not be inverted.
+    Linalg(LinalgError),
+}
+
+/// Errors from the plant module (actuator models and sharing a command out across actuators).
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
+pub enum PlantError {
+    /// A rotor position, ratio, or thrust limit was infinite or NaN.
+    NonFinite,
+    /// An arm length was zero or negative.
+    NonPositiveArmLength,
+    /// A rotor's turning force per unit of push was zero or negative.
+    NonPositiveTorqueRatio,
+    /// Thrust limits were given with the smallest at or above the largest.
+    InvalidThrustLimits,
+    /// The rotors are placed so that some wanted turn cannot be produced at all.
+    RotorLayoutNotIndependent,
+    /// The rotor layout could not be turned into a set of per-rotor commands.
+    Linalg(LinalgError),
+}
+
 /// Errors from the motion module (waypoint paths and their geometric queries).
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
@@ -281,6 +311,10 @@ pub enum CalcError {
     Signal(SignalError),
     /// A control error.
     Control(ControlError),
+    /// A dynamics error.
+    Dynamics(DynamicsError),
+    /// A plant error.
+    Plant(PlantError),
     /// A motion error.
     Motion(MotionError),
     /// A polynomial error.
@@ -332,6 +366,16 @@ impl From<LinalgError> for ControlError {
         ControlError::Linalg(e)
     }
 }
+impl From<LinalgError> for DynamicsError {
+    fn from(e: LinalgError) -> Self {
+        DynamicsError::Linalg(e)
+    }
+}
+impl From<LinalgError> for PlantError {
+    fn from(e: LinalgError) -> Self {
+        PlantError::Linalg(e)
+    }
+}
 impl From<LinalgError> for CalcError {
     fn from(e: LinalgError) -> Self {
         CalcError::Linalg(e)
@@ -375,6 +419,16 @@ impl From<SignalError> for CalcError {
 impl From<ControlError> for CalcError {
     fn from(e: ControlError) -> Self {
         CalcError::Control(e)
+    }
+}
+impl From<DynamicsError> for CalcError {
+    fn from(e: DynamicsError) -> Self {
+        CalcError::Dynamics(e)
+    }
+}
+impl From<PlantError> for CalcError {
+    fn from(e: PlantError) -> Self {
+        CalcError::Plant(e)
     }
 }
 impl From<MotionError> for CalcError {
@@ -582,6 +636,37 @@ impl core::fmt::Display for ControlError {
     }
 }
 
+impl core::fmt::Display for DynamicsError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            DynamicsError::NonFinite => f.write_str("body property was not finite"),
+            DynamicsError::NonPositiveInertia => {
+                f.write_str("rotational inertia is not positive definite")
+            }
+            DynamicsError::Linalg(e) => write!(f, "rotational inertia could not be inverted: {e}"),
+        }
+    }
+}
+
+impl core::fmt::Display for PlantError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            PlantError::NonFinite => f.write_str("rotor property was not finite"),
+            PlantError::NonPositiveArmLength => f.write_str("arm length must be strictly positive"),
+            PlantError::NonPositiveTorqueRatio => {
+                f.write_str("turning force per unit of push must be strictly positive")
+            }
+            PlantError::InvalidThrustLimits => {
+                f.write_str("smallest thrust must be below the largest")
+            }
+            PlantError::RotorLayoutNotIndependent => {
+                f.write_str("rotor layout cannot produce every wanted push and turn")
+            }
+            PlantError::Linalg(e) => write!(f, "rotor layout could not be inverted: {e}"),
+        }
+    }
+}
+
 impl core::fmt::Display for MotionError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -651,6 +736,8 @@ impl core::fmt::Display for CalcError {
             CalcError::Estimation(e) => write!(f, "{e}"),
             CalcError::Signal(e) => write!(f, "{e}"),
             CalcError::Control(e) => write!(f, "{e}"),
+            CalcError::Dynamics(e) => write!(f, "{e}"),
+            CalcError::Plant(e) => write!(f, "{e}"),
             CalcError::Motion(e) => write!(f, "{e}"),
             CalcError::Polynomial(e) => write!(f, "{e}"),
         }
@@ -662,6 +749,24 @@ impl core::error::Error for DiffError {}
 impl core::error::Error for IntegrateError {}
 impl core::error::Error for KinematicsError {}
 impl core::error::Error for SpatialError {}
+
+impl core::error::Error for DynamicsError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            DynamicsError::Linalg(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+impl core::error::Error for PlantError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            PlantError::Linalg(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 
 impl core::error::Error for MotionError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
@@ -732,6 +837,8 @@ impl core::error::Error for CalcError {
             CalcError::Estimation(e) => Some(e),
             CalcError::Signal(e) => Some(e),
             CalcError::Control(e) => Some(e),
+            CalcError::Dynamics(e) => Some(e),
+            CalcError::Plant(e) => Some(e),
             CalcError::Motion(e) => Some(e),
             CalcError::Polynomial(e) => Some(e),
         }

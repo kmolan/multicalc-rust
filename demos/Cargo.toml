@@ -115,6 +115,10 @@ name = "polynomials"
 path = "examples/basics/polynomials.rs"
 
 [[example]]
+name = "rigid_body_dynamics"
+path = "examples/basics/rigid_body_dynamics.rs"
+
+[[example]]
 name = "root_finding"
 path = "examples/basics/root_finding.rs"
 
