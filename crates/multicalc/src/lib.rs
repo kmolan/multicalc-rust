@@ -2,10 +2,9 @@
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-// Some guide examples use the alloc-only types, so they are compiled under `alloc` only.
+// Each tutorial page is compiled as a doctest so its examples cannot go stale.
 #[cfg(all(doctest, feature = "alloc"))]
-#[doc = include_str!("../GUIDE.md")]
-pub struct GuideExamples;
+mod tutorial_examples;
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
