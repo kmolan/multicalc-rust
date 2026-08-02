@@ -135,6 +135,8 @@ const DOCS: &[Doc] = &[
                 "extended_kalman_filter_coordinated_turn_fusion",
                 "unscented_kalman_filter_coordinated_turn_fusion",
                 "unscented_kalman_filter_landmark_range_and_bearing",
+                "error_state_kalman_filter_imu_trajectory",
+                "triad_attitude_from_two_directions",
             ],
         }],
     },

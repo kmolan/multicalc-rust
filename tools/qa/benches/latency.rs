@@ -9,17 +9,15 @@ use std::path::PathBuf;
 use criterion::{BatchSize, Criterion};
 
 use multicalc::control::Lqr;
+use multicalc::estimation::{ErrorStateKalmanFilter, ImuNoise, NominalState};
 use multicalc::linear_algebra::{Matrix, Matrix4D, Vector, Vector2D};
-use multicalc::numerical_derivative::DerivatorSingleVariable;
+use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::numerical_derivative::Jacobian;
-use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
-use multicalc::numerical_integration::GaussianQuadratureMethod;
-use multicalc::numerical_integration::GaussianSingle;
-use multicalc::numerical_integration::IntegratorSingleVariable;
-use multicalc::ode::{Rk4, Rk45};
+use multicalc::ode::Rk45;
 use multicalc::root_finding::NewtonSystem;
 use multicalc::scalar::{Numeric, VectorFn, c};
-use multicalc::{LevenbergMarquardt, scalar_fn, scalar_fn_vec};
+use multicalc::scalar_fn_vec;
+use multicalc::spatial::SO3;
 use multicalc_qa::docs::replace_marked_region;
 use multicalc_qa::problems::{CoordinatedTurn, GlobalPosition, StationaryPose};
 
@@ -45,38 +43,6 @@ fn symmetric<const N: usize>() -> Matrix<N, N> {
     })
 }
 
-/// Residual struct for the Levenberg–Marquardt bench: y = a·e^(b·t).
-struct SensorFit<const M: usize> {
-    t: [f64; M],
-    y: [f64; M],
-}
-
-impl<const M: usize> VectorFn<2, M> for SensorFit<M> {
-    fn eval<S: Numeric>(&self, p: &[S; 2]) -> [S; M] {
-        let (a, b) = (p[0], p[1]);
-        core::array::from_fn(|i| a * (b * S::from_f64(self.t[i])).exp() - S::from_f64(self.y[i]))
-    }
-}
-
-fn bench_derivative(c: &mut Criterion) {
-    // f(x) = x^2 sin(x); third derivative by autodiff at x = 1.0.
-    let f = scalar_fn!(|x| x * x * x.sin());
-    let d = AutoDiffSingle::default();
-    c.bench_function("derivative", |b| {
-        b.iter(|| d.differentiate(black_box(3), &f, black_box(1.0)).unwrap())
-    });
-}
-
-fn bench_jacobian_small(c: &mut Criterion) {
-    // (x*y*z, x^2 + y^2): a 2x3 Jacobian.
-    let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
-    let j: Jacobian = Jacobian::default();
-    let p = [1.0, 2.0, 3.0];
-    c.bench_function("jacobian_small", |b| {
-        b.iter(|| j.evaluate(&f, black_box(&p)).unwrap())
-    });
-}
-
 fn bench_jacobian_large(crit: &mut Criterion) {
     // A coupled 6-in / 6-out map: a 6x6 Jacobian
     let f = scalar_fn_vec!(|v: &[f64; 6]| [
@@ -91,20 +57,6 @@ fn bench_jacobian_large(crit: &mut Criterion) {
     let p = [0.5, 1.0, 1.5, 0.3, 0.8, 1.2];
     crit.bench_function("jacobian_large", |b| {
         b.iter(|| j.evaluate(&f, black_box(&p)).unwrap())
-    });
-}
-
-fn bench_gauss_quad(c: &mut Criterion) {
-    // Non-polynomial integrand on [0, 1], Gauss-Legendre order 16.
-    let quad = GaussianSingle::from_parameters(16, GaussianQuadratureMethod::GaussLegendre);
-    c.bench_function("gauss_quad", |b| {
-        b.iter(|| {
-            quad.single_integral(
-                &|x: f64| (x.sin() - x.sqrt()) * (-x).exp(),
-                black_box(&[0.0, 1.0]),
-            )
-            .unwrap()
-        })
     });
 }
 
@@ -138,12 +90,6 @@ fn bench_svd_solve(c: &mut Criterion) {
     });
 }
 
-fn bench_expm(c: &mut Criterion) {
-    // Matrix exponential of a fixed 6x6.
-    let m = general::<6>();
-    c.bench_function("expm", |b| b.iter(|| black_box(m).expm().unwrap()));
-}
-
 fn bench_symmetric_eigen(c: &mut Criterion) {
     // Eigenvalues and directions of a fixed symmetric 6x6.
     let m = symmetric::<6>();
@@ -161,31 +107,6 @@ fn bench_rk45_solve(c: &mut Criterion) {
         b.iter(|| {
             solver
                 .solve(&f, 0.0, black_box(&y0), core::f64::consts::TAU)
-                .unwrap()
-        })
-    });
-}
-
-fn bench_rk4_integrate(c: &mut Criterion) {
-    // Same harmonic oscillator, fixed-step RK4 (2000 steps), no-op observer.
-    let f = |_t: f64, y: &Vector2D| Vector::new([y[1], -y[0]]);
-    let y0 = Vector::new([1.0, 0.0]);
-    let steps = 2000usize;
-    let dt = core::f64::consts::TAU / steps as f64;
-    c.bench_function("rk4_integrate", |b| {
-        b.iter(|| Rk4::integrate(&f, 0.0, black_box(&y0), dt, steps, |_t, _y| {}))
-    });
-}
-
-fn bench_lev_marq(c: &mut Criterion) {
-    // Sensor-calibration curve fit y = a·e^(b·t) to 8 samples, LM with autodiff Jacobians.
-    let t: [f64; 8] = core::array::from_fn(|i| i as f64);
-    let y: [f64; 8] = core::array::from_fn(|i| 100.0 * (-0.5 * i as f64).exp());
-    let problem = SensorFit { t, y };
-    c.bench_function("lev_marq", |b| {
-        b.iter(|| {
-            LevenbergMarquardt::<AutoDiffMulti>::default()
-                .minimize(&problem, black_box(&[80.0, -0.3]))
                 .unwrap()
         })
     });
@@ -332,20 +253,51 @@ fn bench_unscented_kalman_filter_step(c: &mut Criterion) {
     });
 }
 
-fn bench_polynomial_evaluate(c: &mut Criterion) {
-    use multicalc::Polynomial;
-    let polynomial = Polynomial::<8, f64>::new([0.2, -1.1, 0.4, 2.0, -0.3, 0.05, 0.9, -0.15]);
-    c.bench_function("polynomial_evaluate", |b| {
-        b.iter(|| polynomial.evaluate_with_derivatives::<3>(black_box(0.37)))
+/// The filter both error-state rows are timed against: tilted a little off level, with the noise
+/// figures a hobby-grade IMU quotes.
+fn error_state_kalman_filter() -> ErrorStateKalmanFilter<3, f64> {
+    let facing = SO3::exp(Vector::new([0.3, -0.2, 0.5]));
+    let imu_noise = ImuNoise {
+        gyroscope_noise_density: 0.02,
+        accelerometer_noise_density: 0.05,
+        gyroscope_bias_random_walk: 1e-4,
+        accelerometer_bias_random_walk: 1e-3,
+    };
+    let tracker_spread = 0.03;
+    ErrorStateKalmanFilter::new(
+        NominalState::at_rest(facing),
+        Matrix::from_diagonal([0.1; 15]),
+        imu_noise,
+        Matrix::from_diagonal([tracker_spread * tracker_spread; 3]),
+    )
+}
+
+fn bench_error_state_kalman_filter_predict(c: &mut Criterion) {
+    // One IMU step of the 15-state error filter: the closed-form transition plus two 15-square
+    // products. This is the side that runs at 1 kHz, so it is timed on its own.
+    let mut filter = error_state_kalman_filter();
+    let gyroscope_reading = Vector::new([0.4, -0.3, 0.9]);
+    let accelerometer_reading = Vector::new([0.5, -1.2, 9.4]);
+    let timestep = 0.001;
+    c.bench_function("error_state_kalman_filter_predict", |b| {
+        b.iter(|| {
+            filter
+                .predict(
+                    black_box(gyroscope_reading),
+                    black_box(accelerometer_reading),
+                    black_box(timestep),
+                )
+                .unwrap();
+        })
     });
 }
 
-fn bench_polynomial_real_roots_sturm(c: &mut Criterion) {
+fn bench_polynomial_root_solve(c: &mut Criterion) {
     // The degree-6 polynomial from the fixtures, past where any formula reaches.
     use multicalc::Polynomial;
     let polynomial = Polynomial::<7, f64>::new([84.0, -131.0, -126.5, 104.5, 5.5, -9.5, 1.0]);
     let bound = polynomial.cauchy_root_bound().unwrap();
-    c.bench_function("polynomial_real_roots_sturm", |b| {
+    c.bench_function("polynomial_root_solve", |b| {
         b.iter(|| {
             polynomial
                 .real_roots_in(black_box(-bound), black_box(bound), 1e-10, 400)
@@ -354,21 +306,35 @@ fn bench_polynomial_real_roots_sturm(c: &mut Criterion) {
     });
 }
 
-fn bench_multivariate_evaluate(c: &mut Criterion) {
-    use multicalc::{MultivariatePolynomial, MultivariateTerm};
-    let polynomial = MultivariatePolynomial::<3, 8, f64>::try_from_terms(&[
-        MultivariateTerm::new(1.5, [2, 1, 0]),
-        MultivariateTerm::new(-0.5, [0, 2, 1]),
-        MultivariateTerm::new(2.0, [1, 1, 1]),
-        MultivariateTerm::new(0.25, [3, 0, 0]),
-        MultivariateTerm::new(-1.0, [0, 0, 2]),
-        MultivariateTerm::new(0.75, [1, 0, 1]),
-        MultivariateTerm::new(0.4, [2, 0, 1]),
-        MultivariateTerm::new(-0.2, [0, 1, 2]),
-    ])
-    .unwrap();
-    c.bench_function("multivariate_evaluate", |b| {
-        b.iter(|| polynomial.evaluate(black_box(&[1.3, -0.7, 2.1])))
+/// The cart-and-pole system the LQR bench uses, discretized at a 0.02 s timestep.
+fn cart_pole_design() -> (Matrix<4, 4>, Matrix<4, 1>, Matrix<4, 4>, Matrix<1, 1>) {
+    let state_transition = Matrix::<4, 4>::new([
+        [1.0, 0.02, 0.0, 0.0],
+        [0.0, 1.0, 0.0196, 0.0],
+        [0.0, 0.0, 1.0, 0.02],
+        [0.0, 0.0, 0.4316, 1.0],
+    ]);
+    let input_model = Matrix::<4, 1>::new([[0.0002], [0.02], [-0.0004], [-0.04]]);
+    let state_cost = Matrix::<4, 4>::from_diagonal([10.0, 1.0, 10.0, 1.0]);
+    let input_cost = Matrix::<1, 1>::new([[0.1]]);
+    (state_transition, input_model, state_cost, input_cost)
+}
+
+fn bench_infinite_horizon_lqr_solve(c: &mut Criterion) {
+    // Same system as the control bench, timed for the once-per-startup solve rather than the tick.
+    let (state_transition, input_model, state_cost, input_cost) = cart_pole_design();
+    c.bench_function("infinite_horizon_lqr_solve", |b| {
+        b.iter(|| {
+            black_box(
+                Lqr::new(
+                    black_box(state_transition),
+                    black_box(input_model),
+                    black_box(state_cost),
+                    black_box(input_cost),
+                )
+                .unwrap(),
+            )
+        });
     });
 }
 
@@ -395,109 +361,6 @@ fn bench_minimum_snap_plan(c: &mut Criterion) {
                 .plan(black_box(&waypoints), black_box(&durations))
                 .unwrap()
         })
-    });
-}
-
-fn bench_pid_update(c: &mut Criterion) {
-    use multicalc::control::Pid;
-    let mut controller = Pid::new(2.0, 1.0, 0.05, 0.001)
-        .unwrap()
-        .with_output_limits(-1.0, 1.0)
-        .unwrap();
-    c.bench_function("pid_update", |b| {
-        b.iter(|| controller.update(black_box(1.0), black_box(0.5)))
-    });
-}
-
-/// The cart-and-pole system the LQR benches use, discretized at a 0.02 s timestep.
-fn cart_pole_design() -> (Matrix<4, 4>, Matrix<4, 1>, Matrix<4, 4>, Matrix<1, 1>) {
-    let state_transition = Matrix::<4, 4>::new([
-        [1.0, 0.02, 0.0, 0.0],
-        [0.0, 1.0, 0.0196, 0.0],
-        [0.0, 0.0, 1.0, 0.02],
-        [0.0, 0.0, 0.4316, 1.0],
-    ]);
-    let input_model = Matrix::<4, 1>::new([[0.0002], [0.02], [-0.0004], [-0.04]]);
-    let state_cost = Matrix::<4, 4>::from_diagonal([10.0, 1.0, 10.0, 1.0]);
-    let input_cost = Matrix::<1, 1>::new([[0.1]]);
-    (state_transition, input_model, state_cost, input_cost)
-}
-
-fn bench_lqr_design(c: &mut Criterion) {
-    // Same system as the control bench, timed for the once-per-startup solve rather than the tick.
-    let (state_transition, input_model, state_cost, input_cost) = cart_pole_design();
-    c.bench_function("lqr_design", |b| {
-        b.iter(|| {
-            black_box(
-                Lqr::new(
-                    black_box(state_transition),
-                    black_box(input_model),
-                    black_box(state_cost),
-                    black_box(input_cost),
-                )
-                .unwrap(),
-            )
-        });
-    });
-}
-
-fn bench_pure_pursuit(c: &mut Criterion) {
-    use multicalc::control::pure_pursuit_curvature;
-    use multicalc::spatial::SE2;
-    let pose = SE2::<f64>::identity();
-    let target = Vector::new([1.0, 0.35]);
-    c.bench_function("pure_pursuit", |b| {
-        b.iter(|| pure_pursuit_curvature(black_box(pose), black_box(target), 1.06).unwrap())
-    });
-}
-
-fn bench_follow_the_gap(c: &mut Criterion) {
-    // The showcase's exact follower: 61 beams over 120 degrees, 4 m range, 0.60 m planning
-    // width. The scan has an obstacle across the right half so a real gap search runs.
-    use multicalc::control::FollowTheGap;
-    const BEAMS: usize = 61;
-    let follower: FollowTheGap<BEAMS, f64> =
-        FollowTheGap::try_new(2.0 * std::f64::consts::PI / 3.0, 4.0, 0.60, 0.62, 0.40)
-            .unwrap()
-            .with_frontal_half_angle(0.35)
-            .unwrap()
-            .with_speed_scaling(0.15, 0.70)
-            .unwrap();
-    let scan: [f64; BEAMS] = core::array::from_fn(|i| if i < BEAMS / 2 { 0.8 } else { 4.0 });
-    c.bench_function("follow_the_gap", |b| {
-        b.iter(|| follower.compute(black_box(&scan), black_box(0.0)).unwrap())
-    });
-}
-
-fn bench_biquad_filter(c: &mut Criterion) {
-    use multicalc::signal_processing::{Biquad, BiquadCoefficients};
-    let mut filter = Biquad::new(
-        BiquadCoefficients::low_pass(50.0, core::f64::consts::FRAC_1_SQRT_2, 0.001).unwrap(),
-    );
-    c.bench_function("biquad_filter", |b| {
-        b.iter(|| filter.filter(black_box(0.3)))
-    });
-}
-
-fn bench_biquad_cascade_filter(c: &mut Criterion) {
-    // Notches on 80 Hz and its next two multiples. An 80 Hz fundamental and not 180 Hz: three
-    // sections on 180 Hz would need one at 540 Hz, past half of a 1 kHz sampling rate.
-    use multicalc::signal_processing::{BiquadCascade, harmonic_notch_coefficients};
-    let mut filter =
-        BiquadCascade::new(harmonic_notch_coefficients::<3, f64>(80.0, 4.0, 0.001).unwrap());
-    c.bench_function("biquad_cascade_filter", |b| {
-        b.iter(|| filter.filter(black_box(0.3)))
-    });
-}
-
-fn bench_multi_channel_biquad_filter(c: &mut Criterion) {
-    use multicalc::signal_processing::{BiquadCoefficients, MultiChannelBiquad};
-    let mut filter = MultiChannelBiquad::<3, f64>::new(
-        BiquadCoefficients::low_pass(50.0, core::f64::consts::FRAC_1_SQRT_2, 0.001).unwrap(),
-    );
-    let reading = Vector::new([0.3, -0.7, 1.1]);
-    c.bench_function("multi_channel_biquad_filter", |b| {
-        b.iter(|| filter.filter(black_box(reading)))
     });
 }
 
@@ -535,33 +398,19 @@ fn main() {
 /// a row it never fills.
 type BenchFn = fn(&mut Criterion);
 const BENCHES: &[(&str, BenchFn, &str)] = &[
-    ("derivative", bench_derivative, "d³/dx³(x²·sin x) at x = 1"),
-    (
-        "jacobian_small",
-        bench_jacobian_small,
-        "Jacobian of (x·y·z, x²+y²)",
-    ),
     (
         "jacobian_large",
         bench_jacobian_large,
         "Jacobian of a 6-in/6-out map",
     ),
-    ("gauss_quad", bench_gauss_quad, "∫₀¹ (sin x − √x)·e⁻ˣ dx"),
     ("lu_solve", bench_lu_solve, "solve A·x = b (10×10)"),
     ("svd_solve", bench_svd_solve, "least-squares fit (30×3)"),
-    ("expm", bench_expm, "matrix exponential eᴬ (6×6)"),
     (
         "symmetric_eigen",
         bench_symmetric_eigen,
         "eigenvalues and directions (6×6)",
     ),
     ("rk45_solve", bench_rk45_solve, "y″ = −y, adaptive to 2π"),
-    (
-        "rk4_integrate",
-        bench_rk4_integrate,
-        "y″ = −y, fixed-step to 2π",
-    ),
-    ("lev_marq", bench_lev_marq, "fit y = a·eᵇᵗ (8 points)"),
     ("newton_system", bench_newton_system, "x²+y² = 4, x·y = 1"),
     (
         "particle_filter",
@@ -579,24 +428,19 @@ const BENCHES: &[(&str, BenchFn, &str)] = &[
         "5-state coordinated turn + position fix, autodiff Jacobians, predict + update",
     ),
     (
+        "error_state_kalman_filter_predict",
+        bench_error_state_kalman_filter_predict,
+        "15-state error filter, one IMU step: closed-form transition + covariance",
+    ),
+    (
         "unscented_kalman_filter_step",
         bench_unscented_kalman_filter_step,
         "5-state coordinated turn + position fix, 11 sampled points, predict + update",
     ),
     (
-        "polynomial_evaluate",
-        bench_polynomial_evaluate,
-        "p(x) and its first two derivatives, seventh power",
-    ),
-    (
-        "polynomial_real_roots_sturm",
-        bench_polynomial_real_roots_sturm,
+        "polynomial_root_solve",
+        bench_polynomial_root_solve,
         "six real roots of a sixth-power polynomial",
-    ),
-    (
-        "multivariate_evaluate",
-        bench_multivariate_evaluate,
-        "an eight-term polynomial in three variables",
     ),
     (
         "minimum_snap_plan",
@@ -604,39 +448,9 @@ const BENCHES: &[(&str, BenchFn, &str)] = &[
         "smoothest path through 8 waypoints in 3D",
     ),
     (
-        "pid_update",
-        bench_pid_update,
-        "one PID tick with anti-windup and output limits",
-    ),
-    (
-        "lqr_design",
-        bench_lqr_design,
+        "infinite_horizon_lqr_solve",
+        bench_infinite_horizon_lqr_solve,
         "solve the Riccati equation and form K, 4 states / 1 input",
-    ),
-    (
-        "pure_pursuit",
-        bench_pure_pursuit,
-        "κ = 2·sin(α)/L_d toward a lookahead point",
-    ),
-    (
-        "biquad_filter",
-        bench_biquad_filter,
-        "one 2nd-order low-pass sample, 50 Hz at 1 kHz",
-    ),
-    (
-        "biquad_cascade_filter",
-        bench_biquad_cascade_filter,
-        "one sample through a 3-section notch at 80/160/240 Hz",
-    ),
-    (
-        "multi_channel_biquad_filter",
-        bench_multi_channel_biquad_filter,
-        "one 3-axis sample through a 50 Hz low-pass",
-    ),
-    (
-        "follow_the_gap",
-        bench_follow_the_gap,
-        "61-beam scan, widest gap the robot fits through + speed ramp",
     ),
 ];
 

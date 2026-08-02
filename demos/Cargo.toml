@@ -62,6 +62,10 @@ name = "discretization"
 path = "examples/basics/discretization.rs"
 
 [[example]]
+name = "error_state_estimation"
+path = "examples/basics/error_state_estimation.rs"
+
+[[example]]
 name = "estimation"
 path = "examples/basics/estimation.rs"
 

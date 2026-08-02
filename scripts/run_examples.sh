@@ -11,6 +11,7 @@ basics=(
   curve_fit
   differentiation
   discretization
+  error_state_estimation
   estimation
   gaussian_integration
   iterative_integration

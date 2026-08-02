@@ -3,10 +3,12 @@
 //! Checks the linear Kalman filter against filterpy goldens.
 
 use multicalc::estimation::{
-    ExtendedKalmanFilter, KalmanFilter, KalmanModel, UnscentedKalmanFilter,
+    ErrorStateKalmanFilter, ExtendedKalmanFilter, ImuNoise, KalmanFilter, KalmanModel,
+    NominalState, NominalStateFn, UnscentedKalmanFilter,
 };
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::scalar::{Numeric, VectorFn};
+use multicalc::spatial::{Quaternion, SO3};
 use multicalc_qa::load::*;
 use multicalc_qa::problems::{CoordinatedTurn, GlobalPosition, StationaryPose};
 use multicalc_qa::schema::*;
@@ -297,6 +299,182 @@ fn unscented_kalman_filter_cases() {
             "coordinated_turn_fusion" => run_unscented_coordinated_turn_fusion(&fx),
             "landmark_range_and_bearing" => run_unscented_landmark_range_and_bearing(&fx),
             case => panic!("unregistered unscented kalman filter case {case:?}"),
+        }
+    }
+}
+
+// ----- Error-state filter and two-direction attitude -----
+
+/// A tracker in the room that reports where the body is.
+struct RoomTracker;
+
+impl NominalStateFn<3> for RoomTracker {
+    fn eval<S: Numeric>(&self, state: &NominalState<S>) -> [S; 3] {
+        *state.position().as_array()
+    }
+}
+
+/// A heading aid that reports which way the body is pointing about the vertical.
+struct HeadingAid;
+
+impl NominalStateFn<1> for HeadingAid {
+    fn eval<S: Numeric>(&self, state: &NominalState<S>) -> [S; 1] {
+        let (_, _, heading) = state.orientation().quaternion().to_euler_zyx();
+        [heading]
+    }
+}
+
+/// A quaternion as `[w, x, y, z]` turned so the scalar part is not negative, which is how the
+/// fixture stores it — the two opposite quaternions are the same rotation.
+fn canonical_quaternion(orientation: SO3<f64>) -> Vector<4> {
+    let quaternion = Vector::new(orientation.quaternion().as_array());
+    if quaternion[0] < 0.0 {
+        -quaternion
+    } else {
+        quaternion
+    }
+}
+
+fn run_error_state_kalman_filter_imu_trajectory(fx: &Fixture) {
+    let timestep = fx.inputs["timestep"].as_scalar();
+    let gravity = to_vector::<3>(&fx.inputs["gravity"]);
+    let initial_state = NominalState::new(
+        to_vector::<3>(&fx.inputs["initial_position"]),
+        to_vector::<3>(&fx.inputs["initial_velocity"]),
+        SO3::from_quaternion(Quaternion::from_array(
+            *to_vector::<4>(&fx.inputs["initial_orientation"]).as_array(),
+        )),
+        to_vector::<3>(&fx.inputs["initial_gyroscope_bias"]),
+        to_vector::<3>(&fx.inputs["initial_accelerometer_bias"]),
+    );
+    let imu_noise = ImuNoise {
+        gyroscope_noise_density: fx.inputs["gyroscope_noise_density"].as_scalar(),
+        accelerometer_noise_density: fx.inputs["accelerometer_noise_density"].as_scalar(),
+        gyroscope_bias_random_walk: fx.inputs["gyroscope_bias_random_walk"].as_scalar(),
+        accelerometer_bias_random_walk: fx.inputs["accelerometer_bias_random_walk"].as_scalar(),
+    };
+    let mut filter = ErrorStateKalmanFilter::<3>::new(
+        initial_state,
+        to_matrix::<15, 15>(&fx.inputs["initial_covariance"]),
+        imu_noise,
+        to_matrix::<3, 3>(&fx.inputs["position_fix_noise"]),
+    )
+    .with_gravity(gravity);
+
+    let (steps, _, gyroscope_readings) = fx.inputs["gyroscope_readings"].as_matrix();
+    let (_, _, accelerometer_readings) = fx.inputs["accelerometer_readings"].as_matrix();
+    let (_, _, position_fixes) = fx.inputs["position_fixes"].as_matrix();
+    let (_, _, heading_aids) = fx.inputs["heading_aids"].as_matrix();
+    let position_fix_period = fx.inputs["position_fix_period"].as_int() as usize;
+    let heading_aid_period = fx.inputs["heading_aid_period"].as_int() as usize;
+    let heading_aid_noise = to_matrix::<1, 1>(&fx.inputs["heading_aid_noise"]);
+
+    let mut position_fix_index = 0;
+    let mut heading_aid_index = 0;
+    for step in 0..steps {
+        let gyroscope_reading = Vector::from_fn(|axis| gyroscope_readings[step * 3 + axis]);
+        let accelerometer_reading = Vector::from_fn(|axis| accelerometer_readings[step * 3 + axis]);
+        filter
+            .predict(gyroscope_reading, accelerometer_reading, timestep)
+            .unwrap();
+
+        // The position fix is three numbers wide, matching the width the filter is declared with,
+        // so it goes in whole.
+        if (step + 1) % position_fix_period == 0 {
+            let fix = Vector::from_fn(|axis| position_fixes[position_fix_index * 3 + axis]);
+            position_fix_index += 1;
+            filter.update(&RoomTracker, fix).unwrap();
+        }
+
+        // The heading aid is one number wide and it is an angle, so the residual is formed and
+        // wrapped here rather than left to plain subtraction.
+        if (step + 1) % heading_aid_period == 0 {
+            let reading = heading_aids[heading_aid_index];
+            heading_aid_index += 1;
+            let predicted = HeadingAid.eval(&filter.nominal_state())[0];
+            let residual = Vector::new([(reading - predicted).wrap_to_pi()]);
+            filter
+                .update_other(&HeadingAid, residual, heading_aid_noise)
+                .unwrap();
+        }
+    }
+
+    let t = fx.tolerances.f64;
+    let state = filter.nominal_state();
+    assert_vector(&state.position(), &fx.expected["position"], t, "position");
+    assert_vector(&state.velocity(), &fx.expected["velocity"], t, "velocity");
+    assert_vector(
+        &canonical_quaternion(state.orientation()),
+        &fx.expected["orientation"],
+        t,
+        "orientation",
+    );
+    assert_vector(
+        &state.gyroscope_bias(),
+        &fx.expected["gyroscope_bias"],
+        t,
+        "gyroscope_bias",
+    );
+    assert_vector(
+        &state.accelerometer_bias(),
+        &fx.expected["accelerometer_bias"],
+        t,
+        "accelerometer_bias",
+    );
+    assert_matrix(
+        &filter.covariance(),
+        &fx.expected["covariance"],
+        t,
+        "covariance",
+    );
+}
+
+fn run_triad_attitude_from_two_directions(fx: &Fixture) {
+    let orientation = SO3::from_two_direction_pairs(
+        to_vector::<3>(&fx.inputs["primary_observed"]),
+        to_vector::<3>(&fx.inputs["secondary_observed"]),
+        to_vector::<3>(&fx.inputs["primary_reference"]),
+        to_vector::<3>(&fx.inputs["secondary_reference"]),
+    )
+    .unwrap();
+
+    let t = fx.tolerances.f64;
+    assert_vector(
+        &canonical_quaternion(orientation),
+        &fx.expected["orientation"],
+        t,
+        "orientation",
+    );
+    assert_matrix(
+        &orientation.to_matrix(),
+        &fx.expected["rotation_matrix"],
+        t,
+        "rotation_matrix",
+    );
+}
+
+#[test]
+fn error_state_kalman_filter_cases() {
+    for fx in load_dir("estimation") {
+        if fx.inputs["kind"].as_str() != "error_state_kalman_filter" {
+            continue;
+        }
+        match fx.inputs["case"].as_str() {
+            "imu_trajectory" => run_error_state_kalman_filter_imu_trajectory(&fx),
+            case => panic!("unregistered error-state kalman filter case {case:?}"),
+        }
+    }
+}
+
+#[test]
+fn triad_cases() {
+    for fx in load_dir("estimation") {
+        if fx.inputs["kind"].as_str() != "triad" {
+            continue;
+        }
+        match fx.inputs["case"].as_str() {
+            "attitude_from_two_directions" => run_triad_attitude_from_two_directions(&fx),
+            case => panic!("unregistered triad case {case:?}"),
         }
     }
 }
