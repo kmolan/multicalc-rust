@@ -73,8 +73,8 @@ pub use linear_algebra::{solve_discrete_lyapunov, solve_discrete_riccati};
 /// Zero-order-hold, Van Loan, and white-noise discretization of continuous-time linear systems.
 pub use discretization::{q_discrete_white_noise, van_loan, zoh};
 
-/// Fixed-step RK4 and adaptive RK45 (Dormand–Prince) ODE integrators.
-pub use ode::{Rk4, Rk45};
+/// Fixed-step RK4, adaptive RK45 (Dormand–Prince), and an orientation integrator
+pub use ode::{ExponentialMap, Rk4, Rk45};
 
 /// Filters, smoothers, and signal conditioning.
 pub use signal_processing::{
