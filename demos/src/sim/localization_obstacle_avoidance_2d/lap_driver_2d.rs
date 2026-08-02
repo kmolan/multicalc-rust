@@ -148,6 +148,7 @@ impl LapMetrics {
     }
 }
 
+#[must_use]
 fn rms(sum_of_squares: f64, count: u64) -> f64 {
     if count == 0 {
         0.0
@@ -250,6 +251,7 @@ impl LapWorld {
         })
     }
 
+    #[must_use]
     pub fn step(&mut self) -> TickRecord {
         self.tick += 1;
         match self.phase {
@@ -258,6 +260,7 @@ impl LapWorld {
         }
     }
 
+    #[must_use]
     fn step_localizing(&mut self) -> TickRecord {
         let command = BodyTwist::new(0.0, STARTUP_YAW_RATE);
         let truth = self
@@ -343,6 +346,7 @@ impl LapWorld {
         }
     }
 
+    #[must_use]
     fn step_driving(&mut self) -> TickRecord {
         let commanded = self.twist;
 
@@ -560,6 +564,7 @@ fn rewrap_heading(filter: &mut ExtendedKalmanFilter<5, 2>) {
 /// so the raw command jumps around far faster than wheels and motors ever could. Easing toward it —
 /// slower when speeding up than when slowing down, as on a real vehicle — is what the machine itself
 /// would do, and it leaves the planner untouched.
+#[must_use]
 fn reachable_speed(previous: f64, wanted: f64) -> f64 {
     let rise = MAXIMUM_ACCELERATION * TIMESTEP;
     let fall = MAXIMUM_DECELERATION * TIMESTEP;
@@ -570,6 +575,7 @@ fn reachable_speed(previous: f64, wanted: f64) -> f64 {
 ///
 /// Beams run from the rightmost to the leftmost, so the back half of the array is the left side. A
 /// no-return reads as the full range, so a dropped beam does not swamp the sum. A tie turns left.
+#[must_use]
 fn free_side_sign(scan: &[f64; BEAMS]) -> f64 {
     let middle = BEAMS / 2;
     let capped = |range: &f64| range.min(LIDAR_RANGE);
@@ -583,6 +589,7 @@ fn free_side_sign(scan: &[f64; BEAMS]) -> f64 {
 /// A ray that starts inside a wall reads zero, so a point that has driven into an obstacle reports
 /// zero rather than a small positive distance. The ring can miss a wall that falls between two rays,
 /// so it uses enough rays that the gap is well under a centimetre at the footprint.
+#[must_use]
 fn nearest_wall_distance(grid: &OccupancyGrid, point: [f64; 2], maximum_range: f64) -> f64 {
     const RAYS: usize = 64;
     let mut nearest = maximum_range;

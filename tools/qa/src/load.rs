@@ -15,6 +15,7 @@ use crate::schema::{Fixture, SCHEMA_VERSION, Tol, Value};
 /// Reads every `*.json` fixture for one module, sorted by filename. Panics if
 /// the directory is missing, unreadable, holds a file with the wrong schema
 /// version, or is empty — a missing fixture set is a bug, never a silent pass.
+#[must_use]
 pub fn load_dir(module: &str) -> Vec<Fixture> {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures")

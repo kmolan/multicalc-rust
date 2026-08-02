@@ -233,6 +233,7 @@ const DOCS: &[Doc] = &[
 ];
 
 /// A single float, in trimmed scientific notation: `4e0`, `1.5e-15`, `0`.
+#[must_use]
 fn fmt_num(x: f64) -> String {
     if x == 0.0 {
         return "0".to_string();
@@ -248,6 +249,7 @@ fn fmt_num(x: f64) -> String {
 /// Builds the markdown table for a doc, skipping modules whose fixtures are not
 /// on disk. Returns an empty string when no rows are available. A fixture that
 /// checks several quantities at once contributes one row per operation.
+#[must_use]
 fn build_table(doc: &Doc) -> String {
     let mut body = String::new();
     for module in doc.modules {

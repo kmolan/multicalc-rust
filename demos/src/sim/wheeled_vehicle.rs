@@ -67,6 +67,7 @@ impl WheeledVehicle {
     /// Advances the true pose by `dt` under `command`, works out how far each wheel turned to do it,
     /// and reports the encoder speeds. When `slipping`, only the reported speed is scaled — the true
     /// motion is untouched.
+    #[must_use]
     pub fn step(
         &self,
         pose: Vector3D,

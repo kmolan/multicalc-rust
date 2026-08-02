@@ -8,6 +8,7 @@ use rand_pcg::Pcg32;
 use std::f64::consts::TAU;
 
 /// A four-walled room with an off-centre block, so no two poses look alike from the inside.
+#[must_use]
 fn test_room() -> OccupancyGrid {
     let resolution = 0.05;
     let mut grid = OccupancyGrid::new(88, 68, resolution, [-0.2, -0.2]);

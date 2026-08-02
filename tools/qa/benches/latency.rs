@@ -644,6 +644,7 @@ const BEGIN: &str = "<!-- BEGIN generated: latency -->";
 const END: &str = "<!-- END generated -->";
 
 /// Locate <target>/criterion: honor $CARGO_TARGET_DIR, else workspace target at repo root.
+#[must_use]
 fn criterion_dir() -> PathBuf {
     match std::env::var_os("CARGO_TARGET_DIR") {
         Some(t) => PathBuf::from(t).join("criterion"),
@@ -652,6 +653,7 @@ fn criterion_dir() -> PathBuf {
 }
 
 /// Read median & mean point estimates (ns) for one bench id from its estimates.json.
+#[must_use]
 fn read_estimate(dir: &std::path::Path, id: &str) -> Option<(f64, f64)> {
     let path = dir.join(id).join("new").join("estimates.json");
     let text = std::fs::read_to_string(path).ok()?;
@@ -662,6 +664,7 @@ fn read_estimate(dir: &std::path::Path, id: &str) -> Option<(f64, f64)> {
 }
 
 /// Human-readable ns → "123.4 ns" / "12.3 µs" / "1.23 ms".
+#[must_use]
 fn fmt_ns(ns: f64) -> String {
     if ns < 1_000.0 {
         format!("{ns:.1} ns")

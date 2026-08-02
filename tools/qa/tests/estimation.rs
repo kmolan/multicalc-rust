@@ -11,6 +11,7 @@ use multicalc_qa::load::*;
 use multicalc_qa::problems::{CoordinatedTurn, GlobalPosition, StationaryPose};
 use multicalc_qa::schema::*;
 
+#[must_use]
 fn build_filter<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize>(
     fx: &Fixture,
 ) -> KalmanFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION> {
@@ -222,6 +223,7 @@ fn extended_kalman_filter_cases() {
     }
 }
 
+#[must_use]
 fn build_unscented<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize>(
     fx: &Fixture,
 ) -> UnscentedKalmanFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION> {

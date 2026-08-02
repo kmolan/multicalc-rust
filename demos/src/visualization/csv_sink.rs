@@ -32,6 +32,7 @@ impl CsvSink {
     }
 
     /// Returns the row for the current sequence, creating it if needed.
+    #[must_use]
     fn current_row(&mut self) -> &mut BTreeMap<String, f64> {
         let need_new = match self.rows.last() {
             Some((seq, _)) => *seq != self.seq,

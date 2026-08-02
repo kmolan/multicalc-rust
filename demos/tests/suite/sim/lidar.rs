@@ -6,6 +6,7 @@ use std::f64::consts::PI;
 
 // A grid with one occupied column whose left face sits exactly at x = 2, tall enough that the
 // oblique beams meet it away from any row boundary. This keeps the closed-form scan exact.
+#[must_use]
 fn wall() -> OccupancyGrid {
     let mut grid = OccupancyGrid::new(15, 12, 1.0, [-5.0, -5.25]);
     for row in 0..grid.rows() {

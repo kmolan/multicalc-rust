@@ -60,7 +60,7 @@ fn different_seeds_diverge() {
 fn fusion_beats_dead_reckoning() {
     let mut world = LapWorld::new(20260722).unwrap();
     for _ in 0..80_000 {
-        world.step();
+        let _ = world.step();
     }
     let metrics = world.metrics();
     assert!(metrics.driving_ticks > 0, "never drove");

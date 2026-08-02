@@ -67,6 +67,7 @@ impl VectorFn<2, 2> for CubicBasins {
 }
 
 /// The three orbiting roots at choreography parameter `tau`.
+#[must_use]
 fn roots_at(tau: f64) -> [[f64; 2]; 3] {
     core::array::from_fn(|j| {
         let theta = TAU * j as f64 / 3.0 + 0.31 * tau;
@@ -76,11 +77,13 @@ fn roots_at(tau: f64) -> [[f64; 2]; 3] {
 }
 
 /// Per-channel lerp from `a` toward `b` by `t` in [0, 1].
+#[must_use]
 fn lerp_rgb(a: [u8; 3], b: [u8; 3], t: f64) -> [u8; 3] {
     core::array::from_fn(|k| (a[k] as f64 + (b[k] as f64 - a[k] as f64) * t).round() as u8)
 }
 
 /// Shades a converged pixel: fewer iterations are brighter, more fade toward the surface.
+#[must_use]
 fn shade(basin: [u8; 3], iterations: usize) -> [u8; 3] {
     let t = (0.20 * iterations as f64 / 6.0).min(1.0) * 0.85;
     lerp_rgb(basin, SURFACE, t)

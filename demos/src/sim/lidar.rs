@@ -70,6 +70,7 @@ impl<const BEAMS: usize> Lidar2d<BEAMS> {
     ///
     /// The dropout draw runs for every beam whether or not the ray hits anything, so the generator
     /// advances by the same amount per beam and a scan stays reproducible when the grid changes.
+    #[must_use]
     pub fn simulate(&self, grid: &OccupancyGrid, pose: [f64; 3], rng: &mut Pcg32) -> [f64; BEAMS] {
         // With zero noise the lidar returns exact geometry, which the tests rely on; `Normal::new`
         // rejects a zero deviation, so the noise draw is skipped in that case.

@@ -49,6 +49,7 @@ const GNOMON: f64 = 0.18; // ee/target frame arrow base length
 
 /// Four target-orientation keyframes (tunable); adjacent geodesic separation stays clear of the
 /// `log` θ = π branch. Slerped over `CYCLE`.
+#[must_use]
 fn keyframes() -> [Quaternion<f64>; 4] {
     [
         Quaternion::from_euler_zyx(0.0, 0.0, 0.0),
@@ -61,6 +62,7 @@ fn keyframes() -> [Quaternion<f64>; 4] {
 /// End-effector forward kinematics, generic over the scalar `S` — the same code yields the pose in
 /// `f64` and its derivative in `Dual`. Joint `i` rotates about the body x-axis (even) or y-axis
 /// (odd), then a fixed `LINK` translation advances along the body z-axis.
+#[must_use]
 fn fk<S: Numeric>(q: &[S; N_JOINTS]) -> SE3<S> {
     let step = SE3::from_parts(
         SO3::identity(),
@@ -80,6 +82,7 @@ fn fk<S: Numeric>(q: &[S; N_JOINTS]) -> SE3<S> {
 }
 
 /// The cumulative pose at the end of each link, for rendering.
+#[must_use]
 fn chain_poses(q: &[f64; N_JOINTS]) -> [SE3<f64>; N_JOINTS] {
     let step = SE3::from_parts(SO3::identity(), Vector::new([0.0, 0.0, LINK]));
     let mut t = SE3::<f64>::identity();
@@ -140,6 +143,7 @@ impl VectorFn<8, 14> for ArmIk {
 
 /// Lissajous target position; max base-distance ≈ 1.5 < reach 2.0, leaving length slack so the
 /// arm can meet the target orientation without running out of reach.
+#[must_use]
 fn lissajous_pos(t: f64) -> [f64; 3] {
     [
         0.585 * (TAU * 0.11 * t).sin(),
@@ -149,6 +153,7 @@ fn lissajous_pos(t: f64) -> [f64; 3] {
 }
 
 /// Target orientation: the keyframes slerped over `CYCLE`, 5 s per segment.
+#[must_use]
 fn target_orientation(t: f64) -> Quaternion<f64> {
     let keys = keyframes();
     let seg = CYCLE / 4.0;
@@ -159,6 +164,7 @@ fn target_orientation(t: f64) -> Quaternion<f64> {
 }
 
 /// Position and orientation residual of the converged pose against the current target.
+#[must_use]
 fn residuals(problem: &ArmIk) -> (f64, f64) {
     let ee = fk(&problem.prev);
     let p = ee.translation();
@@ -171,6 +177,7 @@ fn residuals(problem: &ArmIk) -> (f64, f64) {
 }
 
 /// The reach envelope: three great circles of radius `N_JOINTS * LINK` in the coordinate planes.
+#[must_use]
 fn reach_circles() -> Vec<Vec<[f64; 3]>> {
     let r = N_JOINTS as f64 * LINK;
     let circle = |plane: usize| -> Vec<[f64; 3]> {
@@ -189,6 +196,7 @@ fn reach_circles() -> Vec<Vec<[f64; 3]>> {
 }
 
 /// A frame gnomon: arrows of length ratio 1 : 0.75 : 0.5 along local x, y, z.
+#[must_use]
 fn gnomon() -> ([[f64; 3]; 3], [[f64; 3]; 3]) {
     let origins = [[0.0; 3]; 3];
     let vectors = [
@@ -200,6 +208,7 @@ fn gnomon() -> ([[f64; 3]; 3], [[f64; 3]; 3]) {
 }
 
 /// Brightness ramp along the chain, HERO base.
+#[must_use]
 fn link_color(i: usize) -> Rgba {
     let f = 0.65 + 0.05 * i as f64;
     let s = |c: u8| (c as f64 * f).min(255.0) as u8;
@@ -209,6 +218,7 @@ fn link_color(i: usize) -> Rgba {
 /// Worst-case position residual over one orientation cycle at the live 1 ms cadence, warm-started —
 /// a startup reachability check. Samples at the same step size the loop runs, after a short warmup
 /// so the cold-start transient is excluded. Returns the max residual seen.
+#[must_use]
 fn reachability_sweep(lm: &LevenbergMarquardt<AutoDiffMulti>) -> f64 {
     let mut problem = ArmIk {
         target_pos: lissajous_pos(0.0),
@@ -279,7 +289,7 @@ fn main() -> Result<(), VizError> {
 
     let mut n: i64 = 0;
     loop {
-        pacer.wait();
+        let _ = pacer.wait();
         n += 1;
         let t = n as f64 / 1000.0;
         rr.set_sequence("tick", n);

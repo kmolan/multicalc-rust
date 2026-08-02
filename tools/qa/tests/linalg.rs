@@ -15,6 +15,7 @@ use multicalc_qa::load::*;
 use multicalc_qa::schema::*;
 
 /// The f32 tolerance, which every linalg fixture carries.
+#[must_use]
 fn f32_tolerance(fx: &Fixture) -> Tol {
     fx.tolerances
         .f32

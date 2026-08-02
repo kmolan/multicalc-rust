@@ -201,6 +201,7 @@ impl OccupancyGrid {
     }
 
     /// The cell holding `point`, or `None` if the point lies outside the grid.
+    #[must_use]
     fn cell_of(&self, point: [f64; 2]) -> Option<(usize, usize)> {
         let column = ((point[0] - self.origin[0]) / self.resolution).floor();
         let row = ((point[1] - self.origin[1]) / self.resolution).floor();
@@ -288,6 +289,7 @@ impl OccupancyGrid {
 
     /// The ray parameter at which `origin + t·direction` enters the grid box, or `None` if it never
     /// does. A ray already inside returns `0`.
+    #[must_use]
     fn entry_distance(&self, origin: [f64; 2], direction: [f64; 2]) -> Option<f64> {
         let minimum = self.origin;
         let maximum = [
@@ -321,6 +323,7 @@ impl OccupancyGrid {
 
     /// The ray parameter at which `origin_axis + t·direction_axis` reaches the far boundary of the
     /// current cell along one axis.
+    #[must_use]
     fn boundary_distance(
         &self,
         origin_axis: f64,
@@ -340,6 +343,7 @@ impl OccupancyGrid {
 
 /// Floors `value` to a cell index, clamped to `[0, length)`, so floating error at a boundary cannot
 /// land outside the grid.
+#[must_use]
 fn clamp_index(value: f64, length: usize) -> isize {
     let floored = value.floor();
     if floored < 0.0 {
