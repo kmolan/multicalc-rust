@@ -7,8 +7,6 @@ use multicalc::scalar::{Dual, Numeric, VectorFn};
 use multicalc_testkit::tol::{Tol, assert_vector_close};
 use proptest::prelude::*;
 
-use crate::support::{symmetric_positive_definite, trace};
-
 /// The constant-velocity transition `[[1, 1], [0, 1]]` written as a function, so the unscented
 /// filter can be given the same model the linear filter gets as a matrix.
 struct ConstantVelocityMotion;
@@ -216,7 +214,7 @@ fn tracks_a_nonlinear_measurement() {
     // A longer range than predicted pushes the estimate away from the landmark at (3, 4).
     assert!(filter.state()[0] < 0.0);
     assert!(filter.state()[1] < 0.0);
-    assert!(trace(filter.covariance()) < 2.0);
+    assert!(filter.covariance().trace() < 2.0);
 }
 
 /// Bitwise, not approximate: that is what the symmetrizing step guarantees, and an approximate
@@ -236,14 +234,14 @@ fn covariance_stays_exactly_symmetric() {
 #[test]
 fn predict_grows_uncertainty_and_update_shrinks_it() {
     let mut filter = landmark_filter();
-    let before = trace(filter.covariance());
+    let before = filter.covariance().trace();
 
     filter.predict(&Stationary2D).unwrap();
-    let after_predict = trace(filter.covariance());
+    let after_predict = filter.covariance().trace();
     assert!(after_predict > before);
 
     filter.update(&RangeToLandmark, Vector::new([5.5])).unwrap();
-    assert!(trace(filter.covariance()) < before);
+    assert!(filter.covariance().trace() < before);
 }
 
 /// The reading is reported against the initial estimate, but nothing moves.
@@ -424,7 +422,7 @@ proptest! {
     ) {
         let mut filter = UnscentedKalmanFilter::<2, 1>::new(
             Vector::new([0.0, 0.0]),
-            symmetric_positive_definite::<2>(&entries),
+            Matrix::<2, 2>::symmetric_positive_definite(&entries),
             Matrix2D::identity().scale(0.01),
             Matrix::new([[0.5]]),
         );
@@ -432,6 +430,6 @@ proptest! {
         filter.update(&PositionMeasurement, Vector::new([measurement])).unwrap();
         let covariance = filter.covariance();
         prop_assert_eq!(covariance[(0, 1)], covariance[(1, 0)]);
-        prop_assert!(trace(covariance) > 0.0);
+        prop_assert!(covariance.trace() > 0.0);
     }
 }
