@@ -213,7 +213,6 @@ fn quadrotor_qnorm(y: &Vector<7, f64>) -> f64 {
 }
 
 // How fast the tumble's spin is changing, with nothing pushing on the body.
-#[must_use]
 fn quadrotor_spin_change(rate: Vector3D<f64>) -> Vector3D<f64> {
     Vector::new([
         (QUAD_IY - QUAD_IZ) * rate[1] * rate[2] / QUAD_IX,
