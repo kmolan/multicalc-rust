@@ -116,6 +116,71 @@ impl<T: Numeric> Pid<T> {
         Ok(self)
     }
 
+    /// Changes the three gains without the output stepping.
+    ///
+    /// The stored integral is shifted by exactly as much as the new gains change the other two
+    /// terms, so the command coming out of the next call is what the old gains would have given
+    /// and the new gains take effect from there. Nothing is shifted before the first `update`,
+    /// where there is no output to hold on to. The integral is stored with the integral gain
+    /// already applied, so changing that gain never steps the output on its own.
+    ///
+    /// Returns [`ControlError::NonFinite`] if any gain is not finite.
+    pub fn set_gains(
+        &mut self,
+        proportional_gain: T,
+        integral_gain: T,
+        derivative_gain: T,
+    ) -> Result<(), ControlError> {
+        if !proportional_gain.is_finite()
+            || !integral_gain.is_finite()
+            || !derivative_gain.is_finite()
+        {
+            return Err(ControlError::NonFinite);
+        }
+        if self.has_previous_measurement {
+            let filtered_derivative = self.derivative_filter.value();
+            self.integral = self.integral
+                + (self.proportional_gain - proportional_gain) * self.previous_error
+                + (self.derivative_gain - derivative_gain) * filtered_derivative;
+        }
+        self.proportional_gain = proportional_gain;
+        self.integral_gain = integral_gain;
+        self.derivative_gain = derivative_gain;
+        Ok(())
+    }
+
+    /// Takes over from a command that was being driven some other way, without the output
+    /// stepping.
+    ///
+    /// Give it the command currently going to the actuator along with the setpoint and measurement
+    /// that go with it. The integral is set so that calling `update` with that same pair returns
+    /// exactly that command, and the controller carries on from there. The measurement history is
+    /// seeded too, so the first derivative is taken against the handover point rather than against
+    /// nothing.
+    ///
+    /// Returns [`ControlError::NonFinite`] if any argument is not finite.
+    pub fn resume_from(
+        &mut self,
+        output: T,
+        setpoint: T,
+        measurement: T,
+    ) -> Result<(), ControlError> {
+        if !output.is_finite() || !setpoint.is_finite() || !measurement.is_finite() {
+            return Err(ControlError::NonFinite);
+        }
+        let error = setpoint - measurement;
+        // The next call adds one step of integral action of its own and sees no change in the
+        // measurement, so the integral is seeded short by that one step and the derivative
+        // contributes nothing.
+        self.integral =
+            output - self.proportional_gain * error - self.integral_gain * error * self.dt;
+        self.derivative_filter.reset();
+        self.previous_measurement = measurement;
+        self.previous_error = error;
+        self.has_previous_measurement = true;
+        Ok(())
+    }
+
     /// Advances the controller one timestep and returns the saturated output.
     #[must_use]
     pub fn update(&mut self, setpoint: T, measurement: T) -> T {
