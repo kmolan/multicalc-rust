@@ -19,6 +19,5 @@ mod root_finding;
 mod scalar;
 mod signal_processing;
 mod spatial;
-mod support;
 mod utils;
 mod vector_field;

@@ -446,3 +446,283 @@ def run(out, rng, seed):
     _coordinated_turn_fusion(out, rng, meta)
     _unscented_coordinated_turn_fusion(out, rng, meta)
     _unscented_landmark_range_and_bearing(out, rng, meta)
+
+    # These two go last so they cannot move the random stream the cases above draw from. Their
+    # goldens come from somewhere else, so they carry their own provenance rather than inheriting
+    # FilterPy's.
+    error_state_meta = schema.metadata(
+        "estimation", seed,
+        "IMU readings are a constant-turn, slow-sway truth plus noise at the densities the filter "
+        "is given; position fixes and heading aids are the truth plus their own noise",
+        libraries=("numpy", "scipy"),
+        reference="in-house numpy transcription of Sola's error-state equations",
+    )
+    _error_state_kalman_filter_imu_trajectory(out, rng, error_state_meta)
+
+    triad_meta = schema.metadata(
+        "estimation", seed,
+        "two exactly-rotated direction pairs, noiseless",
+        libraries=("numpy", "scipy"),
+        reference="SciPy {scipy}",
+    )
+    _triad_attitude_from_two_directions(out, rng, triad_meta)
+
+
+def _error_state_tol():
+    # A 200-step run with 30 corrections compounds, so this is looser than a single-operation
+    # bound and looser than the other filter rows, which run 8 to 10 steps.
+    return {"f64": schema.tol(1e-9, 1e-8), "f32": schema.tol(1e-2, 1e-2)}
+
+
+def _skew(v):
+    return np.array([[0.0, -v[2], v[1]], [v[2], 0.0, -v[0]], [-v[1], v[0], 0.0]])
+
+
+def _scalar_first(rotation):
+    """Scipy's quaternion, reordered scalar-first and turned so the scalar part is not negative."""
+    x, y, z, w = rotation.as_quat()
+    q = np.array([w, x, y, z])
+    return -q if q[0] < 0.0 else q
+
+
+def _error_state_kalman_filter_imu_trajectory(out, rng, meta):
+    """A body turning and swaying for two seconds, tracked from its own IMU plus a position fix
+    and a heading aid.
+
+    Reference implementation of Sola's error-state equations, written here rather than taken from
+    a library -- FilterPy has no error-state filter. It pins the crate against an independent
+    transcription of the same paper, not against a trusted third party. If both transcriptions
+    read the paper the same wrong way this fixture still agrees, which is why the crate also
+    checks its closed-form transition against an autodiff Jacobian of its own propagation.
+    """
+    from scipy.spatial.transform import Rotation
+
+    dt, steps = 0.01, 200
+    gravity = np.array([0.0, 0.0, -9.81])
+
+    turn_rate = np.array([0.3, -0.2, 0.5])
+    gyroscope_bias = np.array([0.02, -0.015, 0.01])
+    accelerometer_bias = np.array([0.15, -0.10, 0.05])
+
+    gyroscope_noise_density = 0.02
+    accelerometer_noise_density = 0.05
+    gyroscope_bias_random_walk = 1e-4
+    accelerometer_bias_random_walk = 1e-3
+
+    position_fix_period, heading_aid_period = 10, 20
+    position_fix_sigma, heading_aid_sigma = 0.03, np.deg2rad(2.0)
+    position_fix_noise = np.eye(3) * position_fix_sigma**2
+    heading_aid_noise = np.array([[heading_aid_sigma**2]])
+
+    # The truth: a constant turn with a slow sway along the world x axis, and the readings a real
+    # IMU would have produced from it.
+    truth_position = np.zeros(3)
+    truth_velocity = np.zeros(3)
+    truth_orientation = Rotation.identity()
+    gyroscope_readings = np.zeros((steps, 3))
+    accelerometer_readings = np.zeros((steps, 3))
+    truth_positions = np.zeros((steps, 3))
+    truth_orientations = []
+    for step in range(steps):
+        time = step * dt
+        world_push = np.array([0.5 * np.sin(2.0 * np.pi * 0.5 * time), 0.0, 0.0])
+        proper_push = truth_orientation.inv().apply(world_push - gravity)
+
+        gyroscope_readings[step] = (
+            turn_rate + gyroscope_bias + rng.normal(0.0, gyroscope_noise_density, 3)
+        )
+        accelerometer_readings[step] = (
+            proper_push + accelerometer_bias + rng.normal(0.0, accelerometer_noise_density, 3)
+        )
+
+        truth_position = truth_position + truth_velocity * dt + 0.5 * world_push * dt * dt
+        truth_velocity = truth_velocity + world_push * dt
+        truth_orientation = truth_orientation * Rotation.from_rotvec(turn_rate * dt)
+        truth_positions[step] = truth_position
+        truth_orientations.append(truth_orientation)
+
+    position_fixes = np.array(
+        [
+            truth_positions[step] + rng.normal(0.0, position_fix_sigma, 3)
+            for step in range(steps)
+            if (step + 1) % position_fix_period == 0
+        ]
+    )
+    heading_aids = np.array(
+        [
+            [
+                truth_orientations[step].as_euler("ZYX")[0]
+                + rng.normal(0.0, heading_aid_sigma)
+            ]
+            for step in range(steps)
+            if (step + 1) % heading_aid_period == 0
+        ]
+    )
+
+    # The filter, from a starting guess that is tilted a little and knows nothing of the offsets.
+    initial_orientation = Rotation.from_rotvec([0.05, -0.03, 0.02])
+    position = np.zeros(3)
+    velocity = np.zeros(3)
+    orientation = initial_orientation
+    gyroscope_offset = np.zeros(3)
+    accelerometer_offset = np.zeros(3)
+    initial_covariance = np.diag([0.1] * 3 + [0.1] * 3 + [0.05] * 3 + [0.01] * 3 + [0.05] * 3)
+    covariance = initial_covariance.copy()
+
+    def fold_in(jacobian, residual, noise):
+        """One correction: the gain, the Joseph covariance, the injection, and the reset."""
+        nonlocal position, velocity, orientation, gyroscope_offset, accelerometer_offset
+        nonlocal covariance
+
+        innovation_covariance = jacobian @ covariance @ jacobian.T + noise
+        gain = covariance @ jacobian.T @ np.linalg.inv(innovation_covariance)
+        error = gain @ residual
+
+        transfer = np.eye(15) - gain @ jacobian
+        covariance = transfer @ covariance @ transfer.T + gain @ noise @ gain.T
+
+        position = position + error[0:3]
+        velocity = velocity + error[3:6]
+        orientation = orientation * Rotation.from_rotvec(error[6:9])
+        gyroscope_offset = gyroscope_offset + error[9:12]
+        accelerometer_offset = accelerometer_offset + error[12:15]
+
+        reset = np.eye(15)
+        reset[6:9, 6:9] = np.eye(3) - 0.5 * _skew(error[6:9])
+        covariance = reset @ covariance @ reset.T
+        covariance = 0.5 * (covariance + covariance.T)
+
+    position_fix_index, heading_aid_index = 0, 0
+    for step in range(steps):
+        corrected_turn = gyroscope_readings[step] - gyroscope_offset
+        corrected_push = accelerometer_readings[step] - accelerometer_offset
+        rotation_matrix = orientation.as_matrix()
+        world_push = rotation_matrix @ corrected_push + gravity
+
+        transition = np.eye(15)
+        transition[0:3, 3:6] = np.eye(3) * dt
+        transition[3:6, 6:9] = -rotation_matrix @ _skew(corrected_push) * dt
+        transition[3:6, 12:15] = -rotation_matrix * dt
+        transition[6:9, 6:9] = Rotation.from_rotvec(-corrected_turn * dt).as_matrix()
+        transition[6:9, 9:12] = -np.eye(3) * dt
+
+        position = position + velocity * dt + 0.5 * world_push * dt * dt
+        velocity = velocity + world_push * dt
+        orientation = orientation * Rotation.from_rotvec(corrected_turn * dt)
+
+        covariance = transition @ covariance @ transition.T
+        covariance[3:6, 3:6] += np.eye(3) * (accelerometer_noise_density * dt) ** 2
+        covariance[6:9, 6:9] += np.eye(3) * (gyroscope_noise_density * dt) ** 2
+        covariance[9:12, 9:12] += np.eye(3) * gyroscope_bias_random_walk**2 * dt
+        covariance[12:15, 12:15] += np.eye(3) * accelerometer_bias_random_walk**2 * dt
+        covariance = 0.5 * (covariance + covariance.T)
+
+        if (step + 1) % position_fix_period == 0:
+            jacobian = np.zeros((3, 15))
+            jacobian[0:3, 0:3] = np.eye(3)
+            residual = position_fixes[position_fix_index] - position
+            position_fix_index += 1
+            fold_in(jacobian, residual, position_fix_noise)
+
+        if (step + 1) % heading_aid_period == 0:
+            # The heading's sensitivity to a small turn, by a central difference on the
+            # orientation itself -- the crate takes the same derivative by autodiff. The capital
+            # letters in "ZYX" matter: they ask for turns about the body's own axes as it goes,
+            # which is what the crate's to_euler_zyx reports. Lowercase would fix the axes in the
+            # world instead and give a different first angle.
+            jacobian = np.zeros((1, 15))
+            nudge = 1e-7
+            for axis in range(3):
+                step_vector = np.zeros(3)
+                step_vector[axis] = nudge
+                ahead = (orientation * Rotation.from_rotvec(step_vector)).as_euler("ZYX")[0]
+                behind = (orientation * Rotation.from_rotvec(-step_vector)).as_euler("ZYX")[0]
+                jacobian[0, 6 + axis] = _wrap_to_pi(ahead - behind) / (2.0 * nudge)
+            predicted = orientation.as_euler("ZYX")[0]
+            residual = np.array([_wrap_to_pi(heading_aids[heading_aid_index][0] - predicted)])
+            heading_aid_index += 1
+            fold_in(jacobian, residual, heading_aid_noise)
+
+    inputs = {
+        "kind": schema.string("error_state_kalman_filter"),
+        "case": schema.string("imu_trajectory"),
+        "timestep": schema.scalar(dt),
+        "gravity": schema.vector(gravity),
+        "initial_position": schema.vector(np.zeros(3)),
+        "initial_velocity": schema.vector(np.zeros(3)),
+        "initial_orientation": schema.vector(_scalar_first(initial_orientation)),
+        "initial_gyroscope_bias": schema.vector(np.zeros(3)),
+        "initial_accelerometer_bias": schema.vector(np.zeros(3)),
+        "initial_covariance": schema.matrix(initial_covariance),
+        "gyroscope_noise_density": schema.scalar(gyroscope_noise_density),
+        "accelerometer_noise_density": schema.scalar(accelerometer_noise_density),
+        "gyroscope_bias_random_walk": schema.scalar(gyroscope_bias_random_walk),
+        "accelerometer_bias_random_walk": schema.scalar(accelerometer_bias_random_walk),
+        "gyroscope_readings": schema.matrix(gyroscope_readings),
+        "accelerometer_readings": schema.matrix(accelerometer_readings),
+        "position_fix_period": schema.integer(position_fix_period),
+        "position_fixes": schema.matrix(position_fixes),
+        "position_fix_noise": schema.matrix(position_fix_noise),
+        "heading_aid_period": schema.integer(heading_aid_period),
+        "heading_aids": schema.matrix(heading_aids),
+        "heading_aid_noise": schema.matrix(heading_aid_noise),
+    }
+    expected = {
+        "position": schema.vector(position),
+        "velocity": schema.vector(velocity),
+        "orientation": schema.vector(_scalar_first(orientation)),
+        "gyroscope_bias": schema.vector(gyroscope_offset),
+        "accelerometer_bias": schema.vector(accelerometer_offset),
+        "covariance": schema.matrix(covariance),
+    }
+    schema.write_fixture(
+        out, "estimation", "error_state_kalman_filter_imu_trajectory",
+        meta, _error_state_tol(), inputs, expected,
+        equation="p- = p + v*dt + 0.5*(R*a + g)*dt^2, q- = q x exp(w*dt), reset G = I - 0.5*[dtheta]x",
+        operations=["Error-state Kalman filter, 200 IMU steps + 20 position fixes + 10 heading "
+                    "aids, error state 15 / measurement 3 and 1"],
+    )
+
+
+def _wrap_to_pi(angle):
+    return angle - 2.0 * np.pi * np.round(angle / (2.0 * np.pi))
+
+
+def _triad_attitude_from_two_directions(out, rng, meta):
+    """An orientation read straight off two directions a still body can see.
+
+    With two noiseless, consistent direction pairs the orientation is unique, so the
+    two-direction construction and the least-squares fit scipy solves give the same answer
+    exactly. Under noise they would differ -- this fixture is deliberately noiseless.
+    """
+    from scipy.spatial.transform import Rotation
+
+    truth = Rotation.from_rotvec([0.4, -0.25, 0.9])
+    down_in_world = np.array([0.0, 0.0, -1.0])
+    north_in_world = np.array([1.0, 0.0, 0.0])
+    down_in_body = truth.inv().apply(down_in_world)
+    north_in_body = truth.inv().apply(north_in_world)
+
+    fitted = Rotation.align_vectors(
+        np.vstack([down_in_world, north_in_world]),
+        np.vstack([down_in_body, north_in_body]),
+    )[0]
+
+    inputs = {
+        "kind": schema.string("triad"),
+        "case": schema.string("attitude_from_two_directions"),
+        "primary_observed": schema.vector(down_in_body),
+        "secondary_observed": schema.vector(north_in_body),
+        "primary_reference": schema.vector(down_in_world),
+        "secondary_reference": schema.vector(north_in_world),
+    }
+    expected = {
+        "orientation": schema.vector(_scalar_first(fitted)),
+        "rotation_matrix": schema.matrix(fitted.as_matrix()),
+    }
+    schema.write_fixture(
+        out, "estimation", "triad_attitude_from_two_directions",
+        meta, {"f64": schema.tol(1e-13, 1e-12), "f32": schema.tol(1e-5, 1e-5)}, inputs, expected,
+        equation="R = [r1 r2 r3] * [o1 o2 o3]^T from two direction pairs",
+        operations=["Attitude from two direction pairs (down + north), noiseless"],
+    )

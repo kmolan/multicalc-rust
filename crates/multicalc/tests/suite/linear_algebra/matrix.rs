@@ -524,6 +524,82 @@ fn matrix_solve_agrees_with_lu() {
     );
 }
 
+// ----- evening a matrix out across its diagonal -----
+
+#[test]
+fn symmetrized_averages_each_pair() {
+    let lopsided = Matrix3D::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]);
+    let evened = lopsided.symmetrized();
+
+    assert_eq!(
+        evened.into_array(),
+        [[1.0, 3.0, 5.0], [3.0, 5.0, 7.0], [5.0, 7.0, 9.0]]
+    );
+}
+
+#[test]
+fn symmetrized_output_is_exactly_symmetric() {
+    // Entries that do not divide evenly, so an average worked out twice would land a rounding step
+    // apart if the two halves were computed separately.
+    let awkward =
+        Matrix::<4, 4>::from_fn(|row, column| 1.0 / (1.0 + row as f64 + 3.0 * column as f64));
+    let evened = awkward.symmetrized();
+
+    for row in 0..4 {
+        for column in 0..4 {
+            assert_eq!(evened[(row, column)], evened[(column, row)]);
+        }
+    }
+}
+
+#[test]
+fn symmetrized_leaves_a_symmetric_matrix_alone() {
+    let already_even = Matrix2D::new([[2.0, 1.0], [1.0, 3.0]]);
+
+    assert_eq!(already_even.symmetrized(), already_even);
+}
+
+#[test]
+fn symmetrized_then_clamped_repairs_a_drifted_covariance() {
+    // Eigenvalues 3 and -1, with one pair nudged off by a couple of rounding steps.
+    let drift = 4.0 * f64::EPSILON;
+    let drifted = Matrix2D::new([[1.0, 2.0], [2.0 + drift, 1.0]]);
+
+    let minimum_eigenvalue = 0.5;
+    let repaired = drifted
+        .symmetrized()
+        .symmetric_eigendecomposition()
+        .unwrap()
+        .clamped(minimum_eigenvalue);
+
+    let tolerance = Tol {
+        abs: 1e-12,
+        rel: 0.0,
+    };
+    let decomposed = repaired.symmetric_eigendecomposition().unwrap();
+    assert_scalar_close(decomposed.eigenvalues()[0], 3.0, tolerance);
+    assert_scalar_close(decomposed.eigenvalues()[1], minimum_eigenvalue, tolerance);
+    assert!(decomposed.is_positive_definite());
+
+    // That drift is small enough that the decomposition would have accepted it anyway. A pair that
+    // disagrees outright is rejected until it is evened out first.
+    let lopsided = Matrix2D::new([[1.0, 2.0], [2.5, 1.0]]);
+    assert_eq!(
+        lopsided.symmetric_eigendecomposition().err(),
+        Some(LinalgError::NotSymmetric)
+    );
+    assert!(
+        lopsided
+            .symmetrized()
+            .symmetric_eigendecomposition()
+            .unwrap()
+            .clamped(minimum_eigenvalue)
+            .symmetric_eigendecomposition()
+            .unwrap()
+            .is_positive_definite()
+    );
+}
+
 // ----- genericity: the same code at f32 -----
 
 #[test]

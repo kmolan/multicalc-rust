@@ -1015,6 +1015,15 @@ let xi = g.log();
 let g2 = SE3::exp(xi);
 ```
 
+`SO3::from_two_direction_pairs` reads an orientation straight off two directions the body can see.
+Standing still, a drone's push sensor says which way is down and its compass says roughly which way
+is north; both directions are also known in world terms, and two directions that are not parallel
+fix the orientation completely. The first pair is trusted exactly and the second only settles the
+leftover spin about it, so the noisier reading belongs second. It returns `None` when a direction has
+no length or when the pair are parallel. This is how an error-state filter gets its starting
+attitude — and it only works while the body is still, because a body in free fall feels no push at
+all and has no "down" to read.
+
 Because everything is generic over the scalar, a derivative with respect to a joint angle or
 pose parameter flows through `act`, `compose`, and `exp`/`log` under autodiff. That is what the
 inverse-kinematics showcases are built on. Full demo:
@@ -1727,6 +1736,116 @@ Which of the two nonlinear filters to reach for comes down to the model. The ext
 cheaper when the model is cheap to differentiate and gently curved. This one costs
 `2·STATE_DIMENSION + 1` evaluations per step instead of a derivative, and earns that back on a
 sharply curved model, or on any model a derivative does not describe.
+
+### Error-state filter
+
+`ErrorStateKalmanFilter<MEASUREMENT_DIMENSION, T>` fuses an IMU — a turn-rate sensor and a push
+sensor — with whatever corrections a vehicle can get, and tracks where a body is, how it is moving,
+which way it faces, and what its own two sensors are getting steadily wrong.
+
+It tracks the *correction* to a running guess rather than the guess itself. That is what lets the
+facing live on the rotation group, where it can turn any distance without wrapping or needing
+renormalization, while the uncertainty stays a plain flat fifteen numbers that ordinary matrix
+arithmetic can carry forward. After every correction the error is folded back into the guess and
+reset to zero, so it never grows large enough for the flat treatment to strain.
+
+The fifteen numbers run in this order, three each:
+
+| Index range | Meaning |
+| --- | --- |
+| 0..3 | where the estimate has the body, in world axes, metres |
+| 3..6 | how wrong the estimated speed is, world axes, m/s |
+| 6..9 | a small turn taking the estimated facing to the true one, radians |
+| 9..12 | the turn-rate sensor's steady offset, rad/s |
+| 12..15 | the push sensor's steady offset, m/s² |
+
+- `NominalState<T>`: the running guess — place, motion, facing, and the two sensor offsets. Built
+  with `new`, or with `at_rest` from a facing alone. `plus_error` folds a correction in and
+  `error_from` takes one back out; the two are exact inverses, which is what the reset relies on.
+  The starting facing usually comes from `SO3::from_two_direction_pairs`.
+- `ImuNoise<T>`: how noisy the IMU is, in the figures a datasheet quotes rather than as a raw noise
+  matrix. Four fields of the same type, so naming each is what stops a swapped pair compiling.
+- `NominalStateFn<MEASUREMENT_DIMENSION>`: a sensor model, written once against named fields and
+  evaluated at whatever kind of number the filter needs. **No derivative is ever coded by hand.**
+- `new(initial_state, initial_covariance, imu_noise, measurement_noise)`, with
+  `with_gravity` and `with_covariance_update` for the two settings that have defaults.
+- `predict(gyroscope_reading, accelerometer_reading, timestep)`: one IMU step. The transition it
+  uses is written in closed form and reachable as `error_state_transition`.
+- `update` / `update_with_residual` / `update_other`: one correction. Use the second when a
+  measurement is an angle, because plain subtraction is wrong across the ±π wrap. Use the third for a
+  sensor of a different width from the one the filter is declared with — a three-number position fix
+  and a one-number heading aid cannot both set the type's width.
+- `inject_error_and_reset(error)`: `update` calls this itself; it is public so the step can be
+  exercised with a known correction.
+- `condition_covariance(minimum_eigenvalue)`: see below.
+- `normalized_estimation_error_squared(true_state)`: how far the estimate is from a known truth,
+  measured against its own claimed spread. Only a test or a simulation has the truth to pass in.
+
+**Two generic parameters, where the extended filter has four.** The state width is fixed at fifteen
+by the formulation. There is no pluggable differentiation backend either: a stepped difference over
+an error state is not meaningful, because the error is identically zero and a finite step would move
+a point on the rotation group by an amount the sensor model cannot tell from real signal. The
+Jacobian is always taken exactly.
+
+Evening the spread out across its diagonal happens on every predict and every update, and costs
+almost nothing. Lifting a direction that rounding has pushed below zero is a different matter: it
+means working out the spread's directions, which costs far more than a filter step does. So
+`condition_covariance` is left to the caller's schedule — once a second, or on a health check, not
+every tick. Joseph form plus the automatic evening is what you get otherwise, and that is good for
+hours rather than for a ten-million-update single-precision duty cycle.
+
+Two things will look like bugs and are not. The turn-rate offset about the vertical is only visible
+through a heading aid, so without one it never settles. The push offset along the vertical is only
+visible when the push itself varies, because a body pushed a little too hard upward looks exactly
+like a body tilted a little.
+
+```rust
+use multicalc::{ErrorStateKalmanFilter, ImuNoise, NominalState, NominalStateFn};
+use multicalc::{Matrix, Numeric, SO3, Vector};
+
+// A tracker in the room reports where the drone is, and nothing else.
+struct RoomTracker;
+impl NominalStateFn<3> for RoomTracker {
+    fn eval<S: Numeric>(&self, state: &NominalState<S>) -> [S; 3] {
+        *state.position().as_array()
+    }
+}
+
+let level = SO3::<f64>::identity();
+let starting_spread = 0.1;
+let imu_noise = ImuNoise {
+    gyroscope_noise_density: 0.02,
+    accelerometer_noise_density: 0.05,
+    gyroscope_bias_random_walk: 1e-4,
+    accelerometer_bias_random_walk: 1e-3,
+};
+let tracker_spread = 0.03;
+let mut filter = ErrorStateKalmanFilter::<3>::new(
+    NominalState::at_rest(level),
+    Matrix::from_diagonal([starting_spread; 15]),
+    imu_noise,
+    Matrix::from_diagonal([tracker_spread * tracker_spread; 3]),
+);
+
+// Sitting still, the push sensor reads a full gravity upward.
+let gravity_strength = 9.81;
+let gyroscope_reading = Vector::new([0.0, 0.0, 0.0]);
+let accelerometer_reading = Vector::new([0.0, 0.0, gravity_strength]);
+let timestep = 0.001;
+filter.predict(gyroscope_reading, accelerometer_reading, timestep).unwrap();
+
+// The tracker says the drone is a little east of where the filter has it.
+let step_east = 0.1;
+filter.update(&RoomTracker, Vector::new([step_east, 0.0, 0.0])).unwrap();
+assert!(filter.nominal_state().position()[0] > 0.0);
+
+// The sensor offsets start at zero and are learned from corrections like that one.
+let learned = filter.nominal_state().accelerometer_bias();
+assert!(learned.is_finite());
+```
+
+Full demo:
+[error_state_estimation.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/error_state_estimation.rs).
 
 ### Particle filter
 

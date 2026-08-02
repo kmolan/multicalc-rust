@@ -106,6 +106,9 @@ pub use estimation::{
     CovarianceUpdate, ExtendedKalmanFilter, KalmanFilter, KalmanModel, UnscentedKalmanFilter,
 };
 
+/// Error-state filter for an IMU.
+pub use estimation::{ErrorStateKalmanFilter, ImuNoise, NominalState, NominalStateFn};
+
 /// Particle filter (bootstrap/SIR) with pluggable resampling and measurement likelihood.
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]

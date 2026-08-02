@@ -9,8 +9,6 @@ use multicalc::scalar::{Dual, Numeric, VectorFn};
 use multicalc_testkit::tol::{Tol, assert_matrix_close, assert_vector_close};
 use proptest::prelude::*;
 
-use crate::support::{symmetric_positive_definite, trace};
-
 /// Unicycle motion: [x, y, heading] driven by a forward and an angular velocity over one step.
 struct UnicycleMotion {
     timestep: f64,
@@ -220,7 +218,7 @@ proptest! {
     ) {
         let mut filter = ExtendedKalmanFilter::<3, 2>::new(
             Vector::new([0.0, 0.0, 0.0]),
-            symmetric_positive_definite::<3>(&covariance_entries),
+            Matrix::<3, 3>::symmetric_positive_definite(&covariance_entries),
             Matrix3D::identity().scale(0.01),
             Matrix2D::identity().scale(measurement_noise),
         );
@@ -256,7 +254,7 @@ proptest! {
     ) {
         let mut filter = ExtendedKalmanFilter::<3, 2>::new(
             Vector::new([0.0, 0.0, 0.0]),
-            symmetric_positive_definite::<3>(&covariance_entries),
+            Matrix::<3, 3>::symmetric_positive_definite(&covariance_entries),
             Matrix::zeros(),
             Matrix2D::identity().scale(measurement_noise),
         );
@@ -265,10 +263,10 @@ proptest! {
             5.0 + range_error,
             4.0_f64.atan2(3.0) + bearing_error,
         ]);
-        let before = trace(filter.covariance());
+        let before = filter.covariance().trace();
         filter.update(&model, measurement).unwrap();
 
-        prop_assert!(trace(filter.covariance()) <= before + 1e-9);
+        prop_assert!(filter.covariance().trace() <= before + 1e-9);
     }
 
     #[test]
@@ -279,7 +277,7 @@ proptest! {
     ) {
         let mut filter = ExtendedKalmanFilter::<3, 2>::new(
             Vector::new([0.0, 0.0, 0.0]),
-            symmetric_positive_definite::<3>(&covariance_entries),
+            Matrix::<3, 3>::symmetric_positive_definite(&covariance_entries),
             Matrix::zeros(),
             Matrix2D::identity().scale(1e14),
         );
@@ -301,7 +299,7 @@ proptest! {
         range_error in -1.0f64..1.0,
         bearing_error in -0.5f64..0.5,
     ) {
-        let initial_covariance = symmetric_positive_definite::<3>(&covariance_entries);
+        let initial_covariance = Matrix::<3, 3>::symmetric_positive_definite(&covariance_entries);
         let process_noise = Matrix3D::identity().scale(0.01);
         let noise = Matrix2D::identity().scale(measurement_noise);
         let model = LandmarkRangeAndBearing { landmark_x: 3.0, landmark_y: 4.0 };
@@ -331,7 +329,7 @@ proptest! {
         covariance_entries in prop::collection::vec(-2.0f64..2.0, 9),
     ) {
         let initial_state = Vector::new([1.0, -2.0, 0.7]);
-        let initial_covariance = symmetric_positive_definite::<3>(&covariance_entries);
+        let initial_covariance = Matrix::<3, 3>::symmetric_positive_definite(&covariance_entries);
         let mut filter = ExtendedKalmanFilter::<3, 2>::new(
             initial_state,
             initial_covariance,
@@ -352,7 +350,7 @@ proptest! {
         range_error in -1.0f64..1.0,
         bearing_error in -0.5f64..0.5,
     ) {
-        let initial_covariance = symmetric_positive_definite::<3>(&covariance_entries);
+        let initial_covariance = Matrix::<3, 3>::symmetric_positive_definite(&covariance_entries);
         let process_noise = Matrix3D::identity().scale(0.01);
         let noise = Matrix2D::identity().scale(measurement_noise);
         let model = LandmarkRangeAndBearing { landmark_x: 3.0, landmark_y: 4.0 };

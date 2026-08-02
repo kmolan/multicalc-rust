@@ -337,6 +337,33 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
         true
     }
 
+    /// The matrix with each pair across the diagonal replaced by their average.
+    ///
+    /// A matrix that should read the same across the diagonal but has drifted — a covariance after
+    /// many filter updates — comes back matching exactly. Only the upper half is worked out and
+    /// then mirrored, so the two halves cannot end up a rounding step apart. The diagonal is left
+    /// alone.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// let drifted = Matrix::new([[1.0, 2.0], [4.0, 3.0]]);
+    /// let evened = drifted.symmetrized();
+    /// assert_eq!(evened[(0, 1)], 3.0);
+    /// assert_eq!(evened[(0, 1)], evened[(1, 0)]);
+    /// assert_eq!(evened[(0, 0)], 1.0);
+    /// ```
+    pub fn symmetrized(self) -> Self {
+        let mut result = self;
+        for row in 0..N {
+            for column in (row + 1)..N {
+                let average = (self[(row, column)] + self[(column, row)]) * T::HALF;
+                result[(row, column)] = average;
+                result[(column, row)] = average;
+            }
+        }
+        result
+    }
+
     /// The `N`×`N` identity matrix.
     ///
     /// ```

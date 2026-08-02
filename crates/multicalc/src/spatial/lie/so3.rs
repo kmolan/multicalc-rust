@@ -130,6 +130,80 @@ impl<T: Numeric> SO3<T> {
         Quaternion::try_from_rotation_matrix(m).map(|q| SO3 { q })
     }
 
+    /// The orientation of a body from two directions it can see, given where those directions
+    /// point in the world.
+    ///
+    /// Standing still, a drone's push sensor tells it which way is down and its compass tells it
+    /// roughly which way is north — two directions measured in the body's own frame, whose world
+    /// directions are already known. Two directions that are not parallel pin the orientation down
+    /// completely.
+    ///
+    /// The primary pair is trusted exactly: the returned orientation carries `primary_observed`
+    /// onto `primary_reference` with no error left over. The secondary pair only settles the
+    /// remaining spin about that first direction, so the noisier of the two readings belongs
+    /// there. Lengths do not matter; only the directions do.
+    ///
+    /// Returns `None` when a direction has zero or non-finite length, or when the two observed
+    /// directions point the same way as each other (or the two reference directions do) — parallel
+    /// directions leave the spin unsettled.
+    ///
+    /// ```
+    /// use multicalc::spatial::SO3;
+    /// use multicalc::linear_algebra::Vector;
+    /// // Level and facing north: down reads as down, north reads as north.
+    /// let down_in_world = Vector::new([0.0_f64, 0.0, -1.0]);
+    /// let north_in_world = Vector::new([1.0, 0.0, 0.0]);
+    /// // The body is turned a quarter turn about z, so it sees north off to its right.
+    /// let down_in_body = Vector::new([0.0, 0.0, -1.0]);
+    /// let north_in_body = Vector::new([0.0, -1.0, 0.0]);
+    /// let orientation = SO3::from_two_direction_pairs(
+    ///     down_in_body, north_in_body, down_in_world, north_in_world,
+    /// )
+    /// .unwrap();
+    /// let recovered_north = orientation.act(north_in_body);
+    /// assert!((recovered_north[0] - north_in_world[0]).abs() < 1e-12);
+    /// assert!((recovered_north[1] - north_in_world[1]).abs() < 1e-12);
+    /// ```
+    #[must_use]
+    pub fn from_two_direction_pairs(
+        primary_observed: Vector3D<T>,
+        secondary_observed: Vector3D<T>,
+        primary_reference: Vector3D<T>,
+        secondary_reference: Vector3D<T>,
+    ) -> Option<Self> {
+        if !primary_observed.is_finite()
+            || !secondary_observed.is_finite()
+            || !primary_reference.is_finite()
+            || !secondary_reference.is_finite()
+        {
+            return None;
+        }
+
+        let observed_first = primary_observed.try_normalized()?;
+        let observed_third = observed_first.cross(secondary_observed).try_normalized()?;
+        let observed_second = observed_third.cross(observed_first);
+
+        let reference_first = primary_reference.try_normalized()?;
+        let reference_third = reference_first
+            .cross(secondary_reference)
+            .try_normalized()?;
+        let reference_second = reference_third.cross(reference_first);
+
+        // Each set of axes goes in as columns, so the product carries body directions to world
+        // ones.
+        let observed_axes = Matrix3D::from_fn(|row, column| match column {
+            0 => observed_first[row],
+            1 => observed_second[row],
+            _ => observed_third[row],
+        });
+        let reference_axes = Matrix3D::from_fn(|row, column| match column {
+            0 => reference_first[row],
+            1 => reference_second[row],
+            _ => reference_third[row],
+        });
+        SO3::try_from_matrix(reference_axes * observed_axes.transpose())
+    }
+
     /// Geodesic interpolation (slerp); `t = 0` gives `self`, `t = 1` gives `other`.
     #[inline]
     #[must_use]
