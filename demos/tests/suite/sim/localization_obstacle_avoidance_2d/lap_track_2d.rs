@@ -72,6 +72,7 @@ fn every_passage_admits_the_chassis_with_margin() {
 
 /// The distance from `point` to the centre of the nearest occupied cell, or infinity if the grid
 /// is empty.
+#[must_use]
 fn nearest_occupied_distance(grid: &OccupancyGrid, point: [f64; 2]) -> f64 {
     let origin = grid.origin();
     let cell = grid.resolution();

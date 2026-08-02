@@ -29,6 +29,7 @@ fn main() {
 }
 
 /// Time the segments, then solve for the smoothest path through them.
+#[must_use]
 fn planning() -> (Trajectory, Vec<f64>) {
     println!("== Planning ==");
 

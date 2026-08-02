@@ -16,6 +16,7 @@ pub struct Tol {
 
 /// True when `got` is within `t` of `want`, using a combined absolute and
 /// relative bound: `|got - want| <= abs + rel * max(|got|, |want|)`.
+#[must_use]
 pub fn close(got: f64, want: f64, t: Tol) -> bool {
     (got - want).abs() <= t.abs + t.rel * got.abs().max(want.abs())
 }
@@ -127,6 +128,7 @@ pub fn svd_moore_penrose<const M: usize, const N: usize, T: Numeric>(a: Matrix<M
 
 /// Largest absolute entry of `a`, used to scale reconstruction/tolerance checks to the
 /// magnitude of the input matrix.
+#[must_use]
 pub fn max_abs<const R: usize, const C: usize, T: Numeric>(a: Matrix<R, C, T>) -> T {
     let mut max = T::ZERO;
     for r in 0..R {
@@ -137,6 +139,7 @@ pub fn max_abs<const R: usize, const C: usize, T: Numeric>(a: Matrix<R, C, T>) -
     max
 }
 
+#[must_use]
 fn f32_scaled_tol(scale: f32, dim: usize) -> f32 {
     512.0 * f32::EPSILON * dim as f32 * scale.max(1.0)
 }

@@ -12,6 +12,7 @@ use std::time::Instant;
 use multicalc::{CalcError, Matrix, Matrix2D, Matrix4D, Vector};
 
 /// Mean wall-clock time per call, in nanoseconds, over `iters` runs.
+#[must_use]
 fn time<T>(iters: u32, mut f: impl FnMut() -> T) -> (T, f64) {
     let mut last = black_box(f()); // warm up and keep the last result live
     let start = Instant::now();
@@ -22,6 +23,7 @@ fn time<T>(iters: u32, mut f: impl FnMut() -> T) -> (T, f64) {
 }
 
 /// Largest entrywise absolute difference between two matrices.
+#[must_use]
 fn max_abs<const R: usize, const C: usize>(a: Matrix<R, C>, b: Matrix<R, C>) -> f64 {
     let mut worst = 0.0f64;
     for r in 0..R {

@@ -24,6 +24,7 @@ fn report(label: &str, value: f64, exact: f64) {
 }
 
 /// A constant-velocity tracker over a 1 s step: position integrates velocity, position is measured.
+#[must_use]
 fn tracker<T: Numeric>(
     initial_covariance: Matrix2D<T>,
     process_noise: Matrix2D<T>,
@@ -41,6 +42,7 @@ fn tracker<T: Numeric>(
     )
 }
 
+#[must_use]
 fn trace<const N: usize>(m: Matrix<N, N>) -> f64 {
     (0..N).map(|i| m[(i, i)]).sum()
 }
@@ -223,6 +225,7 @@ fn particle_filter() -> Result<(), CalcError> {
 /// How far the cloud reaches in position: the square root of the summed weighted variance of the x
 /// and y coordinates, a plain-metres measure of how sure the filter is.
 #[cfg(feature = "alloc")]
+#[must_use]
 fn position_spread<R: multicalc::random::RandomSource>(
     filter: &multicalc::estimation::ParticleFilter<3, 4, f64, R>,
 ) -> f64 {

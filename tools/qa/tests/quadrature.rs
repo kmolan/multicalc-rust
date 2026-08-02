@@ -14,6 +14,7 @@ use multicalc::numerical_integration::{GaussianQuadratureMethod, IterativeMethod
 use multicalc_qa::load::*;
 use multicalc_qa::problems::integrand;
 
+#[must_use]
 fn iterative_method(s: &str) -> IterativeMethod {
     match s {
         "Booles" => IterativeMethod::Booles,
@@ -23,6 +24,7 @@ fn iterative_method(s: &str) -> IterativeMethod {
     }
 }
 
+#[must_use]
 fn gaussian_method(s: &str) -> GaussianQuadratureMethod {
     match s {
         "GaussLegendre" => GaussianQuadratureMethod::GaussLegendre,

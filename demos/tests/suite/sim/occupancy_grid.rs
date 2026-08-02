@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 // Writes `contents` to a fresh file under the system temp directory and returns its path. Each
 // call gets a unique name so tests running at once do not clash.
+#[must_use]
 fn temp_csv(contents: &str) -> PathBuf {
     static COUNTER: AtomicUsize = AtomicUsize::new(0);
     let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -18,6 +19,7 @@ fn temp_csv(contents: &str) -> PathBuf {
 
 // A grid with a single occupied column whose left face sits exactly at x = 2, spanning enough y
 // that the oblique rays below meet it away from any row boundary.
+#[must_use]
 fn wall() -> OccupancyGrid {
     let mut grid = OccupancyGrid::new(15, 12, 1.0, [-5.0, -5.25]);
     for row in 0..grid.rows() {

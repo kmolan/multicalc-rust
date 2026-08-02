@@ -183,6 +183,7 @@ impl VectorFn<3, 3> for LocalizationMotion {
 }
 
 /// Scores one beam: how well a hypothesis's cast range matches the real reading.
+#[must_use]
 fn beam_log_likelihood(predicted: Option<f64>, measured: f64, deviation: f64) -> f64 {
     match (predicted, measured.is_finite()) {
         (Some(range), true) => {

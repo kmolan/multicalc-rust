@@ -13,6 +13,7 @@ use multicalc::scalar::{Numeric, ScalarFn, ScalarFnN, VectorFn};
 ///
 /// Gauss-Hermite folds an `e^{-x^2}` weight and Gauss-Laguerre an `e^{-x}` weight
 /// around this integrand; Legendre and the iterative rules integrate it directly.
+#[must_use]
 pub fn integrand<S: Numeric>(key: &str) -> fn(S) -> S {
     match key {
         "two_x" => |x| S::from_f64(2.0) * x,
@@ -64,11 +65,13 @@ impl VectorFn<6, 6> for Trigonometric6 {
 // radius 3. The same formula is mirrored in the Python generator.
 const CIRCLE_POINTS: usize = 40;
 
+#[must_use]
 fn circle_px(i: usize) -> f64 {
     let angle = core::f64::consts::TAU * i as f64 / CIRCLE_POINTS as f64;
     2.0 + 3.0 * angle.cos()
 }
 
+#[must_use]
 fn circle_py(i: usize) -> f64 {
     let angle = core::f64::consts::TAU * i as f64 / CIRCLE_POINTS as f64;
     -1.0 + 3.0 * angle.sin()
@@ -94,10 +97,12 @@ impl VectorFn<3, CIRCLE_POINTS> for CircleFit {
 const GAUSS_POINTS: usize = 50;
 const GAUSS_TRUTH: [f64; 6] = [2.0, 3.0, 0.8, 1.5, 7.0, 1.2];
 
+#[must_use]
 fn gauss_t(i: usize) -> f64 {
     i as f64 * 10.0 / (GAUSS_POINTS as f64 - 1.0)
 }
 
+#[must_use]
 fn gauss_y(i: usize) -> f64 {
     let t = gauss_t(i);
     let mut y = 0.0;

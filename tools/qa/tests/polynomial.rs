@@ -16,6 +16,7 @@ use multicalc_qa::load::*;
 use multicalc_qa::schema::*;
 
 /// A fixed-size coefficient array from a stored vector, padded with zeros.
+#[must_use]
 fn coefficients<const N: usize>(value: &Value) -> [f64; N] {
     let data = value.as_vector();
     assert!(data.len() <= N, "fixture holds {} coefficients", data.len());
@@ -27,6 +28,7 @@ fn coefficients<const N: usize>(value: &Value) -> [f64; N] {
 }
 
 /// A sparse term list from the stored `terms` matrix: coefficient first, then a power per variable.
+#[must_use]
 fn terms<const VARIABLES: usize>(value: &Value) -> Vec<MultivariateTerm<VARIABLES, f64>> {
     let (rows, columns, data) = value.as_matrix();
     assert_eq!(columns, VARIABLES + 1, "term row width");

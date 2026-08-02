@@ -7,6 +7,7 @@ use rand_pcg::Pcg32;
 const WHEEL_RADIUS: f64 = 0.036;
 const WHEELBASE: f64 = 0.235;
 
+#[must_use]
 fn noiseless() -> WheeledVehicle {
     WheeledVehicle::new(WHEEL_RADIUS, WHEELBASE, 0.0, 0.0, 1.2).unwrap()
 }

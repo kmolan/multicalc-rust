@@ -89,6 +89,7 @@ pub fn lap_track_2d() -> LapTrack2D {
 }
 
 /// Whether the point sits inside the axis-aligned rectangle `[[x_min, y_min], [x_max, y_max]]`.
+#[must_use]
 fn inside(bounds: [[f64; 2]; 2], point: [f64; 2]) -> bool {
     let [[x_min, y_min], [x_max, y_max]] = bounds;
     point[0] >= x_min && point[0] <= x_max && point[1] >= y_min && point[1] <= y_max

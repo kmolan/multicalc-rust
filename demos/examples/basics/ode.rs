@@ -83,6 +83,7 @@ fn harmonic_oscillator() {
 }
 
 // Largest drift of the invariant `inv` from its initial value over an RK4 integration.
+#[must_use]
 fn rk4_drift<const N: usize, F, I>(f: &F, y0: &Vector<N, f64>, dt: f64, steps: usize, inv: I) -> f64
 where
     F: Fn(f64, &Vector<N, f64>) -> Vector<N, f64>,
@@ -97,6 +98,7 @@ where
 }
 
 // Largest drift of the invariant `inv` over the accepted steps of an RK45 solve.
+#[must_use]
 fn rk45_drift<const N: usize, F, I>(
     f: &F,
     y0: &Vector<N, f64>,
@@ -132,6 +134,7 @@ const ACRO_LC2: f64 = 0.5;
 const ACRO_I1: f64 = 1.0 / 12.0;
 const ACRO_I2: f64 = 1.0 / 12.0;
 
+#[must_use]
 fn acrobot_mass(c2: f64) -> (f64, f64, f64) {
     let d11 = ACRO_M1 * ACRO_LC1 * ACRO_LC1
         + ACRO_M2 * (ACRO_L1 * ACRO_L1 + ACRO_LC2 * ACRO_LC2 + 2.0 * ACRO_L1 * ACRO_LC2 * c2)
@@ -157,6 +160,7 @@ fn acrobot_rhs(_t: f64, y: &Vector<4, f64>) -> Vector<4, f64> {
     Vector::new([w1, w2, w1d, w2d])
 }
 
+#[must_use]
 fn acrobot_energy(y: &Vector<4, f64>) -> f64 {
     let [th1, th2, w1, w2] = [y[0], y[1], y[2], y[3]];
     let (d11, d12, d22) = acrobot_mass(th2.cos());
@@ -196,10 +200,12 @@ fn quadrotor_rhs(_t: f64, y: &Vector<7, f64>) -> Vector<7, f64> {
     Vector::new([qwd, qxd, qyd, qzd, wxd, wyd, wzd])
 }
 
+#[must_use]
 fn quadrotor_ke(y: &Vector<7, f64>) -> f64 {
     0.5 * (QUAD_IX * y[4] * y[4] + QUAD_IY * y[5] * y[5] + QUAD_IZ * y[6] * y[6])
 }
 
+#[must_use]
 fn quadrotor_qnorm(y: &Vector<7, f64>) -> f64 {
     (y[0] * y[0] + y[1] * y[1] + y[2] * y[2] + y[3] * y[3]).sqrt()
 }
@@ -253,6 +259,7 @@ fn nbody_rhs(_t: f64, y: &Vector<20, f64>) -> Vector<20, f64> {
     })
 }
 
+#[must_use]
 fn nbody_energy(y: &Vector<20, f64>) -> f64 {
     let pos: [[f64; 2]; NB] = core::array::from_fn(|i| [y[4 * i], y[4 * i + 1]]);
     let vel: [[f64; 2]; NB] = core::array::from_fn(|i| [y[4 * i + 2], y[4 * i + 3]]);

@@ -18,6 +18,7 @@ const MEASURE_FROM: usize = SAMPLES / 2;
 /// The samples are weighed against a sine and a cosine at that frequency; whatever oscillates
 /// along with them adds up, and everything else averages away. The length of the resulting pair is
 /// the amplitude.
+#[must_use]
 fn amplitude_at(samples: &[f64], frequency_hz: f64) -> f64 {
     let mut with_sine = 0.0;
     let mut with_cosine = 0.0;
@@ -29,6 +30,7 @@ fn amplitude_at(samples: &[f64], frequency_hz: f64) -> f64 {
     2.0 * with_sine.hypot(with_cosine) / samples.len() as f64
 }
 
+#[must_use]
 fn run(mut filter: Biquad<f64>, signal: &[f64]) -> Vec<f64> {
     signal.iter().map(|&sample| filter.filter(sample)).collect()
 }

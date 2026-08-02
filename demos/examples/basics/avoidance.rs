@@ -37,6 +37,7 @@ struct RunSummary {
 }
 
 /// Drives the corridor for 30 s of simulated time and reports what happened.
+#[must_use]
 fn run(
     map: &OccupancyGrid,
     lidar: &Lidar2d<BEAMS>,
