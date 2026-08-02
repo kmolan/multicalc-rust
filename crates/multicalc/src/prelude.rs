@@ -16,6 +16,7 @@
 //! `numerical_integration` and `approximation` take it as a parameter.
 
 pub use crate::error::CalcError;
+pub use crate::estimation::NominalStateFn;
 pub use crate::numerical_derivative::{
     DerivatorMultiVariable, DerivatorSingleVariable, derivative, partial, second_derivative,
 };
