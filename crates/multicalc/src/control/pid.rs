@@ -6,7 +6,9 @@ use crate::signal_processing::OnePoleLowPass;
 
 /// A proportional-integral-derivative controller running at a fixed timestep.
 ///
-/// The derivative acts on the error. That derivative is passed through a one-pole low-pass filter
+/// The derivative acts on the measurement rather than on the error, so a jump in the setpoint does
+/// not send a spike through the derivative gain; when the setpoint holds still the two are the same
+/// thing. That derivative is passed through a one-pole low-pass filter
 /// that defaults to pass-through, so an unconfigured controller behaves like a textbook PID. Integral
 /// wind-up is limited by conditional integration: while the output is saturated and the error would
 /// drive it further into the active limit, the integral is held instead of accumulated. The output is
@@ -44,8 +46,9 @@ pub struct Pid<T: Numeric = f64> {
     output_maximum: T,
     integral: T,
     derivative_filter: OnePoleLowPass<T>,
+    previous_measurement: T,
     previous_error: T,
-    has_previous_error: bool,
+    has_previous_measurement: bool,
 }
 
 impl<T: Numeric> Pid<T> {
@@ -79,8 +82,9 @@ impl<T: Numeric> Pid<T> {
             output_maximum: T::INFINITY,
             integral: T::ZERO,
             derivative_filter: OnePoleLowPass::new(T::ONE)?,
+            previous_measurement: T::ZERO,
             previous_error: T::ZERO,
-            has_previous_error: false,
+            has_previous_measurement: false,
         })
     }
 
@@ -118,14 +122,17 @@ impl<T: Numeric> Pid<T> {
         let error = setpoint - measurement;
         let proportional_term = self.proportional_gain * error;
 
-        let raw_derivative = if self.has_previous_error {
-            (error - self.previous_error) / self.dt
+        // The measurement falling is the same as the error rising, so the difference is taken the
+        // other way round and the term keeps the sign a textbook PID gives it.
+        let raw_derivative = if self.has_previous_measurement {
+            (self.previous_measurement - measurement) / self.dt
         } else {
             T::ZERO
         };
         let derivative_term = self.derivative_gain * self.derivative_filter.filter(raw_derivative);
+        self.previous_measurement = measurement;
         self.previous_error = error;
-        self.has_previous_error = true;
+        self.has_previous_measurement = true;
 
         let candidate_integral = self.integral + self.integral_gain * error * self.dt;
         let unsaturated = proportional_term + candidate_integral + derivative_term;
@@ -144,10 +151,11 @@ impl<T: Numeric> Pid<T> {
         output
     }
 
-    /// Clears the integral, derivative history, and filter state.
+    /// Clears the integral, measurement history, and filter state.
     pub fn reset(&mut self) {
         self.integral = T::ZERO;
-        self.has_previous_error = false;
+        self.has_previous_measurement = false;
+        self.previous_measurement = T::ZERO;
         self.previous_error = T::ZERO;
         self.derivative_filter.reset();
     }
