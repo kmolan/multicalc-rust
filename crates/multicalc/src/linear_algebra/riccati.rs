@@ -16,18 +16,6 @@ use crate::scalar::Numeric;
 /// recursion the answer covers, so this is far more than a well-posed problem needs.
 const MAXIMUM_PASSES: usize = 64;
 
-/// Forces a matrix to read the same across the diagonal by averaging each pair, so rounding
-/// cannot tilt it as the passes multiply it out.
-fn symmetrize<const K: usize, T: Numeric>(m: &mut Matrix<K, K, T>) {
-    for row in 0..K {
-        for column in (row + 1)..K {
-            let averaged = (m[(row, column)] + m[(column, row)]) * T::HALF;
-            m[(row, column)] = averaged;
-            m[(column, row)] = averaged;
-        }
-    }
-}
-
 /// Finds the steady-state `P` of `P = Aᵀ·P·A − Aᵀ·P·B·(R + Bᵀ·P·B)⁻¹·Bᵀ·P·A + Q`.
 ///
 /// `A` and `B` describe how the state moves and how the input pushes it; `Q` and `R` say how much
@@ -90,10 +78,10 @@ pub fn solve_discrete_riccati<const N: usize, const M: usize, T: Numeric>(
         let reach_increment = state * (coupling * reach) * state.transpose();
 
         let next_state = state * folded;
-        let mut next_cost = cost + cost_increment;
-        let mut next_reach = reach + reach_increment;
-        symmetrize(&mut next_cost);
-        symmetrize(&mut next_reach);
+        // Averaging each pair across the diagonal keeps rounding from tilting these as the passes
+        // multiply them out.
+        let next_cost = (cost + cost_increment).symmetrized();
+        let next_reach = (reach + reach_increment).symmetrized();
 
         state = next_state;
         cost = next_cost;

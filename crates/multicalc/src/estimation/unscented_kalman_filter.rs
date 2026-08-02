@@ -340,7 +340,7 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
         self.state = mean;
 
         // Rounding leaves the two halves of the sum slightly apart; average them back together.
-        self.covariance = symmetrized(covariance);
+        self.covariance = covariance.symmetrized();
         Ok(())
     }
 
@@ -456,7 +456,7 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
         }
 
         // Rounding leaves the two halves of the sum slightly apart; average them back together.
-        let innovation_covariance = symmetrized(innovation_covariance);
+        let innovation_covariance = innovation_covariance.symmetrized();
 
         // Adding many terms can overflow even when every point was fine on its own.
         if !innovation_covariance.is_finite() || !cross_covariance.is_finite() {
@@ -478,9 +478,9 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
         self.innovation = residual;
         self.innovation_covariance = innovation_covariance;
         self.state += kalman_gain * residual;
-        self.covariance = symmetrized(
-            self.covariance - kalman_gain * innovation_covariance * kalman_gain.transpose(),
-        );
+        self.covariance = (self.covariance
+            - kalman_gain * innovation_covariance * kalman_gain.transpose())
+        .symmetrized();
         Ok(())
     }
 
@@ -642,9 +642,4 @@ fn add_weighted_outer_product<const ROWS: usize, const COLUMNS: usize, T: Numeri
     right: Vector<COLUMNS, T>,
 ) -> Matrix<ROWS, COLUMNS, T> {
     matrix + Matrix::from_fn(|row, column| weight * left[row] * right[column])
-}
-
-/// Averages a matrix with its own transpose, so rounding cannot leave the two halves disagreeing.
-fn symmetrized<const N: usize, T: Numeric>(matrix: Matrix<N, N, T>) -> Matrix<N, N, T> {
-    Matrix::from_fn(|row, column| (matrix[(row, column)] + matrix[(column, row)]) / T::TWO)
 }
