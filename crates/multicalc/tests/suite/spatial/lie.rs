@@ -835,3 +835,155 @@ fn se3_default_is_identity() {
     assert_eq!(se3 * default_se3, se3);
     assert_eq!(default_se3 * se3, se3);
 }
+
+// ---- two-direction attitude -------------------------------------------------
+
+#[test]
+fn two_direction_pairs_recovers_a_known_rotation() {
+    let down_in_world = Vector::new([0.0, 0.0, -1.0]);
+    let north_in_world = Vector::new([1.0, 0.0, 0.0]);
+
+    let mut rng = StdRng::seed_from_u64(20260802);
+    for _ in 0..200 {
+        let rotation_vector = Vector::new([
+            rng.gen_range(-2.0..2.0),
+            rng.gen_range(-2.0..2.0),
+            rng.gen_range(-2.0..2.0),
+        ]);
+        let truth = SO3::exp(rotation_vector);
+
+        let down_in_body = truth.inverse().act(down_in_world);
+        let north_in_body = truth.inverse().act(north_in_world);
+        let recovered = SO3::from_two_direction_pairs(
+            down_in_body,
+            north_in_body,
+            down_in_world,
+            north_in_world,
+        )
+        .unwrap();
+
+        assert_entries_close(recovered.to_matrix(), truth.to_matrix(), TOL);
+    }
+}
+
+#[test]
+fn two_direction_pairs_keeps_the_primary_exact_under_noise() {
+    let down_in_world = Vector::new([0.0, 0.0, -1.0]);
+    let north_in_world = Vector::new([1.0, 0.0, 0.0]);
+    let truth = SO3::exp(Vector::new([0.3, -0.2, 0.5]));
+
+    let down_in_body = truth.inverse().act(down_in_world);
+    let north_in_body = truth.inverse().act(north_in_world);
+
+    let noise = Vector::new([0.05, 0.05, 0.05]);
+    let recovered = SO3::from_two_direction_pairs(
+        down_in_body,
+        north_in_body + noise,
+        down_in_world,
+        north_in_world,
+    )
+    .unwrap();
+
+    // The primary pair is trusted completely, so it comes back with nothing left over.
+    let recovered_down = recovered.act(down_in_body);
+    assert!((recovered_down - down_in_world).norm() < TOL);
+
+    // The secondary pair absorbs the noise, so it only lands close.
+    let recovered_north = recovered.act(north_in_body);
+    let north_error = (recovered_north - north_in_world).norm();
+    assert!(
+        north_error > TOL,
+        "the noise should have moved it: {north_error}"
+    );
+    assert!(north_error < 0.1, "but not by much: {north_error}");
+}
+
+#[test]
+fn two_direction_pairs_ignores_length() {
+    let down_in_world = Vector::new([0.0, 0.0, -1.0]);
+    let north_in_world = Vector::new([1.0, 0.0, 0.0]);
+    let truth = SO3::exp(Vector::new([0.4, 0.7, -0.3]));
+    let down_in_body = truth.inverse().act(down_in_world);
+    let north_in_body = truth.inverse().act(north_in_world);
+
+    let unscaled =
+        SO3::from_two_direction_pairs(down_in_body, north_in_body, down_in_world, north_in_world)
+            .unwrap();
+
+    let mut rng = StdRng::seed_from_u64(20260803);
+    for _ in 0..50 {
+        let scaled = SO3::from_two_direction_pairs(
+            down_in_body * rng.gen_range(0.1..10.0),
+            north_in_body * rng.gen_range(0.1..10.0),
+            down_in_world * rng.gen_range(0.1..10.0),
+            north_in_world * rng.gen_range(0.1..10.0),
+        )
+        .unwrap();
+
+        assert_entries_close(scaled.to_matrix(), unscaled.to_matrix(), TOL);
+    }
+}
+
+#[test]
+fn two_direction_pairs_rejects_parallel_directions() {
+    let down = Vector::new([0.0, 0.0, -1.0]);
+    let north = Vector::new([1.0, 0.0, 0.0]);
+    let down_again = down * 2.0;
+    let up = -down;
+
+    // The two observed directions point the same way, so the spin about them is unsettled.
+    assert!(SO3::from_two_direction_pairs(down, down_again, down, north).is_none());
+    // Opposite directions leave it just as unsettled.
+    assert!(SO3::from_two_direction_pairs(down, up, down, north).is_none());
+    // The same holds when it is the reference pair that is parallel.
+    assert!(SO3::from_two_direction_pairs(down, north, down, down_again).is_none());
+}
+
+#[test]
+fn two_direction_pairs_rejects_degenerate_input() {
+    let down = Vector::new([0.0, 0.0, -1.0]);
+    let north = Vector::new([1.0, 0.0, 0.0]);
+    let zero = Vector::new([0.0, 0.0, 0.0]);
+    let not_a_number = Vector::new([f64::NAN, 0.0, 0.0]);
+    let unbounded = Vector::new([f64::INFINITY, 0.0, 0.0]);
+
+    for degenerate in [zero, not_a_number, unbounded] {
+        assert!(SO3::from_two_direction_pairs(degenerate, north, down, north).is_none());
+        assert!(SO3::from_two_direction_pairs(down, degenerate, down, north).is_none());
+        assert!(SO3::from_two_direction_pairs(down, north, degenerate, north).is_none());
+        assert!(SO3::from_two_direction_pairs(down, north, down, degenerate).is_none());
+    }
+}
+
+#[test]
+fn two_direction_pairs_f32_round_trip() {
+    const F32_TOL: f32 = 1e-4;
+    let down_in_world = Vector::new([0.0_f32, 0.0, -1.0]);
+    let north_in_world = Vector::new([1.0_f32, 0.0, 0.0]);
+
+    let rotation_vectors = [
+        Vector::new([0.0_f32, 0.0, 0.0]),
+        Vector::new([0.3_f32, -0.2, 0.5]),
+        Vector::new([1.2_f32, 0.9, -1.5]),
+    ];
+    for rotation_vector in rotation_vectors {
+        let truth = SO3::exp(rotation_vector);
+        let down_in_body = truth.inverse().act(down_in_world);
+        let north_in_body = truth.inverse().act(north_in_world);
+
+        let recovered = SO3::from_two_direction_pairs(
+            down_in_body,
+            north_in_body,
+            down_in_world,
+            north_in_world,
+        )
+        .unwrap();
+
+        let difference = recovered.to_matrix() - truth.to_matrix();
+        for row in 0..3 {
+            for column in 0..3 {
+                assert!(difference[(row, column)].abs() < F32_TOL);
+            }
+        }
+    }
+}
