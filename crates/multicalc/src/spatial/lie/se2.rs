@@ -147,7 +147,8 @@ impl<T: Numeric> SE2<T> {
         Matrix::new([[c, -s, tx], [s, c, ty], [T::ZERO, T::ZERO, T::ONE]])
     }
 
-    /// Builds a transform from a 3×3 homogeneous matrix; `None` if the rotation block is degenerate.
+    /// Builds a transform from a 3×3 homogeneous matrix; `None` if the rotation block is not a
+    /// proper unit rotation.
     #[inline]
     #[must_use]
     pub fn try_from_matrix(m: Matrix3D<T>) -> Option<Self> {
