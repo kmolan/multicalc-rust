@@ -205,7 +205,7 @@ fn random_state(generator: &mut Pcg32) -> NominalState<f64> {
 fn random_error(generator: &mut Pcg32) -> Vector<15, f64> {
     let mut error = Vector::zeros();
     for index in 0..15 {
-        error[index] = generator.standard_normal() * 0.3;
+        error[index] = generator.standard_normal::<f64>() * 0.3;
     }
     let rotation_error = Vector::new([error[6], error[7], error[8]]);
     let rotation_size = rotation_error.norm();
@@ -711,9 +711,9 @@ impl Flight {
 
 fn random_vector(generator: &mut Pcg32, spread: f64) -> Vector3D<f64> {
     Vector::new([
-        generator.standard_normal() * spread,
-        generator.standard_normal() * spread,
-        generator.standard_normal() * spread,
+        generator.standard_normal::<f64>() * spread,
+        generator.standard_normal::<f64>() * spread,
+        generator.standard_normal::<f64>() * spread,
     ])
 }
 
@@ -775,7 +775,7 @@ fn run_flight(
 
         if step % heading_aid_period == heading_aid_period - 1 {
             let reading =
-                Compass.eval(&flight.truth)[0] + generator.standard_normal() * heading_aid_spread;
+                Compass.eval(&flight.truth)[0] + generator.standard_normal::<f64>() * heading_aid_spread;
             let predicted = Compass.eval(&filter.nominal_state())[0];
             let residual = Vector::new([(reading - predicted).wrap_to_pi()]);
             filter
@@ -804,7 +804,7 @@ fn post_reset_consistency_stays_in_bounds() {
         let spread = starting_spread();
         let mut starting_error = Vector::<15, f64>::zeros();
         for index in 0..15 {
-            starting_error[index] = generator.standard_normal() * spread[index].sqrt();
+            starting_error[index] = generator.standard_normal::<f64>() * spread[index].sqrt();
         }
         let gyroscope_bias = random_vector(&mut generator, spread[9].sqrt());
         let accelerometer_bias = random_vector(&mut generator, spread[12].sqrt());

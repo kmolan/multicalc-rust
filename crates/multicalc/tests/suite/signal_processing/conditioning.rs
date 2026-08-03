@@ -132,7 +132,7 @@ fn rate_limited_output_never_moves_faster_than_its_limit() {
 
     let mut previous = limited.filter(0.0);
     for _ in 0..1000 {
-        let target = 20.0 * targets.next_unit_f64() - 10.0;
+        let target = 20.0 * targets.next_unit::<f64>() - 10.0;
         let output = limited.filter(target);
         let step = output - previous;
         assert!(step <= rise * dt + 1e-12, "climbed by {step}");
@@ -177,7 +177,7 @@ fn deadband_never_grows_a_value() {
     let mut inputs = Pcg32::new(20260731);
 
     for _ in 0..1000 {
-        let input = 20.0 * inputs.next_unit_f64() - 10.0;
+        let input = 20.0 * inputs.next_unit::<f64>() - 10.0;
         assert!(plain.apply(input).abs() <= input.abs() + 1e-12);
         assert!(recentered.apply(input).abs() <= input.abs() + 1e-12);
     }
@@ -192,7 +192,7 @@ fn switch_never_flips_while_inside_its_band() {
     assert!(switch.update(0.7));
     for _ in 0..1000 {
         // Strictly inside the band, so no value here can change the answer.
-        let input = lower + (upper - lower) * inputs.next_unit_f64();
+        let input = lower + (upper - lower) * inputs.next_unit::<f64>();
         assert!(switch.update(input));
         assert!(switch.is_high());
     }

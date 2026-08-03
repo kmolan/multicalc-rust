@@ -197,7 +197,7 @@ fn mahony_keeps_the_facing_a_true_rotation() {
     let jitter = 0.05;
     let timestep = 0.001;
     for _ in 0..20_000 {
-        let reading = turn_rate + Vector::from_fn(|_| jitter * generator.standard_normal());
+        let reading = turn_rate + Vector::from_fn(|_| jitter * generator.standard_normal::<f64>());
         filter
             .step(
                 reading,
@@ -222,7 +222,7 @@ fn madgwick_keeps_the_facing_a_true_rotation() {
     let jitter = 0.05;
     let timestep = 0.001;
     for _ in 0..20_000 {
-        let reading = turn_rate + Vector::from_fn(|_| jitter * generator.standard_normal());
+        let reading = turn_rate + Vector::from_fn(|_| jitter * generator.standard_normal::<f64>());
         filter
             .step(
                 reading,

@@ -96,7 +96,7 @@ fn smoothing_beats_a_plain_difference_on_noise() {
 
     for sample in 0..SAMPLES {
         let time = sample as f64 * DT;
-        let wobble = 0.002 * (noise.next_unit_f64() - 0.5);
+        let wobble = 0.002 * (noise.next_unit::<f64>() - 0.5);
         let reading = (2.0 * core::f64::consts::PI * 2.0 * time).sin() + wobble;
         let _ = fitted.filter(reading);
 

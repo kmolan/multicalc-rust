@@ -80,7 +80,7 @@ impl ResamplingScheme {
 fn systematic<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indices: &mut [usize]) {
     let count = indices.len();
     let count_scalar = T::from_usize(count);
-    let offset = T::from_f64(random.next_unit_f64());
+    let offset = T::from_f64(random.next_unit::<f64>());
 
     // Picks sit at one-stratum spacing, all shifted by the same offset. Walk a running total of the
     // weights and place each pick on the first source whose total reaches it, so heavier sources,
@@ -107,7 +107,7 @@ fn stratified<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indice
     let mut running_sum = weights[0];
     let mut source = 0;
     for (step, slot) in indices.iter_mut().enumerate() {
-        let offset = T::from_f64(random.next_unit_f64());
+        let offset = T::from_f64(random.next_unit::<f64>());
         let position = (offset + T::from_usize(step)) / count_scalar;
         while position >= running_sum && source + 1 < count {
             source += 1;
@@ -122,7 +122,7 @@ fn multinomial<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indic
     // Every pick is an independent throw at the 0-to-1 line; each lands on the source whose weight
     // covers where it fell. Simple, but the picks clump more than the spaced schemes above.
     for slot in indices.iter_mut() {
-        let draw = T::from_f64(random.next_unit_f64());
+        let draw = T::from_f64(random.next_unit::<f64>());
         *slot = draw_from_weights(weights, draw);
     }
 }
@@ -153,7 +153,7 @@ fn residual<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indices:
     }
 
     for slot in indices.iter_mut().skip(filled) {
-        let draw = T::from_f64(random.next_unit_f64());
+        let draw = T::from_f64(random.next_unit::<f64>());
         *slot = draw_from_remainders(weights, count_scalar, remainder_sum, draw);
     }
 }

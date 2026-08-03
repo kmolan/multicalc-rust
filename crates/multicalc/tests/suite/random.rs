@@ -35,7 +35,7 @@ fn same_seed_agrees_different_stream_differs() {
 fn uniform_stays_in_unit_range() {
     let mut generator = Pcg32::new(123);
     for _ in 0..10_000 {
-        let value = generator.next_unit_f64();
+        let value = generator.next_unit::<f64>();
         assert!(
             (0.0..1.0).contains(&value),
             "uniform draw out of range: {value}"
@@ -50,7 +50,7 @@ fn standard_normal_batch_has_unit_statistics() {
     let mut sum = 0.0;
     let mut sum_of_squares = 0.0;
     for _ in 0..count {
-        let value = generator.standard_normal();
+        let value = generator.standard_normal::<f64>();
         sum += value;
         sum_of_squares += value * value;
     }

@@ -298,7 +298,7 @@ fn converges_to_kalman_on_linear_gaussian_model() {
     for _ in 0..40 {
         truth = process.eval(&truth);
         let measurement =
-            truth[0] + measurement_standard_deviation * measurement_random.standard_normal();
+            truth[0] + measurement_standard_deviation * measurement_random.standard_normal::<f64>();
 
         kalman.predict();
         kalman.update(Vector::new([measurement])).unwrap();

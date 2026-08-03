@@ -111,7 +111,7 @@ fn main() {
     let noisy_position: Vec<f64> = (0..500)
         .map(|sample| {
             let time = sample as f64 * SLOW_DT;
-            0.5 * time * time + 0.002 * (wobble.next_unit_f64() - 0.5)
+            0.5 * time * time + 0.002 * (wobble.next_unit::<f64>() - 0.5)
         })
         .collect();
     let last_time = 499.0 * SLOW_DT;
