@@ -370,7 +370,7 @@ fn factorization_work_counts() {
     // Symmetric positive-definite and invertible, so LU, Cholesky, and the direct 4x4 inverse all
     // apply. The multiply/divide counts below are fixed functions of the size — for a 4x4:
     //   LU:       divisions N(N-1)/2 = 6, elimination multiplications sum_{p<N} p^2 = 14,
-    //             negligible-pivot threshold 1                                    -> 21
+    //             matrix-scale negligible-pivot threshold 1                       -> 21
     //   Cholesky: multiplications 10, divisions 6                            -> 16
     //   Inverse:  cofactor expansion (95) plus EPSILON * n * scale^n (5)     -> 100
     // If any of these change, update the expected counts below.

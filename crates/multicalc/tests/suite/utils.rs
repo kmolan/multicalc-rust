@@ -32,6 +32,10 @@ fn linalg_display_strings() {
         "matrix is singular or rank-deficient"
     ));
     assert!(renders_as(
+        LinalgError::IllConditioned,
+        "matrix is too ill-conditioned to solve reliably"
+    ));
+    assert!(renders_as(
         LinalgError::NotPositiveDefinite,
         "matrix is not positive definite"
     ));

@@ -56,21 +56,48 @@ fn lu_rejects_singular() {
     // Dependent rows drive a pivot to zero during elimination.
     let dependent = Matrix2D::new([[1.0, 2.0], [2.0, 4.0]]);
     assert_eq!(dependent.lu().err(), Some(LinalgError::Singular));
+
+    // The determinant's large-matrix LU path still maps an exact zero pivot to zero.
+    let singular = Matrix::<5, 5>::from_diagonal([1.0, 1.0, 0.0, 1.0, 1.0]);
+    assert_eq!(singular.lu().err(), Some(LinalgError::Singular));
+    assert_eq!(singular.determinant(), 0.0);
 }
 
 #[test]
-fn lu_rejects_a_pivot_negligible_against_the_largest() {
-    // Put the negligible pivot first so the check must retain the smallest pivot seen when a
-    // larger one appears later. The matrix is invertible in exact arithmetic but too
-    // ill-conditioned for the documented LU/inverse contract.
+fn lu_rejects_an_ill_conditioned_pivot_but_preserves_the_determinant() {
+    // The matrix is invertible in exact arithmetic but too ill-conditioned for the documented
+    // LU/inverse contract. Determinant evaluation can still use the nonzero pivots.
     let near_singular = Matrix::<5, 5>::from_diagonal([1e-300, 1.0, 1.0, 1.0, 1.0]);
-    assert_eq!(near_singular.lu().err(), Some(LinalgError::Singular));
-    assert_eq!(near_singular.inverse().err(), Some(LinalgError::Singular));
+    assert_eq!(near_singular.lu().err(), Some(LinalgError::IllConditioned));
+    assert_eq!(
+        near_singular.inverse().err(),
+        Some(LinalgError::IllConditioned)
+    );
+    assert_eq!(
+        near_singular.solve(Vector::new([1.0; 5])).err(),
+        Some(LinalgError::IllConditioned)
+    );
+    assert_eq!(near_singular.determinant(), 1e-300);
 
     // The threshold is relative: uniformly tiny, well-conditioned matrices remain valid.
     let uniformly_scaled = Matrix::<5, 5>::from_diagonal([1e-300, 2e-300, 3e-300, 4e-300, 5e-300]);
     assert!(uniformly_scaled.lu().is_ok());
     assert!(uniformly_scaled.inverse().is_ok());
+}
+
+#[test]
+fn lu_scales_the_pivot_threshold_against_the_whole_matrix() {
+    // Every pivot is one, but the large off-diagonal entry makes the solve ill-conditioned. A
+    // pivot-only scale would miss this case; the determinant remains exactly one.
+    let matrix = Matrix::<5, 5>::new([
+        [1.0, 1e20, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0, 1.0],
+    ]);
+    assert_eq!(matrix.lu().err(), Some(LinalgError::IllConditioned));
+    assert_eq!(matrix.determinant(), 1.0);
 }
 
 #[test]

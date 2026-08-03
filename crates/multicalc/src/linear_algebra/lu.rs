@@ -28,9 +28,10 @@ pub struct Lu<const N: usize, T = f64> {
 impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// Factorizes `self` by Doolittle LU with partial pivoting.
     ///
-    /// Returns [`LinalgError::Singular`] if a pivot column is entirely zero, or if the smallest
-    /// pivot is at most `EPSILON` times the largest pivot, rather than returning a factorization
-    /// whose solves divide by a negligible value.
+    /// Returns [`LinalgError::Singular`] if a pivot column is entirely zero, or
+    /// [`LinalgError::IllConditioned`] if the smallest pivot is at most `EPSILON` times the
+    /// largest absolute matrix entry, rather than returning a factorization whose solves divide
+    /// by a negligible value.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
@@ -47,11 +48,24 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// }
     /// ```
     pub fn lu(self) -> Result<Lu<N, T>, LinalgError> {
+        let scale = self.max_abs();
+        let (factorization, smallest_pivot) = self.factor_lu()?;
+        if smallest_pivot <= T::EPSILON * scale {
+            return Err(LinalgError::IllConditioned);
+        }
+        Ok(factorization)
+    }
+
+    /// Factorizes for determinant evaluation, where a small nonzero pivot is still meaningful.
+    pub(super) fn lu_for_determinant(self) -> Result<Lu<N, T>, LinalgError> {
+        self.factor_lu().map(|(factorization, _)| factorization)
+    }
+
+    fn factor_lu(self) -> Result<(Lu<N, T>, T), LinalgError> {
         let mut a = self;
         let mut perm: [usize; N] = core::array::from_fn(|i| i);
         let mut sign = T::ONE;
         let mut smallest_pivot = T::MAX;
-        let mut largest_pivot = T::ZERO;
 
         for k in 0..N {
             // Partial pivot: largest magnitude in column k on or below the diagonal.
@@ -68,7 +82,6 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
                 return Err(LinalgError::Singular);
             }
             smallest_pivot = smallest_pivot.min(best);
-            largest_pivot = largest_pivot.max(best);
             if p != k {
                 a.as_mut_slice_rows().swap(k, p);
                 perm.swap(k, p);
@@ -85,19 +98,16 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
             }
         }
 
-        if smallest_pivot <= T::EPSILON * largest_pivot {
-            return Err(LinalgError::Singular);
-        }
-
-        Ok(Lu { lu: a, perm, sign })
+        Ok((Lu { lu: a, perm, sign }, smallest_pivot))
     }
 
     /// Solves `A·x = b` for `x`, factorizing `self` by LU.
     ///
     /// A one-call convenience over [`Matrix::lu`] followed by [`Lu::solve`]. Returns
-    /// [`LinalgError::Singular`] if `self` is singular. To solve several right-hand sides,
-    /// factor once with [`Matrix::lu`] and reuse the result. For a symmetric positive-definite
-    /// matrix, [`Matrix::cholesky`] is faster.
+    /// [`LinalgError::Singular`] if `self` is singular or [`LinalgError::IllConditioned`] if a
+    /// pivot is too small relative to the matrix. To solve several right-hand sides, factor once
+    /// with [`Matrix::lu`] and reuse the result. For a symmetric positive-definite matrix,
+    /// [`Matrix::cholesky`] is faster.
     ///
     /// ```
     /// use multicalc::linear_algebra::{Matrix, Vector};
