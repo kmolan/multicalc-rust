@@ -35,10 +35,7 @@ fn matrix_macro_matches_new() {
         matrix![[1.0, 2.0, 3.0]; 2],
         Matrix::new([[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]])
     );
-    assert_eq!(
-        matrix![[0.0, 0.0,]; 2],
-        Matrix::new([[0.0, 0.0], [0.0, 0.0]])
-    );
+    assert_eq!(matrix![[0.0, 0.0,]; 2], Matrix::<2, 2>::zeros());
 
     // nested repeat form
     assert_eq!(matrix![[0.0; 3]; 4], Matrix::<4, 3>::zeros());
