@@ -6,6 +6,14 @@
 /// let v = vector![1.0, 2.0, 3.0];
 /// assert_eq!(v, Vector::new([1.0, 2.0, 3.0]));
 /// ```
+///
+/// Supports repeat syntax:
+///
+/// ```
+/// use multicalc::{vector, Vector};
+/// let v = vector![1.0; 3];
+/// assert_eq!(v, Vector::new([1.0, 1.0, 1.0]));
+/// ```
 #[macro_export]
 macro_rules! vector {
     ($($component:expr),+ $(,)?) => {
@@ -29,6 +37,14 @@ macro_rules! vector {
 /// ```compile_fail
 /// use multicalc::matrix;
 /// let _ = matrix![[1.0, 2.0], [3.0]];
+/// ```
+///
+/// Supports repeat syntax:
+///
+/// ```
+/// use multicalc::{matrix, Matrix};
+/// let m = matrix![[1.0; 2]; 2];
+/// assert_eq!(m, Matrix::new([[1.0, 1.0], [1.0, 1.0]]));
 /// ```
 #[macro_export]
 macro_rules! matrix {
