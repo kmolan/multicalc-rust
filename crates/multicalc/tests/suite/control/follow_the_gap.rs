@@ -1,5 +1,6 @@
 //! Follow-the-Gap tests: the clear-scan case, gap selection and goal bias, the chassis-width gate,
-//! dropped beams, speed scaling, the blocked stop, configuration validation, and an f32 run.
+//! dropped and clamped beams, speed scaling, the blocked stop, configuration validation, and an
+//! f32 run.
 
 use core::f64::consts::PI;
 
@@ -115,10 +116,41 @@ fn dropped_beams_read_as_free_space() {
     ranges[11] = -1.0;
     ranges[12] = 0.0;
     let output = follower().compute(&ranges, 0.0).unwrap();
-    assert!(!output.is_blocked());
-    assert!(output.heading().abs() < 1e-12);
-    assert_eq!(output.gap_start_index(), 0);
-    assert_eq!(output.gap_end_index(), 30);
+    let clear_output = follower().compute(&[4.0; 31], 0.0).unwrap();
+    assert_eq!(output, clear_output);
+}
+
+#[test]
+fn readings_beyond_the_sensor_range_are_clamped() {
+    let output = follower().compute(&[8.0; 31], 0.0).unwrap();
+    let clear_output = follower().compute(&[4.0; 31], 0.0).unwrap();
+    assert_eq!(output, clear_output);
+}
+
+#[test]
+fn on_access_sanitizing_matches_a_preprocessed_scan() {
+    let mut raw_ranges = [0.49_f64; 31];
+    for range in raw_ranges.iter_mut().take(26).skip(5) {
+        *range = 2.0;
+    }
+    raw_ranges[10] = f64::NAN;
+    raw_ranges[12] = f64::INFINITY;
+    raw_ranges[14] = f64::NEG_INFINITY;
+    raw_ranges[16] = -1.0;
+    raw_ranges[18] = 0.0;
+    raw_ranges[20] = 8.0;
+
+    let preprocessed_ranges = raw_ranges.map(|range| {
+        if range.is_finite() && range > 0.0 {
+            range.min(4.0)
+        } else {
+            4.0
+        }
+    });
+    let raw_output = follower().compute(&raw_ranges, 0.2).unwrap();
+    let preprocessed_output = follower().compute(&preprocessed_ranges, 0.2).unwrap();
+    assert!(!raw_output.is_blocked());
+    assert_eq!(raw_output, preprocessed_output);
 }
 
 #[test]

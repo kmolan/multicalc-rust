@@ -56,6 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `FollowTheGap::compute` now sanitizes readings where they are consumed instead of copying the
+  whole scan into a second stack array. (#225)
 - Apply `#[must_use]` consistently across `multicalc` (and `multicalc-mjcf`) on
   value-returning accessors, builders, and helpers, so discarded results warn under
   `unused_must_use`. Engine constructors and returns already covered by `Result` /
