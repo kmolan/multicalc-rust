@@ -11,6 +11,9 @@ macro_rules! vector {
     ($($component:expr),+ $(,)?) => {
         $crate::Vector::new([$($component),+])
     };
+    ($component:expr; $length:expr) => {
+        $crate::Vector::new([$component; $length])
+    };
 }
 
 /// Builds a [`Matrix`](crate::Matrix) from bracketed row literals.
@@ -31,5 +34,11 @@ macro_rules! vector {
 macro_rules! matrix {
     ($([$($entry:expr),+ $(,)?]),+ $(,)?) => {
         $crate::Matrix::new([$([$($entry),+]),+])
+    };
+    ([$($entry:expr),+ $(,)?]; $length:expr) => {
+        $crate::Matrix::new([[$($entry),+]; $length])
+    };
+    ([$entry:expr; $inner_length:expr]; $outer_length:expr) => {
+        $crate::Matrix::new([[$entry; $inner_length]; $outer_length])
     };
 }
