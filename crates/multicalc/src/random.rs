@@ -8,6 +8,8 @@
 //! implements, with uniform and normal draws built on top of a raw 32-bit word; [`Pcg32`] is the built-in
 //! generator.
 
+use crate::Numeric;
+
 /// A source of random 32-bit words, and the uniform and normal draws built from them.
 pub trait RandomSource {
     /// The next raw 32-bit word.
@@ -20,25 +22,57 @@ pub trait RandomSource {
         ((self.next_u32() as u64) << 32) | (self.next_u32() as u64)
     }
 
-    /// A uniform draw in the half-open range 0.0 up to 1.0, with 53 bits of precision.
+    /// A uniform draw in the half-open range 0.0 up to 1.0
     #[must_use]
-    fn next_unit_f64(&mut self) -> f64 {
-        // Top 53 bits scaled into [0, 1); the low 11 bits are dropped so the result never reaches 1.
-        (self.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
+    fn next_unit<T: RandomScalar>(&mut self) -> T
+    where
+        Self: Sized,
+    {
+        T::next_unit(self)
     }
 
     /// One draw from the standard normal distribution (mean 0, standard deviation 1).
     ///
-    /// Uses the polar pair method and returns one of the pair, consuming two uniform draws. The
-    /// first draw is nudged off zero so the logarithm stays finite.
+    /// Uses the Marsiagla polar method and returns one of the pair, consuming two uniform draws.
     #[must_use]
-    fn standard_normal(&mut self) -> f64 {
-        let mut first = self.next_unit_f64();
-        if first <= f64::MIN_POSITIVE {
-            first = f64::MIN_POSITIVE;
+    fn standard_normal<T: RandomScalar>(&mut self) -> T
+    where
+        Self: Sized,
+    {
+        loop {
+            let x = T::TWO  * self.next_unit::<T>() - T::ONE;
+            let y = T::TWO  * self.next_unit::<T>() - T::ONE;
+            let s = x.powi(2) + y.powi(2);
+
+            if s > T::ZERO && s < T::ONE {
+                let scale = (-T::TWO * s.ln() / s).sqrt();
+                return x * scale
+            }
+
         }
-        let second = self.next_unit_f64();
-        libm::sqrt(-2.0 * libm::log(first)) * libm::cos(core::f64::consts::TAU * second)
+    }
+}
+
+pub trait RandomScalar: Numeric {
+    /// A uniform draw in the half-open range 0.0 up to 1.0.
+    #[must_use]
+    fn next_unit<R: RandomSource + ?Sized>(source: &mut R) -> Self;
+}
+
+impl RandomScalar for f64 {
+    /// A uniform draw in the half-open range 0.0 up to 1.0, with 53 bits of precision.
+    #[inline]
+    fn next_unit<R: RandomSource + ?Sized>(source: &mut R) -> Self {
+        // Top 53 bits scaled into [0, 1); the low 11 bits are dropped so the result never reaches 1.
+        (source.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
+    }
+}
+
+impl RandomScalar for f32 {
+    /// A uniform draw in the half-open range 0.0 up to 1.0, with 24 bits of precision.
+    #[inline]
+    fn next_unit<R: RandomSource + ?Sized>(source: &mut R) -> Self {
+        (source.next_u32() >> 8) as f32 * (1.0 / (1u32 << 24) as f32)
     }
 }
 
