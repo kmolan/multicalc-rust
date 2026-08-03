@@ -6,10 +6,21 @@
 /// let v = vector![1.0, 2.0, 3.0];
 /// assert_eq!(v, Vector::new([1.0, 2.0, 3.0]));
 /// ```
+///
+/// Supports repeat syntax:
+///
+/// ```
+/// use multicalc::{vector, Vector};
+/// let v = vector![1.0; 3];
+/// assert_eq!(v, Vector::new([1.0, 1.0, 1.0]));
+/// ```
 #[macro_export]
 macro_rules! vector {
     ($($component:expr),+ $(,)?) => {
         $crate::Vector::new([$($component),+])
+    };
+    ($component:expr; $length:expr) => {
+        $crate::Vector::new([$component; $length])
     };
 }
 
@@ -27,9 +38,23 @@ macro_rules! vector {
 /// use multicalc::matrix;
 /// let _ = matrix![[1.0, 2.0], [3.0]];
 /// ```
+///
+/// Supports repeat syntax:
+///
+/// ```
+/// use multicalc::{matrix, Matrix};
+/// let m = matrix![[1.0; 2]; 2];
+/// assert_eq!(m, Matrix::new([[1.0, 1.0], [1.0, 1.0]]));
+/// ```
 #[macro_export]
 macro_rules! matrix {
     ($([$($entry:expr),+ $(,)?]),+ $(,)?) => {
         $crate::Matrix::new([$([$($entry),+]),+])
+    };
+    ([$($entry:expr),+ $(,)?]; $length:expr) => {
+        $crate::Matrix::new([[$($entry),+]; $length])
+    };
+    ([$entry:expr; $inner_length:expr]; $outer_length:expr) => {
+        $crate::Matrix::new([[$entry; $inner_length]; $outer_length])
     };
 }
