@@ -261,6 +261,8 @@ pub enum MappingError {
     InvalidFieldOfView,
     /// A sensing range was zero or negative.
     NonPositiveRange,
+    /// A closest-visible range was negative, or reached the range the scan can see to.
+    InvalidRangeLimits,
 }
 
 /// Errors from the motion module (waypoint paths and their geometric queries).
@@ -728,6 +730,9 @@ impl core::fmt::Display for MappingError {
             MappingError::NonPositiveRange => {
                 f.write_str("sensing range must be strictly positive")
             }
+            MappingError::InvalidRangeLimits => f.write_str(
+                "closest visible range must be non-negative and below the sensing range",
+            ),
         }
     }
 }

@@ -428,10 +428,10 @@ impl<const BEAMS: usize, T: Numeric> FollowTheGap<BEAMS, T> {
     #[inline]
     #[must_use]
     fn beam_angle_unchecked(&self, index: usize) -> T {
-        // `try_new` is the only way to build this and rejects fewer than two beams, so `BEAMS - 1`
-        // never underflows.
-        let span = T::from_usize(BEAMS - 1);
-        -self.field_of_view * T::HALF + self.field_of_view * T::from_usize(index) / span
+        // Shared with `ScanGeometry`, so a scan and the steering worked out from it number their
+        // beams the same way. `try_new` is the only way to build this and rejects fewer than two
+        // beams, which is what the shared formula needs.
+        crate::mapping::beam_angle_across(self.field_of_view, BEAMS, index)
     }
 
     /// The straight-line distance in metres between the two obstacles on either side of the open
