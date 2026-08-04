@@ -17,6 +17,7 @@
 
 pub use crate::error::CalcError;
 pub use crate::estimation::NominalStateFn;
+pub use crate::mapping::{MutableOccupancyMap, OccupancyMap};
 pub use crate::numerical_derivative::{
     DerivatorMultiVariable, DerivatorSingleVariable, derivative, partial, second_derivative,
 };

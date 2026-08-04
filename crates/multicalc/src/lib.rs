@@ -100,6 +100,14 @@ pub use spatial::FreeJointState;
 /// Differential-drive kinematics and SE(2) odometry.
 pub use kinematics::{BodyArc, BodyTwist, DifferentialDrive, WheelRotations, WheelVelocities};
 
+/// Occupancry grid and scan geometry
+pub use mapping::{MutableOccupancyMap, OccupancyMap, ScanGeometry};
+
+/// Heap-based occupancy grid for large maps
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+pub use mapping::DynamicOccupancyGrid;
+
 /// Linear Kalman filter, Extended Kalman filter, and Unscented Kalman filter
 pub use estimation::{
     CovarianceUpdate, ExtendedKalmanFilter, KalmanFilter, KalmanModel, UnscentedKalmanFilter,
