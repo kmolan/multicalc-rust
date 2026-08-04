@@ -155,18 +155,35 @@ impl<T: Numeric> SE3<T> {
         m
     }
 
-    /// Builds a transform from a 4×4 homogeneous matrix; `None` if the rotation block is degenerate.
+    /// Builds a transform from a finite 4×4 homogeneous matrix; `None` if the rotation block is not
+    /// a proper unit rotation or the bottom row differs from `[0, 0, 0, 1]` by more than scalar
+    /// round-off.
     #[inline]
     #[must_use]
     pub fn try_from_matrix(m: Matrix4D<T>) -> Option<Self> {
-        let mut r = Matrix::zeros();
-        for i in 0..3 {
-            for j in 0..3 {
-                r[(i, j)] = m[(i, j)];
-            }
+        let [
+            [m00, m01, m02, m03],
+            [m10, m11, m12, m13],
+            [m20, m21, m22, m23],
+            [m30, m31, m32, m33],
+        ] = m.into_array();
+        if !m03.is_finite()
+            || !m13.is_finite()
+            || !m23.is_finite()
+            || !m30.is_finite()
+            || !m31.is_finite()
+            || !m32.is_finite()
+            || !m33.is_finite()
+            || m30.abs() > T::EPSILON_X30
+            || m31.abs() > T::EPSILON_X30
+            || m32.abs() > T::EPSILON_X30
+            || (m33 - T::ONE).abs() > T::EPSILON_X30
+        {
+            return None;
         }
+
+        let r = Matrix::new([[m00, m01, m02], [m10, m11, m12], [m20, m21, m22]]);
         let rotation = SO3::try_from_matrix(r)?;
-        let [[_, _, _, m03], [_, _, _, m13], [_, _, _, m23], _] = m.into_array();
         Some(SE3 {
             rotation,
             translation: Vector::new([m03, m13, m23]),

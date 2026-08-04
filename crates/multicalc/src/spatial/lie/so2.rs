@@ -110,18 +110,25 @@ impl<T: Numeric> SO2<T> {
         Matrix::new([[self.c, -self.s], [self.s, self.c]])
     }
 
-    /// Builds a rotation from a 2×2 matrix, normalizing its first column; `None` if that column is
-    /// non-finite or degenerate.
+    /// Builds a rotation from a finite 2×2 matrix sufficiently close to a proper unit rotation,
+    /// removing small round-off drift; `None` otherwise.
     #[inline]
     #[must_use]
     pub fn try_from_matrix(m: Matrix2D<T>) -> Option<Self> {
-        let [[c, _], [s, _]] = m.into_array();
-        let n = (c * c + s * s).sqrt();
-        if !n.is_finite() || n <= T::EPSILON {
-            None
-        } else {
-            Some(SO2 { c: c / n, s: s / n })
+        let [[c, m01], [s, m11]] = m.into_array();
+        let n = c.hypot(s);
+        if !n.is_finite() || n <= T::EPSILON || (n - T::ONE).abs() > T::EPSILON_X30 {
+            return None;
         }
+
+        let c = c / n;
+        let s = s / n;
+        let second_column_error = (m01 + s).hypot(m11 - c);
+        if !second_column_error.is_finite() || second_column_error > T::EPSILON_X30 {
+            return None;
+        }
+
+        Some(SO2 { c, s })
     }
 
     /// Geodesic interpolation; `t = 0` gives `self`, `t = 1` gives `other`.
