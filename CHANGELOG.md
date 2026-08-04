@@ -43,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- LU factorization now distinguishes an exactly singular pivot from one that is negligible
+  relative to the matrix, rejecting unreliable solves and inverses while preserving a nonzero
+  determinant. (#207)
 - `Matrix::expm` now rejects non-finite inputs before entering its scaling loop. (#202)
 - `ResamplingScheme::resample_indices` now leaves output indices untouched for empty weights
   instead of panicking. (#204)

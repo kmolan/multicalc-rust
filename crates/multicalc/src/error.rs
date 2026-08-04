@@ -7,6 +7,8 @@
 pub enum LinalgError {
     /// A matrix was singular or rank-deficient where a solve required full rank.
     Singular,
+    /// A matrix had a pivot too small relative to its scale for a reliable solve.
+    IllConditioned,
     /// A matrix was not positive definite.
     NotPositiveDefinite,
     /// A least-squares system had fewer rows than columns (`M < N`).
@@ -450,6 +452,9 @@ impl core::fmt::Display for LinalgError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             LinalgError::Singular => f.write_str("matrix is singular or rank-deficient"),
+            LinalgError::IllConditioned => {
+                f.write_str("matrix is too ill-conditioned to solve reliably")
+            }
             LinalgError::NotPositiveDefinite => f.write_str("matrix is not positive definite"),
             LinalgError::Underdetermined => f.write_str("system is underdetermined (M < N)"),
             LinalgError::NonFinite => f.write_str("matrix contained a non-finite value"),

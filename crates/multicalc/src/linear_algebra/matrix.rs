@@ -254,7 +254,7 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Matrix<ROWS, COLS, T> {
     /// Largest absolute entry; used to scale near-singularity checks.
     #[inline]
     #[must_use]
-    fn max_abs(self) -> T {
+    pub(super) fn max_abs(self) -> T {
         let mut best = T::ZERO;
         for row in &self.data {
             for x in row {
@@ -380,7 +380,8 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     ///
     /// Sizes up to 4×4 use a closed form; larger ones use an LU factorization. A matrix whose
     /// factorization breaks down on an all-zero pivot column is exactly singular, so its
-    /// determinant is zero.
+    /// determinant is zero. A small but nonzero pivot is still included here even when it would
+    /// be too ill-conditioned for [`Matrix::lu`] to expose as a reusable solve factorization.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
@@ -395,7 +396,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
             2 => self.determinant_2x2(),
             3 => self.determinant_3x3(),
             4 => self.determinant_4x4(),
-            _ => match self.lu() {
+            _ => match self.lu_for_determinant() {
                 Ok(factorization) => factorization.determinant(),
                 Err(_) => T::ZERO,
             },
@@ -419,11 +420,13 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
         (0..N).fold(T::ZERO, |acc, i| acc + self[(i, i)])
     }
 
-    /// The inverse, or [`LinalgError::Singular`] if the matrix is singular or near-singular.
+    /// The inverse, or [`LinalgError::Singular`] if the matrix is singular. For sizes above 4×4,
+    /// returns [`LinalgError::IllConditioned`] when the matrix is invertible but a pivot is too
+    /// small relative to its largest entry for a reliable solve.
     ///
     /// Sizes up to 4×4 use a closed form and reject a matrix whose `|det|` is at or below an
     /// `EPSILON`-scaled threshold. Larger ones use an LU factorization and reject one whose
-    /// smallest pivot is negligible against its largest.
+    /// smallest pivot is negligible relative to the matrix's largest absolute entry.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
