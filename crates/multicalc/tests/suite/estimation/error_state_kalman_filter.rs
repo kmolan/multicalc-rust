@@ -184,7 +184,7 @@ fn error_round_trips_through_plus_and_minus() {
     }
 }
 
-fn random_state(generator: &mut Pcg32) -> NominalState<f64> {
+fn random_state(generator: &mut Pcg32<f64>) -> NominalState<f64> {
     let mut draw = || generator.standard_normal();
     let position = Vector::new([draw(), draw(), draw()]);
     let velocity = Vector::new([draw(), draw(), draw()]);
@@ -202,10 +202,10 @@ fn random_state(generator: &mut Pcg32) -> NominalState<f64> {
 
 /// A random error whose rotation part stays under a radian, so the round trip is inside the half
 /// turn where the two directions agree.
-fn random_error(generator: &mut Pcg32) -> Vector<15, f64> {
+fn random_error(generator: &mut Pcg32<f64>) -> Vector<15, f64> {
     let mut error = Vector::zeros();
     for index in 0..15 {
-        error[index] = generator.standard_normal::<f64>() * 0.3;
+        error[index] = generator.standard_normal() * 0.3;
     }
     let rotation_error = Vector::new([error[6], error[7], error[8]]);
     let rotation_size = rotation_error.norm();
@@ -609,7 +609,7 @@ fn conditioning_repairs_a_drifted_covariance() {
 }
 
 /// Fifteen perpendicular unit directions, built by orthogonalizing random ones against each other.
-fn random_orthonormal_matrix(generator: &mut Pcg32) -> Matrix<15, 15, f64> {
+fn random_orthonormal_matrix(generator: &mut Pcg32<f64>) -> Matrix<15, 15, f64> {
     let mut columns = [[0.0_f64; 15]; 15];
     for index in 0..15 {
         let mut candidate = Vector::<15, f64>::zeros();
@@ -684,7 +684,7 @@ impl Flight {
         &mut self,
         timestep: f64,
         imu_noise: &ImuNoise<f64>,
-        generator: &mut Pcg32,
+        generator: &mut Pcg32<f64>,
     ) -> (Vector3D<f64>, Vector3D<f64>) {
         let proper_push = self.proper_push(timestep);
         // The filter carries a reading's jitter into the error as `(density · Δt)²` per step, so
@@ -709,11 +709,11 @@ impl Flight {
     }
 }
 
-fn random_vector(generator: &mut Pcg32, spread: f64) -> Vector3D<f64> {
+fn random_vector(generator: &mut Pcg32<f64>, spread: f64) -> Vector3D<f64> {
     Vector::new([
-        generator.standard_normal::<f64>() * spread,
-        generator.standard_normal::<f64>() * spread,
-        generator.standard_normal::<f64>() * spread,
+        generator.standard_normal() * spread,
+        generator.standard_normal() * spread,
+        generator.standard_normal() * spread,
     ])
 }
 
@@ -752,7 +752,7 @@ fn run_flight(
     mut flight: Flight,
     step_count: usize,
     timestep: f64,
-    generator: &mut Pcg32,
+    generator: &mut Pcg32<f64>,
 ) -> (ErrorStateKalmanFilter<3, f64>, NominalState<f64>) {
     let imu_noise = realistic_imu_noise();
     let position_fix_period = 20;
@@ -775,7 +775,7 @@ fn run_flight(
 
         if step % heading_aid_period == heading_aid_period - 1 {
             let reading =
-                Compass.eval(&flight.truth)[0] + generator.standard_normal::<f64>() * heading_aid_spread;
+                Compass.eval(&flight.truth)[0] + generator.standard_normal() * heading_aid_spread;
             let predicted = Compass.eval(&filter.nominal_state())[0];
             let residual = Vector::new([(reading - predicted).wrap_to_pi()]);
             filter
@@ -804,7 +804,7 @@ fn post_reset_consistency_stays_in_bounds() {
         let spread = starting_spread();
         let mut starting_error = Vector::<15, f64>::zeros();
         for index in 0..15 {
-            starting_error[index] = generator.standard_normal::<f64>() * spread[index].sqrt();
+            starting_error[index] = generator.standard_normal() * spread[index].sqrt();
         }
         let gyroscope_bias = random_vector(&mut generator, spread[9].sqrt());
         let accelerometer_bias = random_vector(&mut generator, spread[12].sqrt());

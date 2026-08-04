@@ -292,13 +292,13 @@ fn converges_to_kalman_on_linear_gaussian_model() {
 
     let process = ConstantVelocity { timestep };
     let measurement_seed = 99;
-    let mut measurement_random = Pcg32::new(measurement_seed);
+    let mut measurement_random = Pcg32::<f64>::new(measurement_seed);
     let mut truth = [0.0_f64, 1.0];
 
     for _ in 0..40 {
         truth = process.eval(&truth);
         let measurement =
-            truth[0] + measurement_standard_deviation * measurement_random.standard_normal::<f64>();
+            truth[0] + measurement_standard_deviation * measurement_random.standard_normal();
 
         kalman.predict();
         kalman.update(Vector::new([measurement])).unwrap();

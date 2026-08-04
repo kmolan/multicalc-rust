@@ -128,11 +128,11 @@ fn slew_rate_limiter_ramps_f32() {
 fn rate_limited_output_never_moves_faster_than_its_limit() {
     let (rise, fall, dt) = (1.5, 0.5, 0.01);
     let mut limited = SlewRateLimiter::new(rise, fall, dt).unwrap();
-    let mut targets = Pcg32::new(20260731);
+    let mut targets = Pcg32::<f64>::new(20260731);
 
     let mut previous = limited.filter(0.0);
     for _ in 0..1000 {
-        let target = 20.0 * targets.next_unit::<f64>() - 10.0;
+        let target = 20.0 * targets.next_unit() - 10.0;
         let output = limited.filter(target);
         let step = output - previous;
         assert!(step <= rise * dt + 1e-12, "climbed by {step}");
@@ -174,10 +174,10 @@ fn recentered_deadband_is_continuous_at_its_edge() {
 fn deadband_never_grows_a_value() {
     let plain = Deadband::plain(0.1).unwrap();
     let recentered = Deadband::recentered(0.1).unwrap();
-    let mut inputs = Pcg32::new(20260731);
+    let mut inputs = Pcg32::<f64>::new(20260731);
 
     for _ in 0..1000 {
-        let input = 20.0 * inputs.next_unit::<f64>() - 10.0;
+        let input = 20.0 * inputs.next_unit() - 10.0;
         assert!(plain.apply(input).abs() <= input.abs() + 1e-12);
         assert!(recentered.apply(input).abs() <= input.abs() + 1e-12);
     }
@@ -187,12 +187,12 @@ fn deadband_never_grows_a_value() {
 fn switch_never_flips_while_inside_its_band() {
     let (lower, upper) = (0.4, 0.6);
     let mut switch = Hysteresis::new(lower, upper).unwrap();
-    let mut inputs = Pcg32::new(20260731);
+    let mut inputs = Pcg32::<f64>::new(20260731);
 
     assert!(switch.update(0.7));
     for _ in 0..1000 {
         // Strictly inside the band, so no value here can change the answer.
-        let input = lower + (upper - lower) * inputs.next_unit::<f64>();
+        let input = lower + (upper - lower) * inputs.next_unit();
         assert!(switch.update(input));
         assert!(switch.is_high());
     }
