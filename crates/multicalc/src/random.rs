@@ -25,8 +25,6 @@ pub trait RandomSource {
     /// A uniform draw in the half-open range 0.0 up to 1.0
     #[must_use]
     fn next_unit<T: RandomScalar>(&mut self) -> T
-    where
-        Self: Sized,
     {
         T::next_unit(self)
     }
@@ -36,8 +34,6 @@ pub trait RandomSource {
     /// Uses the Marsaglia polar method and returns one of the pair, consuming two uniform draws.
     #[must_use]
     fn standard_normal<T: RandomScalar>(&mut self) -> T
-    where
-        Self: Sized,
     {
         loop {
             let x = T::TWO  * self.next_unit::<T>() - T::ONE;
