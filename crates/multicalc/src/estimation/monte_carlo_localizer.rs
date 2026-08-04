@@ -80,7 +80,7 @@ impl<T: Numeric> Default for BeamModel<T> {
 /// let hint = [2.3, 2.7, 0.4];
 /// let cloud = InitialParticleCloud { particle_count: 300, ..Default::default() };
 /// let beam_model = BeamModel { range_deviation: 0.3, ..Default::default() };
-/// let seed = 20260804;
+/// let seed = 20260802;
 /// let mut localizer = MonteCarloLocalizer::<NUM_BEAMS>::new(hint, cloud, beam_model, seed)?;
 ///
 /// // Standing still, taking the same reading a few times over.
