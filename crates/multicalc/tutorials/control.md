@@ -35,7 +35,9 @@ and every call after that is total.
   point, written in body-frame coordinates. `Curvature::to_body_twist` turns it into a command at a
   chosen speed.
 - `FollowTheGap`: reactive avoidance over a forward range scan. Const-generic on the beam count,
-  so the working buffer is stack-allocated and the beam geometry is fixed at compile time.
+  so the working buffer is stack-allocated and the beam geometry is fixed at compile time. Its beams
+  are numbered by the same formula as [`ScanGeometry`](mapping.md), so a scan and the steering
+  worked out from it always agree beam for beam.
 
 ```rust
 use multicalc::{FollowTheGap, Pid, pure_pursuit_curvature};

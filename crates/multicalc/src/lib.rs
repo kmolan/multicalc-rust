@@ -128,6 +128,11 @@ pub use estimation::{ConstantTurnAndSpeed, DirectMeasurement, residual_with_wrap
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 pub use estimation::{GaussianLikelihood, Likelihood, ParticleFilter, ResamplingScheme};
 
+/// Monte Carlo Localization using particle filter estimation.
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+pub use estimation::{BeamModel, InitialParticleCloud, MonteCarloLocalizer};
+
 /// Seedable pseudo-random generator and the trait its uniform and normal draws come from.
 pub use random::{Pcg32, RandomSource};
 

@@ -6,4 +6,7 @@ mod models;
 mod unscented_kalman_filter;
 
 #[cfg(feature = "alloc")]
+mod monte_carlo_localizer;
+
+#[cfg(feature = "alloc")]
 mod particle_filter;

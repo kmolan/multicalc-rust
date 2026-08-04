@@ -16,7 +16,10 @@ rerun = ["dep:rerun"]
 alloc = ["multicalc/alloc"]
 
 [dependencies]
-multicalc = { path = "../crates/multicalc" }
+# The simulated world is built on `mapping::DynamicOccupancyGrid`, which is heap-backed, so the
+# demos always need multicalc's `alloc`. The demos' own `alloc` feature stays as the gate for the
+# heavier demo code (the particle-filter localizer and the lap driver).
+multicalc = { path = "../crates/multicalc", features = ["alloc"] }
 # Reads MuJoCo model files into multicalc types, for the model-ingestion example.
 multicalc-mjcf = { path = "../crates/multicalc-mjcf" }
 # Seeded RNG for the sensor simulator, so a run reproduces exactly. Showcase-side only; the core
