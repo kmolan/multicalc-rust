@@ -287,39 +287,9 @@ impl VectorFn<3, 3> for Equilibrium {
     }
 }
 
-/// Rolls `[x, y, heading, speed, turn_rate]` one tick along a turning arc: the
-/// robot swings through an arc set by its speed and turn rate, and heading is
-/// wrapped back into a single revolution.
-///
-/// Mirrors `CoordinatedTurnModel` in `demos/src/sim/kalman_filter_models.rs` and
-/// the model in `tools/qa/gen/generators/estimation.py`; the three must stay in
-/// step.
-pub struct CoordinatedTurn {
-    /// How long one tick lasts.
-    pub timestep: f64,
-}
-
-impl VectorFn<5, 5> for CoordinatedTurn {
-    fn eval<S: Numeric>(&self, state: &[S; 5]) -> [S; 5] {
-        let [x, y, heading, speed, turn_rate] = *state;
-        let dt = S::from_f64(self.timestep);
-        let next_heading = heading + turn_rate * dt;
-        let (next_x, next_y) = if turn_rate.abs() > S::from_f64(1e-6) {
-            let radius = speed / turn_rate;
-            (
-                x + radius * (next_heading.sin() - heading.sin()),
-                y + radius * (heading.cos() - next_heading.cos()),
-            )
-        } else {
-            (
-                x + speed * heading.cos() * dt,
-                y + speed * heading.sin() * dt,
-            )
-        };
-        let wrapped = next_heading.wrap_to_pi();
-        [next_x, next_y, wrapped, speed, turn_rate]
-    }
-}
+/// The turning-arc process model, taken straight from the crate so the fixtures check what ships.
+/// Mirrored by the model in `tools/qa/gen/generators/estimation.py`; the two must stay in step.
+pub use multicalc::estimation::ConstantTurnAndSpeed;
 
 /// A position fix: the sensor sees the first two state components.
 pub struct GlobalPosition;

@@ -125,6 +125,8 @@ pub enum EstimationError {
     WeightsDegenerate,
     /// A filter tuning value did not describe a usable spread of sigma points.
     InvalidTuning,
+    /// A measurement model was asked to read a state component that does not exist.
+    StateIndexOutOfRange,
 }
 
 /// Errors from the signal-processing module (filters, smoothers, and signal conditioning).
@@ -241,6 +243,28 @@ pub enum PlantError {
     Linalg(LinalgError),
 }
 
+/// Errors from the mapping module (occupancy grids, ray casting, and scan geometry).
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
+pub enum MappingError {
+    /// A cell size, origin coordinate, angle, or range was infinite or NaN.
+    NonFinite,
+    /// A cell size was zero or negative.
+    NonPositiveResolution,
+    /// A grid was asked for with no columns or no rows.
+    EmptyGrid,
+    /// A grid's columns and rows multiply out to more cells than can be counted.
+    GridTooLarge,
+    /// A scan was asked for with fewer than two beams.
+    TooFewBeams,
+    /// A field of view was outside the range one turn can cover.
+    InvalidFieldOfView,
+    /// A sensing range was zero or negative.
+    NonPositiveRange,
+    /// A closest-visible range was negative, or reached the range the scan can see to.
+    InvalidRangeLimits,
+}
+
 /// Errors from the motion module (waypoint paths and their geometric queries).
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
@@ -321,6 +345,8 @@ pub enum CalcError {
     Dynamics(DynamicsError),
     /// A plant error.
     Plant(PlantError),
+    /// A mapping error.
+    Mapping(MappingError),
     /// A motion error.
     Motion(MotionError),
     /// A polynomial error.
@@ -435,6 +461,11 @@ impl From<DynamicsError> for CalcError {
 impl From<PlantError> for CalcError {
     fn from(e: PlantError) -> Self {
         CalcError::Plant(e)
+    }
+}
+impl From<MappingError> for CalcError {
+    fn from(e: MappingError) -> Self {
+        CalcError::Mapping(e)
     }
 }
 impl From<MotionError> for CalcError {
@@ -559,6 +590,9 @@ impl core::fmt::Display for EstimationError {
             EstimationError::Diff(e) => write!(f, "{e}"),
             EstimationError::WeightsDegenerate => f.write_str("all particle weights were zero"),
             EstimationError::InvalidTuning => f.write_str("invalid filter tuning"),
+            EstimationError::StateIndexOutOfRange => {
+                f.write_str("measurement model refers to a state component that does not exist")
+            }
         }
     }
 }
@@ -680,6 +714,29 @@ impl core::fmt::Display for PlantError {
     }
 }
 
+impl core::fmt::Display for MappingError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            MappingError::NonFinite => f.write_str("map value contained a non-finite value"),
+            MappingError::NonPositiveResolution => {
+                f.write_str("cell size must be strictly positive")
+            }
+            MappingError::EmptyGrid => {
+                f.write_str("grid must have at least one column and one row")
+            }
+            MappingError::GridTooLarge => f.write_str("grid has more cells than can be counted"),
+            MappingError::TooFewBeams => f.write_str("a scan needs at least two beams"),
+            MappingError::InvalidFieldOfView => f.write_str("field of view must lie in (0, 2π]"),
+            MappingError::NonPositiveRange => {
+                f.write_str("sensing range must be strictly positive")
+            }
+            MappingError::InvalidRangeLimits => f.write_str(
+                "closest visible range must be non-negative and below the sensing range",
+            ),
+        }
+    }
+}
+
 impl core::fmt::Display for MotionError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -751,6 +808,7 @@ impl core::fmt::Display for CalcError {
             CalcError::Control(e) => write!(f, "{e}"),
             CalcError::Dynamics(e) => write!(f, "{e}"),
             CalcError::Plant(e) => write!(f, "{e}"),
+            CalcError::Mapping(e) => write!(f, "{e}"),
             CalcError::Motion(e) => write!(f, "{e}"),
             CalcError::Polynomial(e) => write!(f, "{e}"),
         }
@@ -762,6 +820,7 @@ impl core::error::Error for DiffError {}
 impl core::error::Error for IntegrateError {}
 impl core::error::Error for KinematicsError {}
 impl core::error::Error for SpatialError {}
+impl core::error::Error for MappingError {}
 
 impl core::error::Error for DynamicsError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
@@ -852,6 +911,7 @@ impl core::error::Error for CalcError {
             CalcError::Control(e) => Some(e),
             CalcError::Dynamics(e) => Some(e),
             CalcError::Plant(e) => Some(e),
+            CalcError::Mapping(e) => Some(e),
             CalcError::Motion(e) => Some(e),
             CalcError::Polynomial(e) => Some(e),
         }

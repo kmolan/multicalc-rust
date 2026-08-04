@@ -12,6 +12,9 @@
 //! - [`ParticleFilter`] — a cloud of weighted samples, for non-Gaussian or multi-peaked beliefs
 //!   (`alloc` only).
 //! - [`CovarianceUpdate`] — how the Kalman filters recompute the covariance.
+//! - [`MonteCarloLocalizer`] — Monte Carlo Localization using particle filter.
+//! - [`models`] — ready-made process and measurement models to drive the filters with:
+//!   [`ConstantTurnAndSpeed`], [`DirectMeasurement`], and [`residual_with_wrapped_angles`].
 
 mod attitude_correction;
 mod error_state_kalman_filter;
@@ -19,7 +22,12 @@ mod extended_kalman_filter;
 mod kalman_filter;
 mod madgwick_filter;
 mod mahony_filter;
+pub mod models;
 mod unscented_kalman_filter;
+
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+mod monte_carlo_localizer;
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
@@ -32,7 +40,12 @@ pub use extended_kalman_filter::ExtendedKalmanFilter;
 pub use kalman_filter::{CovarianceUpdate, KalmanFilter, KalmanModel};
 pub use madgwick_filter::MadgwickFilter;
 pub use mahony_filter::MahonyFilter;
+pub use models::{ConstantTurnAndSpeed, DirectMeasurement, residual_with_wrapped_angles};
 pub use unscented_kalman_filter::UnscentedKalmanFilter;
+
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+pub use monte_carlo_localizer::{BeamModel, InitialParticleCloud, MonteCarloLocalizer};
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]

@@ -11,8 +11,9 @@ use core::f64::consts::PI;
 use multicalc::control::FollowTheGap;
 use multicalc::kinematics::Unicycle;
 use multicalc::linear_algebra::{Vector, Vector3D};
+use multicalc::mapping::DynamicOccupancyGrid;
 use multicalc::ode::Rk4;
-use multicalc_demos::sim::{Lidar2d, OccupancyGrid};
+use multicalc_demos::sim::{Lidar2d, load_occupancy_grid_csv};
 use rand::SeedableRng;
 use rand_pcg::Pcg32;
 
@@ -39,7 +40,7 @@ struct RunSummary {
 /// Drives the corridor for 30 s of simulated time and reports what happened.
 #[must_use]
 fn run(
-    map: &OccupancyGrid,
+    map: &DynamicOccupancyGrid,
     lidar: &Lidar2d<BEAMS>,
     follower: &FollowTheGap<BEAMS, f64>,
     seed: u64,
@@ -84,10 +85,10 @@ fn main() {
         env!("CARGO_MANIFEST_DIR"),
         "/examples/resources/maps/corridor.csv"
     );
-    let map = OccupancyGrid::from_csv(corridor, 0.1, [0.0, -1.0]).unwrap();
+    let map = load_occupancy_grid_csv(corridor, 0.1, [0.0, -1.0]).unwrap();
 
     // The same field of view on both, which is the point of sharing the angle formula.
-    let lidar = Lidar2d::<BEAMS>::new(2.0 * PI / 3.0, 4.0, 0.03, 0.01);
+    let lidar = Lidar2d::<BEAMS>::new(2.0 * PI / 3.0, 4.0, 0.03, 0.01).unwrap();
     // The default clear distance is the sensor's maximum range, which suits open ground. Inside a
     // 2 m corridor the forward-pointing beams never see past about 2 m — a beam 30° off-centre
     // meets the side wall at 1.0 / sin(30°) — so the robot would crawl at half speed the whole way.

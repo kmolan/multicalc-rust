@@ -390,6 +390,58 @@ assert!(madgwick.orientation().log().norm() < 1e-3);
 Full demo:
 [attitude_filter.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/attitude_filter.rs).
 
+## Ready-made models
+
+Three pieces save writing the same model out for every project.
+
+- `ConstantTurnAndSpeed` rolls a vehicle's state `[x, y, heading, speed, turn rate]` forward one
+  tick along the arc it is turning through, taking speed and turn rate to hold. Tracking work calls
+  this the coordinated-turn model.
+- `DirectMeasurement<STATE_DIMENSION, MEASUREMENT_DIMENSION>` is a sensor reading state components
+  straight off, in the order listed — a position fix reading `[x, y]`, wheel encoders reading the
+  speed and turn rate.
+- `residual_with_wrapped_angles` subtracts a prediction from a reading with the components you name
+  as angles folded back into (-π, π]. Without it, a heading either side of the half turn reads as
+  nearly a whole turn of error and the filter lurches to correct it.
+
+```rust
+use multicalc::estimation::{
+    ConstantTurnAndSpeed, DirectMeasurement, ExtendedKalmanFilter, residual_with_wrapped_angles,
+};
+use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::scalar::VectorFn;
+
+// A vehicle tracked as [x, y, heading, speed, turn rate], fixed by position alone.
+let timestep = 0.1;
+let motion = ConstantTurnAndSpeed { timestep };
+let position_fix = DirectMeasurement::<5, 2>::try_new([0, 1])?;
+
+let initial_state = Vector::new([0.0, 0.0, 0.0, 1.0, 0.2]);
+let initial_covariance = Matrix::from_diagonal([0.5; 5]);
+let process_noise = Matrix::from_diagonal([1e-4, 1e-4, 1e-4, 1e-3, 1e-3]);
+let measurement_noise = Matrix::from_diagonal([0.05, 0.05]);
+let mut filter = ExtendedKalmanFilter::<5, 2>::new(
+    initial_state,
+    initial_covariance,
+    process_noise,
+    measurement_noise,
+);
+
+let fix = Vector::new([0.1, 0.02]);
+filter.predict(&motion)?;
+filter.update(&position_fix, fix)?;
+assert!(filter.state()[0].is_finite());
+
+// A heading sensor needs the angle-aware residual, since its reading wraps.
+let heading_sensor = DirectMeasurement::<5, 2>::try_new([2, 4])?;
+let reading = Vector::new([3.10, 0.2]);
+let predicted = Vector::new(heading_sensor.eval(filter.state().as_array()));
+let residual = residual_with_wrapped_angles(reading, predicted, &[0]);
+assert!(residual[0].abs() <= core::f64::consts::PI);
+filter.update_with_residual(&heading_sensor, residual)?;
+# Ok::<(), multicalc::CalcError>(())
+```
+
 ## Particle filter
 
 `ParticleFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T, R>` carries a cloud of weighted state
@@ -462,3 +514,64 @@ forms the mismatch by plain subtraction, so a measurement with an angular compon
 ---
 
 [Back to the tutorial index](README.md)
+
+## Monte Carlo Localization
+
+`MonteCarloLocalizer` answers a different question than the filters above: not "where has the robot
+moved to", but "where on this map is it in the first place" — the problem a robot has when it is
+switched on and has no fix at all. It carries a cloud of pose guesses; every guess casts the beams it
+would see against the map, and the guesses matching the real scan gain weight. `alloc` only, since
+the cloud lives on the heap.
+
+Feed it travel and turn with `predict`, scans with `update`, and read the answer with `estimate`,
+which gives the best pose and how tightly the cloud is holding to it. `is_converged` says when the
+answer is worth trusting — usually the moment to hand over to a Kalman filter for the drive itself.
+The map is anything implementing [`OccupancyMap`](mapping.md), and the beam directions come from the
+same `ScanGeometry` the scan was taken with.
+
+```rust
+use multicalc::estimation::{BeamModel, InitialParticleCloud, MonteCarloLocalizer};
+use multicalc::mapping::{DynamicOccupancyGrid, MutableOccupancyMap, OccupancyMap, ScanGeometry};
+
+// A walled room the robot already has a map of.
+let cell_size = 0.1_f64;
+let mut room = DynamicOccupancyGrid::try_new(40, 30, cell_size, [0.0, 0.0])?;
+let walls = [[0.2, 0.2], [3.8, 0.2], [3.8, 2.8], [0.2, 2.8]];
+room.occupy_polyline(&walls, true);
+room.occupy_circle([2.8, 2.0], 0.25);
+
+const NUM_BEAMS: usize = 16;
+let scan: ScanGeometry<NUM_BEAMS> = ScanGeometry::try_new(2.0 * core::f64::consts::PI / 3.0, 6.0)?;
+
+// Where the robot really is, and the rough guess the localizer is given.
+let truth = [1.2, 1.0, 0.3];
+let hint = [1.45, 0.75, 0.35];
+let cloud = InitialParticleCloud {
+    particle_count: 1500,
+    position_variance: 0.16,
+    heading_variance: 0.25,
+};
+let beam_model = BeamModel { range_deviation: 0.15, ..Default::default() };
+let seed = 20260804;
+let mut localizer = MonteCarloLocalizer::<NUM_BEAMS>::new(hint, cloud, beam_model, seed)?;
+
+// One scan, taken standing still and fed in a few times as the robot looks around.
+let reading: [f64; NUM_BEAMS] = core::array::from_fn(|beam| {
+    let offset = scan.beam_angle(beam).unwrap_or(0.0);
+    room.cast_ray([truth[0], truth[1]], truth[2] + offset, scan.maximum_range())
+        .unwrap_or(f64::INFINITY)
+});
+for _ in 0..10 {
+    localizer.update(&reading, &room, &scan)?;
+}
+
+// The cloud has settled onto the robot, and says so.
+let (pose, _spread) = localizer.estimate();
+assert!((pose[0] - truth[0]).abs() < 0.25);
+assert!((pose[1] - truth[1]).abs() < 0.25);
+assert!(localizer.is_converged(0.05, 0.2));
+# Ok::<(), multicalc::CalcError>(())
+```
+
+Full demo:
+[localized_lap_check.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/localized_lap_check.rs).

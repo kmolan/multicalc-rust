@@ -45,6 +45,8 @@ pub struct Kinematics;
 pub struct Control;
 #[doc = include_str!("../tutorials/motion.md")]
 pub struct Motion;
+#[doc = include_str!("../tutorials/mapping.md")]
+pub struct Mapping;
 #[doc = include_str!("../tutorials/estimation.md")]
 pub struct Estimation;
 #[doc = include_str!("../tutorials/random.md")]

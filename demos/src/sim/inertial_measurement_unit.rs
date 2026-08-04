@@ -3,7 +3,8 @@
 
 use rand_pcg::Pcg32;
 
-use super::geometry::wrap_angle;
+use multicalc::scalar::Numeric;
+
 use super::sensor_noise::gaussian_noise;
 
 /// An attitude-and-heading sensor: it reports the vehicle's facing direction and turn rate, both
@@ -40,9 +41,8 @@ impl InertialMeasurementUnit {
     #[must_use]
     pub fn read(&self, true_heading: f64, true_yaw_rate: f64, rng: &mut Pcg32) -> InertialReading {
         InertialReading {
-            heading: wrap_angle(
-                true_heading + self.heading_bias + gaussian_noise(self.heading_noise, rng),
-            ),
+            heading: (true_heading + self.heading_bias + gaussian_noise(self.heading_noise, rng))
+                .wrap_to_pi(),
             yaw_rate: true_yaw_rate + gaussian_noise(self.yaw_rate_noise, rng),
         }
     }

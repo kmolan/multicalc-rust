@@ -1,12 +1,6 @@
-//! Point lists tracing 2D shapes, and folding an angle back into range.
+//! Point lists tracing 2D shapes.
 
 use std::f64::consts::{FRAC_PI_2, TAU};
-
-/// Folds an angle into the range (-π, π].
-#[must_use]
-pub fn wrap_angle(angle: f64) -> f64 {
-    angle - TAU * (angle / TAU).round()
-}
 
 /// A closed rounded-rectangle outline, counter-clockwise. Returns `4 * segments_per_corner` points.
 ///

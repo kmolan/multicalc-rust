@@ -6,24 +6,21 @@
 use std::time::Instant;
 
 use multicalc::control::FollowTheGap;
-use multicalc::estimation::ExtendedKalmanFilter;
+use multicalc::estimation::{
+    BeamModel, ConstantTurnAndSpeed, DirectMeasurement, ExtendedKalmanFilter, InitialParticleCloud,
+    MonteCarloLocalizer, residual_with_wrapped_angles,
+};
 use multicalc::kinematics::{BodyTwist, Unicycle, WheelRotations};
 use multicalc::linear_algebra::{Matrix, Vector, Vector3D};
+use multicalc::mapping::OccupancyMap;
 use multicalc::ode::Rk4;
-use multicalc::scalar::VectorFn;
+use multicalc::scalar::{Numeric, VectorFn};
 use rand::SeedableRng;
 use rand_pcg::Pcg32;
 
-use crate::sim::geometry::wrap_angle;
 use crate::sim::global_position_sensor::GlobalPositionSensor;
 use crate::sim::inertial_measurement_unit::InertialMeasurementUnit;
-use crate::sim::kalman_filter_models::{
-    AttitudeHeadingModel, CoordinatedTurnModel, GlobalPositionModel, WheelOdometryModel,
-    attitude_residual, diagonal,
-};
 use crate::sim::lidar::Lidar2d;
-use crate::sim::occupancy_grid::OccupancyGrid;
-use crate::sim::particle_filter_localizer::{GlobalLocalizer, InitialParticleCloud};
 use crate::sim::wheeled_vehicle::WheeledVehicle;
 
 use super::lap_track_2d::{LapTrack2D, lap_track_2d};
@@ -164,7 +161,11 @@ pub struct LapWorld {
     inertial: InertialMeasurementUnit,
     gps: GlobalPositionSensor,
     follower: FollowTheGap<BEAMS, f64>,
-    localizer: GlobalLocalizer<BEAMS>,
+    localizer: MonteCarloLocalizer<BEAMS>,
+    // What each sensor sees of the filter's [x, y, heading, speed, turn rate] state.
+    wheel_odometry: DirectMeasurement<5, 2>,
+    attitude: DirectMeasurement<5, 2>,
+    global_position: DirectMeasurement<5, 2>,
     filter: Option<ExtendedKalmanFilter<5, 2>>,
     phase: Phase,
     rng: Pcg32,
@@ -182,7 +183,7 @@ pub struct LapWorld {
 impl LapWorld {
     pub fn new(seed: u64) -> Result<Self, Box<dyn std::error::Error>> {
         let field_of_view = 2.0 * std::f64::consts::PI / 3.0;
-        let track = lap_track_2d();
+        let track = lap_track_2d()?;
         let vehicle = WheeledVehicle::new(
             WHEEL_RADIUS,
             WHEELBASE,
@@ -191,7 +192,7 @@ impl LapWorld {
             SLIP_SPEED_FACTOR,
         )?;
         let lidar =
-            Lidar2d::<BEAMS>::new(field_of_view, LIDAR_RANGE, LIDAR_RANGE_NOISE, LIDAR_DROPOUT);
+            Lidar2d::<BEAMS>::new(field_of_view, LIDAR_RANGE, LIDAR_RANGE_NOISE, LIDAR_DROPOUT)?;
         let inertial =
             InertialMeasurementUnit::new(IMU_HEADING_NOISE, IMU_YAW_RATE_NOISE, IMU_HEADING_BIAS);
         let gps = GlobalPositionSensor::new(GPS_POSITION_NOISE);
@@ -203,11 +204,13 @@ impl LapWorld {
             FollowTheGap::<BEAMS, f64>::try_new(field_of_view, LIDAR_RANGE, 0.60, 0.62, 0.40)?
                 .with_frontal_half_angle(0.35)?
                 .with_speed_scaling(0.15, 0.70)?;
-        let localizer = GlobalLocalizer::<BEAMS>::new(
+        let localizer = MonteCarloLocalizer::<BEAMS>::new(
             track.localization_hint,
             InitialParticleCloud::default(),
-            LIDAR_RANGE,
-            BEAM_MATCH_DEVIATION,
+            BeamModel {
+                range_deviation: BEAM_MATCH_DEVIATION,
+                ..Default::default()
+            },
             seed,
         )?;
 
@@ -224,6 +227,9 @@ impl LapWorld {
             gps,
             follower,
             localizer,
+            wheel_odometry: DirectMeasurement::try_new([3, 4])?,
+            attitude: DirectMeasurement::try_new([2, 4])?,
+            global_position: DirectMeasurement::try_new([0, 1])?,
             filter: None,
             phase: Phase::Localizing,
             rng: Pcg32::seed_from_u64(seed),
@@ -275,7 +281,9 @@ impl LapWorld {
         );
         // On a degenerate-weights error, hold the cloud and keep turning rather than panic.
         let _ = self.localizer.predict(0.0, STARTUP_YAW_RATE * TIMESTEP);
-        let _ = self.localizer.update(&scan, &self.track.grid, &self.lidar);
+        let _ = self
+            .localizer
+            .update(&scan, &self.track.grid, &self.lidar.geometry());
         self.metrics.localization_ticks += 1;
 
         let (loc_pose, loc_cov) = self.localizer.estimate();
@@ -310,8 +318,8 @@ impl LapWorld {
             let filter = ExtendedKalmanFilter::<5, 2>::new(
                 initial_state,
                 initial_covariance,
-                diagonal([1e-7, 1e-7, 1e-7, 4e-4, 4e-4]), // process noise, fixed for the run
-                diagonal([1.0, 1.0]),                     // any 2×2; overwritten before each update
+                Matrix::from_diagonal([1e-7, 1e-7, 1e-7, 4e-4, 4e-4]), // process noise, fixed for the run
+                Matrix::from_diagonal([1.0, 1.0]), // any 2×2; overwritten before each update
             );
             self.filter = Some(filter);
             self.dead_reckoned = Vector::new([loc_pose[0], loc_pose[1], loc_pose[2]]);
@@ -385,40 +393,41 @@ impl LapWorld {
         let measured_speed = truth.measured_speed;
         let measured_yaw_rate = truth.measured_yaw_rate;
         if let Some(filter) = self.filter.as_mut() {
-            let _ = filter.predict(&CoordinatedTurnModel { timestep: TIMESTEP });
+            let _ = filter.predict(&ConstantTurnAndSpeed { timestep: TIMESTEP });
             rewrap_heading(filter);
 
             if tick.is_multiple_of(ODOMETRY_EVERY) {
-                filter.set_measurement_noise(diagonal([
+                filter.set_measurement_noise(Matrix::from_diagonal([
                     SPEED_NOISE * SPEED_NOISE,
                     YAW_RATE_NOISE * YAW_RATE_NOISE,
                 ]));
                 let _ = filter.update(
-                    &WheelOdometryModel,
+                    &self.wheel_odometry,
                     Vector::new([measured_speed, measured_yaw_rate]),
                 );
             }
 
             if let Some(reading) = imu_reading {
-                filter.set_measurement_noise(diagonal([
+                filter.set_measurement_noise(Matrix::from_diagonal([
                     IMU_HEADING_NOISE * IMU_HEADING_NOISE,
                     IMU_YAW_RATE_NOISE * IMU_YAW_RATE_NOISE,
                 ]));
-                let predicted = AttitudeHeadingModel.eval(filter.state().as_array());
-                let residual = attitude_residual(
+                let predicted = self.attitude.eval(filter.state().as_array());
+                let residual = residual_with_wrapped_angles(
                     Vector::new([reading.heading, reading.yaw_rate]),
                     Vector::new(predicted),
+                    &[0],
                 );
-                let _ = filter.update_with_residual(&AttitudeHeadingModel, residual);
+                let _ = filter.update_with_residual(&self.attitude, residual);
                 rewrap_heading(filter);
             }
 
             if let Some(fix) = gps_fix {
-                filter.set_measurement_noise(diagonal([
+                filter.set_measurement_noise(Matrix::from_diagonal([
                     GPS_POSITION_NOISE * GPS_POSITION_NOISE,
                     GPS_POSITION_NOISE * GPS_POSITION_NOISE,
                 ]));
-                let _ = filter.update(&GlobalPositionModel, Vector::new(fix));
+                let _ = filter.update(&self.global_position, Vector::new(fix));
                 gps_nis = filter.normalized_innovation_squared().ok();
             }
         }
@@ -459,7 +468,7 @@ impl LapWorld {
             Some(filter) => (filter.state(), filter.covariance()),
             None => (
                 Vector::new([self.pose[0], self.pose[1], self.pose[2], 0.0, 0.0]),
-                diagonal([0.0; 5]),
+                Matrix::from_diagonal([0.0; 5]),
             ),
         };
         let position = [self.pose[0], self.pose[1]];
@@ -469,7 +478,7 @@ impl LapWorld {
 
         let bearing = (position[1] - self.track.island_center[1])
             .atan2(position[0] - self.track.island_center[0]);
-        self.winding += wrap_angle(bearing - self.last_bearing);
+        self.winding += (bearing - self.last_bearing).wrap_to_pi();
         self.last_bearing = bearing;
         if self.winding.abs() >= std::f64::consts::TAU {
             self.metrics.laps += 1;
@@ -490,7 +499,7 @@ impl LapWorld {
         let dead_dy = self.dead_reckoned[1] - self.pose[1];
         self.metrics.dead_reckoned_position_error_sum_squares +=
             dead_dx * dead_dx + dead_dy * dead_dy;
-        let heading_error = wrap_angle(estimate[2] - self.pose[2]);
+        let heading_error = (estimate[2] - self.pose[2]).wrap_to_pi();
         self.metrics.heading_error_sum_squares += heading_error * heading_error;
         self.metrics.distance_travelled += commanded.linear().abs() * TIMESTEP;
         if let Some(nis) = gps_nis {
@@ -536,7 +545,7 @@ impl LapWorld {
         self.phase
     }
     #[must_use]
-    pub fn localizer(&self) -> &GlobalLocalizer<BEAMS> {
+    pub fn localizer(&self) -> &MonteCarloLocalizer<BEAMS> {
         &self.localizer
     }
     #[must_use]
@@ -546,15 +555,15 @@ impl LapWorld {
 
     /// Rolls the wheels on by the turn they just made, keeping the angles folded into (-π, π].
     fn turn_wheels(&mut self, rotations: WheelRotations<f64>) {
-        self.wheel_angles[0] = wrap_angle(self.wheel_angles[0] + rotations.left());
-        self.wheel_angles[1] = wrap_angle(self.wheel_angles[1] + rotations.right());
+        self.wheel_angles[0] = (self.wheel_angles[0] + rotations.left()).wrap_to_pi();
+        self.wheel_angles[1] = (self.wheel_angles[1] + rotations.right()).wrap_to_pi();
     }
 }
 
 /// Folds the filter's heading state back into range after a predict or an angular update.
 fn rewrap_heading(filter: &mut ExtendedKalmanFilter<5, 2>) {
     let mut state = filter.state();
-    state[2] = wrap_angle(state[2]);
+    state[2] = state[2].wrap_to_pi();
     filter.set_state(state);
 }
 
@@ -590,7 +599,7 @@ fn free_side_sign(scan: &[f64; BEAMS]) -> f64 {
 /// zero rather than a small positive distance. The ring can miss a wall that falls between two rays,
 /// so it uses enough rays that the gap is well under a centimetre at the footprint.
 #[must_use]
-fn nearest_wall_distance(grid: &OccupancyGrid, point: [f64; 2], maximum_range: f64) -> f64 {
+fn nearest_wall_distance<M: OccupancyMap>(grid: &M, point: [f64; 2], maximum_range: f64) -> f64 {
     const RAYS: usize = 64;
     let mut nearest = maximum_range;
     for index in 0..RAYS {

@@ -1,0 +1,292 @@
+//! The map traits themselves: what any map answers, and the ray casting and rasterizing every map
+//! inherits. Run against a plain fixed-size map so they hold without a heap.
+
+use multicalc::mapping::{MutableOccupancyMap, OccupancyMap};
+
+/// A map of `COLUMNS` by `ROWS` cells, laid out row by row.
+struct TestMap<const COLUMNS: usize, const ROWS: usize> {
+    resolution: f64,
+    origin: [f64; 2],
+    cells: [[bool; COLUMNS]; ROWS],
+}
+
+impl<const COLUMNS: usize, const ROWS: usize> TestMap<COLUMNS, ROWS> {
+    fn new(resolution: f64, origin: [f64; 2]) -> Self {
+        TestMap {
+            resolution,
+            origin,
+            cells: [[false; COLUMNS]; ROWS],
+        }
+    }
+}
+
+impl<const COLUMNS: usize, const ROWS: usize> OccupancyMap for TestMap<COLUMNS, ROWS> {
+    fn columns(&self) -> usize {
+        COLUMNS
+    }
+    fn rows(&self) -> usize {
+        ROWS
+    }
+    fn resolution(&self) -> f64 {
+        self.resolution
+    }
+    fn origin(&self) -> [f64; 2] {
+        self.origin
+    }
+    fn is_occupied(&self, row: usize, column: usize) -> bool {
+        self.cells
+            .get(row)
+            .and_then(|row| row.get(column))
+            .copied()
+            .unwrap_or(false)
+    }
+}
+
+impl<const COLUMNS: usize, const ROWS: usize> MutableOccupancyMap for TestMap<COLUMNS, ROWS> {
+    fn set_cell(&mut self, row: usize, column: usize, occupied: bool) {
+        if let Some(cell) = self.cells.get_mut(row).and_then(|row| row.get_mut(column)) {
+            *cell = occupied;
+        }
+    }
+    fn clear(&mut self) {
+        self.cells = [[false; COLUMNS]; ROWS];
+    }
+}
+
+/// A 15 by 12 map of one-metre cells, the shape the demo grid tests used.
+fn wide_map() -> TestMap<15, 12> {
+    TestMap::new(1.0, [-5.0, -5.25])
+}
+
+#[test]
+fn cell_of_finds_the_cell_holding_a_point() {
+    let map = wide_map();
+    assert_eq!(map.cell_of([-4.5, -4.5]), Some((0, 0)));
+    // Row first: half a cell up is the next row, half a cell across is the next column.
+    assert_eq!(map.cell_of([-4.5, -4.0]), Some((1, 0)));
+    assert_eq!(map.cell_of([-4.0, -4.5]), Some((0, 1)));
+}
+
+#[test]
+fn cell_of_rejects_points_off_the_map() {
+    let map = wide_map();
+    assert_eq!(map.cell_of([-5.5, 0.0]), None, "left of the first column");
+    assert_eq!(map.cell_of([0.0, -6.0]), None, "below the first row");
+    assert_eq!(map.cell_of([10.1, 0.0]), None, "past the last column");
+    assert_eq!(map.cell_of([0.0, 6.8]), None, "past the last row");
+}
+
+#[test]
+fn a_point_on_a_cell_edge_belongs_to_the_higher_cell() {
+    let map: TestMap<4, 4> = TestMap::new(0.5, [0.0, 0.0]);
+    // The edge between cells (0, 0) and (0, 1) sits at x = 0.5.
+    assert_eq!(map.cell_of([0.49, 0.25]), Some((0, 0)));
+    assert_eq!(map.cell_of([0.5, 0.25]), Some((0, 1)));
+}
+
+#[test]
+fn a_clear_map_stops_no_beam() {
+    let map = wide_map();
+    assert_eq!(map.cast_ray([0.0, 0.0], 0.0, 20.0), None);
+}
+
+#[test]
+fn a_beam_reads_the_exact_distance_to_a_wall() {
+    let mut map = wide_map();
+    let blocked_column = 10;
+    for row in 0..12 {
+        map.set_cell(row, blocked_column, true);
+    }
+    // Standing in the middle of cell (6, 0), firing along the row.
+    let start = [-4.5, 1.25];
+    let distance = map.cast_ray(start, 0.0, 20.0);
+    // The wall's near face is where its column begins.
+    let expected = -5.0 + blocked_column as f64 - start[0];
+    assert!(
+        distance.is_some_and(|met| (met - expected).abs() < 1e-12),
+        "{distance:?}, expected {expected}"
+    );
+}
+
+#[test]
+fn a_beam_starting_off_the_map_is_walked_from_where_it_enters() {
+    let mut map = wide_map();
+    let blocked_column = 10;
+    for row in 0..12 {
+        map.set_cell(row, blocked_column, true);
+    }
+    // Two metres left of the map, aimed into it along the same row as above.
+    let start = [-7.0, 1.25];
+    let distance = map.cast_ray(start, 0.0, 20.0);
+    let expected = -5.0 + blocked_column as f64 - start[0];
+    assert!(
+        distance.is_some_and(|met| (met - expected).abs() < 1e-12),
+        "the distance is measured from where the beam started, not where it entered"
+    );
+}
+
+#[test]
+fn a_beam_aimed_away_from_the_map_meets_nothing() {
+    let map = wide_map();
+    assert_eq!(
+        map.cast_ray([-7.0, 1.25], core::f64::consts::PI, 20.0),
+        None
+    );
+}
+
+#[test]
+fn a_beam_stops_at_its_maximum_range() {
+    let mut map = wide_map();
+    for row in 0..12 {
+        map.set_cell(row, 10, true);
+    }
+    let start = [-4.5, 1.25];
+    assert!(map.cast_ray(start, 0.0, 20.0).is_some());
+    assert_eq!(map.cast_ray(start, 0.0, 1.0), None, "too short to reach it");
+}
+
+#[test]
+fn a_beam_running_parallel_to_an_axis_crosses_no_edges_on_it() {
+    let mut map = wide_map();
+    map.set_cell(5, 5, true);
+    // Straight up a column that holds nothing: the sideways stride is infinite.
+    let clear_column_start = [-4.5, -4.5];
+    assert_eq!(
+        map.cast_ray(clear_column_start, core::f64::consts::FRAC_PI_2, 20.0),
+        None
+    );
+}
+
+#[test]
+fn a_beam_starting_on_a_blocked_cell_reads_zero() {
+    let mut map = wide_map();
+    map.set_cell(0, 0, true);
+    assert_eq!(map.cast_ray([-4.5, -4.5], 0.0, 20.0), Some(0.0));
+}
+
+#[test]
+fn a_map_with_no_cells_stops_no_beam() {
+    let empty: TestMap<0, 0> = TestMap::new(1.0, [0.0, 0.0]);
+    assert_eq!(empty.cast_ray([0.0, 0.0], 0.0, 10.0), None);
+    assert_eq!(empty.cell_of([0.0, 0.0]), None);
+}
+
+#[test]
+fn a_closed_polyline_leaves_no_gap_a_beam_can_slip_through() {
+    let mut map: TestMap<40, 40> = TestMap::new(0.1, [0.0, 0.0]);
+    let corners = [[1.0, 1.0], [3.0, 1.0], [3.0, 3.0], [1.0, 3.0]];
+    map.occupy_polyline(&corners, true);
+    let middle = [2.0, 2.0];
+    for step in 0..32 {
+        let bearing = core::f64::consts::TAU * step as f64 / 32.0;
+        assert!(
+            map.cast_ray(middle, bearing, 4.0).is_some(),
+            "beam {step} slipped out of a closed box"
+        );
+    }
+    // It is an outline, not a fill.
+    assert!(
+        map.cell_of(middle)
+            .is_some_and(|(row, column)| !map.is_occupied(row, column))
+    );
+}
+
+#[test]
+fn an_open_polyline_leaves_its_last_edge_undrawn() {
+    let mut map: TestMap<40, 40> = TestMap::new(0.1, [0.0, 0.0]);
+    let corners = [[1.0, 1.0], [3.0, 1.0], [3.0, 3.0], [1.0, 3.0]];
+    map.occupy_polyline(&corners, false);
+    // The edge from the last corner back to the first is the left wall, so a beam escapes west.
+    let middle = [2.0, 2.0];
+    assert_eq!(map.cast_ray(middle, core::f64::consts::PI, 4.0), None);
+    assert!(
+        map.cast_ray(middle, 0.0, 4.0).is_some(),
+        "the right wall is still there"
+    );
+}
+
+#[test]
+fn a_single_point_polyline_marks_one_cell() {
+    let mut map: TestMap<40, 40> = TestMap::new(0.1, [0.0, 0.0]);
+    map.occupy_polyline(&[[2.0, 2.0]], true);
+    assert!(map.is_occupied(20, 20));
+}
+
+#[test]
+fn a_circle_marks_its_rim_and_not_its_middle() {
+    let mut map: TestMap<40, 40> = TestMap::new(0.1, [0.0, 0.0]);
+    let centre = [2.0, 2.0];
+    let radius = 1.0;
+    map.occupy_circle(centre, radius);
+    assert!(!map.is_occupied(20, 20), "the middle should stay free");
+    for step in 0..32 {
+        let bearing = core::f64::consts::TAU * step as f64 / 32.0;
+        let distance = map.cast_ray(centre, bearing, 4.0);
+        assert!(
+            distance.is_some_and(|met| (met - radius).abs() <= 2.0 * map.resolution()),
+            "beam {step} read {distance:?} instead of about {radius}"
+        );
+    }
+}
+
+#[test]
+fn clearing_frees_every_cell() {
+    let mut map: TestMap<40, 40> = TestMap::new(0.1, [0.0, 0.0]);
+    map.occupy_circle([2.0, 2.0], 1.0);
+    assert!(map.cast_ray([2.0, 2.0], 0.0, 4.0).is_some());
+    map.clear();
+    assert!(map.cast_ray([2.0, 2.0], 0.0, 4.0).is_none());
+}
+
+#[test]
+fn marking_a_cell_off_the_map_does_nothing() {
+    let mut map: TestMap<4, 4> = TestMap::new(0.5, [0.0, 0.0]);
+    map.occupy_point([100.0, 100.0]);
+    map.occupy_point([-100.0, 0.0]);
+    for row in 0..4 {
+        for column in 0..4 {
+            assert!(!map.is_occupied(row, column), "({row}, {column})");
+        }
+    }
+}
+
+/// The same wall distance at `f32`, where the walk accumulates more rounding than at `f64`.
+#[test]
+fn ray_casting_holds_at_f32() {
+    struct NarrowMap {
+        cells: [[bool; 16]; 16],
+    }
+
+    impl OccupancyMap<f32> for NarrowMap {
+        fn columns(&self) -> usize {
+            16
+        }
+        fn rows(&self) -> usize {
+            16
+        }
+        fn resolution(&self) -> f32 {
+            0.25
+        }
+        fn origin(&self) -> [f32; 2] {
+            [0.0, 0.0]
+        }
+        fn is_occupied(&self, row: usize, column: usize) -> bool {
+            self.cells
+                .get(row)
+                .and_then(|row| row.get(column))
+                .copied()
+                .unwrap_or(false)
+        }
+    }
+
+    let blocked_column = 5;
+    let cells = core::array::from_fn(|_| core::array::from_fn(|column| column == blocked_column));
+    let map = NarrowMap { cells };
+    let start = [0.5_f32, 0.5];
+    let expected = blocked_column as f32 * map.resolution() - start[0];
+    let distance = map.cast_ray(start, 0.0, 4.0);
+    assert!(
+        distance.is_some_and(|met| (met - expected).abs() < 1e-4),
+        "{distance:?}, expected {expected}"
+    );
+}

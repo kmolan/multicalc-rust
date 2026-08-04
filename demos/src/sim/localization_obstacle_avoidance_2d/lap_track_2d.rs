@@ -1,14 +1,16 @@
 //! The marked 2D lap track: a rounded-rectangle corridor rasterized into an occupancy grid, with a
 //! wheel-slip patch and the start pose.
 
+use multicalc::error::MappingError;
+use multicalc::mapping::{DynamicOccupancyGrid, MutableOccupancyMap};
+
 use crate::sim::geometry::{box_outline, rotate_points, rounded_rectangle};
-use crate::sim::occupancy_grid::OccupancyGrid;
 
 /// A closed 2D lap track drawn into an occupancy grid, with the extra facts the run driver needs.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LapTrack2D {
     /// The walls: the map the localizer matches against and the surface the lidar sees.
-    pub grid: OccupancyGrid,
+    pub grid: DynamicOccupancyGrid,
     /// Where the robot truly starts, as [x, y, heading].
     pub start_pose: [f64; 3],
     /// A rough first guess for the localizer: position near the truth, heading unknown.
@@ -39,13 +41,12 @@ impl LapTrack2D {
 ///
 /// The one grid is the prior map the localizer matches against and the surface the lidar casts
 /// against, so the two can never disagree.
-#[must_use]
-pub fn lap_track_2d() -> LapTrack2D {
+pub fn lap_track_2d() -> Result<LapTrack2D, MappingError> {
     // A grid spanning the outer boundary with a one-cell margin, 0.05 m cells, origin at the corner.
     let resolution = 0.05_f64;
     let columns = ((6.0 + 0.4) / resolution).ceil() as usize; // outer x-extent 0..6 plus margin
     let rows = ((4.0 + 0.4) / resolution).ceil() as usize;
-    let mut grid = OccupancyGrid::new(columns, rows, resolution, [-0.2, -0.2]);
+    let mut grid = DynamicOccupancyGrid::try_new(columns, rows, resolution, [-0.2, -0.2])?;
 
     // Boundary loops (concentric corners keep the corridor a clean 0.9 m).
     grid.occupy_polyline(&rounded_rectangle([3.0, 2.0], [3.0, 2.0], 1.2, 8), true);
@@ -78,14 +79,14 @@ pub fn lap_track_2d() -> LapTrack2D {
     // corridor; it is a false opening the reactive planner can be tempted into.
     stamp_alcove(&mut grid, [[-0.2, 1.7], [0.0, 2.3]]);
 
-    LapTrack2D {
+    Ok(LapTrack2D {
         grid,
         start_pose: [1.0, 0.45, 0.0],
         localization_hint: [1.0, 0.45, 0.0],
         slip_zone: [[2.0, 0.0], [2.6, 0.9]],
         pocket_bounds: [[-0.3, 1.6], [0.25, 2.4]],
         island_center: [3.0, 2.0],
-    }
+    })
 }
 
 /// Whether the point sits inside the axis-aligned rectangle `[[x_min, y_min], [x_max, y_max]]`.
@@ -96,7 +97,7 @@ fn inside(bounds: [[f64; 2]; 2], point: [f64; 2]) -> bool {
 }
 
 /// Marks three sides of a box, leaving the +x side open — a dead-end pocket in the outer wall.
-fn stamp_alcove(grid: &mut OccupancyGrid, bounds: [[f64; 2]; 2]) {
+fn stamp_alcove(grid: &mut DynamicOccupancyGrid, bounds: [[f64; 2]; 2]) {
     let [[x_min, y_min], [x_max, y_max]] = bounds;
     grid.occupy_polyline(
         &[

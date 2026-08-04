@@ -1,7 +1,6 @@
 use multicalc_demos::sim::geometry::{
-    box_outline, circle_outline, rotate_points, rounded_rectangle, wrap_angle,
+    box_outline, circle_outline, rotate_points, rounded_rectangle,
 };
-use std::f64::consts::PI;
 
 #[test]
 fn rounded_rectangle_has_four_arcs_of_points_within_the_extent() {
@@ -55,17 +54,4 @@ fn rotate_points_turns_about_the_centre() {
     // The centre itself does not move.
     let fixed = rotate_points(&[[0.5, 0.5]], [0.5, 0.5], 1.0);
     assert_eq!(fixed[0], [0.5, 0.5]);
-}
-
-#[test]
-fn wrap_angle_folds_full_turns_away() {
-    // Interior values pass through untouched.
-    assert!((wrap_angle(0.5) - 0.5).abs() < 1e-12);
-    assert!((wrap_angle(-1.2) + 1.2).abs() < 1e-12);
-    // Whole turns are removed.
-    assert!((wrap_angle(2.0 * PI + 0.3) - 0.3).abs() < 1e-12);
-    assert!((wrap_angle(-2.0 * PI - 0.3) + 0.3).abs() < 1e-12);
-    // An odd multiple of π lands on the ±π boundary.
-    assert!((wrap_angle(3.0 * PI).abs() - PI).abs() < 1e-12);
-    assert!((wrap_angle(-3.0 * PI).abs() - PI).abs() < 1e-12);
 }

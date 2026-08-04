@@ -100,6 +100,14 @@ pub use spatial::FreeJointState;
 /// Differential-drive kinematics and SE(2) odometry.
 pub use kinematics::{BodyArc, BodyTwist, DifferentialDrive, WheelRotations, WheelVelocities};
 
+/// Occupancry grid and scan geometry
+pub use mapping::{MutableOccupancyMap, OccupancyMap, ScanGeometry};
+
+/// Heap-based occupancy grid for large maps
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+pub use mapping::DynamicOccupancyGrid;
+
 /// Linear Kalman filter, Extended Kalman filter, and Unscented Kalman filter
 pub use estimation::{
     CovarianceUpdate, ExtendedKalmanFilter, KalmanFilter, KalmanModel, UnscentedKalmanFilter,
@@ -111,10 +119,19 @@ pub use estimation::{ErrorStateKalmanFilter, ImuNoise, NominalState, NominalStat
 /// Light attitude filters for a turn-rate sensor fused with an accelerometer and a magnetometer.
 pub use estimation::{MadgwickFilter, MahonyFilter};
 
+/// Ready-made filter models: a turning-arc process model, a sensor reading part of the state, and
+/// an angle-aware residual.
+pub use estimation::{ConstantTurnAndSpeed, DirectMeasurement, residual_with_wrapped_angles};
+
 /// Particle filter (bootstrap/SIR) with pluggable resampling and measurement likelihood.
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 pub use estimation::{GaussianLikelihood, Likelihood, ParticleFilter, ResamplingScheme};
+
+/// Monte Carlo Localization using particle filter estimation.
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+pub use estimation::{BeamModel, InitialParticleCloud, MonteCarloLocalizer};
 
 /// Seedable pseudo-random generator and the trait its uniform and normal draws come from.
 pub use random::{Pcg32, RandomSource};
@@ -153,8 +170,8 @@ pub use plant::{MultirotorMixer, RotorCommands, RotorLag, RotorSpin};
 /// Per-module-family error enums and the umbrella they convert into.
 pub use error::{
     CalcError, ControlError, DiffError, DynamicsError, EstimationError, IntegrateError,
-    KinematicsError, LinalgError, MotionError, PlantError, PolynomialError, SignalError,
-    SolveError, SpatialError,
+    KinematicsError, LinalgError, MappingError, MotionError, PlantError, PolynomialError,
+    SignalError, SolveError, SpatialError,
 };
 
 pub mod approximation;
@@ -166,6 +183,7 @@ pub mod estimation;
 pub mod gaussian_tables;
 pub mod kinematics;
 pub mod linear_algebra;
+pub mod mapping;
 pub mod motion;
 pub mod numerical_derivative;
 pub mod numerical_integration;

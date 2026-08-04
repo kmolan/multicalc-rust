@@ -20,7 +20,7 @@ use multicalc::scalar::{Numeric, VectorFn, c};
 use multicalc::scalar_fn_vec;
 use multicalc::spatial::{FreeJointState, SE3, SO3, SpatialInertia, Twist, Wrench};
 use multicalc_qa::docs::replace_marked_region;
-use multicalc_qa::problems::{CoordinatedTurn, GlobalPosition, StationaryPose};
+use multicalc_qa::problems::{ConstantTurnAndSpeed, GlobalPosition, StationaryPose};
 
 /// Diagonally dominant, mildly non-symmetric — well-conditioned and invertible.
 fn general<const N: usize>() -> Matrix<N, N> {
@@ -211,7 +211,7 @@ fn bench_extended_kalman_filter_step(c: &mut Criterion) {
     // One predict + update of the showcase's 5-state coordinated-turn filter against a
     // position fix: the per-tick cost the 1 kHz loop is built around.
     use multicalc::estimation::ExtendedKalmanFilter;
-    let motion = CoordinatedTurn { timestep: 0.001 };
+    let motion = ConstantTurnAndSpeed { timestep: 0.001 };
     let mut filter = ExtendedKalmanFilter::<5, 2>::new(
         Vector::new([0.0, 0.0, 0.0, 1.0, 0.3]),
         Matrix::from_fn(|i, j| if i == j { 0.5 } else { 0.0 }),
@@ -246,7 +246,7 @@ fn bench_unscented_kalman_filter_step(c: &mut Criterion) {
     // straddle ±π, where this motion model wraps its own heading and averaging them stops meaning
     // anything. That is a property of the run, not of one step, and it is not what this row times.
     use multicalc::estimation::UnscentedKalmanFilter;
-    let motion = CoordinatedTurn { timestep: 0.001 };
+    let motion = ConstantTurnAndSpeed { timestep: 0.001 };
     let initial = UnscentedKalmanFilter::<5, 2>::new(
         Vector::new([0.0, 0.0, 0.0, 1.0, 0.3]),
         Matrix::from_fn(|i, j| if i == j { 0.5 } else { 0.0 }),

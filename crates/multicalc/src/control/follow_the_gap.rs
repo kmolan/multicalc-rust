@@ -307,18 +307,10 @@ impl<const BEAMS: usize, T: Numeric> FollowTheGap<BEAMS, T> {
             return Err(ControlError::NonFinite);
         }
 
-        // Treat invalid or zero-or-negative readings as empty space at `maximum_range`.
-        let sanitized_ranges: [T; BEAMS] =
-            core::array::from_fn(|index| match beam_ranges.get(index) {
-                Some(&range) if range.is_finite() && range > T::ZERO => {
-                    range.min(self.maximum_range)
-                }
-                _ => self.maximum_range,
-            });
-
         // Track the nearest obstacle across the whole scan, reported in the output.
         let mut minimum_clearance = self.maximum_range;
-        for &range in &sanitized_ranges {
+        for index in 0..BEAMS {
+            let range = self.sanitized_range(beam_ranges, index);
             if range < minimum_clearance {
                 minimum_clearance = range;
             }
@@ -332,10 +324,8 @@ impl<const BEAMS: usize, T: Numeric> FollowTheGap<BEAMS, T> {
         let mut run_start: Option<usize> = None;
 
         for index in 0..=BEAMS {
-            let is_free = match sanitized_ranges.get(index) {
-                Some(&range) => range >= self.free_range_threshold,
-                None => false,
-            };
+            let is_free = index < BEAMS
+                && self.sanitized_range(beam_ranges, index) >= self.free_range_threshold;
             match (is_free, run_start) {
                 // A free beam with nothing open yet begins a new stretch.
                 (true, None) => run_start = Some(index),
@@ -346,14 +336,14 @@ impl<const BEAMS: usize, T: Numeric> FollowTheGap<BEAMS, T> {
 
                     // Drop this stretch if it is too narrow for the robot to fit through.
                     if self
-                        .gap_width(&sanitized_ranges, start, end)
+                        .gap_width(beam_ranges, start, end)
                         .is_some_and(|width| width < self.chassis_width)
                     {
                         continue;
                     }
 
                     // Choose where to aim inside this gap.
-                    let (low, high) = self.aim_bounds(&sanitized_ranges, start, end);
+                    let (low, high) = self.aim_bounds(beam_ranges, start, end);
                     let aim = if low > high {
                         // The safety margins from both edges overlap, so aim at the middle — the
                         // spot farthest from either obstacle.
@@ -395,7 +385,8 @@ impl<const BEAMS: usize, T: Numeric> FollowTheGap<BEAMS, T> {
         // Speed depends only on the beams pointing forward, so something off to the side does not
         // slow the robot until it comes around to the front.
         let mut frontal_clearance = self.maximum_range;
-        for (index, &range) in sanitized_ranges.iter().enumerate() {
+        for index in 0..BEAMS {
+            let range = self.sanitized_range(beam_ranges, index);
             if self.beam_angle_unchecked(index).abs() <= self.frontal_half_angle
                 && range < frontal_clearance
             {
@@ -424,14 +415,30 @@ impl<const BEAMS: usize, T: Numeric> FollowTheGap<BEAMS, T> {
         })
     }
 
+    /// One beam reading, cleaned up for use: an invalid or zero-or-negative reading becomes empty
+    /// space at `maximum_range`, since a missed reading means the sensor saw nothing there, and
+    /// anything beyond what the sensor can see is pulled back to `maximum_range`. An index past the
+    /// end of the scan reads as empty space too; callers that care about the edge of the scan check
+    /// the index themselves.
+    ///
+    /// Every read of `beam_ranges` goes through here, so the scan is never copied to clean it up.
+    #[inline]
+    #[must_use]
+    fn sanitized_range(&self, beam_ranges: &[T; BEAMS], index: usize) -> T {
+        match beam_ranges.get(index) {
+            Some(&range) if range.is_finite() && range > T::ZERO => range.min(self.maximum_range),
+            _ => self.maximum_range,
+        }
+    }
+
     /// The angle for a beam whose index is already known to be in range.
     #[inline]
     #[must_use]
     fn beam_angle_unchecked(&self, index: usize) -> T {
-        // `try_new` is the only way to build this and rejects fewer than two beams, so `BEAMS - 1`
-        // never underflows.
-        let span = T::from_usize(BEAMS - 1);
-        -self.field_of_view * T::HALF + self.field_of_view * T::from_usize(index) / span
+        // Shared with `ScanGeometry`, so a scan and the steering worked out from it number their
+        // beams the same way. `try_new` is the only way to build this and rejects fewer than two
+        // beams, which is what the shared formula needs.
+        crate::mapping::beam_angle_across(self.field_of_view, BEAMS, index)
     }
 
     /// The straight-line distance in metres between the two obstacles on either side of the open
@@ -446,8 +453,8 @@ impl<const BEAMS: usize, T: Numeric> FollowTheGap<BEAMS, T> {
     fn gap_width(&self, beam_ranges: &[T; BEAMS], start: usize, end: usize) -> Option<T> {
         let before = start.checked_sub(1)?;
         let after = end.checked_add(1).filter(|&index| index < BEAMS)?;
-        let range_a = *beam_ranges.get(before)?;
-        let range_b = *beam_ranges.get(after)?;
+        let range_a = self.sanitized_range(beam_ranges, before);
+        let range_b = self.sanitized_range(beam_ranges, after);
         let separation = self.beam_angle_unchecked(after) - self.beam_angle_unchecked(before);
         let squared =
             range_a * range_a + range_b * range_b - T::TWO * range_a * range_b * separation.cos();
@@ -466,10 +473,8 @@ impl<const BEAMS: usize, T: Numeric> FollowTheGap<BEAMS, T> {
     #[must_use]
     fn aim_bounds(&self, beam_ranges: &[T; BEAMS], start: usize, end: usize) -> (T, T) {
         let half_width = self.chassis_width * T::HALF;
-        let inset = |index: usize| match beam_ranges.get(index) {
-            Some(&range) if range > T::ZERO => (half_width / range).atan(),
-            _ => T::ZERO,
-        };
+        // A sanitized reading is always strictly positive, so this never divides by zero.
+        let inset = |index: usize| (half_width / self.sanitized_range(beam_ranges, index)).atan();
         let low = self.beam_angle_unchecked(start) + start.checked_sub(1).map_or(T::ZERO, inset);
         let high = self.beam_angle_unchecked(end)
             - end

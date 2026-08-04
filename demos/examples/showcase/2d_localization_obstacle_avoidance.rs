@@ -16,9 +16,10 @@ use std::collections::VecDeque;
 use std::f64::consts::{PI, TAU};
 
 use multicalc::linear_algebra::Matrix;
+use multicalc::mapping::OccupancyMap;
 use multicalc_demos::loop_util::{LatencyRing, Pacer, commas};
+use multicalc_demos::sim::circle_outline;
 use multicalc_demos::sim::localization_obstacle_avoidance_2d::{LapWorld, Phase};
-use multicalc_demos::sim::{OccupancyGrid, circle_outline};
 use multicalc_demos::{RerunSink, Rgba, VizError, VizSink};
 
 const HERO: Rgba = [0x39, 0x87, 0xe5, 0xff]; // the fused estimate, its ellipse and trail
@@ -88,13 +89,13 @@ fn heading_tick(pose: [f64; 3], length: f64) -> Vec<[f64; 2]> {
 
 /// The centres of every occupied cell, for drawing the map walls as a point cloud.
 #[must_use]
-fn wall_points(grid: &OccupancyGrid) -> Vec<[f64; 2]> {
+fn wall_points<M: OccupancyMap>(grid: &M) -> Vec<[f64; 2]> {
     let origin = grid.origin();
     let cell = grid.resolution();
     let mut points = Vec::new();
     for row in 0..grid.rows() {
         for column in 0..grid.columns() {
-            if grid.is_occupied(column, row) {
+            if grid.is_occupied(row, column) {
                 points.push([
                     origin[0] + (column as f64 + 0.5) * cell,
                     origin[1] + (row as f64 + 0.5) * cell,
