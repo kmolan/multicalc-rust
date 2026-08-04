@@ -123,10 +123,27 @@ impl<T: Numeric> SO3<T> {
         self.q.to_rotation_matrix()
     }
 
-    /// Builds a rotation from a 3×3 matrix; `None` if it is degenerate.
+    /// Builds a rotation from a finite 3×3 matrix sufficiently close to a proper unit rotation;
+    /// `None` otherwise.
     #[inline]
     #[must_use]
     pub fn try_from_matrix(m: Matrix3D<T>) -> Option<Self> {
+        let gram = m.transpose() * m;
+        for row in 0..3 {
+            for column in 0..3 {
+                let target = if row == column { T::ONE } else { T::ZERO };
+                let error = (gram[(row, column)] - target).abs();
+                if !error.is_finite() || error > T::EPSILON_X30 {
+                    return None;
+                }
+            }
+        }
+
+        let determinant = m.determinant();
+        if !determinant.is_finite() || determinant <= T::ZERO {
+            return None;
+        }
+
         Quaternion::try_from_rotation_matrix(m).map(|q| SO3 { q })
     }
 
