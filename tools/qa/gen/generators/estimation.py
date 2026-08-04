@@ -165,9 +165,8 @@ def _with_control_input(out, rng, meta):
 
 
 def _coordinated_turn_step(state, timestep):
-    """One tick along the turning arc. Mirrors CoordinatedTurn in
-    tools/testkit/src/problems.rs and CoordinatedTurnModel in
-    demos/src/sim/kalman_filter_models.rs; the three must stay in step."""
+    """One tick along the turning arc. Mirrors ConstantTurnAndSpeed in
+    crates/multicalc/src/estimation/models.rs; the two must stay in step."""
     x, y, heading, speed, turn_rate = state
     next_heading = heading + turn_rate * timestep
     radius = speed / turn_rate

@@ -119,6 +119,10 @@ pub use estimation::{ErrorStateKalmanFilter, ImuNoise, NominalState, NominalStat
 /// Light attitude filters for a turn-rate sensor fused with an accelerometer and a magnetometer.
 pub use estimation::{MadgwickFilter, MahonyFilter};
 
+/// Ready-made filter models: a turning-arc process model, a sensor reading part of the state, and
+/// an angle-aware residual.
+pub use estimation::{ConstantTurnAndSpeed, DirectMeasurement, residual_with_wrapped_angles};
+
 /// Particle filter (bootstrap/SIR) with pluggable resampling and measurement likelihood.
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]

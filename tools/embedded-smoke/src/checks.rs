@@ -18,7 +18,9 @@ use multicalc::control::{
     FollowTheGap, GeometricAttitudeController, Lqr, Pid, pure_pursuit_curvature,
 };
 use multicalc::error::LinalgError;
-use multicalc::estimation::{ExtendedKalmanFilter, KalmanFilter, KalmanModel};
+use multicalc::estimation::{
+    ConstantTurnAndSpeed, ExtendedKalmanFilter, KalmanFilter, KalmanModel,
+};
 use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Vector, Vector2D};
 use multicalc::numerical_derivative::DerivatorSingleVariable;
 use multicalc::numerical_derivative::Jacobian;
@@ -279,34 +281,6 @@ pub fn root_finding_golden() -> f64 {
     black_box(report.root)
 }
 
-/// Rolls `[x, y, heading, speed, turn_rate]` one tick along a turning arc. Mirrors
-/// `CoordinatedTurn` in `tools/qa/tests/estimation.rs`; the two must stay in step.
-struct CoordinatedTurn {
-    timestep: f64,
-}
-
-impl VectorFn<5, 5> for CoordinatedTurn {
-    fn eval<S: Numeric>(&self, state: &[S; 5]) -> [S; 5] {
-        let [x, y, heading, speed, turn_rate] = *state;
-        let dt = S::from_f64(self.timestep);
-        let next_heading = heading + turn_rate * dt;
-        let (next_x, next_y) = if turn_rate.abs() > S::from_f64(1e-6) {
-            let radius = speed / turn_rate;
-            (
-                x + radius * (next_heading.sin() - heading.sin()),
-                y + radius * (heading.cos() - next_heading.cos()),
-            )
-        } else {
-            (
-                x + speed * heading.cos() * dt,
-                y + speed * heading.sin() * dt,
-            )
-        };
-        let wrapped = next_heading.wrap_to_pi();
-        [next_x, next_y, wrapped, speed, turn_rate]
-    }
-}
-
 /// A position fix: the sensor sees the first two state components.
 struct GlobalPosition;
 impl VectorFn<5, 2> for GlobalPosition {
@@ -354,7 +328,7 @@ pub fn kalman_filter_golden() -> f64 {
 /// check that drives autodiff Jacobians at 5x5 on target. Returns `state[0]`. Full set only.
 #[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
 pub fn extended_kalman_filter_golden() -> f64 {
-    let motion = CoordinatedTurn {
+    let motion = ConstantTurnAndSpeed {
         timestep: fixtures::COORDINATED_TURN_TIMESTEP,
     };
     let mut filter = ExtendedKalmanFilter::<5, 2>::new(

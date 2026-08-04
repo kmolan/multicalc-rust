@@ -10,7 +10,7 @@ use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc::spatial::{Quaternion, SO3};
 use multicalc_qa::load::*;
-use multicalc_qa::problems::{CoordinatedTurn, GlobalPosition, StationaryPose};
+use multicalc_qa::problems::{ConstantTurnAndSpeed, GlobalPosition, StationaryPose};
 use multicalc_qa::schema::*;
 
 #[must_use]
@@ -185,7 +185,7 @@ fn run_landmark_range_and_bearing(fx: &Fixture) {
 }
 
 fn run_coordinated_turn_fusion(fx: &Fixture) {
-    let motion = CoordinatedTurn {
+    let motion = ConstantTurnAndSpeed {
         timestep: fx.inputs["timestep"].as_scalar(),
     };
     let mut filter = ExtendedKalmanFilter::<5, 2>::new(
@@ -244,7 +244,7 @@ fn build_unscented<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: us
 }
 
 fn run_unscented_coordinated_turn_fusion(fx: &Fixture) {
-    let motion = CoordinatedTurn {
+    let motion = ConstantTurnAndSpeed {
         timestep: fx.inputs["timestep"].as_scalar(),
     };
     let mut filter = build_unscented::<5, 2>(fx);
