@@ -11,7 +11,7 @@
 use crate::Numeric;
 
 /// A source of random 32-bit words, and the uniform and normal draws built from them.
-pub trait RandomSource {
+pub trait RandomSource<T: RandomScalar> {
     /// The next raw 32-bit word.
     #[must_use]
     fn next_u32(&mut self) -> u32;
@@ -24,8 +24,7 @@ pub trait RandomSource {
 
     /// A uniform draw in the half-open range 0.0 up to 1.0
     #[must_use]
-    fn next_unit<T: RandomScalar>(&mut self) -> T
-    {
+    fn next_unit(&mut self) -> T {
         T::next_unit(self)
     }
 
@@ -33,32 +32,39 @@ pub trait RandomSource {
     ///
     /// Uses the Marsaglia polar method and returns one of the pair, consuming two uniform draws.
     #[must_use]
-    fn standard_normal<T: RandomScalar>(&mut self) -> T
-    {
+    fn standard_normal(&mut self) -> T {
+        if let Some(cached) = self.get_cache() {
+            return cached;
+        }
+
         loop {
-            let x = T::TWO  * self.next_unit::<T>() - T::ONE;
-            let y = T::TWO  * self.next_unit::<T>() - T::ONE;
+            let x = T::TWO * self.next_unit() - T::ONE;
+            let y = T::TWO * self.next_unit() - T::ONE;
             let s = x.powi(2) + y.powi(2);
 
             if s > T::ZERO && s < T::ONE {
                 let scale = (-T::TWO * s.ln() / s).sqrt();
-                return x * scale
+                self.set_cache(y * scale);
+                return x * scale;
             }
-
         }
     }
+
+    fn get_cache(&mut self) -> Option<T>;
+
+    fn set_cache(&mut self, value: T);
 }
 
 pub trait RandomScalar: Numeric {
     /// A uniform draw in the half-open range 0.0 up to 1.0.
     #[must_use]
-    fn next_unit<R: RandomSource + ?Sized>(source: &mut R) -> Self;
+    fn next_unit<R: RandomSource<Self> + ?Sized>(source: &mut R) -> Self;
 }
 
 impl RandomScalar for f64 {
     /// A uniform draw in the half-open range 0.0 up to 1.0, with 53 bits of precision.
     #[inline]
-    fn next_unit<R: RandomSource + ?Sized>(source: &mut R) -> Self {
+    fn next_unit<R: RandomSource<f64> + ?Sized>(source: &mut R) -> Self {
         // Top 53 bits scaled into [0, 1); the low 11 bits are dropped so the result never reaches 1.
         (source.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
     }
@@ -67,7 +73,7 @@ impl RandomScalar for f64 {
 impl RandomScalar for f32 {
     /// A uniform draw in the half-open range 0.0 up to 1.0, with 24 bits of precision.
     #[inline]
-    fn next_unit<R: RandomSource + ?Sized>(source: &mut R) -> Self {
+    fn next_unit<R: RandomSource<f32> + ?Sized>(source: &mut R) -> Self {
         (source.next_u32() >> 8) as f32 * (1.0 / (1u32 << 24) as f32)
     }
 }
@@ -77,12 +83,13 @@ impl RandomScalar for f32 {
 /// Deterministic: the same seed and stream reproduce the same sequence, so a run repeats exactly.
 /// Not for cryptography.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Pcg32 {
+pub struct Pcg32<T: RandomScalar> {
     state: u64,
     increment: u64,
+    cache: Option<T>,
 }
 
-impl Pcg32 {
+impl<T: RandomScalar> Pcg32<T> {
     /// A generator seeded on the default stream.
     #[must_use]
     pub fn new(seed: u64) -> Self {
@@ -96,6 +103,7 @@ impl Pcg32 {
         let mut generator = Pcg32 {
             state: 0,
             increment: (stream << 1) | 1,
+            cache: None,
         };
         let _ = generator.next_u32();
         generator.state = generator.state.wrapping_add(seed);
@@ -104,7 +112,7 @@ impl Pcg32 {
     }
 }
 
-impl RandomSource for Pcg32 {
+impl<T: RandomScalar> RandomSource<T> for Pcg32<T> {
     fn next_u32(&mut self) -> u32 {
         // Advance the 64-bit state one step, then scramble the value it held into the output word.
         // The state moves on with a fixed multiply-and-add; the output is built from the old state
@@ -119,6 +127,14 @@ impl RandomSource for Pcg32 {
         let xorshifted = (((previous >> 18) ^ previous) >> 27) as u32;
         let rotation = (previous >> 59) as u32;
         xorshifted.rotate_right(rotation)
+    }
+
+    fn set_cache(&mut self, value: T) {
+        self.cache = Some(value);
+    }
+
+    fn get_cache(&mut self) -> Option<T> {
+        self.cache.take()
     }
 }
 

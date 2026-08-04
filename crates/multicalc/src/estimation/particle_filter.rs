@@ -24,7 +24,7 @@ use alloc::vec::Vec;
 
 use crate::error::EstimationError;
 use crate::linear_algebra::{Cholesky, Matrix, Vector};
-use crate::random::{Pcg32, RandomSource};
+use crate::random::{Pcg32, RandomScalar, RandomSource};
 use crate::scalar::{Numeric, VectorFn};
 
 /// How the filter draws a fresh, equally-weighted cloud from the current weighted one.
@@ -57,7 +57,7 @@ impl ResamplingScheme {
     /// down.
     ///
     /// An empty `weights` slice returns without consuming randomness or modifying `indices`.
-    pub fn resample_indices<T: Numeric, R: RandomSource>(
+    pub fn resample_indices<T: RandomScalar, R: RandomSource<T>>(
         self,
         weights: &[T],
         random: &mut R,
@@ -77,10 +77,14 @@ impl ResamplingScheme {
 }
 
 /// One random offset shared by every pick, spaced one stratum apart. Draws a single uniform.
-fn systematic<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indices: &mut [usize]) {
+fn systematic<T: RandomScalar, R: RandomSource<T>>(
+    weights: &[T],
+    random: &mut R,
+    indices: &mut [usize],
+) {
     let count = indices.len();
     let count_scalar = T::from_usize(count);
-    let offset = T::from_f64(random.next_unit::<f64>());
+    let offset = random.next_unit();
 
     // Picks sit at one-stratum spacing, all shifted by the same offset. Walk a running total of the
     // weights and place each pick on the first source whose total reaches it, so heavier sources,
@@ -98,7 +102,11 @@ fn systematic<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indice
 }
 
 /// A fresh random pick inside each evenly spaced stratum. Draws one uniform per pick.
-fn stratified<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indices: &mut [usize]) {
+fn stratified<T: RandomScalar, R: RandomSource<T>>(
+    weights: &[T],
+    random: &mut R,
+    indices: &mut [usize],
+) {
     let count = indices.len();
     let count_scalar = T::from_usize(count);
 
@@ -107,7 +115,7 @@ fn stratified<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indice
     let mut running_sum = weights[0];
     let mut source = 0;
     for (step, slot) in indices.iter_mut().enumerate() {
-        let offset = T::from_f64(random.next_unit::<f64>());
+        let offset = random.next_unit();
         let position = (offset + T::from_usize(step)) / count_scalar;
         while position >= running_sum && source + 1 < count {
             source += 1;
@@ -118,18 +126,26 @@ fn stratified<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indice
 }
 
 /// Each pick drawn independently from the weight distribution. Draws one uniform per pick.
-fn multinomial<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indices: &mut [usize]) {
+fn multinomial<T: RandomScalar, R: RandomSource<T>>(
+    weights: &[T],
+    random: &mut R,
+    indices: &mut [usize],
+) {
     // Every pick is an independent throw at the 0-to-1 line; each lands on the source whose weight
     // covers where it fell. Simple, but the picks clump more than the spaced schemes above.
     for slot in indices.iter_mut() {
-        let draw = T::from_f64(random.next_unit::<f64>());
+        let draw = random.next_unit();
         *slot = draw_from_weights(weights, draw);
     }
 }
 
 /// The whole-number share of each weight first, then the leftover slots filled by independent draws
 /// on the normalized fractional remainders. Draws one uniform per leftover slot.
-fn residual<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indices: &mut [usize]) {
+fn residual<T: RandomScalar, R: RandomSource<T>>(
+    weights: &[T],
+    random: &mut R,
+    indices: &mut [usize],
+) {
     let count = indices.len();
     let count_scalar = T::from_usize(count);
 
@@ -153,7 +169,7 @@ fn residual<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indices:
     }
 
     for slot in indices.iter_mut().skip(filled) {
-        let draw = T::from_f64(random.next_unit::<f64>());
+        let draw = random.next_unit();
         *slot = draw_from_remainders(weights, count_scalar, remainder_sum, draw);
     }
 }
@@ -304,7 +320,7 @@ pub struct ParticleFilter<
     const STATE_DIMENSION: usize,
     const MEASUREMENT_DIMENSION: usize,
     T = f64,
-    R = Pcg32,
+    R = Pcg32<T>,
 > {
     particles: Vec<Vector<STATE_DIMENSION, T>>,
     weights: Vec<T>,
@@ -318,8 +334,8 @@ pub struct ParticleFilter<
     log_weight_scratch: Vec<T>,
 }
 
-impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeric>
-    ParticleFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T, Pcg32>
+impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: RandomScalar>
+    ParticleFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T, Pcg32<T>>
 {
     /// Builds a filter with a [`Pcg32`] seeded from `seed`, sampling the initial cloud from the
     /// Gaussian `initial_mean`/`initial_covariance`.
@@ -344,10 +360,10 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
     }
 }
 
-impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeric, R>
+impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: RandomScalar, R>
     ParticleFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T, R>
 where
-    R: RandomSource,
+    R: RandomSource<T>,
 {
     /// Builds a filter with an explicit random backend — the built-in [`Pcg32`] or your own
     /// [`RandomSource`]. [`new`](Self::new) is the seeded-`Pcg32` default.
@@ -398,7 +414,7 @@ where
         // the requested covariance.
         let mut particles = Vec::with_capacity(particle_count);
         for _ in 0..particle_count {
-            let sample = Vector::from_fn(|_| T::from_f64(random.standard_normal()));
+            let sample = Vector::from_fn(|_| random.standard_normal());
             particles.push(initial_mean + initial_factor * sample);
         }
 
@@ -481,7 +497,7 @@ where
         let mut finite = true;
         for particle in self.particles.iter_mut() {
             let propagated = Vector::new(process_model.eval(particle.as_array()));
-            let noise = Vector::from_fn(|_| T::from_f64(self.random.standard_normal()));
+            let noise = Vector::from_fn(|_| self.random.standard_normal());
             *particle = propagated + self.process_noise_factor * noise;
             if !particle.is_finite() {
                 finite = false;
@@ -685,7 +701,7 @@ where
             }
             // Nudge every particle along this axis by an independent draw at that scale.
             for particle in self.particles.iter_mut() {
-                particle[axis] += scale * T::from_f64(self.random.standard_normal());
+                particle[axis] += scale * self.random.standard_normal();
             }
         }
     }
