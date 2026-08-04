@@ -303,6 +303,38 @@ fn se3_matrix_constructor_rejects_non_homogeneous_bottom_row() {
 }
 
 #[test]
+fn so3_matrix_constructor_rejects_non_rotations() {
+    let reflection = Matrix::new([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]);
+    assert!(SO3::try_from_matrix(reflection).is_none());
+
+    let shear = Matrix::new([[1.0, 0.25, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]);
+    assert!(SO3::try_from_matrix(shear).is_none());
+
+    let scaled = Matrix::new([[2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 2.0]]);
+    assert!(SO3::try_from_matrix(scaled).is_none());
+
+    let non_finite = Matrix::new([[1.0, 0.0, f64::NAN], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]);
+    assert!(SO3::try_from_matrix(non_finite).is_none());
+}
+
+#[test]
+fn se3_matrix_constructor_rejects_invalid_rotation_and_translation() {
+    let mut reflection = SE3::<f64>::identity().to_matrix();
+    reflection[(2, 2)] = -1.0;
+    assert!(SE3::try_from_matrix(reflection).is_none());
+
+    for row in 0..3 {
+        let mut non_finite = SE3::<f64>::identity().to_matrix();
+        non_finite[(row, 3)] = match row {
+            0 => f64::NAN,
+            1 => f64::INFINITY,
+            _ => f64::NEG_INFINITY,
+        };
+        assert!(SE3::try_from_matrix(non_finite).is_none());
+    }
+}
+
+#[test]
 fn so2_matrix_constructor_rejects_reflection() {
     let reflection = Matrix::new([[1.0, 0.0], [0.0, -1.0]]);
     assert!(SO2::try_from_matrix(reflection).is_none());
@@ -336,9 +368,31 @@ fn se2_matrix_constructor_validates_rotation_block() {
 }
 
 #[test]
+fn se2_matrix_constructor_rejects_invalid_homogeneous_components() {
+    for column in 0..3 {
+        let mut projective = SE2::<f64>::identity().to_matrix();
+        projective[(2, column)] = if column == 2 { 0.5 } else { 0.25 };
+        assert!(SE2::try_from_matrix(projective).is_none());
+    }
+
+    let mut non_finite_bottom_row = SE2::<f64>::identity().to_matrix();
+    non_finite_bottom_row[(2, 0)] = f64::NAN;
+    assert!(SE2::try_from_matrix(non_finite_bottom_row).is_none());
+
+    for row in 0..2 {
+        let mut non_finite = SE2::<f64>::identity().to_matrix();
+        non_finite[(row, 2)] = if row == 0 { f64::NAN } else { f64::INFINITY };
+        assert!(SE2::try_from_matrix(non_finite).is_none());
+    }
+}
+
+#[test]
 fn matrix_constructors_accept_valid_f32_roundtrips() {
     let rotation = SO2::<f32>::from_angle(0.3);
     assert!(SO2::try_from_matrix(rotation.to_matrix()).is_some());
+
+    let rotation = SO3::<f32>::exp(Vector::new([0.1, -0.2, 0.3]));
+    assert!(SO3::try_from_matrix(rotation.to_matrix()).is_some());
 
     let pose = SE3::<f32>::identity();
     assert!(SE3::try_from_matrix(pose.to_matrix()).is_some());
@@ -351,6 +405,14 @@ fn matrix_constructors_accept_roundoff_sized_drift() {
     let mut rotation = SO2::<f64>::from_angle(0.3).to_matrix();
     rotation[(0, 0)] += tolerance;
     assert!(SO2::try_from_matrix(rotation).is_some());
+
+    let mut rotation = SO3::<f64>::exp(Vector::new([0.1, -0.2, 0.3])).to_matrix();
+    rotation[(0, 0)] += tolerance;
+    assert!(SO3::try_from_matrix(rotation).is_some());
+
+    let mut pose = SE2::<f64>::identity().to_matrix();
+    pose[(2, 0)] = tolerance;
+    assert!(SE2::try_from_matrix(pose).is_some());
 
     let mut pose = SE3::<f64>::identity().to_matrix();
     pose[(3, 0)] = tolerance;

@@ -46,8 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - LU factorization now distinguishes an exactly singular pivot from one that is negligible
   relative to the matrix, rejecting unreliable solves and inverses while preserving a nonzero
   determinant. (#207)
-- `SE3::try_from_matrix` now rejects non-homogeneous bottom rows, while `SO2::try_from_matrix`
-  and the rotation block used by `SE2::try_from_matrix` reject improper rotations. (#209)
+- Matrix constructors for `SO2` and `SO3` now reject reflections, shears, and scaling, while `SE2`
+  and `SE3` also reject non-homogeneous bottom rows and non-finite translations. (#209)
 - `Matrix::expm` now rejects non-finite inputs before entering its scaling loop. (#202)
 - `ResamplingScheme::resample_indices` now leaves output indices untouched for empty weights
   instead of panicking. (#204)

@@ -147,12 +147,25 @@ impl<T: Numeric> SE2<T> {
         Matrix::new([[c, -s, tx], [s, c, ty], [T::ZERO, T::ZERO, T::ONE]])
     }
 
-    /// Builds a transform from a 3×3 homogeneous matrix; `None` if the rotation block is not a
-    /// proper unit rotation.
+    /// Builds a transform from a finite 3×3 homogeneous matrix; `None` if the rotation block is not
+    /// a proper unit rotation or the bottom row differs from `[0, 0, 1]` by more than scalar
+    /// round-off.
     #[inline]
     #[must_use]
     pub fn try_from_matrix(m: Matrix3D<T>) -> Option<Self> {
-        let [[m00, m01, m02], [m10, m11, m12], _] = m.into_array();
+        let [[m00, m01, m02], [m10, m11, m12], [m20, m21, m22]] = m.into_array();
+        if !m02.is_finite()
+            || !m12.is_finite()
+            || !m20.is_finite()
+            || !m21.is_finite()
+            || !m22.is_finite()
+            || m20.abs() > T::EPSILON_X30
+            || m21.abs() > T::EPSILON_X30
+            || (m22 - T::ONE).abs() > T::EPSILON_X30
+        {
+            return None;
+        }
+
         let r = SO2::try_from_matrix(Matrix::new([[m00, m01], [m10, m11]]))?;
         Some(SE2 {
             rotation: r,
