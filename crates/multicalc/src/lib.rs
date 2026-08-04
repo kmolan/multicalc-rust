@@ -153,8 +153,8 @@ pub use plant::{MultirotorMixer, RotorCommands, RotorLag, RotorSpin};
 /// Per-module-family error enums and the umbrella they convert into.
 pub use error::{
     CalcError, ControlError, DiffError, DynamicsError, EstimationError, IntegrateError,
-    KinematicsError, LinalgError, MotionError, PlantError, PolynomialError, SignalError,
-    SolveError, SpatialError,
+    KinematicsError, LinalgError, MappingError, MotionError, PlantError, PolynomialError,
+    SignalError, SolveError, SpatialError,
 };
 
 pub mod approximation;
@@ -166,6 +166,7 @@ pub mod estimation;
 pub mod gaussian_tables;
 pub mod kinematics;
 pub mod linear_algebra;
+pub mod mapping;
 pub mod motion;
 pub mod numerical_derivative;
 pub mod numerical_integration;
