@@ -22,6 +22,7 @@ use multicalc::estimation::{
     ConstantTurnAndSpeed, ExtendedKalmanFilter, KalmanFilter, KalmanModel,
 };
 use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Vector, Vector2D};
+use multicalc::mapping::{MutableOccupancyMap, OccupancyMap};
 use multicalc::numerical_derivative::DerivatorSingleVariable;
 use multicalc::numerical_derivative::Jacobian;
 use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
@@ -381,6 +382,88 @@ pub fn pure_pursuit_identity() -> f64 {
         0.0
     );
     black_box(left.value())
+}
+
+/// A map of `COLUMNS` by `ROWS` cells held in a plain array: what a board with no heap uses.
+struct FixedMap<const COLUMNS: usize, const ROWS: usize> {
+    cells: [[bool; COLUMNS]; ROWS],
+}
+
+impl<const COLUMNS: usize, const ROWS: usize> OccupancyMap for FixedMap<COLUMNS, ROWS> {
+    fn columns(&self) -> usize {
+        COLUMNS
+    }
+    fn rows(&self) -> usize {
+        ROWS
+    }
+    fn resolution(&self) -> f64 {
+        0.25
+    }
+    fn origin(&self) -> [f64; 2] {
+        [0.0, 0.0]
+    }
+    fn is_occupied(&self, row: usize, column: usize) -> bool {
+        self.cells
+            .get(row)
+            .and_then(|row| row.get(column))
+            .copied()
+            .unwrap_or(false)
+    }
+}
+
+impl<const COLUMNS: usize, const ROWS: usize> MutableOccupancyMap for FixedMap<COLUMNS, ROWS> {
+    fn set_cell(&mut self, row: usize, column: usize, occupied: bool) {
+        if let Some(cell) = self.cells.get_mut(row).and_then(|row| row.get_mut(column)) {
+            *cell = occupied;
+        }
+    }
+    fn clear(&mut self) {
+        self.cells = [[false; COLUMNS]; ROWS];
+    }
+}
+
+/// Identity: a wall drawn at x = 1.25 on a 16x16 map of 0.25 m cells is met at exactly 0.75 m by a
+/// beam fired along the row from x = 0.5, and a beam fired the other way meets nothing. Covers the
+/// rasterizing and the cell walk together, over a map held in a plain array. Returns the distance.
+/// Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn occupancy_ray_cast_identity() -> f64 {
+    let mut map: FixedMap<16, 16> = FixedMap {
+        cells: [[false; 16]; 16],
+    };
+
+    // A wall up the map, drawn from world points rather than marked cell by cell.
+    let wall_x = 1.25;
+    let wall = [[wall_x, 0.0], [wall_x, 4.0]];
+    let open_ended = false;
+    map.occupy_polyline(&wall, open_ended);
+
+    let sensor_position = [0.5, 0.5];
+    let along_the_row = 0.0;
+    let maximum_range = 4.0;
+    let distance = map
+        .cast_ray(black_box(sensor_position), along_the_row, maximum_range)
+        .expect("wall");
+    let expected = wall_x - sensor_position[0];
+    assert_close!(
+        "occupancy_ray_cast",
+        black_box(distance),
+        expected,
+        1e-12,
+        0.0
+    );
+
+    let back_along_the_row = core::f64::consts::PI;
+    assert!(
+        map.cast_ray(
+            black_box(sensor_position),
+            back_along_the_row,
+            maximum_range
+        )
+        .is_none(),
+        "occupancy_ray_cast_behind"
+    );
+    black_box(distance)
 }
 
 /// Identity: an unobstructed scan drives straight ahead at cruise speed, and a wall all round

@@ -104,6 +104,7 @@ fn main() -> ! {
             checks::piecewise_polynomial_golden(),
             checks::multivariate_identity(),
             checks::polynomial_evaluate_identity_f32(),
+            checks::occupancy_ray_cast_identity(),
         )
     };
 
@@ -153,6 +154,7 @@ fn main() -> ! {
             piecewise,
             multivariate,
             poly_f32,
+            occupancy_ray_cast,
         ) = full;
         let _ = hprintln!("SMOKE_VAL_quad={:e}", quad);
         let _ = hprintln!("SMOKE_VAL_jac00={:e}", jac00);
@@ -174,6 +176,7 @@ fn main() -> ! {
         let _ = hprintln!("SMOKE_VAL_piecewise={:e}", piecewise);
         let _ = hprintln!("SMOKE_VAL_multivariate={:e}", multivariate);
         let _ = hprintln!("SMOKE_VAL_poly_f32={:e}", poly_f32);
+        let _ = hprintln!("SMOKE_VAL_occupancy_ray_cast={:e}", occupancy_ray_cast);
     }
 
     debug::exit(debug::EXIT_SUCCESS);
