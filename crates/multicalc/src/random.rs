@@ -33,7 +33,7 @@ pub trait RandomSource {
 
     /// One draw from the standard normal distribution (mean 0, standard deviation 1).
     ///
-    /// Uses the Marsiagla polar method and returns one of the pair, consuming two uniform draws.
+    /// Uses the Marsaglia polar method and returns one of the pair, consuming two uniform draws.
     #[must_use]
     fn standard_normal<T: RandomScalar>(&mut self) -> T
     where
