@@ -19,12 +19,12 @@ use multicalc::{Pcg32, RandomSource};
 let seed = 20260722;
 let mut generator = Pcg32::new(seed);
 
-let uniform = generator.next_unit::<f64>();     // in [0, 1)
+let uniform = generator.next_unit();     // in [0, 1)
 let noise = generator.standard_normal();     // mean 0, standard deviation 1
 
 // The same seed replays the same sequence.
 let mut replay = Pcg32::new(seed);
-assert_eq!(replay.next_unit::<f64>(), uniform);
+assert_eq!(replay.next_unit(), uniform);
 
 // A second stream from the same seed draws an independent sequence.
 let stream = 1;
