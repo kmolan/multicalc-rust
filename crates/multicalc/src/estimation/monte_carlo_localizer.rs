@@ -4,6 +4,7 @@ use crate::error::EstimationError;
 use crate::estimation::ParticleFilter;
 use crate::linear_algebra::{Matrix, Vector};
 use crate::mapping::{OccupancyMap, ScanGeometry};
+use crate::random::RandomScalar;
 use crate::scalar::{Numeric, Primal, VectorFn};
 
 /// How the guesses are scattered before the robot has seen anything.
@@ -99,12 +100,12 @@ impl<T: Numeric> Default for BeamModel<T> {
 /// # Ok::<(), multicalc::CalcError>(())
 /// ```
 #[derive(Debug, Clone)]
-pub struct MonteCarloLocalizer<const NUM_BEAMS: usize, T: Numeric + Primal = f64> {
+pub struct MonteCarloLocalizer<const NUM_BEAMS: usize, T: RandomScalar + Primal = f64> {
     filter: ParticleFilter<3, 1, T>,
     beam_model: BeamModel<T>,
 }
 
-impl<const NUM_BEAMS: usize, T: Numeric + Primal> MonteCarloLocalizer<NUM_BEAMS, T> {
+impl<const NUM_BEAMS: usize, T: RandomScalar + Primal> MonteCarloLocalizer<NUM_BEAMS, T> {
     /// A localizer seeded from a rough guess, with the guesses scattered as `cloud` says.
     ///
     /// The spread added on every [`predict`](Self::predict) starts at `1e-4` on each of `x`, `y`,
