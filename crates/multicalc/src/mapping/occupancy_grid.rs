@@ -2,6 +2,11 @@
 
 //! A map of free and blocked cells, and walking a beam across it.
 
+#[cfg(feature = "alloc")]
+use alloc::{vec, vec::Vec};
+
+#[cfg(feature = "alloc")]
+use crate::error::MappingError;
 use crate::scalar::{Numeric, Primal};
 
 /// A map made of square cells, each free or blocked, that a beam can be cast across.
@@ -389,6 +394,184 @@ pub trait MutableOccupancyMap<T: Numeric + Primal = f64>: OccupancyMap<T> {
             ]);
             angle += step;
         }
+    }
+}
+
+/// A map of square cells sized when the program runs, each free or blocked — what a map read from a
+/// file or sized from a sensor needs.
+///
+/// Cells are named row first, as they are stored: cell `(row, column)` covers the world square
+/// starting at `origin + [column · resolution, row · resolution]`.
+///
+/// ```
+/// use core::f64::consts::{FRAC_PI_2, PI};
+///
+/// use multicalc::mapping::{DynamicOccupancyGrid, MutableOccupancyMap, OccupancyMap};
+///
+/// // A 20 m by 15 m warehouse floor at 5 cm cells: 400 across by 300 up, 120,000 cells in all.
+/// let floor_width = 20.0_f64;
+/// let floor_depth = 15.0;
+/// let cell_size = 0.05;
+/// let columns = (floor_width / cell_size) as usize;
+/// let rows = (floor_depth / cell_size) as usize;
+/// let lowest_corner = [0.0, 0.0];
+/// let mut floor = DynamicOccupancyGrid::try_new(columns, rows, cell_size, lowest_corner)?;
+/// assert_eq!(floor.columns(), 400);
+/// assert_eq!(floor.rows(), 300);
+///
+/// // The outer walls, drawn a decimetre inside the edge so the whole loop lands on the map.
+/// let margin = 0.1;
+/// let walls = [
+///     [margin, margin],
+///     [floor_width - margin, margin],
+///     [floor_width - margin, floor_depth - margin],
+///     [margin, floor_depth - margin],
+/// ];
+/// let joined_up = true;
+/// floor.occupy_polyline(&walls, joined_up);
+///
+/// // A run of shelving along the south side, and a roof pillar in the middle of the floor.
+/// let shelving = [[2.0, 2.0], [8.0, 2.0], [8.0, 3.0], [2.0, 3.0]];
+/// floor.occupy_polyline(&shelving, joined_up);
+/// let pillar_centre = [10.0, 7.5];
+/// let pillar_radius = 0.4;
+/// floor.occupy_circle(pillar_centre, pillar_radius);
+///
+/// // A robot parked halfway down the floor, five metres west of the pillar, taking a scan.
+/// let robot = [5.0, 7.5];
+/// let maximum_range = 10.0;
+///
+/// // Anything drawn is a cell thick, so the face a beam meets can sit a cell either side of the
+/// // line that drew it. At 5 cm cells that is what a scan against a map can be trusted to.
+/// let within_a_cell_or_two = 2.0 * cell_size;
+///
+/// // East: the near face of the pillar, at its centre less its radius.
+/// let east = 0.0;
+/// let pillar_face = pillar_centre[0] - pillar_radius - robot[0];
+/// let ahead = floor.cast_ray(robot, east, maximum_range);
+/// assert!(ahead.is_some_and(|met| (met - pillar_face).abs() <= within_a_cell_or_two));
+///
+/// // North: nothing until the far wall, seven and a half metres up.
+/// let north = FRAC_PI_2;
+/// let wall_face = floor_depth - margin - robot[1];
+/// let above = floor.cast_ray(robot, north, maximum_range);
+/// assert!(above.is_some_and(|met| (met - wall_face).abs() <= within_a_cell_or_two));
+///
+/// // South: the shelving stops the beam well before the wall behind it.
+/// let south = -FRAC_PI_2;
+/// let shelving_near_side = 3.0;
+/// let shelving_face = robot[1] - shelving_near_side;
+/// let below = floor.cast_ray(robot, south, maximum_range);
+/// assert!(below.is_some_and(|met| (met - shelving_face).abs() <= within_a_cell_or_two));
+///
+/// // West: open floor all the way to the wall, which is nearer than the beam can see.
+/// let west = PI;
+/// let behind = floor.cast_ray(robot, west, maximum_range);
+/// assert!(behind.is_some_and(|met| met < robot[0] && met > robot[0] - 2.0 * margin));
+///
+/// // A shorter-sighted sensor in the same spot sees nothing at all to the west.
+/// let short_sighted = 4.0;
+/// assert!(floor.cast_ray(robot, west, short_sighted).is_none());
+/// # Ok::<(), multicalc::CalcError>(())
+/// ```
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+#[derive(Debug, Clone, PartialEq)]
+pub struct DynamicOccupancyGrid<T: Numeric + Primal = f64> {
+    columns: usize,
+    rows: usize,
+    resolution: T,
+    origin: [T; 2],
+    cells: Vec<bool>,
+}
+
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+impl<T: Numeric + Primal> DynamicOccupancyGrid<T> {
+    /// A map of the given size with every cell free.
+    ///
+    /// `resolution` is the edge length of one cell and `origin` is the world corner of cell
+    /// `(0, 0)`, its lowest `x` and lowest `y`.
+    ///
+    /// Returns [`MappingError::EmptyGrid`] with no columns or no rows,
+    /// [`MappingError::GridTooLarge`] when the two multiplied out are more cells than can be
+    /// counted, [`MappingError::NonFinite`] if the cell size or origin is not finite, and
+    /// [`MappingError::NonPositiveResolution`] if the cell size is zero or negative.
+    pub fn try_new(
+        columns: usize,
+        rows: usize,
+        resolution: T,
+        origin: [T; 2],
+    ) -> Result<Self, MappingError> {
+        if columns == 0 || rows == 0 {
+            return Err(MappingError::EmptyGrid);
+        }
+        let count = columns
+            .checked_mul(rows)
+            .ok_or(MappingError::GridTooLarge)?;
+        if !resolution.is_finite() || !origin[0].is_finite() || !origin[1].is_finite() {
+            return Err(MappingError::NonFinite);
+        }
+        if resolution <= T::ZERO {
+            return Err(MappingError::NonPositiveResolution);
+        }
+        Ok(DynamicOccupancyGrid {
+            columns,
+            rows,
+            resolution,
+            origin,
+            cells: vec![false; count],
+        })
+    }
+
+    /// Where a `(row, column)` pair sits in `cells`, or `None` when the pair is off the map.
+    ///
+    /// The place is worked out only once both indices are known to be on the map, so the
+    /// multiplication can neither overflow nor reach past what was allocated.
+    fn index_of(&self, row: usize, column: usize) -> Option<usize> {
+        (row < self.rows && column < self.columns).then(|| row * self.columns + column)
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<T: Numeric + Primal> OccupancyMap<T> for DynamicOccupancyGrid<T> {
+    fn columns(&self) -> usize {
+        self.columns
+    }
+
+    fn rows(&self) -> usize {
+        self.rows
+    }
+
+    fn resolution(&self) -> T {
+        self.resolution
+    }
+
+    fn origin(&self) -> [T; 2] {
+        self.origin
+    }
+
+    fn is_occupied(&self, row: usize, column: usize) -> bool {
+        self.index_of(row, column)
+            .and_then(|index| self.cells.get(index))
+            .copied()
+            .unwrap_or(false)
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<T: Numeric + Primal> MutableOccupancyMap<T> for DynamicOccupancyGrid<T> {
+    fn set_cell(&mut self, row: usize, column: usize, occupied: bool) {
+        if let Some(cell) = self
+            .index_of(row, column)
+            .and_then(|index| self.cells.get_mut(index))
+        {
+            *cell = occupied;
+        }
+    }
+
+    fn clear(&mut self) {
+        self.cells.iter_mut().for_each(|cell| *cell = false);
     }
 }
 

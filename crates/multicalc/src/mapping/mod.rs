@@ -5,9 +5,14 @@
 //!   cell is blocked, and how far a beam travels before it meets something.
 //! - [`MutableOccupancyMap`] — marking cells from world geometry: single points, joined-up lines,
 //!   and circles.
+//! - [`DynamicOccupancyGrid`] — a heap-based occupancy grid for large maps (`alloc` only).
 //!
 //! Everything is generic over [`Numeric`](crate::Numeric) and works without `std`.
 
 mod occupancy_grid;
 
 pub use occupancy_grid::{MutableOccupancyMap, OccupancyMap};
+
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+pub use occupancy_grid::DynamicOccupancyGrid;

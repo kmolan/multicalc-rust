@@ -253,6 +253,8 @@ pub enum MappingError {
     NonPositiveResolution,
     /// A grid was asked for with no columns or no rows.
     EmptyGrid,
+    /// A grid's columns and rows multiply out to more cells than can be counted.
+    GridTooLarge,
     /// A scan was asked for with fewer than two beams.
     TooFewBeams,
     /// A field of view was outside the range one turn can cover.
@@ -720,6 +722,7 @@ impl core::fmt::Display for MappingError {
             MappingError::EmptyGrid => {
                 f.write_str("grid must have at least one column and one row")
             }
+            MappingError::GridTooLarge => f.write_str("grid has more cells than can be counted"),
             MappingError::TooFewBeams => f.write_str("a scan needs at least two beams"),
             MappingError::InvalidFieldOfView => f.write_str("field of view must lie in (0, 2π]"),
             MappingError::NonPositiveRange => {
