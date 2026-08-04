@@ -1,4 +1,4 @@
-//! Finding a robot on a map it already has, from a range scan.
+//! Monte Carlo Localization using particle filter
 
 use crate::error::EstimationError;
 use crate::estimation::ParticleFilter;

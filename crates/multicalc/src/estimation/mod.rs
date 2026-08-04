@@ -12,8 +12,7 @@
 //! - [`ParticleFilter`] — a cloud of weighted samples, for non-Gaussian or multi-peaked beliefs
 //!   (`alloc` only).
 //! - [`CovarianceUpdate`] — how the Kalman filters recompute the covariance.
-//! - [`MonteCarloLocalizer`] — finding a robot on a map it already has, from a range scan
-//!   (`alloc` only).
+//! - [`MonteCarloLocalizer`] — Monte Carlo Localization using particle filter.
 //! - [`models`] — ready-made process and measurement models to drive the filters with:
 //!   [`ConstantTurnAndSpeed`], [`DirectMeasurement`], and [`residual_with_wrapped_angles`].
 
