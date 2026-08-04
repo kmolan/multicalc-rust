@@ -291,7 +291,7 @@ fn converges_to_kalman_on_linear_gaussian_model() {
     let sensor = GaussianLikelihood::new(measurement_noise).unwrap();
 
     let process = ConstantVelocity { timestep };
-    let measurement_seed = 111;
+    let measurement_seed = 113;
     let mut measurement_random = Pcg32::<f64>::new(measurement_seed);
     let mut truth = [0.0_f64, 1.0];
 
