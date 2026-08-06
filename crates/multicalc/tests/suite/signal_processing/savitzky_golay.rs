@@ -87,7 +87,7 @@ fn centered_reproduces_the_curve_at_its_own_delay_f32() {
 // samples does. The wobble is drawn from a fixed seed, so the comparison is the same every run.
 #[test]
 fn smoothing_beats_a_plain_difference_on_noise() {
-    let mut noise = Pcg32::new(20260731);
+    let mut noise = Pcg32::<f64>::new(20260731);
     let mut fitted = SavitzkyGolay::<11, 3, f64>::latest(DT).unwrap();
 
     let mut previous = 0.0;
@@ -96,7 +96,7 @@ fn smoothing_beats_a_plain_difference_on_noise() {
 
     for sample in 0..SAMPLES {
         let time = sample as f64 * DT;
-        let wobble = 0.002 * (noise.next_unit_f64() - 0.5);
+        let wobble = 0.002 * (noise.next_unit() - 0.5);
         let reading = (2.0 * core::f64::consts::PI * 2.0 * time).sin() + wobble;
         let _ = fitted.filter(reading);
 

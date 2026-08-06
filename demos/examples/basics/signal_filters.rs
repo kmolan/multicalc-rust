@@ -107,11 +107,11 @@ fn main() {
     // again. A rate wanted from a noisy reading needs a longer gap between samples, not a shorter
     // one.
     const SLOW_DT: f64 = 0.01;
-    let mut wobble = Pcg32::new(20260731);
+    let mut wobble = Pcg32::<f64>::new(20260731);
     let noisy_position: Vec<f64> = (0..500)
         .map(|sample| {
             let time = sample as f64 * SLOW_DT;
-            0.5 * time * time + 0.002 * (wobble.next_unit_f64() - 0.5)
+            0.5 * time * time + 0.002 * (wobble.next_unit() - 0.5)
         })
         .collect();
     let last_time = 499.0 * SLOW_DT;

@@ -4,6 +4,7 @@ use crate::error::EstimationError;
 use crate::estimation::ParticleFilter;
 use crate::linear_algebra::{Matrix, Vector};
 use crate::mapping::{OccupancyMap, ScanGeometry};
+use crate::random::RandomScalar;
 use crate::scalar::{Numeric, Primal, VectorFn};
 
 /// How the guesses are scattered before the robot has seen anything.
@@ -79,7 +80,7 @@ impl<T: Numeric> Default for BeamModel<T> {
 /// let hint = [2.3, 2.7, 0.4];
 /// let cloud = InitialParticleCloud { particle_count: 300, ..Default::default() };
 /// let beam_model = BeamModel { range_deviation: 0.3, ..Default::default() };
-/// let seed = 20260804;
+/// let seed = 20260802;
 /// let mut localizer = MonteCarloLocalizer::<NUM_BEAMS>::new(hint, cloud, beam_model, seed)?;
 ///
 /// // Standing still, taking the same reading a few times over.
@@ -99,12 +100,12 @@ impl<T: Numeric> Default for BeamModel<T> {
 /// # Ok::<(), multicalc::CalcError>(())
 /// ```
 #[derive(Debug, Clone)]
-pub struct MonteCarloLocalizer<const NUM_BEAMS: usize, T: Numeric + Primal = f64> {
+pub struct MonteCarloLocalizer<const NUM_BEAMS: usize, T: RandomScalar + Primal = f64> {
     filter: ParticleFilter<3, 1, T>,
     beam_model: BeamModel<T>,
 }
 
-impl<const NUM_BEAMS: usize, T: Numeric + Primal> MonteCarloLocalizer<NUM_BEAMS, T> {
+impl<const NUM_BEAMS: usize, T: RandomScalar + Primal> MonteCarloLocalizer<NUM_BEAMS, T> {
     /// A localizer seeded from a rough guess, with the guesses scattered as `cloud` says.
     ///
     /// The spread added on every [`predict`](Self::predict) starts at `1e-4` on each of `x`, `y`,

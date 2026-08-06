@@ -8,8 +8,10 @@
 //! implements, with uniform and normal draws built on top of a raw 32-bit word; [`Pcg32`] is the built-in
 //! generator.
 
+use crate::Numeric;
+
 /// A source of random 32-bit words, and the uniform and normal draws built from them.
-pub trait RandomSource {
+pub trait RandomSource<T: RandomScalar> {
     /// The next raw 32-bit word.
     #[must_use]
     fn next_u32(&mut self) -> u32;
@@ -20,25 +22,59 @@ pub trait RandomSource {
         ((self.next_u32() as u64) << 32) | (self.next_u32() as u64)
     }
 
-    /// A uniform draw in the half-open range 0.0 up to 1.0, with 53 bits of precision.
+    /// A uniform draw in the half-open range 0.0 up to 1.0
     #[must_use]
-    fn next_unit_f64(&mut self) -> f64 {
-        // Top 53 bits scaled into [0, 1); the low 11 bits are dropped so the result never reaches 1.
-        (self.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
+    fn next_unit(&mut self) -> T {
+        T::next_unit(self)
     }
 
     /// One draw from the standard normal distribution (mean 0, standard deviation 1).
     ///
-    /// Uses the polar pair method and returns one of the pair, consuming two uniform draws. The
-    /// first draw is nudged off zero so the logarithm stays finite.
+    /// Uses the Marsaglia polar method and returns one of the pair, consuming two uniform draws.
     #[must_use]
-    fn standard_normal(&mut self) -> f64 {
-        let mut first = self.next_unit_f64();
-        if first <= f64::MIN_POSITIVE {
-            first = f64::MIN_POSITIVE;
+    fn standard_normal(&mut self) -> T {
+        if let Some(cached) = self.get_cache() {
+            return cached;
         }
-        let second = self.next_unit_f64();
-        libm::sqrt(-2.0 * libm::log(first)) * libm::cos(core::f64::consts::TAU * second)
+
+        loop {
+            let x_draw = T::TWO * self.next_unit() - T::ONE;
+            let y_draw = T::TWO * self.next_unit() - T::ONE;
+            let radius_squared = x_draw.powi(2) + y_draw.powi(2);
+
+            if radius_squared > T::ZERO && radius_squared < T::ONE {
+                let scale = (-T::TWO * radius_squared.ln() / radius_squared).sqrt();
+                self.set_cache(y_draw * scale);
+                return x_draw * scale;
+            }
+        }
+    }
+
+    fn get_cache(&mut self) -> Option<T>;
+
+    fn set_cache(&mut self, value: T);
+}
+
+pub trait RandomScalar: Numeric {
+    /// A uniform draw in the half-open range 0.0 up to 1.0.
+    #[must_use]
+    fn next_unit<R: RandomSource<Self> + ?Sized>(source: &mut R) -> Self;
+}
+
+impl RandomScalar for f64 {
+    /// A uniform draw in the half-open range 0.0 up to 1.0, with 53 bits of precision.
+    #[inline]
+    fn next_unit<R: RandomSource<f64> + ?Sized>(source: &mut R) -> Self {
+        // Top 53 bits scaled into [0, 1); the low 11 bits are dropped so the result never reaches 1.
+        (source.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
+    }
+}
+
+impl RandomScalar for f32 {
+    /// A uniform draw in the half-open range 0.0 up to 1.0, with 24 bits of precision.
+    #[inline]
+    fn next_unit<R: RandomSource<f32> + ?Sized>(source: &mut R) -> Self {
+        (source.next_u32() >> 8) as f32 * (1.0 / (1u32 << 24) as f32)
     }
 }
 
@@ -47,12 +83,13 @@ pub trait RandomSource {
 /// Deterministic: the same seed and stream reproduce the same sequence, so a run repeats exactly.
 /// Not for cryptography.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Pcg32 {
+pub struct Pcg32<T: RandomScalar> {
     state: u64,
     increment: u64,
+    cache: Option<T>,
 }
 
-impl Pcg32 {
+impl<T: RandomScalar> Pcg32<T> {
     /// A generator seeded on the default stream.
     #[must_use]
     pub fn new(seed: u64) -> Self {
@@ -66,6 +103,7 @@ impl Pcg32 {
         let mut generator = Pcg32 {
             state: 0,
             increment: (stream << 1) | 1,
+            cache: None,
         };
         let _ = generator.next_u32();
         generator.state = generator.state.wrapping_add(seed);
@@ -74,7 +112,7 @@ impl Pcg32 {
     }
 }
 
-impl RandomSource for Pcg32 {
+impl<T: RandomScalar> RandomSource<T> for Pcg32<T> {
     fn next_u32(&mut self) -> u32 {
         // Advance the 64-bit state one step, then scramble the value it held into the output word.
         // The state moves on with a fixed multiply-and-add; the output is built from the old state
@@ -89,6 +127,14 @@ impl RandomSource for Pcg32 {
         let xorshifted = (((previous >> 18) ^ previous) >> 27) as u32;
         let rotation = (previous >> 59) as u32;
         xorshifted.rotate_right(rotation)
+    }
+
+    fn set_cache(&mut self, value: T) {
+        self.cache = Some(value);
+    }
+
+    fn get_cache(&mut self) -> Option<T> {
+        self.cache.take()
     }
 }
 

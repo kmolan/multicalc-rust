@@ -191,7 +191,7 @@ fn madgwick_converges_from_a_wrong_start() {
 fn mahony_keeps_the_facing_a_true_rotation() {
     let mut filter = MahonyFilter::new(SO3::<f64>::identity());
     let mut truth = SO3::<f64>::identity();
-    let mut generator = Pcg32::new(20260802);
+    let mut generator = Pcg32::<f64>::new(20260802);
 
     let turn_rate = Vector::new([0.7, -0.5, 1.1]);
     let jitter = 0.05;
@@ -216,7 +216,7 @@ fn mahony_keeps_the_facing_a_true_rotation() {
 fn madgwick_keeps_the_facing_a_true_rotation() {
     let mut filter = MadgwickFilter::new(SO3::<f64>::identity());
     let mut truth = SO3::<f64>::identity();
-    let mut generator = Pcg32::new(20260802);
+    let mut generator = Pcg32::<f64>::new(20260802);
 
     let turn_rate = Vector::new([0.7, -0.5, 1.1]);
     let jitter = 0.05;

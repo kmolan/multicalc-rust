@@ -64,6 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   value-returning accessors, queries, and helpers, so discarded results warn under
   `unused_must_use`. Returns already covered by `Result` / `Vector` / `Matrix`
   stay unmarked; `embedded-smoke` is excluded. @rtmongold (#258)
+- `RandomSource::standard_normal` is now generic, uses the Marsaglia polar method to avoid
+  trigonometry functions, and caches values to save work. @kirloo (#223)
 
 ## [0.9.0] - 2026-07-26
 

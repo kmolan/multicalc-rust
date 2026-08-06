@@ -164,7 +164,7 @@ fn particle_filter() -> Result<(), CalcError> {
     // The true pose the robot actually follows; the filter never sees it. Each measurement is the
     // true ranges plus sensor noise, drawn from a seeded generator so the run reproduces exactly.
     let mut truth = [5.0_f64, 4.0, 0.3];
-    let mut range_generator = Pcg32::new(20);
+    let mut range_generator = Pcg32::<f64>::new(20);
 
     println!("\nParticle filter: locating a robot from 4 beacon ranges with a 1500-sample cloud");
     println!("  step |  est x  est y  est θ |  ess");
@@ -226,7 +226,7 @@ fn particle_filter() -> Result<(), CalcError> {
 /// and y coordinates, a plain-metres measure of how sure the filter is.
 #[cfg(feature = "alloc")]
 #[must_use]
-fn position_spread<R: multicalc::random::RandomSource>(
+fn position_spread<R: multicalc::random::RandomSource<f64>>(
     filter: &multicalc::estimation::ParticleFilter<3, 4, f64, R>,
 ) -> f64 {
     let mean = filter.mean();

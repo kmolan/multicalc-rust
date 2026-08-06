@@ -184,7 +184,7 @@ fn error_round_trips_through_plus_and_minus() {
     }
 }
 
-fn random_state(generator: &mut Pcg32) -> NominalState<f64> {
+fn random_state(generator: &mut Pcg32<f64>) -> NominalState<f64> {
     let mut draw = || generator.standard_normal();
     let position = Vector::new([draw(), draw(), draw()]);
     let velocity = Vector::new([draw(), draw(), draw()]);
@@ -202,7 +202,7 @@ fn random_state(generator: &mut Pcg32) -> NominalState<f64> {
 
 /// A random error whose rotation part stays under a radian, so the round trip is inside the half
 /// turn where the two directions agree.
-fn random_error(generator: &mut Pcg32) -> Vector<15, f64> {
+fn random_error(generator: &mut Pcg32<f64>) -> Vector<15, f64> {
     let mut error = Vector::zeros();
     for index in 0..15 {
         error[index] = generator.standard_normal() * 0.3;
@@ -609,7 +609,7 @@ fn conditioning_repairs_a_drifted_covariance() {
 }
 
 /// Fifteen perpendicular unit directions, built by orthogonalizing random ones against each other.
-fn random_orthonormal_matrix(generator: &mut Pcg32) -> Matrix<15, 15, f64> {
+fn random_orthonormal_matrix(generator: &mut Pcg32<f64>) -> Matrix<15, 15, f64> {
     let mut columns = [[0.0_f64; 15]; 15];
     for index in 0..15 {
         let mut candidate = Vector::<15, f64>::zeros();
@@ -684,7 +684,7 @@ impl Flight {
         &mut self,
         timestep: f64,
         imu_noise: &ImuNoise<f64>,
-        generator: &mut Pcg32,
+        generator: &mut Pcg32<f64>,
     ) -> (Vector3D<f64>, Vector3D<f64>) {
         let proper_push = self.proper_push(timestep);
         // The filter carries a reading's jitter into the error as `(density · Δt)²` per step, so
@@ -709,7 +709,7 @@ impl Flight {
     }
 }
 
-fn random_vector(generator: &mut Pcg32, spread: f64) -> Vector3D<f64> {
+fn random_vector(generator: &mut Pcg32<f64>, spread: f64) -> Vector3D<f64> {
     Vector::new([
         generator.standard_normal() * spread,
         generator.standard_normal() * spread,
@@ -752,7 +752,7 @@ fn run_flight(
     mut flight: Flight,
     step_count: usize,
     timestep: f64,
-    generator: &mut Pcg32,
+    generator: &mut Pcg32<f64>,
 ) -> (ErrorStateKalmanFilter<3, f64>, NominalState<f64>) {
     let imu_noise = realistic_imu_noise();
     let position_fix_period = 20;
