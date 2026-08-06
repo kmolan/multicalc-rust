@@ -38,14 +38,14 @@ pub trait RandomSource<T: RandomScalar> {
         }
 
         loop {
-            let x = T::TWO * self.next_unit() - T::ONE;
-            let y = T::TWO * self.next_unit() - T::ONE;
-            let s = x.powi(2) + y.powi(2);
+            let x_draw = T::TWO * self.next_unit() - T::ONE;
+            let y_draw = T::TWO * self.next_unit() - T::ONE;
+            let radius_squared = x_draw.powi(2) + y_draw.powi(2);
 
-            if s > T::ZERO && s < T::ONE {
-                let scale = (-T::TWO * s.ln() / s).sqrt();
-                self.set_cache(y * scale);
-                return x * scale;
+            if radius_squared > T::ZERO && radius_squared < T::ONE {
+                let scale = (-T::TWO * radius_squared.ln() / radius_squared).sqrt();
+                self.set_cache(y_draw * scale);
+                return x_draw * scale;
             }
         }
     }
