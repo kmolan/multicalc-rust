@@ -22,7 +22,7 @@ pub use so3::SO3;
 
 use crate::linear_algebra::{Matrix, Matrix3D, Matrix6D, Vector, Vector3D, Vector6D};
 use crate::scalar::Numeric;
-use crate::spatial::small_angle_sq;
+use crate::spatial::{small_angle_inverse_so3_sq, small_angle_se3_sq, small_angle_so3_sq};
 
 /// The 3×3 skew-symmetric matrix `[v]×`, so that `[v]× · p = v × p`.
 #[inline]
@@ -38,18 +38,21 @@ pub(crate) fn left_jacobian_so3<T: Numeric>(phi: Vector3D<T>) -> Matrix3D<T> {
     let theta_sq = phi.dot(phi);
     let s = skew3(phi);
     let s2 = s * s;
-    let (c1, c2) = if theta_sq < small_angle_sq::<T>() {
-        (
-            T::HALF - theta_sq / T::from_f64(24.0),
-            T::ONE / T::from_f64(6.0) - theta_sq / T::from_f64(120.0),
-        )
+    let (t1, t2) = small_angle_so3_sq::<T>();
+    let theta = theta_sq.sqrt();
+
+    let c1 = if theta_sq < t1 {
+        T::HALF - theta_sq / T::from_f64(24.0)
     } else {
-        let theta = theta_sq.sqrt();
-        (
-            (T::ONE - theta.cos()) / theta_sq,
-            (theta - theta.sin()) / (theta_sq * theta),
-        )
+        (T::ONE - theta.cos()) / theta_sq
     };
+
+    let c2 = if theta_sq < t2 {
+        T::ONE / T::from_f64(6.0) - theta_sq / T::from_f64(120.0)
+    } else {
+        (theta - theta.sin()) / (theta_sq * theta)
+    };
+
     Matrix::identity() + s.scale(c1) + s2.scale(c2)
 }
 
@@ -60,7 +63,7 @@ pub(crate) fn inverse_left_jacobian_so3<T: Numeric>(phi: Vector3D<T>) -> Matrix3
     let theta_sq = phi.dot(phi);
     let s = skew3(phi);
     let s2 = s * s;
-    let c3 = if theta_sq < small_angle_sq::<T>() {
+    let c3 = if theta_sq < small_angle_inverse_so3_sq::<T>() {
         T::ONE / T::from_f64(12.0) + theta_sq / T::from_f64(720.0)
     } else {
         let theta = theta_sq.sqrt();
@@ -77,23 +80,33 @@ pub(crate) fn q_matrix_se3<T: Numeric>(rho: Vector3D<T>, phi: Vector3D<T>) -> Ma
     let theta_sq = phi.dot(phi);
     let p = skew3(rho);
     let ph = skew3(phi);
-    let (c2, c3, c5) = if theta_sq < small_angle_sq::<T>() {
-        (
-            T::ONE / T::from_f64(6.0) - theta_sq / T::from_f64(120.0),
-            T::ONE / T::from_f64(24.0) - theta_sq / T::from_f64(720.0),
-            -T::ONE / T::from_f64(120.0) + theta_sq / T::from_f64(5040.0),
-        )
+    // Each ratio cancels at its own angle, so each gets its own cutoff. Sharing one would force
+    // the earliest-switching ratio onto its series far past its crossover, and truncation grows
+    // as θ⁴.
+    let (t_c2, t_c3, t_c5) = small_angle_se3_sq::<T>();
+    let theta = theta_sq.sqrt();
+    let theta3 = theta_sq * theta;
+    let theta4 = theta_sq * theta_sq;
+    let theta5 = theta4 * theta;
+
+    let c2 = if theta_sq < t_c2 {
+        T::ONE / T::from_f64(6.0) - theta_sq / T::from_f64(120.0)
     } else {
-        let theta = theta_sq.sqrt();
-        let theta3 = theta_sq * theta;
-        let theta4 = theta_sq * theta_sq;
-        let theta5 = theta4 * theta;
-        (
-            (theta - theta.sin()) / theta3,
-            (T::ONE - theta_sq * T::HALF - theta.cos()) / theta4,
-            (theta - theta.sin() - theta3 / T::from_f64(6.0)) / theta5,
-        )
+        (theta - theta.sin()) / theta3
     };
+
+    let c3 = if theta_sq < t_c3 {
+        -T::ONE / T::from_f64(24.0) + theta_sq / T::from_f64(720.0)
+    } else {
+        (T::ONE - theta_sq * T::HALF - theta.cos()) / theta4
+    };
+
+    let c5 = if theta_sq < t_c5 {
+        -T::ONE / T::from_f64(120.0) + theta_sq / T::from_f64(5040.0)
+    } else {
+        (theta - theta.sin() - theta3 / T::from_f64(6.0)) / theta5
+    };
+
     let c4 = (c3 - T::from_f64(3.0) * c5) * T::HALF;
     let phph = ph * p * ph; // Φ P Φ, reused in two terms
     let t2 = ph * p + p * ph + phph; // ΦP + PΦ + ΦPΦ
