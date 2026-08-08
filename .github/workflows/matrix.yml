@@ -90,11 +90,13 @@ jobs:
       # Cache the QEMU apt package + its dependencies instead of re-downloading it
       # on every run.
       - name: Install QEMU (cached)
+        if: startsWith(matrix.target, 'thumb')
         uses: awalsh128/cache-apt-pkgs-action@v1
         with:
           packages: qemu-system-arm
           version: 1.0
       - name: Install QEMU (RISC-V)
+        if: startsWith(matrix.target, 'riscv')
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-system-misc

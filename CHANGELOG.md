@@ -55,6 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   augmented matrices. (#203)
 - Silence `unused_must_use` in `embedded-smoke`'s LQR identity check by discading the Lyapunov
   certificate after `expect`. rtmongold (#272)
+- Install QEMU per bare-metal matrix target so thumb legs do not apt-upgrade shared modules under
+  a cached `qemu-system-arm` after Ubuntu QEMU bumps. rtmongold (#273)
 
 ### Changed
 
