@@ -1,6 +1,17 @@
 //! A three-axis inertial unit: what a body feels as it turns and is pushed about, reported the way
 //! a real one reports it — late, offset, jittery, and shaking along with the machine it is bolted
 //! to.
+//!
+//! Two faults of a real unit are deliberately left out, and it is worth saying so rather than
+//! leaving it to be noticed. Each axis here is exactly as sensitive as it claims to be, and the
+//! three sit exactly square to the body and to each other. A real unit is out on both counts: an
+//! axis reads a fraction of a per cent high or low, and it is bolted a fraction of a degree away
+//! from where it is meant to point, so a little of what one axis feels shows up on the others. They
+//! are left out because they are a different kind of fault from everything above — what they add
+//! grows with the size of the reading instead of sitting at a level of its own, so the steady
+//! offsets the filter works out cannot stand in for them, and putting them in would mean widening
+//! what the filter claims about itself until the claim covered them. Nothing here measures what
+//! they would cost.
 
 use rand_pcg::Pcg32;
 
@@ -18,6 +29,15 @@ const SHAKE_PHASES: [f64; 3] = [
     std::f64::consts::TAU / 3.0,
     2.0 * std::f64::consts::TAU / 3.0,
 ];
+
+/// A reading the unit has taken but not yet handed out, with the offsets that went into it and how
+/// far round the shake was when it was taken.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct HeldBack {
+    reading: InertialReading3d,
+    offsets: InertialReading3d,
+    shake_phase: f64,
+}
 
 /// What the unit reports, both in the body's own axes.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -50,20 +70,23 @@ impl InertialReading3d {
 /// wanders slowly over a flight, jitter that is different in every single reading, and — while the
 /// rotors are turning — a shake at the rotors' own rate and at twice that again. The offset is the
 /// one that hurts, because it does not average away however long it is watched; the shake is the one
-/// that is easiest to remove, because it sits at a frequency that is known.
+/// that is easiest to remove, because it sits at a frequency that is known. On top of all three the
+/// answer arrives a tick late: what the unit hands over is the sample it took last time it was
+/// asked, because a reading has to be taken, converted and carried across a wire before anything
+/// can act on it.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct InertialMeasurementUnit3d {
     angular_rate_jitter: f64,
     acceleration_jitter: f64,
     angular_rate_offset_wander: f64,
     acceleration_offset_wander: f64,
-    rotor_tone_hertz: f64,
     angular_rate_shake: f64,
     acceleration_shake: f64,
     second_harmonic_share: f64,
     angular_rate_offset: Vector3D<f64>,
     acceleration_offset: Vector3D<f64>,
-    time: f64,
+    held_back: Option<HeldBack>,
+    shake_phase: f64,
 }
 
 impl InertialMeasurementUnit3d {
@@ -82,13 +105,13 @@ impl InertialMeasurementUnit3d {
             acceleration_jitter,
             angular_rate_offset_wander: 0.0,
             acceleration_offset_wander: 0.0,
-            rotor_tone_hertz: 0.0,
             angular_rate_shake: 0.0,
             acceleration_shake: 0.0,
             second_harmonic_share: 0.0,
             angular_rate_offset: Vector::zeros(),
             acceleration_offset: Vector::zeros(),
-            time: 0.0,
+            held_back: None,
+            shake_phase: 0.0,
         }
     }
 
@@ -107,19 +130,19 @@ impl InertialMeasurementUnit3d {
 
     /// Shakes the unit along with the machine it is bolted to.
     ///
-    /// `rotor_tone_hertz` is how fast the rotors come round, `angular_rate` and `acceleration` are
-    /// how hard the shake is felt on each half of the reading, and `second_harmonic_share` is how
-    /// much of that again comes back at twice the rate.
+    /// `angular_rate` and `acceleration` are how hard the shake is felt on each half of the
+    /// reading, and `second_harmonic_share` is how much of that again comes back at twice the rate.
+    /// How fast the rotors are coming round is not fixed here: it is handed to
+    /// [`InertialMeasurementUnit3d::read`] afresh every tick, because it moves with how hard the
+    /// rotors are pushing.
     #[inline]
     #[must_use]
     pub fn with_shake(
         mut self,
-        rotor_tone_hertz: f64,
         angular_rate: f64,
         acceleration: f64,
         second_harmonic_share: f64,
     ) -> Self {
-        self.rotor_tone_hertz = rotor_tone_hertz;
         self.angular_rate_shake = angular_rate;
         self.acceleration_shake = acceleration;
         self.second_harmonic_share = second_harmonic_share;
@@ -142,42 +165,72 @@ impl InertialMeasurementUnit3d {
         self
     }
 
-    /// The offsets the unit is carrying at this moment, as a reading of its own.
+    /// The offsets that went into the reading the unit is about to hand over, as a reading of its
+    /// own.
     ///
     /// This is the thing an estimate has to work out for itself. Nothing that flies may look at it;
     /// it is here so a measurement can say how much of an error was the offset and how much was
-    /// everything else.
+    /// everything else. It follows the reading rather than the moment, so what it says always
+    /// belongs to the sample that is being reported and not to the one still being taken.
     #[inline]
     #[must_use]
     pub fn offsets(&self) -> InertialReading3d {
-        InertialReading3d::new(self.angular_rate_offset, self.acceleration_offset)
+        match self.held_back {
+            Some(held) => held.offsets,
+            None => InertialReading3d::new(self.angular_rate_offset, self.acceleration_offset),
+        }
     }
 
-    /// Reads the truth once, and moves the offsets on by one tick's worth of wandering.
+    /// How far round the shake had come when the reading the unit is about to hand over was taken,
+    /// in radians.
+    ///
+    /// Nothing that flies may look at this either. It is here so a measurement can pick the shake
+    /// out of a reading by matching it against the wave that put it there, which is a thing no
+    /// amount of jitter can imitate — and a wave whose rate keeps moving cannot be matched by
+    /// guessing at the rate afterwards.
+    #[inline]
+    #[must_use]
+    pub fn shake_phase(&self) -> f64 {
+        match self.held_back {
+            Some(held) => held.shake_phase,
+            None => self.shake_phase,
+        }
+    }
+
+    /// Takes a reading of the truth, hands back the one taken a tick ago, and moves the offsets and
+    /// the shake on by one tick.
     ///
     /// `true_angular_rate` and `true_proper_acceleration` are both in the body's own axes.
-    /// `rotors_running` says whether the machine is shaking at all — a unit on a still machine sits
-    /// quiet, and the shake appears the moment the rotors are turning.
+    /// `rotor_tone_hertz` is how fast the rotors are coming round at this moment, or nothing at all
+    /// when they are not turning — a unit on a still machine sits quiet, and the shake appears the
+    /// moment the rotors are running.
+    ///
+    /// What comes back is the previous sample, not the one just taken: a real unit measures,
+    /// converts and sends, and whatever acts on the answer is therefore always acting on a body as
+    /// it was a moment ago. The very first call has nothing older to give and hands back what it
+    /// just took.
     pub fn read(
         &mut self,
         true_angular_rate: Vector3D<f64>,
         true_proper_acceleration: Vector3D<f64>,
         timestep: f64,
-        rotors_running: bool,
+        rotor_tone_hertz: Option<f64>,
         rng: &mut Pcg32,
     ) -> InertialReading3d {
-        let time = self.time;
+        let phase = self.shake_phase;
+        let running = rotor_tone_hertz.is_some();
+        let offsets = InertialReading3d::new(self.angular_rate_offset, self.acceleration_offset);
         let angular_rate = Vector::from_fn(|axis| {
             true_angular_rate[axis]
                 + self.angular_rate_offset[axis]
                 + gaussian_noise(self.angular_rate_jitter, rng)
-                + self.shake(axis, time, self.angular_rate_shake, rotors_running)
+                + self.shake(axis, phase, self.angular_rate_shake, running)
         });
         let proper_acceleration = Vector::from_fn(|axis| {
             true_proper_acceleration[axis]
                 + self.acceleration_offset[axis]
                 + gaussian_noise(self.acceleration_jitter, rng)
-                + self.shake(axis, time, self.acceleration_shake, rotors_running)
+                + self.shake(axis, phase, self.acceleration_shake, running)
         });
 
         // The offsets take a small random step every tick, so how far they have wandered grows with
@@ -191,18 +244,31 @@ impl InertialMeasurementUnit3d {
             self.acceleration_offset[axis]
                 + gaussian_noise(self.acceleration_offset_wander * wander, rng)
         });
-        self.time = time + timestep;
+        // The shake is carried as how far round it has come rather than worked out from the time,
+        // because the rate it comes round at keeps changing and only the phase joins one tick's
+        // wave smoothly onto the next.
+        let full_turn = std::f64::consts::TAU;
+        let turned = full_turn * rotor_tone_hertz.unwrap_or(0.0) * timestep.max(0.0);
+        self.shake_phase = (phase + turned) % full_turn;
 
-        InertialReading3d::new(angular_rate, proper_acceleration)
+        let just_taken = HeldBack {
+            reading: InertialReading3d::new(angular_rate, proper_acceleration),
+            offsets,
+            shake_phase: phase,
+        };
+        match self.held_back.replace(just_taken) {
+            Some(waiting) => waiting.reading,
+            None => just_taken.reading,
+        }
     }
 
     /// How far the shake has carried one axis at one moment.
-    fn shake(&self, axis: usize, time: f64, amplitude: f64, rotors_running: bool) -> f64 {
+    fn shake(&self, axis: usize, phase: f64, amplitude: f64, rotors_running: bool) -> f64 {
         if !rotors_running || amplitude == 0.0 {
             return 0.0;
         }
-        let phase = SHAKE_PHASES[axis % SHAKE_PHASES.len()];
-        let turn = std::f64::consts::TAU * self.rotor_tone_hertz * time;
-        amplitude * ((turn + phase).sin() + self.second_harmonic_share * (2.0 * turn + phase).sin())
+        let offset = SHAKE_PHASES[axis % SHAKE_PHASES.len()];
+        amplitude
+            * ((phase + offset).sin() + self.second_harmonic_share * (2.0 * phase + offset).sin())
     }
 }

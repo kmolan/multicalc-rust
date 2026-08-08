@@ -94,6 +94,15 @@ const WORST_BELIEVABLE_FIX: f64 = 11.34;
 /// answer defending itself forever.
 const MOST_REFUSALS_IN_A_ROW: u32 = 5;
 
+/// How far the filter may believe the body is leaning before the downward beam is left alone, in
+/// radians.
+///
+/// Standing a slanted reading up into a height divides by how much of the beam still points at the
+/// ground, and that share falls away to nothing as the body tips toward its side: past a point, a
+/// small error in the believed lean becomes a large one in the height. The beam itself stops
+/// answering at much the same lean, for the same reason.
+const WORST_LEAN_FOR_THE_BEAM: f64 = 0.6;
+
 /// How sure the filter is of each part of its answer when it is switched on, as a spread.
 ///
 /// These are not free numbers to tune. Each one is what its own part of the answer is really
@@ -116,6 +125,21 @@ pub struct StartingSpreads {
     pub turn_rate_offset: f64,
     /// What the push sensor might be reading beyond the real push, in metres per second squared.
     pub push_offset: f64,
+}
+
+/// Where the machine is taken to have been set down, and how fast it is taken to have been moving.
+///
+/// Both are surveyed rather than measured, so both are out by something — and they have to be. A
+/// filter handed the truth begins with no error at all while claiming the spread in
+/// [`StartingSpreads`], which is the one moment in a flight where what it claims and what is so are
+/// knowingly different. Drawing these from those same spreads is what keeps the two agreeing from
+/// the first tick.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StartingBelief {
+    /// Where the machine is taken to be, in world axes.
+    pub position: Vector3D<f64>,
+    /// How fast it is taken to be moving, in world axes.
+    pub velocity: Vector3D<f64>,
 }
 
 impl StartingSpreads {
@@ -155,12 +179,21 @@ impl NominalStateFn<3> for SatelliteVelocity {
     }
 }
 
-/// How high the downward beam says the body is.
-struct HeightAboveGround;
+/// How far the ground would be down the beam, for a body where the filter believes it is and
+/// leaning the way the filter believes it leans.
+///
+/// The beam points straight down the body's own axis, so a leaning body reads long by exactly as
+/// much as its own up direction has tipped away from the world's. Working the reading out this way
+/// round, rather than levelling it first and handing over a height, is what lets the filter see
+/// that a beam reading disagreeing with it might be its attitude that is wrong and not its height.
+struct RangeDownTheBeam;
 
-impl NominalStateFn<1> for HeightAboveGround {
+impl NominalStateFn<1> for RangeDownTheBeam {
     fn eval<S: Numeric>(&self, state: &NominalState<S>) -> [S; 1] {
-        [state.position()[2]]
+        let up = state
+            .orientation()
+            .act(Vector::new([S::ZERO, S::ZERO, S::ONE]));
+        [state.position()[2] / up[2]]
     }
 }
 
@@ -179,6 +212,7 @@ impl NominalStateFn<1> for CompassHeading {
 /// The notches that make the inertial reading usable, and the plainest possible estimate built on
 /// what comes out of them.
 pub struct FlightEstimator {
+    timestep: f64,
     sections: [BiquadCoefficients<f64>; NOTCH_SECTIONS],
     angular_rate_notches: [MultiChannelBiquad<3, f64>; NOTCH_SECTIONS],
     acceleration_notches: [MultiChannelBiquad<3, f64>; NOTCH_SECTIONS],
@@ -231,6 +265,7 @@ impl FlightEstimator {
         .with_gravity(gravity);
 
         Ok(FlightEstimator {
+            timestep,
             sections,
             angular_rate_notches: sections.map(MultiChannelBiquad::new),
             acceleration_notches: sections.map(MultiChannelBiquad::new),
@@ -258,12 +293,13 @@ impl FlightEstimator {
     /// hundredths of a second.
     ///
     /// The two estimates start from different things, deliberately. Dead reckoning is handed the
-    /// truth, because the only interesting thing about it is how quickly it leaves. The filter is
-    /// handed where the machine sat on the pad and works its own facing out from the two things it
-    /// can see there: a body that is not moving feels a push straight up, and the compass says which
-    /// way north is. Two directions settle a facing outright. The push is the primary of the pair,
-    /// because whichever direction goes in second only settles the spin left over about the first,
-    /// and that is the place for the noisier reading.
+    /// truth in `state`, because the only interesting thing about it is how quickly it leaves. The
+    /// filter is handed `pad`, which is where the machine was taken to have been set down and is
+    /// out by about as much as the filter is about to claim it is. It works its own facing out from
+    /// the two things it can see there: a body that is not moving feels a push straight up, and the
+    /// compass says which way north is. Two directions settle a facing outright. The push is the
+    /// primary of the pair, because whichever direction goes in second only settles the spin left
+    /// over about the first, and that is the place for the noisier reading.
     ///
     /// No amount of standing still takes the push sensor's own offset out of that, so the facing
     /// comes out something like a fiftieth of a radian off level. That is what a real machine starts
@@ -271,6 +307,7 @@ impl FlightEstimator {
     pub fn start_from(
         &mut self,
         state: FreeJointState<f64>,
+        pad: StartingBelief,
         reading: InertialReading3d,
         heading: f64,
     ) {
@@ -297,8 +334,8 @@ impl FlightEstimator {
         .unwrap_or_else(|| SO3::exp(Vector::new([0.0, 0.0, heading])));
 
         self.filter.set_nominal_state(NominalState::new(
-            state.pose().translation(),
-            state.velocity().linear(),
+            pad.position,
+            pad.velocity,
             facing,
             Vector::zeros(),
             Vector::zeros(),
@@ -307,6 +344,58 @@ impl FlightEstimator {
         self.fixes_thrown_away = 0;
         self.refusals_in_a_row = 0;
         self.filter_faults = 0;
+    }
+
+    /// Moves the notches onto `rotor_tone_hertz`, keeping what they remember of the last few
+    /// readings.
+    ///
+    /// The rotors come round faster when they are pushing harder, and the shake they put into the
+    /// unit moves with them. A notch left sitting where the rotors were at a hover therefore stops
+    /// being on the shake the moment the machine climbs or leans, and what it lets through is far
+    /// worse than the jitter it was there to beat. Following the rate is the entire reason a notch
+    /// stack is built on one rather than on a frequency written down once.
+    ///
+    /// The rate handed in is worked out from what the rotors were last asked for, not from what
+    /// they are really doing — that is all a machine has, and the gap between the two is the rotors
+    /// still spinning up.
+    ///
+    /// A rate the notches cannot be placed on leaves them where they are, which is the nearest
+    /// placement that still means something.
+    pub fn track_rotor_tone(&mut self, rotor_tone_hertz: f64) {
+        let Ok(sections) = harmonic_notch_coefficients::<NOTCH_SECTIONS, f64>(
+            rotor_tone_hertz,
+            NOTCH_QUALITY,
+            self.timestep,
+        ) else {
+            return;
+        };
+        self.sections = sections;
+        for (notch, section) in self.angular_rate_notches.iter_mut().zip(sections) {
+            notch.set_coefficients(section);
+        }
+        for (notch, section) in self.acceleration_notches.iter_mut().zip(sections) {
+            notch.set_coefficients(section);
+        }
+    }
+
+    /// Runs one reading through the notches alone, touching neither estimate.
+    ///
+    /// This is for the moment before anything flies. A notch fed a shake that appears out of
+    /// nothing in a single tick passes most of that first shake straight through and only cancels
+    /// it once it has seen a cycle or two — and a control loop handed that reads it as the body
+    /// suddenly turning at most of a radian a second, which is enough to slam the rotors onto their
+    /// limits. A real machine is armed, its rotors come up, and its reading is watched for a moment
+    /// before anything acts on it. This is that moment.
+    pub fn settle_notches(&mut self, reading: InertialReading3d) {
+        let mut angular_rate = reading.angular_rate;
+        for section in &mut self.angular_rate_notches {
+            angular_rate = section.filter(angular_rate);
+        }
+        let mut proper_acceleration = reading.proper_acceleration;
+        for section in &mut self.acceleration_notches {
+            proper_acceleration = section.filter(proper_acceleration);
+        }
+        self.notched = InertialReading3d::new(angular_rate, proper_acceleration);
     }
 
     /// What the filter believes about the body's motion.
@@ -413,17 +502,30 @@ impl FlightEstimator {
         }
     }
 
-    /// Folds in how high the downward beam says the body is, with `spread` for how far that wanders.
+    /// Folds in how far the downward beam says the ground is, with `spread` for how far that
+    /// wanders.
     ///
-    /// The ground is taken as flat and at nothing, so what the beam reports is the height in world
-    /// axes outright.
-    pub fn fold_in_height(&mut self, height: f64, spread: f64) {
-        let predicted = HeightAboveGround.eval(&self.filter.nominal_state());
-        let residual = Vector::new([height - predicted[0]]);
+    /// The ground is taken as flat and at nothing, so how high the body is above it is the height
+    /// in world axes outright — but the beam does not report that height. It reports the slanted
+    /// distance it measured, and what stands the two apart is the lean, which is the filter's own
+    /// belief and comes with the filter's own error on it. A leaning body that has its lean wrong
+    /// therefore gets its height wrong too, which is the honest arrangement and the reason the
+    /// reading is folded in as a range rather than as a height.
+    ///
+    /// Nothing is folded in at all past [`WORST_LEAN_FOR_THE_BEAM`], where a small error in the
+    /// believed lean turns into a large one in the height.
+    pub fn fold_in_beam_range(&mut self, range: f64, spread: f64) {
+        let state = self.filter.nominal_state();
+        let up: Vector3D<f64> = state.orientation().act(Vector::new([0.0, 0.0, 1.0]));
+        if up[2] < WORST_LEAN_FOR_THE_BEAM.cos() {
+            return;
+        }
+        let predicted = RangeDownTheBeam.eval(&state);
+        let residual = Vector::new([range - predicted[0]]);
         if self
             .filter
             .update_other::<1, _>(
-                &HeightAboveGround,
+                &RangeDownTheBeam,
                 residual,
                 Matrix::from_diagonal([spread * spread]),
             )

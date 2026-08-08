@@ -340,10 +340,18 @@ impl FlightController {
     /// without giving up any more of the twist than it has to.
     ///
     /// Moving all four rotors by the same amount changes only their total push, because this layout
-    /// is even enough that the four contributions to each part of the twist cancel. So the twist is
-    /// worked out first, and the push is then slid up or down to whatever common level keeps every
-    /// rotor inside its range. Only when the gap between the highest and lowest rotor is wider than
-    /// a rotor's whole range is there no such level, and only then is the twist itself scaled back.
+    /// is even enough that the four contributions to each part of the twist cancel. So the push
+    /// fixes the level the four sit at, and the twist is the spread about that level. When the
+    /// spread does not fit between the level and a rotor's limits, the twist is scaled back until
+    /// it does — the push is what is kept, and the twist is what gives way.
+    ///
+    /// Which of the two gives way matters more than it looks. Sliding the level up instead, to keep
+    /// the lowest rotor turning, delivers the whole twist and hands the body a climb nothing asked
+    /// for — and the demand most likely to ask for a twist that does not fit is the one about the
+    /// body's own up axis, which this layout can only produce by playing the rotors' own drag
+    /// against each other and is therefore weak at. A body a couple of degrees off which way it is
+    /// pointing would swap that for a push of twice its own weight. A twist scaled back is only a
+    /// slower turn, which is much the cheaper mistake.
     ///
     /// Holding each rotor inside its limits on its own instead would change the twist as well as
     /// the total push, and the body would get neither of the two things it was asked for.
@@ -360,18 +368,21 @@ impl FlightController {
             highest = highest.max(*share);
         }
 
+        // The level that gives the wanted total push, and how much room is left either side of it.
         let minimum = self.mixer.minimum_thrust();
         let maximum = self.mixer.maximum_thrust();
-        let range = maximum - minimum;
-        let spread = highest - lowest;
-        let twist_scale = if spread > range { range / spread } else { 1.0 };
-        let twist = twist_share.scale(twist_scale);
-        lowest *= twist_scale;
-        highest *= twist_scale;
+        let level = (collective_thrust / ROTOR_COUNT as f64).clamp(minimum, maximum);
+        let room_below = level - minimum;
+        let room_above = maximum - level;
 
-        // The level that gives the wanted total push, slid to the nearest one every rotor fits at.
-        let wanted_level = collective_thrust / ROTOR_COUNT as f64;
-        let level = wanted_level.max(minimum - lowest).min(maximum - highest);
+        let mut twist_scale = 1.0_f64;
+        if lowest < 0.0 {
+            twist_scale = twist_scale.min(room_below / -lowest);
+        }
+        if highest > 0.0 {
+            twist_scale = twist_scale.min(room_above / highest);
+        }
+        let twist = twist_share.scale(twist_scale);
         let thrusts = Vector::from_fn(|rotor| level + twist[rotor]);
 
         let at_limit = twist_scale < 1.0

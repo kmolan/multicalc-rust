@@ -17,7 +17,6 @@ use super::flight_world::{
     level_heading,
 };
 use super::x2_model::GRAVITY_STRENGTH;
-use super::x2_model::ROTOR_TONE_HERTZ;
 use multicalc::motion::PolylinePath;
 
 /// The run every gate flies, so a failure is always the same flight.
@@ -786,7 +785,7 @@ struct SensingSample {
     raw_turn_rate: Vector3D<f64>,
     notched_turn_rate: Vector3D<f64>,
     turn_rate_offset: Vector3D<f64>,
-    time: f64,
+    shake_phase: f64,
 }
 
 /// Flies the circle on one seed and reads the unit, the notches and the dead reckoning out of it.
@@ -817,7 +816,7 @@ fn fly_sensing(seed: u64) -> Result<SensingRun, Box<dyn Error>> {
                 raw_turn_rate: record.raw_inertial.angular_rate,
                 notched_turn_rate: record.notched_inertial.angular_rate,
                 turn_rate_offset: record.inertial_offsets.angular_rate,
-                time: record.time,
+                shake_phase: record.shake_phase,
             });
         }
     }
@@ -842,9 +841,11 @@ fn fly_sensing(seed: u64) -> Result<SensingRun, Box<dyn Error>> {
 
 /// How far down the notches put the rotors' own shake, in decibels.
 ///
-/// The size of the tone is read out of each signal by matching it against a wave of exactly that
-/// frequency, which is a thing no amount of jitter can fake: jitter is spread across every
-/// frequency, so what it leaves behind in the match shrinks the longer the window is.
+/// The size of the tone is read out of each signal by matching it against the very wave that put it
+/// there, which is a thing no amount of jitter can fake: jitter is spread across every rate, so what
+/// it leaves behind in the match shrinks the longer the window is. The wave is taken from how far
+/// round the shake had come at each tick rather than from a rate assumed once, because the rate
+/// moves with what the rotors are pushing and a match against the wrong rate answers nothing.
 fn notch_attenuation(window: &[SensingSample]) -> f64 {
     let raw = tone_amplitude(window, |sample| sample.raw_turn_rate);
     let notched = tone_amplitude(window, |sample| sample.notched_turn_rate);
@@ -861,7 +862,7 @@ fn tone_amplitude(window: &[SensingSample], pick: fn(&SensingSample) -> Vector3D
         let mut along_the_wave = 0.0;
         let mut across_it = 0.0;
         for sample in window {
-            let turn = std::f64::consts::TAU * ROTOR_TONE_HERTZ * sample.time;
+            let turn = sample.shake_phase;
             along_the_wave += pick(sample)[axis] * turn.sin();
             across_it += pick(sample)[axis] * turn.cos();
         }

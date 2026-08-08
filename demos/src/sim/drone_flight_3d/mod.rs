@@ -27,7 +27,9 @@ pub mod quality_gates;
 pub mod x2_model;
 
 pub use flight_controller::{FlightCommand, FlightController};
-pub use flight_estimator::{EstimatedState, FlightEstimator, StartingSpreads, StateSource};
+pub use flight_estimator::{
+    EstimatedState, FlightEstimator, StartingBelief, StartingSpreads, StateSource,
+};
 pub use flight_hangar::{FlightHangar, flight_hangar};
 pub use flight_plant::{FlightPlant, angle_from_upright};
 pub use flight_reference::{

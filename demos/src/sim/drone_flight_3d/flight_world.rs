@@ -23,7 +23,9 @@ use crate::sim::satellite_navigation_sensor::SatelliteNavigationSensor;
 use crate::sim::sensor_noise::gaussian_noise;
 
 use super::flight_controller::{FlightCommand, FlightController};
-use super::flight_estimator::{EstimatedState, FlightEstimator, StartingSpreads, StateSource};
+use super::flight_estimator::{
+    EstimatedState, FlightEstimator, StartingBelief, StartingSpreads, StateSource,
+};
 use super::flight_hangar::{FlightHangar, flight_hangar};
 use super::flight_plant::{FlightPlant, angle_from_upright};
 use super::flight_reference::{FlightReference, ReferenceSample};
@@ -35,6 +37,13 @@ pub const TIMESTEP: f64 = 0.001;
 /// How many ticks at the start of a run are left out of the timing statistics, so a cold start does
 /// not colour them.
 pub const WARMUP_TICKS: u64 = 500;
+
+/// How long the machine sits with its rotors turning, being read, before anything acts on the
+/// reading, in ticks.
+///
+/// This is the arming: a tenth of a second is several times what the notches take to learn the
+/// shake, and until they have, what comes out of them carries most of that shake straight through.
+const ARMED_TICKS: u64 = 100;
 
 /// The point the body is asked to hold.
 pub const HOVER_POINT: [f64; 3] = [0.0, 0.0, 1.5];
@@ -74,6 +83,35 @@ const SATELLITE_VERTICAL_NOISE: f64 = 0.5;
 const SATELLITE_HORIZONTAL_SPEED_NOISE: f64 = 0.05;
 const SATELLITE_VERTICAL_SPEED_NOISE: f64 = 0.10;
 pub const SATELLITE_PERIOD_TICKS: u64 = 50;
+
+/// How much of the receiver's position error drifts slowly instead of being drawn afresh in every
+/// fix, as a share of the spread, and how long that drift takes to forget where it was.
+///
+/// The receiver is no worse for this — the two halves together come to the same spread it declares.
+/// What it takes away is the ability to average the error down by asking often, which is the more
+/// flattering of the two arrangements and not the one a real machine gets: half a metre of it comes
+/// from the path the signals took, and that path is the same on the next fix as it was on this one.
+const SATELLITE_WANDERING_SHARE: f64 = 0.5;
+const SATELLITE_WANDER_SETTLING_SECONDS: f64 = 60.0;
+
+/// Over how long a fix error that lasts does its damage, in seconds.
+///
+/// The filter is told a fix is drawn afresh every time, because that is the only shape it can be
+/// told. Half of this one is not: it holds where it is for a minute, so the fix a second from now
+/// carries the same error as this one and averaging the two takes nothing out. Left told as fresh
+/// noise, the filter would grow surer of where it is with every fix that agreed with the last for
+/// the wrong reason. So the drifting half is widened by the square root of how many fixes arrive
+/// while it holds still — the same allowance the push reading gets for the gravity a facing that is
+/// slightly out leaks. A second is how long the filter takes to grow sure of a position, and so how
+/// long an error has to last to be believed.
+const SATELLITE_WANDER_HOLDS_OVER_SECONDS: f64 = 1.0;
+
+/// How often a fix comes back plainly wrong, and the spread the wrong one is drawn from.
+///
+/// About one a lap. Without it the check that throws a fix away has nothing to throw away but the
+/// tails of its own noise, which is a machine defending itself against nothing.
+const SATELLITE_OUTLIER_CHANCE: f64 = 0.002;
+const SATELLITE_OUTLIER_SIZE: f64 = 5.0;
 const RANGEFINDER_NOISE: f64 = 0.02;
 const RANGEFINDER_MAXIMUM_RANGE: f64 = 6.0;
 const RANGEFINDER_PERIOD_TICKS: u64 = 20;
@@ -205,6 +243,12 @@ pub struct TickRecord {
     pub notched_inertial: InertialReading3d,
     /// The steady offsets the unit was carrying, which nothing flying is allowed to look at.
     pub inertial_offsets: InertialReading3d,
+    /// How far round the rotors' shake had come when that reading was taken, in radians.
+    ///
+    /// Nothing flying may look at this either. It is here so a measurement can pick the shake out
+    /// of a reading by matching it against the wave that put it there — which cannot be done by
+    /// assuming a rate afterwards, because the rate moves with what the rotors are doing.
+    pub shake_phase: f64,
     /// What the machine believes about its own motion, from the reading and nothing else.
     pub dead_reckoned: EstimatedState,
     /// What the filter believes about it, with everything it can see folded in.
@@ -299,6 +343,7 @@ pub struct FlightWorld {
     rangefinder: HeightRangefinder,
     compass: MagneticCompass,
     estimator: FlightEstimator,
+    last_commanded_thrusts: Vector<ROTOR_COUNT, f64>,
     state_source: StateSource,
     rng: Pcg32,
     start_offset: Vector3D<f64>,
@@ -317,6 +362,7 @@ impl FlightWorld {
     /// Returns whatever the model file, the body, the rotor layout, or either loop refuses on.
     pub fn new(seed: u64) -> Result<Self, Box<dyn Error>> {
         let model = X2Model::load()?;
+        let hover_thrust_per_rotor = model.hover_thrust_per_rotor();
         let hover_point = Vector::new(HOVER_POINT);
         // The wanted facing starts at the body's own, so the first tick asks for no turn at all.
         let controller = FlightController::new(&model, 0.0)?;
@@ -345,17 +391,33 @@ impl FlightWorld {
                 .with_speed_noise(
                     SATELLITE_HORIZONTAL_SPEED_NOISE,
                     SATELLITE_VERTICAL_SPEED_NOISE,
-                );
+                )
+                .with_wandering_share(SATELLITE_WANDERING_SHARE, SATELLITE_WANDER_SETTLING_SECONDS)
+                .with_outliers(SATELLITE_OUTLIER_CHANCE, SATELLITE_OUTLIER_SIZE);
         let rangefinder = HeightRangefinder::new(RANGEFINDER_NOISE, RANGEFINDER_MAXIMUM_RANGE);
         let compass = MagneticCompass::new(COMPASS_NOISE);
+
+        // What the filter is told a fix might be out by: the half of the receiver's spread that is
+        // drawn afresh every time, and the half that drifts widened by how many fixes it holds
+        // still across.
+        let fixes_while_it_holds =
+            SATELLITE_WANDER_HOLDS_OVER_SECONDS / (SATELLITE_PERIOD_TICKS as f64 * TIMESTEP);
+        let allowed_fix_spread = |spread: f64| {
+            let fresh = spread
+                * (1.0 - SATELLITE_WANDERING_SHARE * SATELLITE_WANDERING_SHARE)
+                    .max(0.0)
+                    .sqrt();
+            let drifting = spread * SATELLITE_WANDERING_SHARE * fixes_while_it_holds.sqrt();
+            fresh.hypot(drifting)
+        };
         let estimator = FlightEstimator::new(
             ROTOR_TONE_HERTZ,
             TIMESTEP,
             imu_noise,
             Vector::new([
-                satellite.horizontal_noise(),
-                satellite.horizontal_noise(),
-                satellite.vertical_noise(),
+                allowed_fix_spread(satellite.horizontal_noise()),
+                allowed_fix_spread(satellite.horizontal_noise()),
+                allowed_fix_spread(satellite.vertical_noise()),
             ]),
             StartingSpreads {
                 position: PAD_POSITION_SPREAD,
@@ -377,12 +439,7 @@ impl FlightWorld {
             Vector::from_fn(|_| gaussian_noise(PUSH_STARTING_OFFSET, &mut rng));
         let inertial = InertialMeasurementUnit3d::new(TURN_RATE_JITTER, PUSH_JITTER)
             .with_offset_wander(TURN_RATE_OFFSET_WANDER, PUSH_OFFSET_WANDER)
-            .with_shake(
-                ROTOR_TONE_HERTZ,
-                TURN_RATE_SHAKE,
-                PUSH_SHAKE,
-                SECOND_HARMONIC_SHARE,
-            )
+            .with_shake(TURN_RATE_SHAKE, PUSH_SHAKE, SECOND_HARMONIC_SHARE)
             .with_starting_offsets(starting_turn_rate_offset, starting_push_offset);
 
         let hangar = flight_hangar()?;
@@ -411,6 +468,9 @@ impl FlightWorld {
             rangefinder,
             compass,
             estimator,
+            // Before anything has been commanded, the rotors are turning at the rate that holds the
+            // machine up, which is where the notches start out placed.
+            last_commanded_thrusts: Vector::from_fn(|_| hover_thrust_per_rotor),
             state_source: StateSource::Truth,
             rng,
             start_offset: Vector::zeros(),
@@ -628,13 +688,36 @@ impl FlightWorld {
         let state = FreeJointState::new(pose, Twist::new(start.velocity(), Vector::zeros()));
         self.plant.reset(state);
         self.controller.set_desired_heading(heading);
-        // On the pad: the position is surveyed, and the facing is worked out from the push the
-        // body feels and what the compass says, both read once with their own noise on them.
+        // On the pad: the position and the speed are surveyed rather than measured, so each is
+        // handed over with a draw from the very spread the filter is told to claim about it. The
+        // facing is worked out from the push the body feels and what the compass says, both read
+        // once with their own noise on them.
+        let pad = StartingBelief {
+            position: state.pose().translation()
+                + Vector::from_fn(|_| gaussian_noise(PAD_POSITION_SPREAD, &mut self.rng)),
+            velocity: state.velocity().linear()
+                + Vector::from_fn(|_| gaussian_noise(PAD_VELOCITY_SPREAD, &mut self.rng)),
+        };
         let reading = self.truth_reading(state);
         let heading = self
             .compass
             .read(level_heading(state.pose().rotation()), &mut self.rng);
-        self.estimator.start_from(state, reading, heading);
+        self.estimator.start_from(state, pad, reading, heading);
+
+        // The rotors are already turning when the machine is placed, so the unit is already
+        // shaking. The notches are watched through a moment of that before anything acts on what
+        // comes out of them, because a notch handed a shake that appears from nothing passes the
+        // first of it straight through.
+        for _ in 0..ARMED_TICKS {
+            let shaking = self.inertial.read(
+                reading.angular_rate,
+                reading.proper_acceleration,
+                TIMESTEP,
+                Some(ROTOR_TONE_HERTZ),
+                &mut self.rng,
+            );
+            self.estimator.settle_notches(shaking);
+        }
     }
 
     /// Hovers, turns on the spot, and scores the cloud of guesses against the floor plan.
@@ -756,15 +839,25 @@ impl FlightWorld {
         })
     }
 
-    /// Whether the rotors are turning, and so whether the machine is shaking whatever is bolted to
-    /// it.
-    fn rotors_running(&self) -> bool {
+    /// How fast the rotors are really coming round at this moment, in turns a second, or nothing at
+    /// all when they are not turning and the machine is therefore not shaking.
+    ///
+    /// This is the truth of it, read off what the rotors are actually delivering, and it is the
+    /// rate the unit is shaken at. What the machine believes the rate to be is worked out from what
+    /// it last asked the rotors for, which is a different number while they are still spinning up.
+    fn rotor_tone(&self) -> Option<f64> {
         let floor = self.model.mixer().minimum_thrust() + RUNNING_THRUST_MARGIN;
-        self.plant
-            .delivered_thrusts()
-            .as_array()
-            .iter()
-            .any(|thrust| *thrust > floor)
+        let delivered = self.plant.delivered_thrusts();
+        if !delivered.as_array().iter().any(|thrust| *thrust > floor) {
+            return None;
+        }
+        Some(rotor_tone_for(delivered, self.hovering_thrust()))
+    }
+
+    /// What the whole set of rotors pushes with while the machine merely holds itself up, in
+    /// newtons.
+    fn hovering_thrust(&self) -> f64 {
+        self.model.hover_thrust_per_rotor() * ROTOR_COUNT as f64
     }
 
     /// What a perfect unit bolted at the body's origin would report about `state`.
@@ -822,14 +915,17 @@ impl FlightWorld {
 
         // Simulating the unit is the demo's work, not the machine's, so it sits outside the timed
         // block. The reading describes the truth as the last tick left it, which is what a unit
-        // read at the top of a tick reports.
+        // read at the top of a tick reports — and what comes back is the sample before that again,
+        // because the unit answers a tick late.
         let truth_inertial = self.truth_reading(state);
         let inertial_offsets = self.inertial.offsets();
+        let shake_phase = self.inertial.shake_phase();
+        let hovering = self.hovering_thrust();
         let raw_inertial = self.inertial.read(
             truth_inertial.angular_rate,
             truth_inertial.proper_acceleration,
             TIMESTEP,
-            self.rotors_running(),
+            self.rotor_tone(),
             &mut self.rng,
         );
 
@@ -838,14 +934,20 @@ impl FlightWorld {
         // fix, so the two never land on the same one.
         let receiver_answered = self.tick.is_multiple_of(SATELLITE_PERIOD_TICKS);
         let satellite_fix = receiver_answered.then(|| {
-            self.satellite
-                .read_position(pose.translation(), &mut self.rng)
+            self.satellite.read_position(
+                pose.translation(),
+                SATELLITE_PERIOD_TICKS as f64 * TIMESTEP,
+                &mut self.rng,
+            )
         });
         let satellite_velocity = receiver_answered.then(|| {
             self.satellite
                 .read_velocity(velocity.linear(), &mut self.rng)
         });
-        let beam_height = self
+        // The beam hands back the slanted distance it measured and nothing else. Standing that up
+        // into a height is the filter's job, and it has only its own belief about the lean to do it
+        // with — the true lean goes into the geometry the beam is in, never into its answer.
+        let beam_range = self
             .tick
             .is_multiple_of(RANGEFINDER_PERIOD_TICKS)
             .then(|| {
@@ -864,6 +966,11 @@ impl FlightWorld {
 
         // The timed block: everything the flight stack does, and nothing the simulation does.
         let started = Instant::now();
+        // The notches are moved onto where the machine reckons the rotors are turning, which it
+        // works out from what it last asked them for. That is all it has: what they are really
+        // doing is the truth and nobody flying may look at it.
+        self.estimator
+            .track_rotor_tone(rotor_tone_for(self.last_commanded_thrusts, hovering));
         self.estimator.update(raw_inertial, TIMESTEP);
         let mut fix_thrown_away = false;
         if let Some(fix) = satellite_fix {
@@ -879,9 +986,9 @@ impl FlightWorld {
                 ]),
             );
         }
-        if let Some(height) = beam_height {
+        if let Some(range) = beam_range {
             self.estimator
-                .fold_in_height(height, self.rangefinder.range_noise());
+                .fold_in_beam_range(range, self.rangefinder.range_noise());
         }
         if let Some(heading) = compass_heading {
             self.estimator
@@ -904,6 +1011,7 @@ impl FlightWorld {
         let dead_reckoned = self.estimator.dead_reckoned();
         let filter_belief = self.estimator.believed();
 
+        self.last_commanded_thrusts = command.rotor_thrusts;
         self.plant.step(command.rotor_thrusts, TIMESTEP);
 
         // What the rotors gave over the tick, against what they were asked for. The gap is what the
@@ -950,6 +1058,7 @@ impl FlightWorld {
             raw_inertial,
             notched_inertial,
             inertial_offsets,
+            shake_phase,
             dead_reckoned,
             believed: filter_belief,
             fix_thrown_away,
@@ -972,6 +1081,18 @@ fn shortest_way_round(angle: f64) -> f64 {
     } else {
         brought_in
     }
+}
+
+/// How fast rotors pushing with `thrusts` come round, in turns a second.
+///
+/// A rotor's push grows with the square of how fast it turns, so the rate follows the square root of
+/// the push. `hovering` is what the whole set pushes with while the machine merely holds itself up,
+/// which is the push [`ROTOR_TONE_HERTZ`] belongs to; a machine climbing or leaning is pushing
+/// harder than that and shakes a few per cent faster for it.
+#[must_use]
+pub fn rotor_tone_for(thrusts: Vector<ROTOR_COUNT, f64>, hovering: f64) -> f64 {
+    let pushing: f64 = thrusts.as_array().iter().sum();
+    ROTOR_TONE_HERTZ * (pushing / hovering).max(0.0).sqrt()
 }
 
 /// Which way a facing points in the level plane, as an angle from the world's +x axis.
