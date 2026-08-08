@@ -582,7 +582,7 @@ pub fn lqr_identity() -> f64 {
         Matrix::<1, 1>::identity(),
     )
     .expect("lqr design");
-    controller.certify_stability().expect("lqr certificate");
+    let _ = controller.certify_stability().expect("lqr certificate");
 
     let mut state = Vector::new([1.0, 0.0]);
     for _ in 0..400 {
