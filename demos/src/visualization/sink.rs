@@ -43,8 +43,29 @@ pub trait VizSink {
     /// Advances a sequence timeline (e.g. an iteration or sample index).
     fn set_sequence(&mut self, timeline: &str, seq: i64);
 
+    /// Marks whatever is logged next as belonging to no particular moment.
+    ///
+    /// Scene furniture — a floor grid, a course outline — belongs to the whole run rather than to
+    /// the tick it happened to be logged on. Turn this on before logging it and off again
+    /// afterwards. The default ignores the flag, so backends without the notion keep working.
+    fn set_static(&mut self, always: bool) {
+        let _ = always;
+    }
+
     /// Logs one scalar at the current timeline position.
     fn scalar(&mut self, path: &str, value: f64) -> Result<(), VizError>;
+
+    /// Logs several scalars that belong on one plot together, at the current timeline position.
+    ///
+    /// Everything logged under one path is drawn on one set of axes, which is the only way to put
+    /// two quantities side by side rather than in plots of their own. Pair it with
+    /// [`VizSink::series_styles`] to name and colour them.
+    ///
+    /// The default logs nothing, so backends that only understand one value at a time keep working.
+    fn scalars(&mut self, path: &str, values: &[f64]) -> Result<(), VizError> {
+        let _ = (path, values);
+        Ok(())
+    }
 
     /// Logs a set of 2D points.
     fn points2d(&mut self, path: &str, xy: &[[f64; 2]]) -> Result<(), VizError>;
@@ -164,6 +185,35 @@ pub trait VizSink {
     /// Logs a markdown text panel (the `hud/stats` headline).
     fn text(&mut self, path: &str, markdown: &str) -> Result<(), VizError>;
 
+    /// Logs a 3D model read from a file, such as an `.obj` or a `.glb`.
+    ///
+    /// The file is read and sent as it is; whatever reads it back is what understands the format.
+    /// A model file says nothing about what units it was drawn in or which way up it was drawn, so
+    /// a caller almost always pairs this with [`VizSink::transform3d_scaled`] on the same path.
+    ///
+    /// The default is a no-op, so backends that cannot draw a model keep working.
+    fn model3d(&mut self, path: &str, file_path: &std::path::Path) -> Result<(), VizError> {
+        let _ = (path, file_path);
+        Ok(())
+    }
+
+    /// A pose that also resizes whatever sits under it.
+    ///
+    /// For anything drawn in units of its own — a model file measured in centimetres, say — where
+    /// the resizing belongs to the thing itself and not to where it is.
+    ///
+    /// The default is a no-op, so backends without the notion keep working.
+    fn transform3d_scaled(
+        &mut self,
+        path: &str,
+        translation: [f64; 3],
+        quat_wxyz: [f64; 4],
+        scale: f64,
+    ) -> Result<(), VizError> {
+        let _ = (path, translation, quat_wxyz, scale);
+        Ok(())
+    }
+
     /// Styles the scalar series at `path`: line `color`, legend `name`, and `width`. Applied
     /// statically, so it holds across the whole timeline; call it once alongside the scalars.
     ///
@@ -176,6 +226,20 @@ pub trait VizSink {
         width: f32,
     ) -> Result<(), VizError> {
         let _ = (path, color, name, width);
+        Ok(())
+    }
+
+    /// Styles several series sharing one path: a `color` and a `name` each, one `width` for all.
+    ///
+    /// The default is a no-op, so backends without series styling keep default plot colors.
+    fn series_styles(
+        &mut self,
+        path: &str,
+        colors: &[Rgba],
+        names: &[&str],
+        width: f32,
+    ) -> Result<(), VizError> {
+        let _ = (path, colors, names, width);
         Ok(())
     }
 

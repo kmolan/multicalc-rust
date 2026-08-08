@@ -180,3 +180,8 @@ required-features = ["rerun"]
 name = "3d_arm_ik"
 path = "examples/showcase/3d_arm_ik.rs"
 required-features = ["rerun"]
+
+[[example]]
+name = "3d_drone_flight"
+path = "examples/showcase/3d_drone_flight.rs"
+required-features = ["rerun"]

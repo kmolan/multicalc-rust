@@ -52,11 +52,23 @@ impl VizSink for CsvSink {
         self.seq = seq;
     }
 
+    fn set_static(&mut self, _always: bool) {
+        eprintln!("CsvSink: set_static() skipped (CSV is scalar-series only)");
+    }
+
     fn scalar(&mut self, path: &str, value: f64) -> Result<(), VizError> {
         if !self.columns.iter().any(|c| c == path) {
             self.columns.push(path.to_owned());
         }
         self.current_row().insert(path.to_owned(), value);
+        Ok(())
+    }
+
+    fn scalars(&mut self, path: &str, values: &[f64]) -> Result<(), VizError> {
+        // One column per value, numbered, since a CSV row has nowhere to put several under one name.
+        for (index, value) in values.iter().enumerate() {
+            self.scalar(&format!("{path}/{index}"), *value)?;
+        }
         Ok(())
     }
 
@@ -67,6 +79,22 @@ impl VizSink for CsvSink {
 
     fn points3d(&mut self, path: &str, _xyz: &[[f64; 3]]) -> Result<(), VizError> {
         eprintln!("CsvSink: points3d('{path}') skipped (CSV is scalar-series only)");
+        Ok(())
+    }
+
+    fn model3d(&mut self, path: &str, _file_path: &std::path::Path) -> Result<(), VizError> {
+        eprintln!("CsvSink: model3d('{path}') skipped (CSV is scalar-series only)");
+        Ok(())
+    }
+
+    fn transform3d_scaled(
+        &mut self,
+        path: &str,
+        _translation: [f64; 3],
+        _quat_wxyz: [f64; 4],
+        _scale: f64,
+    ) -> Result<(), VizError> {
+        eprintln!("CsvSink: transform3d_scaled('{path}') skipped (CSV is scalar-series only)");
         Ok(())
     }
 
