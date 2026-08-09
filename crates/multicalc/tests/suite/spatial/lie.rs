@@ -4,7 +4,7 @@
 
 use std::f64::consts::PI;
 
-use multicalc::linear_algebra::{Matrix, Vector, Vector2D, Vector3D, Vector6D};
+use multicalc::linear_algebra::{Matrix, Matrix3D, Vector, Vector2D, Vector3D, Vector6D};
 use multicalc::scalar::{Dual, Numeric};
 use multicalc::spatial::{SE2, SE3, SO2, SO3};
 use rand::rngs::StdRng;
@@ -67,6 +67,19 @@ fn random_se2(rng: &mut StdRng) -> SE2<f64> {
         random_so2(rng),
         Vector::new([rng.gen_range(-2.0..2.0), rng.gen_range(-2.0..2.0)]),
     )
+}
+
+/// Translation part of every `Q(ρ, φ)` reference below. Must match `RHO` in
+/// `tools/qa/src/bin/spatial_small_angle.py`, which generated those matrices.
+const RHO: Vector3D = Vector::new([0.5, 0.25, -0.75]);
+
+/// Barfoot's `Q(ρ, φ)`: the top-right 3×3 block of the SE(3) left Jacobian. `q_matrix_se3` is
+/// `pub(crate)`, so assembling the twist and slicing the block out is the only route to it from
+/// the test crate. The tangent ordering is `[ρ; φ]`, linear part first.
+fn q_block(rho: Vector3D, phi: Vector3D) -> Matrix3D {
+    let xi = Vector::new([rho[0], rho[1], rho[2], phi[0], phi[1], phi[2]]);
+    let jacobian = SE3::left_jacobian(xi);
+    Matrix::from_fn(|row, column| jacobian[(row, column + 3)])
 }
 
 fn assert_entries_close<const R: usize, const C: usize>(
@@ -1121,4 +1134,397 @@ fn two_direction_pairs_f32_round_trip() {
             }
         }
     }
+}
+
+#[test]
+fn jacobian_branches_agree_across_small_angle_thresholds() {
+    let mut rng = StdRng::seed_from_u64(2);
+    let axis = random_unit_vector3(&mut rng);
+
+    let thresholds = [
+        (360.0_f64 * f64::EPSILON).powf(1.0 / 6.0),     // so3 c1
+        (2520.0_f64 * f64::EPSILON).powf(1.0 / 6.0),    // so3 c2, q c2
+        (15_120.0_f64 * f64::EPSILON).powf(1.0 / 6.0),  // inv so3 c3
+        (20_160.0_f64 * f64::EPSILON).powf(1.0 / 8.0),  // q c3
+        (181_440.0_f64 * f64::EPSILON).powf(1.0 / 8.0), // q c5
+    ];
+
+    // Translation part of the twist. `Q` is linear in ρ, so any fixed non-degenerate
+    // value works; it only has to be nonzero for the ρ-carrying terms to show up.
+    let rho = random_unit_vector3(&mut rng);
+
+    // Straddles each seam. δ·θ ≈ 5e-12 of genuine variation, well under TOL, while a
+    // sign-flipped or mispaired series shows up around 1e-4.
+    let delta: f64 = 1e-10;
+    const TOL: f64 = 1e-9;
+
+    let twist = |theta: f64| {
+        let phi = axis.scale(theta);
+        Vector::new([rho[0], rho[1], rho[2], phi[0], phi[1], phi[2]])
+    };
+
+    for t in thresholds {
+        let (lo, hi) = (t * (1.0 - delta), t * (1.0 + delta));
+
+        // c1, c2
+        let d = SO3::left_jacobian(axis.scale(hi)) - SO3::left_jacobian(axis.scale(lo));
+        for r in 0..3 {
+            for c in 0..3 {
+                assert!(
+                    d[(r, c)].abs() < TOL,
+                    "SO3::left_jacobian θ={t:e} row={r} col={c} jump={:e}",
+                    d[(r, c)]
+                );
+            }
+        }
+
+        // inv c3
+        let d =
+            SO3::left_jacobian_inverse(axis.scale(hi)) - SO3::left_jacobian_inverse(axis.scale(lo));
+        for r in 0..3 {
+            for c in 0..3 {
+                assert!(
+                    d[(r, c)].abs() < TOL,
+                    "SO3::left_jacobian_inverse θ={t:e} row={r} col={c} jump={:e}",
+                    d[(r, c)]
+                );
+            }
+        }
+
+        // q c2, c3, c5 in the top-right block, alongside c1/c2 on the diagonal
+        let d = SE3::left_jacobian(twist(hi)) - SE3::left_jacobian(twist(lo));
+        for r in 0..6 {
+            for c in 0..6 {
+                assert!(
+                    d[(r, c)].abs() < TOL,
+                    "SE3::left_jacobian θ={t:e} row={r} col={c} jump={:e}",
+                    d[(r, c)]
+                );
+            }
+        }
+    }
+}
+
+/// Left Jacobian SO3
+/// Threshold for theta_sq 360e^1/3
+/// 0.0065633231517825491692449761238662810296049408728717656257768315763825522720280114 +/- 1e-09
+/// Computed using mpmath at 80 digits.
+#[test]
+fn left_jacobian_so3_c1_threshold() {
+    let t_hi: Vector<3, f64> = Vector::new([
+        0.0018752354719378712,
+        -0.002812853207906807,
+        0.005625706415813614,
+    ]);
+    let matrix_hi = Matrix::new([
+        [
+            0.9999934065615603,
+            -0.0028137222355543025,
+            -0.0014046633049639315,
+        ],
+        [
+            0.002811963985303727,
+            0.9999941391658315,
+            -0.0009402517455188686,
+        ],
+        [
+            0.0014081798054650832,
+            0.0009349769947671412,
+            0.9999980952288952,
+        ],
+    ]);
+
+    let t_lo: Vector<3, f64> = Vector::new([
+        0.0018752349005092999,
+        -0.00281285235076395,
+        0.0056257047015279,
+    ]);
+    let matrix_lo = Matrix::new([
+        [
+            0.9999934065655787,
+            -0.002813721377884897,
+            -0.0014046628774686768,
+        ],
+        [
+            0.0028119631287058795,
+            0.9999941391694033,
+            -0.0009402514582003222,
+        ],
+        [
+            0.0014081793758267116,
+            0.00093497671066327,
+            0.9999980952300561,
+        ],
+    ]);
+
+    assert_entries_close(SO3::left_jacobian(t_hi), matrix_hi, 1e-13);
+
+    assert_entries_close(SO3::left_jacobian(t_lo), matrix_lo, 1e-13);
+}
+
+/// Left Jacobian SO3
+/// Threshold for theta_sq 2,025e^1/3
+/// 0.0090776505658726734101113986465827468133032549568677515285705797365192293938527642 +/- 1e-09
+/// Computed using mpmath at 80 digits.
+#[test]
+fn left_jacobian_so3_c2_threshold() {
+    let t_hi: Vector<3, f64> = Vector::new([
+        0.002593614733106478,
+        -0.0038904220996597173,
+        0.0077808441993194345,
+    ]);
+    let matrix_hi = Matrix::new([
+        [
+            0.9999873872318725,
+            -0.003892077086700015,
+            -0.0019418342873075028,
+        ],
+        [
+            0.0038887136818660114,
+            0.9999887886505533,
+            -0.0013018435686786764,
+        ],
+        [
+            0.0019485610969755102,
+            0.0012917533541766655,
+            0.9999963563114298,
+        ],
+    ]);
+    let t_lo: Vector<3, f64> = Vector::new([
+        0.002593614161677907,
+        -0.00389042124251686,
+        0.00778084248503372,
+    ]);
+    let matrix_lo = Matrix::new([
+        [
+            0.9999873872374302,
+            -0.003892076228833789,
+            -0.0019418338602269565,
+        ],
+        [
+            0.0038887128254818386,
+            0.9999887886554935,
+            -0.0013018432807471972,
+        ],
+        [
+            0.0019485606669308576,
+            0.0012917530706913457,
+            0.9999963563130354,
+        ],
+    ]);
+
+    assert_entries_close(SO3::left_jacobian(t_hi), matrix_hi, 1e-13);
+
+    assert_entries_close(SO3::left_jacobian(t_lo), matrix_lo, 1e-13);
+}
+
+/// Inverse Left Jacobian SO3
+/// Threshold for theta_sq 15,120e^1/3
+/// 0.01223672883207982409248517788125746974275923799237944986778430043546338826342771 +/- 1e-09
+/// Computed using mpmath at 80 digits.
+#[test]
+fn inverse_left_jacobian_so3_c3_threshold() {
+    let t_hi: Vector<3, f64> = Vector::new([
+        0.0034962085234513784,
+        -0.005244312785177068,
+        0.010488625570354135,
+    ]);
+    let matrix_hi = Matrix::new([
+        [
+            0.9999885404644893,
+            0.00524278484710897,
+            0.002625212268724729,
+        ],
+        [
+            -0.005245840723245165,
+            0.9999898137462127,
+            0.001743520447521396,
+        ],
+        [
+            -0.0026191005164523384,
+            -0.0017526880759299824,
+            0.9999966894675191,
+        ],
+    ]);
+    let t_lo: Vector<3, f64> = Vector::new([
+        0.003496207952022807,
+        -0.00524431192803421,
+        0.01048862385606842,
+    ]);
+    let matrix_lo = Matrix::new([
+        [
+            0.9999885404682353,
+            0.005242783990465573,
+            0.002625211839154379,
+        ],
+        [
+            -0.005245839865602847,
+            0.9999898137495424,
+            0.0017435201633054927,
+        ],
+        [
+            -0.002619100088879831,
+            -0.001752687788717314,
+            0.9999966894686013,
+        ],
+    ]);
+
+    assert_entries_close(SO3::left_jacobian_inverse(t_hi), matrix_hi, 1e-13);
+
+    assert_entries_close(SO3::left_jacobian_inverse(t_lo), matrix_lo, 1e-13);
+}
+
+/// Matrix Q SE3
+/// Threshold for theta_sq 2,025e^1/3
+/// 0.0090776505658726734101113986465827468133032549568677515285705797365192293938527642 +/- 1e-09
+/// Computed using mpmath at 80 digits.
+#[test]
+fn q_matrix_se3_c2_threshold() {
+    let t_hi: Vector<3, f64> = Vector::new([
+        0.002593614733106478,
+        -0.0038904220996597173,
+        0.0077808441993194345,
+    ]);
+    let matrix_hi = Matrix::new([
+        [
+            0.0022693965896371064,
+            0.3747777166794713,
+            0.1253215571831013,
+        ],
+        [
+            -0.37520998587434706,
+            0.0015129295149932092,
+            -0.2491889759799066,
+        ],
+        [
+            -0.12467315246392878,
+            0.25080997294809526,
+            -0.00010806884348379557,
+        ],
+    ]);
+    let t_lo: Vector<3, f64> = Vector::new([
+        0.002593614161677907,
+        -0.00389042124251686,
+        0.00778084248503372,
+    ]);
+    let matrix_lo = Matrix::new([
+        [
+            0.002269396089647881,
+            0.37477771672979976,
+            0.12532155711283796,
+        ],
+        [
+            -0.3752099858294374,
+            0.0015129291816680802,
+            -0.24918897615870556,
+        ],
+        [
+            -0.12467315253652327,
+            0.2508099727697594,
+            -0.00010806881967323877,
+        ],
+    ]);
+
+    assert_entries_close(q_block(RHO, t_hi), matrix_hi, 1e-13);
+    assert_entries_close(q_block(RHO, t_lo), matrix_lo, 1e-13);
+}
+
+/// Matrix Q SE3
+/// Threshold for theta_sq 20,160e^1/4
+/// 0.038138740273514832356063423923705899849787335895792428065353256457527059271825147 +/- 1e-09
+/// Computed using mpmath at 80 digits.
+#[test]
+fn q_matrix_se3_c3_threshold() {
+    let t_hi: Vector<3, f64> = Vector::new([
+        0.010896783221004238,
+        -0.016345174831506357,
+        0.032690349663012715,
+    ]);
+    let matrix_hi = Matrix::new([
+        [
+            0.009533476406376695,
+            0.37398340468332747,
+            0.1263154481158103,
+        ],
+        [
+            -0.37579954060639215,
+            0.0063555363829814185,
+            -0.24658593196723697,
+        ],
+        [
+            -0.12359117549845144,
+            0.25339551378644487,
+            -0.0004541485353692165,
+        ],
+    ]);
+    let t_lo: Vector<3, f64> =
+        Vector::new([0.010896782649575667, -0.0163451739743635, 0.032690347948727]);
+    let matrix_lo = Matrix::new([
+        [
+            0.009533475906566877,
+            0.37398340474232844,
+            0.12631544804927197,
+        ],
+        [
+            -0.3757995405701542,
+            0.006355536049792893,
+            -0.24658593214671007,
+        ],
+        [
+            -0.12359117557478233,
+            0.2533955136089179,
+            -0.00045414851154146005,
+        ],
+    ]);
+
+    assert_entries_close(q_block(RHO, t_hi), matrix_hi, 1e-13);
+    assert_entries_close(q_block(RHO, t_lo), matrix_lo, 1e-13);
+}
+
+#[test]
+/// Matrix Q SE3
+/// Threshold for theta_sq 181,440e^1/4
+/// 0.050193404960717505336016995289832652425413397500753684377067048913466264320148131 +/- 1e-09
+/// Computed using mpmath at 80 digits.
+fn q_matrix_se3_c5_threshold() {
+    let t_hi: Vector<3, f64> = Vector::new([
+        0.014340973131633574,
+        -0.021511459697450358,
+        0.043022919394900716,
+    ]);
+    let matrix_hi = Matrix::new([
+        [0.012545595866446456, 0.3736169484295461, 0.1267118476660283],
+        [
+            -0.37600712288784666,
+            0.008363469462850288,
+            -0.24550341123485972,
+        ],
+        [
+            -0.12312642930970909,
+            0.2544644504237632,
+            -0.0005978047293558165,
+        ],
+    ]);
+    let t_lo: Vector<3, f64> =
+        Vector::new([0.014340972560205001, -0.0215114588403075, 0.043022917680615]);
+    let matrix_lo = Matrix::new([
+        [
+            0.012545595366775837,
+            0.3736169484921431,
+            0.12671184760103235,
+        ],
+        [
+            -0.37600712285520405,
+            0.008363469129767754,
+            -0.2455034114145882,
+        ],
+        [
+            -0.1231264293875912,
+            0.25446445024659614,
+            -0.0005978047055147155,
+        ],
+    ]);
+
+    assert_entries_close(q_block(RHO, t_hi), matrix_hi, 1e-13);
+    assert_entries_close(q_block(RHO, t_lo), matrix_lo, 1e-13);
 }
