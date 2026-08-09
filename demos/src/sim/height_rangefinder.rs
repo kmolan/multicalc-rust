@@ -1,4 +1,13 @@
 //! A downward beam that measures how far the ground is below.
+//!
+//! It measures along itself and does not level its own answer. Turning what comes back into a
+//! height needs to know how far the body is leaning, which is not something a beam knows, so the
+//! standing-up is left to whoever holds a belief about the lean — and being wrong about the lean
+//! then shows up as being wrong about the height, which is the honest arrangement.
+//!
+//! The ground it measures to is flat and at nothing. Sloping ground, a step underneath, and a
+//! reading that comes back off a wall instead are all things a real beam meets and none of them is
+//! here.
 
 use rand_pcg::Pcg32;
 

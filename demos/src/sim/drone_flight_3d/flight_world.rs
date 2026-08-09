@@ -1,8 +1,5 @@
-//! The spine of the demo: one tick in, one record out.
-//!
-//! A tick picks what the reference asks for, runs the flight stack against it, moves the truth
-//! under whatever the rotors produced, and folds the result into the running totals. Only the
-//! flight stack is timed, so the cost reported is the library's work and not the simulation's.
+//! The spine of the demo: one tick in, one record out. Only the flight stack is timed, so the cost
+//! it reports is the library's work and not the simulation's.
 
 use std::error::Error;
 use std::time::Instant;
@@ -50,6 +47,14 @@ const ARMED_TICKS: u64 = 100;
 /// The point the body is asked to hold.
 pub const HOVER_POINT: [f64; 3] = [0.0, 0.0, 1.5];
 
+/// The run the demo flies.
+///
+/// One seed settles every draw a flight makes — the offsets the unit is switched on with, every
+/// reading it gives afterwards, where each satellite fix lands, and where the guesses about the room
+/// are scattered. Fixing it means what is watched is the same flight every time, so something that
+/// looks wrong can be looked at twice.
+pub const SEED: u64 = 20260807;
+
 // Where the numbers below come from.
 //
 // The model file describes an airframe and says nothing whatever about what is bolted to it, so
@@ -66,8 +71,9 @@ pub const HOVER_POINT: [f64; 3] = [0.0, 0.0, 1.5];
 //   These describe nothing. They are how a fault whose shape the filter cannot be told about is
 //   declared to it anyway, each argued for where it is defined. Whether the argument was right is
 //   what a consistency check answers, and nothing measures that any more.
-// - **Staging.** `HOVER_POINT`, `WARMUP_TICKS`, `ARMED_TICKS`, `RUNNING_THRUST_MARGIN`. Where the
-//   demo puts the machine and how it starts it, chosen to make the thing legible and measurable.
+// - **Staging.** `SEED`, `HOVER_POINT`, `WARMUP_TICKS`, `ARMED_TICKS`, `RUNNING_THRUST_MARGIN`.
+//   Where the demo puts the machine and how it starts it, chosen to make the thing legible and
+//   measurable.
 //
 // What none of them is: a number turned until a gate went green. If one ever becomes that, say so
 // where it is defined — that is the single most useful thing a later reader can be told.
@@ -544,6 +550,10 @@ impl FlightWorld {
     /// The truth handed in is the whole of it, the unit's own steady offsets included, because
     /// those are two of the five things the filter is carrying and leaving them out would ask the
     /// check a different question.
+    ///
+    /// Ask it about a second apart rather than every tick, and pool the answers across several
+    /// runs. The reason is in [`FlightEstimator::consistency_against`], and it is the difference
+    /// between a number that reads the tuning and a number that reads nothing at all.
     #[must_use]
     pub fn filter_consistency(&self) -> Option<f64> {
         let state = self.plant.state();

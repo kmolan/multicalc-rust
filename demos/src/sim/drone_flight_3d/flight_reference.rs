@@ -1,4 +1,6 @@
-//! Where the body should be, how fast it should be going, and how quickly that should be changing.
+//! Where the body should be at a given moment, how fast it should be going, and how quickly that
+//! should be changing. There is no feedback anywhere in here: it never asks where the body actually
+//! got to.
 
 use multicalc::error::MotionError;
 use multicalc::motion::{

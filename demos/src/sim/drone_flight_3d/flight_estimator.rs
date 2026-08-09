@@ -1,20 +1,7 @@
-//! What the machine works out about its own motion from what it can feel.
-//!
-//! The inertial unit reports the truth with a shake at the rotors' turning rate sitting on top of
-//! it. That shake is far too fast for the loops to answer and far too big to hand them anyway, so
-//! it is taken out first, at the frequency it is known to sit at. Everything downstream — the
-//! estimate and both loops — is fed the cleaned-up reading and never the raw one.
-//!
-//! Two things are then done with the cleaned-up reading. One is the simplest thing there is:
-//! integrate it and nothing else. That answer is right for a moment and hopeless after a minute,
-//! which is exactly what makes it worth having on screen — it is what the machine would believe
-//! with nothing to check itself against.
-//!
-//! The other is the fifteen-number filter, which carries the same integration but keeps a spread
-//! alongside it and lets a satellite fix, a downward beam and a compass pull it back toward what
-//! they see. It also works out, and keeps working out, what the unit's own steady offsets are —
-//! which is the whole reason it beats the first answer, because those offsets are what makes plain
-//! integration fail.
+//! What the machine works out about its own motion from what it can feel: the rotors' shake taken
+//! out of the inertial reading, that reading integrated on its own, and the same reading carried
+//! through a fifteen-number filter that a satellite fix, a downward beam and a compass pull back
+//! into line. Nothing here ever sees the truth.
 
 use multicalc::error::SignalError;
 use multicalc::estimation::{
@@ -111,6 +98,12 @@ const WORST_LEAN_FOR_THE_BEAM: f64 = 0.6;
 /// itself: too wide and it stays needlessly unsure and ignores readings it should be taking, too
 /// narrow and it grows sure of itself faster than it has earned. Whether it was told the truth is
 /// exactly what the consistency check measures.
+///
+/// Round numbers are the temptation, and they cost something measurable. Claiming the turn-on
+/// offsets two and a half times wider than they are really drawn — which reads as no more than
+/// being careful — put the consistency check at eight to eleven against the fifteen it should
+/// average, because a filter that has been told it might be badly wrong and is not comes out
+/// looking suspiciously right.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct StartingSpreads {
     /// How far off the surveyed position might be, in metres.
@@ -418,6 +411,14 @@ impl FlightEstimator {
     /// Only a simulation can ask this, because only a simulation has the truth. Over a long flight
     /// it should sit near fifteen, one for each number the filter carries: much larger and the
     /// filter is more wrong than it admits, much smaller and it is being needlessly unsure.
+    ///
+    /// Ask it about a second apart, and pool the answers over several runs. Asked every tick it
+    /// measures nothing: the filter's error barely moves in a hundredth of a second, so a thousand
+    /// ticks are one sample counted a thousand times — a filter that is exactly right sits quietly
+    /// in the middle of its band and scores perfectly, and a badly wrong one sits just as quietly
+    /// outside it and scores just as steadily. What the number is worth reading for is the average,
+    /// and an average taken over one run carries more of the seed it was drawn on than of anything
+    /// that was tuned.
     #[must_use]
     pub fn consistency_against(&self, truth: NominalState<f64>) -> Option<f64> {
         self.filter.normalized_estimation_error_squared(truth).ok()
@@ -481,6 +482,11 @@ impl FlightEstimator {
     /// say how fast it is going is its own push reading, integrated — and the small errors in that
     /// pile up into exactly the wander that the position loop then turns into a push nothing asked
     /// for. A direct reading of the speed, even a rough one, cuts that off at the source.
+    ///
+    /// It is worth more than asking where the body is more often. Folding it in cut the estimate's
+    /// error to a quarter and the ripple in the flown speed to a fifth, where doubling how often a
+    /// fix arrives did a fraction of that — which is what a machine reading only the position out of
+    /// this receiver is throwing away.
     pub fn fold_in_satellite_velocity(&mut self, velocity: Vector3D<f64>, spread: Vector3D<f64>) {
         let predicted = Vector::new(SatelliteVelocity.eval(&self.filter.nominal_state()));
         if self
@@ -558,8 +564,13 @@ impl FlightEstimator {
     /// seconds.
     ///
     /// A notch is a trade: it takes the shake out, and what it charges is a delay on everything
-    /// else. This is that charge, worked out from the notches themselves rather than from a
-    /// recording, and it is the half of the trade that a control loop feels.
+    /// else. This is that charge, and it is the half of the trade that a control loop feels.
+    ///
+    /// It is asked of the notches rather than of a recording, and that is a decision rather than a
+    /// convenience. Sliding the cleaned-up reading along against the truth to see where the two
+    /// match best cannot answer it on a smooth circle: the match climbs steadily across the whole
+    /// sweep with no peak anywhere in it, so whichever lag comes out on top is picked by the jitter
+    /// and not by the delay. The notches know what they charge; nothing has to be inferred.
     #[must_use]
     pub fn notch_delay_at(&self, frequency_hertz: f64) -> f64 {
         self.sections

@@ -1,9 +1,6 @@
-//! The numbers that describe the machine: its mass read from the model file, its rotor layout
-//! transcribed from the same file by hand.
-//!
-//! The reader covers what the file says about mass and nothing about motors, so where the rotors
-//! sit, how hard they can push, and how much each one twists the body are written out here from the
-//! `<geom>` and `<motor>` entries of `x2.xml`.
+//! The machine's own numbers: its mass read out of the model file, its rotor layout copied from the
+//! same file by hand. Anything that cannot be read off that file is not a fact about this airframe
+//! and belongs in `flight_world` instead.
 
 use std::error::Error;
 use std::path::Path;

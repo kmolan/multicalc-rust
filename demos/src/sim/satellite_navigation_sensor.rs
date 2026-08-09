@@ -1,5 +1,12 @@
 //! A satellite receiver: where the body is and how fast it is going, both noisy, and one of the two
 //! far better than the other.
+//!
+//! There are no satellites in here, no signals and no geometry. Each of the four ways the answer is
+//! wrong — the jitter that averages away, the drift that does not, the height being the worse half,
+//! and the occasional answer that is simply wrong by metres — is drawn at the size a real receiver's
+//! answer carries it, because the size and the shape are what a filter downstream has to cope with
+//! and where it came from is not. A receiver worked out from the sky above it would be a different
+//! and much larger piece of work, and it would tell the filter nothing new.
 
 use rand::RngExt;
 use rand_pcg::Pcg32;

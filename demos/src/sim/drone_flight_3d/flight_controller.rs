@@ -1,10 +1,6 @@
 //! The two loops that fly the machine: a slow one that decides where to push, and a fast one that
-//! decides how to point.
-//!
-//! The outer loop sees the body as a point being pushed around and answers with the acceleration
-//! that closes the gap to the reference. That acceleration is turned into a direction to lean and a
-//! push to apply, and the inner loop closes the gap to that lean every tick. The last step shares
-//! the push and twist out across the four rotors.
+//! decides how to point. It is handed where the body is and takes it as so, never knowing whether
+//! that came from the truth or from the filter.
 
 use multicalc::control::{GeometricAttitudeController, Lqr, thrust_command_from_acceleration};
 use multicalc::error::ControlError;

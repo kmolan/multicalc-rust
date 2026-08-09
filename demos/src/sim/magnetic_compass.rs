@@ -1,4 +1,10 @@
 //! A compass: a noisy reading of which way the body's nose points.
+//!
+//! One number, out by however much it is out. What a real compass also suffers — the field dipping
+//! into the ground rather than lying flat, north on the map not being north on the needle, and the
+//! machine's own motors pulling the needle about — is not here. Each of those is a steady error
+//! rather than a jittery one, and a filter meets them by working out an offset, which is what it
+//! already does for the inertial unit; adding them would re-tell that story rather than a new one.
 
 use rand_pcg::Pcg32;
 

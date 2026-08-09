@@ -8,10 +8,9 @@
 
 **Scientific computing that fits on a microcontroller, built and tested from scratch in one integrated package. Estimation, control, kinematics, Lie groups, calculus, autodiff and linear algebra in stable no_std Rust with no heap, no panics and no unsafe.**
 
-https://github.com/user-attachments/assets/93dee114-67f6-4124-a20d-88a8be50da6f
+https://github.com/user-attachments/assets/ed45ccb5-ca95-4e4b-8399-27d09284b220
 
-*A reel of the live [showcase demos](demos#live-showcases): a 2D robot running particle filter localization + EKF sensor fusion + obstacle avoidance over a 1kHz loop rate; then an 8-link SE(3) arm tracking a moving 3D pose. Every number on
-screen is measured live, inside a 1 ms tick.*
+*A reel of the live [showcase demos](demos#live-showcases): a quadcopter performing state estimation, planning and control to fly waypoints, 2D robot running particle filter localization + EKF sensor fusion + obstacle avoidance over a 1kHz loop rate; then an 8-link SE(3) arm tracking a moving 3D pose. Every number on screen is measured live, inside a 1 ms tick.*
 
 ## Highlights
 
@@ -170,11 +169,7 @@ cargo run -p multicalc-demos --example <name>
   `demos/` crate. Run one with `cargo run -p multicalc-demos --example <name>`.
 - **[Benchmarks](benchmarks)**: Per-module accuracy tables and latency measurements, generated
   from the QA fixtures and checked in CI.
-- **[Live showcases](demos#live-showcases)**: Five animated Rerun demos, led by a robot that boots not
-  knowing where it is, finds itself on a known map with a particle filter, then fuses wheel odometry,
-  an IMU, and GPS to lap a course of obstacles on lidar alone. The others are an 8-link SE(3) arm
-  tracking a moving 3D pose, a Newton fractal, Fourier epicycles drawing Ferris, and gradient-driven
-  marbles, each streaming live-measured speed and accuracy.
+- **[Live showcases](demos#live-showcases)**: Six animated Rerun demos, including a quadcopter using particle filter localization then using state estimation to fly a planned loop, a 2D robot using monte carlo localization, then fusing wheel odometry+IMU+GPS for state estimation to lap a course of obstacles. The others are an 8-link SE(3) arm tracking a moving 3D pose, a Newton fractal, Fourier epicycles drawing Ferris, and gradient-driven marbles, each streaming live-measured speed and accuracy.
 - **[QA crate](tools/qa)**: `multicalc-qa` holds the CI-enforced accuracy fixtures and generates the [benchmarks](benchmarks) tables from them.
 
 ## Repository layout

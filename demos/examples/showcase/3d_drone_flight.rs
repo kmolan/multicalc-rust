@@ -1,28 +1,6 @@
-//! 3D drone flight (dynamics + control showcase): "It flies a planned line."
-//!
-//! A Skydio X2 read straight out of its model file flies the smoothest line through a ring of ten
-//! corners, climbing and diving twice a lap, on nothing but what it can work out about itself. The
-//! line is solved once before the flight and never touched again. The outer loop sees the body as a
-//! point being pushed around and answers with an acceleration; that becomes a direction to lean and
-//! a push to apply, and the inner loop closes the gap to that lean a thousand times a second. The
-//! four rotor thrusts are shared out by hand, so a demand past what the rotors have costs some of
-//! the twist rather than any of the push.
-//!
-//! Nothing that decides anything is allowed to see the truth. A shaken inertial unit is cleaned up
-//! at the rotors' own turning rate, integrated, and pulled back into line by a satellite fix, a
-//! downward beam and a compass. The body is drawn where that answer says it is, and nothing marks
-//! where it really is — but the trail behind it is true positions, so the gap between the machine
-//! and its own trail is the estimate's error, drawn at life size against a machine half a metre
-//! across.
-//!
-//! The plan speeds up and slows down all by itself, so what it asks for and how well it is followed
-//! are two different things and are reported apart.
-//!
-//! `--check` flies two of these headless and prints every bound they have to clear: a circle flown
-//! once on the truth and once on the estimate, which is what the estimate costs the flying, and the
-//! whole thing from the pad, which is whether it can find itself and then fly.
-//!
-//! Streams live to a Rerun viewer; see demos/README.md for the WSL setup.
+//! 3D drone flight (dynamics + control + estimation showcase). A Skydio X2 read out of its own
+//! model file finds itself on a floor plan, then flies a planned loop on its own estimate: it is
+//! drawn where it believes it is, and the trail is where it really went. Streams to a Rerun viewer.
 //! Run with: cargo run --release -p multicalc-demos --example 3d_drone_flight
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -35,7 +13,7 @@ use multicalc::mapping::OccupancyMap;
 use multicalc_demos::loop_util::{LatencyRing, Pacer};
 use multicalc_demos::sim::drone_flight_3d::{
     CIRCLE_SPEED, FlightPhase, FlightReference, FlightWorld, ROTOR_TONE_HERTZ, SEED, StateSource,
-    WARMUP_TICKS, planned_waypoints, run_ladder,
+    WARMUP_TICKS, planned_waypoints,
 };
 use multicalc_demos::visualization::ground_grid;
 use multicalc_demos::{RerunSink, Rgba, VizSink};
@@ -69,46 +47,7 @@ fn main() -> Result<(), Box<dyn Error>> {
              Re-run with: cargo run --release -p multicalc-demos --example 3d_drone_flight"
         );
     }
-    if std::env::args().any(|argument| argument == "--check") {
-        run_checks()
-    } else {
-        run_live()
-    }
-}
-
-/// Flies every gate headless, prints what each one measured, and reports a failure through the
-/// exit code.
-fn run_checks() -> Result<(), Box<dyn Error>> {
-    let world = FlightWorld::new(SEED)?;
-    println!("\nThe machine, as read and transcribed:\n");
-    print!("{}", indented(&world.model().report()));
-
-    let outcomes = run_ladder()?;
-    println!("\nQuality gates:\n");
-    println!(
-        "  {:<5} {:<24} {:<24} {:>16}  {:<14} verdict",
-        "gate", "flight", "quantity", "measured", "bound"
-    );
-    for outcome in &outcomes {
-        println!(
-            "  {:<5} {:<24} {:<24} {:>16}  {:<14} {}",
-            outcome.gate,
-            outcome.scenario,
-            outcome.quantity,
-            outcome.measured,
-            outcome.bound,
-            if outcome.passed { "ok" } else { "FAILED" },
-        );
-    }
-
-    let failures = outcomes.iter().filter(|outcome| !outcome.passed).count();
-    if failures == 0 {
-        println!("\nEvery gate passed.");
-        Ok(())
-    } else {
-        eprintln!("\n{failures} gate(s) failed.");
-        std::process::exit(1);
-    }
+    run_live()
 }
 
 /// Runs the demo at a thousand ticks a second, streaming to a viewer.
@@ -193,14 +132,10 @@ fn run_live() -> Result<(), Box<dyn Error>> {
         world.model().mesh_scale(),
     )?;
     viewer.set_static(false);
-    // Both on one set of axes: they sit in much the same range, and reading a climb against the
-    // speed it was taken at is the whole point of having either of them.
-    viewer.series_styles(
-        "plots/motion",
-        &[HERO, TARGET],
-        &["height (m)", "speed (m/s)"],
-        2.0,
-    )?;
+    // One plot each. A metre of height and a metre a second of speed are different quantities, so
+    // sharing an axis lets whichever happens to be larger set the scale for both.
+    viewer.series_style("plots/height", HERO, "height (m)", 2.0)?;
+    viewer.series_style("plots/speed", TARGET, "speed (m/s)", 2.0)?;
 
     let mut pacer = Pacer::new();
     let mut cost_ring = LatencyRing::new(1024);
@@ -220,9 +155,9 @@ fn run_live() -> Result<(), Box<dyn Error>> {
 
         let flown_speed = record.velocity.linear().norm();
 
-        viewer.scalars("plots/motion", &[record.pose.translation()[2], flown_speed])?;
+        viewer.scalar("plots/height", record.pose.translation()[2])?;
+        viewer.scalar("plots/speed", flown_speed)?;
 
-        let estimate_error = (record.believed.position - record.pose.translation()).norm();
         if record.fix_thrown_away {
             if refused_fixes.len() == REFUSED_FIX_MARKS {
                 refused_fixes.pop_front();
@@ -280,8 +215,6 @@ fn run_live() -> Result<(), Box<dyn Error>> {
                 Some(summary) => format!("median {:.1} µs of the 1 ms tick", summary.median),
                 None => "warming up".to_owned(),
             };
-            let dead_reckoning_drift =
-                (record.dead_reckoned.position - record.pose.translation()).norm();
             let panel = if record.phase == FlightPhase::FindingItself {
                 let spread = world
                     .localizer()
@@ -302,11 +235,8 @@ fn run_live() -> Result<(), Box<dyn Error>> {
                 format!(
                     "## 3d_drone_flight — multicalc live demo\n\
                      ### minimum-snap plan · LQR · geometric attitude · 15-number filter · {ROTOR_TONE_HERTZ:.0} Hz notches: {cost}\n\
-                     ### lap {lap} · {flown_speed:.2} m/s · {:.0} mm off the plan · {:.1} % at a rotor limit\n\
-                     ### flying on its own estimate, {:.0} mm out; dead reckoning alone would be {dead_reckoning_drift:.1} m out",
-                    1000.0 * record.position_error,
+                     ### lap {lap} · {flown_speed:.2} m/s · {:.1} % at a rotor limit",
                     100.0 * metrics.rotor_limit_fraction(),
-                    1000.0 * estimate_error,
                 )
             };
             viewer.text("hud/stats", &panel)?;

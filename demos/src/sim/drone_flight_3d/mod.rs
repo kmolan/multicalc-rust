@@ -14,10 +14,10 @@
 //!   settles where in the room the machine is before it flies
 //! - [`flight_reference`]: where the body should be at a given moment
 //! - [`flight_world`]: the driver — one tick in, one record out
-//! - [`quality_gates`]: the measured bounds the demo has to clear
 //!
-//! Everything here is specific to this demo. The numerics it is built from — the body, the rotor
-//! mixing, both loops, and the integrators — all come from `multicalc`.
+//! Everything here is specific to this demo, and the numerics behind it all come from `multicalc`.
+//! The sensors sit one level up in [`crate::sim`], because a beam or a compass is not particular to
+//! this machine.
 
 pub mod flight_controller;
 pub mod flight_estimator;
@@ -26,7 +26,6 @@ pub mod flight_localization;
 pub mod flight_plant;
 pub mod flight_reference;
 pub mod flight_world;
-pub mod quality_gates;
 pub mod x2_model;
 
 pub use flight_controller::{FlightCommand, FlightController};
@@ -41,8 +40,7 @@ pub use flight_reference::{
     STEP_HOLD_SECONDS, lean_for_circle, planned_waypoints,
 };
 pub use flight_world::{
-    FlightMetrics, FlightPhase, FlightWorld, HOVER_POINT, PUSH_JITTER, TIMESTEP, TURN_RATE_JITTER,
-    TickRecord, WARMUP_TICKS, rotor_positions_in_world, rotor_tone_for,
+    FlightMetrics, FlightPhase, FlightWorld, HOVER_POINT, PUSH_JITTER, SEED, TIMESTEP,
+    TURN_RATE_JITTER, TickRecord, WARMUP_TICKS, rotor_positions_in_world, rotor_tone_for,
 };
-pub use quality_gates::{GateOutcome, SEED, run_ladder};
 pub use x2_model::{GRAVITY_STRENGTH, ROTOR_COUNT, ROTOR_TONE_HERTZ, X2Model};

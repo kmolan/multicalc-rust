@@ -1,8 +1,5 @@
-//! The truth motion: what the machine actually does when its rotors are asked for a set of thrusts.
-//!
-//! Nothing here knows about the controller. It takes what each rotor was asked for and answers with
-//! where the body has got to and how it is moving. In between sit the two things that stop the body
-//! doing exactly what it is told: rotors that take time to spin up, and air that pushes back.
+//! The truth: what the machine really does when its rotors are asked for a set of thrusts. Nothing
+//! that decides anything may read it — the sensors are the only things handed it.
 
 use multicalc::dynamics::{RigidBody, RigidBodyAcceleration};
 use multicalc::error::PlantError;

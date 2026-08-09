@@ -1,4 +1,5 @@
-//! A 2D sensor simulator for the demos: std-only and seeded, so a run reproduces exactly.
+//! The simulated half of the demos: rooms, the sensors a machine carries, and what each of them
+//! gets wrong. Std-only and seeded, so a run reproduces exactly.
 //!
 //! - [`sensor_noise`]: the jitter every simulated sensor adds
 //! - [`wheeled_vehicle`]: differential-drive truth motion and noisy wheel odometry

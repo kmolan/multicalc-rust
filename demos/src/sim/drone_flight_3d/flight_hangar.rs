@@ -1,13 +1,5 @@
-//! The room the machine flies in, drawn as a floor plan it can match itself against.
-//!
-//! Everything here is a flat, waist-height slice of the building: the walls, a step jutting in from
-//! one of them, and two pillars standing clear of the flight loop. That slice is all a machine looking
-//! sideways can see, and it is the whole of what it has to work out where it is from.
-//!
-//! The shape is deliberately lopsided. A square room looks the same from four different places, and
-//! a rectangle from two, so a machine dropped in one would settle on an answer that is confidently
-//! a quarter or a half turn wrong. The long wall, the step in it and the two pillars between them
-//! leave only one place the machine can be standing.
+//! The room the machine flies in, drawn as a flat floor plan it can match itself against. Its shape
+//! is deliberately lopsided, so there is only one place the machine can be standing.
 
 use multicalc::error::MappingError;
 use multicalc::mapping::{DynamicOccupancyGrid, MutableOccupancyMap};

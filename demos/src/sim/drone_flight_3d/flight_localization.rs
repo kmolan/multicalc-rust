@@ -1,13 +1,6 @@
-//! Working out where in the room the machine is, before it flies anywhere.
-//!
-//! The machine is set down knowing roughly where it was put and nothing at all about which way it is
-//! pointing. It hovers, turns slowly on the spot, and every tenth of a second a scanner reads the
-//! walls around it; a cloud of guesses is scored against the floor plan until they agree on one
-//! place. Only then does the flight start.
-//!
-//! Nothing here happens once the machine is flying. The guesses are carried forward by how far the
-//! machine believes it has travelled and turned, which is a model that holds while a body hovers and
-//! spins and breaks outright on a banking machine sliding sideways.
+//! Working out where in the room the machine is before it flies anywhere: it hovers, turns on the
+//! spot, and a cloud of guesses is scored against the floor plan until they agree on one place.
+//! None of it runs once the machine is flying.
 
 use std::error::Error;
 
