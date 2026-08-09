@@ -120,6 +120,12 @@ impl<T: Numeric> Joint<T> {
         Joint::from_kind(JointKind::Fixed, Vector::new([T::ONE, T::ZERO, T::ZERO]), origin)
     }
 
+    /// The same joint with its axis replaced, used by the tree to store a unit axis.
+    #[inline]
+    pub(crate) fn with_axis(self, axis: Vector3D<T>) -> Self {
+        Joint { axis, ..self }
+    }
+
     /// A joint of the given kind, with every optional value at its default.
     #[inline]
     fn from_kind(kind: JointKind, axis: Vector3D<T>, origin: SE3<T>) -> Self {
