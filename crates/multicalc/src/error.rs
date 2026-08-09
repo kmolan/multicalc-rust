@@ -65,6 +65,8 @@ pub enum IntegrateError {
     NonFinite,
     /// A variable index was `>=` the number of variables in the point.
     IndexOutOfRange,
+    /// A fixed integration timestep was zero or negative.
+    NonPositiveTimestep,
 }
 
 /// Errors from the solver modules (root finding, Gauss-Newton, Levenberg-Marquardt).
@@ -532,6 +534,9 @@ impl core::fmt::Display for IntegrateError {
                 f.write_str("integrand or state contained a non-finite value")
             }
             IntegrateError::IndexOutOfRange => f.write_str("variable index out of range"),
+            IntegrateError::NonPositiveTimestep => {
+            f.write_str("integration timestep must be strictly positive")
+            }
         }
     }
 }

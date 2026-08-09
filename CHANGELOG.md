@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`ExponentialMap::integrate_attitude` input validation.** A non-finite timestep, a
+non-positive timestep, or a non-finite rate from the caller's `angular_rate_at` callback
+used to silently produce a NaN orientation or integrate backwards without comment.
+`integrate_attitude` now returns the new `IntegrateError::NonPositiveTimestep` or the
+existing `IntegrateError::NonFinite` instead. `attitude_step` and
+`attitude_step_with_angular_acceleration` stay infallible, as they sit on
+`RigidBody::stepped`'s panic-free per-tick path; their behavior with non-finite or
+negative input is now documented instead of silent. (#302)
+
 ## [0.10.0] - 2026-08-09
 
 A feature release adding signal processing, polynomials and minimum-snap trajectories, LQR and

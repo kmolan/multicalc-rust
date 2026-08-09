@@ -1,5 +1,6 @@
 use multicalc::Dual;
 use multicalc::linear_algebra::{Vector, Vector3D};
+use multicalc::error::IntegrateError;
 use multicalc::ode::ExponentialMap;
 use multicalc::spatial::SO3;
 
@@ -23,7 +24,7 @@ fn reference_orientation(steps: usize, final_time: f64) -> SO3<f64> {
         final_time / steps as f64,
         steps,
         |_, _| {},
-    )
+    ).unwrap()
 }
 
 // How far apart two orientations are, in radians.
@@ -63,7 +64,7 @@ fn unit_length_holds_over_a_long_run() {
     // Twenty seconds of tumbling at a tenth of a millisecond a step: the length has to stay put.
     let rate = |time: f64, _orientation: SO3<f64>| prescribed_rate(time);
     let facing =
-        ExponentialMap::integrate_attitude(&rate, 0.0, SO3::identity(), 1e-4, 200_000, |_, _| {});
+        ExponentialMap::integrate_attitude(&rate, 0.0, SO3::identity(), 1e-4, 200_000, |_, _| {}).unwrap();
     assert!((facing.quaternion().norm() - 1.0).abs() < 1e-12);
 }
 
@@ -120,7 +121,7 @@ fn integrate_attitude_converges_second_order() {
             1.0 / steps as f64,
             steps,
             |_, _| {},
-        );
+        ).unwrap();
         angle_between(facing, reference)
     };
     let ratio = endpoint_error(200) / endpoint_error(400);
@@ -141,7 +142,7 @@ fn observer_sees_every_node_starting_with_the_first() {
         timestep,
         steps,
         |time, orientation| nodes.push((time, orientation.log()[2])),
-    );
+    ).unwrap();
 
     assert_eq!(nodes.len(), steps + 1);
     assert_eq!(nodes[0].0, 0.0);
@@ -195,10 +196,32 @@ fn f32_holds_unit_length_and_round_trips() {
         1e-4_f32,
         100_000,
         |_, _| {},
-    );
+    ).unwrap();
     assert!((facing.quaternion().norm() - 1.0).abs() < 1e-3);
 
     let turn = Vector::new([0.2_f32, -0.1, 0.4]);
     let round_tripped = SO3::<f32>::exp(turn).log();
     assert!((round_tripped - turn).norm() < 1e-5);
 }
+
+#[test]
+fn integrate_attitude_rejects_non_positive_timestep() {
+    let rate = |_time: f64, _orientation: SO3<f64>| Vector::new([0.0, 0.0, 1.0]);
+    assert_eq!(
+        ExponentialMap::integrate_attitude(&rate, 0.0, SO3::identity(), 0.0, 10, |_, _| {}),
+        Err(IntegrateError::NonPositiveTimestep)
+    );
+    assert_eq!(
+        ExponentialMap::integrate_attitude(&rate, 0.0, SO3::identity(), -0.1, 10, |_, _| {}),
+        Err(IntegrateError::NonPositiveTimestep)
+    );
+}
+
+#[test]
+fn integrate_attitude_rejects_non_finite_rate() {
+    let rate = |_time: f64, _orientation: SO3<f64>| Vector::new([f64::NAN, 0.0, 0.0]);
+    assert_eq!(
+        ExponentialMap::integrate_attitude(&rate, 0.0, SO3::identity(), 0.01, 10, |_, _| {}),
+        Err(IntegrateError::NonFinite)
+    );
+}                            
