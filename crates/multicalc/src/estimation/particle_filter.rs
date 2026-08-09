@@ -206,6 +206,15 @@ fn draw_from_remainders<T: Numeric>(
     weights.len() - 1
 }
 
+/// Logs a normalized weight without letting linear underflow make it permanently impossible.
+fn recoverable_log_weight<T: Numeric>(weight: T) -> T {
+    if weight == T::ZERO {
+        T::MIN_POSITIVE.ln()
+    } else {
+        weight.ln()
+    }
+}
+
 /// Scores how well a particle's predicted measurement matches the real one, as a log-weight.
 ///
 /// Implement this for a custom sensor; [`GaussianLikelihood`] is the ready-made default.
@@ -532,11 +541,13 @@ where
 
         // Score every particle in log space: ask the model what this particle would have measured,
         // let the likelihood rate how well that matches the real reading, and add it to the
-        // particle's current log-weight. Working in logs keeps tiny probabilities from underflowing.
+        // particle's current log-weight. A displayed zero only means the linear representation
+        // underflowed, so give it the smallest positive prior instead of making it permanently
+        // impossible.
         for i in 0..self.particles.len() {
             let predicted = measurement_model.eval(self.particles[i].as_array());
             let score = likelihood.log_weight(&predicted, measurement.as_array());
-            self.log_weight_scratch[i] = self.weights[i].ln() + score;
+            self.log_weight_scratch[i] = recoverable_log_weight(self.weights[i]) + score;
         }
 
         self.normalize_and_resample()
@@ -598,9 +609,11 @@ where
         F: FnMut(&Vector<STATE_DIMENSION, T>) -> T,
     {
         // Combine each particle's score with its current weight in log space, matching update's
-        // scoring loop; the shared tail then normalizes and resamples.
+        // scoring loop. Floor a displayed zero so underflow does not make the particle permanently
+        // impossible; the shared tail then normalizes and resamples.
         for i in 0..self.particles.len() {
-            self.log_weight_scratch[i] = self.weights[i].ln() + score(&self.particles[i]);
+            self.log_weight_scratch[i] =
+                recoverable_log_weight(self.weights[i]) + score(&self.particles[i]);
         }
 
         self.normalize_and_resample()
