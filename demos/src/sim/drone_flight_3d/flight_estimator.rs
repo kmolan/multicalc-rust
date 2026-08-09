@@ -30,6 +30,7 @@ use multicalc::spatial::{FreeJointState, SO3};
 
 use crate::sim::inertial_measurement_unit_3d::InertialReading3d;
 
+use super::flight_plant::level_heading;
 use super::x2_model::GRAVITY_STRENGTH;
 
 /// How many notches are stacked up: one on the rotors' own turning rate, one on twice it.
@@ -202,10 +203,7 @@ struct CompassHeading;
 
 impl NominalStateFn<1> for CompassHeading {
     fn eval<S: Numeric>(&self, state: &NominalState<S>) -> [S; 1] {
-        let forward = state
-            .orientation()
-            .act(Vector::new([S::ONE, S::ZERO, S::ZERO]));
-        [forward[1].atan2(forward[0])]
+        [level_heading(state.orientation())]
     }
 }
 

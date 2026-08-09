@@ -9,6 +9,7 @@ use multicalc::error::PlantError;
 use multicalc::linear_algebra::{Vector, Vector3D};
 use multicalc::ode::{ExponentialMap, Rk45};
 use multicalc::plant::{MultirotorMixer, RotorLag};
+use multicalc::scalar::Numeric;
 use multicalc::spatial::{FreeJointState, SE3, SO3, Twist, Wrench};
 
 use super::x2_model::{ROTOR_COUNT, X2Model};
@@ -260,6 +261,17 @@ fn drag(orientation: SO3<f64>, velocity: Vector3D<f64>) -> Wrench<f64> {
     }
     let in_the_world = velocity.scale(-DRAG_COEFFICIENT * speed);
     Wrench::new(orientation.inverse().act(in_the_world), Vector::zeros())
+}
+
+/// Which way a facing points in the level plane, as an angle from the world's +x axis.
+///
+/// Written over any kind of number rather than over plain ones alone, because the filter asks the
+/// very same question of its own state, in a scalar that carries the slope of every answer along
+/// with it. One question, one answer, one place it is worked out.
+#[must_use]
+pub fn level_heading<S: Numeric>(orientation: SO3<S>) -> S {
+    let forward: Vector3D<S> = orientation.act(Vector::new([S::ONE, S::ZERO, S::ZERO]));
+    forward[1].atan2(forward[0])
 }
 
 /// The angle between the body's own up direction and the world's, in radians.

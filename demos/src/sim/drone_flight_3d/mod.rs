@@ -31,14 +31,14 @@ pub use flight_estimator::{
     EstimatedState, FlightEstimator, StartingBelief, StartingSpreads, StateSource,
 };
 pub use flight_hangar::{FlightHangar, flight_hangar};
-pub use flight_plant::{FlightPlant, angle_from_upright};
+pub use flight_plant::{FlightPlant, angle_from_upright, level_heading};
 pub use flight_reference::{
     CIRCLE_RADIUS, CIRCLE_SPEED, FlightReference, PLAN_WAYPOINTS, ReferenceSample, STEP_DISTANCE,
     STEP_HOLD_SECONDS, lean_for_circle, planned_waypoints, step_started_at,
 };
 pub use flight_world::{
     FlightMetrics, FlightPhase, FlightWorld, HOVER_POINT, LIDAR_BEAMS, PUSH_JITTER, TIMESTEP,
-    TURN_RATE_JITTER, TickRecord, WARMUP_TICKS, level_heading, rotor_positions_in_world,
+    TURN_RATE_JITTER, TickRecord, WARMUP_TICKS, rotor_positions_in_world, rotor_tone_for,
 };
 pub use quality_gates::{GateOutcome, SEED, run_ladder};
 pub use x2_model::{GRAVITY_STRENGTH, ROTOR_COUNT, ROTOR_TONE_HERTZ, X2Model};

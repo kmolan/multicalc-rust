@@ -10,6 +10,7 @@ use multicalc::control::{GeometricAttitudeController, Lqr, thrust_command_from_a
 use multicalc::error::ControlError;
 use multicalc::linear_algebra::{Matrix, Vector, Vector3D};
 use multicalc::plant::MultirotorMixer;
+use multicalc::scalar::Numeric;
 use multicalc::spatial::SO3;
 
 use super::flight_reference::ReferenceSample;
@@ -18,11 +19,13 @@ use super::x2_model::{GRAVITY_STRENGTH, ROTOR_COUNT, X2Model};
 /// How many numbers the outer loop carries: where the body is, and how fast it is going.
 const POSITION_LOOP_DIMENSION: usize = 6;
 
-/// How often the outer loop runs, in ticks — one update every 10 ms, so 100 Hz.
+/// How often the outer loop runs, in ticks — one update every ten of them, so 100 Hz on a
+/// millisecond tick.
+///
+/// The step the outer loop is designed against is this many ticks long, worked out from the tick the
+/// controller is built with rather than written down again. A loop designed against one step and run
+/// on another is wrong in a way nothing reports.
 const POSITION_LOOP_PERIOD_TICKS: u64 = 10;
-
-/// The step the outer loop is designed against, matching that period.
-const POSITION_LOOP_TIMESTEP: f64 = 0.01;
 
 /// What being away from the reference costs the outer loop, against what asking for acceleration
 /// costs it. The two together set how hard the loop pulls: about 7 m/s² of push per metre out of
@@ -51,9 +54,6 @@ const MAXIMUM_LEAN_ANGLE: f64 = 0.45;
 /// over about a twentieth of a second gives the body something it can actually follow, and is still
 /// quick enough to stay well clear of the inner loop.
 const ACCELERATION_SMOOTHING_SECONDS: f64 = 0.05;
-
-/// How long one tick lasts, in seconds — the beat the smoothing and the inner loop run on.
-const TICK_SECONDS: f64 = 0.001;
 
 /// How quickly the wanted facing may be brought round to catch up with where the body is going, in
 /// radians per second.
@@ -99,6 +99,7 @@ pub struct FlightController {
     mixer: MultirotorMixer<ROTOR_COUNT, f64>,
     distribution: Matrix<ROTOR_COUNT, 4, f64>,
     mass: f64,
+    timestep: f64,
     desired_heading: f64,
     previous_travel_heading: Option<f64>,
     held_acceleration: Vector3D<f64>,
@@ -111,22 +112,30 @@ pub struct FlightController {
 impl FlightController {
     /// Builds both loops for a given machine, and proves the outer one settles.
     ///
+    /// `timestep` is how long one tick lasts, which is the beat the inner loop and the smoothing run
+    /// on and, ten of them at a time, the step the outer loop is designed against. It is taken here
+    /// rather than written down, so a demo run on a different tick gets loops built for that tick.
+    ///
     /// `starting_heading` is which way the body's nose already points, as an angle in the level
     /// plane. Starting the wanted facing anywhere else asks for a twist far past what the rotors
     /// have, and the body answers by sitting at its limits for the first second of the flight.
     ///
     /// Returns whatever the outer loop, its stability proof, or the inner loop refuses on.
-    pub fn new(model: &X2Model, starting_heading: f64) -> Result<Self, ControlError> {
+    pub fn new(
+        model: &X2Model,
+        timestep: f64,
+        starting_heading: f64,
+    ) -> Result<Self, ControlError> {
         // The body seen as a point being pushed around: position carries velocity forward, and the
-        // input is the acceleration.
-        let timestep = POSITION_LOOP_TIMESTEP;
+        // input is the acceleration. It is stepped on the outer loop's own slower beat.
+        let position_loop_timestep = timestep * POSITION_LOOP_PERIOD_TICKS as f64;
         let state_transition =
             Matrix::<POSITION_LOOP_DIMENSION, POSITION_LOOP_DIMENSION, f64>::from_fn(
                 |row, column| {
                     if row == column {
                         1.0
                     } else if row < 3 && column == row + 3 {
-                        timestep
+                        position_loop_timestep
                     } else {
                         0.0
                     }
@@ -134,9 +143,9 @@ impl FlightController {
             );
         let input_model = Matrix::<POSITION_LOOP_DIMENSION, 3, f64>::from_fn(|row, column| {
             if row < 3 && row == column {
-                0.5 * timestep * timestep
+                0.5 * position_loop_timestep * position_loop_timestep
             } else if row >= 3 && row - 3 == column {
-                timestep
+                position_loop_timestep
             } else {
                 0.0
             }
@@ -179,6 +188,7 @@ impl FlightController {
             mixer: model.mixer(),
             distribution: model.distribution(),
             mass: model.mass(),
+            timestep,
             desired_heading: starting_heading,
             previous_travel_heading: None,
             held_acceleration: Vector::zeros(),
@@ -270,7 +280,7 @@ impl FlightController {
         // Ease the wanted acceleration toward what the outer loop asked for rather than jumping to
         // it. Every value being eased toward is one the body can hold, and the ones in between are
         // blends of those, so the smoothing never asks for anything past its reach.
-        let catch_up = TICK_SECONDS / (ACCELERATION_SMOOTHING_SECONDS + TICK_SECONDS);
+        let catch_up = self.timestep / (ACCELERATION_SMOOTHING_SECONDS + self.timestep);
         self.smoothed_acceleration = self.smoothed_acceleration
             + (self.held_acceleration - self.smoothed_acceleration).scale(catch_up);
 
@@ -325,15 +335,15 @@ impl FlightController {
             return;
         };
         let carried = match self.previous_travel_heading {
-            Some(previous) => shortest_way_round(travel - previous),
+            Some(previous) => (travel - previous).wrap_to_pi(),
             None => 0.0,
         };
         self.previous_travel_heading = Some(travel);
 
-        let catch_up = HEADING_CATCH_UP_RATE * TICK_SECONDS;
-        let behind = shortest_way_round(travel - self.desired_heading - carried);
+        let catch_up = HEADING_CATCH_UP_RATE * self.timestep;
+        let behind = (travel - self.desired_heading - carried).wrap_to_pi();
         self.desired_heading =
-            shortest_way_round(self.desired_heading + carried + behind.clamp(-catch_up, catch_up));
+            (self.desired_heading + carried + behind.clamp(-catch_up, catch_up)).wrap_to_pi();
     }
 
     /// Shares a wanted push and twist out across the rotors, holding each one inside its limits
@@ -390,20 +400,6 @@ impl FlightController {
                 *thrust <= minimum + LIMIT_TOLERANCE || *thrust >= maximum - LIMIT_TOLERANCE
             });
         (thrusts, at_limit)
-    }
-}
-
-/// The same angle brought into the half turn either side of zero, so the difference between two
-/// facings is the short way round rather than the long one.
-fn shortest_way_round(angle: f64) -> f64 {
-    let full_turn = std::f64::consts::TAU;
-    let brought_in = angle % full_turn;
-    if brought_in > std::f64::consts::PI {
-        brought_in - full_turn
-    } else if brought_in < -std::f64::consts::PI {
-        brought_in + full_turn
-    } else {
-        brought_in
     }
 }
 

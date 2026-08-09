@@ -7,14 +7,15 @@ use std::error::Error;
 use std::time::Instant;
 
 use multicalc::linear_algebra::{Matrix, Vector, Vector3D};
+use multicalc::scalar::Numeric;
 
 use super::flight_estimator::StateSource;
+use super::flight_plant::level_heading;
 use super::flight_reference::{
     CIRCLE_RADIUS, CIRCLE_SPEED, FlightReference, STEP_DISTANCE, STEP_HOLD_SECONDS, lean_for_circle,
 };
 use super::flight_world::{
     FlightPhase, FlightWorld, HOVER_POINT, SATELLITE_PERIOD_TICKS, TIMESTEP, TURN_RATE_JITTER,
-    level_heading,
 };
 use super::x2_model::GRAVITY_STRENGTH;
 use multicalc::motion::PolylinePath;
@@ -1530,23 +1531,10 @@ fn fly_finding_itself(seed: u64) -> Result<FindingItselfRun, Box<dyn Error>> {
     Ok(FindingItselfRun {
         settled: settled_at.is_some(),
         position_error: (guess[0] - truth[0]).hypot(guess[1] - truth[1]),
-        heading_error: wrapped_to_half_turn(guess[2] - true_heading).abs(),
+        heading_error: (guess[2] - true_heading).wrap_to_pi().abs(),
         seconds: settled_at.unwrap_or(FINDING_ITSELF_SECONDS),
         off_the_line: (off_the_line_squares / measured_ticks.max(1) as f64).sqrt(),
         scans_matched: world.scans_matched(),
         scans_refused: world.scans_refused(),
     })
-}
-
-/// The same angle brought into the half turn either side of zero.
-fn wrapped_to_half_turn(angle: f64) -> f64 {
-    let full_turn = std::f64::consts::TAU;
-    let brought_in = angle % full_turn;
-    if brought_in > std::f64::consts::PI {
-        brought_in - full_turn
-    } else if brought_in < -std::f64::consts::PI {
-        brought_in + full_turn
-    } else {
-        brought_in
-    }
 }

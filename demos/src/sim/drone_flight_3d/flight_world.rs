@@ -11,6 +11,7 @@ use multicalc::estimation::{
     BeamModel, ImuNoise, InitialParticleCloud, MonteCarloLocalizer, NominalState,
 };
 use multicalc::linear_algebra::{Vector, Vector3D};
+use multicalc::scalar::Numeric;
 use multicalc::spatial::{FreeJointState, SE3, SO3, Twist};
 use rand::SeedableRng;
 use rand_pcg::Pcg32;
@@ -27,11 +28,15 @@ use super::flight_estimator::{
     EstimatedState, FlightEstimator, StartingBelief, StartingSpreads, StateSource,
 };
 use super::flight_hangar::{FlightHangar, flight_hangar};
-use super::flight_plant::{FlightPlant, angle_from_upright};
+use super::flight_plant::{FlightPlant, angle_from_upright, level_heading};
 use super::flight_reference::{FlightReference, ReferenceSample};
 use super::x2_model::{GRAVITY_STRENGTH, ROTOR_COUNT, ROTOR_TONE_HERTZ, X2Model};
 
 /// How long one tick lasts, in seconds.
+///
+/// The only place the tick is written down. Everything that needs to know it — the plant, both
+/// loops, the notches, the filter — is handed this one, so changing it changes all of them together
+/// rather than leaving one of them designed against a length nothing runs at.
 pub const TIMESTEP: f64 = 0.001;
 
 /// How many ticks at the start of a run are left out of the timing statistics, so a cold start does
@@ -365,7 +370,7 @@ impl FlightWorld {
         let hover_thrust_per_rotor = model.hover_thrust_per_rotor();
         let hover_point = Vector::new(HOVER_POINT);
         // The wanted facing starts at the body's own, so the first tick asks for no turn at all.
-        let controller = FlightController::new(&model, 0.0)?;
+        let controller = FlightController::new(&model, TIMESTEP, 0.0)?;
         let plant = FlightPlant::new(&model, FreeJointState::identity(), TIMESTEP)?;
 
         // What the filter is told the unit does between one correction and the next. The jitter
@@ -793,7 +798,7 @@ impl FlightWorld {
             level_heading(believed.orientation),
         ]);
         let moved = (guess[0] - self.last_guess[0]).hypot(guess[1] - self.last_guess[1]);
-        let turned = shortest_way_round(guess[2] - self.last_guess[2]);
+        let turned = (guess[2] - self.last_guess[2]).wrap_to_pi();
         self.last_guess = guess;
 
         // The cloud is lifted out while it is worked on, so the walls it is scored against can be
@@ -1070,19 +1075,6 @@ impl FlightWorld {
     }
 }
 
-/// The same angle brought into the half turn either side of zero.
-fn shortest_way_round(angle: f64) -> f64 {
-    let full_turn = std::f64::consts::TAU;
-    let brought_in = angle % full_turn;
-    if brought_in > std::f64::consts::PI {
-        brought_in - full_turn
-    } else if brought_in < -std::f64::consts::PI {
-        brought_in + full_turn
-    } else {
-        brought_in
-    }
-}
-
 /// How fast rotors pushing with `thrusts` come round, in turns a second.
 ///
 /// A rotor's push grows with the square of how fast it turns, so the rate follows the square root of
@@ -1093,13 +1085,6 @@ fn shortest_way_round(angle: f64) -> f64 {
 pub fn rotor_tone_for(thrusts: Vector<ROTOR_COUNT, f64>, hovering: f64) -> f64 {
     let pushing: f64 = thrusts.as_array().iter().sum();
     ROTOR_TONE_HERTZ * (pushing / hovering).max(0.0).sqrt()
-}
-
-/// Which way a facing points in the level plane, as an angle from the world's +x axis.
-#[must_use]
-pub fn level_heading(orientation: SO3<f64>) -> f64 {
-    let forward: Vector3D<f64> = orientation.act(Vector::new([1.0, 0.0, 0.0]));
-    forward[1].atan2(forward[0])
 }
 
 /// Where each rotor sits in the world, for drawing the thrust it is producing.
