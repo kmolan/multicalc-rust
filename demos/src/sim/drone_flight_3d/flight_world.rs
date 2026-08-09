@@ -289,11 +289,8 @@ pub struct FlightMetrics {
     pub controller_holds: u64,
     /// How many ticks the adaptive step gave up on and the fixed step took over.
     pub fixed_step_fallbacks: u64,
-    /// The worst single flight-stack cost after the warm-up, in microseconds.
-    pub worst_math_microseconds: f64,
     math_microseconds_total: f64,
     math_ticks: u64,
-    position_error_sum_squares: f64,
 }
 
 impl FlightMetrics {
@@ -304,16 +301,6 @@ impl FlightMetrics {
             0.0
         } else {
             self.ticks_with_rotor_at_limit as f64 / self.ticks as f64
-        }
-    }
-
-    /// The typical distance from the reference over the whole flight.
-    #[must_use]
-    pub fn position_rms_error(&self) -> f64 {
-        if self.ticks == 0 {
-            0.0
-        } else {
-            (self.position_error_sum_squares / self.ticks as f64).sqrt()
         }
     }
 
@@ -490,10 +477,8 @@ impl FlightWorld {
                 worst_rotor_thrust_gap: 0.0,
                 controller_holds: 0,
                 fixed_step_fallbacks: 0,
-                worst_math_microseconds: 0.0,
                 math_microseconds_total: 0.0,
                 math_ticks: 0,
-                position_error_sum_squares: 0.0,
             },
         };
         world.place_on_the_reference();
@@ -1040,14 +1025,11 @@ impl FlightWorld {
         self.metrics.worst_position_error = self.metrics.worst_position_error.max(position_error);
         self.metrics.worst_rotor_thrust_gap =
             self.metrics.worst_rotor_thrust_gap.max(rotor_thrust_gap);
-        self.metrics.position_error_sum_squares += position_error * position_error;
         self.metrics.controller_holds = self.controller.holds();
         self.metrics.fixed_step_fallbacks = self.plant.fixed_step_fallbacks();
         if self.tick > WARMUP_TICKS {
             self.metrics.math_microseconds_total += math_microseconds;
             self.metrics.math_ticks += 1;
-            self.metrics.worst_math_microseconds =
-                self.metrics.worst_math_microseconds.max(math_microseconds);
         }
 
         TickRecord {

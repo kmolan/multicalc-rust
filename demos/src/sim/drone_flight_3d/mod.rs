@@ -34,7 +34,7 @@ pub use flight_hangar::{FlightHangar, flight_hangar};
 pub use flight_plant::{FlightPlant, angle_from_upright, level_heading};
 pub use flight_reference::{
     CIRCLE_RADIUS, CIRCLE_SPEED, FlightReference, PLAN_WAYPOINTS, ReferenceSample, STEP_DISTANCE,
-    STEP_HOLD_SECONDS, lean_for_circle, planned_waypoints, step_started_at,
+    STEP_HOLD_SECONDS, lean_for_circle, planned_waypoints,
 };
 pub use flight_world::{
     FlightMetrics, FlightPhase, FlightWorld, HOVER_POINT, LIDAR_BEAMS, PUSH_JITTER, TIMESTEP,

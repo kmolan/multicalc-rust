@@ -394,13 +394,7 @@ pub fn lean_for_circle(radius: f64, speed: f64) -> f64 {
 
 /// Which point of the stepping cycle `time` falls on.
 #[must_use]
-pub fn step_index(time: f64) -> usize {
+fn step_index(time: f64) -> usize {
     let elapsed_holds = (time / STEP_HOLD_SECONDS).floor().max(0.0) as usize;
     elapsed_holds % STEP_OFFSETS.len()
-}
-
-/// When the jump that lands on the point holding at `time` happened, in seconds.
-#[must_use]
-pub fn step_started_at(time: f64) -> f64 {
-    (time / STEP_HOLD_SECONDS).floor().max(0.0) * STEP_HOLD_SECONDS
 }
