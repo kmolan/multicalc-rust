@@ -38,3 +38,36 @@ pub(crate) fn small_angle<T: Numeric>() -> T {
 pub(crate) fn small_angle_sq<T: Numeric>() -> T {
     small_angle::<T>() * small_angle::<T>()
 }
+
+/// Small-angle thresholds for left jacobian so3
+/// t1 = (360*epsilon)^(1/6)
+/// t2 = (2520*epsilon)^(1/6)
+#[inline]
+#[must_use]
+pub(crate) fn small_angle_so3_sq<T: Numeric>() -> (T, T) {
+    let t1 = (T::from_f64(360.0) * T::EPSILON).cbrt();
+    let t2 = (T::from_f64(2520.0) * T::EPSILON).cbrt();
+    (t1, t2)
+}
+
+/// Small-angle threshold for inverse left jacobian so3
+/// t = (16*945*epsilon)^(1/6)
+#[inline]
+#[must_use]
+pub(crate) fn small_angle_inverse_so3_sq<T: Numeric>() -> T {
+    (T::from_f64(15_120.0) * T::EPSILON).cbrt()
+}
+
+/// Small-angle threshold for q matrix se3
+/// The function has two thresholds, take the largest
+/// t2 = (2520*espilon)^(1/6)
+/// t3 = (12*1680*espilon)^(1/8)
+/// t5 = (0.5*9!*epsilon)^(1/8)
+#[inline]
+#[must_use]
+pub(crate) fn small_angle_se3_sq<T: Numeric>() -> (T, T, T) {
+    let t2 = (T::from_f64(2520.0) * T::EPSILON).cbrt();
+    let t3 = (T::from_f64(20_160.0) * T::EPSILON).sqrt().sqrt();
+    let t5 = (T::from_f64(181_440.0) * T::EPSILON).sqrt().sqrt();
+    (t2, t3, t5)
+}
