@@ -16,6 +16,7 @@ from generators import (
     discretization,
     dynamics,
     estimation,
+    kinematics,
     linalg,
     mjcf,
     motion,
@@ -51,6 +52,7 @@ def main():
     root_finding.run(args.out, SEED)
     mjcf.run(args.out, SEED)
     dynamics.run(args.out, SEED)
+    kinematics.run(args.out, SEED)
     signal_processing.run(args.out, SEED)
     polynomial.run(args.out, SEED)
     motion.run(args.out, SEED)

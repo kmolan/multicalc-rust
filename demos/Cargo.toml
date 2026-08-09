@@ -77,6 +77,10 @@ name = "estimation"
 path = "examples/basics/estimation.rs"
 
 [[example]]
+name = "forward_kinematics"
+path = "examples/basics/forward_kinematics.rs"
+
+[[example]]
 name = "gaussian_integration"
 path = "examples/basics/gaussian_integration.rs"
 
