@@ -7,56 +7,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-08-09
+
+A feature release adding signal processing, polynomials and minimum-snap trajectories, LQR and
+geometric attitude control, error-state Kalman filtering and AHRS attitude filters, rigid-body
+dynamics, occupancy mapping, and MuJoCo model loading.
+
 ### Added
 
-- **Orientation integrator.** `ExponentialMap` turns a body's orientation forward by the turn it
-  makes over the step, so what comes back is still a true rotation with nothing to scale back —
-  `attitude_step` at a steady turn rate, `attitude_step_with_angular_acceleration` and
-  `integrate_attitude` using the rate half way through the step. `RigidBody::stepped` moves a whole
-  free body one tick forward the same way. Both are coarser than `Rk4`, which is the trade for an
-  orientation that never drifts. @kmolan
-- **Symmetric eigendecomposition.** `Matrix::symmetric_eigendecomposition` gives the eigenvalues of
-  a symmetric matrix, largest first, together with the directions belonging to them, by rotating
-  away the off-diagonal entries a pair at a time. `clamped` raises every eigenvalue to a floor and
-  rebuilds the matrix, which is what turns a covariance that has drifted below zero back into one a
-  filter can keep using. A matrix that does not read the same across the diagonal is rejected with
-  the new `LinalgError::NotSymmetric`. @kmolan
-- Add `SO2` methods `norm` and `normalized` @elias-taufer (#239)
-- **Rigid-body inertia and the free joint.** `SpatialInertia` for a body's mass, balance point, and
-  resistance to spinning, and `FreeJointState` for the pose and velocity of a body free to move in
-  all six directions, with a `SpatialError` for the mass properties that do not describe a usable
-  body. @kmolan
-- **MuJoCo model loading.** A `multicalc-mjcf` crate reading one free-floating body out of an MJCF
-  file, working the mass out from the shapes where the file does not state it, checked against
-  MuJoCo's own compile of the same file. Ships with a `model_ingestion` demo. @kmolan
-- `Vector2D` / `Vector3D` / `Vector6D` and `Matrix2D` / `Matrix3D` / `Matrix4D` / `Matrix6D`
-  aliases for the vector and matrix sizes used most, so a call site writes `Vector3D<T>` rather
-  than `Vector<3, T>`. Each names the same type as the long spelling, so the two mix freely and
-  nothing existing has to change. @kmolan
-- `Quaternion::from_two_vectors`, `Quaternion::rotation_angle_to`, and `Quaternion::inverse_transform_point`. (#214)
-- Add `Default` trait implementation for spatial types `Quaternion`, `SO2`, `SO3`, `SE2`, `SE3`, `Twist`, `Wrench`. @elias-taufer (#244)
+- **Signal processing.** A `signal_processing` module: `OnePoleLowPass` by smoothing weight or
+  cutoff, `BiquadCoefficients` / `Biquad` for low-pass, high-pass, band-pass, and notch shapes,
+  `BiquadCascade` and `MultiChannelBiquad` with `harmonic_notch_coefficients` for a frequency and
+  the multiples above it, `MovingAverage` and `RunningMedian`, `SavitzkyGolay` for value, slope, and
+  bend across a window, and `Deadband` / `Hysteresis` / `SlewRateLimiter` for conditioning. Each one
+  is checked at construction, so every call after that is total. Ships with a `signal_filters` demo
+  and fixtures checked against SciPy. @kmolan (#249)
+- **Polynomials.** A `polynomial` module: `Polynomial` evaluating value and derivatives in one pass,
+  `RealRoots` in closed form up to the fourth power with `count_real_roots` / `real_roots_in` past
+  it, `PiecewisePolynomial`, and `MultivariatePolynomial` / `MultivariateTerm` held as terms so size
+  grows with term count rather than degree. Operations that grow — multiply, compose, divide — take
+  the output size from the caller and report when it is too small, through the new
+  `PolynomialError`. Allocation-free and `no_std`. Also adds `MinimumSnapPlanner` and
+  `durations_from_average_speed` to `motion`, for a smooth trajectory through waypoints.
+  @kmolan (#250)
+- **LQR and geometric attitude control.** `Lqr` for optimal linear state feedback, with `gain`,
+  `closed_loop`, `cost_to_go`, `control` / `control_tracking`, and `certify_stability` to confirm
+  the loop it closes settles. `GeometricAttitudeController` for attitude control directly on
+  rotations, and `thrust_command_from_acceleration` / `ThrustCommand` for how to point and how hard
+  to push, which is what joins a position loop to an attitude loop. Underneath,
+  `solve_discrete_riccati` and `solve_discrete_lyapunov` in `linear_algebra`, plus `ControlError`
+  variants for the gains and inertias that do not describe a usable controller. Checked against
+  SciPy and exercised in a `control_loops` demo. @kmolan (#256)
 - **Unscented Kalman filter.** `UnscentedKalmanFilter` handles a curved model by pushing a spread of
   points through it and rebuilding the estimate from where they land, so the model is never
   differentiated and does not have to be smooth. Tuning through `with_scaling` and
   `with_regularization`, both of which reject a value that does not describe a usable spread with
   the new `EstimationError::InvalidTuning`. Checked against FilterPy. @kmolan (#78)
-
-### Fixed
-
-- LU factorization now distinguishes an exactly singular pivot from one that is negligible
-  relative to the matrix, rejecting unreliable solves and inverses while preserving a nonzero
-  determinant. (#207)
-- Matrix constructors for `SO2` and `SO3` now reject reflections, shears, and scaling, while `SE2`
-  and `SE3` also reject non-homogeneous bottom rows and non-finite translations. (#209)
-- `Matrix::expm` now rejects non-finite inputs before entering its scaling loop. (#202)
-- `ResamplingScheme::resample_indices` now leaves output indices untouched for empty weights
-  instead of panicking. (#204)
-- `zoh` and `van_loan` now reject negative or non-finite timesteps before constructing their
-  augmented matrices. (#203)
-- Silence `unused_must_use` in `embedded-smoke`'s LQR identity check by discading the Lyapunov
-  certificate after `expect`. rtmongold (#272)
-- Install QEMU per bare-metal matrix target so thumb legs do not apt-upgrade shared modules under
-  a cached `qemu-system-arm` after Ubuntu QEMU bumps. rtmongold (#273)
+- **Error-state Kalman filter.** `ErrorStateKalmanFilter` with `NominalState`, `NominalStateFn`, and
+  `ImuNoise` keeps position, velocity, orientation, and the two IMU biases as a nominal state that
+  the filter only ever corrects by a small error, so orientation stays a true rotation through the
+  update. Ships with an `error_state_estimation` demo and fixtures for an IMU trajectory. @kmolan (#260)
+- **AHRS attitude filters.** `MadgwickFilter` and `MahonyFilter` hold orientation from a rate
+  sensor, an accelerometer, and optionally a magnetometer, with `step` /
+  `step_without_magnetometer`, tunable gains, and reference directions set by
+  `with_reference_directions`. Ships with an `attitude_filter` demo. @kmolan (#262)
+- **Orientation integrator.** `ExponentialMap` turns a body's orientation forward by the turn it
+  makes over the step, so what comes back is still a true rotation with nothing to scale back —
+  `attitude_step` at a steady turn rate, `attitude_step_with_angular_acceleration` and
+  `integrate_attitude` using the rate half way through the step. `RigidBody::stepped` moves a whole
+  free body one tick forward the same way. Both are coarser than `Rk4`, which is the trade for an
+  orientation that never drifts. @kmolan (#261)
+- **Rigid-body inertia and the free joint.** `SpatialInertia` for a body's mass, balance point, and
+  resistance to spinning, and `FreeJointState` for the pose and velocity of a body free to move in
+  all six directions, with a `SpatialError` for the mass properties that do not describe a usable
+  body. @kmolan (#259)
+- **Rotor lag.** `RotorLag` in `plant` carries the delay between a commanded thrust and the thrust a
+  rotor actually makes, as a first-order lag over a fixed timestep, with `stepped`, `stepped_over`,
+  and `rate` for use inside an integrator. A time constant or timestep that does not describe a
+  usable rotor is rejected with `PlantError`. @kmolan (#265)
+- **Occupancy mapping.** A `mapping` module holding what used to live in the demos: `OccupancyMap`
+  for size, placement, blocked cells, and how far a beam travels, `MutableOccupancyMap` for marking
+  points, lines, and circles, `DynamicOccupancyGrid` for large heap-backed maps under `alloc`, and
+  `ScanGeometry` for the directions a forward-facing scan points. `MonteCarloLocalizer` with
+  `BeamModel` and `InitialParticleCloud` moves into `estimation` alongside the `ConstantTurnAndSpeed`
+  and `DirectMeasurement` models and `residual_with_wrapped_angles`. @kmolan (#270)
+- **Symmetric eigendecomposition.** `Matrix::symmetric_eigendecomposition` gives the eigenvalues of
+  a symmetric matrix, largest first, together with the directions belonging to them, by rotating
+  away the off-diagonal entries a pair at a time. `clamped` raises every eigenvalue to a floor and
+  rebuilds the matrix, which is what turns a covariance that has drifted below zero back into one a
+  filter can keep using. A matrix that does not read the same across the diagonal is rejected with
+  the new `LinalgError::NotSymmetric`. @kmolan (#255)
+- **MuJoCo model loading.** A `multicalc-mjcf` crate reading one free-floating body out of an MJCF
+  file, working the mass out from the shapes where the file does not state it, checked against
+  MuJoCo's own compile of the same file. Ships with a `model_ingestion` demo. @kmolan (#241)
+- `Vector2D` / `Vector3D` / `Vector6D` and `Matrix2D` / `Matrix3D` / `Matrix4D` / `Matrix6D`
+  aliases for the vector and matrix sizes used most, so a call site writes `Vector3D<T>` rather
+  than `Vector<3, T>`. Each names the same type as the long spelling, so the two mix freely and
+  nothing existing has to change. @kmolan (#241)
+- `Numeric` gains `cbrt`, `expm1`, `ln_1p`, `log2`, `log10`, `ceil`, `trunc`, `clamp`, `wrap_to_pi`,
+  `to_radians`, `to_degrees`, and `is_infinite`, implemented for `Dual`, `HyperDual`, and `Jet`
+  alongside the plain floats. @birchmd (#245)
+- Add `Matrix` methods: `trace`, `frobenius_norm`, `from_diagonal` @birchmd (#191)
+- Add `Vector` methods: `normalize`, `normalized`, `map` @birchmd (#191)
+- Add impl Div<T> where T: Numeric for `Matrix` and `Vector` @birchmd (#191)
+- Add `SO2` methods `norm` and `normalized` @elias-taufer (#239)
+- `Quaternion::from_two_vectors`, `Quaternion::rotation_angle_to`, and `Quaternion::inverse_transform_point`. @TomPlanche (#214)
+- Add `Default` trait implementation for spatial types `Quaternion`, `SO2`, `SO3`, `SE2`, `SE3`, `Twist`, `Wrench`. @elias-taufer (#244)
+- `vector!` and `matrix!` take a repeat form, so `vector![1.0; 3]` and `matrix![[1.0; 2]; 2]` build
+  a filled vector or matrix without spelling out every entry. @kirloo (#268)
+- A `3d_drone_flight` showcase demo flying a lap in three dimensions, on the `x2` MuJoCo model,
+  with the 3D IMU, magnetic compass, satellite navigation, and height rangefinder sims it needs.
+  @kmolan (#274)
+- Documentation for `Matrix::symmetric_positive_definite`. @kmolan (#236)
 
 ### Changed
 
@@ -70,6 +112,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stay unmarked; `embedded-smoke` is excluded. @rtmongold (#258)
 - `RandomSource::standard_normal` is now generic, uses the Marsaglia polar method to avoid
   trigonometry functions, and caches values to save work. @kirloo (#223)
+- The Lie-group small-angle switch now uses a threshold derived per series rather than one shared
+  constant, so the left Jacobian of `SO3`, its inverse, and the `SE3` Q matrix each change over at
+  the angle their own truncation error justifies. A `bootstrap_thresholds` run in `qa` sweeps the
+  angle range to derive them, and the tests check both sides of each threshold against mpmath.
+  @solus161 (#271)
+- `GUIDE.md` is split into per-topic tutorials under `crates/multicalc/tutorials/`, so a reader
+  lands on the one page they need. @kmolan (#263)
+
+### Fixed
+
+- LU factorization now distinguishes an exactly singular pivot from one that is negligible
+  relative to the matrix, rejecting unreliable solves and inverses while preserving a nonzero
+  determinant. @LunaMeerkats (#207)
+- Matrix constructors for `SO2` and `SO3` now reject reflections, shears, and scaling, while `SE2`
+  and `SE3` also reject non-homogeneous bottom rows and non-finite translations. @LunaMeerkats (#209)
+- `Matrix::expm` now rejects non-finite inputs before entering its scaling loop. @LunaMeerkats (#202)
+- `ResamplingScheme::resample_indices` now leaves output indices untouched for empty weights
+  instead of panicking. @LunaMeerkats (#204)
+- `zoh` and `van_loan` now reject negative or non-finite timesteps before constructing their
+  augmented matrices. @LunaMeerkats (#203)
+- Silence `unused_must_use` in `embedded-smoke`'s LQR identity check by discading the Lyapunov
+  certificate after `expect`. @rtmongold (#272)
+- Install QEMU per bare-metal matrix target so thumb legs do not apt-upgrade shared modules under
+  a cached `qemu-system-arm` after Ubuntu QEMU bumps. @rtmongold (#273)
+- Discard the filtered value in the `signal_filters` demo so it builds under `unused_must_use`.
+  @kmolan (#253)
+
+### Removed
+
+- `SolveError::DidNotConverge` no longer carries a `residual` field, and the `Primal` bound it
+  forced on the root-finding and optimization paths that return it is gone. @solus161 (#246)
+- The `curve_fit_record` demo, the demos' CSV sink, and `demos/plot.py`, replaced by the Rerun
+  sink the showcase demos use. @kmolan (#274)
 
 ## [0.9.0] - 2026-07-26
 
@@ -112,9 +187,6 @@ waypoint paths, plus a prelude and one-call entry points for the calculus core.
   @kmolan (#192)
 - docs.rs now builds with all features so gated items appear in the published docs.
   @kmolan (#197)
-- Add `Matrix` methods: `trace`, `frobenius_norm`, `from_diagonal` @birchmd (#191)
-- Add `Vector` methods: `normalize`, `normalized`, `map` @birchmd (#191)
-- Add impl Div<T> where T: Numeric for `Matrix` and `Vector` @birchmd (#191)
 
 ### Fixed
 
@@ -333,7 +405,8 @@ A breaking rewrite focused on real-time latency, ease of use, maintainability, a
 
 - The `num-complex` dependency, the `ComplexFloat` generic, and `f32` / complex-number support.
 
-[Unreleased]: https://github.com/kmolan/multicalc-rust/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/kmolan/multicalc-rust/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/kmolan/multicalc-rust/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/kmolan/multicalc-rust/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/kmolan/multicalc-rust/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/kmolan/multicalc-rust/compare/v0.7.1...v0.7.2
