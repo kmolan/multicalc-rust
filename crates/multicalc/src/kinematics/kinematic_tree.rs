@@ -1,16 +1,20 @@
-//! A jointed model held as a parent-indexed tree of joints.
+//! Kinematic tree: joints stored in topological order with parent indices.
 #![deny(clippy::indexing_slicing)]
 
 use crate::error::KinematicsError;
 use crate::kinematics::joint::{Joint, JointKind, JointParent};
+use crate::kinematics::kinematic_tree_state::KinematicTreeState;
+use crate::linear_algebra::Vector;
 use crate::scalar::Numeric;
+use crate::spatial::{SE3, SO3};
 
-/// A robot model: a set of joints, each attached to the world or to an earlier joint.
+/// A jointed robot model: joints in topological order, each attached to the world or to an earlier
+/// joint.
 ///
-/// Storage is a fixed array of `MAX_JOINTS` joints plus a runtime length, so the model is
-/// stack-allocated, `Copy`, and needs no heap. Every joint's parent must appear earlier in the
-/// list, which is what lets forward kinematics resolve every pose in a single forward sweep. A
-/// fixed joint still takes a slot, so joint index and configuration index agree.
+/// Fixed-size storage — `MAX_JOINTS` slots plus a runtime length — so the model is `Copy`, needs no
+/// heap, and can sit in flash. A parent index is always strictly below the joint's own, so forward
+/// kinematics resolves in one sweep. A fixed joint still takes a slot, so joint index equals
+/// configuration index.
 ///
 /// ```
 /// use multicalc::kinematics::{Joint, JointParent, KinematicTree};
@@ -22,10 +26,7 @@ use crate::scalar::Numeric;
 ///
 /// // Planar two-link arm: two revolute joints about z, unit link between them.
 /// let tree = KinematicTree::<2, f64>::try_from_joints(
-///     &[
-///         Joint::revolute(z, SE3::identity()),
-///         Joint::revolute(z, link),
-///     ],
+///     &[Joint::revolute(z, SE3::identity()), Joint::revolute(z, link)],
 ///     &[JointParent::World, JointParent::Joint(0)],
 /// )
 /// .unwrap();
@@ -34,11 +35,11 @@ use crate::scalar::Numeric;
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct KinematicTree<const MAX_JOINTS: usize, T: Numeric = f64> {
-    /// The joints, in tree order; indices past `length` hold defaults and are never read.
+    /// Joints in topological order; indices past `length` are unused defaults.
     joints: [Joint<T>; MAX_JOINTS],
-    /// What each joint is attached to, indexed alongside `joints`.
+    /// Parent frame per joint, indexed alongside `joints`.
     parents: [JointParent; MAX_JOINTS],
-    /// How many joints the model actually has.
+    /// Live joint count.
     length: usize,
 }
 
@@ -49,10 +50,10 @@ impl<const MAX_JOINTS: usize, T: Numeric> Default for KinematicTree<MAX_JOINTS, 
 }
 
 impl<const MAX_JOINTS: usize, T: Numeric> KinematicTree<MAX_JOINTS, T> {
-    /// How many joints the tree can hold.
+    /// Maximum joint count.
     pub const CAPACITY: usize = MAX_JOINTS;
 
-    /// A tree with no joints.
+    /// An empty model.
     #[inline]
     #[must_use]
     pub fn new() -> Self {
@@ -63,14 +64,10 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicTree<MAX_JOINTS, T> {
         }
     }
 
-    /// Builds a tree from a slice of joints and the frame each is attached to.
+    /// Builds a model from joints and their parent frames, validating each in turn.
     ///
-    /// Returns [`KinematicsError::JointCountMismatch`] if the two slices differ in length,
-    /// [`KinematicsError::CapacityExceeded`] if more than `MAX_JOINTS` joints are supplied,
-    /// [`KinematicsError::ParentOutOfOrder`] if a joint is attached to anything but an earlier
-    /// joint, [`KinematicsError::NonFinite`] if any model value is not finite,
-    /// [`KinematicsError::LimitsReversed`] if a joint's lower limit exceeds its upper, or
-    /// [`KinematicsError::AxisHasNoDirection`] if a movable joint's axis is all zeros.
+    /// Errors: [`JointCountMismatch`](KinematicsError::JointCountMismatch) if the slices differ in
+    /// length, otherwise as [`push`](KinematicTree::push).
     pub fn try_from_joints(
         joints: &[Joint<T>],
         parents: &[JointParent],
@@ -85,22 +82,20 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicTree<MAX_JOINTS, T> {
         Ok(tree)
     }
 
-    /// Appends a joint attached to `parent`, validating it against the rest of the model.
+    /// Appends a joint attached to `parent`, normalizing a movable joint's axis before storage.
     ///
-    /// A movable joint's axis is normalized before it is stored, so an axis given at any scale is
-    /// kept as a unit vector. This is the tree's only fallible operation: with the model checked
-    /// once here, every query afterwards is total.
+    /// The model's only fallible operation: validated here once, every query afterwards is total.
     ///
-    /// Returns [`KinematicsError::CapacityExceeded`] if the tree is full,
-    /// [`KinematicsError::ParentOutOfOrder`] if `parent` is not an earlier joint,
-    /// [`KinematicsError::NonFinite`] if any model value is not finite,
-    /// [`KinematicsError::LimitsReversed`] if the lower limit exceeds the upper, or
-    /// [`KinematicsError::AxisHasNoDirection`] if a movable joint's axis is all zeros.
+    /// Errors: [`CapacityExceeded`](KinematicsError::CapacityExceeded) if the model is full,
+    /// [`ParentOutOfOrder`](KinematicsError::ParentOutOfOrder) if `parent` is not an earlier joint,
+    /// [`NonFinite`](KinematicsError::NonFinite) on any non-finite model value,
+    /// [`LimitsReversed`](KinematicsError::LimitsReversed) if the lower limit exceeds the upper, or
+    /// [`AxisHasNoDirection`](KinematicsError::AxisHasNoDirection) on a zero axis.
     pub fn push(&mut self, joint: Joint<T>, parent: JointParent) -> Result<(), KinematicsError> {
         if self.length == MAX_JOINTS {
             return Err(KinematicsError::CapacityExceeded);
         }
-        // The joint being added takes index `self.length`, so an earlier parent is one below that.
+        // The new joint takes index `self.length`, so a valid parent index is strictly below it.
         if matches!(parent, JointParent::Joint(index) if index >= self.length) {
             return Err(KinematicsError::ParentOutOfOrder);
         }
@@ -151,7 +146,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicTree<MAX_JOINTS, T> {
         }
     }
 
-    /// The number of joints in the model.
+    /// Joint count.
     #[inline]
     #[must_use]
     pub fn len(&self) -> usize {
@@ -165,7 +160,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicTree<MAX_JOINTS, T> {
         self.length == 0
     }
 
-    /// The joint at `index`, or `None` past the end of the model.
+    /// The joint at `index`, or `None` past the joint count.
     #[inline]
     #[must_use]
     pub fn joint(&self, index: usize) -> Option<Joint<T>> {
@@ -175,7 +170,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicTree<MAX_JOINTS, T> {
         self.joints.get(index).copied()
     }
 
-    /// What the joint at `index` is attached to, or `None` past the end of the model.
+    /// The parent frame of the joint at `index`, or `None` past the joint count.
     #[inline]
     #[must_use]
     pub fn parent(&self, index: usize) -> Option<JointParent> {
@@ -183,5 +178,100 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicTree<MAX_JOINTS, T> {
             return None;
         }
         self.parents.get(index).copied()
+    }
+
+    /// World pose of every joint frame for configuration `joint_positions`.
+    ///
+    /// One reading per joint, in tree order; a fixed joint takes a slot and ignores it. Each pose is
+    /// `parent · origin · joint transform`, resolved in a single forward sweep.
+    ///
+    /// Errors: [`NonFinite`](KinematicsError::NonFinite) on a non-finite reading at a movable joint.
+    ///
+    /// ```
+    /// use core::f64::consts::FRAC_PI_2;
+    /// use multicalc::kinematics::{Joint, JointParent, KinematicTree};
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::spatial::{SE3, SO3};
+    ///
+    /// let z = Vector::new([0.0, 0.0, 1.0]);
+    /// let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([1.0, 0.0, 0.0]));
+    ///
+    /// // Planar two-link arm, tool frame one unit past the elbow.
+    /// let tree = KinematicTree::<3, f64>::try_from_joints(
+    ///     &[
+    ///         Joint::revolute(z, SE3::identity()),
+    ///         Joint::revolute(z, link),
+    ///         Joint::fixed(link),
+    ///     ],
+    ///     &[
+    ///         JointParent::World,
+    ///         JointParent::Joint(0),
+    ///         JointParent::Joint(1),
+    ///     ],
+    /// )
+    /// .unwrap();
+    ///
+    /// // Shoulder at +90°, elbow straight: tool at (0, 2, 0).
+    /// let state = tree
+    ///     .forward_kinematics(&Vector::new([FRAC_PI_2, 0.0, 0.0]))
+    ///     .unwrap();
+    /// let [x, y, z] = *state.pose(2).unwrap().translation().as_array();
+    ///
+    /// assert!(x.abs() < 1e-12 && (y - 2.0).abs() < 1e-12 && z.abs() < 1e-12);
+    /// ```
+    pub fn forward_kinematics(
+        &self,
+        joint_positions: &Vector<MAX_JOINTS, T>,
+    ) -> Result<KinematicTreeState<MAX_JOINTS, T>, KinematicsError> {
+        for index in 0..self.length {
+            let joint = self
+                .joints
+                .get(index)
+                .ok_or(KinematicsError::CapacityExceeded)?;
+            let reading = joint_positions
+                .get(index)
+                .ok_or(KinematicsError::NonFinite)?;
+            if joint.kind() != JointKind::Fixed && !reading.is_finite() {
+                return Err(KinematicsError::NonFinite);
+            }
+        }
+
+        let mut poses = [SE3::<T>::identity(); MAX_JOINTS];
+        for index in 0..self.length {
+            let joint = *self
+                .joints
+                .get(index)
+                .ok_or(KinematicsError::CapacityExceeded)?;
+            let parent_pose = match self.parents.get(index) {
+                Some(JointParent::Joint(parent_index)) => *poses
+                    .get(*parent_index)
+                    .ok_or(KinematicsError::ParentOutOfOrder)?,
+                _ => SE3::identity(),
+            };
+            let reading = *joint_positions
+                .get(index)
+                .ok_or(KinematicsError::NonFinite)?;
+            let displacement = reading - joint.zero_offset();
+
+            let local = match joint.kind() {
+                // Rotation about an axis through the anchor:
+                // translate(anchor) · rotate · translate(-anchor), composed out.
+                JointKind::Revolute => {
+                    let rotation = SO3::exp(joint.axis().scale(displacement));
+                    let anchor = joint.anchor();
+                    SE3::from_parts(rotation, anchor - rotation.act(anchor))
+                }
+                JointKind::Prismatic => {
+                    SE3::from_parts(SO3::identity(), joint.axis().scale(displacement))
+                }
+                JointKind::Fixed => SE3::identity(),
+            };
+
+            *poses
+                .get_mut(index)
+                .ok_or(KinematicsError::CapacityExceeded)? = parent_pose * joint.origin() * local;
+        }
+
+        Ok(KinematicTreeState::from_poses(poses, self.length))
     }
 }

@@ -117,7 +117,11 @@ impl<T: Numeric> Joint<T> {
     #[inline]
     #[must_use]
     pub fn fixed(origin: SE3<T>) -> Self {
-        Joint::from_kind(JointKind::Fixed, Vector::new([T::ONE, T::ZERO, T::ZERO]), origin)
+        Joint::from_kind(
+            JointKind::Fixed,
+            Vector::new([T::ONE, T::ZERO, T::ZERO]),
+            origin,
+        )
     }
 
     /// The same joint with its axis replaced, used by the tree to store a unit axis.
