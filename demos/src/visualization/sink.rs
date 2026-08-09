@@ -13,7 +13,7 @@ use core::fmt;
 pub enum VizError {
     /// A backend SDK call failed (stream setup, connection, log, or flush).
     Backend(String),
-    /// A filesystem error (CSV writer, or writing a recording).
+    /// A filesystem error, from writing a recording.
     Io(std::io::Error),
 }
 

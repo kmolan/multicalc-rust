@@ -152,11 +152,6 @@ path = "examples/showcase/curve_fit_live.rs"
 required-features = ["rerun"]
 
 [[example]]
-name = "curve_fit_record"
-path = "examples/showcase/curve_fit_record.rs"
-required-features = ["rerun"]
-
-[[example]]
 name = "fourier_ferris"
 path = "examples/showcase/fourier_ferris.rs"
 required-features = ["rerun"]

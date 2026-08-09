@@ -5,18 +5,22 @@
 //! line is solved once before the flight and never touched again. The outer loop sees the body as a
 //! point being pushed around and answers with an acceleration; that becomes a direction to lean and
 //! a push to apply, and the inner loop closes the gap to that lean a thousand times a second. The
-//! four rotor thrusts are shared out by hand so a demand past what the rotors have costs some of the
-//! push rather than all of the twist.
+//! four rotor thrusts are shared out by hand, so a demand past what the rotors have costs some of
+//! the twist rather than any of the push.
 //!
 //! Nothing that decides anything is allowed to see the truth. A shaken inertial unit is cleaned up
 //! at the rotors' own turning rate, integrated, and pulled back into line by a satellite fix, a
-//! downward beam and a compass; the solid body is drawn where that answer says it is and the ghost
-//! is where the machine really ended up.
+//! downward beam and a compass. The body is drawn where that answer says it is, and nothing marks
+//! where it really is — but the trail behind it is true positions, so the gap between the machine
+//! and its own trail is the estimate's error, drawn at life size against a machine half a metre
+//! across.
 //!
 //! The plan speeds up and slows down all by itself, so what it asks for and how well it is followed
 //! are two different things and are reported apart.
 //!
-//! `--check` runs the same flight headless and prints every measured bound it has to clear.
+//! `--check` flies two of these headless and prints every bound they have to clear: a circle flown
+//! once on the truth and once on the estimate, which is what the estimate costs the flying, and the
+//! whole thing from the pad, which is whether it can find itself and then fly.
 //!
 //! Streams live to a Rerun viewer; see demos/README.md for the WSL setup.
 //! Run with: cargo run --release -p multicalc-demos --example 3d_drone_flight
@@ -39,9 +43,9 @@ use multicalc_demos::{RerunSink, Rgba, VizSink};
 // Palette, sRGB with alpha.
 const HERO: Rgba = [0x39, 0x87, 0xe5, 0xff]; // the body
 const TARGET: Rgba = [0xc9, 0x85, 0x00, 0xff]; // the planned line, its corners, the reference marker
-const ERROR: Rgba = [0xe6, 0x67, 0x67, 0xff]; // how far off the circle the body is
-const ACCENT: Rgba = [0x90, 0x85, 0xe9, 0xff]; // the trail, drawn as a line so shape sets it apart
-const CHROME: Rgba = [0x89, 0x87, 0x81, 0xff]; // the ground
+const ERROR: Rgba = [0xe6, 0x67, 0x67, 0xff]; // where a satellite fix was thrown away
+const ACCENT: Rgba = [0x90, 0x85, 0xe9, 0xff]; // the trail and the guess cloud, both set apart by shape
+const CHROME: Rgba = [0x89, 0x87, 0x81, 0xff]; // the ground and the walls
 
 const GEOMETRY_EVERY: i64 = 16; // spatial cadence (~60 Hz)
 const PANEL_EVERY: i64 = 1000; // text cadence (1 Hz)
@@ -292,7 +296,9 @@ fn run_live() -> Result<(), Box<dyn Error>> {
                     world.scans_matched(),
                 )
             } else {
-                let lap = 1 + (record.time / plan.lap_seconds()).floor() as u64;
+                // Counted off the path's own clock, which starts at the handover: counting from
+                // switch-on would leave the looking-around time in it for the rest of the flight.
+                let lap = 1 + (record.reference_time / plan.lap_seconds()).floor() as u64;
                 format!(
                     "## 3d_drone_flight — multicalc live demo\n\
                      ### minimum-snap plan · LQR · geometric attitude · 15-number filter · {ROTOR_TONE_HERTZ:.0} Hz notches: {cost}\n\

@@ -110,8 +110,8 @@ The figures below are representative of a modern desktop core (`x86_64`, `--rele
 
   ![gradient_marbles: 2,000 marbles steered by exact autodiff gradients down a 3D landscape](examples/resources/gifs/gradient_marbles_showcase.gif)
 
-`curve_fit_live` and `curve_fit_record` are two more showcase examples: the first streams a live
-Levenberg-Marquardt fit, the second writes a `.rrd` (and a `.csv`) with no viewer needed.
+`curve_fit_live` is one more showcase example: a live Levenberg-Marquardt fit, streamed as it
+converges.
 
 ## Viewer setup
 
@@ -127,20 +127,6 @@ Rerun SDK `=0.33.1` ⇄ viewer `0.33.1`. The SDK is exact-pinned; the viewer mus
 cargo install rerun-cli --locked --version 0.33.1
 # or: pip install rerun-sdk==0.33.1
 # or: cargo binstall rerun-cli --version 0.33.1
-```
-
-### Recorded output and the CSV fallback
-
-`curve_fit_record` needs no viewer; it writes a `.rrd` and a `.csv` to the temp dir:
-
-```
-cargo run -p multicalc-demos --example curve_fit_record
-```
-
-Open the printed `.rrd` in the viewer, or render the CSV fallback:
-
-```
-python demos/plot.py <printed-csv-path> --x t
 ```
 
 ### WSL usage (viewer on Windows)
