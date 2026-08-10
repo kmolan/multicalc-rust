@@ -128,7 +128,6 @@ impl ExponentialMap {
     /// let swung: Vector3D<f64> = facing.act(Vector::new([1.0, 0.0, 0.0]));
     /// assert!((swung[1] - 1.0).abs() < 1e-12);
     /// ```
-    #[must_use]
     pub fn integrate_attitude<T, F, O>(
         angular_rate_at: &F,
         t0: T,
