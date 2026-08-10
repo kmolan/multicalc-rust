@@ -88,14 +88,24 @@ pub enum SolveError {
     Diff(DiffError),
 }
 
-/// Errors from the kinematics module (plant geometry and kinematic maps).
+/// Errors from the kinematics module (plant geometry, kinematic maps, and jointed models).
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
 pub enum KinematicsError {
     /// A geometric parameter (wheel radius, track width) was not strictly positive.
     NonPositiveParameter,
-    /// A geometric parameter was infinite or NaN.
+    /// A geometric, model, or configuration value was infinite or NaN.
     NonFinite,
+    /// More joints were supplied than the tree can hold.
+    CapacityExceeded,
+    /// The list of joints and the list of what they hang off are different lengths.
+    JointCountMismatch,
+    /// A joint hangs off something that is not an earlier joint in the tree.
+    ParentOutOfOrder,
+    /// A joint's axis is all zeros, which names no direction.
+    AxisHasNoDirection,
+    /// A joint's lower limit is above its upper limit.
+    LimitsReversed,
 }
 
 /// Errors from the spatial module (rigid-body inertia).
@@ -565,7 +575,18 @@ impl core::fmt::Display for KinematicsError {
             KinematicsError::NonPositiveParameter => {
                 "geometric parameter must be strictly positive"
             }
-            KinematicsError::NonFinite => "geometric parameter was not finite",
+            KinematicsError::NonFinite => "geometric, model, or configuration value was not finite",
+            KinematicsError::CapacityExceeded => "more joints than the tree can hold",
+            KinematicsError::JointCountMismatch => {
+                "the joint list and the parent list are different lengths"
+            }
+            KinematicsError::ParentOutOfOrder => {
+                "a joint hangs off something that is not an earlier joint"
+            }
+            KinematicsError::AxisHasNoDirection => {
+                "joint axis was all zeros, which names no direction"
+            }
+            KinematicsError::LimitsReversed => "a joint's lower limit is above its upper limit",
         })
     }
 }

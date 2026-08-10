@@ -100,6 +100,9 @@ pub use spatial::FreeJointState;
 /// Differential-drive kinematics and SE(2) odometry.
 pub use kinematics::{BodyArc, BodyTwist, DifferentialDrive, WheelRotations, WheelVelocities};
 
+/// Robot models and forward kinematics.
+pub use kinematics::{Joint, JointKind, JointParent, KinematicTree, KinematicTreeState};
+
 /// Occupancry grid and scan geometry
 pub use mapping::{MutableOccupancyMap, OccupancyMap, ScanGeometry};
 

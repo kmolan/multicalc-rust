@@ -5,15 +5,12 @@
 //! Lie composition — exp, log, compose — with no hand-derived kinematics. The panel shows the solve
 //! cost against the 1 ms budget.
 //!
-//! The forward kinematics is written once, generic over the scalar type: the same code produces the
-//! pose in `f64` and its derivative in `Dual`. Eight posture regularizers keep the system
-//! over-determined (LM needs M >= N) and bias weakly toward the warm-start pose for continuity.
-//!
 //! Streams live to a Rerun viewer; see demos/README.md for the WSL setup.
 //! Run with: cargo run --release -p multicalc-demos --example 3d_arm_ik
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use multicalc::kinematics::{Joint, JointParent, KinematicTree};
 use multicalc::linear_algebra::Vector;
 use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::scalar::{Numeric, VectorFn};
@@ -32,6 +29,7 @@ const ACCENT: Rgba = [0x90, 0x85, 0xe9, 140]; // ee trail
 const CHROME: Rgba = [0x89, 0x87, 0x81, 0xff]; // reach envelope
 
 const N_JOINTS: usize = 8;
+const N_FRAMES: usize = N_JOINTS + 1; // the joint frames plus the welded tool frame
 const LINK: f64 = 0.25; // per-link length; reach = N_JOINTS * LINK = 2.0
 const K_ORI: f64 = 0.5; // orientation-residual weight
 // Sqrt of the posture-regularizer weight, kept small so it holds M >= N and biases weakly toward
@@ -59,45 +57,95 @@ fn keyframes() -> [Quaternion<f64>; 4] {
     ]
 }
 
-/// End-effector forward kinematics, generic over the scalar `S` — the same code yields the pose in
-/// `f64` and its derivative in `Dual`. Joint `i` rotates about the body x-axis (even) or y-axis
-/// (odd), then a fixed `LINK` translation advances along the body z-axis.
+/// The arm as a model, generic over the scalar `S`: joint `i` rotates about the body x-axis (even)
+/// or y-axis (odd), and each joint's origin advances `LINK` along its parent's z-axis. Joint
+/// `N_JOINTS` is a weld carrying the tool frame one link past the last hinge.
+///
+/// Each joint frame therefore sits at the *start* of the link it carries, and that link runs along
+/// the frame's +z. The renderer relies on this.
 #[must_use]
-fn fk<S: Numeric>(q: &[S; N_JOINTS]) -> SE3<S> {
+fn arm<S: Numeric>() -> KinematicTree<N_FRAMES, S> {
     let step = SE3::from_parts(
         SO3::identity(),
         Vector::new([S::ZERO, S::ZERO, S::from_f64(LINK)]),
     );
-    let mut t = SE3::<S>::identity();
-    for (i, &qi) in q.iter().enumerate() {
-        let axis = if i % 2 == 0 {
-            Vector::new([S::ONE, S::ZERO, S::ZERO])
+    let mut tree = KinematicTree::<N_FRAMES, S>::new();
+    for i in 0..N_FRAMES {
+        // The first joint sits at the world origin; every later frame starts one link further on.
+        let origin = if i == 0 { SE3::identity() } else { step };
+        let parent = if i == 0 {
+            JointParent::World
         } else {
-            Vector::new([S::ZERO, S::ONE, S::ZERO])
+            JointParent::Joint(i - 1)
         };
-        let rot = SO3::exp(axis.scale(qi));
-        t = t * SE3::from_parts(rot, Vector::zeros()) * step;
+        let joint = if i == N_JOINTS {
+            Joint::fixed(origin)
+        } else {
+            let axis = if i % 2 == 0 {
+                Vector::new([S::ONE, S::ZERO, S::ZERO])
+            } else {
+                Vector::new([S::ZERO, S::ONE, S::ZERO])
+            };
+            Joint::revolute(axis, origin)
+        };
+        tree.push(joint, parent)
+            .unwrap_or_else(|_| unreachable!("the arm is a valid tree"));
     }
-    t
+    tree
 }
 
-/// The cumulative pose at the end of each link, for rendering.
+/// The joint readings, with a zero in the welded tool frame's slot.
+fn readings<S: Numeric>(q: &[S; N_JOINTS]) -> Vector<N_FRAMES, S> {
+    Vector::from_fn(|i| if i < N_JOINTS { q[i] } else { S::ZERO })
+}
+
+/// End-effector forward kinematics, generic over the scalar `S` — the same code yields the pose in
+/// `f64` and its derivative in `Dual`.
 #[must_use]
-fn chain_poses(q: &[f64; N_JOINTS]) -> [SE3<f64>; N_JOINTS] {
-    let step = SE3::from_parts(SO3::identity(), Vector::new([0.0, 0.0, LINK]));
-    let mut t = SE3::<f64>::identity();
-    let mut poses = [SE3::<f64>::identity(); N_JOINTS];
-    for (i, &qi) in q.iter().enumerate() {
-        let axis = if i % 2 == 0 {
-            Vector::new([1.0, 0.0, 0.0])
-        } else {
-            Vector::new([0.0, 1.0, 0.0])
-        };
-        let rot = SO3::exp(axis.scale(qi));
-        t = t * SE3::from_parts(rot, Vector::zeros()) * step;
-        poses[i] = t;
-    }
-    poses
+fn fk<S: Numeric>(q: &[S; N_JOINTS]) -> SE3<S> {
+    arm::<S>()
+        .forward_kinematics(&readings(q))
+        .unwrap_or_else(|_| unreachable!("finite readings"))
+        .pose(N_JOINTS)
+        .unwrap_or_else(|| unreachable!("the tool frame was settled"))
+}
+
+/// Every frame of the arm from one solve: the eight joint frames, then the tool.
+#[must_use]
+fn link_poses(q: &[f64; N_JOINTS]) -> [SE3<f64>; N_FRAMES] {
+    let state = arm::<f64>()
+        .forward_kinematics(&readings(q))
+        .unwrap_or_else(|_| unreachable!("finite readings"));
+    core::array::from_fn(|i| {
+        state
+            .pose(i)
+            .unwrap_or_else(|| unreachable!("every frame was settled"))
+    })
+}
+
+/// Startup check on the frame convention: at rest the tool sits one full reach up z, and folding
+/// the first hinge a quarter turn about x swings it onto -y.
+fn verify_frame_convention() {
+    let reach = N_JOINTS as f64 * LINK;
+
+    let at_rest = fk(&[0.0; N_JOINTS]).translation().into_array();
+    assert!(
+        (at_rest[0]).abs() < 1e-12
+            && at_rest[1].abs() < 1e-12
+            && (at_rest[2] - reach).abs() < 1e-12,
+        "tool at rest: {at_rest:?}, expected [0, 0, {reach}]"
+    );
+
+    let mut folded = [0.0; N_JOINTS];
+    folded[0] = std::f64::consts::FRAC_PI_2;
+    let quarter_turn = fk(&folded).translation().into_array();
+    assert!(
+        quarter_turn[0].abs() < 1e-12
+            && (quarter_turn[1] + reach).abs() < 1e-12
+            && quarter_turn[2].abs() < 1e-12,
+        "tool at q0 = pi/2: {quarter_turn:?}, expected [0, {}, 0]",
+        -reach
+    );
 }
 
 /// The IK residual system: 3 position + 3 orientation residuals, plus 8 posture regularizers.
@@ -207,7 +255,7 @@ fn gnomon() -> ([[f64; 3]; 3], [[f64; 3]; 3]) {
     (origins, vectors)
 }
 
-/// Brightness ramp along the chain, HERO base.
+/// Brightness ramp along the arm, HERO base.
 #[must_use]
 fn link_color(i: usize) -> Rgba {
     let f = 0.65 + 0.05 * i as f64;
@@ -250,6 +298,8 @@ fn main() -> Result<(), VizError> {
         );
     }
 
+    verify_frame_convention();
+
     let lm = LevenbergMarquardt::<AutoDiffMulti>::default().with_patience(PATIENCE);
 
     let worst_reach = reachability_sweep(&lm);
@@ -262,13 +312,13 @@ fn main() -> Result<(), VizError> {
     rr.line_strips3d("world/reach", &reach_circles(), &[CHROME], &[0.004])?;
     let (g_o, g_v) = gnomon();
     rr.arrows3d("world/target/gnomon", &g_o, &g_v, &[TARGET])?;
-    rr.arrows3d("world/arm/link7/gnomon", &g_o, &g_v, &[HERO])?;
-    // One tapered box per link, in the link's local frame (spans back toward the previous joint).
+    rr.arrows3d("world/arm/tool/gnomon", &g_o, &g_v, &[HERO])?;
+    // One tapered box per link, in its joint's frame (spanning forward toward the next joint).
     for i in 0..N_JOINTS {
         let hs = 0.06 - 0.04 * i as f64 / (N_JOINTS - 1) as f64;
         rr.boxes3d(
             &format!("world/arm/link{i}/box"),
-            &[[0.0, 0.0, -LINK / 2.0]],
+            &[[0.0, 0.0, LINK / 2.0]],
             &[[hs, hs, LINK / 2.0]],
             &[link_color(i)],
         )?;
@@ -323,17 +373,23 @@ fn main() -> Result<(), VizError> {
 
         // Spatial geometry at ~60 Hz.
         if n % GEOM_EVERY == 0 {
-            let poses = chain_poses(&problem.prev);
-            for (i, pose) in poses.iter().enumerate() {
+            let poses = link_poses(&problem.prev);
+            for (i, pose) in poses.iter().take(N_JOINTS).enumerate() {
                 rr.transform3d(
                     &format!("world/arm/link{i}"),
                     pose.translation().into_array(),
                     pose.rotation().quaternion().as_array(),
                 )?;
             }
+            let tool = poses[N_JOINTS];
+            rr.transform3d(
+                "world/arm/tool",
+                tool.translation().into_array(),
+                tool.rotation().quaternion().as_array(),
+            )?;
             rr.transform3d("world/target", problem.target_pos, problem.target_quat)?;
 
-            let ee = poses[N_JOINTS - 1].translation().into_array();
+            let ee = tool.translation().into_array();
             if trail.len() == TRAIL_MAX {
                 trail.pop_front();
             }
