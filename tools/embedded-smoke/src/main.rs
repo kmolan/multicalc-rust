@@ -105,6 +105,7 @@ fn main() -> ! {
             checks::multivariate_identity(),
             checks::polynomial_evaluate_identity_f32(),
             checks::occupancy_ray_cast_identity(),
+            checks::kinematic_tree_identity(),
         )
     };
 
@@ -155,6 +156,7 @@ fn main() -> ! {
             multivariate,
             poly_f32,
             occupancy_ray_cast,
+            forward_kinematics,
         ) = full;
         let _ = hprintln!("SMOKE_VAL_quad={:e}", quad);
         let _ = hprintln!("SMOKE_VAL_jac00={:e}", jac00);
@@ -177,6 +179,7 @@ fn main() -> ! {
         let _ = hprintln!("SMOKE_VAL_multivariate={:e}", multivariate);
         let _ = hprintln!("SMOKE_VAL_poly_f32={:e}", poly_f32);
         let _ = hprintln!("SMOKE_VAL_occupancy_ray_cast={:e}", occupancy_ray_cast);
+        let _ = hprintln!("SMOKE_VAL_forward_kinematics={:e}", forward_kinematics);
     }
 
     debug::exit(debug::EXIT_SUCCESS);

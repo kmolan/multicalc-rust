@@ -190,6 +190,18 @@ const DOCS: &[Doc] = &[
         }],
     },
     Doc {
+        file: "kinematics.md",
+        modules: &[Module {
+            name: "kinematics",
+            cases: &[
+                "planar_two_link_revolute",
+                "mixed_revolute_prismatic_fixed",
+                "branching_three_joint",
+                "franka_panda_seven_joint",
+            ],
+        }],
+    },
+    Doc {
         file: "dynamics.md",
         modules: &[Module {
             name: "dynamics",

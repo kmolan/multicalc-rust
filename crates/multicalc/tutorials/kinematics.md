@@ -1,7 +1,8 @@
 # Kinematics
 
-Maps between wheel motion and body motion for a differential drive, and pose integration on SE(2).
-Fixed-size, no allocation, no panics, and generic over the `Numeric` scalar.
+Maps between wheel motion and body motion for a differential drive, pose integration on SE(2), and
+robots built from joints. Fixed-size, no allocation, no panics, and generic over the `Numeric`
+scalar.
 
 The body motion is deliberately 2-DOF, not 3. A differential drive has exactly two degrees of
 freedom `(v, ω)` and exactly two wheels, so the map between them is a bijection and both round trips
@@ -62,6 +63,67 @@ zero-order hold on the wheel velocities rather than integration error.
 
 Full demo:
 [kinematics.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/kinematics.rs).
+
+## Robots built from joints
+
+A `KinematicTree` is a jointed robot model: joints in topological order, each attached to the world
+or to an earlier joint. Storage is a fixed array of `MAX_JOINTS` joints plus a runtime length, so the
+model is `Copy` and needs no heap.
+
+- `Joint`: one single-degree-of-freedom joint. `Joint::revolute`, `Joint::prismatic` and
+  `Joint::fixed` build one; the `with_*` methods set the anchor it rotates about, the reference
+  configuration, the travel limits, and the armature, damping and friction loss a later dynamics pass
+  reads.
+- `JointParent`: what a joint is attached to, either `World` or an earlier joint by index.
+- `KinematicTree`: the model. `try_from_joints` and `push` are the only fallible calls; with the
+  model validated once, every query afterwards is total.
+- `KinematicTreeState`: the world pose of every joint frame for one configuration, returned by
+  `forward_kinematics` and indexed by joint.
+
+Every joint takes a configuration slot, welds included, so joint index and configuration index agree.
+
+```rust
+use multicalc::kinematics::{Joint, JointParent, KinematicTree};
+use multicalc::linear_algebra::Vector;
+use multicalc::spatial::{SE3, SO3};
+
+// A planar two-link arm: both joints rotate about z, each link reaches one unit along x, and a
+// weld carries the tool frame at the far end.
+let about_z = Vector::new([0.0, 0.0, 1.0]);
+let along_x = SE3::from_parts(SO3::identity(), Vector::new([1.0, 0.0, 0.0]));
+
+let tree = KinematicTree::<3, f64>::try_from_joints(
+    &[
+        Joint::revolute(about_z, SE3::identity()),
+        Joint::revolute(about_z, along_x),
+        Joint::fixed(along_x),
+    ],
+    &[
+        JointParent::World,
+        JointParent::Joint(0),
+        JointParent::Joint(1),
+    ],
+)
+.unwrap();
+
+// Shoulder at +90 degrees, elbow straight.
+let configuration = Vector::new([core::f64::consts::FRAC_PI_2, 0.0, 0.0]);
+let state = tree.forward_kinematics(&configuration).unwrap();
+let tool = state.pose(2).unwrap().translation();
+
+assert!(tool[0].abs() < 1e-12);
+assert!((tool[1] - 2.0).abs() < 1e-12);
+```
+
+Readings are counted from each joint's reference configuration (`with_zero_offset`, MuJoCo's `ref`),
+so an encoder zero that differs from the model zero is handled by the model rather than by a constant
+buried in whatever reads it.
+
+The whole path is generic over the scalar, so pushing a `Dual` through it gives the exact derivative
+of any frame's pose with respect to any joint reading, with nothing hand-derived.
+
+Full demo:
+[forward_kinematics.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/forward_kinematics.rs).
 
 
 ---

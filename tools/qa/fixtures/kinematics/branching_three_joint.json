@@ -1,0 +1,233 @@
+{
+  "case": "branching_three_joint",
+  "expected": {
+    "world_positions": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fc98f7b9a6f0280",
+        "0xbf86c0355098f394",
+        "0x3fd3333333333332",
+        "0xbfc8d979efea3ae3",
+        "0x3fbc6782448220f2",
+        "0x3fd3333333333332",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0xbfc5a4d0fe12ea0c",
+        "0x3fbb57b8d1986268",
+        "0x3fd3333333333333",
+        "0x3fbd9dc59359a2e4",
+        "0xbfc87e44e7d5a63a",
+        "0x3fd3333333333333",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0xbfc9387d5216fb3c",
+        "0x3fa19012280d7793",
+        "0x3fd3333333333333",
+        "0x3fc7067b0d154c4a",
+        "0xbfc10043330edb83",
+        "0x3fd3333333333333",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fb6a60a74327437",
+        "0x3fc6f587906696c0",
+        "0x3fd3333333333333",
+        "0xbfc6cdc9024c857c",
+        "0xbfc14c04f359f9b2",
+        "0x3fd3333333333333"
+      ],
+      "rows": 12
+    },
+    "world_quaternions": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x3feffcd678430406",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0xbf9c73125a94abf5",
+        "0x3fc130a81374f068",
+        "0x3f9c310b2f8df34e",
+        "0x3fefb2991f8e75c1",
+        "0xbf6e93cd1c749527",
+        "0x3fefb21815713646",
+        "0xbf6eae3575c245d5",
+        "0xbfc13f80a10651dd",
+        "0xbf9c30986b56a84b",
+        "0x3fd1ca514ccbddba",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3feebd249ce07097",
+        "0x3fb0fb49d07a4173",
+        "0xbfedd9cc12e6fe06",
+        "0x3fd146bd5c46619a",
+        "0x3fcd576ddab48154",
+        "0x3fce922bdbf6368c",
+        "0x3fdf743de85d0a51",
+        "0xbfc234498604d906",
+        "0x3fea693200e72265",
+        "0x3fb6090646744771",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fefe198b82d2d5e",
+        "0x3fb503eebc46e9b1",
+        "0x3fd32c8db3061545",
+        "0xbf9a8142248d0bb7",
+        "0x3fee67d759ade631",
+        "0x3fb4b0ddc1de65d7",
+        "0xbfd5ee443df78b45",
+        "0x3f9e50ca0b023d6f",
+        "0x3fedefa8916f6513",
+        "0x3feb2cd33ec77887",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fe0e5ac4df4b677",
+        "0x3fe35959b1873dea",
+        "0x3fd7baaedbd93b17",
+        "0xbfe314d900801116",
+        "0x3fd80fdf14b1eaf7",
+        "0x3fe046a75b44b13d",
+        "0x3fdb1001f775ca97",
+        "0xbfe5c3088d1d4288",
+        "0x3fd43d8dc36ad1af"
+      ],
+      "rows": 12
+    }
+  },
+  "inputs": {
+    "anchors": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "rows": 3
+    },
+    "axes": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x0000000000000000"
+      ],
+      "rows": 3
+    },
+    "joint_kinds": {
+      "kind": "str",
+      "v": "RRR"
+    },
+    "joint_positions": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0xbfac74024b57d900",
+        "0x4006fa04aaa6c77c",
+        "0xbfd14eb23978e890",
+        "0x4004a03473e726ea",
+        "0x40054701dcd576a0",
+        "0xbff12fcdd199557a",
+        "0x4007c0fb1cef8d64",
+        "0xbfe38c49601115d4",
+        "0x3fe678a737c29028",
+        "0x3ff1cd1959db6ab0",
+        "0xbff8e8f13d2b09de",
+        "0xbffdb759a426ca04"
+      ],
+      "rows": 4
+    },
+    "origin_positions": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fc999999999999a",
+        "0x0000000000000000",
+        "0x3fd3333333333333",
+        "0xbfc999999999999a",
+        "0x3fb999999999999a",
+        "0x3fd3333333333333"
+      ],
+      "rows": 3
+    },
+    "origin_quaternions": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "rows": 3
+    },
+    "parents": {
+      "data": [
+        "0xbff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "zero_offsets": {
+      "data": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "one hinge carrying two sibling hinges",
+    "generator": "kinematics",
+    "libraries": {
+      "mujoco": "3.2.6"
+    },
+    "operations": [
+      "branching forward kinematics: world position and orientation per link"
+    ],
+    "reference": "MuJoCo 3.2.6",
+    "sampling": "three hand-written models plus one committed Menagerie model; joint readings drawn uniformly inside each joint's range; goldens are MuJoCo's own solve of the same model",
+    "seed": 20260706
+  },
+  "module": "kinematics",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-12,
+      "rel": 1e-11
+    }
+  }
+}

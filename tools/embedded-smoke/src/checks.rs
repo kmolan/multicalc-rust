@@ -798,3 +798,52 @@ pub fn polynomial_evaluate_identity_f32() -> f64 {
     );
     black_box(f64::from(value))
 }
+
+/// Identity: a two-joint planar arm of unit links puts its tool at
+/// `[cos a + cos(a+b), sin a + sin(a+b), 0]`. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn kinematic_tree_identity() -> f64 {
+    use multicalc::kinematics::{Joint, JointParent, KinematicTree};
+    use multicalc::spatial::{SE3, SO3};
+
+    let about_z = Vector::new([0.0, 0.0, 1.0]);
+    let along_x = SE3::from_parts(SO3::identity(), Vector::new([1.0, 0.0, 0.0]));
+    let joints = [
+        Joint::revolute(about_z, SE3::identity()),
+        Joint::revolute(about_z, along_x),
+        Joint::fixed(along_x),
+    ];
+    let parents = [
+        JointParent::World,
+        JointParent::Joint(0),
+        JointParent::Joint(1),
+    ];
+    let tree = KinematicTree::<3, f64>::try_from_joints(&joints, &parents)
+        .unwrap_or_else(|_| unreachable!("two-joint planar arm is a valid tree"));
+
+    let (a, b) = (0.3_f64, -0.7);
+    let state = tree
+        .forward_kinematics(&black_box(Vector::new([a, b, 0.0])))
+        .unwrap_or_else(|_| unreachable!("finite readings"));
+    let tool = state
+        .pose(2)
+        .unwrap_or_else(|| unreachable!("three joints were settled"))
+        .translation();
+
+    assert_close!(
+        "fk_x",
+        black_box(tool[0]),
+        a.cos() + (a + b).cos(),
+        1e-12,
+        0.0
+    );
+    assert_close!(
+        "fk_y",
+        black_box(tool[1]),
+        a.sin() + (a + b).sin(),
+        1e-12,
+        0.0
+    );
+    assert_close!("fk_z", black_box(tool[2]), 0.0, 1e-12, 0.0);
+    black_box(tool[0])
+}
