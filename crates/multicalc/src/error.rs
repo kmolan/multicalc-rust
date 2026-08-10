@@ -535,7 +535,7 @@ impl core::fmt::Display for IntegrateError {
             }
             IntegrateError::IndexOutOfRange => f.write_str("variable index out of range"),
             IntegrateError::NonPositiveTimestep => {
-            f.write_str("integration timestep must be strictly positive")
+                f.write_str("integration timestep must be strictly positive")
             }
         }
     }
