@@ -25,7 +25,7 @@ fn reference_orientation(steps: usize, final_time: f64) -> SO3<f64> {
         steps,
         |_, _| {},
     )
-        .unwrap()
+    .unwrap()
 }
 
 // How far apart two orientations are, in radians.
@@ -124,7 +124,7 @@ fn integrate_attitude_converges_second_order() {
             steps,
             |_, _| {},
         )
-            .unwrap();
+        .unwrap();
         angle_between(facing, reference)
     };
     let ratio = endpoint_error(200) / endpoint_error(400);
@@ -146,7 +146,7 @@ fn observer_sees_every_node_starting_with_the_first() {
         steps,
         |time, orientation| nodes.push((time, orientation.log()[2])),
     )
-        .unwrap();
+    .unwrap();
 
     assert_eq!(nodes.len(), steps + 1);
     assert_eq!(nodes[0].0, 0.0);
@@ -201,7 +201,7 @@ fn f32_holds_unit_length_and_round_trips() {
         100_000,
         |_, _| {},
     )
-        .unwrap();
+    .unwrap();
     assert!((facing.quaternion().norm() - 1.0).abs() < 1e-3);
 
     let turn = Vector::new([0.2_f32, -0.1, 0.4]);
@@ -229,4 +229,4 @@ fn integrate_attitude_rejects_non_finite_rate() {
         ExponentialMap::integrate_attitude(&rate, 0.0, SO3::identity(), 0.01, 10, |_, _| {}),
         Err(IntegrateError::NonFinite)
     );
-}                            
+}
