@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Particle filters floor an underflowed zero weight at the scalar's smallest positive value before
+  the next update, allowing that particle to recover when later measurements favor it.
+
 ## [0.10.0] - 2026-08-09
 
 A feature release adding signal processing, polynomials and minimum-snap trajectories, LQR and
