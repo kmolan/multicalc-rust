@@ -6,6 +6,7 @@ mod dynamics;
 mod estimation;
 mod gaussian_tables;
 mod kinematics;
+mod line_integral_index_validation;
 mod linear_algebra;
 mod mapping;
 mod motion;
