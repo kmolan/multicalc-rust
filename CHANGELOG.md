@@ -17,6 +17,8 @@ existing `IntegrateError::NonFinite` instead. `attitude_step` and
 `attitude_step_with_angular_acceleration` stay infallible, as they sit on
 `RigidBody::stepped`'s panic-free per-tick path; their behavior with non-finite or
 negative input is now documented instead of silent. (#302)
+- Particle filters floor an underflowed zero weight at the scalar's smallest positive value before
+  the next update, allowing that particle to recover when later measurements favor it.
 
 ## [0.10.0] - 2026-08-09
 
