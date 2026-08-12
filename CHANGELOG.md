@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A record of what a model file was loaded without.** `RigidBodyModel::ignored` names the
+  top-level sections `multicalc-mjcf` read nothing out of — tendons, actuators, sensors, contact
+  pairs and the rest — sorted and without repeats, so a caller can tell a model that loaded whole
+  from one that loaded minus the half that mattered. Anything that could change a mass is still
+  refused outright rather than recorded. @Thiago316316 (#305)
+
 ### Fixed
 
 - Particle filters floor an underflowed zero weight at the scalar's smallest positive value before
