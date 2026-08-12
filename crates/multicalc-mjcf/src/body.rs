@@ -17,12 +17,17 @@ use crate::geometry::{GeomMass, read_geom};
 /// MuJoCo reads a joint that names no type as a hinge.
 const ASSUMED_JOINT: &str = "hinge";
 
+/// The top-level sections this loader takes something from. Every other section a file carries is
+/// passed over, and named in the record rather than going quietly.
+const READ_SECTIONS: [&str; 3] = ["compiler", "default", "worldbody"];
+
 /// Everything one model file says about its body.
 pub(crate) struct BodyModel {
     pub name: String,
     pub pose: SE3<f64>,
     pub has_free_joint: bool,
     pub inertia: SpatialInertia<f64>,
+    pub ignored: Vec<String>,
 }
 
 /// Reads the single body a file describes, refusing anything outside that by name.
@@ -79,7 +84,24 @@ pub(crate) fn read(document: &Document) -> Result<BodyModel, MjcfError> {
         pose,
         has_free_joint,
         inertia,
+        ignored: ignored_sections(root),
     })
+}
+
+/// The sections a file carries that this loader reads nothing out of, named once each and in a
+/// settled order so a table generated from them does not shuffle between runs.
+#[must_use]
+fn ignored_sections(root: Node) -> Vec<String> {
+    let mut names: Vec<String> = root
+        .children()
+        .filter(Node::is_element)
+        .map(|section| section.tag_name().name())
+        .filter(|name| !READ_SECTIONS.contains(name))
+        .map(str::to_owned)
+        .collect();
+    names.sort();
+    names.dedup();
+    names
 }
 
 /// Checks that the body hangs off the world by a free joint and nothing else.
