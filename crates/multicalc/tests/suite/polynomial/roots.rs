@@ -273,3 +273,42 @@ fn real_roots_in_reports_running_out_of_steps() {
         Err(PolynomialError::DidNotConverge { .. })
     ));
 }
+
+#[test]
+fn real_roots_in_rejects_bad_arguments() {
+    let p: Polynomial<5> = Polynomial::new(QUARTIC_FOUR_ROOTS);
+    let bound = p.cauchy_root_bound().unwrap();
+
+    // A non-finite range or tolerance is reported as such.
+    assert_eq!(
+        p.real_roots_in(-bound, bound, f64::NAN, 1000).err(),
+        Some(PolynomialError::NonFinite)
+    );
+    assert_eq!(
+        p.real_roots_in(f64::INFINITY, bound, 1e-11, 1000).err(),
+        Some(PolynomialError::NonFinite)
+    );
+
+    // A zero or negative tolerance is rejected up front instead of yielding a bogus root or
+    // running the budget out.
+    assert_eq!(
+        p.real_roots_in(-bound, bound, 0.0, 1000).err(),
+        Some(PolynomialError::ToleranceNotPositive)
+    );
+    assert_eq!(
+        p.real_roots_in(-bound, bound, -1e-11, 1000).err(),
+        Some(PolynomialError::ToleranceNotPositive)
+    );
+
+    // A backwards range is an error rather than a silently empty answer.
+    assert_eq!(
+        p.real_roots_in(bound, -bound, 1e-11, 1000).err(),
+        Some(PolynomialError::RangeReversed)
+    );
+
+    // A well-formed call is unaffected.
+    assert_eq!(
+        p.real_roots_in(-bound, bound, 1e-11, 1000).unwrap().len(),
+        4
+    );
+}
