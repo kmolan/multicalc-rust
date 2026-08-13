@@ -16,6 +16,7 @@ use crate::MjcfError;
 pub(crate) struct GeomDefaults {
     pub geom_type: Option<String>,
     pub size: Option<Vec<f64>>,
+    pub fromto: Option<[f64; 6]>,
     pub pos: Option<[f64; 3]>,
     pub quat: Option<[f64; 4]>,
     pub mass: Option<f64>,
@@ -28,6 +29,7 @@ impl GeomDefaults {
         Ok(GeomDefaults {
             geom_type: node.attribute("type").map(str::to_owned),
             size: parse_list(node, "size")?,
+            fromto: fixed::<6>(node, "fromto")?,
             pos: parse_vector3(node, "pos")?,
             quat: parse_vector4(node, "quat")?,
             mass: parse_scalar(node, "mass")?,
@@ -41,6 +43,7 @@ impl GeomDefaults {
         GeomDefaults {
             geom_type: other.geom_type.clone().or_else(|| self.geom_type.clone()),
             size: other.size.clone().or_else(|| self.size.clone()),
+            fromto: other.fromto.or(self.fromto),
             pos: other.pos.or(self.pos),
             quat: other.quat.or(self.quat),
             mass: other.mass.or(self.mass),

@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Capsule and cylinder geoms are measured rather than refused.** `multicalc-mjcf` works a body's
+  mass and inertia out of the two primitives Menagerie leans on hardest for link geometry, from
+  their closed forms — a cylinder as a disc across and a bar along, a capsule as that barrel plus
+  the two hemispheres capping it, carried out to where they sit. Every number is checked against
+  MuJoCo's own compile of the same geom. A size that is not a radius and a half-length is still
+  refused. @Thiago316316 (#304)
+
+- **A shape can state where its axis starts and stops.** `fromto` gives a capsule or a cylinder its
+  length, its place and its facing from the two ends of its axis, which is how link geometry is
+  usually written, and it comes down a `<default>` block like any other geom setting. Ends given
+  alongside a `pos`, ends in the same place, and ends on a form this loader has not checked against
+  the compiler are all refused by name. @Thiago316316 (#304)
+
 - **A record of what a model file was loaded without.** `RigidBodyModel::ignored` names the
   top-level sections `multicalc-mjcf` read nothing out of — tendons, actuators, sensors, contact
   pairs and the rest — sorted and without repeats, so a caller can tell a model that loaded whole

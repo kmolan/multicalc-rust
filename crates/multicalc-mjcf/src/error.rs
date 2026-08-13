@@ -46,6 +46,19 @@ pub enum MjcfError {
         /// The body's name.
         body: String,
     },
+    /// A shape gave the two ends of its axis, on a form this loader does not read them for.
+    UnsupportedFromTo {
+        /// The body's name.
+        body: String,
+        /// The shape type as written in the file.
+        geom_type: String,
+    },
+    /// A shape gave both the two ends of its axis and a position, which say different things
+    /// about where it sits.
+    ConflictingPlacement {
+        /// The body's name.
+        body: String,
+    },
     /// An attribute could not be read as the numbers it should hold.
     BadAttribute {
         /// The element the attribute was on.
@@ -103,6 +116,14 @@ impl core::fmt::Display for MjcfError {
             MjcfError::MeshInertiaUnsupported { body } => write!(
                 f,
                 "body {body} carries mass on a mesh, whose mass cannot be worked out from the file alone"
+            ),
+            MjcfError::UnsupportedFromTo { body, geom_type } => write!(
+                f,
+                "body {body} gives the ends of a {geom_type} shape's axis, which this loader reads only for capsules and cylinders"
+            ),
+            MjcfError::ConflictingPlacement { body } => write!(
+                f,
+                "a shape on body {body} gives both the ends of its axis and a position, and they need not agree"
             ),
             MjcfError::BadAttribute {
                 element,
