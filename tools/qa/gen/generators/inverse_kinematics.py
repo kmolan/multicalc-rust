@@ -34,11 +34,10 @@ FRANKA = "franka_emika_panda/panda.xml"
 SOLVE_DAMPING = 1e-3
 SOLVE_DT = 1e-2
 MAX_STEPS = 500
-# Convergence is on the task residual, matching the tolerances the crate's solver defaults to.
-# This is also as tight as mink 0.0.9 goes: its `SO3.log` takes `arccos` of a quaternion scalar
-# that rounds just above 1 once the residual gets much below this, and returns NaN.
-POSITION_TOLERANCE = 1e-6
-ORIENTATION_TOLERANCE = 1e-6
+# Convergence is driven far tighter than the crate's own default, so the golden is effectively the
+# exact answer rather than one solver's stopping point.
+POSITION_TOLERANCE = 1e-9
+ORIENTATION_TOLERANCE = 1e-9
 
 
 def _tol():
@@ -248,16 +247,11 @@ def _six_hinge_chain(out, meta):
 
 
 def _six_hinge_chain_near_singular(out, meta):
-    """The same chain seeded almost straight, where every axis lies close to one plane and the tool
-    can barely be turned about the axis the arm is stretched along.
+    """The same chain seeded straight, where every axis lies in one plane and the tool cannot be
+    turned about the axis the arm is stretched along.
 
-    Redundancy is not the issue here — the seed is next to a singularity, so the branch taken
-    depends on how each solver damps its way off it. Only the pose is pinned.
-
-    The seed stops 0.01 rad short of the fully stretched pose rather than sitting on it: mink's
-    `SO3.log` takes `arccos` of a quaternion scalar that rounds just above 1 there and returns NaN,
-    so a seed exactly on the singularity yields no golden at all. The crate's own behaviour from a
-    dead-straight seed is covered by `survives_a_stretched_out_arm` in the unit tests.
+    Redundancy is not the issue here — the seed is on a singularity, so the branch taken depends
+    on how each solver damps its way off it. Only the pose is pinned.
     """
     model = mujoco.MjModel.from_xml_string("""
 <mujoco>
@@ -296,10 +290,10 @@ def _six_hinge_chain_near_singular(out, meta):
         out, "six_hinge_chain_near_singular", meta, model,
         task_body=7,
         solution=np.array([0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.0]),
-        seed_offset=-0.04,  # lands the seed 0.01 rad short of the stretched-out pose
+        seed_offset=-0.05,  # lands the seed exactly on the stretched-out pose
         limits=None,
         pin_configuration=False,
-        equation="the same six-hinge chain seeded 0.01 rad short of fully stretched, next to a singular pose",
+        equation="the same six-hinge chain seeded fully stretched, on a singular pose",
         operations=[
             "near-singular inverse kinematics: the pose reached off a singular seed",
         ],

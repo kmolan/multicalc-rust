@@ -6760,13 +6760,13 @@
     "equation": "Menagerie franka_emika_panda, 7 hinges plus fixed links",
     "generator": "kinematics",
     "libraries": {
-      "mujoco": "3.2.6"
+      "mujoco": "3.11.0"
     },
     "operations": [
       "Franka Panda forward kinematics over 8 configurations: world position and orientation per link",
       "Franka Panda Jacobian over 8 configurations: how each joint's rate moves each link"
     ],
-    "reference": "MuJoCo 3.2.6",
+    "reference": "MuJoCo 3.11.0",
     "sampling": "three hand-written models plus one committed Menagerie model; joint readings drawn uniformly inside each joint's range; goldens are MuJoCo's own solve of the same model",
     "seed": 20260706
   },

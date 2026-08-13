@@ -7,30 +7,30 @@
     },
     "joint_positions": {
       "data": [
-        "0x3fd017604b018c77",
-        "0xbfdd2644c6869416",
-        "0x3fda23e9ec727171",
-        "0x3fdadfaeb6eacc83",
-        "0xbfc401ca850d4698",
-        "0x3fe13a0640752dbf",
+        "0x3fd01737fbf452dd",
+        "0xbfdd26107903e89d",
+        "0x3fda24307f685920",
+        "0x3fdadf3f7ee9f571",
+        "0xbfc4020ce26a63e7",
+        "0x3fe13a231a8afab1",
         "0x0000000000000000"
       ],
       "kind": "vector"
     },
     "reached_position": {
       "data": [
-        "0xbfb95ee0aac11dc2",
-        "0xbfe34bf7980ad292",
-        "0x3ff43e6a8fba9883"
+        "0xbfb95ee36c22bebf",
+        "0xbfe34bf87806b9a6",
+        "0x3ff43e6b72793932"
       ],
       "kind": "vector"
     },
     "reached_quaternion": {
       "data": [
-        "0x3fee310b14d709e2",
-        "0x3fc9a35657feda69",
-        "0x3fccbd850f38859b",
-        "0x3fc1c81850002b59"
+        "0x3fee310b0974c522",
+        "0x3fc9a355fcb64235",
+        "0x3fccbd8570f2adc6",
+        "0x3fc1c8196aeb8ccd"
       ],
       "kind": "vector"
     }
@@ -222,13 +222,13 @@
     "equation": "six hinges alternating about x and y on 0.25 links, plus a welded tool frame",
     "generator": "inverse_kinematics",
     "libraries": {
-      "mink": "0.0.9",
-      "mujoco": "3.2.6"
+      "mink": "1.2.0",
+      "mujoco": "3.11.0"
     },
     "operations": [
       "six-hinge inverse kinematics: joint readings and the pose they reach"
     ],
-    "reference": "mink 0.0.9 on MuJoCo 3.2.6",
+    "reference": "mink 1.2.0 on MuJoCo 3.11.0",
     "sampling": "targets taken by running forward kinematics on a chosen configuration, then seeding the solve away from it; goldens are mink's differential IK on the same model",
     "seed": 20260706
   },

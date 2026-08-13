@@ -7,18 +7,18 @@
     },
     "reached_position": {
       "data": [
-        "0x3fbcb13349aa420a",
-        "0xbfc319a8260f137f",
-        "0x3ff7c404e96254a5"
+        "0x3fbcb13223dafaee",
+        "0xbfc319a7930cb8eb",
+        "0x3ff7c403f5836e3c"
       ],
       "kind": "vector"
     },
     "reached_quaternion": {
       "data": [
-        "0x3fefd1f7ca6d6b85",
-        "0x3fb328f889dcf764",
-        "0x3fb328f83452102a",
-        "0x3f5ea993e61879d2"
+        "0x3fefd1f7cd39ca13",
+        "0x3fb328f7ca41eed8",
+        "0x3fb328f7ca5582f9",
+        "0x3f5ea99587757a51"
       ],
       "kind": "vector"
     }
@@ -161,12 +161,12 @@
     },
     "seed": {
       "data": [
-        "0x3f847ae147ae147c",
-        "0x3f847ae147ae147c",
-        "0x3f847ae147ae147c",
-        "0x3f847ae147ae147c",
-        "0x3f847ae147ae147c",
-        "0x3f847ae147ae147c",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
         "0x0000000000000000"
       ],
       "kind": "vector"
@@ -207,16 +207,16 @@
   },
   "metadata": {
     "date": "2026-07-06T00:00:00+00:00",
-    "equation": "the same six-hinge chain seeded 0.01 rad short of fully stretched, next to a singular pose",
+    "equation": "the same six-hinge chain seeded fully stretched, on a singular pose",
     "generator": "inverse_kinematics",
     "libraries": {
-      "mink": "0.0.9",
-      "mujoco": "3.2.6"
+      "mink": "1.2.0",
+      "mujoco": "3.11.0"
     },
     "operations": [
       "near-singular inverse kinematics: the pose reached off a singular seed"
     ],
-    "reference": "mink 0.0.9 on MuJoCo 3.2.6",
+    "reference": "mink 1.2.0 on MuJoCo 3.11.0",
     "sampling": "targets taken by running forward kinematics on a chosen configuration, then seeding the solve away from it; goldens are mink's differential IK on the same model",
     "seed": 20260706
   },

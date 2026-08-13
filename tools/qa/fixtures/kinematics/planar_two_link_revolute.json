@@ -436,13 +436,13 @@
     "equation": "two hinges about z, unit links, plus a fixed tool frame",
     "generator": "kinematics",
     "libraries": {
-      "mujoco": "3.2.6"
+      "mujoco": "3.11.0"
     },
     "operations": [
       "planar two-link forward kinematics: world position and orientation per link",
       "planar two-link Jacobian: how each joint's rate moves each link"
     ],
-    "reference": "MuJoCo 3.2.6",
+    "reference": "MuJoCo 3.11.0",
     "sampling": "three hand-written models plus one committed Menagerie model; joint readings drawn uniformly inside each joint's range; goldens are MuJoCo's own solve of the same model",
     "seed": 20260706
   },

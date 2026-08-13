@@ -20,13 +20,12 @@ const MAX_JOINTS: usize = 16;
 
 /// How closely the two solvers' joint readings have to agree, where the fixture pins them.
 ///
-/// Looser than the pose bound on purpose. Both solvers stop once the *pose* residual is under
-/// 1e-6, and near the solution a pose that close still leaves the readings free to differ by
-/// rather more than that — the Jacobian maps a small pose error onto a larger joint error. mink
-/// cannot be driven tighter to close the gap either: its `SO3.log` returns NaN once the residual
-/// falls much below 1e-6. What this bound is for is catching the solver settling on a *different
-/// branch*, which is a difference of radians, not of parts per million.
-const JOINT_TOLERANCE: f64 = 1e-4;
+/// Looser than the pose bound because a pose residual maps onto a larger joint error through the
+/// Jacobian, and because the two solvers take different routes to the same answer. Both are driven
+/// to a 1e-9 residual here, which lands them within about 7e-9 of each other; this leaves a wide
+/// margin on that while still being far tighter than the difference a *different branch* would
+/// show, which is radians.
+const JOINT_TOLERANCE: f64 = 1e-7;
 
 /// Row `index` of a matrix value, as a three-vector.
 fn row3(data: &[f64], columns: usize, index: usize) -> Vector3D<f64> {
@@ -123,7 +122,11 @@ fn inverse_kinematics_matches_mink() {
         );
         let seed = padded(&fx.inputs["seed"].as_vector());
 
+        // Driven to the same residual the golden was, so a configuration comparison reflects the
+        // two solvers disagreeing rather than either one stopping early.
         let report = InverseKinematics::<MAX_JOINTS, f64>::new()
+            .with_position_tolerance(1e-9)
+            .with_orientation_tolerance(1e-9)
             .solve(&tree, tool_index, target, &seed)
             .unwrap_or_else(|e| unreachable!("{case}: {e}"));
 

@@ -7,18 +7,18 @@
     },
     "reached_position": {
       "data": [
-        "0x3fe29f3bd305cbd2",
-        "0xbe11a3132fb31fc9",
-        "0x3fe4f4f3c8114d1d"
+        "0x3fe29f3d5b159e5d",
+        "0xbd30c6d6550cc86d",
+        "0x3fe4f4f50a9658b6"
       ],
       "kind": "vector"
     },
     "reached_quaternion": {
       "data": [
-        "0x3facf5d7267d5639",
-        "0x3fed3d4ab6e053aa",
-        "0x3fd83904bcb133a9",
-        "0x3fc17aa6164c4bcd"
+        "0x3facf5d6066cc186",
+        "0x3fed3d4abd762d0b",
+        "0x3fd83904c1f6c566",
+        "0x3fc17aa566a5c6bd"
       ],
       "kind": "vector"
     }
@@ -278,13 +278,13 @@
     "equation": "Menagerie franka_emika_panda, 7 hinges against a 6-DoF task",
     "generator": "inverse_kinematics",
     "libraries": {
-      "mink": "0.0.9",
-      "mujoco": "3.2.6"
+      "mink": "1.2.0",
+      "mujoco": "3.11.0"
     },
     "operations": [
       "Franka Panda inverse kinematics: the pose reached with one degree of freedom spare"
     ],
-    "reference": "mink 0.0.9 on MuJoCo 3.2.6",
+    "reference": "mink 1.2.0 on MuJoCo 3.11.0",
     "sampling": "targets taken by running forward kinematics on a chosen configuration, then seeding the solve away from it; goldens are mink's differential IK on the same model",
     "seed": 20260706
   },
