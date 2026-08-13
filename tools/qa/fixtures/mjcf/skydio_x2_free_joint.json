@@ -70,12 +70,12 @@
     "equation": "body mass from 4 ellipsoid rotors (0.25 kg) + 1 ellipsoid hull (0.325 kg)",
     "generator": "mjcf",
     "libraries": {
-      "mujoco": "3.2.6"
+      "mujoco": "3.11.0"
     },
     "operations": [
       "Menagerie skydio_x2 ingest: mass, centre of mass, inertia about the centre"
     ],
-    "reference": "MuJoCo 3.2.6",
+    "reference": "MuJoCo 3.11.0",
     "sampling": "one committed Menagerie model; goldens are MuJoCo's own compile of the same file",
     "seed": 20260706
   },

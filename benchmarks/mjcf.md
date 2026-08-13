@@ -19,5 +19,5 @@ identity and the rebuild is doing real work.
 <!-- BEGIN generated: accuracy -->
 | Operation | Equation | Tolerance | Tested Against |
 | --- | --- | --- | --- |
-| Menagerie skydio_x2 ingest: mass, centre of mass, inertia about the centre | body mass from 4 ellipsoid rotors (0.25 kg) + 1 ellipsoid hull (0.325 kg) | 1e-11 | MuJoCo 3.2.6 |
+| Menagerie skydio_x2 ingest: mass, centre of mass, inertia about the centre | body mass from 4 ellipsoid rotors (0.25 kg) + 1 ellipsoid hull (0.325 kg) | 1e-11 | MuJoCo 3.11.0 |
 <!-- END generated -->

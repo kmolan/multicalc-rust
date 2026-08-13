@@ -54,10 +54,13 @@ mod fixtures;
 // Byte written across free stack so we can find how deep the stack went.
 const PAINT: u8 = 0xAA;
 // Bytes of free stack to watch. Must be smaller than the free stack on the
-// target (64 KB RAM) and larger than the deepest check. 4 KB fits both. If the
+// target (64 KB RAM) and larger than the deepest check. The deepest check is the
+// geometric Jacobian at ~3.6 KB, so 6 KB fits both with room to spare. If the
 // printed stack ever equals WINDOW it has saturated — raise WINDOW and confirm
-// the target still has room.
-const WINDOW: usize = 4096;
+// the target still has room. There is less headroom than the 64 KB suggests: at
+// 12 KB the paint runs off the bottom of riscv32's free stack and the image hangs
+// instead of finishing.
+const WINDOW: usize = 6144;
 // Bytes just below the current stack pointer we never touch (our own frame).
 const GUARD: usize = 64;
 
@@ -106,6 +109,7 @@ fn main() -> ! {
             checks::polynomial_evaluate_identity_f32(),
             checks::occupancy_ray_cast_identity(),
             checks::kinematic_tree_identity(),
+            checks::geometric_jacobian_identity(),
         )
     };
 
@@ -157,6 +161,7 @@ fn main() -> ! {
             poly_f32,
             occupancy_ray_cast,
             forward_kinematics,
+            geometric_jacobian,
         ) = full;
         let _ = hprintln!("SMOKE_VAL_quad={:e}", quad);
         let _ = hprintln!("SMOKE_VAL_jac00={:e}", jac00);
@@ -180,6 +185,7 @@ fn main() -> ! {
         let _ = hprintln!("SMOKE_VAL_poly_f32={:e}", poly_f32);
         let _ = hprintln!("SMOKE_VAL_occupancy_ray_cast={:e}", occupancy_ray_cast);
         let _ = hprintln!("SMOKE_VAL_forward_kinematics={:e}", forward_kinematics);
+        let _ = hprintln!("SMOKE_VAL_geometric_jacobian={:e}", geometric_jacobian);
     }
 
     debug::exit(debug::EXIT_SUCCESS);
