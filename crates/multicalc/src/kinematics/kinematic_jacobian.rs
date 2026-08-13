@@ -28,6 +28,32 @@ pub enum JacobianFrame {
 /// [`geometric_jacobian`](crate::kinematics::KinematicTree::geometric_jacobian) and carries the
 /// joint count it was built for, so a query past that returns `None` rather than a column that
 /// means nothing.
+///
+/// ```
+/// use multicalc::kinematics::{JacobianFrame, Joint, JointParent, KinematicTree};
+/// use multicalc::linear_algebra::Vector;
+/// use multicalc::spatial::{SE3, SO3};
+///
+/// let z = Vector::new([0.0, 0.0, 1.0]);
+/// let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([1.0, 0.0, 0.0]));
+///
+/// // One joint turning about z, with the tool a unit out along x.
+/// let tree = KinematicTree::<2, f64>::try_from_joints(
+///     &[Joint::revolute(z, SE3::identity()), Joint::fixed(link)],
+///     &[JointParent::World, JointParent::Joint(0)],
+/// )
+/// .unwrap();
+///
+/// let jacobian = tree
+///     .geometric_jacobian_at(&Vector::zeros(), 1, JacobianFrame::World)
+///     .unwrap();
+///
+/// // Turning the joint sweeps the tool sideways at one unit per unit rate, and turns it just as
+/// // fast about z.
+/// let column = jacobian.column(0).unwrap();
+/// assert!((column.linear() - Vector::new([0.0, 1.0, 0.0])).norm() < 1e-12);
+/// assert!((column.angular() - Vector::new([0.0, 0.0, 1.0])).norm() < 1e-12);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct KinematicJacobian<const MAX_JOINTS: usize, T: Numeric = f64> {
     /// Six rows — three of straight-line motion, then three of turning — one column per joint.

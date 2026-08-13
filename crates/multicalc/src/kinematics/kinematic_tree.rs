@@ -3,8 +3,9 @@
 
 use crate::error::KinematicsError;
 use crate::kinematics::joint::{Joint, JointKind, JointParent};
+use crate::kinematics::kinematic_jacobian::{JacobianFrame, KinematicJacobian};
 use crate::kinematics::kinematic_tree_state::KinematicTreeState;
-use crate::linear_algebra::Vector;
+use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
 use crate::spatial::{SE3, SO3};
 
@@ -273,5 +274,160 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicTree<MAX_JOINTS, T> {
         }
 
         Ok(KinematicTreeState::from_poses(poses, self.length))
+    }
+
+    /// How each joint's rate moves the frame at `tool_index`, from already-solved poses.
+    ///
+    /// One column per joint, saying how fast that frame's origin travels and how fast it turns when
+    /// that joint moves at unit rate. A joint only gets a nonzero column if the frame hangs off it,
+    /// so a sibling branch, a later joint, and a weld all read as zero. `frame` chooses the axes the
+    /// rows are read in.
+    ///
+    /// Takes the solved poses rather than a configuration, so a loop that already ran
+    /// [`forward_kinematics`](KinematicTree::forward_kinematics) pays for one sweep, not two. Use
+    /// [`geometric_jacobian_at`](KinematicTree::geometric_jacobian_at) to go straight from a
+    /// configuration.
+    ///
+    /// Errors: [`ToolIndexOutOfRange`](KinematicsError::ToolIndexOutOfRange) if the model has no
+    /// such joint, or [`StateShapeMismatch`](KinematicsError::StateShapeMismatch) if the poses were
+    /// solved for a different joint count.
+    pub fn geometric_jacobian(
+        &self,
+        state: &KinematicTreeState<MAX_JOINTS, T>,
+        tool_index: usize,
+        frame: JacobianFrame,
+    ) -> Result<KinematicJacobian<MAX_JOINTS, T>, KinematicsError> {
+        if tool_index >= self.length {
+            return Err(KinematicsError::ToolIndexOutOfRange);
+        }
+        if state.len() != self.length {
+            return Err(KinematicsError::StateShapeMismatch);
+        }
+
+        let tool_pose = state
+            .pose(tool_index)
+            .ok_or(KinematicsError::ToolIndexOutOfRange)?;
+        let tool_origin = tool_pose.translation();
+
+        // Mark the chain from the tool frame back to the world. Anything off that chain moves
+        // without taking the tool frame with it. The joint count bounds the walk, so a malformed
+        // model cannot circle forever.
+        let mut carries_tool = [false; MAX_JOINTS];
+        let mut current = tool_index;
+        for _ in 0..MAX_JOINTS {
+            *carries_tool
+                .get_mut(current)
+                .ok_or(KinematicsError::ParentOutOfOrder)? = true;
+            match self.parents.get(current) {
+                Some(JointParent::Joint(parent_index)) => current = *parent_index,
+                _ => break,
+            }
+        }
+
+        let into_tool_axes = tool_pose.rotation().inverse();
+        let mut entries = Matrix::<6, MAX_JOINTS, T>::zeros();
+        for index in 0..self.length {
+            if !*carries_tool
+                .get(index)
+                .ok_or(KinematicsError::CapacityExceeded)?
+            {
+                continue;
+            }
+            let joint = *self
+                .joints
+                .get(index)
+                .ok_or(KinematicsError::CapacityExceeded)?;
+            // The stored pose is the one after this joint has moved, and reading it there is still
+            // right: a joint's own turn leaves its own axis, and any point on that axis, exactly
+            // where they were, and a joint's own slide leaves its own direction where it was. So one
+            // forward sweep gives everything the columns need.
+            let pose = state
+                .pose(index)
+                .ok_or(KinematicsError::StateShapeMismatch)?;
+            let axis_in_world = pose.rotation().act(joint.axis());
+
+            let (mut linear, mut angular) = match joint.kind() {
+                // Turning sweeps the tool frame around the axis, faster the further out it sits.
+                JointKind::Revolute => {
+                    let axis_point = pose.act(joint.anchor());
+                    (axis_in_world.cross(tool_origin - axis_point), axis_in_world)
+                }
+                // Sliding carries the tool frame along the axis without turning it.
+                JointKind::Prismatic => (axis_in_world, Vector::zeros()),
+                JointKind::Fixed => continue,
+            };
+
+            if frame == JacobianFrame::Body {
+                linear = into_tool_axes.act(linear);
+                angular = into_tool_axes.act(angular);
+            }
+
+            let linear_rows = *linear.as_array();
+            let angular_rows = *angular.as_array();
+            for (row, value) in linear_rows.iter().chain(angular_rows.iter()).enumerate() {
+                *entries
+                    .get_mut(row, index)
+                    .ok_or(KinematicsError::CapacityExceeded)? = *value;
+            }
+        }
+
+        Ok(KinematicJacobian::from_entries(entries, self.length, frame))
+    }
+
+    /// How each joint's rate moves the frame at `tool_index`, for configuration `joint_positions`.
+    ///
+    /// Solves the world poses first, then hands them to
+    /// [`geometric_jacobian`](KinematicTree::geometric_jacobian).
+    ///
+    /// Errors: as [`forward_kinematics`](KinematicTree::forward_kinematics) and
+    /// [`geometric_jacobian`](KinematicTree::geometric_jacobian).
+    ///
+    /// ```
+    /// use multicalc::kinematics::{JacobianFrame, Joint, JointParent, KinematicTree};
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::spatial::{SE3, SO3};
+    ///
+    /// let z = Vector::new([0.0, 0.0, 1.0]);
+    /// let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([1.0, 0.0, 0.0]));
+    ///
+    /// // Planar two-link arm, tool frame one unit past the elbow.
+    /// let tree = KinematicTree::<3, f64>::try_from_joints(
+    ///     &[
+    ///         Joint::revolute(z, SE3::identity()),
+    ///         Joint::revolute(z, link),
+    ///         Joint::fixed(link),
+    ///     ],
+    ///     &[
+    ///         JointParent::World,
+    ///         JointParent::Joint(0),
+    ///         JointParent::Joint(1),
+    ///     ],
+    /// )
+    /// .unwrap();
+    ///
+    /// let jacobian = tree
+    ///     .geometric_jacobian_at(&Vector::zeros(), 2, JacobianFrame::World)
+    ///     .unwrap();
+    ///
+    /// // Stretched along x, the tool sits at (2, 0, 0). The shoulder is two units from it and the
+    /// // elbow one, so turning the shoulder sweeps the tool sideways twice as fast.
+    /// let shoulder = jacobian.column(0).unwrap();
+    /// let elbow = jacobian.column(1).unwrap();
+    /// let weld = jacobian.column(2).unwrap();
+    ///
+    /// assert!((shoulder.linear() - Vector::new([0.0, 2.0, 0.0])).norm() < 1e-12);
+    /// assert!((elbow.linear() - Vector::new([0.0, 1.0, 0.0])).norm() < 1e-12);
+    /// assert!((shoulder.angular() - Vector::new([0.0, 0.0, 1.0])).norm() < 1e-12);
+    /// assert!((elbow.angular() - Vector::new([0.0, 0.0, 1.0])).norm() < 1e-12);
+    /// assert!(weld.linear().norm() < 1e-12 && weld.angular().norm() < 1e-12);
+    /// ```
+    pub fn geometric_jacobian_at(
+        &self,
+        joint_positions: &Vector<MAX_JOINTS, T>,
+        tool_index: usize,
+        frame: JacobianFrame,
+    ) -> Result<KinematicJacobian<MAX_JOINTS, T>, KinematicsError> {
+        let state = self.forward_kinematics(joint_positions)?;
+        self.geometric_jacobian(&state, tool_index, frame)
     }
 }
