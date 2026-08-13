@@ -118,6 +118,40 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicJacobian<MAX_JOINTS, T> {
     }
 
     /// End-effector twist for joint rates `joint_velocities`: `J · q̇`.
+    ///
+    /// ```
+    /// use multicalc::kinematics::{JacobianFrame, Joint, JointParent, KinematicTree};
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::spatial::{SE3, SO3};
+    ///
+    /// let z = Vector::new([0.0, 0.0, 1.0]);
+    /// let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([1.0, 0.0, 0.0]));
+    ///
+    /// // Planar 2R arm, end-effector 1 m past the elbow, stretched along x.
+    /// let tree = KinematicTree::<3, f64>::try_from_joints(
+    ///     &[
+    ///         Joint::revolute(z, SE3::identity()),
+    ///         Joint::revolute(z, link),
+    ///         Joint::fixed(link),
+    ///     ],
+    ///     &[
+    ///         JointParent::World,
+    ///         JointParent::Joint(0),
+    ///         JointParent::Joint(1),
+    ///     ],
+    /// )
+    /// .unwrap();
+    /// let jacobian = tree
+    ///     .geometric_jacobian_at(&Vector::zeros(), 2, JacobianFrame::World)
+    ///     .unwrap();
+    ///
+    /// // Moment arms of 2 m and 1 m, so driving both at unit rate sums to 3 m/s sideways and
+    /// // 2 rad/s about z.
+    /// let twist = jacobian.tool_twist(&Vector::new([1.0, 1.0, 0.0]));
+    ///
+    /// assert!((twist.linear() - Vector::new([0.0, 3.0, 0.0])).norm() < 1e-12);
+    /// assert!((twist.angular() - Vector::new([0.0, 0.0, 2.0])).norm() < 1e-12);
+    /// ```
     #[must_use]
     pub fn tool_twist(&self, joint_velocities: &Vector<MAX_JOINTS, T>) -> Twist<T> {
         Twist::from_vector(self.entries * *joint_velocities)

@@ -291,6 +291,45 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicTree<MAX_JOINTS, T> {
     /// Errors: [`ToolIndexOutOfRange`](KinematicsError::ToolIndexOutOfRange) if the model has no
     /// such joint, or [`StateShapeMismatch`](KinematicsError::StateShapeMismatch) if the poses were
     /// solved for a different joint count.
+    ///
+    /// ```
+    /// use multicalc::kinematics::{JacobianFrame, Joint, JointParent, KinematicTree};
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::spatial::{SE3, SO3};
+    ///
+    /// let z = Vector::new([0.0, 0.0, 1.0]);
+    /// let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([1.0, 0.0, 0.0]));
+    ///
+    /// let tree = KinematicTree::<3, f64>::try_from_joints(
+    ///     &[
+    ///         Joint::revolute(z, SE3::identity()),
+    ///         Joint::revolute(z, link),
+    ///         Joint::fixed(link),
+    ///     ],
+    ///     &[
+    ///         JointParent::World,
+    ///         JointParent::Joint(0),
+    ///         JointParent::Joint(1),
+    ///     ],
+    /// )
+    /// .unwrap();
+    ///
+    /// // One forward sweep, then a Jacobian for each frame that hangs off it.
+    /// let state = tree.forward_kinematics(&Vector::zeros()).unwrap();
+    /// let at_elbow = tree
+    ///     .geometric_jacobian(&state, 1, JacobianFrame::World)
+    ///     .unwrap();
+    /// let at_tool = tree
+    ///     .geometric_jacobian(&state, 2, JacobianFrame::World)
+    ///     .unwrap();
+    ///
+    /// // The shoulder's moment arm is 1 m to the elbow and 2 m to the tool.
+    /// assert!((at_elbow.column(0).unwrap().linear() - Vector::new([0.0, 1.0, 0.0])).norm() < 1e-12);
+    /// assert!((at_tool.column(0).unwrap().linear() - Vector::new([0.0, 2.0, 0.0])).norm() < 1e-12);
+    ///
+    /// // The elbow cannot move itself, so its own column is zero there.
+    /// assert!(at_elbow.column(1).unwrap().linear().norm() < 1e-12);
+    /// ```
     pub fn geometric_jacobian(
         &self,
         state: &KinematicTreeState<MAX_JOINTS, T>,
