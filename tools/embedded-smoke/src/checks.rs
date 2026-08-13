@@ -799,8 +799,8 @@ pub fn polynomial_evaluate_identity_f32() -> f64 {
     black_box(f64::from(value))
 }
 
-/// Identity: a two-joint planar arm of unit links puts its tool at
-/// `[cos a + cos(a+b), sin a + sin(a+b), 0]`. Full set only.
+/// A two-joint planar arm of unit links, welded to a tool frame one link further out.
+/// Shared by the kinematics checks below. Full set only.
 #[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
 fn planar_arm() -> multicalc::kinematics::KinematicTree<3, f64> {
     use multicalc::kinematics::{Joint, JointParent, KinematicTree};
@@ -822,6 +822,9 @@ fn planar_arm() -> multicalc::kinematics::KinematicTree<3, f64> {
         .unwrap_or_else(|_| unreachable!("two-joint planar arm is a valid tree"))
 }
 
+/// Identity: a two-joint planar arm of unit links puts its tool at
+/// `[cos a + cos(a+b), sin a + sin(a+b), 0]`. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
 pub fn kinematic_tree_identity() -> f64 {
     let tree = planar_arm();
     let (a, b) = (0.3_f64, -0.7);
