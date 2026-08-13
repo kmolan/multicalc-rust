@@ -54,10 +54,13 @@ mod fixtures;
 // Byte written across free stack so we can find how deep the stack went.
 const PAINT: u8 = 0xAA;
 // Bytes of free stack to watch. Must be smaller than the free stack on the
-// target (64 KB RAM) and larger than the deepest check. 4 KB fits both. If the
-// printed stack ever equals WINDOW it has saturated — raise WINDOW and confirm
-// the target still has room.
-const WINDOW: usize = 4096;
+// target (64 KB RAM) and larger than the deepest check. The inverse-kinematics
+// check is the deepest at ~7.3 KB — it holds two 6x6 decompositions plus the
+// Jacobian and its weighted transpose — so 8 KB fits both, and it is also the most
+// that fits: at 12 KB the paint runs off the bottom of riscv32's free stack and the
+// image hangs instead of finishing. If the printed stack ever equals WINDOW it has
+// saturated — raise WINDOW only after confirming every target still has room.
+const WINDOW: usize = 8192;
 // Bytes just below the current stack pointer we never touch (our own frame).
 const GUARD: usize = 64;
 
@@ -106,6 +109,8 @@ fn main() -> ! {
             checks::polynomial_evaluate_identity_f32(),
             checks::occupancy_ray_cast_identity(),
             checks::kinematic_tree_identity(),
+            checks::geometric_jacobian_identity(),
+            checks::inverse_kinematics_identity(),
         )
     };
 
@@ -157,6 +162,8 @@ fn main() -> ! {
             poly_f32,
             occupancy_ray_cast,
             forward_kinematics,
+            geometric_jacobian,
+            inverse_kinematics,
         ) = full;
         let _ = hprintln!("SMOKE_VAL_quad={:e}", quad);
         let _ = hprintln!("SMOKE_VAL_jac00={:e}", jac00);
@@ -180,6 +187,8 @@ fn main() -> ! {
         let _ = hprintln!("SMOKE_VAL_poly_f32={:e}", poly_f32);
         let _ = hprintln!("SMOKE_VAL_occupancy_ray_cast={:e}", occupancy_ray_cast);
         let _ = hprintln!("SMOKE_VAL_forward_kinematics={:e}", forward_kinematics);
+        let _ = hprintln!("SMOKE_VAL_geometric_jacobian={:e}", geometric_jacobian);
+        let _ = hprintln!("SMOKE_VAL_inverse_kinematics={:e}", inverse_kinematics);
     }
 
     debug::exit(debug::EXIT_SUCCESS);
