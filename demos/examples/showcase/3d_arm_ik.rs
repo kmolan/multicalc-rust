@@ -1,21 +1,22 @@
-//! 1 kHz 3D arm SE(3) IK (spatial + autodiff showcase).
+//! 1 kHz 3D arm SE(3) IK (kinematics showcase).
 //!
-//! An 8-link arm chases a moving 3D target in position and orientation. Every millisecond a
-//! full Levenberg-Marquardt solve runs whose Jacobian is a single `Dual` pushed through the entire
-//! Lie composition — exp, log, compose — with no hand-derived kinematics. The panel shows the solve
-//! cost against the 1 ms budget.
+//! An 8-link arm chases a moving 3D target in position and orientation. Every millisecond a full
+//! damped-least-squares solve runs against the arm's analytic geometric Jacobian, holding every
+//! hinge inside its travel and spending the freedom the task leaves over on keeping a comfortable
+//! posture. The panel shows the solve cost against the 1 ms budget.
 //!
 //! Streams live to a Rerun viewer; see demos/README.md for the WSL setup.
 //! Run with: cargo run --release -p multicalc-demos --example 3d_arm_ik
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use multicalc::kinematics::{Joint, JointParent, KinematicTree};
+use multicalc::kinematics::{
+    InverseKinematics, InverseKinematicsTermination, Joint, JointParent, KinematicTree,
+    SecondaryObjective,
+};
 use multicalc::linear_algebra::Vector;
-use multicalc::numerical_derivative::AutoDiffMulti;
-use multicalc::scalar::{Numeric, VectorFn};
+use multicalc::scalar::Numeric;
 use multicalc::spatial::{Quaternion, SE3, SO3};
-use multicalc::{LevenbergMarquardt, SolveError};
 use multicalc_demos::loop_util::{LatencyRing, Pacer};
 use multicalc_demos::{RerunSink, Rgba, VizError, VizSink};
 use std::collections::VecDeque;
@@ -31,15 +32,15 @@ const CHROME: Rgba = [0x89, 0x87, 0x81, 0xff]; // reach envelope
 const N_JOINTS: usize = 8;
 const N_FRAMES: usize = N_JOINTS + 1; // the joint frames plus the welded tool frame
 const LINK: f64 = 0.25; // per-link length; reach = N_JOINTS * LINK = 2.0
-const K_ORI: f64 = 0.5; // orientation-residual weight
-// Sqrt of the posture-regularizer weight, kept small so it holds M >= N and biases weakly toward
-// the warm-start without fighting position tracking.
-const K_REG: f64 = 3e-4;
 const CYCLE: f64 = 20.0; // orientation keyframe cycle (s), 5 s per segment
-const PATIENCE: usize = 60; // LM outer-iteration budget
+const MAXIMUM_ITERATIONS: usize = 40; // IK budget per tick
+const SECONDARY_GAIN: f64 = 0.2; // how hard the comfortable posture pulls
+const JOINT_LIMIT: f64 = 2.6; // travel per hinge, radians
+/// The posture the arm drifts back toward with whatever freedom the task leaves it.
+const RESTING_POSTURE: f64 = 0.1;
 
 const GEOM_EVERY: i64 = 16; // spatial cadence (~60 Hz)
-const HUD_EVERY: i64 = 1000; // text + ad-vs-fd cadence (1 Hz)
+const HUD_EVERY: i64 = 1000; // text cadence (1 Hz)
 const WARMUP_TICKS: i64 = 500; // cold-start ticks excluded from timing stats
 const TRAIL_MAX: usize = 180; // ~3 s of ee positions at 60 Hz
 const REACH_SEGS: usize = 128;
@@ -87,6 +88,7 @@ fn arm<S: Numeric>() -> KinematicTree<N_FRAMES, S> {
                 Vector::new([S::ZERO, S::ONE, S::ZERO])
             };
             Joint::revolute(axis, origin)
+                .with_limits(S::from_f64(-JOINT_LIMIT), S::from_f64(JOINT_LIMIT))
         };
         tree.push(joint, parent)
             .unwrap_or_else(|_| unreachable!("the arm is a valid tree"));
@@ -99,22 +101,14 @@ fn readings<S: Numeric>(q: &[S; N_JOINTS]) -> Vector<N_FRAMES, S> {
     Vector::from_fn(|i| if i < N_JOINTS { q[i] } else { S::ZERO })
 }
 
-/// End-effector forward kinematics, generic over the scalar `S` — the same code yields the pose in
-/// `f64` and its derivative in `Dual`.
-#[must_use]
-fn fk<S: Numeric>(q: &[S; N_JOINTS]) -> SE3<S> {
-    arm::<S>()
-        .forward_kinematics(&readings(q))
-        .unwrap_or_else(|_| unreachable!("finite readings"))
-        .pose(N_JOINTS)
-        .unwrap_or_else(|| unreachable!("the tool frame was settled"))
-}
-
 /// Every frame of the arm from one solve: the eight joint frames, then the tool.
 #[must_use]
-fn link_poses(q: &[f64; N_JOINTS]) -> [SE3<f64>; N_FRAMES] {
-    let state = arm::<f64>()
-        .forward_kinematics(&readings(q))
+fn link_poses(
+    tree: &KinematicTree<N_FRAMES, f64>,
+    q: &Vector<N_FRAMES, f64>,
+) -> [SE3<f64>; N_FRAMES] {
+    let state = tree
+        .forward_kinematics(q)
         .unwrap_or_else(|_| unreachable!("finite readings"));
     core::array::from_fn(|i| {
         state
@@ -125,10 +119,11 @@ fn link_poses(q: &[f64; N_JOINTS]) -> [SE3<f64>; N_FRAMES] {
 
 /// Startup check on the frame convention: at rest the tool sits one full reach up z, and folding
 /// the first hinge a quarter turn about x swings it onto -y.
-fn verify_frame_convention() {
+fn verify_frame_convention(tree: &KinematicTree<N_FRAMES, f64>) {
     let reach = N_JOINTS as f64 * LINK;
+    let tool = |q: &[f64; N_JOINTS]| link_poses(tree, &readings(q))[N_JOINTS];
 
-    let at_rest = fk(&[0.0; N_JOINTS]).translation().into_array();
+    let at_rest = tool(&[0.0; N_JOINTS]).translation().into_array();
     assert!(
         (at_rest[0]).abs() < 1e-12
             && at_rest[1].abs() < 1e-12
@@ -138,7 +133,7 @@ fn verify_frame_convention() {
 
     let mut folded = [0.0; N_JOINTS];
     folded[0] = std::f64::consts::FRAC_PI_2;
-    let quarter_turn = fk(&folded).translation().into_array();
+    let quarter_turn = tool(&folded).translation().into_array();
     assert!(
         quarter_turn[0].abs() < 1e-12
             && (quarter_turn[1] + reach).abs() < 1e-12
@@ -146,47 +141,6 @@ fn verify_frame_convention() {
         "tool at q0 = pi/2: {quarter_turn:?}, expected [0, {}, 0]",
         -reach
     );
-}
-
-/// The IK residual system: 3 position + 3 orientation residuals, plus 8 posture regularizers.
-struct ArmIk {
-    target_pos: [f64; 3],
-    target_quat: [f64; 4],
-    prev: [f64; N_JOINTS],
-}
-
-impl VectorFn<8, 14> for ArmIk {
-    fn eval<S: Numeric>(&self, q: &[S; 8]) -> [S; 14] {
-        let ee = fk(q);
-        let p = ee.translation();
-        let r_ee = ee.rotation();
-        let tq = self.target_quat;
-        let r_tgt = SO3::from_quaternion(Quaternion::<S>::new(
-            S::from_f64(tq[0]),
-            S::from_f64(tq[1]),
-            S::from_f64(tq[2]),
-            S::from_f64(tq[3]),
-        ));
-        let e = (r_tgt.inverse() * r_ee).log(); // orientation error in so(3)
-        let ko = S::from_f64(K_ORI);
-        let kr = S::from_f64(K_REG);
-        [
-            p[0] - S::from_f64(self.target_pos[0]),
-            p[1] - S::from_f64(self.target_pos[1]),
-            p[2] - S::from_f64(self.target_pos[2]),
-            ko * e[0],
-            ko * e[1],
-            ko * e[2],
-            kr * (q[0] - S::from_f64(self.prev[0])),
-            kr * (q[1] - S::from_f64(self.prev[1])),
-            kr * (q[2] - S::from_f64(self.prev[2])),
-            kr * (q[3] - S::from_f64(self.prev[3])),
-            kr * (q[4] - S::from_f64(self.prev[4])),
-            kr * (q[5] - S::from_f64(self.prev[5])),
-            kr * (q[6] - S::from_f64(self.prev[6])),
-            kr * (q[7] - S::from_f64(self.prev[7])),
-        ]
-    }
 }
 
 /// Lissajous target position; max base-distance ≈ 1.5 < reach 2.0, leaving length slack so the
@@ -209,19 +163,6 @@ fn target_orientation(t: f64) -> Quaternion<f64> {
     let i = phase.floor() as usize % 4;
     let frac = phase - phase.floor();
     keys[i].slerp(keys[(i + 1) % 4], frac)
-}
-
-/// Position and orientation residual of the converged pose against the current target.
-#[must_use]
-fn residuals(problem: &ArmIk) -> (f64, f64) {
-    let ee = fk(&problem.prev);
-    let p = ee.translation();
-    let tp = problem.target_pos;
-    let pos = ((p[0] - tp[0]).powi(2) + (p[1] - tp[1]).powi(2) + (p[2] - tp[2]).powi(2)).sqrt();
-    let tq = problem.target_quat;
-    let r_tgt = SO3::from_quaternion(Quaternion::new(tq[0], tq[1], tq[2], tq[3]));
-    let ori = (r_tgt.inverse() * ee.rotation()).log().norm();
-    (pos, ori)
 }
 
 /// The reach envelope: three great circles of radius `N_JOINTS * LINK` in the coordinate planes.
@@ -263,28 +204,40 @@ fn link_color(i: usize) -> Rgba {
     [s(HERO[0]), s(HERO[1]), s(HERO[2]), 0xff]
 }
 
+/// The target pose at time `t`: the Lissajous position carrying the slerped keyframe orientation.
+#[must_use]
+fn target_pose(t: f64) -> SE3<f64> {
+    let quaternion = target_orientation(t).as_array();
+    SE3::from_parts(
+        SO3::from_quaternion(Quaternion::new(
+            quaternion[0],
+            quaternion[1],
+            quaternion[2],
+            quaternion[3],
+        )),
+        Vector::new(lissajous_pos(t)),
+    )
+}
+
 /// Worst-case position residual over one orientation cycle at the live 1 ms cadence, warm-started —
 /// a startup reachability check. Samples at the same step size the loop runs, after a short warmup
 /// so the cold-start transient is excluded. Returns the max residual seen.
 #[must_use]
-fn reachability_sweep(lm: &LevenbergMarquardt<AutoDiffMulti>) -> f64 {
-    let mut problem = ArmIk {
-        target_pos: lissajous_pos(0.0),
-        target_quat: target_orientation(0.0).as_array(),
-        prev: [0.1; N_JOINTS],
-    };
+fn reachability_sweep(
+    solver: &InverseKinematics<N_FRAMES, f64>,
+    tree: &KinematicTree<N_FRAMES, f64>,
+) -> f64 {
+    let mut joint_readings = readings(&[RESTING_POSTURE; N_JOINTS]);
     let steps = (CYCLE * 1000.0) as i64; // 1 ms spacing
     let mut worst = 0.0_f64;
     for n in 1..=steps {
         let t = n as f64 / 1000.0;
-        problem.target_pos = lissajous_pos(t);
-        problem.target_quat = target_orientation(t).as_array();
-        let x0 = problem.prev;
-        if let Ok(rep) = lm.minimize(&problem, &x0) {
-            problem.prev = rep.solution;
-        }
+        let Ok(report) = solver.solve(tree, N_JOINTS, target_pose(t), &joint_readings) else {
+            continue;
+        };
+        joint_readings = report.joint_positions;
         if n > 200 {
-            worst = worst.max(residuals(&problem).0);
+            worst = worst.max(report.position_error);
         }
     }
     worst
@@ -298,11 +251,20 @@ fn main() -> Result<(), VizError> {
         );
     }
 
-    verify_frame_convention();
+    // Built once: the model is fixed, and rebuilding it inside the loop would land in the timing.
+    let tree = arm::<f64>();
+    verify_frame_convention(&tree);
 
-    let lm = LevenbergMarquardt::<AutoDiffMulti>::default().with_patience(PATIENCE);
+    let solver = InverseKinematics::<N_FRAMES, f64>::new()
+        .with_maximum_iterations(MAXIMUM_ITERATIONS)
+        .with_position_tolerance(1e-6)
+        .with_orientation_tolerance(1e-6)
+        .with_secondary_objective(SecondaryObjective::PreferredPosture(readings(
+            &[RESTING_POSTURE; N_JOINTS],
+        )))
+        .with_secondary_gain(SECONDARY_GAIN);
 
-    let worst_reach = reachability_sweep(&lm);
+    let worst_reach = reachability_sweep(&solver, &tree);
     eprintln!("reachability sweep: worst position residual over one cycle = {worst_reach:.2e} m");
 
     let mut rr = RerunSink::live("multicalc-demos/3d-arm-ik")?;
@@ -324,11 +286,8 @@ fn main() -> Result<(), VizError> {
         )?;
     }
 
-    let mut problem = ArmIk {
-        target_pos: lissajous_pos(0.0),
-        target_quat: target_orientation(0.0).as_array(),
-        prev: [0.1; N_JOINTS], // a gently curled, non-singular start pose
-    };
+    // A gently curled, non-singular start pose.
+    let mut joint_readings = readings(&[RESTING_POSTURE; N_JOINTS]);
 
     let mut pacer = Pacer::new();
     let mut solve_ring = LatencyRing::new(1024);
@@ -336,6 +295,7 @@ fn main() -> Result<(), VizError> {
 
     let mut residual_pos = 0.0;
     let mut residual_ori = 0.0;
+    let mut stalled_ticks: u64 = 0;
 
     let mut n: i64 = 0;
     loop {
@@ -344,27 +304,21 @@ fn main() -> Result<(), VizError> {
         let t = n as f64 / 1000.0;
         rr.set_sequence("tick", n);
 
-        problem.target_pos = lissajous_pos(t);
-        problem.target_quat = target_orientation(t).as_array();
-        let x0 = problem.prev; // copy out before the borrow
+        let target = target_pose(t);
         let t0 = Instant::now();
-        let result = lm.minimize(&problem, &x0);
+        let result = solver.solve(&tree, N_JOINTS, target, &joint_readings);
         let solve_us = t0.elapsed().as_micros() as f64;
 
-        match result {
-            Ok(rep) => {
-                problem.prev = rep.solution;
-                let (rp, ro) = residuals(&problem);
-                residual_pos = rp;
-                residual_ori = ro;
+        // A solve that ran out of budget or stalled still hands back the nearest pose it managed,
+        // which is what a control loop wants; only a malformed request is an error, and there the
+        // arm holds where it is.
+        if let Ok(report) = result {
+            joint_readings = report.joint_positions;
+            residual_pos = report.position_error;
+            residual_ori = report.orientation_error;
+            if report.termination == InverseKinematicsTermination::Stalled {
+                stalled_ticks += 1;
             }
-            Err(SolveError::DidNotConverge { .. }) => {
-                // Hold the pose, then nudge deterministically to break a stuck configuration.
-                for v in problem.prev.iter_mut() {
-                    *v += 1e-3;
-                }
-            }
-            Err(_) => {} // hold the pose
         }
 
         if n > WARMUP_TICKS {
@@ -373,7 +327,7 @@ fn main() -> Result<(), VizError> {
 
         // Spatial geometry at ~60 Hz.
         if n % GEOM_EVERY == 0 {
-            let poses = link_poses(&problem.prev);
+            let poses = link_poses(&tree, &joint_readings);
             for (i, pose) in poses.iter().take(N_JOINTS).enumerate() {
                 rr.transform3d(
                     &format!("world/arm/link{i}"),
@@ -387,7 +341,11 @@ fn main() -> Result<(), VizError> {
                 tool.translation().into_array(),
                 tool.rotation().quaternion().as_array(),
             )?;
-            rr.transform3d("world/target", problem.target_pos, problem.target_quat)?;
+            rr.transform3d(
+                "world/target",
+                target.translation().into_array(),
+                target.rotation().quaternion().as_array(),
+            )?;
 
             let ee = tool.translation().into_array();
             if trail.len() == TRAIL_MAX {
@@ -408,13 +366,14 @@ fn main() -> Result<(), VizError> {
         {
             let md = format!(
                 "## 3d_arm_ik — multicalc live demo\n\
-                 ### full SE(3) IK solve (Levenberg–Marquardt, autodiff Lie Jacobian): median {:.0} µs · p99 {:.0} µs ({:.1} % of the 1 ms tick)\n\
-                 ### tracking: position error {:.3} µm, orientation error {:.3} µrad",
+                 ### full SE(3) IK solve (damped least squares, analytic Jacobian): median {:.0} µs · p99 {:.0} µs ({:.1} % of the 1 ms tick)\n\
+                 ### tracking: position error {:.3} µm, orientation error {:.3} µrad · {} stalled ticks",
                 s.median,
                 s.p99,
                 s.p99 / 10.0,
                 residual_pos * 1e6,
                 residual_ori * 1e6,
+                stalled_ticks,
             );
             rr.text("hud/stats", &md)?;
         }
