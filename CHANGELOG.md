@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **PolylinePath.** Cache the cumulative arc length for each waypoint in `PolylinePath`. It 
+  enhances the performance of `lookahead_point`. @SummerGram (#224)
+
 ## [0.10.0] - 2026-08-09
 
 A feature release adding signal processing, polynomials and minimum-snap trajectories, LQR and

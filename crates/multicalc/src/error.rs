@@ -283,6 +283,8 @@ pub enum MotionError {
     NonFinite,
     /// More waypoints were supplied than the path capacity allows.
     CapacityExceeded,
+    /// Mismatch between the length of the waypoints and the cumulative arc length.
+    OutOfSync,
     /// A query required more waypoints than the path contains.
     PathTooShort,
     /// There is not exactly one duration for each pair of waypoints.
@@ -765,6 +767,7 @@ impl core::fmt::Display for MotionError {
             MotionError::CapacityExceeded => {
                 f.write_str("more waypoints than the path capacity allows")
             }
+            MotionError::OutOfSync => f.write_str("waypoint does not have cumulative arc length"),
             MotionError::PathTooShort => {
                 f.write_str("query required more waypoints than the path contains")
             }

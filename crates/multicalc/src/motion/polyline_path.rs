@@ -83,6 +83,7 @@ impl<const DIMENSION: usize, T: Numeric> PathProjection<DIMENSION, T> {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PolylinePath<const MAX_POINTS: usize, const DIMENSION: usize, T: Numeric = f64> {
     points: [Vector<DIMENSION, T>; MAX_POINTS],
+    cumulative_lengths: [T; MAX_POINTS],
     length: usize,
     end_of_path: EndOfPath,
 }
@@ -104,6 +105,7 @@ impl<const MAX_POINTS: usize, const DIMENSION: usize, T: Numeric>
     pub fn new() -> Self {
         Self {
             points: [Vector::zeros(); MAX_POINTS],
+            cumulative_lengths: [T::ZERO; MAX_POINTS],
             length: 0,
             end_of_path: EndOfPath::Stop,
         }
@@ -121,9 +123,30 @@ impl<const MAX_POINTS: usize, const DIMENSION: usize, T: Numeric>
             return Err(MotionError::NonFinite);
         }
         let mut path = Self::new();
-        for (slot, point) in path.points.iter_mut().zip(points.iter()) {
-            *slot = *point;
+
+        // Return empty `path` if `points.len` is 0.
+        let Some(&first_point) = points.first() else {
+            return Ok(path);
+        };
+
+        let mut acc = T::ZERO;
+
+        path.points[0] = first_point;
+        path.cumulative_lengths[0] = acc;
+
+        let slots = path
+            .points
+            .iter_mut()
+            .zip(path.cumulative_lengths.iter_mut())
+            .skip(1);
+        let point_pairs = points.iter().zip(points.iter().skip(1));
+
+        for ((slot_point, slot_cumulative_length), (&a, &b)) in slots.zip(point_pairs) {
+            acc += (b - a).norm();
+            *slot_point = b;
+            *slot_cumulative_length = acc;
         }
+
         path.length = points.len();
         Ok(path)
     }
@@ -139,14 +162,37 @@ impl<const MAX_POINTS: usize, const DIMENSION: usize, T: Numeric>
         if !point.is_finite() {
             return Err(MotionError::NonFinite);
         }
-        match self.points.get_mut(self.length) {
-            Some(slot) => {
-                *slot = point;
-                self.length += 1;
-                Ok(())
-            }
-            None => Err(MotionError::CapacityExceeded),
-        }
+
+        let acc = if self.length == 0 {
+            T::ZERO
+        } else {
+            let last_index = self.length - 1;
+            let last_point = self
+                .points
+                .get_mut(last_index)
+                .ok_or(MotionError::CapacityExceeded)?;
+            let last_cumulative = self
+                .cumulative_lengths
+                .get_mut(last_index)
+                .ok_or(MotionError::CapacityExceeded)?;
+
+            *last_cumulative + (point - *last_point).norm()
+        };
+
+        let slot_point = self
+            .points
+            .get_mut(self.length)
+            .ok_or(MotionError::CapacityExceeded)?;
+        let slot_cumulative = self
+            .cumulative_lengths
+            .get_mut(self.length)
+            .ok_or(MotionError::CapacityExceeded)?;
+
+        *slot_point = point;
+        *slot_cumulative = acc;
+        self.length += 1;
+
+        Ok(())
     }
 
     /// Sets the end-of-path behaviour.
@@ -180,18 +226,20 @@ impl<const MAX_POINTS: usize, const DIMENSION: usize, T: Numeric>
     /// The total arc length along the path, zero for a path with fewer than two waypoints.
     #[must_use]
     pub fn total_arc_length(&self) -> T {
-        let mut total = T::ZERO;
-        for window in self.waypoints().windows(2) {
-            if let [a, b] = window {
-                total += (*b - *a).norm();
-            }
+        if self.length == 0 {
+            return T::ZERO;
         }
-        total
+
+        self.cumulative_lengths
+            .get(self.length - 1)
+            .copied()
+            .unwrap_or(T::ZERO)
     }
 
     /// The closest point on the path to a query point.
     ///
-    /// Returns [`MotionError::PathTooShort`] if the path has no waypoints.
+    /// Returns [`MotionError::PathTooShort`] if the path has no waypoints, or
+    /// [`MotionError::OutOfSync`] if the path cannot get the cumulative arc length.
     pub fn closest_point(
         &self,
         query: Vector<DIMENSION, T>,
@@ -211,7 +259,6 @@ impl<const MAX_POINTS: usize, const DIMENSION: usize, T: Numeric>
         }
 
         let mut best: Option<PathProjection<DIMENSION, T>> = None;
-        let mut arc_at_start = T::ZERO;
         for (segment_index, window) in waypoints.windows(2).enumerate() {
             let (a, b) = match window {
                 [a, b] => (*a, *b),
@@ -237,11 +284,15 @@ impl<const MAX_POINTS: usize, const DIMENSION: usize, T: Numeric>
                 best = Some(PathProjection {
                     point: candidate,
                     segment_index,
-                    arc_length: arc_at_start + segment_length * parameter,
+                    arc_length: self
+                        .cumulative_lengths
+                        .get(segment_index)
+                        .copied()
+                        .ok_or(MotionError::OutOfSync)?
+                        + segment_length * parameter,
                     distance,
                 });
             }
-            arc_at_start += segment_length;
         }
         best.ok_or(MotionError::PathTooShort)
     }
@@ -250,7 +301,8 @@ impl<const MAX_POINTS: usize, const DIMENSION: usize, T: Numeric>
     ///
     /// The end-of-path mode decides what happens once the target runs past the end: [`EndOfPath::Stop`]
     /// clamps to the last waypoint and [`EndOfPath::Loop`] wraps around. Returns
-    /// [`MotionError::PathTooShort`] if the path has no waypoints.
+    /// [`MotionError::PathTooShort`] if the path has no waypoints, or
+    /// [`MotionError::OutOfSync`] if the path cannot get the cumulative arc length.
     pub fn lookahead_point(
         &self,
         from_arc_length: T,
@@ -283,8 +335,7 @@ impl<const MAX_POINTS: usize, const DIMENSION: usize, T: Numeric>
             }
         }
 
-        let mut arc_at_start = T::ZERO;
-        for window in waypoints.windows(2) {
+        for (segment_index, window) in waypoints.windows(2).enumerate() {
             let (a, b) = match window {
                 [a, b] => (*a, *b),
                 _ => continue,
@@ -294,11 +345,16 @@ impl<const MAX_POINTS: usize, const DIMENSION: usize, T: Numeric>
             if segment_length == T::ZERO {
                 continue;
             }
-            if arc_at_start + segment_length >= target {
-                let parameter = (target - arc_at_start) / segment_length;
+
+            let arc_length = self
+                .cumulative_lengths
+                .get(segment_index)
+                .copied()
+                .ok_or(MotionError::OutOfSync)?;
+            if arc_length + segment_length >= target {
+                let parameter = (target - arc_length) / segment_length;
                 return Ok(a + direction.scale(parameter));
             }
-            arc_at_start += segment_length;
         }
         Ok(last)
     }
