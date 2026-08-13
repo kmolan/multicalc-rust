@@ -104,6 +104,14 @@ pub enum KinematicsError {
     AxisHasNoDirection,
     /// A joint's lower limit is above its upper limit.
     LimitsReversed,
+    /// A tool frame was named that the tree does not have.
+    ToolIndexOutOfRange,
+    /// The solved poses came from a tree with a different joint count.
+    StateShapeMismatch,
+    /// A joint weight was zero or negative, so it names no cost of moving.
+    NonPositiveWeight,
+    /// A matrix step inside the solver failed.
+    Linalg(LinalgError),
 }
 
 /// Errors from the spatial module (rigid-body inertia).
@@ -373,6 +381,11 @@ impl From<DiffError> for SolveError {
         SolveError::Diff(e)
     }
 }
+impl From<LinalgError> for KinematicsError {
+    fn from(e: LinalgError) -> Self {
+        KinematicsError::Linalg(e)
+    }
+}
 impl From<DiffError> for EstimationError {
     fn from(e: DiffError) -> Self {
         EstimationError::Diff(e)
@@ -566,7 +579,7 @@ impl core::fmt::Display for SolveError {
 
 impl core::fmt::Display for KinematicsError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(match self {
+        let text = match self {
             KinematicsError::NonPositiveParameter => {
                 "geometric parameter must be strictly positive"
             }
@@ -582,7 +595,16 @@ impl core::fmt::Display for KinematicsError {
                 "joint axis was all zeros, which names no direction"
             }
             KinematicsError::LimitsReversed => "a joint's lower limit is above its upper limit",
-        })
+            KinematicsError::ToolIndexOutOfRange => {
+                "a tool frame was named that the tree does not have"
+            }
+            KinematicsError::StateShapeMismatch => {
+                "solved poses came from a tree with a different joint count"
+            }
+            KinematicsError::NonPositiveWeight => "a joint weight was zero or negative",
+            KinematicsError::Linalg(e) => return write!(f, "{e}"),
+        };
+        f.write_str(text)
     }
 }
 
@@ -839,7 +861,14 @@ impl core::fmt::Display for CalcError {
 impl core::error::Error for LinalgError {}
 impl core::error::Error for DiffError {}
 impl core::error::Error for IntegrateError {}
-impl core::error::Error for KinematicsError {}
+impl core::error::Error for KinematicsError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            KinematicsError::Linalg(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 impl core::error::Error for SpatialError {}
 impl core::error::Error for MappingError {}
 
