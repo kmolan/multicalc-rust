@@ -15,12 +15,14 @@
 # tolerance_pct applies to every gated row. Raising a budget is a reviewed re-baseline
 # in the same PR — see ci/README.md. Never raise tolerance_pct to dodge a regression.
 #
-# Re-baselined when the smoke set gained the geometric-Jacobian and inverse-kinematics
-# checks. Both gates moved on the three full-set targets: .text by 15-22% for the solver
-# and the decomposition it calls, and stack from ~2.7 KB to ~7 KB because one solver
-# iteration holds two 6x6 decompositions alongside the Jacobian and its weighted
-# transpose. The thumbv6m canary runs --no-default-features and does not build either
-# check, so its numbers are unchanged (its .text drop is unrelated drift).
+# Re-baselined when the smoke set gained the geometric-Jacobian check. Both gates moved
+# on the three full-set targets: .text by 5-7% and stack from ~2.7 KB to ~3.3-3.6 KB, all
+# of it the Jacobian and the forward pass it builds on. The inverse-kinematics check that
+# first shipped alongside it was dropped: its solver iteration holds two 6x6 decompositions
+# at once, which pushed peak stack past 7 KB and left riscv32 — the tightest of the four
+# targets — without enough free stack to paint a window that deep. The thumbv6m canary runs
+# --no-default-features and does not build the Jacobian check, so its numbers are unchanged
+# (its .text drop is unrelated drift).
 #
 # Run the gate for one (binary, target):
 #   cargo run -p <binary> --release --target <triple> | tee smoke-<binary>-<triple>.txt
@@ -32,17 +34,17 @@
 tolerance_pct = 10
 
 [embedded-smoke.thumbv7em-none-eabi]
-text_bytes = 176280
-stack_bytes_f64 = 6935
+text_bytes = 157432
+stack_bytes_f64 = 3311
 
 [embedded-smoke.thumbv7em-none-eabihf]
-text_bytes = 195764
-stack_bytes_f64 = 7267
+text_bytes = 172172
+stack_bytes_f64 = 3631
 
 [embedded-smoke.thumbv6m-none-eabi]
-text_bytes = 43504
+text_bytes = 43536
 stack_bytes_f64 = 908
 
 [embedded-smoke.riscv32imc-unknown-none-elf]
-text_bytes = 210740
-stack_bytes_f64 = 6891
+text_bytes = 185140
+stack_bytes_f64 = 3291
