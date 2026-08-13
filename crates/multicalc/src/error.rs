@@ -321,6 +321,10 @@ pub enum PolynomialError {
     TooFewSamples,
     /// A piece covers zero or a negative amount of the parameter.
     SpanNotPositive,
+    /// The bisection tolerance was zero or negative.
+    ToleranceNotPositive,
+    /// The range was given with its lower bound above its upper bound.
+    RangeReversed,
     /// Root isolation ran out of steps before separating every root.
     DidNotConverge {
         /// How many halving steps were taken.
@@ -808,6 +812,12 @@ impl core::fmt::Display for PolynomialError {
             }
             PolynomialError::TooFewSamples => f.write_str("fewer samples than coefficients to fit"),
             PolynomialError::SpanNotPositive => f.write_str("piece span was zero or negative"),
+            PolynomialError::ToleranceNotPositive => {
+                f.write_str("bisection tolerance was zero or negative")
+            }
+            PolynomialError::RangeReversed => {
+                f.write_str("range lower bound was above its upper bound")
+            }
             PolynomialError::DidNotConverge { steps } => {
                 write!(f, "root isolation stopped after {steps} steps")
             }

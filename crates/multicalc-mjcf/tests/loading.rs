@@ -28,6 +28,12 @@ fn diagonal(body: &RigidBodyModel) -> [f64; 3] {
     [inertia[(0, 0)], inertia[(1, 1)], inertia[(2, 2)]]
 }
 
+/// The parts of the file the loader did not read, as plain text for comparing against.
+#[must_use]
+fn ignored(body: &RigidBodyModel) -> Vec<&str> {
+    body.ignored().iter().map(String::as_str).collect()
+}
+
 fn assert_close(actual: f64, expected: f64, label: &str) {
     assert!(
         (actual - expected).abs() < 1e-12,
@@ -289,4 +295,36 @@ fn inherits_settings_through_nested_default_blocks() {
 
     assert_eq!(body.inertia().mass(), 5.0);
     assert_eq!(diagonal(&body), [2.0, 2.0, 2.0]);
+}
+
+#[test]
+fn records_the_parts_of_a_file_it_does_not_read() {
+    // Neither section changes a mass, so both are passed over — but the model that comes back says
+    // so rather than leaving the caller to guess how much of the file was used.
+    let body = load_str(
+        r#"<mujoco>
+             <worldbody>
+               <body name="drone">
+                 <freejoint/>
+                 <inertial mass="1" diaginertia="1 1 1"/>
+               </body>
+             </worldbody>
+             <tendon>
+               <spatial name="cable"/>
+             </tendon>
+             <actuator>
+               <motor name="thrust" gear="0 0 1 0 0 0"/>
+             </actuator>
+           </mujoco>"#,
+    )
+    .unwrap();
+
+    assert_eq!(body.name(), "drone");
+    assert_eq!(ignored(&body), ["actuator", "tendon"]);
+}
+
+#[test]
+fn records_nothing_for_a_file_it_reads_whole() {
+    let body = load(r#"<body><freejoint/><inertial mass="1" diaginertia="1 1 1"/></body>"#);
+    assert!(ignored(&body).is_empty(), "{:?}", ignored(&body));
 }

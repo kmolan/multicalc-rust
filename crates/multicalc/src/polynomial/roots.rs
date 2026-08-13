@@ -522,6 +522,15 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
         tolerance: T,
         maximum_bisections: usize,
     ) -> Result<RealRoots<COEFFICIENT_COUNT, T>, PolynomialError> {
+        if !lower.is_finite() || !upper.is_finite() || !tolerance.is_finite() {
+            return Err(PolynomialError::NonFinite);
+        }
+        if tolerance <= T::ZERO {
+            return Err(PolynomialError::ToleranceNotPositive);
+        }
+        if lower > upper {
+            return Err(PolynomialError::RangeReversed);
+        }
         let (chain, length) = self.root_counting_chain()?;
         // How many roots sit between two points.
         let count_between = |from: T, to: T| {
