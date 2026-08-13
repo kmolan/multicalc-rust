@@ -6,6 +6,7 @@
 //! - [`Joint`] — one revolute, prismatic, or fixed joint: axis, anchor, and transform to its parent.
 //! - [`KinematicTree`] — a jointed model for solving the world pose of every joint frame.
 //! - [`KinematicJacobian`] — how each joint's rate moves a chosen frame on the robot.
+//! - [`InverseKinematics`] — the joint readings that put a chosen frame where you want it.
 //!
 //! Generic over [`Numeric`](crate::Numeric) (so `f32`/`f64`/autodiff — an odometry step through
 //! [`Dual`](crate::Dual) gives exact Jacobians). SI units, radians, twists linear-first `[v; ω]`
