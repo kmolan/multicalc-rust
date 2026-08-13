@@ -14,6 +14,7 @@
 //! Siegwart/Nourbakhsh, *Introduction to Autonomous Mobile Robots*, ch. 3.
 
 mod differential_drive;
+mod inverse_kinematics;
 mod joint;
 mod kinematic_jacobian;
 mod kinematic_tree;
@@ -23,6 +24,9 @@ mod unicycle;
 
 pub use differential_drive::{
     BodyArc, BodyTwist, DifferentialDrive, WheelRotations, WheelVelocities,
+};
+pub use inverse_kinematics::{
+    InverseKinematics, InverseKinematicsReport, InverseKinematicsTermination, SecondaryObjective,
 };
 pub use joint::{Joint, JointKind, JointParent};
 pub use kinematic_jacobian::{JacobianFrame, KinematicJacobian};
