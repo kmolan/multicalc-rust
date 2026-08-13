@@ -7,7 +7,9 @@
 //!
 //! Anything outside that — chains of joints, meshes as a source of mass, files that pull in other
 //! files — is refused by name rather than quietly ignored, so a model can never load with the wrong
-//! mass.
+//! mass. What a file carries beyond that and this loader has no use for — tendons, actuators,
+//! sensors and the like — is passed over, and named in [`RigidBodyModel::ignored`] so a caller can
+//! see what its model was loaded without.
 //!
 //! ```no_run
 //! use std::path::Path;
@@ -36,6 +38,7 @@ pub struct RigidBodyModel {
     pose: SE3<f64>,
     has_free_joint: bool,
     inertia: SpatialInertia<f64>,
+    ignored: Vec<String>,
 }
 
 impl RigidBodyModel {
@@ -66,6 +69,32 @@ impl RigidBodyModel {
     pub fn inertia(&self) -> SpatialInertia<f64> {
         self.inertia
     }
+
+    /// The sections of the file this loader read nothing out of, named once each and in a settled
+    /// order. Empty where the whole file was read.
+    ///
+    /// A model can only carry these where they change nothing this loader represents — anything
+    /// that would change the mass is refused outright — so this says what a model was loaded
+    /// without, not what went wrong.
+    ///
+    /// ```
+    /// let xml = r#"<mujoco>
+    ///                <worldbody>
+    ///                  <body><freejoint/><inertial mass="1" diaginertia="1 1 1"/></body>
+    ///                </worldbody>
+    ///                <actuator><motor name="thrust" gear="0 0 1 0 0 0"/></actuator>
+    ///              </mujoco>"#;
+    ///
+    /// let model = multicalc_mjcf::load_str(xml)?;
+    /// assert_eq!(model.inertia().mass(), 1.0);
+    /// assert_eq!(model.ignored(), ["actuator".to_owned()]);
+    /// # Ok::<(), multicalc_mjcf::MjcfError>(())
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn ignored(&self) -> &[String] {
+        &self.ignored
+    }
 }
 
 /// Reads a model from a file.
@@ -83,5 +112,6 @@ pub fn load_str(xml: &str) -> Result<RigidBodyModel, MjcfError> {
         pose: body.pose,
         has_free_joint: body.has_free_joint,
         inertia: body.inertia,
+        ignored: body.ignored,
     })
 }
