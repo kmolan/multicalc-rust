@@ -91,7 +91,7 @@ assert!((facing.quaternion().norm() - 1.0).abs() < 1e-14);
 ```
 
 Errors: the adaptive solver returns [`IntegrateError`](error-handling.md): `StepSizeTooSmall`,
-`DidNotConverge { steps }`, or `NonFinite`. `attitude_step` and `attitude_step_with_angular_acceleration` still have no error path — each step is a fixed handful of small products. `integrate_attitude` returns [`IntegrateError`](error-handling.md) (`NonFinite` or `NonPositiveTimestep`) since it takes a timestep and drives many steps. Full demo (harmonic oscillator plus an acrobot,
+`DidNotConverge { steps }`, or `NonFinite`. `attitude_step` and `attitude_step_with_angular_acceleration` have no error path — each step is a fixed handful of small products. `integrate_attitude` returns [`IntegrateError`](error-handling.md) (`NonFinite` or `NonPositiveTimestep`) since it takes a timestep and drives many steps. Full demo (harmonic oscillator plus an acrobot,
 a tumbling quadrotor, and an N-body model):
 [ode.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/ode.rs).
 

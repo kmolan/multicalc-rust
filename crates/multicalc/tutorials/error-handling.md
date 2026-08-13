@@ -8,7 +8,7 @@ through `From`, so a caller that spans families can hold a single type. Every en
 | --- | --- | --- |
 | `LinalgError` | [Linear algebra](linear-algebra.md), [Discretization](discretization.md) | `Singular`, `NotPositiveDefinite`, `Underdetermined`, `NonFinite`, `NotSymmetric`, `InvalidTimestep` |
 | `DiffError` | [Derivatives](derivatives-jacobians-and-hessians.md), [Approximation](taylor-approximation.md), [Vector calculus](vector-calculus.md) | `OrderZero`, `OrderUnsupported`, `StepSizeZero`, `IndexOutOfRange`, `EmptyFunctionSet` |
-| `IntegrateError` | [Integration](integration.md), [Gaussian tables](gaussian-quadrature-tables.md), [ODE](ode-integrators.md) | `IterationsZero`, `LimitsIllDefined`, `QuadratureOrderOutOfRange`, `StepSizeTooSmall`, `DidNotConverge { steps }`, `NonFinite` |
+| `IntegrateError` | [Integration](integration.md), [Gaussian tables](gaussian-quadrature-tables.md), [ODE](ode-integrators.md) | `IterationsZero`, `LimitsIllDefined`, `QuadratureOrderOutOfRange`, `StepSizeTooSmall`, `DidNotConverge { steps }`, `NonFinite`, `IndexOutOfRange`, `NonPositiveTimestep` |
 | `SolveError` | [Optimization](least-squares-optimization.md), [Root finding](root-finding.md) | `DidNotConverge { iters, residual }`, `NonFinite`, `InvalidBracket`, `Linalg(LinalgError)`, `Diff(DiffError)` |
 | `KinematicsError` | [Kinematics](kinematics.md) | `NonPositiveParameter`, `NonFinite` |
 | `EstimationError` | [Estimation](estimation.md) | `NotPositiveDefinite`, `NonFinite`, `Diff(DiffError)`, `WeightsDegenerate`, `InvalidTuning` |
