@@ -1,9 +1,12 @@
-"""Forward-kinematics goldens from MuJoCo's own solve of the same model.
+"""Forward-kinematics and Jacobian goldens from MuJoCo's own solve of the same model.
 
 The model travels in the fixture: one entry per joint saying what it does, what it hangs off, where
 it sits, which way its axis points, where it turns about, and what reading counts as not having
 moved. Those entries are read out of MuJoCo's compiled model, so the tree the Rust side builds is
 the model MuJoCo was given rather than a transcription of it.
+
+Alongside every body's world pose, each configuration also carries MuJoCo's own Jacobian for that
+body: how each joint's rate moves it, taken at the body's own origin and read in world axes.
 """
 
 import os
@@ -85,21 +88,49 @@ def _model_inputs(model):
 
 
 def _expected(model, configurations, joint_of_body):
-    """MuJoCo's own solve: every body's world pose, one block of bodies per configuration."""
+    """MuJoCo's own solve: every body's world pose and Jacobian, one block of bodies per
+    configuration."""
     data = mujoco.MjData(model)
+    slot_count = model.nbody - 1
+    # `mj_jac` gives one column per degree of freedom, while the fixture gives every body a slot of
+    # its own, so a body carrying no joint has no column. This says which degree of freedom belongs
+    # in which fixture slot; a slot with no joint stays zero, which is what the Rust side expects
+    # for a weld. Written out here so the test can compare column i against fixture joint i with no
+    # index arithmetic of its own.
+    dof_of_slot = {
+        body - 1: int(model.jnt_dofadr[joint]) for body, joint in joint_of_body.items()
+    }
+
     positions = []
     quaternions = []
+    jacobians = []
     for row in configurations:
         data.qpos[:] = model.qpos0
         for body, joint in joint_of_body.items():
             data.qpos[model.jnt_qposadr[joint]] = row[body - 1]
         mujoco.mj_kinematics(model, data)
+        # `mj_jac` reads the per-joint motion axes that this fills in, so it has to run first.
+        mujoco.mj_comPos(model, data)
         for body in range(1, model.nbody):
             positions.append(np.array(data.xpos[body], dtype=float))
             quaternions.append(np.array(data.xquat[body], dtype=float))
+
+            linear = np.zeros((3, model.nv))
+            angular = np.zeros((3, model.nv))
+            # Measured at the body's own origin, so the golden lines up with a Jacobian asked for
+            # at that body's frame.
+            mujoco.mj_jac(model, data, linear, angular, data.xpos[body], body)
+            # Linear rows first, matching the crate's [v; w] ordering.
+            by_dof = np.vstack((linear, angular))
+            by_slot = np.zeros((6, slot_count))
+            for slot, dof in dof_of_slot.items():
+                by_slot[:, slot] = by_dof[:, dof]
+            jacobians.extend(by_slot)
     return {
         "world_positions": schema.matrix(positions),  # (K*N) x 3, configuration-major
         "world_quaternions": schema.matrix(quaternions),  # (K*N) x 4, scalar first
+        # (K*N*6) x N, configuration-major then body-major, six rows per body
+        "world_jacobians": schema.matrix(jacobians),
     }
 
 
@@ -159,7 +190,8 @@ def _planar_two_link_revolute(out, meta):
         out, "planar_two_link_revolute", meta, model, configurations,
         equation="two hinges about z, unit links, plus a fixed tool frame",
         operations=[
-            "planar two-link forward kinematics: world position and orientation per link"
+            "planar two-link forward kinematics: world position and orientation per link",
+            "planar two-link Jacobian: how each joint's rate moves each link",
         ],
     )
 
@@ -196,7 +228,8 @@ def _mixed_revolute_prismatic_fixed(out, meta, rng):
             "about an off-origin point"
         ),
         operations=[
-            "mixed-joint forward kinematics: world position and orientation per link"
+            "mixed-joint forward kinematics: world position and orientation per link",
+            "mixed-joint Jacobian: how each joint's rate moves each link",
         ],
     )
 
@@ -227,7 +260,8 @@ def _branching_three_joint(out, meta, rng):
         out, "branching_three_joint", meta, model, configurations,
         equation="one hinge carrying two sibling hinges",
         operations=[
-            "branching forward kinematics: world position and orientation per link"
+            "branching forward kinematics: world position and orientation per link",
+            "branching Jacobian: how each joint's rate moves each link",
         ],
     )
 
@@ -242,7 +276,8 @@ def _franka_panda_seven_joint(out, meta, rng):
         equation="Menagerie franka_emika_panda, 7 hinges plus fixed links",
         operations=[
             "Franka Panda forward kinematics over 8 configurations: world position and "
-            "orientation per link"
+            "orientation per link",
+            "Franka Panda Jacobian over 8 configurations: how each joint's rate moves each link",
         ],
         extra={"model_file": schema.string(FRANKA)},
     )

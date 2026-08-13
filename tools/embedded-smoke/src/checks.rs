@@ -799,10 +799,10 @@ pub fn polynomial_evaluate_identity_f32() -> f64 {
     black_box(f64::from(value))
 }
 
-/// Identity: a two-joint planar arm of unit links puts its tool at
-/// `[cos a + cos(a+b), sin a + sin(a+b), 0]`. Full set only.
+/// A two-joint planar arm of unit links, welded to a tool frame one link further out.
+/// Shared by the kinematics checks below. Full set only.
 #[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
-pub fn kinematic_tree_identity() -> f64 {
+fn planar_arm() -> multicalc::kinematics::KinematicTree<3, f64> {
     use multicalc::kinematics::{Joint, JointParent, KinematicTree};
     use multicalc::spatial::{SE3, SO3};
 
@@ -818,9 +818,15 @@ pub fn kinematic_tree_identity() -> f64 {
         JointParent::Joint(0),
         JointParent::Joint(1),
     ];
-    let tree = KinematicTree::<3, f64>::try_from_joints(&joints, &parents)
-        .unwrap_or_else(|_| unreachable!("two-joint planar arm is a valid tree"));
+    KinematicTree::<3, f64>::try_from_joints(&joints, &parents)
+        .unwrap_or_else(|_| unreachable!("two-joint planar arm is a valid tree"))
+}
 
+/// Identity: a two-joint planar arm of unit links puts its tool at
+/// `[cos a + cos(a+b), sin a + sin(a+b), 0]`. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn kinematic_tree_identity() -> f64 {
+    let tree = planar_arm();
     let (a, b) = (0.3_f64, -0.7);
     let state = tree
         .forward_kinematics(&black_box(Vector::new([a, b, 0.0])))
@@ -846,4 +852,45 @@ pub fn kinematic_tree_identity() -> f64 {
     );
     assert_close!("fk_z", black_box(tool[2]), 0.0, 1e-12, 0.0);
     black_box(tool[0])
+}
+
+/// Identity: on the same arm stretched along x, the tool sits 2 units out, so turning the
+/// shoulder sweeps it sideways at twice the rate turning the elbow does, and the weld
+/// contributes nothing. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn geometric_jacobian_identity() -> f64 {
+    use multicalc::kinematics::JacobianFrame;
+
+    let tree = planar_arm();
+    let jacobian = tree
+        .geometric_jacobian_at(&black_box(Vector::zeros()), 2, JacobianFrame::World)
+        .unwrap_or_else(|_| unreachable!("finite readings, valid tool index"));
+
+    let shoulder = jacobian
+        .column(0)
+        .unwrap_or_else(|| unreachable!("column 0 is active"));
+    let elbow = jacobian
+        .column(1)
+        .unwrap_or_else(|| unreachable!("column 1 is active"));
+    let weld = jacobian
+        .column(2)
+        .unwrap_or_else(|| unreachable!("column 2 is active"));
+
+    assert_close!(
+        "jac_shoulder_v",
+        black_box(shoulder.linear()[1]),
+        2.0,
+        1e-12,
+        0.0
+    );
+    assert_close!("jac_elbow_v", black_box(elbow.linear()[1]), 1.0, 1e-12, 0.0);
+    assert_close!(
+        "jac_shoulder_w",
+        black_box(shoulder.angular()[2]),
+        1.0,
+        1e-12,
+        0.0
+    );
+    assert_close!("jac_weld", black_box(weld.linear().norm()), 0.0, 1e-12, 0.0);
+    black_box(shoulder.linear()[1])
 }

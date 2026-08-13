@@ -191,15 +191,25 @@ const DOCS: &[Doc] = &[
     },
     Doc {
         file: "kinematics.md",
-        modules: &[Module {
-            name: "kinematics",
-            cases: &[
-                "planar_two_link_revolute",
-                "mixed_revolute_prismatic_fixed",
-                "branching_three_joint",
-                "franka_panda_seven_joint",
-            ],
-        }],
+        modules: &[
+            Module {
+                name: "kinematics",
+                cases: &[
+                    "planar_two_link_revolute",
+                    "mixed_revolute_prismatic_fixed",
+                    "branching_three_joint",
+                    "franka_panda_seven_joint",
+                ],
+            },
+            Module {
+                name: "inverse_kinematics",
+                cases: &[
+                    "six_hinge_chain",
+                    "six_hinge_chain_near_singular",
+                    "franka_panda_redundant",
+                ],
+            },
+        ],
     },
     Doc {
         file: "dynamics.md",

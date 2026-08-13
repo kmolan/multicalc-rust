@@ -15,6 +15,15 @@
 # tolerance_pct applies to every gated row. Raising a budget is a reviewed re-baseline
 # in the same PR — see ci/README.md. Never raise tolerance_pct to dodge a regression.
 #
+# Re-baselined when the smoke set gained the geometric-Jacobian check. Both gates moved
+# on the three full-set targets: .text by 5-7% and stack from ~2.7 KB to ~3.3-3.6 KB, all
+# of it the Jacobian and the forward pass it builds on. The inverse-kinematics check that
+# first shipped alongside it was dropped: its solver iteration holds two 6x6 decompositions
+# at once, which pushed peak stack past 7 KB and left riscv32 — the tightest of the four
+# targets — without enough free stack to paint a window that deep. The thumbv6m canary runs
+# --no-default-features and does not build the Jacobian check, so its numbers are unchanged
+# (its .text drop is unrelated drift).
+#
 # Run the gate for one (binary, target):
 #   cargo run -p <binary> --release --target <triple> | tee smoke-<binary>-<triple>.txt
 #   bash ci/check_budgets.sh <binary> <triple> smoke-<binary>-<triple>.txt
@@ -25,17 +34,17 @@
 tolerance_pct = 10
 
 [embedded-smoke.thumbv7em-none-eabi]
-text_bytes = 149632
-stack_bytes_f64 = 2727
+text_bytes = 157432
+stack_bytes_f64 = 3311
 
 [embedded-smoke.thumbv7em-none-eabihf]
-text_bytes = 163704
-stack_bytes_f64 = 2783
+text_bytes = 172172
+stack_bytes_f64 = 3631
 
 [embedded-smoke.thumbv6m-none-eabi]
-text_bytes = 44464
+text_bytes = 43536
 stack_bytes_f64 = 908
 
 [embedded-smoke.riscv32imc-unknown-none-elf]
-text_bytes = 172962
-stack_bytes_f64 = 2651
+text_bytes = 185140
+stack_bytes_f64 = 3291

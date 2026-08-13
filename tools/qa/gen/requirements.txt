@@ -1,12 +1,15 @@
 # The packages the generators use directly. Edit this file, then rebuild
 # requirements.lock — the lock is what gets installed, and it also pins
-# everything these four pull in.
+# everything these pull in.
 
 numpy==2.1.3
 scipy==1.14.1
 mpmath==1.3.0
 filterpy==1.4.5
-mujoco==3.2.6
+mujoco==3.11.0
+mink==1.2.0
+qpsolvers==4.13.0
+daqp==0.8.7
 
 # Added in later phases:
 # pin==...

@@ -4,14 +4,14 @@
     "angular_acceleration": {
       "data": [
         "0x4032a147ae147abc",
-        "0x4030ddddddddddc0",
+        "0x4030ddddddddddbf",
         "0x3ff133333333331c"
       ],
       "kind": "vector"
     },
     "linear_acceleration": {
       "data": [
-        "0xbfe351aa9bafdf9a",
+        "0xbfe351aa9bafdf99",
         "0xc02079dc9a1376a2",
         "0xbfe41c79c62ef56f"
       ],
@@ -94,13 +94,13 @@
     "equation": "m\u00b7a = R\u00b7f + m\u00b7g ; I\u00b7\u03b1 + \u03c9\u00d7(I\u00b7\u03c9) = \u03c4 \u2212 c\u00d7f",
     "generator": "dynamics",
     "libraries": {
-      "mujoco": "3.2.6",
+      "mujoco": "3.11.0",
       "numpy": "2.1.3"
     },
     "operations": [
       "single rigid body accelerations, tilted and spinning, under a push and a turn"
     ],
-    "reference": "MuJoCo 3.2.6",
+    "reference": "MuJoCo 3.11.0",
     "sampling": "two hand-chosen bodies and loadings; goldens are MuJoCo's own solve of the same model",
     "seed": 20260706
   },
