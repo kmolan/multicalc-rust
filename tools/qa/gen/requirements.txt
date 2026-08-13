@@ -7,9 +7,11 @@ scipy==1.14.1
 mpmath==1.3.0
 filterpy==1.4.5
 mujoco==3.2.6
-mink==0.0.11
-qpsolvers==4.4.0
-daqp==0.6.0
+# mink 1.x requires mujoco >= 3.8.1; 0.0.9 is the last release that works with the mujoco pinned
+# above. Bumping mujoco would restamp every kinematics, dynamics, and mjcf golden in the repo.
+mink==0.0.9
+qpsolvers==4.13.0
+daqp==0.8.7
 
 # Added in later phases:
 # pin==...

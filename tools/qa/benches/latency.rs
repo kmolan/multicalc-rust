@@ -11,6 +11,7 @@ use criterion::{BatchSize, Criterion};
 use multicalc::control::Lqr;
 use multicalc::dynamics::RigidBody;
 use multicalc::estimation::{ErrorStateKalmanFilter, ImuNoise, NominalState};
+use multicalc::kinematics::{InverseKinematics, Joint, JointParent, KinematicTree};
 use multicalc::linear_algebra::{Matrix, Matrix4D, Vector, Vector2D};
 use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::numerical_derivative::Jacobian;
@@ -132,6 +133,59 @@ fn bench_rigid_body_step(c: &mut Criterion) {
     );
     c.bench_function("rigid_body_step", |b| {
         b.iter(|| body.stepped(black_box(state), black_box(wrench), 0.001))
+    });
+}
+
+/// Slots in the benchmark arm: six hinges plus the welded tool.
+const ARM_FRAMES: usize = 7;
+
+/// Six hinges alternating about x and y on 0.25 links, with the tool welded 0.25 further.
+fn bench_arm() -> KinematicTree<ARM_FRAMES, f64> {
+    let link = SE3::from_parts(SO3::identity(), Vector::new([0.0, 0.0, 0.25]));
+    let mut tree = KinematicTree::new();
+    for index in 0..6 {
+        let axis = if index % 2 == 0 {
+            Vector::new([1.0, 0.0, 0.0])
+        } else {
+            Vector::new([0.0, 1.0, 0.0])
+        };
+        let origin = if index == 0 { SE3::identity() } else { link };
+        let parent = if index == 0 {
+            JointParent::World
+        } else {
+            JointParent::Joint(index - 1)
+        };
+        tree.push(Joint::revolute(axis, origin).with_limits(-2.6, 2.6), parent)
+            .unwrap();
+    }
+    tree.push(Joint::fixed(link), JointParent::Joint(5))
+        .unwrap();
+    tree
+}
+
+fn bench_inverse_kinematics_solve(c: &mut Criterion) {
+    let tree = bench_arm();
+    let solver = InverseKinematics::<ARM_FRAMES, f64>::new();
+
+    // The target is the pose 0.05 rad per joint away from the seed, which is the warm-started solve
+    // a control loop actually runs: five iterations. A cold solve from across the workspace times a
+    // different thing entirely — 0.3 rad per joint takes 21 iterations and four times as long.
+    //
+    // 0.05 sits on a plateau: anything from 0.02 to 0.05 converges in the same five iterations, so
+    // the count does not sit on a knife edge and drift with the next change to the damping.
+    let seed = Vector::new([0.2, -0.4, 0.5, 0.3, -0.2, 0.6, 0.0]);
+    let displaced = Vector::from_fn(|index| {
+        let reading = seed.get(index).copied().unwrap_or(0.0);
+        if index < 6 { reading + 0.05 } else { reading }
+    });
+    let target = tree
+        .forward_kinematics(&displaced)
+        .unwrap()
+        .pose(6)
+        .unwrap();
+
+    c.bench_function("inverse_kinematics_solve", |b| {
+        b.iter(|| solver.solve(black_box(&tree), 6, black_box(target), black_box(&seed)))
     });
 }
 
@@ -438,6 +492,11 @@ const BENCHES: &[(&str, BenchFn, &str)] = &[
         "rigid_body_step",
         bench_rigid_body_step,
         "one 1 ms tick of a free body: gravity + steady push, orientation on the manifold",
+    ),
+    (
+        "inverse_kinematics_solve",
+        bench_inverse_kinematics_solve,
+        "7-joint arm, warm-started SE(3) pose solve with joint limits",
     ),
     ("newton_system", bench_newton_system, "x²+y² = 4, x·y = 1"),
     (

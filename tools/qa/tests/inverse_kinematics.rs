@@ -18,6 +18,16 @@ use multicalc_qa::schema::Fixture;
 /// Covers every fixture, the Franka's eleven joints included.
 const MAX_JOINTS: usize = 16;
 
+/// How closely the two solvers' joint readings have to agree, where the fixture pins them.
+///
+/// Looser than the pose bound on purpose. Both solvers stop once the *pose* residual is under
+/// 1e-6, and near the solution a pose that close still leaves the readings free to differ by
+/// rather more than that — the Jacobian maps a small pose error onto a larger joint error. mink
+/// cannot be driven tighter to close the gap either: its `SO3.log` returns NaN once the residual
+/// falls much below 1e-6. What this bound is for is catching the solver settling on a *different
+/// branch*, which is a difference of radians, not of parts per million.
+const JOINT_TOLERANCE: f64 = 1e-4;
+
 /// Row `index` of a matrix value, as a three-vector.
 fn row3(data: &[f64], columns: usize, index: usize) -> Vector3D<f64> {
     let start = index * columns;
@@ -173,7 +183,7 @@ fn inverse_kinematics_matches_mink() {
                 let got = report.joint_positions.get(index).copied().unwrap_or(0.0);
                 let want = *want;
                 assert!(
-                    close(got, want, tolerance),
+                    (got - want).abs() <= JOINT_TOLERANCE,
                     "{case}: joint {index}: got {got}, want {want}"
                 );
             }
