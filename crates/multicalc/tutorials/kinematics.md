@@ -88,7 +88,8 @@ model is `Copy` and needs no heap.
 - `SecondaryObjective`: what an arm with joints to spare should do with the freedom the task
   leaves it — hold a comfortable posture, or stay off its limits.
 
-Every joint takes a configuration slot, welds included, so joint index and configuration index agree.
+Every joint takes at least one configuration slot, welds included — joint index and configuration
+index agree for every joint except a floating one, which takes seven.
 
 ```rust
 use multicalc::kinematics::{Joint, JointParent, KinematicTree};
@@ -100,7 +101,7 @@ use multicalc::spatial::{SE3, SO3};
 let about_z = Vector::new([0.0, 0.0, 1.0]);
 let along_x = SE3::from_parts(SO3::identity(), Vector::new([1.0, 0.0, 0.0]));
 
-let tree = KinematicTree::<3, f64>::try_from_joints(
+let tree = KinematicTree::<3, 3, f64>::try_from_joints(
     &[
         Joint::revolute(about_z, SE3::identity()),
         Joint::revolute(about_z, along_x),
@@ -132,6 +133,37 @@ of any frame's pose with respect to any joint reading, with nothing hand-derived
 
 Full demo:
 [forward_kinematics.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/forward_kinematics.rs).
+
+## Floating joints
+
+A body free to move in every direction — MJCF's `<freejoint>`, URDF's `floating` — is a joint too,
+just a wider one: `Joint::floating` takes no axis or anchor, because none applies. Its reading is
+seven numbers, a position and a unit quaternion, rather than the usual one, and its rate is six
+rather than one — see `FreeJointState`. A floating joint may only be a tree's first joint, since it
+describes a body's connection to the world rather than to another joint.
+
+`KinematicTree` carries a second capacity for this: `KinematicTree<MAX_JOINTS, MAX_CONFIG, T>`,
+where `MAX_CONFIG` bounds the configuration vector rather than the joint count. A tree with no
+floating joint sets both to the same number; one with a floating base sets `MAX_CONFIG` six higher.
+
+```rust
+use multicalc::kinematics::{Joint, JointParent, KinematicTree};
+use multicalc::linear_algebra::Vector;
+use multicalc::spatial::SE3;
+
+// One joint, one slot, seven configuration numbers.
+let tree = KinematicTree::<1, 7, f64>::try_from_joints(
+    &[Joint::floating(SE3::identity())],
+    &[JointParent::World],
+)
+.unwrap();
+
+// Position first, then a scalar-first quaternion: at rest, facing the world axes.
+let state = tree
+    .forward_kinematics(&Vector::new([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]))
+    .unwrap();
+assert!(state.pose(0).unwrap().translation().norm() < 1e-12);
+```
 
 ## Loading a model from a file
 
@@ -177,7 +209,7 @@ let about_z = Vector::new([0.0, 0.0, 1.0]);
 let along_x = SE3::from_parts(SO3::identity(), Vector::new([1.0, 0.0, 0.0]));
 let hinge = |origin| Joint::revolute(about_z, origin).with_limits(-3.14, 3.14);
 
-let tree = KinematicTree::<3, f64>::try_from_joints(
+let tree = KinematicTree::<3, 3, f64>::try_from_joints(
     &[hinge(SE3::identity()), hinge(along_x), Joint::fixed(along_x)],
     &[
         JointParent::World,

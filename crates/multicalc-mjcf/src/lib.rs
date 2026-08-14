@@ -124,13 +124,12 @@ impl RobotModel {
     /// are the same number. Every joint carries what the file said about it, the resistance and
     /// friction figures included.
     ///
-    /// Errors: [`FloatingBaseUnsupported`](MjcfError::FloatingBaseUnsupported) where the model
-    /// floats free of the world, [`TreeCapacityExceeded`](MjcfError::TreeCapacityExceeded) where
-    /// the model has more bodies than `MAX_JOINTS`, and [`Kinematics`](MjcfError::Kinematics)
-    /// where a joint's own numbers do not describe a usable joint.
-    pub fn kinematic_tree<const MAX_JOINTS: usize>(
+    /// Errors: [`TreeCapacityExceeded`](MjcfError::TreeCapacityExceeded) where the model has more
+    /// bodies than `MAX_JOINTS`, and [`Kinematics`](MjcfError::Kinematics) where a joint's own
+    /// numbers do not describe a usable joint.
+    pub fn kinematic_tree<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
-    ) -> Result<KinematicTree<MAX_JOINTS, f64>, MjcfError> {
+    ) -> Result<KinematicTree<MAX_JOINTS, MAX_CONFIG, f64>, MjcfError> {
         let slots: Vec<usize> = (0..self.bodies.len()).collect();
         self.build_tree(&slots)
     }
@@ -142,10 +141,10 @@ impl RobotModel {
     ///
     /// Errors: as [`kinematic_tree`](RobotModel::kinematic_tree), plus
     /// [`UnknownBody`](MjcfError::UnknownBody) where the model has no body by that name.
-    pub fn kinematic_tree_to<const MAX_JOINTS: usize>(
+    pub fn kinematic_tree_to<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
         tip: &str,
-    ) -> Result<KinematicTree<MAX_JOINTS, f64>, MjcfError> {
+    ) -> Result<KinematicTree<MAX_JOINTS, MAX_CONFIG, f64>, MjcfError> {
         let slots = self.path_to(tip)?;
         self.build_tree(&slots)
     }
@@ -178,15 +177,10 @@ impl RobotModel {
     /// [`kinematic_tree`](RobotModel::kinematic_tree) (every body is present, in order) and
     /// `k - 1` for [`kinematic_tree_to`](RobotModel::kinematic_tree_to)'s slot `k` (`slots` is a
     /// single root-to-tip chain, so a body's parent is always the previous entry).
-    fn build_tree<const MAX_JOINTS: usize>(
+    fn build_tree<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
         slots: &[usize],
-    ) -> Result<KinematicTree<MAX_JOINTS, f64>, MjcfError> {
-        if self.floating_base {
-            return Err(MjcfError::FloatingBaseUnsupported {
-                body: self.bodies[0].name.clone(),
-            });
-        }
+    ) -> Result<KinematicTree<MAX_JOINTS, MAX_CONFIG, f64>, MjcfError> {
         if slots.len() > MAX_JOINTS {
             return Err(MjcfError::TreeCapacityExceeded {
                 needed: slots.len(),
@@ -237,8 +231,13 @@ fn build_joint(body: &BodyRecord) -> Joint<f64> {
     let joint = match record.kind {
         JointKind::Revolute => Joint::revolute(record.axis, body.pose).with_anchor(record.anchor),
         JointKind::Prismatic => Joint::prismatic(record.axis, body.pose),
+        // MuJoCo does not compose a free-jointed body's own pos/quat onto its qpos at runtime —
+        // qpos is the world pose directly, and pos/quat only ever seed qpos0's default. Passing
+        // body.pose here would place an identity reading away from the origin, which does not
+        // match MuJoCo's own solve of the same file.
+        JointKind::Floating => return Joint::floating(SE3::identity()),
         JointKind::Fixed => {
-            unreachable!("a JointRecord's kind is only ever Revolute or Prismatic")
+            unreachable!("a JointRecord's kind is only ever Revolute, Prismatic, or Floating")
         }
     };
     let joint = joint
@@ -389,6 +388,24 @@ impl JointRecord {
     #[must_use]
     pub fn spring_stiffness(&self) -> f64 {
         self.spring_stiffness
+    }
+
+    /// A floating (6-DOF) joint record: MJCF's `<freejoint>` carries none of a `JointRecord`'s
+    /// other fields, so every one of them is left at its inert default.
+    pub(crate) fn floating(name: String) -> Self {
+        JointRecord {
+            name,
+            kind: JointKind::Floating,
+            axis: Vector3D::new([1.0, 0.0, 0.0]),
+            anchor: Vector3D::zeros(),
+            limits: None,
+            zero_offset: 0.0,
+            armature: 0.0,
+            damping: 0.0,
+            friction_loss: 0.0,
+            spring_reference: 0.0,
+            spring_stiffness: 0.0,
+        }
     }
 }
 

@@ -7,11 +7,19 @@
 //! not having moved — so the tree built here is the model MuJoCo was given, not a transcription of
 //! it.
 
+use std::path::Path;
+
 use multicalc::kinematics::{JacobianFrame, Joint, JointParent, KinematicTree};
 use multicalc::linear_algebra::{Vector, Vector3D};
 use multicalc::spatial::{Quaternion, SE3, SO3};
 use multicalc_qa::load::*;
 use multicalc_qa::schema::Fixture;
+
+/// The vendored models a fixture's `model_file` field names, relative to this crate.
+#[must_use]
+fn menagerie() -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../third_party/menagerie")
+}
 
 /// Covers every fixture, the Franka's eleven joints included.
 const MAX_JOINTS: usize = 16;
@@ -23,7 +31,7 @@ fn row3(data: &[f64], columns: usize, index: usize) -> Vector3D<f64> {
 }
 
 /// The model the fixture carries, built as a tree, with the joint count it was written for.
-fn tree_from_fixture(fx: &Fixture) -> (KinematicTree<MAX_JOINTS, f64>, usize) {
+fn tree_from_fixture(fx: &Fixture) -> (KinematicTree<MAX_JOINTS, MAX_JOINTS, f64>, usize) {
     let case = fx.case.as_str();
 
     let kinds: Vec<char> = fx.inputs["joint_kinds"].as_str().chars().collect();
@@ -78,8 +86,9 @@ fn tree_from_fixture(fx: &Fixture) -> (KinematicTree<MAX_JOINTS, f64>, usize) {
         });
     }
 
-    let tree = KinematicTree::<MAX_JOINTS, f64>::try_from_joints(&joints, &joint_parents)
-        .unwrap_or_else(|e| unreachable!("{case}: building the tree: {e}"));
+    let tree =
+        KinematicTree::<MAX_JOINTS, MAX_JOINTS, f64>::try_from_joints(&joints, &joint_parents)
+            .unwrap_or_else(|e| unreachable!("{case}: building the tree: {e}"));
     (tree, joint_count)
 }
 
@@ -102,6 +111,11 @@ fn readings_at(
 #[test]
 fn forward_kinematics_matches_mujoco() {
     for fx in load_dir("kinematics") {
+        // A bespoke fixture whose configuration is not one scalar per joint slot (a floating
+        // base's is seven-wide) — checked by its own test below instead of this shared loop.
+        if fx.case == "unitree_go1_floating_base" {
+            continue;
+        }
         let case = fx.case.as_str();
         let tolerance = fx.tolerances.f64;
         let (tree, joint_count) = tree_from_fixture(&fx);
@@ -173,6 +187,11 @@ fn forward_kinematics_matches_mujoco() {
 #[test]
 fn geometric_jacobian_matches_mujoco() {
     for fx in load_dir("kinematics") {
+        // A bespoke fixture whose configuration is not one scalar per joint slot (a floating
+        // base's is seven-wide) — checked by its own test below instead of this shared loop.
+        if fx.case == "unitree_go1_floating_base" {
+            continue;
+        }
         let case = fx.case.as_str();
         let tolerance = fx.tolerances.f64;
         let (tree, joint_count) = tree_from_fixture(&fx);
@@ -225,6 +244,121 @@ fn geometric_jacobian_matches_mujoco() {
                              row {row}, column {column}: got {got}, want {want}"
                         );
                     }
+                }
+            }
+        }
+    }
+}
+
+/// The vendored Unitree Go1: a floating base carrying twelve hinge joints, whose forward
+/// kinematics and Jacobian this checks against MuJoCo's own solve of the same file.
+///
+/// Self-contained rather than routed through `tree_from_fixture`/`readings_at` above: those
+/// assume one scalar reading per joint slot everywhere, which a floating base's seven-wide
+/// configuration and six-wide velocity break. The tree here is built by parsing the vendored file
+/// itself (so this also exercises real-file parsing, not just the math), and each fixture row is
+/// MuJoCo's own 19-wide `qpos` — exactly the layout `KinematicTree::config_offset` produces for a
+/// tree whose first joint is floating, so it reads straight into the configuration vector with no
+/// reindexing.
+#[test]
+fn unitree_go1_forward_kinematics_and_jacobian_matches_mujoco() {
+    let fx = load_dir("kinematics")
+        .into_iter()
+        .find(|fx| fx.case == "unitree_go1_floating_base")
+        .unwrap_or_else(|| unreachable!("fixture unitree_go1_floating_base is missing"));
+    let case = fx.case.as_str();
+    let tolerance = fx.tolerances.f64;
+
+    let path = menagerie().join(fx.inputs["model_file"].as_str());
+    let model = multicalc_mjcf::load_path(&path)
+        .unwrap_or_else(|e| unreachable!("{case}: loading {path:?}: {e}"));
+    let tree = model
+        .kinematic_tree::<13, 19>()
+        .unwrap_or_else(|e| unreachable!("{case}: building the tree: {e}"));
+    let body_count = tree.len();
+
+    let (configuration_count, configuration_columns, configurations) =
+        fx.inputs["configurations"].as_matrix();
+    assert_eq!(configuration_columns, 19, "{case}: configuration width");
+
+    let (_, position_columns, want_positions) = fx.expected["world_positions"].as_matrix();
+    let (_, quaternion_columns, want_quaternions) = fx.expected["world_quaternions"].as_matrix();
+    let (jacobian_rows, jacobian_columns, want_jacobians) =
+        fx.expected["world_jacobians"].as_matrix();
+    assert_eq!(jacobian_columns, 18, "{case}: Jacobian column count");
+    assert_eq!(
+        jacobian_rows,
+        configuration_count * body_count * 6,
+        "{case}: Jacobian row count"
+    );
+
+    for configuration in 0..configuration_count {
+        let start = configuration * configuration_columns;
+        let reading = Vector::<19, f64>::from_fn(|index| configurations[start + index]);
+        let state = tree
+            .forward_kinematics(&reading)
+            .unwrap_or_else(|e| unreachable!("{case}: configuration {configuration}: {e}"));
+
+        for index in 0..body_count {
+            let pose = state.pose(index).unwrap_or_else(|| {
+                unreachable!("{case}: configuration {configuration}: body {index} unsettled")
+            });
+            let want_row = configuration * body_count + index;
+
+            let got = *pose.translation().as_array();
+            let want = row3(&want_positions, position_columns, want_row);
+            for axis in 0..3 {
+                assert!(
+                    close(got[axis], want[axis], tolerance),
+                    "{case}: configuration {configuration}, body {index}, \
+                     position component {axis}: got {}, want {}",
+                    got[axis],
+                    want[axis]
+                );
+            }
+
+            // A quaternion and its negative name the same turn, so both sides are compared in
+            // their scalar-positive form rather than component by component as written.
+            let got_q = pose.rotation().quaternion().as_array();
+            let want_start = want_row * quaternion_columns;
+            let flip = if got_q[0] < 0.0 { -1.0 } else { 1.0 };
+            let want_flip = if want_quaternions[want_start] < 0.0 {
+                -1.0
+            } else {
+                1.0
+            };
+            for component in 0..4 {
+                assert!(
+                    close(
+                        flip * got_q[component],
+                        want_flip * want_quaternions[want_start + component],
+                        tolerance
+                    ),
+                    "{case}: configuration {configuration}, body {index}, \
+                     quaternion component {component}: got {}, want {}",
+                    flip * got_q[component],
+                    want_flip * want_quaternions[want_start + component]
+                );
+            }
+
+            let jacobian = tree
+                .geometric_jacobian(&state, index, JacobianFrame::World)
+                .unwrap_or_else(|e| {
+                    unreachable!("{case}: configuration {configuration}, body {index}: {e}")
+                });
+            let got_j = jacobian.matrix();
+            let block = want_row * 6;
+            for row in 0..6 {
+                for column in 0..jacobian_columns {
+                    let got = *got_j.get(row, column).unwrap_or_else(|| {
+                        unreachable!("{case}: row {row}, column {column} out of range")
+                    });
+                    let want = want_jacobians[(block + row) * jacobian_columns + column];
+                    assert!(
+                        close(got, want, tolerance),
+                        "{case}: configuration {configuration}, body {index}, \
+                         row {row}, column {column}: got {got}, want {want}"
+                    );
                 }
             }
         }

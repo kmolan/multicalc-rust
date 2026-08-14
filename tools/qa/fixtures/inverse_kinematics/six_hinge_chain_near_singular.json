@@ -207,14 +207,14 @@
   },
   "metadata": {
     "date": "2026-07-06T00:00:00+00:00",
-    "equation": "the same six-hinge chain seeded fully stretched, on a singular pose",
+    "equation": "6-hinge chain, singular seed (fully stretched)",
     "generator": "inverse_kinematics",
     "libraries": {
       "mink": "1.2.0",
       "mujoco": "3.11.0"
     },
     "operations": [
-      "near-singular inverse kinematics: the pose reached off a singular seed"
+      "near-singular IK: pose -> reached pose"
     ],
     "reference": "mink 1.2.0 on MuJoCo 3.11.0",
     "sampling": "targets taken by running forward kinematics on a chosen configuration, then seeding the solve away from it; goldens are mink's differential IK on the same model",

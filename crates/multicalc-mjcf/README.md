@@ -5,46 +5,56 @@ Reads MuJoCo MJCF model files into [`multicalc`](../multicalc)'s robot types.
 This is a workspace-internal crate (`publish = false`): it ships alongside `multicalc` but is not
 published to crates.io on its own.
 
-## Example: parse the Franka Panda, run IK
+## Example: parse the Unitree Go1, run IK
 
 ```rust
-use multicalc::kinematics::{InverseKinematics, InverseKinematicsTermination, SecondaryObjective};
+use multicalc::kinematics::{InverseKinematics, InverseKinematicsTermination, JointKind};
 use multicalc::linear_algebra::Vector;
 use multicalc::spatial::SE3;
 use multicalc_mjcf::load_path;
 
 let model = load_path(std::path::Path::new(
-    "third_party/menagerie/franka_emika_panda/panda.xml",
+    "third_party/menagerie/unitree_go1/go1.xml",
 ))?;
 
-// 7 links + base + hand + 2 fingers.
-assert_eq!(model.body_count(), 11);
-assert_eq!(model.movable_joint_count(), 9);
+// The trunk on a free joint, plus four legs of three hinges each.
+assert_eq!(model.body_count(), 13);
+assert_eq!(model.movable_joint_count(), 13);
+assert!(model.has_floating_base());
 
-// Finger coupling is a <tendon>/<equality> pair; not parsed, listed in `ignored()`.
-assert!(model.ignored().iter().any(|s| s == "tendon"));
+// <keyframe>/<actuator> aren't parsed; listed in `ignored()`.
+assert!(model.ignored().iter().any(|s| s == "keyframe"));
 
-// Chain from world to hand frame, gripper excluded.
-let arm = model.kinematic_tree_to::<9>("hand")?;
+let robot = model.kinematic_tree::<13, 19>()?;
 
-// armature/damping are set once in <default class="panda">, inherited by every joint.
+// The trunk's floating joint reads seven numbers -- position, then a scalar-first
+// quaternion -- rather than the usual one.
+assert_eq!(robot.joint(0).unwrap().kind(), JointKind::Floating);
+
+// axis/damping/range come from the "abduction" default class, two levels under "go1".
 // forward_kinematics doesn't read them; they're still parsed correctly.
-let shoulder = arm.joint(1).unwrap();
-assert_eq!(shoulder.armature(), 0.1);
-assert_eq!(shoulder.damping(), 1.0);
+let front_right_hip = robot.joint(1).unwrap();
+assert_eq!(front_right_hip.kind(), JointKind::Revolute);
+assert_eq!(front_right_hip.damping(), 1.0);
+assert_eq!(front_right_hip.limits(), Some((-0.863, 0.863)));
 
-// 6-DOF task-space IK against the parsed chain: analytic Jacobian, joint limits from
-// the file enforced during the solve.
-let joint_pos = Vector::new([0.0, 0.0, 0.0, 0.0, -1.5708, 0.0, 1.5708, -0.7854, 0.0]);
-let home = arm.forward_kinematics(&joint_pos)?.pose(8).unwrap();
-let target = SE3::from_parts(home.rotation(), Vector::new([0.4, 0.1, 0.5]));
+// The file's own "home" pose: standing, all four legs symmetric.
+let standing = Vector::new([
+    0.0, 0.0, 0.27, 1.0, 0.0, 0.0, 0.0, 0.0, 0.9, -1.8, 0.0, 0.9, -1.8, 0.0, 0.9, -1.8, 0.0,
+    0.9, -1.8,
+]);
 
-let report = InverseKinematics::<9>::new()
-    .with_position_tolerance(1e-4)
-    .with_secondary_objective(SecondaryObjective::JointLimitMargin)
-    .solve(&arm, 8, target, &joint_pos)?;
+// 6-DOF task-space IK for the front-right foot: eighteen degrees of freedom (six
+// floating, twelve hinge) against the six-dimensional task, so the trunk and the other
+// three legs are free to help place it.
+let foot = robot.forward_kinematics(&standing)?.pose(3).unwrap();
+let target = SE3::from_parts(foot.rotation(), foot.translation() + Vector::new([0.05, 0.0, 0.05]));
 
-assert_eq!(report.termination, InverseKinematicsTermination::Converged); // 8 iterations
+let report = InverseKinematics::<19>::new()
+    .with_position_tolerance(1e-6)
+    .solve(&robot, 3, target, &standing)?;
+
+assert_eq!(report.termination, InverseKinematicsTermination::Converged); // 3 iterations
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
@@ -54,11 +64,11 @@ access at runtime:
 ```rust
 use multicalc_mjcf::{GeneratedScalar, RustSourceOptions};
 
-let options = RustSourceOptions::new("franka_panda_arm") // name of the generated fn
+let options = RustSourceOptions::new("unitree_go1")     // name of the generated fn
     .with_scalar(GeneratedScalar::F32)                    // f32 in the generated code (default; use F64 for f64)
-    .with_capacity(9)                                      // KinematicTree<9, _>; must be >= slot count, default = exact
-    .with_tip("hand");                                     // emit the chain down to "hand" only, not the whole model
-std::fs::write("franka_panda_arm.rs", model.to_rust_source(&options)?)?;
+    .with_capacity(13)                                     // KinematicTree<13, _, _>; must be >= slot count, default = exact
+    .with_configuration_capacity(19);                      // the second const generic; must be >= 19 for the floating base
+std::fs::write("unitree_go1.rs", model.to_rust_source(&options)?)?;
 ```
 
 A model converts to a `KinematicTree` on request: `kinematic_tree` for the whole body tree,
@@ -98,17 +108,6 @@ balances. Anything that could is refused by name instead — see below.
 - A body with neither stated mass properties nor shapes carrying mass.
 - A shape giving both `fromto` and `pos` — they can disagree about where it sits.
 
-## Models it loads
-
-| Model | Loads | Read without | Needs |
-| --- | --- | --- | --- |
-| Skydio X2 (`skydio_x2/x2.xml`) | one body on a free joint; mass from four rotor discs and a hull | actuators, sensors, keyframe, assets, option | shapes it can measure, since the file states no mass |
-| Franka Emika Panda (`franka_emika_panda/panda.xml`) | eleven bodies, seven turning joints and two sliding fingers, with travel limits, armature, damping and friction | tendons, the equality constraint coupling the fingers, actuators, keyframe, assets, contact, option | nothing beyond the file |
-
-The two fingers load as independent sliding joints because the tendon and equality constraint that
-tie them together are not read; a caller that wants the arm alone asks for the chain down to
-`"hand"` rather than the whole model.
-
 ## Writing a model out as Rust
 
 `RobotModel::to_rust_source(&options) -> Result<String, MjcfError>` renders one `.rs` file
@@ -121,6 +120,7 @@ microcontroller. `RustSourceOptions` controls what gets generated:
 | `new(function_name)` | required | name of the generated function |
 | `with_scalar(GeneratedScalar::F32 \| F64)` | `F32` | float type the tree is built in (`KinematicTree<N, f32>` vs `<N, f64>`) |
 | `with_capacity(n)` | `0` = exactly as many slots as the model has | `N` in `KinematicTree<N, _>`; must be `>=` the number of bodies emitted, so a caller can reserve headroom for a model that grows later |
+| `with_configuration_capacity(n)` | `0` = `capacity` plus six if the model has a floating base, else `capacity` | the generated tree's second const generic, bounding the configuration vector rather than the joint count |
 | `with_tip(name)` | unset = whole model | emit only the chain from the world down to body `name`, e.g. the arm without a gripper |
 | `with_header(text)` | empty | a `// text` comment above the generated code (e.g. where it was generated from) |
 | `with_documentation(text)` | empty | doc comment (`/// text`) on the generated function |

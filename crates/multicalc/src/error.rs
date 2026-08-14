@@ -112,6 +112,12 @@ pub enum KinematicsError {
     StateShapeMismatch,
     /// A joint weight was zero or negative, so it names no cost of moving.
     NonPositiveWeight,
+    /// A floating joint sat somewhere other than the tree's first slot, attached to the world.
+    FloatingJointNotAtRoot,
+    /// A joint's own reading did not fit the tree's configuration capacity.
+    ConfigurationCapacityExceeded,
+    /// A floating joint's orientation reading was all zeros, which names no direction.
+    OrientationHasNoDirection,
     /// A matrix step inside the solver failed.
     Linalg(LinalgError),
 }
@@ -613,6 +619,15 @@ impl core::fmt::Display for KinematicsError {
                 "solved poses came from a tree with a different joint count"
             }
             KinematicsError::NonPositiveWeight => "a joint weight was zero or negative",
+            KinematicsError::FloatingJointNotAtRoot => {
+                "a floating joint may only be the tree's first joint, attached to the world"
+            }
+            KinematicsError::ConfigurationCapacityExceeded => {
+                "a joint's reading did not fit the tree's configuration capacity"
+            }
+            KinematicsError::OrientationHasNoDirection => {
+                "a floating joint's orientation reading was all zeros, which names no direction"
+            }
             KinematicsError::Linalg(e) => return write!(f, "{e}"),
         };
         f.write_str(text)

@@ -33,7 +33,7 @@ fn translation<T: Numeric>(x: f64, y: f64, z: f64) -> SE3<T> {
 }
 
 /// Two revolute joints about z on unit links, plus a fixed tool one unit past the elbow.
-fn planar_arm<T: Numeric>() -> KinematicTree<3, T> {
+fn planar_arm<T: Numeric>() -> KinematicTree<3, 3, T> {
     let link = translation(1.0, 0.0, 0.0);
     KinematicTree::try_from_joints(
         &[
@@ -52,7 +52,7 @@ fn planar_arm<T: Numeric>() -> KinematicTree<3, T> {
 
 /// One hinge about z carrying two sibling hinges about y at different offsets, each with a welded
 /// tool at its end. Left branch: joints 1 and 2. Right branch: joints 3 and 4.
-fn branching_arm<T: Numeric>() -> KinematicTree<5, T> {
+fn branching_arm<T: Numeric>() -> KinematicTree<5, 5, T> {
     KinematicTree::try_from_joints(
         &[
             Joint::revolute(axis_z(), SE3::identity()),
@@ -73,7 +73,7 @@ fn branching_arm<T: Numeric>() -> KinematicTree<5, T> {
 }
 
 /// A seven-joint arm of mixed axes and one slide, with a welded tool: eight slots in all.
-fn spatial_arm<T: Numeric>() -> KinematicTree<8, T> {
+fn spatial_arm<T: Numeric>() -> KinematicTree<8, 8, T> {
     KinematicTree::try_from_joints(
         &[
             Joint::revolute(axis_z(), SE3::identity()),
@@ -158,7 +158,7 @@ fn planar_two_link_columns_are_closed_form() {
 
 #[test]
 fn prismatic_column_is_the_axis_and_no_turn() {
-    let mut tree = KinematicTree::<1, f64>::new();
+    let mut tree = KinematicTree::<1, 1, f64>::new();
     tree.push(
         Joint::prismatic(axis_x::<f64>(), SE3::identity()),
         JointParent::World,
@@ -337,7 +337,7 @@ fn errors_on_a_tool_index_past_the_tree() {
 
 #[test]
 fn errors_when_the_state_came_from_another_tree() {
-    let two_joints = KinematicTree::<3, f64>::try_from_joints(
+    let two_joints = KinematicTree::<3, 3, f64>::try_from_joints(
         &[
             Joint::revolute(axis_z::<f64>(), SE3::identity()),
             Joint::revolute(axis_z(), translation(1.0, 0.0, 0.0)),

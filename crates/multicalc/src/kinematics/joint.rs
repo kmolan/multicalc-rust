@@ -14,6 +14,8 @@ pub enum JointKind {
     Prismatic,
     /// No degrees of freedom; a weld.
     Fixed,
+    /// Free to move in all six directions
+    Floating,
 }
 
 /// The frame a joint is attached to.
@@ -119,6 +121,36 @@ impl<T: Numeric> Joint<T> {
     pub fn fixed(origin: SE3<T>) -> Self {
         Joint::from_kind(
             JointKind::Fixed,
+            Vector::new([T::ONE, T::ZERO, T::ZERO]),
+            origin,
+        )
+    }
+
+    /// Floating (6-DOF) joint at `origin`: free to slide in any direction and turn about any
+    /// axis, with no travel limit on any of the six.
+    ///
+    /// Its reading is not one number but seven — a position and a unit quaternion, `[x, y, z, w,
+    /// qx, qy, qz]` — and its rate is six, not one; see
+    /// [`FreeJointState`](crate::spatial::FreeJointState). Takes a placeholder unit axis so it
+    /// passes the tree's axis check; nothing reads it. Has no travel limits, armature, damping, or
+    /// friction loss — MJCF's `<freejoint>` carries none of these, and a six-DOF joint has no
+    /// single number for any of them to describe.
+    ///
+    /// May only be a tree's first joint, attached to the world;
+    /// [`KinematicTree::push`](crate::kinematics::KinematicTree::push) refuses one anywhere else.
+    ///
+    /// ```
+    /// use multicalc::kinematics::{Joint, JointKind};
+    /// use multicalc::spatial::SE3;
+    ///
+    /// let joint = Joint::<f64>::floating(SE3::identity());
+    /// assert_eq!(joint.kind(), JointKind::Floating);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn floating(origin: SE3<T>) -> Self {
+        Joint::from_kind(
+            JointKind::Floating,
             Vector::new([T::ONE, T::ZERO, T::ZERO]),
             origin,
         )

@@ -7,6 +7,8 @@
 //! to its solution — anywhere else the two solvers are free to settle on different configurations
 //! that put the frame in the same place, and pinning one of them would be pinning an accident.
 
+use std::path::Path;
+
 use multicalc::kinematics::{
     InverseKinematics, InverseKinematicsTermination, Joint, JointParent, KinematicTree,
 };
@@ -14,6 +16,12 @@ use multicalc::linear_algebra::{Vector, Vector3D};
 use multicalc::spatial::{Quaternion, SE3, SO3};
 use multicalc_qa::load::*;
 use multicalc_qa::schema::Fixture;
+
+/// The vendored models a fixture's `model_file` field names, relative to this crate.
+#[must_use]
+fn menagerie() -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../third_party/menagerie")
+}
 
 /// Covers every fixture, the Franka's eleven joints included.
 const MAX_JOINTS: usize = 16;
@@ -34,7 +42,7 @@ fn row3(data: &[f64], columns: usize, index: usize) -> Vector3D<f64> {
 }
 
 /// The model the fixture carries, built as a tree, with the joint count it was written for.
-fn tree_from_fixture(fx: &Fixture) -> (KinematicTree<MAX_JOINTS, f64>, usize) {
+fn tree_from_fixture(fx: &Fixture) -> (KinematicTree<MAX_JOINTS, MAX_JOINTS, f64>, usize) {
     let case = fx.case.as_str();
 
     let kinds: Vec<char> = fx.inputs["joint_kinds"].as_str().chars().collect();
@@ -86,8 +94,9 @@ fn tree_from_fixture(fx: &Fixture) -> (KinematicTree<MAX_JOINTS, f64>, usize) {
         });
     }
 
-    let tree = KinematicTree::<MAX_JOINTS, f64>::try_from_joints(&joints, &joint_parents)
-        .unwrap_or_else(|e| unreachable!("{case}: building the tree: {e}"));
+    let tree =
+        KinematicTree::<MAX_JOINTS, MAX_JOINTS, f64>::try_from_joints(&joints, &joint_parents)
+            .unwrap_or_else(|e| unreachable!("{case}: building the tree: {e}"));
     (tree, joint_count)
 }
 
@@ -110,6 +119,11 @@ fn pose_from(position: &[f64], quaternion: &[f64], what: &str) -> SE3<f64> {
 #[test]
 fn inverse_kinematics_matches_mink() {
     for fx in load_dir("inverse_kinematics") {
+        // A bespoke fixture whose configuration is not one scalar per joint slot (a floating
+        // base's is seven-wide) — checked by its own test below instead of this shared loop.
+        if fx.case == "unitree_go1_floating_base_ik" {
+            continue;
+        }
         let case = fx.case.as_str();
         let tolerance = fx.tolerances.f64;
         let (tree, joint_count) = tree_from_fixture(&fx);
@@ -192,4 +206,94 @@ fn inverse_kinematics_matches_mink() {
             }
         }
     }
+}
+
+/// The vendored Unitree Go1: eighteen degrees of freedom (the trunk's floating base plus twelve
+/// hinges) solving to place one foot, checked against mink's differential IK on the same file.
+///
+/// Self-contained rather than routed through `tree_from_fixture`/`padded` above, for the same
+/// reason as the kinematics test: those assume one scalar reading per joint slot everywhere,
+/// which the floating base does not fit. The tree here is built by parsing the vendored file
+/// itself, and only the reached pose is compared — the twelve spare degrees of freedom are
+/// exactly the case the fixture was written for (see `_unitree_go1_floating_base_ik`'s docstring),
+/// so there is no configuration golden to pin.
+#[test]
+fn unitree_go1_inverse_kinematics_matches_mink() {
+    let fx = load_dir("inverse_kinematics")
+        .into_iter()
+        .find(|fx| fx.case == "unitree_go1_floating_base_ik")
+        .unwrap_or_else(|| unreachable!("fixture unitree_go1_floating_base_ik is missing"));
+    let case = fx.case.as_str();
+    let tolerance = fx.tolerances.f64;
+
+    let path = menagerie().join(fx.inputs["model_file"].as_str());
+    let model = multicalc_mjcf::load_path(&path)
+        .unwrap_or_else(|e| unreachable!("{case}: loading {path:?}: {e}"));
+    let tree = model
+        .kinematic_tree::<13, 19>()
+        .unwrap_or_else(|e| unreachable!("{case}: building the tree: {e}"));
+    let tool_index = model
+        .bodies()
+        .iter()
+        .position(|body| body.name() == "FR_calf")
+        .unwrap_or_else(|| unreachable!("{case}: model has no body called FR_calf"));
+
+    let seed_values = fx.inputs["seed"].as_vector();
+    let seed = Vector::<19, f64>::from_fn(|index| seed_values[index]);
+    let target = pose_from(
+        &fx.inputs["target_position"].as_vector(),
+        &fx.inputs["target_quaternion"].as_vector(),
+        case,
+    );
+
+    // Driven to the same residual the golden was, so a pose comparison reflects the two solvers
+    // disagreeing rather than either one stopping early.
+    let report = InverseKinematics::<19, f64>::new()
+        .with_position_tolerance(1e-9)
+        .with_orientation_tolerance(1e-9)
+        .solve(&tree, tool_index, target, &seed)
+        .unwrap_or_else(|e| unreachable!("{case}: {e}"));
+
+    assert_eq!(
+        fx.expected["converged"].as_int(),
+        1,
+        "{case}: fixture holds a solve that did not converge"
+    );
+    assert_eq!(
+        report.termination,
+        InverseKinematicsTermination::Converged,
+        "{case}: terminated {:?} with position error {}",
+        report.termination,
+        report.position_error
+    );
+
+    let reached = pose_from(
+        &fx.expected["reached_position"].as_vector(),
+        &fx.expected["reached_quaternion"].as_vector(),
+        case,
+    );
+    let solved = tree
+        .forward_kinematics(&report.joint_positions)
+        .unwrap_or_else(|e| unreachable!("{case}: resolving the answer: {e}"))
+        .pose(tool_index)
+        .unwrap_or_else(|| unreachable!("{case}: no pose at the tool index"));
+
+    let got = *solved.translation().as_array();
+    let want = *reached.translation().as_array();
+    for axis in 0..3 {
+        assert!(
+            close(got[axis], want[axis], tolerance),
+            "{case}: reached position component {axis}: got {}, want {}",
+            got[axis],
+            want[axis]
+        );
+    }
+
+    let turn = (reached.rotation().inverse() * solved.rotation())
+        .log()
+        .norm();
+    assert!(
+        close(turn, 0.0, tolerance),
+        "{case}: reached orientation is {turn} rad from the golden"
+    );
 }

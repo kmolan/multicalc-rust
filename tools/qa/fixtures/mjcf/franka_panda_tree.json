@@ -520,18 +520,18 @@
   },
   "metadata": {
     "date": "2026-07-06T00:00:00+00:00",
-    "equation": "Menagerie franka_emika_panda: eleven bodies, seven hinges and two sliding fingers",
+    "equation": "Franka Panda: 11 bodies, 7 hinges + 2 slides",
     "generator": "mjcf",
     "libraries": {
       "mujoco": "3.11.0"
     },
     "operations": [
-      "Menagerie franka_emika_panda ingest: body tree, joint axes and travel limits",
-      "Menagerie franka_emika_panda ingest: per-body mass, balance point and inertia",
-      "Menagerie franka_emika_panda ingest: armature, damping, friction and spring settings"
+      "Franka Panda read: tree, axes, limits",
+      "Franka Panda read: mass, COM, inertia",
+      "Franka Panda read: armature, damping, friction, spring"
     ],
     "reference": "MuJoCo 3.11.0",
-    "sampling": "two committed Menagerie models; goldens are MuJoCo's own compile of the same files",
+    "sampling": "three committed Menagerie models; goldens are MuJoCo's own compile of the same files",
     "seed": 20260706
   },
   "module": "mjcf",

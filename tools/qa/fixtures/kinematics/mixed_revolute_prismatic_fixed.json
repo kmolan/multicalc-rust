@@ -648,17 +648,17 @@
   },
   "metadata": {
     "date": "2026-07-06T00:00:00+00:00",
-    "equation": "hinge with a shifted zero, slide with a shifted zero, fixed link, hinge turning about an off-origin point",
+    "equation": "hinge+slide (shifted zeros), fixed link, off-origin hinge",
     "generator": "kinematics",
     "libraries": {
       "mujoco": "3.11.0"
     },
     "operations": [
-      "mixed-joint forward kinematics: world position and orientation per link",
-      "mixed-joint Jacobian: how each joint's rate moves each link"
+      "mixed-joint FK: q -> pose per link",
+      "mixed-joint Jacobian: v -> twist per link"
     ],
     "reference": "MuJoCo 3.11.0",
-    "sampling": "three hand-written models plus one committed Menagerie model; joint readings drawn uniformly inside each joint's range; goldens are MuJoCo's own solve of the same model",
+    "sampling": "three hand-written models plus two committed Menagerie models; joint readings drawn uniformly inside each joint's range; goldens are MuJoCo's own solve of the same model",
     "seed": 20260706
   },
   "module": "kinematics",

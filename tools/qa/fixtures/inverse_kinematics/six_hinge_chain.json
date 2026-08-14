@@ -219,14 +219,14 @@
   },
   "metadata": {
     "date": "2026-07-06T00:00:00+00:00",
-    "equation": "six hinges alternating about x and y on 0.25 links, plus a welded tool frame",
+    "equation": "6-hinge chain, alternating x/y axes, welded tool",
     "generator": "inverse_kinematics",
     "libraries": {
       "mink": "1.2.0",
       "mujoco": "3.11.0"
     },
     "operations": [
-      "six-hinge inverse kinematics: joint readings and the pose they reach"
+      "6-hinge IK: pose -> q, reached pose + config"
     ],
     "reference": "mink 1.2.0 on MuJoCo 3.11.0",
     "sampling": "targets taken by running forward kinematics on a chosen configuration, then seeding the solve away from it; goldens are mink's differential IK on the same model",

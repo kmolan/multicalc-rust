@@ -140,7 +140,7 @@ fn bench_rigid_body_step(c: &mut Criterion) {
 const ARM_FRAMES: usize = 7;
 
 /// Six hinges alternating about x and y on 0.25 links, with the tool welded 0.25 further.
-fn bench_arm() -> KinematicTree<ARM_FRAMES, f64> {
+fn bench_arm() -> KinematicTree<ARM_FRAMES, ARM_FRAMES, f64> {
     let link = SE3::from_parts(SO3::identity(), Vector::new([0.0, 0.0, 0.25]));
     let mut tree = KinematicTree::new();
     for index in 0..6 {

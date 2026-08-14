@@ -11,15 +11,18 @@ where it is locally unique.
 <!-- BEGIN generated: accuracy -->
 | Operation | Equation | Tolerance | Tested Against |
 | --- | --- | --- | --- |
-| planar two-link forward kinematics: world position and orientation per link | two hinges about z, unit links, plus a fixed tool frame | 1e-11 | MuJoCo 3.11.0 |
-| planar two-link Jacobian: how each joint's rate moves each link | two hinges about z, unit links, plus a fixed tool frame | 1e-11 | MuJoCo 3.11.0 |
-| mixed-joint forward kinematics: world position and orientation per link | hinge with a shifted zero, slide with a shifted zero, fixed link, hinge turning about an off-origin point | 1e-11 | MuJoCo 3.11.0 |
-| mixed-joint Jacobian: how each joint's rate moves each link | hinge with a shifted zero, slide with a shifted zero, fixed link, hinge turning about an off-origin point | 1e-11 | MuJoCo 3.11.0 |
-| branching forward kinematics: world position and orientation per link | one hinge carrying two sibling hinges | 1e-11 | MuJoCo 3.11.0 |
-| branching Jacobian: how each joint's rate moves each link | one hinge carrying two sibling hinges | 1e-11 | MuJoCo 3.11.0 |
-| Franka Panda forward kinematics over 8 configurations: world position and orientation per link | Menagerie franka_emika_panda, 7 hinges plus fixed links | 1e-11 | MuJoCo 3.11.0 |
-| Franka Panda Jacobian over 8 configurations: how each joint's rate moves each link | Menagerie franka_emika_panda, 7 hinges plus fixed links | 1e-11 | MuJoCo 3.11.0 |
-| six-hinge inverse kinematics: joint readings and the pose they reach | six hinges alternating about x and y on 0.25 links, plus a welded tool frame | 1e-6 | mink 1.2.0 on MuJoCo 3.11.0 |
-| near-singular inverse kinematics: the pose reached off a singular seed | the same six-hinge chain seeded fully stretched, on a singular pose | 1e-6 | mink 1.2.0 on MuJoCo 3.11.0 |
-| Franka Panda inverse kinematics: the pose reached with one degree of freedom spare | Menagerie franka_emika_panda, 7 hinges against a 6-DoF task | 1e-6 | mink 1.2.0 on MuJoCo 3.11.0 |
+| planar 2-link FK: q -> pose per link | 2 z-hinges, unit links, fixed tool | 1e-11 | MuJoCo 3.11.0 |
+| planar 2-link Jacobian: v -> twist per link | 2 z-hinges, unit links, fixed tool | 1e-11 | MuJoCo 3.11.0 |
+| mixed-joint FK: q -> pose per link | hinge+slide (shifted zeros), fixed link, off-origin hinge | 1e-11 | MuJoCo 3.11.0 |
+| mixed-joint Jacobian: v -> twist per link | hinge+slide (shifted zeros), fixed link, off-origin hinge | 1e-11 | MuJoCo 3.11.0 |
+| branching FK: q -> pose per link | 1 hinge + 2 sibling hinges | 1e-11 | MuJoCo 3.11.0 |
+| branching Jacobian: v -> twist per link | 1 hinge + 2 sibling hinges | 1e-11 | MuJoCo 3.11.0 |
+| Franka Panda FK, 8 configs: q -> pose per link | Franka Panda: 7 hinges + fixed links | 1e-11 | MuJoCo 3.11.0 |
+| Franka Panda Jacobian, 8 configs: v -> twist per link | Franka Panda: 7 hinges + fixed links | 1e-11 | MuJoCo 3.11.0 |
+| floating-base FK: q -> pose per body | Go1: floating base (free joint) + 12 hinges | 1e-11 | MuJoCo 3.11.0 |
+| floating-base Jacobian: v -> twist per body | Go1: floating base (free joint) + 12 hinges | 1e-11 | MuJoCo 3.11.0 |
+| 6-hinge IK: pose -> q, reached pose + config | 6-hinge chain, alternating x/y axes, welded tool | 1e-6 | mink 1.2.0 on MuJoCo 3.11.0 |
+| near-singular IK: pose -> reached pose | 6-hinge chain, singular seed (fully stretched) | 1e-6 | mink 1.2.0 on MuJoCo 3.11.0 |
+| Franka Panda IK: pose -> reached pose | Franka Panda: 7 hinges, 6-DoF task (1 DoF spare) | 1e-6 | mink 1.2.0 on MuJoCo 3.11.0 |
+| floating-base IK: pose -> reached pose | Go1: floating base + 12 hinges, 6-DoF foot task (12 DoF spare) | 1e-6 | mink 1.2.0 on MuJoCo 3.11.0 |
 <!-- END generated -->

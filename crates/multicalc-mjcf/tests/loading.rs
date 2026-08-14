@@ -594,7 +594,7 @@ fn a_body_without_a_joint_is_welded() {
     let model = load(r#"<body><inertial mass="1" diaginertia="1 1 1"/></body>"#);
     assert!(model.body(0).unwrap().joint().is_none());
 
-    let tree = model.kinematic_tree::<2>().unwrap();
+    let tree = model.kinematic_tree::<2, 2>().unwrap();
     assert_eq!(tree.joint(0).unwrap().kind(), JointKind::Fixed);
 }
 
@@ -779,7 +779,7 @@ fn refuses_a_limited_joint_with_no_range() {
 fn refuses_a_tip_the_model_does_not_have() {
     let model = load(r#"<body><inertial mass="1" diaginertia="1 1 1"/></body>"#);
     assert_eq!(
-        model.kinematic_tree_to::<4>("gripper").unwrap_err(),
+        model.kinematic_tree_to::<4, 4>("gripper").unwrap_err(),
         MjcfError::UnknownBody {
             name: "gripper".to_owned(),
         }
@@ -796,7 +796,7 @@ fn refuses_a_model_too_big_for_the_tree() {
            </body>"#,
     );
     assert_eq!(
-        model.kinematic_tree::<2>().unwrap_err(),
+        model.kinematic_tree::<2, 2>().unwrap_err(),
         MjcfError::TreeCapacityExceeded {
             needed: 3,
             capacity: 2,
@@ -805,13 +805,9 @@ fn refuses_a_model_too_big_for_the_tree() {
 }
 
 #[test]
-fn refuses_a_floating_base_as_a_tree() {
+fn builds_a_floating_base_as_a_tree() {
     let model =
         load(r#"<body name="drone"><freejoint/><inertial mass="1" diaginertia="1 1 1"/></body>"#);
-    assert_eq!(
-        model.kinematic_tree::<2>().unwrap_err(),
-        MjcfError::FloatingBaseUnsupported {
-            body: "drone".to_owned(),
-        }
-    );
+    let tree = model.kinematic_tree::<1, 7>().unwrap();
+    assert_eq!(tree.joint(0).unwrap().kind(), JointKind::Floating);
 }

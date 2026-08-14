@@ -9,8 +9,8 @@ use multicalc::linear_algebra::Vector;
 use multicalc::spatial::{Quaternion, SE3, SO3};
 
 /// The Franka Panda arm: the seven turning joints from the base up to the hand, with the base and the hand as welds.
-pub fn franka_panda_arm() -> KinematicTree<9, f32> {
-    let mut tree = KinematicTree::<9, f32>::new();
+pub fn franka_panda_arm() -> KinematicTree<9, 9, f32> {
+    let mut tree = KinematicTree::<9, 9, f32>::new();
     // link0
     tree.push(
         Joint::fixed(pose([0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0])),

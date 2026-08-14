@@ -135,7 +135,7 @@ fn the_chain_down_to_the_hand_excludes_the_fingers() {
         vec![0, 1, 2, 3, 4, 5, 6, 7, 8]
     );
 
-    let arm = model.kinematic_tree_to::<9>("hand").unwrap();
+    let arm = model.kinematic_tree_to::<9, 9>("hand").unwrap();
     assert_eq!(arm.len(), 9);
     assert_eq!(arm.joint(8).unwrap().kind(), JointKind::Fixed);
     // The data survived the conversion into a `KinematicTree`, not just the parse.
@@ -146,9 +146,9 @@ fn the_chain_down_to_the_hand_excludes_the_fingers() {
 fn the_whole_model_fits_a_tree_of_eleven_but_not_ten() {
     let model = panda();
 
-    assert!(model.kinematic_tree::<11>().is_ok());
+    assert!(model.kinematic_tree::<11, 11>().is_ok());
     assert_eq!(
-        model.kinematic_tree::<10>().unwrap_err(),
+        model.kinematic_tree::<10, 10>().unwrap_err(),
         MjcfError::TreeCapacityExceeded {
             needed: 11,
             capacity: 10,
