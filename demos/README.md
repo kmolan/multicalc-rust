@@ -89,7 +89,7 @@ The figures below are representative of a modern desktop core (`x86_64`, `--rele
   and compose through the whole Lie chain) comes from a single autodiff pass, with no hand-derived
   kinematics. **Median solve ≈ 30 µs, tracking the moving target pose to a sub-micron position.**
 
-    ![3d_arm_ik: a 3-link arm running a full LM IK solve every millisecond](examples/resources/gifs/3d_arm_ik_showcase.gif)
+    ![3d_arm_ik](examples/resources/gifs/3d_arm_ik_showcase.gif)
 
 - **`3d_drone_flight`** (dynamics + control + estimation). A Skydio X2, its mass read out of its own
   MuJoCo model file, is set down on a pad knowing roughly where it is and nothing about which way it
@@ -101,7 +101,7 @@ The figures below are representative of a modern desktop core (`x86_64`, `--rele
   gap between the two is the estimate's error at life size. **The whole stack runs in a median
   ≈ 2 µs of the 1 ms tick**.
 
-  ![3d_drone_showcase](demos/examples/resources/gifs/3d_drone_showcase.gif)
+  ![3d_drone_showcase](examples/resources/gifs/3d_drone_showcase.gif)
 
 - **`newton_fractal`** (root finding). Every pixel is a full Newton-system solve with an exact
   autodiff Jacobian, and the cubic's basins swirl as its roots orbit. **≈ 4 million Newton
