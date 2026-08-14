@@ -9,8 +9,11 @@ mass worked out from its geoms, and the Franka Panda's body tree, joint geometry
 <!-- BEGIN generated: accuracy -->
 | Operation | Equation | Tolerance | Tested Against |
 | --- | --- | --- | --- |
-| Menagerie skydio_x2 ingest: mass, centre of mass, inertia about the centre | body mass from 4 ellipsoid rotors (0.25 kg) + 1 ellipsoid hull (0.325 kg) | 1e-11 | MuJoCo 3.11.0 |
-| Menagerie franka_emika_panda ingest: body tree, joint axes and travel limits | Menagerie franka_emika_panda: eleven bodies, seven hinges and two sliding fingers | 1e-11 | MuJoCo 3.11.0 |
-| Menagerie franka_emika_panda ingest: per-body mass, balance point and inertia | Menagerie franka_emika_panda: eleven bodies, seven hinges and two sliding fingers | 1e-11 | MuJoCo 3.11.0 |
-| Menagerie franka_emika_panda ingest: armature, damping, friction and spring settings | Menagerie franka_emika_panda: eleven bodies, seven hinges and two sliding fingers | 1e-11 | MuJoCo 3.11.0 |
+| skydio_x2 read: mass, COM, inertia | 4 ellipsoid rotors (0.25kg) + 1 ellipsoid hull (0.325kg) | 1e-11 | MuJoCo 3.11.0 |
+| Franka Panda read: tree, axes, limits | Franka Panda: 11 bodies, 7 hinges + 2 slides | 1e-11 | MuJoCo 3.11.0 |
+| Franka Panda read: mass, COM, inertia | Franka Panda: 11 bodies, 7 hinges + 2 slides | 1e-11 | MuJoCo 3.11.0 |
+| Franka Panda read: armature, damping, friction, spring | Franka Panda: 11 bodies, 7 hinges + 2 slides | 1e-11 | MuJoCo 3.11.0 |
+| Go1 read: tree + free joint | Go1: 13 bodies, floating base + 12 hinges | 1e-11 | MuJoCo 3.11.0 |
+| Go1 read: mass, COM, inertia (3 bodies) | Go1: 13 bodies, floating base + 12 hinges | 1e-11 | MuJoCo 3.11.0 |
+| Go1 read: axis, limits, armature/damping/friction (2 joints) | Go1: 13 bodies, floating base + 12 hinges | 1e-11 | MuJoCo 3.11.0 |
 <!-- END generated -->

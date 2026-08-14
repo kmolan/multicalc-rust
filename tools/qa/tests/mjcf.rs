@@ -12,7 +12,7 @@ use std::path::Path;
 use multicalc::kinematics::JointKind;
 use multicalc::spatial::FreeJointState;
 use multicalc_qa::load::*;
-use multicalc_qa::schema::{Fixture, Tol};
+use multicalc_qa::schema::{Fixture, Tol, Value};
 
 /// MuJoCo does not keep a body's inertia as the nine numbers the file states (or the three plus a
 /// turn `diaginertia` gives); it diagonalizes whatever it is given and keeps that, so the tensor
@@ -37,6 +37,7 @@ fn ingested_models_match_mujoco() {
         match fx.case.as_str() {
             "skydio_x2_free_joint" => check_free_body(&fx),
             "franka_panda_tree" => check_body_tree(&fx),
+            "unitree_go1_floating_base_tree" => check_go1_tree(&fx),
             other => unreachable!("no comparison for fixture {other}"),
         }
     }
@@ -314,5 +315,196 @@ fn check_body_tree(fx: &Fixture) {
             close(joint.zero_offset(), zero_offsets[index], t),
             "{ctx} zero_offset"
         );
+    }
+}
+
+/// The Unitree Go1: whole-model structure (thirteen bodies, the trunk's free joint included) plus
+/// every dynamics field for three representative bodies — the trunk itself, an abduction joint,
+/// and a knee joint — field for field against MuJoCo's compiled model.
+///
+/// Lighter than `check_body_tree` above: the forward-kinematics fixture
+/// (`kinematics/unitree_go1_floating_base`) already cross-checks all thirteen bodies' structure by
+/// comparing pose and Jacobian agreement across several configurations, so a wrong body count,
+/// parent, or joint kind would fail loudly there. What is worth checking here specifically is that
+/// multi-level default-class inheritance and free-joint ingestion both read correctly, which three
+/// representative bodies are enough to show.
+fn check_go1_tree(fx: &Fixture) {
+    let case = fx.case.as_str();
+    let path = menagerie().join(fx.inputs["model_file"].as_str());
+    let model = multicalc_mjcf::load_path(&path)
+        .unwrap_or_else(|e| unreachable!("{case}: loading {path:?}: {e}"));
+    let t = fx.tolerances.f64;
+
+    assert_eq!(
+        model.body_count() as i64,
+        fx.expected["body_count"].as_int(),
+        "{case} body_count"
+    );
+    assert_eq!(
+        model.movable_joint_count() as i64,
+        fx.expected["movable_joint_count"].as_int(),
+        "{case} movable_joint_count"
+    );
+    assert_eq!(
+        i64::from(model.has_floating_base()),
+        fx.expected["free_joint"].as_int(),
+        "{case} free_joint"
+    );
+
+    let body_names: Vec<&str> = fx.expected["body_names"]
+        .as_str()
+        .split_whitespace()
+        .collect();
+    assert_eq!(
+        body_names.len(),
+        model.body_count(),
+        "{case} body_names count"
+    );
+    for (index, name) in body_names.iter().enumerate() {
+        assert_eq!(
+            model.body(index).unwrap().name(),
+            *name,
+            "{case} body {index} name"
+        );
+    }
+
+    let parents = fx.expected["parents"].as_vector();
+    for (index, &expected_parent) in parents.iter().enumerate() {
+        let got_parent = model.body(index).unwrap().parent().map_or(-1, |p| p as i64);
+        assert_eq!(got_parent, expected_parent as i64, "{case} body {index} parent");
+    }
+
+    // The converted tree: `config_len`/`velocity_len` are what the fixture's Python side calls
+    // `nq`/`nv`, so a mismatch here means the floating base widened the configuration wrong.
+    let tree = model
+        .kinematic_tree::<13, 19>()
+        .unwrap_or_else(|e| unreachable!("{case}: kinematic_tree: {e}"));
+    assert_eq!(
+        tree.config_len() as i64,
+        fx.expected["configuration_dimension"].as_int(),
+        "{case} configuration_dimension"
+    );
+    assert_eq!(
+        tree.velocity_len() as i64,
+        fx.expected["velocity_dimension"].as_int(),
+        "{case} velocity_dimension"
+    );
+
+    for (label, index) in [("trunk", 0usize), ("fr_hip", 1), ("fr_calf", 3)] {
+        let body = model.body(index).unwrap();
+        let joint = body
+            .joint()
+            .unwrap_or_else(|| unreachable!("{case} {label}: body carries no joint"));
+        let ctx = format!("{case} {label}");
+        let field = |suffix: &str| -> &Value { &fx.expected[format!("{label}_{suffix}").as_str()] };
+
+        assert!(
+            close(body.inertia().mass(), field("mass").as_scalar(), t),
+            "{ctx} mass"
+        );
+        let center_of_mass = body.inertia().center_of_mass();
+        let want_com = field("center_of_mass").as_vector();
+        for axis in 0..3 {
+            assert!(
+                close(center_of_mass[axis], want_com[axis], t),
+                "{ctx} center_of_mass[{axis}]"
+            );
+        }
+        let inertia = body.inertia().rotational_inertia();
+        let (_, _, want_inertia) = field("rotational_inertia").as_matrix();
+        for row in 0..3 {
+            for column in 0..3 {
+                assert!(
+                    close(
+                        inertia[(row, column)],
+                        want_inertia[row * 3 + column],
+                        ROTATIONAL_INERTIA_TOLERANCE,
+                    ),
+                    "{ctx} rotational_inertia({row},{column})"
+                );
+            }
+        }
+
+        let translation = body.pose().translation();
+        let want_position = field("origin_position").as_vector();
+        for axis in 0..3 {
+            assert!(
+                close(translation[axis], want_position[axis], t),
+                "{ctx} origin_position[{axis}]"
+            );
+        }
+        let quaternion = body.pose().rotation().quaternion().as_array();
+        let want_quaternion = field("origin_quaternion").as_vector();
+        let flip = if quaternion[0] < 0.0 { -1.0 } else { 1.0 };
+        let want_flip = if want_quaternion[0] < 0.0 { -1.0 } else { 1.0 };
+        for component in 0..4 {
+            assert!(
+                close(
+                    flip * quaternion[component],
+                    want_flip * want_quaternion[component],
+                    t
+                ),
+                "{ctx} origin_quaternion[{component}]"
+            );
+        }
+
+        match (joint.kind(), field("joint_kind").as_str()) {
+            // A floating joint has no axis, anchor, or per-DOF dynamics figure to compare.
+            (JointKind::Floating, "X") => continue,
+            (JointKind::Revolute, "R") => {}
+            (kind, want) => unreachable!("{ctx}: joint kind {kind:?} does not match {want}"),
+        }
+
+        let axis = joint.axis();
+        let want_axis = field("axis").as_vector();
+        for component in 0..3 {
+            assert!(
+                close(axis[component], want_axis[component], t),
+                "{ctx} axis[{component}]"
+            );
+        }
+        let anchor = joint.anchor();
+        let want_anchor = field("anchor").as_vector();
+        for component in 0..3 {
+            assert!(
+                close(anchor[component], want_anchor[component], t),
+                "{ctx} anchor[{component}]"
+            );
+        }
+        assert!(
+            close(joint.zero_offset(), field("zero_offset").as_scalar(), t),
+            "{ctx} zero_offset"
+        );
+        assert!(
+            close(joint.armature(), field("armature").as_scalar(), t),
+            "{ctx} armature"
+        );
+        assert!(
+            close(joint.damping(), field("damping").as_scalar(), t),
+            "{ctx} damping"
+        );
+        assert!(
+            close(joint.friction_loss(), field("friction_loss").as_scalar(), t),
+            "{ctx} friction_loss"
+        );
+        assert!(
+            close(joint.spring_reference(), field("spring_reference").as_scalar(), t),
+            "{ctx} spring_reference"
+        );
+        assert!(
+            close(joint.spring_stiffness(), field("spring_stiffness").as_scalar(), t),
+            "{ctx} spring_stiffness"
+        );
+
+        assert!(
+            field("limited").as_scalar() != 0.0,
+            "{ctx}: expected a limited joint"
+        );
+        let want_range = field("range").as_vector();
+        let (lower, upper) = joint
+            .limits()
+            .unwrap_or_else(|| unreachable!("{ctx}: joint has no limits"));
+        assert!(close(lower, want_range[0], t), "{ctx} limits lower");
+        assert!(close(upper, want_range[1], t), "{ctx} limits upper");
     }
 }

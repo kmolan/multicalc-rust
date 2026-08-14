@@ -9,6 +9,7 @@ import schema
 
 MODEL = "skydio_x2/x2.xml"
 FRANKA = "franka_emika_panda/panda.xml"
+GO1 = "unitree_go1/go1.xml"
 MENAGERIE = os.path.join(
     os.path.dirname(__file__), "..", "..", "..", "..", "third_party", "menagerie"
 )
@@ -92,8 +93,8 @@ def _skydio_x2(out, meta):
     schema.write_fixture(
         out, "mjcf", "skydio_x2_free_joint",
         meta, _tol(), inputs, expected,
-        equation="body mass from 4 ellipsoid rotors (0.25 kg) + 1 ellipsoid hull (0.325 kg)",
-        operations=["Menagerie skydio_x2 ingest: mass, centre of mass, inertia about the centre"],
+        equation="4 ellipsoid rotors (0.25kg) + 1 ellipsoid hull (0.325kg)",
+        operations=["skydio_x2 read: mass, COM, inertia"],
     )
 
 
@@ -209,11 +210,110 @@ def _franka_panda_tree(out, meta):
     schema.write_fixture(
         out, "mjcf", "franka_panda_tree",
         meta, _tol(), inputs, expected,
-        equation="Menagerie franka_emika_panda: eleven bodies, seven hinges and two sliding fingers",
+        equation="Franka Panda: 11 bodies, 7 hinges + 2 slides",
         operations=[
-            "Menagerie franka_emika_panda ingest: body tree, joint axes and travel limits",
-            "Menagerie franka_emika_panda ingest: per-body mass, balance point and inertia",
-            "Menagerie franka_emika_panda ingest: armature, damping, friction and spring settings",
+            "Franka Panda read: tree, axes, limits",
+            "Franka Panda read: mass, COM, inertia",
+            "Franka Panda read: armature, damping, friction, spring",
+        ],
+    )
+
+
+def _unitree_go1_floating_base_tree(out, meta):
+    """The committed Menagerie Go1: whole-model structure (thirteen bodies, the trunk's free
+    joint included) plus every dynamics field for three representative bodies — the trunk itself,
+    one abduction joint, and one knee joint. Enough to prove multi-level default-class
+    inheritance and free-joint ingestion both read correctly, without repeating the same field-
+    for-field check nine more times for symmetric legs the forward-kinematics fixture (which
+    checks all thirteen bodies' poses and Jacobians) already exercises structurally.
+    """
+    model = mujoco.MjModel.from_xml_path(os.path.join(MENAGERIE, GO1))
+
+    names = []
+    parents = []
+    for body in range(1, model.nbody):  # index 0 is always the world body
+        names.append(mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, body))
+        parent = int(model.body_parentid[body])
+        parents.append(-1 if parent == 0 else parent - 1)
+
+    assert model.nbody == 14, "expected the world body and thirteen more"
+    assert model.njnt == 13 and model.jnt_type[0] == mujoco.mjtJoint.mjJNT_FREE
+
+    def joint_fields(body):
+        count = int(model.body_jntnum[body])
+        assert count == 1, f"body {body} carries {count} joints; exactly one expected here"
+        joint = int(model.body_jntadr[body])
+        kind = model.jnt_type[joint]
+        if kind == mujoco.mjtJoint.mjJNT_FREE:
+            return {"kind": "X"}
+        assert kind == mujoco.mjtJoint.mjJNT_HINGE
+        dof = int(model.jnt_dofadr[joint])
+        qpos = int(model.jnt_qposadr[joint])
+        return {
+            "kind": "R",
+            "axis": np.array(model.jnt_axis[joint], dtype=float),
+            "anchor": np.array(model.jnt_pos[joint], dtype=float),
+            "zero_offset": float(model.qpos0[qpos]),
+            "limited": float(model.jnt_limited[joint]),
+            "range": np.array(model.jnt_range[joint], dtype=float),
+            "armature": float(model.dof_armature[dof]),
+            "damping": float(model.dof_damping[dof]),
+            "friction_loss": float(model.dof_frictionloss[dof]),
+            "spring_reference": float(model.qpos_spring[qpos]),
+            "spring_stiffness": float(model.jnt_stiffness[joint]),
+        }
+
+    inputs = {"model_file": schema.string(GO1)}
+    expected = {
+        "body_names": schema.string(" ".join(names)),
+        "parents": schema.vector(parents),
+        "body_count": schema.integer(model.nbody - 1),
+        "movable_joint_count": schema.integer(model.njnt),
+        "free_joint": schema.integer(1),
+        "configuration_dimension": schema.integer(model.nq),
+        "velocity_dimension": schema.integer(model.nv),
+    }
+
+    representatives = (
+        ("trunk", mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "trunk")),
+        ("fr_hip", mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "FR_hip")),
+        ("fr_calf", mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "FR_calf")),
+    )
+    for label, body in representatives:
+        expected[f"{label}_mass"] = schema.scalar(float(model.body_mass[body]))
+        expected[f"{label}_center_of_mass"] = schema.vector(
+            np.array(model.body_ipos[body], dtype=float)
+        )
+        expected[f"{label}_rotational_inertia"] = schema.matrix(_body_inertia(model, body))
+        expected[f"{label}_origin_position"] = schema.vector(
+            np.array(model.body_pos[body], dtype=float)
+        )
+        expected[f"{label}_origin_quaternion"] = schema.vector(
+            np.array(model.body_quat[body], dtype=float)
+        )
+
+        joint = joint_fields(body)
+        expected[f"{label}_joint_kind"] = schema.string(joint["kind"])
+        if joint["kind"] == "R":
+            expected[f"{label}_axis"] = schema.vector(joint["axis"])
+            expected[f"{label}_anchor"] = schema.vector(joint["anchor"])
+            expected[f"{label}_zero_offset"] = schema.scalar(joint["zero_offset"])
+            expected[f"{label}_limited"] = schema.scalar(joint["limited"])
+            expected[f"{label}_range"] = schema.vector(joint["range"])
+            expected[f"{label}_armature"] = schema.scalar(joint["armature"])
+            expected[f"{label}_damping"] = schema.scalar(joint["damping"])
+            expected[f"{label}_friction_loss"] = schema.scalar(joint["friction_loss"])
+            expected[f"{label}_spring_reference"] = schema.scalar(joint["spring_reference"])
+            expected[f"{label}_spring_stiffness"] = schema.scalar(joint["spring_stiffness"])
+
+    schema.write_fixture(
+        out, "mjcf", "unitree_go1_floating_base_tree",
+        meta, _tol(), inputs, expected,
+        equation="Go1: 13 bodies, floating base + 12 hinges",
+        operations=[
+            "Go1 read: tree + free joint",
+            "Go1 read: mass, COM, inertia (3 bodies)",
+            "Go1 read: axis, limits, armature/damping/friction (2 joints)",
         ],
     )
 
@@ -221,9 +321,10 @@ def _franka_panda_tree(out, meta):
 def run(out, seed):
     meta = schema.metadata(
         "mjcf", seed,
-        "two committed Menagerie models; goldens are MuJoCo's own compile of the same files",
+        "three committed Menagerie models; goldens are MuJoCo's own compile of the same files",
         libraries=("mujoco",),
         reference="MuJoCo {mujoco}",
     )
     _skydio_x2(out, meta)
     _franka_panda_tree(out, meta)
+    _unitree_go1_floating_base_tree(out, meta)

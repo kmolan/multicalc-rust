@@ -433,17 +433,17 @@
   },
   "metadata": {
     "date": "2026-07-06T00:00:00+00:00",
-    "equation": "one hinge carrying two sibling hinges",
+    "equation": "1 hinge + 2 sibling hinges",
     "generator": "kinematics",
     "libraries": {
       "mujoco": "3.11.0"
     },
     "operations": [
-      "branching forward kinematics: world position and orientation per link",
-      "branching Jacobian: how each joint's rate moves each link"
+      "branching FK: q -> pose per link",
+      "branching Jacobian: v -> twist per link"
     ],
     "reference": "MuJoCo 3.11.0",
-    "sampling": "three hand-written models plus one committed Menagerie model; joint readings drawn uniformly inside each joint's range; goldens are MuJoCo's own solve of the same model",
+    "sampling": "three hand-written models plus two committed Menagerie models; joint readings drawn uniformly inside each joint's range; goldens are MuJoCo's own solve of the same model",
     "seed": 20260706
   },
   "module": "kinematics",

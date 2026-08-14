@@ -1,0 +1,326 @@
+{
+  "case": "unitree_go1_floating_base_tree",
+  "expected": {
+    "body_count": {
+      "kind": "int",
+      "v": 13
+    },
+    "body_names": {
+      "kind": "str",
+      "v": "trunk FR_hip FR_thigh FR_calf FL_hip FL_thigh FL_calf RR_hip RR_thigh RR_calf RL_hip RL_thigh RL_calf"
+    },
+    "configuration_dimension": {
+      "kind": "int",
+      "v": 19
+    },
+    "fr_calf_anchor": {
+      "data": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "fr_calf_armature": {
+      "kind": "scalar",
+      "v": "0x3f847ae147ae147b"
+    },
+    "fr_calf_axis": {
+      "data": [
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "fr_calf_center_of_mass": {
+      "data": [
+        "0x3f719b6e05163f5d",
+        "0x3f500079dea476d4",
+        "0xbfc2b69552e2fbe3"
+      ],
+      "kind": "vector"
+    },
+    "fr_calf_damping": {
+      "kind": "scalar",
+      "v": "0x4000000000000000"
+    },
+    "fr_calf_friction_loss": {
+      "kind": "scalar",
+      "v": "0x3fc999999999999a"
+    },
+    "fr_calf_joint_kind": {
+      "kind": "str",
+      "v": "R"
+    },
+    "fr_calf_limited": {
+      "kind": "scalar",
+      "v": "0x3ff0000000000000"
+    },
+    "fr_calf_mass": {
+      "kind": "scalar",
+      "v": "0x3fc912018a43bb41"
+    },
+    "fr_calf_origin_position": {
+      "data": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0xbfcb4395810624dd"
+      ],
+      "kind": "vector"
+    },
+    "fr_calf_origin_quaternion": {
+      "data": [
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "fr_calf_range": {
+      "data": [
+        "0xc0068b4395810625",
+        "0xbfec6a7ef9db22d1"
+      ],
+      "kind": "vector"
+    },
+    "fr_calf_rotational_inertia": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3f585265a69aaa13",
+        "0xbea4c1f28bf9e11f",
+        "0xbef294afee80631c",
+        "0xbea4c1f28bf9e07a",
+        "0x3f58898a288bf532",
+        "0xbecdea84a4ce1421",
+        "0xbef294afee80631c",
+        "0xbecdea84a4ce1422",
+        "0x3f02e8fd9f5244c4"
+      ],
+      "rows": 3
+    },
+    "fr_calf_spring_reference": {
+      "kind": "scalar",
+      "v": "0x0000000000000000"
+    },
+    "fr_calf_spring_stiffness": {
+      "kind": "scalar",
+      "v": "0x0000000000000000"
+    },
+    "fr_calf_zero_offset": {
+      "kind": "scalar",
+      "v": "0x0000000000000000"
+    },
+    "fr_hip_anchor": {
+      "data": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "fr_hip_armature": {
+      "kind": "scalar",
+      "v": "0x3f847ae147ae147b"
+    },
+    "fr_hip_axis": {
+      "data": [
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "fr_hip_center_of_mass": {
+      "data": [
+        "0xbf74236dc351f9c8",
+        "0x3f7f3c990d829f82",
+        "0xbf173d336735993f"
+      ],
+      "kind": "vector"
+    },
+    "fr_hip_damping": {
+      "kind": "scalar",
+      "v": "0x3ff0000000000000"
+    },
+    "fr_hip_friction_loss": {
+      "kind": "scalar",
+      "v": "0x3fc999999999999a"
+    },
+    "fr_hip_joint_kind": {
+      "kind": "str",
+      "v": "R"
+    },
+    "fr_hip_limited": {
+      "kind": "scalar",
+      "v": "0x3ff0000000000000"
+    },
+    "fr_hip_mass": {
+      "kind": "scalar",
+      "v": "0x3fe5c28f5c28f5c3"
+    },
+    "fr_hip_origin_position": {
+      "data": [
+        "0x3fc813a92a305532",
+        "0xbfa7ef9db22d0e56",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "fr_hip_origin_quaternion": {
+      "data": [
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "fr_hip_range": {
+      "data": [
+        "0xbfeb9db22d0e5604",
+        "0x3feb9db22d0e5604"
+      ],
+      "kind": "vector"
+    },
+    "fr_hip_rotational_inertia": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3f3a2c7b11ddc950",
+        "0x3eee98cd5b49979b",
+        "0x3eb4e7e7383ee46d",
+        "0x3eee98cd5b49979c",
+        "0x3f48085dee4ecb89",
+        "0xbeba6d5e2f34ab1e",
+        "0x3eb4e7e7383ee46b",
+        "0xbeba6d5e2f34ab22",
+        "0x3f3eb2d0e5a83cae"
+      ],
+      "rows": 3
+    },
+    "fr_hip_spring_reference": {
+      "kind": "scalar",
+      "v": "0x0000000000000000"
+    },
+    "fr_hip_spring_stiffness": {
+      "kind": "scalar",
+      "v": "0x0000000000000000"
+    },
+    "fr_hip_zero_offset": {
+      "kind": "scalar",
+      "v": "0x0000000000000000"
+    },
+    "free_joint": {
+      "kind": "int",
+      "v": 1
+    },
+    "movable_joint_count": {
+      "kind": "int",
+      "v": 13
+    },
+    "parents": {
+      "data": [
+        "0xbff0000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x4000000000000000",
+        "0x0000000000000000",
+        "0x4010000000000000",
+        "0x4014000000000000",
+        "0x0000000000000000",
+        "0x401c000000000000",
+        "0x4020000000000000",
+        "0x0000000000000000",
+        "0x4024000000000000",
+        "0x4026000000000000"
+      ],
+      "kind": "vector"
+    },
+    "trunk_center_of_mass": {
+      "data": [
+        "0x3f96d5cfaacd9e84",
+        "0x3f60624dd2f1a9fc",
+        "0xbf40624dd2f1a9fc"
+      ],
+      "kind": "vector"
+    },
+    "trunk_joint_kind": {
+      "kind": "str",
+      "v": "X"
+    },
+    "trunk_mass": {
+      "kind": "scalar",
+      "v": "0x4014d0e560418937"
+    },
+    "trunk_origin_position": {
+      "data": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fdc7ae147ae147b"
+      ],
+      "kind": "vector"
+    },
+    "trunk_origin_quaternion": {
+      "data": [
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "trunk_rotational_inertia": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3f913761a747f423",
+        "0xbf2e1aa4100060ec",
+        "0xbf334dc82278c790",
+        "0xbf2e1aa4100060ec",
+        "0x3fb02164c7b74adf",
+        "0xbf05f42292434562",
+        "0xbf334dc82278c78f",
+        "0xbf05f4229243455a",
+        "0x3fb257f6d50e81d0"
+      ],
+      "rows": 3
+    },
+    "velocity_dimension": {
+      "kind": "int",
+      "v": 18
+    }
+  },
+  "inputs": {
+    "model_file": {
+      "kind": "str",
+      "v": "unitree_go1/go1.xml"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "Go1: 13 bodies, floating base + 12 hinges",
+    "generator": "mjcf",
+    "libraries": {
+      "mujoco": "3.11.0"
+    },
+    "operations": [
+      "Go1 read: tree + free joint",
+      "Go1 read: mass, COM, inertia (3 bodies)",
+      "Go1 read: axis, limits, armature/damping/friction (2 joints)"
+    ],
+    "reference": "MuJoCo 3.11.0",
+    "sampling": "three committed Menagerie models; goldens are MuJoCo's own compile of the same files",
+    "seed": 20260706
+  },
+  "module": "mjcf",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-12,
+      "rel": 1e-11
+    }
+  }
+}

@@ -350,11 +350,11 @@ impl<const MAX_CONFIG: usize, T: Numeric> InverseKinematics<MAX_CONFIG, T> {
                         step.get(vo + 3 + row).copied().unwrap_or(T::ZERO)
                     });
 
-                    // d_linear is a slide rate along the joint's own current axes (the same local
-                    // frame the Jacobian's translational columns are built in), so it must be
-                    // turned into world before it can be added to a world position.
-                    let new_position =
-                        current_free.pose().translation() + current_free.pose().rotation().act(d_linear);
+                    // d_linear is already a world-frame slide (matching MuJoCo's own free-joint
+                    // convention and the Jacobian's translational columns, which are the constant
+                    // world basis, not carried by the joint's own orientation), so it adds to a
+                    // world position directly.
+                    let new_position = current_free.pose().translation() + d_linear;
                     let new_orientation = ExponentialMap::attitude_step(
                         current_free.pose().rotation(),
                         d_angular,

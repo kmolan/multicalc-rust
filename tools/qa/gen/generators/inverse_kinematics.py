@@ -23,7 +23,7 @@ import mujoco
 import numpy as np
 
 import schema
-from generators.kinematics import _model_inputs
+from generators.kinematics import GO1, _model_inputs
 
 MENAGERIE = os.path.join(
     os.path.dirname(__file__), "..", "..", "..", "..", "third_party", "menagerie"
@@ -239,9 +239,9 @@ def _six_hinge_chain(out, meta):
         seed_offset=0.15,
         limits=None,
         pin_configuration=True,
-        equation="six hinges alternating about x and y on 0.25 links, plus a welded tool frame",
+        equation="6-hinge chain, alternating x/y axes, welded tool",
         operations=[
-            "six-hinge inverse kinematics: joint readings and the pose they reach",
+            "6-hinge IK: pose -> q, reached pose + config",
         ],
     )
 
@@ -293,9 +293,9 @@ def _six_hinge_chain_near_singular(out, meta):
         seed_offset=-0.05,  # lands the seed exactly on the stretched-out pose
         limits=None,
         pin_configuration=False,
-        equation="the same six-hinge chain seeded fully stretched, on a singular pose",
+        equation="6-hinge chain, singular seed (fully stretched)",
         operations=[
-            "near-singular inverse kinematics: the pose reached off a singular seed",
+            "near-singular IK: pose -> reached pose",
         ],
     )
 
@@ -322,11 +322,68 @@ def _franka_panda_redundant(out, meta):
         seed_offset=0.1,
         limits=[mink.ConfigurationLimit(model)],
         pin_configuration=False,
-        equation="Menagerie franka_emika_panda, 7 hinges against a 6-DoF task",
+        equation="Franka Panda: 7 hinges, 6-DoF task (1 DoF spare)",
         operations=[
-            "Franka Panda inverse kinematics: the pose reached with one degree of freedom spare",
+            "Franka Panda IK: pose -> reached pose",
         ],
         extra={"model_file": schema.string(FRANKA)},
+    )
+
+
+def _unitree_go1_floating_base_ik(out, meta):
+    """The committed Menagerie Go1: eighteen degrees of freedom (six floating, twelve hinge)
+    against a six-dimensional foot-placement task, so the base and the other three legs are free
+    to resolve the twelve spare degrees of freedom however either solver's damping prefers. Only
+    the pose reached is pinned, the same as the Franka's redundant case.
+
+    Bespoke rather than routed through `_write` above, for the same reason as the kinematics
+    fixture: `_write` reconstructs the model from `_model_inputs`'s one-scalar-per-slot fixture
+    fields, which a floating base does not fit. `_solve`/`_pose_matrix`/`_quaternion` need no such
+    reconstruction — they already work directly off raw `qpos` and the MuJoCo model object — so
+    this fixture uses them as they stand.
+    """
+    model = mujoco.MjModel.from_xml_path(os.path.join(MENAGERIE, GO1))
+    solution = model.key_qpos[0].copy()
+    task_body = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "FR_calf")
+
+    data = mujoco.MjData(model)
+    data.qpos[:] = solution
+    mujoco.mj_kinematics(model, data)
+    target = _pose_matrix(model, data, task_body)
+
+    # Seeded away from the solution in every joint group: the trunk offset and tipped, every
+    # hinge angle nudged — the same shape as the Franka redundant case's seed_offset, just spread
+    # across a wider configuration.
+    seed = solution.copy()
+    seed[0:3] += np.array([-0.1, 0.05, 0.05])
+    tilt = np.zeros(4)
+    mujoco.mju_axisAngle2Quat(tilt, np.array([0.0, 0.0, 1.0]), 0.2)
+    mujoco.mju_mulQuat(seed[3:7], tilt, solution[3:7])
+    seed[7:] += 0.1
+
+    reached_q, reached, converged = _solve(
+        model, task_body, target, seed, limits=[mink.ConfigurationLimit(model)]
+    )
+    assert converged, "unitree_go1_floating_base_ik: mink did not converge"
+
+    inputs = {
+        "model_file": schema.string(GO1),
+        "seed": schema.vector(seed),
+        "target_position": schema.vector(target[:3, 3]),
+        "target_quaternion": schema.vector(_quaternion(target[:3, :3])),
+    }
+    expected = {
+        "reached_position": schema.vector(reached.translation()),
+        "reached_quaternion": schema.vector(reached.rotation().wxyz),
+        "converged": schema.integer(1),
+    }
+    schema.write_fixture(
+        out, "inverse_kinematics", "unitree_go1_floating_base_ik",
+        meta, _tol(), inputs, expected,
+        equation="Go1: floating base + 12 hinges, 6-DoF foot task (12 DoF spare)",
+        operations=[
+            "floating-base IK: pose -> reached pose",
+        ],
     )
 
 
@@ -341,3 +398,4 @@ def run(out, seed):
     _six_hinge_chain(out, meta)
     _six_hinge_chain_near_singular(out, meta)
     _franka_panda_redundant(out, meta)
+    _unitree_go1_floating_base_ik(out, meta)

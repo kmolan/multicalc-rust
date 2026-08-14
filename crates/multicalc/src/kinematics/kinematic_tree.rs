@@ -526,14 +526,19 @@ impl<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>
                         let basis = Vector::<3, T>::from_fn(|row| {
                             if row == local_axis { T::ONE } else { T::ZERO }
                         });
-                        let direction_in_world = pose.rotation().act(basis);
-                        // Sliding along this axis carries every point in the subtree, tool
-                        // included, by the same amount — no turning.
+                        // Sliding along a world axis carries every point in the subtree, tool
+                        // included, by the same amount, in that fixed world direction — no
+                        // turning. Unlike every other joint's own axis, this one is not carried
+                        // by the joint's own orientation: a floating joint's slide reading is a
+                        // world position directly (MuJoCo's own free-joint convention), so world
+                        // axis 0 always means world axis 0, whichever way the body is turned.
                         if let Some(slot) = columns.get_mut(local_axis) {
-                            *slot = Some((direction_in_world, Vector::zeros()));
+                            *slot = Some((basis, Vector::zeros()));
                         }
                         // Turning about this axis sweeps the tool around the joint's own origin,
-                        // the same formula a revolute joint's single axis already uses.
+                        // the same formula a revolute joint's single axis already uses. The turn
+                        // reading, unlike the slide, is carried by the joint's own orientation.
+                        let direction_in_world = pose.rotation().act(basis);
                         if let Some(slot) = columns.get_mut(3 + local_axis) {
                             *slot = Some((
                                 direction_in_world.cross(tool_origin - joint_origin),

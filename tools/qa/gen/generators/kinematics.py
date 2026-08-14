@@ -20,6 +20,7 @@ MENAGERIE = os.path.join(
     os.path.dirname(__file__), "..", "..", "..", "..", "third_party", "menagerie"
 )
 FRANKA = "franka_emika_panda/panda.xml"
+GO1 = "unitree_go1/go1.xml"
 
 # One letter per joint, in the order the fixture lists them.
 KIND_LETTER = {mujoco.mjtJoint.mjJNT_HINGE: "R", mujoco.mjtJoint.mjJNT_SLIDE: "P"}
@@ -188,10 +189,10 @@ def _planar_two_link_revolute(out, meta):
     )
     _write(
         out, "planar_two_link_revolute", meta, model, configurations,
-        equation="two hinges about z, unit links, plus a fixed tool frame",
+        equation="2 z-hinges, unit links, fixed tool",
         operations=[
-            "planar two-link forward kinematics: world position and orientation per link",
-            "planar two-link Jacobian: how each joint's rate moves each link",
+            "planar 2-link FK: q -> pose per link",
+            "planar 2-link Jacobian: v -> twist per link",
         ],
     )
 
@@ -223,13 +224,10 @@ def _mixed_revolute_prismatic_fixed(out, meta, rng):
     configurations = _random_configurations(model, joint_of_body, rng, 4)
     _write(
         out, "mixed_revolute_prismatic_fixed", meta, model, configurations,
-        equation=(
-            "hinge with a shifted zero, slide with a shifted zero, fixed link, hinge turning "
-            "about an off-origin point"
-        ),
+        equation="hinge+slide (shifted zeros), fixed link, off-origin hinge",
         operations=[
-            "mixed-joint forward kinematics: world position and orientation per link",
-            "mixed-joint Jacobian: how each joint's rate moves each link",
+            "mixed-joint FK: q -> pose per link",
+            "mixed-joint Jacobian: v -> twist per link",
         ],
     )
 
@@ -258,10 +256,10 @@ def _branching_three_joint(out, meta, rng):
     configurations = _random_configurations(model, joint_of_body, rng, 4)
     _write(
         out, "branching_three_joint", meta, model, configurations,
-        equation="one hinge carrying two sibling hinges",
+        equation="1 hinge + 2 sibling hinges",
         operations=[
-            "branching forward kinematics: world position and orientation per link",
-            "branching Jacobian: how each joint's rate moves each link",
+            "branching FK: q -> pose per link",
+            "branching Jacobian: v -> twist per link",
         ],
     )
 
@@ -273,20 +271,88 @@ def _franka_panda_seven_joint(out, meta, rng):
     configurations = _random_configurations(model, joint_of_body, rng, 8)
     _write(
         out, "franka_panda_seven_joint", meta, model, configurations,
-        equation="Menagerie franka_emika_panda, 7 hinges plus fixed links",
+        equation="Franka Panda: 7 hinges + fixed links",
         operations=[
-            "Franka Panda forward kinematics over 8 configurations: world position and "
-            "orientation per link",
-            "Franka Panda Jacobian over 8 configurations: how each joint's rate moves each link",
+            "Franka Panda FK, 8 configs: q -> pose per link",
+            "Franka Panda Jacobian, 8 configs: v -> twist per link",
         ],
         extra={"model_file": schema.string(FRANKA)},
+    )
+
+
+def _unitree_go1_floating_base(out, meta, rng):
+    """The committed Menagerie Go1: a floating base (the trunk, on a free joint) carrying twelve
+    hinge joints across four legs.
+
+    Bespoke rather than routed through `_model_inputs`/`_write` above: those assume exactly one
+    scalar reading per joint slot everywhere, which a free joint's seven-wide configuration and
+    six-wide velocity break. Configurations here are MuJoCo's own `qpos` layout directly (free
+    joint first, sized 7, then one scalar per hinge) rather than a per-slot reading, since that is
+    also exactly the layout `KinematicTree::config_offset` produces for a tree whose first joint is
+    floating — so the Rust side reads a fixture row straight into its own configuration vector with
+    no reindexing. The Rust side builds its tree by parsing the vendored file itself, not by
+    reconstructing it from fixture fields, so this fixture carries no per-joint axis/anchor data.
+    """
+    model = mujoco.MjModel.from_xml_path(os.path.join(MENAGERIE, GO1))
+    assert model.njnt == 13 and model.jnt_type[0] == mujoco.mjtJoint.mjJNT_FREE
+    assert model.nq == 19 and model.nv == 18
+
+    hinge_ranges = np.array(
+        [model.jnt_range[joint] for joint in range(1, model.njnt)], dtype=float
+    )
+
+    count = 4
+    translations = rng.uniform(-1.0, 1.0, size=(count, 3))
+    raw_quaternions = rng.normal(size=(count, 4))
+    quaternions = raw_quaternions / np.linalg.norm(raw_quaternions, axis=1, keepdims=True)
+    hinge_readings = rng.uniform(hinge_ranges[:, 0], hinge_ranges[:, 1], size=(count, 12))
+    configurations = np.vstack(
+        [
+            model.key_qpos[0],  # the file's own "home" pose, a sanity-checkable baseline
+            np.hstack([translations, quaternions, hinge_readings]),
+        ]
+    )
+
+    data = mujoco.MjData(model)
+    positions = []
+    quats = []
+    jacobians = []
+    for row in configurations:
+        data.qpos[:] = row
+        mujoco.mj_kinematics(model, data)
+        mujoco.mj_comPos(model, data)
+        for body in range(1, model.nbody):  # index 0 is always the world body
+            positions.append(np.array(data.xpos[body], dtype=float))
+            quats.append(np.array(data.xquat[body], dtype=float))
+            linear = np.zeros((3, model.nv))
+            angular = np.zeros((3, model.nv))
+            mujoco.mj_jac(model, data, linear, angular, data.xpos[body], body)
+            jacobians.extend(np.vstack((linear, angular)))
+
+    inputs = {
+        "model_file": schema.string(GO1),
+        "configurations": schema.matrix(configurations),  # K x 19: MuJoCo's own qpos layout
+    }
+    expected = {
+        "world_positions": schema.matrix(positions),  # (13*K) x 3
+        "world_quaternions": schema.matrix(quats),  # (13*K) x 4, scalar first
+        "world_jacobians": schema.matrix(jacobians),  # (13*K*6) x 18
+    }
+    schema.write_fixture(
+        out, "kinematics", "unitree_go1_floating_base",
+        meta, _tol(), inputs, expected,
+        equation="Go1: floating base (free joint) + 12 hinges",
+        operations=[
+            "floating-base FK: q -> pose per body",
+            "floating-base Jacobian: v -> twist per body",
+        ],
     )
 
 
 def run(out, seed):
     meta = schema.metadata(
         "kinematics", seed,
-        "three hand-written models plus one committed Menagerie model; joint readings drawn "
+        "three hand-written models plus two committed Menagerie models; joint readings drawn "
         "uniformly inside each joint's range; goldens are MuJoCo's own solve of the same model",
         libraries=("mujoco",),
         reference="MuJoCo {mujoco}",
@@ -297,3 +363,4 @@ def run(out, seed):
     _mixed_revolute_prismatic_fixed(out, meta, rng)
     _branching_three_joint(out, meta, rng)
     _franka_panda_seven_joint(out, meta, rng)
+    _unitree_go1_floating_base(out, meta, rng)

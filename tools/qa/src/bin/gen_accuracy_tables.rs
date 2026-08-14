@@ -186,7 +186,11 @@ const DOCS: &[Doc] = &[
         file: "mjcf.md",
         modules: &[Module {
             name: "mjcf",
-            cases: &["skydio_x2_free_joint", "franka_panda_tree"],
+            cases: &[
+                "skydio_x2_free_joint",
+                "franka_panda_tree",
+                "unitree_go1_floating_base_tree",
+            ],
         }],
     },
     Doc {
@@ -199,6 +203,7 @@ const DOCS: &[Doc] = &[
                     "mixed_revolute_prismatic_fixed",
                     "branching_three_joint",
                     "franka_panda_seven_joint",
+                    "unitree_go1_floating_base",
                 ],
             },
             Module {
@@ -207,6 +212,7 @@ const DOCS: &[Doc] = &[
                     "six_hinge_chain",
                     "six_hinge_chain_near_singular",
                     "franka_panda_redundant",
+                    "unitree_go1_floating_base_ik",
                 ],
             },
         ],
