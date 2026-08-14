@@ -9,7 +9,7 @@
 
 use std::path::Path;
 
-use multicalc_mjcf::RigidBodyModel;
+use multicalc_mjcf::RobotModel;
 
 /// Mass, in kilograms: four 0.25 kg rotors and a 0.325 kg hull.
 const MASS: f64 = 1.325;
@@ -30,7 +30,7 @@ const ROTATIONAL_INERTIA: [[f64; 3]; 3] = [
 const TOLERANCE: f64 = 1e-12;
 
 #[must_use]
-fn x2() -> RigidBodyModel {
+fn x2() -> RobotModel {
     let path =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../third_party/menagerie/skydio_x2/x2.xml");
     multicalc_mjcf::load_path(&path).unwrap()
@@ -47,21 +47,24 @@ fn assert_close(actual: f64, expected: f64, label: &str) {
 fn reads_the_body_and_its_free_joint() {
     let model = x2();
 
-    assert_eq!(model.name(), "x2");
-    assert!(model.has_free_joint());
+    assert_eq!(model.name(), "Skydio X2");
+    assert_eq!(model.body(0).unwrap().name(), "x2");
+    assert!(model.has_floating_base());
+    assert_eq!(model.body_count(), 1);
 }
 
 #[test]
 fn reads_where_the_body_sits() {
     let model = x2();
+    let body = model.body_named("x2").unwrap();
 
-    let translation = model.pose().translation().into_array();
+    let translation = body.pose().translation().into_array();
     for (index, expected) in [0.0, 0.0, 0.1].into_iter().enumerate() {
         assert_close(translation[index], expected, "translation");
     }
 
     // The file gives the body no turn, so its rotation is the one that does nothing.
-    let quaternion = model.pose().rotation().quaternion().as_array();
+    let quaternion = body.pose().rotation().quaternion().as_array();
     for (index, expected) in [1.0, 0.0, 0.0, 0.0].into_iter().enumerate() {
         assert_close(quaternion[index], expected, "quaternion");
     }
@@ -70,10 +73,11 @@ fn reads_where_the_body_sits() {
 #[test]
 fn works_the_mass_out_from_the_shapes() {
     let model = x2();
+    let inertia = model.body_named("x2").unwrap().inertia();
 
-    assert_close(model.inertia().mass(), MASS, "mass");
+    assert_close(inertia.mass(), MASS, "mass");
 
-    let center_of_mass = model.inertia().center_of_mass().into_array();
+    let center_of_mass = inertia.center_of_mass().into_array();
     for (index, expected) in CENTER_OF_MASS.into_iter().enumerate() {
         assert_close(center_of_mass[index], expected, "centre of mass");
     }
@@ -82,7 +86,11 @@ fn works_the_mass_out_from_the_shapes() {
 #[test]
 fn works_out_how_hard_the_body_is_to_spin() {
     let model = x2();
-    let inertia = model.inertia().rotational_inertia();
+    let inertia = model
+        .body_named("x2")
+        .unwrap()
+        .inertia()
+        .rotational_inertia();
 
     for row in 0..3 {
         for column in 0..3 {

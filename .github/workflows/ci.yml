@@ -63,6 +63,10 @@ jobs:
         run: |
           cargo run -p multicalc-qa --bin gen_smoke_fixtures
           git diff --exit-code tools/embedded-smoke/src/fixtures.rs
+      - name: Generated model source is up to date
+        run: |
+          cargo run -p multicalc-qa --bin gen_model_source
+          git diff --exit-code tools/embedded-smoke/src/franka_panda_model.rs
       - name: Accuracy tables are up to date
         run: |
           cargo run -p multicalc-qa --bin gen_accuracy_tables

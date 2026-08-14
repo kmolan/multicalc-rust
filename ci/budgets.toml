@@ -24,6 +24,12 @@
 # --no-default-features and does not build the Jacobian check, so its numbers are unchanged
 # (its .text drop is unrelated drift).
 #
+# Re-baselined when the smoke set gained the Franka forward-kinematics check and the model it is
+# built from. The .text growth is the checked-in nine-joint model; the stack figure is unchanged in
+# character, since one forward sweep over nine frames in single precision is smaller than the
+# inverse-kinematics check that already sets the peak. The thumbv6m canary builds
+# --no-default-features and does not compile the Franka check, so its numbers are unchanged.
+#
 # Run the gate for one (binary, target):
 #   cargo run -p <binary> --release --target <triple> | tee smoke-<binary>-<triple>.txt
 #   bash ci/check_budgets.sh <binary> <triple> smoke-<binary>-<triple>.txt
@@ -34,11 +40,11 @@
 tolerance_pct = 10
 
 [embedded-smoke.thumbv7em-none-eabi]
-text_bytes = 157432
+text_bytes = 166492
 stack_bytes_f64 = 3311
 
 [embedded-smoke.thumbv7em-none-eabihf]
-text_bytes = 172172
+text_bytes = 181860
 stack_bytes_f64 = 3631
 
 [embedded-smoke.thumbv6m-none-eabi]
@@ -46,5 +52,5 @@ text_bytes = 43536
 stack_bytes_f64 = 908
 
 [embedded-smoke.riscv32imc-unknown-none-elf]
-text_bytes = 185140
+text_bytes = 196400
 stack_bytes_f64 = 3291

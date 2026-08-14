@@ -13,6 +13,7 @@
 //! [`RobotModel::ignored`].
 
 mod body;
+mod codegen;
 mod compiler;
 mod defaults;
 mod document;
@@ -22,10 +23,11 @@ mod joint;
 
 use std::path::Path;
 
-use multicalc::kinematics::JointKind;
+use multicalc::kinematics::{Joint, JointKind, JointParent, KinematicTree};
 use multicalc::linear_algebra::Vector3D;
 use multicalc::spatial::{SE3, SpatialInertia};
 
+pub use codegen::{GeneratedScalar, RustSourceOptions};
 pub use error::MjcfError;
 
 /// A parsed MJCF model: its body tree and per-body mass properties.
@@ -114,6 +116,139 @@ impl RobotModel {
     #[must_use]
     pub fn ignored(&self) -> &[String] {
         &self.ignored
+    }
+
+    /// The whole model as a jointed tree, one slot per body.
+    ///
+    /// A body with no joint of its own takes a slot as a weld, so a slot index and a body index
+    /// are the same number. Every joint carries what the file said about it, the resistance and
+    /// friction figures included.
+    ///
+    /// Errors: [`FloatingBaseUnsupported`](MjcfError::FloatingBaseUnsupported) where the model
+    /// floats free of the world, [`TreeCapacityExceeded`](MjcfError::TreeCapacityExceeded) where
+    /// the model has more bodies than `MAX_JOINTS`, and [`Kinematics`](MjcfError::Kinematics)
+    /// where a joint's own numbers do not describe a usable joint.
+    pub fn kinematic_tree<const MAX_JOINTS: usize>(
+        &self,
+    ) -> Result<KinematicTree<MAX_JOINTS, f64>, MjcfError> {
+        let slots: Vec<usize> = (0..self.bodies.len()).collect();
+        self.build_tree(&slots)
+    }
+
+    /// The chain running from the world down to the body you name, and nothing else.
+    ///
+    /// Slot `k` is the `k`-th body along that chain, so a model with a gripper on the end can be
+    /// read as the arm alone.
+    ///
+    /// Errors: as [`kinematic_tree`](RobotModel::kinematic_tree), plus
+    /// [`UnknownBody`](MjcfError::UnknownBody) where the model has no body by that name.
+    pub fn kinematic_tree_to<const MAX_JOINTS: usize>(
+        &self,
+        tip: &str,
+    ) -> Result<KinematicTree<MAX_JOINTS, f64>, MjcfError> {
+        let slots = self.path_to(tip)?;
+        self.build_tree(&slots)
+    }
+
+    /// The bodies from the world down to the one you name, by index, the world end first.
+    ///
+    /// Errors: [`UnknownBody`](MjcfError::UnknownBody) where the model has no body by that name.
+    pub fn path_to(&self, tip: &str) -> Result<Vec<usize>, MjcfError> {
+        let mut index = self
+            .bodies
+            .iter()
+            .position(|body| body.name == tip)
+            .ok_or_else(|| MjcfError::UnknownBody {
+                name: tip.to_owned(),
+            })?;
+
+        let mut path = vec![index];
+        while let Some(parent) = self.bodies[index].parent {
+            path.push(parent);
+            index = parent;
+        }
+        path.reverse();
+        Ok(path)
+    }
+
+    /// Builds a tree over the given body indices, in slot order.
+    ///
+    /// A slot's parent is `World` where the body's own parent is absent from `slots`, and
+    /// otherwise the slot the parent body landed in — which is the body's own index for
+    /// [`kinematic_tree`](RobotModel::kinematic_tree) (every body is present, in order) and
+    /// `k - 1` for [`kinematic_tree_to`](RobotModel::kinematic_tree_to)'s slot `k` (`slots` is a
+    /// single root-to-tip chain, so a body's parent is always the previous entry).
+    fn build_tree<const MAX_JOINTS: usize>(
+        &self,
+        slots: &[usize],
+    ) -> Result<KinematicTree<MAX_JOINTS, f64>, MjcfError> {
+        if self.floating_base {
+            return Err(MjcfError::FloatingBaseUnsupported {
+                body: self.bodies[0].name.clone(),
+            });
+        }
+        if slots.len() > MAX_JOINTS {
+            return Err(MjcfError::TreeCapacityExceeded {
+                needed: slots.len(),
+                capacity: MAX_JOINTS,
+            });
+        }
+
+        let (joints, parents) = self.joints_and_parents(slots);
+        KinematicTree::try_from_joints(&joints, &parents).map_err(MjcfError::Kinematics)
+    }
+
+    /// The `Joint` and `JointParent` each slot needs, in slot order. A slot's parent is `World`
+    /// where the body's own parent is absent from `slots`, and otherwise the slot the parent body
+    /// landed in.
+    pub(crate) fn joints_and_parents(
+        &self,
+        slots: &[usize],
+    ) -> (Vec<Joint<f64>>, Vec<JointParent>) {
+        let mut joints = Vec::with_capacity(slots.len());
+        let mut parents = Vec::with_capacity(slots.len());
+        for &index in slots {
+            let body = &self.bodies[index];
+            joints.push(build_joint(body));
+            parents.push(match body.parent {
+                None => JointParent::World,
+                Some(parent_index) => {
+                    let position = slots
+                        .iter()
+                        .position(|&slot| slot == parent_index)
+                        .unwrap_or_else(|| {
+                            unreachable!("a body's parent always sits earlier in its own chain")
+                        });
+                    JointParent::Joint(position)
+                }
+            });
+        }
+        (joints, parents)
+    }
+}
+
+/// The `Joint` one body's record describes: its geometry, then the dynamics data carried
+/// alongside it.
+fn build_joint(body: &BodyRecord) -> Joint<f64> {
+    let Some(record) = &body.joint else {
+        return Joint::fixed(body.pose);
+    };
+
+    let joint = match record.kind {
+        JointKind::Revolute => Joint::revolute(record.axis, body.pose).with_anchor(record.anchor),
+        JointKind::Prismatic => Joint::prismatic(record.axis, body.pose),
+        JointKind::Fixed => {
+            unreachable!("a JointRecord's kind is only ever Revolute or Prismatic")
+        }
+    };
+    let joint = joint
+        .with_zero_offset(record.zero_offset)
+        .with_armature(record.armature)
+        .with_damping(record.damping)
+        .with_friction_loss(record.friction_loss);
+    match record.limits {
+        Some((lower, upper)) => joint.with_limits(lower, upper),
+        None => joint,
     }
 }
 

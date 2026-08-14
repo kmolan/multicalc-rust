@@ -186,7 +186,7 @@ const DOCS: &[Doc] = &[
         file: "mjcf.md",
         modules: &[Module {
             name: "mjcf",
-            cases: &["skydio_x2_free_joint"],
+            cases: &["skydio_x2_free_joint", "franka_panda_tree"],
         }],
     },
     Doc {

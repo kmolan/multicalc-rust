@@ -49,7 +49,7 @@ pub(crate) fn read(document: &Document) -> Result<ParsedModel, MjcfError> {
 
     let mut bodies = Vec::new();
     let mut floating_base = false;
-    for node in elements(worldbody, "body") {
+    for node in top_level_bodies(worldbody) {
         walk_body(
             node,
             None,
@@ -71,6 +71,23 @@ pub(crate) fn read(document: &Document) -> Result<ParsedModel, MjcfError> {
         floating_base,
         ignored: ignored_sections(root),
     })
+}
+
+/// The `<body>` children of `<worldbody>`, seeing through any nested `<worldbody>` an `<include>`
+/// spliced in — resolving one only ever puts back what its own `<mujoco>` wrapper held, which for
+/// a file it does not itself pull other bodies out of is a single `<worldbody>` around the same
+/// bodies it always had. A body's own `<body>` children are never wrapped like this, so recursion
+/// from there stays a plain child scan.
+fn top_level_bodies<'a, 'input>(worldbody: Node<'a, 'input>) -> Vec<Node<'a, 'input>> {
+    let mut found = Vec::new();
+    for child in worldbody.children().filter(Node::is_element) {
+        match child.tag_name().name() {
+            "body" => found.push(child),
+            "worldbody" => found.extend(top_level_bodies(child)),
+            _ => {}
+        }
+    }
+    found
 }
 
 /// Reads one body, pushes it, then recurses into its own `<body>` children.
@@ -118,9 +135,8 @@ fn walk_body(
     let inertia = match settings.inertia_from_geom {
         InertiaFromGeom::Always => synthesized_inertia(node, table, class_chain, &name)?,
         InertiaFromGeom::Never => {
-            let inertial = element(node, "inertial").ok_or_else(|| MjcfError::NoInertiaSource {
-                body: name.clone(),
-            })?;
+            let inertial = element(node, "inertial")
+                .ok_or_else(|| MjcfError::NoInertiaSource { body: name.clone() })?;
             reject_orientation_attributes(inertial, "inertial")?;
             stated_inertia(inertial)?
         }

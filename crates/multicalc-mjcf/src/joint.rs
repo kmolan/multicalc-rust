@@ -44,10 +44,7 @@ pub(crate) fn read_joint(
 
     let resolved = effective(node, table, class_chain)?;
 
-    let joint_type = resolved
-        .joint_type
-        .as_deref()
-        .unwrap_or(ASSUMED_JOINT_TYPE);
+    let joint_type = resolved.joint_type.as_deref().unwrap_or(ASSUMED_JOINT_TYPE);
     let kind = match joint_type {
         "hinge" => JointKind::Revolute,
         "slide" => JointKind::Prismatic,

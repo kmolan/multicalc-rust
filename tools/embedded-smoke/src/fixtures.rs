@@ -6,6 +6,7 @@
 // Coordinated-turn golden: estimation/extended_kalman_filter_coordinated_turn_fusion.
 // Polynomial-roots golden: polynomial/roots_quartic_four_real.
 // Trajectory golden: motion/minimum_snap_three_segments_3d.
+// Franka golden: kinematics/franka_panda_seven_joint.
 // Reduced (canary) builds use a subset, so some consts may be unused.
 // Left unformatted: this file's shape comes from the generator, and rustfmt would
 // collapse some literals so a regenerate-and-diff check could never come out clean.
@@ -590,3 +591,23 @@ pub const MINIMUM_SNAP_SAMPLED_STATES: [[f64; 3]; 27] = [
 /// Comparison tolerance for the trajectory check (from the fixture's f64 tolerance).
 pub const MINIMUM_SNAP_ABS: f64 = 1e-7;
 pub const MINIMUM_SNAP_REL: f64 = 1e-7;
+
+/// The Franka's nine slot readings at configuration 0, from kinematics/franka_panda_seven_joint (the base and hand welds read zero).
+pub const FRANKA_JOINT_READINGS: [f64; 9] = [
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x3fff3952c0ca0e86),
+    f64::from_bits(0x3ff46c3bdbc453fc),
+    f64::from_bits(0x3ff56500073a829e),
+    f64::from_bits(0xbfe68f6c9d8e1e58),
+    f64::from_bits(0x3ff520a8a9d96682),
+    f64::from_bits(0x400287af564be2b2),
+    f64::from_bits(0xc0001803ee8e239e),
+    f64::from_bits(0x0000000000000000),
+];
+
+/// Where MuJoCo puts the Franka's hand at that configuration.
+pub const FRANKA_HAND_POSITION: [f64; 3] = [
+    f64::from_bits(0xbfe37946357b231a),
+    f64::from_bits(0x3fe20b65f5420bfd),
+    f64::from_bits(0x3fdf760a906a77e1),
+];

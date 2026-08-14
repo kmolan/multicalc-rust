@@ -90,10 +90,7 @@ impl JointDefaults {
     #[must_use]
     pub(crate) fn overridden_by(&self, other: &JointDefaults) -> JointDefaults {
         JointDefaults {
-            joint_type: other
-                .joint_type
-                .clone()
-                .or_else(|| self.joint_type.clone()),
+            joint_type: other.joint_type.clone().or_else(|| self.joint_type.clone()),
             axis: other.axis.or(self.axis),
             pos: other.pos.or(self.pos),
             range: other.range.or(self.range),

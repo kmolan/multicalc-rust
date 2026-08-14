@@ -22,14 +22,15 @@ fn main() {
     let path =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../third_party/menagerie/skydio_x2/x2.xml");
     let model = multicalc_mjcf::load_path(&path).unwrap();
+    let body = model.body_named("x2").unwrap();
 
     println!("Model: {}", model.name());
     assert!(
-        model.has_free_joint(),
+        model.has_floating_base(),
         "the body should hang off the world by a free joint"
     );
     println!("  free joint             = yes");
-    let position = model.pose().translation();
+    let position = body.pose().translation();
     println!(
         "  sits at                  ({:.3}, {:.3}, {:.3}) m",
         position[0], position[1], position[2]
@@ -37,7 +38,7 @@ fn main() {
 
     // (2) The file states no mass of its own — every number below is worked out from the shapes
     // the body is built from: four rotor discs and a hull.
-    let inertia = model.inertia();
+    let inertia = body.inertia();
     println!("\nMass, worked out from the shapes");
     report("mass (kg)", inertia.mass(), 1.325);
 
@@ -64,7 +65,7 @@ fn main() {
     report("corner term (2, 0)", spin[(2, 0)], -0.0021);
 
     // (4) The free joint's own numbers: where the body is and how it is moving, written flat.
-    let state = FreeJointState::new(model.pose(), Twist::zeros());
+    let state = FreeJointState::new(body.pose(), Twist::zeros());
     let place = state.generalized_position();
     println!("\nFree joint state, as loose numbers");
     println!(
