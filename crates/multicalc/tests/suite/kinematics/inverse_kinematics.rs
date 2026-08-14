@@ -61,11 +61,16 @@ fn spatial_arm<T: Numeric>() -> KinematicTree<SPATIAL_JOINTS, SPATIAL_JOINTS, T>
 }
 
 /// The same arm with every revolute joint held to the same travel.
-fn limited_spatial_arm<T: Numeric>(lower: f64, upper: f64) -> KinematicTree<SPATIAL_JOINTS, SPATIAL_JOINTS, T> {
+fn limited_spatial_arm<T: Numeric>(
+    lower: f64,
+    upper: f64,
+) -> KinematicTree<SPATIAL_JOINTS, SPATIAL_JOINTS, T> {
     build_spatial_arm(Some((lower, upper)))
 }
 
-fn build_spatial_arm<T: Numeric>(limits: Option<(f64, f64)>) -> KinematicTree<SPATIAL_JOINTS, SPATIAL_JOINTS, T> {
+fn build_spatial_arm<T: Numeric>(
+    limits: Option<(f64, f64)>,
+) -> KinematicTree<SPATIAL_JOINTS, SPATIAL_JOINTS, T> {
     let link = translation::<T>(0.0, 0.0, 0.25);
     let mut tree = KinematicTree::new();
     for index in 0..6 {
@@ -95,7 +100,9 @@ const REDUNDANT_JOINTS: usize = 8;
 ///
 /// Seven joints against a six-dimensional task, so one degree of freedom is spare — which the
 /// six-joint arm above does not have, and without which a null-space projector is just zero.
-fn redundant_arm<T: Numeric>(limits: Option<(f64, f64)>) -> KinematicTree<REDUNDANT_JOINTS, REDUNDANT_JOINTS, T> {
+fn redundant_arm<T: Numeric>(
+    limits: Option<(f64, f64)>,
+) -> KinematicTree<REDUNDANT_JOINTS, REDUNDANT_JOINTS, T> {
     let link = translation::<T>(0.0, 0.0, 0.25);
     let mut tree = KinematicTree::new();
     for index in 0..7 {
@@ -629,7 +636,12 @@ fn floating_joint_ik_converges_and_keeps_a_unit_quaternion() {
     let seed = Vector::new([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]);
     let half_angle = FRAC_PI_4;
     let target = SE3::from_parts(
-        SO3::from_quaternion(Quaternion::new(half_angle.cos(), half_angle.sin(), 0.0, 0.0)),
+        SO3::from_quaternion(Quaternion::new(
+            half_angle.cos(),
+            half_angle.sin(),
+            0.0,
+            0.0,
+        )),
         Vector::new([0.3, -0.2, 0.5]),
     );
 

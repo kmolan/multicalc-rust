@@ -453,7 +453,10 @@ fn floating_joint_forward_kinematics_applies_position_and_rotation() {
 #[test]
 fn floating_joint_rejected_off_root_via_try_from_joints() {
     let tree = KinematicTree::<2, 8, f64>::try_from_joints(
-        &[Joint::fixed(SE3::identity()), Joint::floating(SE3::identity())],
+        &[
+            Joint::fixed(SE3::identity()),
+            Joint::floating(SE3::identity()),
+        ],
         &[JointParent::World, JointParent::Joint(0)],
     );
     assert_eq!(tree, Err(KinematicsError::FloatingJointNotAtRoot));
@@ -510,7 +513,10 @@ fn floating_joint_jacobian_columns_are_identity_at_rest() {
 fn floating_base_shifts_later_joint_offsets() {
     let link = translation(1.0, 0.0, 0.0);
     let tree = KinematicTree::<2, 8, f64>::try_from_joints(
-        &[Joint::floating(SE3::identity()), Joint::revolute(axis_z(), link)],
+        &[
+            Joint::floating(SE3::identity()),
+            Joint::revolute(axis_z(), link),
+        ],
         &[JointParent::World, JointParent::Joint(0)],
     )
     .unwrap();

@@ -221,7 +221,11 @@ impl<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>
             JointKind::Fixed | JointKind::Floating => joint,
         };
 
-        let added_config_width = if joint.kind() == JointKind::Floating { 7 } else { 1 };
+        let added_config_width = if joint.kind() == JointKind::Floating {
+            7
+        } else {
+            1
+        };
         if self.config_len() + added_config_width > MAX_CONFIG {
             return Err(KinematicsError::ConfigurationCapacityExceeded);
         }
@@ -325,7 +329,11 @@ impl<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>
             let offset = self
                 .config_offset(index)
                 .ok_or(KinematicsError::CapacityExceeded)?;
-            let width = if joint.kind() == JointKind::Floating { 7 } else { 1 };
+            let width = if joint.kind() == JointKind::Floating {
+                7
+            } else {
+                1
+            };
             for slot in 0..width {
                 let reading = configuration
                     .get(offset + slot)
@@ -356,14 +364,18 @@ impl<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>
                 // Rotation about an axis through the anchor:
                 // translate(anchor) · rotate · translate(-anchor), composed out.
                 JointKind::Revolute => {
-                    let reading = *configuration.get(offset).ok_or(KinematicsError::NonFinite)?;
+                    let reading = *configuration
+                        .get(offset)
+                        .ok_or(KinematicsError::NonFinite)?;
                     let displacement = reading - joint.zero_offset();
                     let rotation = SO3::exp(joint.axis().scale(displacement));
                     let anchor = joint.anchor();
                     SE3::from_parts(rotation, anchor - rotation.act(anchor))
                 }
                 JointKind::Prismatic => {
-                    let reading = *configuration.get(offset).ok_or(KinematicsError::NonFinite)?;
+                    let reading = *configuration
+                        .get(offset)
+                        .ok_or(KinematicsError::NonFinite)?;
                     let displacement = reading - joint.zero_offset();
                     SE3::from_parts(SO3::identity(), joint.axis().scale(displacement))
                 }
@@ -568,7 +580,11 @@ impl<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>
             }
         }
 
-        Ok(KinematicJacobian::from_entries(entries, self.velocity_len(), frame))
+        Ok(KinematicJacobian::from_entries(
+            entries,
+            self.velocity_len(),
+            frame,
+        ))
     }
 
     /// How each joint's rate moves the frame at `tool_index`, for configuration `joint_positions`.

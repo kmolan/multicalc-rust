@@ -371,7 +371,10 @@ fn check_go1_tree(fx: &Fixture) {
     let parents = fx.expected["parents"].as_vector();
     for (index, &expected_parent) in parents.iter().enumerate() {
         let got_parent = model.body(index).unwrap().parent().map_or(-1, |p| p as i64);
-        assert_eq!(got_parent, expected_parent as i64, "{case} body {index} parent");
+        assert_eq!(
+            got_parent, expected_parent as i64,
+            "{case} body {index} parent"
+        );
     }
 
     // The converted tree: `config_len`/`velocity_len` are what the fixture's Python side calls
@@ -488,11 +491,19 @@ fn check_go1_tree(fx: &Fixture) {
             "{ctx} friction_loss"
         );
         assert!(
-            close(joint.spring_reference(), field("spring_reference").as_scalar(), t),
+            close(
+                joint.spring_reference(),
+                field("spring_reference").as_scalar(),
+                t
+            ),
             "{ctx} spring_reference"
         );
         assert!(
-            close(joint.spring_stiffness(), field("spring_stiffness").as_scalar(), t),
+            close(
+                joint.spring_stiffness(),
+                field("spring_stiffness").as_scalar(),
+                t
+            ),
             "{ctx} spring_stiffness"
         );
 

@@ -12,19 +12,8 @@ use multicalc::kinematics::JointKind;
 use multicalc_mjcf::RobotModel;
 
 const BODY_NAMES: [&str; 13] = [
-    "trunk",
-    "FR_hip",
-    "FR_thigh",
-    "FR_calf",
-    "FL_hip",
-    "FL_thigh",
-    "FL_calf",
-    "RR_hip",
-    "RR_thigh",
-    "RR_calf",
-    "RL_hip",
-    "RL_thigh",
-    "RL_calf",
+    "trunk", "FR_hip", "FR_thigh", "FR_calf", "FL_hip", "FL_thigh", "FL_calf", "RR_hip",
+    "RR_thigh", "RR_calf", "RL_hip", "RL_thigh", "RL_calf",
 ];
 
 /// Every body's parent, by index — the trunk at the root and four independent three-body legs

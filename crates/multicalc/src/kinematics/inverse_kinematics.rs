@@ -568,7 +568,11 @@ fn limited_step<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>(
         let Some(vo) = tree.velocity_offset(index) else {
             continue;
         };
-        let width = if joint.kind() == JointKind::Floating { 6 } else { 1 };
+        let width = if joint.kind() == JointKind::Floating {
+            6
+        } else {
+            1
+        };
         for offset in 0..width {
             if let (Some(dst), Some(src)) = (masked.get_mut(vo + offset), step.get(vo + offset)) {
                 *dst = *src;

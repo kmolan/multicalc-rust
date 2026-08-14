@@ -86,8 +86,9 @@ fn tree_from_fixture(fx: &Fixture) -> (KinematicTree<MAX_JOINTS, MAX_JOINTS, f64
         });
     }
 
-    let tree = KinematicTree::<MAX_JOINTS, MAX_JOINTS, f64>::try_from_joints(&joints, &joint_parents)
-        .unwrap_or_else(|e| unreachable!("{case}: building the tree: {e}"));
+    let tree =
+        KinematicTree::<MAX_JOINTS, MAX_JOINTS, f64>::try_from_joints(&joints, &joint_parents)
+            .unwrap_or_else(|e| unreachable!("{case}: building the tree: {e}"));
     (tree, joint_count)
 }
 
