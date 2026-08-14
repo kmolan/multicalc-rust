@@ -19,7 +19,7 @@ pub enum JacobianFrame {
     Body,
 }
 
-/// Geometric Jacobian of a kinematic tree: a `6 × MAX_JOINTS` twist-per-unit-joint-rate map,
+/// Geometric Jacobian of a kinematic tree: a `6 × MAX_CONFIG` twist-per-unit-joint-rate map,
 /// `[v; ω]` row order.
 ///
 /// Columns for joints outside the end-effector's ancestor chain — sibling branches, later joints,
@@ -37,7 +37,7 @@ pub enum JacobianFrame {
 /// let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([1.0, 0.0, 0.0]));
 ///
 /// // Single revolute about z, end-effector 1 m out along x.
-/// let tree = KinematicTree::<2, f64>::try_from_joints(
+/// let tree = KinematicTree::<2, 2, f64>::try_from_joints(
 ///     &[Joint::revolute(z, SE3::identity()), Joint::fixed(link)],
 ///     &[JointParent::World, JointParent::Joint(0)],
 /// )
@@ -53,20 +53,20 @@ pub enum JacobianFrame {
 /// assert!((column.angular() - Vector::new([0.0, 0.0, 1.0])).norm() < 1e-12);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct KinematicJacobian<const MAX_JOINTS: usize, T: Numeric = f64> {
-    /// `6 × MAX_JOINTS` block: linear rows 0–2, angular rows 3–5.
-    entries: Matrix<6, MAX_JOINTS, T>,
+pub struct KinematicJacobian<const MAX_CONFIG: usize, T: Numeric = f64> {
+    /// `6 × MAX_CONFIG` block: linear rows 0–2, angular rows 3–5.
+    entries: Matrix<6, MAX_CONFIG, T>,
     /// Active column count.
     columns: usize,
     /// Frame the rows are expressed in.
     frame: JacobianFrame,
 }
 
-impl<const MAX_JOINTS: usize, T: Numeric> KinematicJacobian<MAX_JOINTS, T> {
+impl<const MAX_CONFIG: usize, T: Numeric> KinematicJacobian<MAX_CONFIG, T> {
     /// Crate-private constructor: only a tree emits a Jacobian.
     #[inline]
     pub(crate) fn from_entries(
-        entries: Matrix<6, MAX_JOINTS, T>,
+        entries: Matrix<6, MAX_CONFIG, T>,
         columns: usize,
         frame: JacobianFrame,
     ) -> Self {
@@ -77,9 +77,9 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicJacobian<MAX_JOINTS, T> {
         }
     }
 
-    /// The `6 × MAX_JOINTS` block, `[v; ω]` row order.
+    /// The `6 × MAX_CONFIG` block, `[v; ω]` row order.
     #[inline]
-    pub fn matrix(&self) -> Matrix<6, MAX_JOINTS, T> {
+    pub fn matrix(&self) -> Matrix<6, MAX_CONFIG, T> {
         self.entries
     }
 
@@ -128,7 +128,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicJacobian<MAX_JOINTS, T> {
     /// let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([1.0, 0.0, 0.0]));
     ///
     /// // Planar 2R arm, end-effector 1 m past the elbow, stretched along x.
-    /// let tree = KinematicTree::<3, f64>::try_from_joints(
+    /// let tree = KinematicTree::<3, 3, f64>::try_from_joints(
     ///     &[
     ///         Joint::revolute(z, SE3::identity()),
     ///         Joint::revolute(z, link),
@@ -153,7 +153,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicJacobian<MAX_JOINTS, T> {
     /// assert!((twist.angular() - Vector::new([0.0, 0.0, 2.0])).norm() < 1e-12);
     /// ```
     #[must_use]
-    pub fn tool_twist(&self, joint_velocities: &Vector<MAX_JOINTS, T>) -> Twist<T> {
+    pub fn tool_twist(&self, joint_velocities: &Vector<MAX_CONFIG, T>) -> Twist<T> {
         Twist::from_vector(self.entries * *joint_velocities)
     }
 
@@ -166,8 +166,8 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicJacobian<MAX_JOINTS, T> {
     /// in an active slot.
     pub(crate) fn weighted_transpose(
         &self,
-        joint_weights: &Vector<MAX_JOINTS, T>,
-    ) -> Result<Matrix<MAX_JOINTS, 6, T>, KinematicsError> {
+        joint_weights: &Vector<MAX_CONFIG, T>,
+    ) -> Result<Matrix<MAX_CONFIG, 6, T>, KinematicsError> {
         for index in 0..self.columns {
             let weight = joint_weights
                 .get(index)
@@ -204,7 +204,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicJacobian<MAX_JOINTS, T> {
     ///
     /// let z = Vector::new([0.0, 0.0, 1.0]);
     /// let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([1.0, 0.0, 0.0]));
-    /// let tree = KinematicTree::<2, f64>::try_from_joints(
+    /// let tree = KinematicTree::<2, 2, f64>::try_from_joints(
     ///     &[Joint::revolute(z, SE3::identity()), Joint::revolute(z, link)],
     ///     &[JointParent::World, JointParent::Joint(0)],
     /// )
@@ -217,7 +217,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicJacobian<MAX_JOINTS, T> {
     /// assert!(jacobian.smallest_singular_value().unwrap() < 1e-12);
     /// ```
     pub fn smallest_singular_value(&self) -> Result<T, KinematicsError> {
-        // σ(J·Jᵀ) = σ(J)², and the Gram matrix is a fixed 6×6 whatever MAX_JOINTS is — `svd`
+        // σ(J·Jᵀ) = σ(J)², and the Gram matrix is a fixed 6×6 whatever MAX_CONFIG is — `svd`
         // needs rows ≥ cols, which a wide J violates. Singular values come back descending.
         let singular_values = (self.entries * self.entries.transpose())
             .svd()?
@@ -241,7 +241,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicJacobian<MAX_JOINTS, T> {
     ///
     /// let z = Vector::new([0.0, 0.0, 1.0]);
     /// let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([1.0, 0.0, 0.0]));
-    /// let tree = KinematicTree::<2, f64>::try_from_joints(
+    /// let tree = KinematicTree::<2, 2, f64>::try_from_joints(
     ///     &[Joint::revolute(z, SE3::identity()), Joint::revolute(z, link)],
     ///     &[JointParent::World, JointParent::Joint(0)],
     /// )
@@ -260,9 +260,9 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicJacobian<MAX_JOINTS, T> {
     /// ```
     pub fn damped_pseudo_inverse(
         &self,
-        joint_weights: &Vector<MAX_JOINTS, T>,
+        joint_weights: &Vector<MAX_CONFIG, T>,
         damping: T,
-    ) -> Result<Matrix<MAX_JOINTS, 6, T>, KinematicsError> {
+    ) -> Result<Matrix<MAX_CONFIG, 6, T>, KinematicsError> {
         let weighted_transpose = self.weighted_transpose(joint_weights)?;
         let damped = self.entries * weighted_transpose
             + Matrix::<6, 6, T>::identity().scale(damping * damping);
@@ -286,7 +286,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicJacobian<MAX_JOINTS, T> {
     ///
     /// // Planar 4R chain: rank-3 Jacobian against 4 actuated DOF, so the null space is
     /// // one-dimensional. A 3R chain would project to zero and prove nothing.
-    /// let tree = KinematicTree::<4, f64>::try_from_joints(
+    /// let tree = KinematicTree::<4, 4, f64>::try_from_joints(
     ///     &[
     ///         Joint::revolute(z, SE3::identity()),
     ///         Joint::revolute(z, link),
@@ -315,11 +315,11 @@ impl<const MAX_JOINTS: usize, T: Numeric> KinematicJacobian<MAX_JOINTS, T> {
     /// ```
     pub fn null_space_projector(
         &self,
-        joint_weights: &Vector<MAX_JOINTS, T>,
+        joint_weights: &Vector<MAX_CONFIG, T>,
         damping: T,
-    ) -> Result<Matrix<MAX_JOINTS, MAX_JOINTS, T>, KinematicsError> {
+    ) -> Result<Matrix<MAX_CONFIG, MAX_CONFIG, T>, KinematicsError> {
         // Inactive slots are left unprojected. Harmless: J's columns there are zero.
         let inverse = self.damped_pseudo_inverse(joint_weights, damping)?;
-        Ok(Matrix::<MAX_JOINTS, MAX_JOINTS, T>::identity() - inverse * self.entries)
+        Ok(Matrix::<MAX_CONFIG, MAX_CONFIG, T>::identity() - inverse * self.entries)
     }
 }

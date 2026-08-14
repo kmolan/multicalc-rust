@@ -6,8 +6,9 @@ use crate::kinematics::joint::JointKind;
 use crate::kinematics::kinematic_jacobian::{JacobianFrame, KinematicJacobian};
 use crate::kinematics::kinematic_tree::KinematicTree;
 use crate::linear_algebra::{Matrix, Vector};
+use crate::ode::ExponentialMap;
 use crate::scalar::Numeric;
-use crate::spatial::SE3;
+use crate::spatial::{FreeJointState, SE3, Twist};
 
 /// Why the solver stopped.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,9 +29,9 @@ pub enum InverseKinematicsTermination {
 /// nearest pose achieved and arbitrate on the residual itself.
 #[derive(Debug, Clone, Copy)]
 #[must_use]
-pub struct InverseKinematicsReport<const MAX_JOINTS: usize, T: Numeric = f64> {
+pub struct InverseKinematicsReport<const MAX_CONFIG: usize, T: Numeric = f64> {
     /// Configuration the solver settled on.
-    pub joint_positions: Vector<MAX_JOINTS, T>,
+    pub joint_positions: Vector<MAX_CONFIG, T>,
     /// Translational residual, metres.
     pub position_error: T,
     /// Rotational residual, radians.
@@ -46,11 +47,11 @@ pub struct InverseKinematicsReport<const MAX_JOINTS: usize, T: Numeric = f64> {
 /// Applies only to the DOF the task leaves unconstrained, so it never perturbs the end-effector
 /// pose.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum SecondaryObjective<const MAX_JOINTS: usize, T: Numeric = f64> {
+pub enum SecondaryObjective<const MAX_CONFIG: usize, T: Numeric = f64> {
     /// Leave the redundancy unresolved.
     None,
     /// Bias toward a reference configuration.
-    PreferredPosture(Vector<MAX_JOINTS, T>),
+    PreferredPosture(Vector<MAX_CONFIG, T>),
     /// Bias toward the midpoint of each joint's range, maximizing limit margin.
     JointLimitMargin,
 }
@@ -72,7 +73,7 @@ pub enum SecondaryObjective<const MAX_JOINTS: usize, T: Numeric = f64> {
 ///     .with_secondary_objective(SecondaryObjective::JointLimitMargin);
 /// ```
 #[derive(Debug, Clone, Copy)]
-pub struct InverseKinematics<const MAX_JOINTS: usize, T: Numeric = f64> {
+pub struct InverseKinematics<const MAX_CONFIG: usize, T: Numeric = f64> {
     position_tolerance: T,
     orientation_tolerance: T,
     maximum_iterations: usize,
@@ -81,18 +82,18 @@ pub struct InverseKinematics<const MAX_JOINTS: usize, T: Numeric = f64> {
     maximum_step_norm: T,
     minimum_step_norm: T,
     respect_limits: bool,
-    joint_weights: Vector<MAX_JOINTS, T>,
-    secondary_objective: SecondaryObjective<MAX_JOINTS, T>,
+    joint_weights: Vector<MAX_CONFIG, T>,
+    secondary_objective: SecondaryObjective<MAX_CONFIG, T>,
     secondary_gain: T,
 }
 
-impl<const MAX_JOINTS: usize, T: Numeric> Default for InverseKinematics<MAX_JOINTS, T> {
+impl<const MAX_CONFIG: usize, T: Numeric> Default for InverseKinematics<MAX_CONFIG, T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<const MAX_JOINTS: usize, T: Numeric> InverseKinematics<MAX_JOINTS, T> {
+impl<const MAX_CONFIG: usize, T: Numeric> InverseKinematics<MAX_CONFIG, T> {
     /// Default gains: 1e-6 m and 1e-6 rad tolerances, 100-iteration budget, damping ramping in
     /// below σ_min = 1e-3 and reaching λ = 1e-2 at a full singularity, step norm capped at 0.2,
     /// joint limits enforced, unit joint weights, no secondary objective.
@@ -171,7 +172,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> InverseKinematics<MAX_JOINTS, T> {
 
     /// Sets the diagonal of `W`, one weight per joint.
     #[must_use]
-    pub fn with_joint_weights(mut self, joint_weights: Vector<MAX_JOINTS, T>) -> Self {
+    pub fn with_joint_weights(mut self, joint_weights: Vector<MAX_CONFIG, T>) -> Self {
         self.joint_weights = joint_weights;
         self
     }
@@ -180,7 +181,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> InverseKinematics<MAX_JOINTS, T> {
     #[must_use]
     pub fn with_secondary_objective(
         mut self,
-        secondary_objective: SecondaryObjective<MAX_JOINTS, T>,
+        secondary_objective: SecondaryObjective<MAX_CONFIG, T>,
     ) -> Self {
         self.secondary_objective = secondary_objective;
         self
@@ -214,7 +215,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> InverseKinematics<MAX_JOINTS, T> {
     /// let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([1.0, 0.0, 0.0]));
     ///
     /// // Planar 2R arm, end-effector frame 1 m past the elbow.
-    /// let tree = KinematicTree::<3, f64>::try_from_joints(
+    /// let tree = KinematicTree::<3, 3, f64>::try_from_joints(
     ///     &[
     ///         Joint::revolute(z, SE3::identity()),
     ///         Joint::revolute(z, link),
@@ -238,13 +239,13 @@ impl<const MAX_JOINTS: usize, T: Numeric> InverseKinematics<MAX_JOINTS, T> {
     /// assert_eq!(report.termination, InverseKinematicsTermination::Converged);
     /// assert!(report.position_error < 1e-6);
     /// ```
-    pub fn solve(
+    pub fn solve<const MAX_JOINTS: usize>(
         &self,
-        tree: &KinematicTree<MAX_JOINTS, T>,
+        tree: &KinematicTree<MAX_JOINTS, MAX_CONFIG, T>,
         tool_index: usize,
         target: SE3<T>,
-        seed: &Vector<MAX_JOINTS, T>,
-    ) -> Result<InverseKinematicsReport<MAX_JOINTS, T>, KinematicsError> {
+        seed: &Vector<MAX_CONFIG, T>,
+    ) -> Result<InverseKinematicsReport<MAX_CONFIG, T>, KinematicsError> {
         if tool_index >= tree.len() {
             return Err(KinematicsError::ToolIndexOutOfRange);
         }
@@ -259,7 +260,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> InverseKinematics<MAX_JOINTS, T> {
         {
             return Err(KinematicsError::NonFinite);
         }
-        for index in 0..tree.len() {
+        for index in 0..tree.velocity_len() {
             let weight = self
                 .joint_weights
                 .get(index)
@@ -269,8 +270,8 @@ impl<const MAX_JOINTS: usize, T: Numeric> InverseKinematics<MAX_JOINTS, T> {
             }
         }
 
-        let mut joint_positions = *seed;
-        self.hold_inside_limits(tree, &mut joint_positions);
+        let mut configuration = *seed;
+        self.hold_inside_limits(tree, &mut configuration);
 
         let mut position_error = T::ZERO;
         let mut orientation_error = T::ZERO;
@@ -278,7 +279,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> InverseKinematics<MAX_JOINTS, T> {
 
         for _ in 0..self.maximum_iterations {
             iterations += 1;
-            let state = tree.forward_kinematics(&joint_positions)?;
+            let state = tree.forward_kinematics(&configuration)?;
             let current = state
                 .pose(tool_index)
                 .ok_or(KinematicsError::ToolIndexOutOfRange)?;
@@ -292,7 +293,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> InverseKinematics<MAX_JOINTS, T> {
                 && orientation_error <= self.orientation_tolerance
             {
                 return Ok(InverseKinematicsReport {
-                    joint_positions,
+                    joint_positions: configuration,
                     position_error,
                     orientation_error,
                     iterations,
@@ -304,7 +305,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> InverseKinematics<MAX_JOINTS, T> {
             let bias = secondary_bias(
                 &self.secondary_objective,
                 tree,
-                &joint_positions,
+                &configuration,
                 self.secondary_gain,
             );
             let step = limited_step(
@@ -320,30 +321,72 @@ impl<const MAX_JOINTS: usize, T: Numeric> InverseKinematics<MAX_JOINTS, T> {
                 self.maximum_step_norm,
             );
 
-            let mut next = joint_positions;
+            let mut next = configuration;
             for index in 0..tree.len() {
-                if let (Some(slot), Some(change)) = (next.get_mut(index), step.get(index)) {
-                    *slot += *change;
+                let Some(joint) = tree.joint(index) else {
+                    continue;
+                };
+                let Some(co) = tree.config_offset(index) else {
+                    continue;
+                };
+                let Some(vo) = tree.velocity_offset(index) else {
+                    continue;
+                };
+
+                if joint.kind() == JointKind::Floating {
+                    let mut place = [T::ZERO; 7];
+                    for (slot, value) in place.iter_mut().enumerate() {
+                        *value = configuration.get(co + slot).copied().unwrap_or(T::ZERO);
+                    }
+                    let Some(current_free) =
+                        FreeJointState::from_generalized_vectors(place, [T::ZERO; 6])
+                    else {
+                        continue;
+                    };
+                    let d_linear = Vector::<3, T>::from_fn(|row| {
+                        step.get(vo + row).copied().unwrap_or(T::ZERO)
+                    });
+                    let d_angular = Vector::<3, T>::from_fn(|row| {
+                        step.get(vo + 3 + row).copied().unwrap_or(T::ZERO)
+                    });
+
+                    let new_position = current_free.pose().translation() + d_linear;
+                    let new_orientation = ExponentialMap::attitude_step(
+                        current_free.pose().rotation(),
+                        d_angular,
+                        T::ONE,
+                    );
+                    let new_free = FreeJointState::new(
+                        SE3::from_parts(new_orientation, new_position),
+                        Twist::zeros(),
+                    );
+                    for (slot, value) in new_free.generalized_position().iter().enumerate() {
+                        if let Some(dst) = next.get_mut(co + slot) {
+                            *dst = *value;
+                        }
+                    }
+                } else if let (Some(dst), Some(change)) = (next.get_mut(co), step.get(vo)) {
+                    *dst += *change;
                 }
             }
             self.hold_inside_limits(tree, &mut next);
 
             // Measured on the realized step, so motion clipped by a limit counts as no progress.
-            if (next - joint_positions).norm() <= self.minimum_step_norm {
+            if (next - configuration).norm() <= self.minimum_step_norm {
                 return Ok(InverseKinematicsReport {
-                    joint_positions,
+                    joint_positions: configuration,
                     position_error,
                     orientation_error,
                     iterations,
                     termination: InverseKinematicsTermination::Stalled,
                 });
             }
-            joint_positions = next;
+            configuration = next;
         }
 
         // Re-evaluate at the final configuration so the residuals match the returned q.
         if iterations > 0 {
-            let state = tree.forward_kinematics(&joint_positions)?;
+            let state = tree.forward_kinematics(&configuration)?;
             let current = state
                 .pose(tool_index)
                 .ok_or(KinematicsError::ToolIndexOutOfRange)?;
@@ -351,7 +394,7 @@ impl<const MAX_JOINTS: usize, T: Numeric> InverseKinematics<MAX_JOINTS, T> {
         }
 
         Ok(InverseKinematicsReport {
-            joint_positions,
+            joint_positions: configuration,
             position_error,
             orientation_error,
             iterations,
@@ -360,10 +403,10 @@ impl<const MAX_JOINTS: usize, T: Numeric> InverseKinematics<MAX_JOINTS, T> {
     }
 
     /// Clamps the configuration into the joint limits, when limit enforcement is on.
-    fn hold_inside_limits(
+    fn hold_inside_limits<const MAX_JOINTS: usize>(
         &self,
-        tree: &KinematicTree<MAX_JOINTS, T>,
-        joint_positions: &mut Vector<MAX_JOINTS, T>,
+        tree: &KinematicTree<MAX_JOINTS, MAX_CONFIG, T>,
+        configuration: &mut Vector<MAX_CONFIG, T>,
     ) {
         if !self.respect_limits {
             return;
@@ -372,10 +415,16 @@ impl<const MAX_JOINTS: usize, T: Numeric> InverseKinematics<MAX_JOINTS, T> {
             let Some(joint) = tree.joint(index) else {
                 continue;
             };
+            if joint.kind() == JointKind::Floating {
+                continue;
+            }
             let Some((lower, upper)) = joint.limits() else {
                 continue;
             };
-            if let Some(slot) = joint_positions.get_mut(index) {
+            let Some(co) = tree.config_offset(index) else {
+                continue;
+            };
+            if let Some(slot) = configuration.get_mut(co) {
                 *slot = slot.max(lower).min(upper);
             }
         }
@@ -396,18 +445,18 @@ fn split_error<T: Numeric>(task_error: Vector<6, T>) -> (T, T) {
 ///
 /// λ² ramps in as σ_min falls below the threshold, bounding the joint rates a near-degenerate
 /// task direction would otherwise demand.
-fn joint_step<const MAX_JOINTS: usize, T: Numeric>(
-    jacobian: &KinematicJacobian<MAX_JOINTS, T>,
+fn joint_step<const MAX_CONFIG: usize, T: Numeric>(
+    jacobian: &KinematicJacobian<MAX_CONFIG, T>,
     task_error: Vector<6, T>,
-    secondary_bias: Vector<MAX_JOINTS, T>,
-    joint_weights: &Vector<MAX_JOINTS, T>,
+    secondary_bias: Vector<MAX_CONFIG, T>,
+    joint_weights: &Vector<MAX_CONFIG, T>,
     singular_value_threshold: T,
     maximum_damping: T,
-) -> Result<Vector<MAX_JOINTS, T>, KinematicsError> {
+) -> Result<Vector<MAX_CONFIG, T>, KinematicsError> {
     let entries = jacobian.matrix();
     let weighted_transpose = jacobian.weighted_transpose(joint_weights)?;
 
-    // Going through the Gram matrix keeps the decomposition a fixed 6×6 whatever MAX_JOINTS is:
+    // Going through the Gram matrix keeps the decomposition a fixed 6×6 whatever MAX_CONFIG is:
     // `svd` needs rows ≥ cols, which any redundant arm's wide J violates. Also correct for an
     // under-actuated chain, and cheap enough for a servo rate.
     let base = entries * weighted_transpose;
@@ -432,7 +481,7 @@ fn joint_step<const MAX_JOINTS: usize, T: Numeric>(
     let damped_svd = damped.svd()?;
 
     // One decomposition serves both terms, and the null-space projector is applied rather than
-    // formed, so nothing MAX_JOINTS × MAX_JOINTS is ever allocated.
+    // formed, so nothing MAX_CONFIG × MAX_CONFIG is ever allocated.
     let task_step = weighted_transpose * damped_svd.solve(task_error);
     let projected = weighted_transpose * damped_svd.solve(entries * secondary_bias);
     let null_step = secondary_bias - projected;
@@ -440,16 +489,16 @@ fn joint_step<const MAX_JOINTS: usize, T: Numeric>(
     Ok(task_step + null_step)
 }
 
-/// The secondary objective's desired joint-space velocity, before null-space projection.
-///
-/// Zero at fixed joints and at slots past the tree's joint count.
-fn secondary_bias<const MAX_JOINTS: usize, T: Numeric>(
-    objective: &SecondaryObjective<MAX_JOINTS, T>,
-    tree: &KinematicTree<MAX_JOINTS, T>,
-    joint_positions: &Vector<MAX_JOINTS, T>,
+/// The secondary objective's desired joint-space velocity, before null-space projection. Zero at
+/// fixed and floating joints (a floating joint has no scalar limit or preferred-posture reading in
+/// the sense these two objectives mean) and at slots past the tree's joint count.
+fn secondary_bias<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>(
+    objective: &SecondaryObjective<MAX_CONFIG, T>,
+    tree: &KinematicTree<MAX_JOINTS, MAX_CONFIG, T>,
+    configuration: &Vector<MAX_CONFIG, T>,
     gain: T,
-) -> Vector<MAX_JOINTS, T> {
-    let mut bias = Vector::<MAX_JOINTS, T>::zeros();
+) -> Vector<MAX_CONFIG, T> {
+    let mut bias = Vector::<MAX_CONFIG, T>::zeros();
     if matches!(objective, SecondaryObjective::None) {
         return bias;
     }
@@ -458,21 +507,25 @@ fn secondary_bias<const MAX_JOINTS: usize, T: Numeric>(
         let Some(joint) = tree.joint(index) else {
             continue;
         };
-        if joint.kind() == JointKind::Fixed {
+        if joint.kind() == JointKind::Fixed || joint.kind() == JointKind::Floating {
             continue;
         }
-        let Some(reading) = joint_positions.get(index).copied() else {
+        let Some(co) = tree.config_offset(index) else {
+            continue;
+        };
+        let Some(vo) = tree.velocity_offset(index) else {
+            continue;
+        };
+        let Some(reading) = configuration.get(co).copied() else {
             continue;
         };
 
         let wanted = match objective {
             SecondaryObjective::None => continue,
-            SecondaryObjective::PreferredPosture(reference) => {
-                match reference.get(index).copied() {
-                    Some(preferred) => gain * (preferred - reading),
-                    None => continue,
-                }
-            }
+            SecondaryObjective::PreferredPosture(reference) => match reference.get(co).copied() {
+                Some(preferred) => gain * (preferred - reading),
+                None => continue,
+            },
             SecondaryObjective::JointLimitMargin => match joint.limits() {
                 Some((lower, upper)) if upper > lower => {
                     let midpoint = (lower + upper) * T::HALF;
@@ -484,7 +537,7 @@ fn secondary_bias<const MAX_JOINTS: usize, T: Numeric>(
             },
         };
 
-        if let Some(slot) = bias.get_mut(index) {
+        if let Some(slot) = bias.get_mut(vo) {
             *slot = wanted;
         }
     }
@@ -495,26 +548,33 @@ fn secondary_bias<const MAX_JOINTS: usize, T: Numeric>(
 ///
 /// The mask matters: a fixed joint's Jacobian column is zero, so the null-space term is otherwise
 /// free to put a nonzero value in a slot that commands nothing.
-fn limited_step<const MAX_JOINTS: usize, T: Numeric>(
-    mut step: Vector<MAX_JOINTS, T>,
-    tree: &KinematicTree<MAX_JOINTS, T>,
+fn limited_step<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>(
+    step: Vector<MAX_CONFIG, T>,
+    tree: &KinematicTree<MAX_JOINTS, MAX_CONFIG, T>,
     maximum_step_norm: T,
-) -> Vector<MAX_JOINTS, T> {
-    for index in 0..MAX_JOINTS {
-        let movable = match tree.joint(index) {
-            Some(joint) => joint.kind() != JointKind::Fixed,
-            None => false,
+) -> Vector<MAX_CONFIG, T> {
+    let mut masked = Vector::<MAX_CONFIG, T>::zeros();
+    for index in 0..tree.len() {
+        let Some(joint) = tree.joint(index) else {
+            continue;
         };
-        if !movable {
-            if let Some(slot) = step.get_mut(index) {
-                *slot = T::ZERO;
+        if joint.kind() == JointKind::Fixed {
+            continue;
+        }
+        let Some(vo) = tree.velocity_offset(index) else {
+            continue;
+        };
+        let width = if joint.kind() == JointKind::Floating { 6 } else { 1 };
+        for offset in 0..width {
+            if let (Some(dst), Some(src)) = (masked.get_mut(vo + offset), step.get(vo + offset)) {
+                *dst = *src;
             }
         }
     }
 
-    let norm = step.norm();
+    let norm = masked.norm();
     if norm > maximum_step_norm && norm > T::ZERO {
-        return step.scale(maximum_step_norm / norm);
+        return masked.scale(maximum_step_norm / norm);
     }
-    step
+    masked
 }
