@@ -41,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`ExponentialMap::integrate_attitude` now returns `Result<SO3<T>, IntegrateError>`** instead of
+  `SO3<T>`. This is a breaking change to the signature: callers must handle or unwrap the result.
+  @naseem173 (#307)
 - `RigidBodyModel` is now `RobotModel`, holding every body a file describes rather than one. A
   single free body is read as a model of one body: `model.body_named("x2")` in place of the
   accessors that used to sit on the model itself.
@@ -53,6 +56,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`ExponentialMap::integrate_attitude` input validation.** A non-finite timestep, a
+non-positive timestep, or a non-finite rate from the caller's `angular_rate_at` callback
+used to silently produce a NaN orientation or integrate backwards without comment.
+`integrate_attitude` now returns the new `IntegrateError::NonPositiveTimestep` or the
+existing `IntegrateError::NonFinite` instead. `attitude_step` and
+`attitude_step_with_angular_acceleration` stay infallible, as they sit on
+`RigidBody::stepped`'s panic-free per-tick path; their behavior with non-finite or
+non-positive input is now documented instead of silent. @naseem173 (#307)
 - Particle filters floor an underflowed zero weight at the scalar's smallest positive value before
   the next update, allowing that particle to recover when later measurements favor it.
 

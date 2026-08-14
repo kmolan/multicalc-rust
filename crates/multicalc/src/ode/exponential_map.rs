@@ -1,5 +1,6 @@
 //! Turning an orientation forward in time by the turn it makes over the step.
 
+use crate::error::IntegrateError;
 use crate::linear_algebra::Vector3D;
 use crate::scalar::Numeric;
 use crate::spatial::SO3;
@@ -21,6 +22,12 @@ impl ExponentialMap {
     /// step size. That is first order: coarser than [`Rk4`](crate::ode::Rk4), which shrinks with
     /// the fourth power. Use [`ExponentialMap::attitude_step_with_angular_acceleration`] when the
     /// rate is changing and the extra accuracy is wanted for the same one exponential.
+    ///
+    /// Behavior: this is infallible and does not validate its input. Non-finite input can produce
+    /// a non-finite orientation, while a finite but non-positive `dt` steps backward (or not at
+    /// all) without error. Callers that need a check can validate upstream or use
+    /// [`ExponentialMap::integrate_attitude`]; this stays a raw, panic-free primitive for hot
+    /// per-tick call sites.
     ///
     /// ```
     /// use multicalc::ode::ExponentialMap;
@@ -59,6 +66,9 @@ impl ExponentialMap {
     /// the error with the square of the step size instead of in proportion to it. The result is
     /// still a true rotation to within rounding.
     ///
+    /// Behavior: this is infallible and does not validate its input; see the "Behavior" note on
+    /// [`ExponentialMap::attitude_step`] for how non-finite or non-positive input is handled.
+    ///
     /// ```
     /// use multicalc::ode::ExponentialMap;
     /// use multicalc::spatial::SO3;
@@ -95,6 +105,12 @@ impl ExponentialMap {
     /// of the step size, without the caller having to work out how fast the turn rate is changing.
     /// The orientation stays a true rotation to within rounding the whole way through.
     ///
+    /// # Errors
+    ///
+    /// [`IntegrateError::NonPositiveTimestep`] if `dt` is not strictly positive, or
+    /// [`IntegrateError::NonFinite`] if `dt` or a rate returned by `angular_rate_at` is not
+    /// finite.
+    ///
     /// ```
     /// use multicalc::ode::ExponentialMap;
     /// use multicalc::spatial::SO3;
@@ -107,13 +123,12 @@ impl ExponentialMap {
     /// let mut nodes = 0;
     /// let facing = ExponentialMap::integrate_attitude(
     ///     &steady, 0.0, SO3::identity(), timestep, steps, |_time, _orientation| nodes += 1,
-    /// );
+    /// ).unwrap();
     /// assert_eq!(nodes, steps + 1);
     ///
     /// let swung: Vector3D<f64> = facing.act(Vector::new([1.0, 0.0, 0.0]));
     /// assert!((swung[1] - 1.0).abs() < 1e-12);
     /// ```
-    #[must_use]
     pub fn integrate_attitude<T, F, O>(
         angular_rate_at: &F,
         t0: T,
@@ -121,24 +136,36 @@ impl ExponentialMap {
         dt: T,
         steps: usize,
         mut observer: O,
-    ) -> SO3<T>
+    ) -> Result<SO3<T>, IntegrateError>
     where
         T: Numeric,
         F: Fn(T, SO3<T>) -> Vector3D<T>,
         O: FnMut(T, SO3<T>),
     {
+        if !dt.is_finite() {
+            return Err(IntegrateError::NonFinite);
+        }
+        if dt <= T::ZERO {
+            return Err(IntegrateError::NonPositiveTimestep);
+        }
         let half = dt * T::HALF;
         let mut time = t0;
         let mut orientation = start_orientation;
         observer(time, orientation);
         for _ in 0..steps {
             let rate_at_start = angular_rate_at(time, orientation);
+            if !rate_at_start.is_finite() {
+                return Err(IntegrateError::NonFinite);
+            }
             let half_way = Self::attitude_step(orientation, rate_at_start, half);
             let half_way_rate = angular_rate_at(time + half, half_way);
+            if !half_way_rate.is_finite() {
+                return Err(IntegrateError::NonFinite);
+            }
             orientation = Self::attitude_step(orientation, half_way_rate, dt);
             time += dt;
             observer(time, orientation);
         }
-        orientation
+        Ok(orientation)
     }
 }

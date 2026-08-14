@@ -82,7 +82,7 @@ let facing = ExponentialMap::integrate_attitude(
     timestep,
     steps,
     |_time, _orientation| {},
-);
+).unwrap();
 
 // The x axis has swung onto the y axis, and the orientation is still a true rotation.
 let swung: Vector3D<f64> = facing.act(Vector::new([1.0, 0.0, 0.0]));
@@ -91,8 +91,7 @@ assert!((facing.quaternion().norm() - 1.0).abs() < 1e-14);
 ```
 
 Errors: the adaptive solver returns [`IntegrateError`](error-handling.md): `StepSizeTooSmall`,
-`DidNotConverge { steps }`, or `NonFinite`. `ExponentialMap` has no error path at all — every one
-of its steps is a fixed handful of small products. Full demo (harmonic oscillator plus an acrobot,
+`DidNotConverge { steps }`, or `NonFinite`. `attitude_step` and `attitude_step_with_angular_acceleration` have no error path — each step is a fixed handful of small products. `integrate_attitude` returns [`IntegrateError`](error-handling.md) (`NonFinite` or `NonPositiveTimestep`) since it takes a timestep and drives many steps. Full demo (harmonic oscillator plus an acrobot,
 a tumbling quadrotor, and an N-body model):
 [ode.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/ode.rs).
 
