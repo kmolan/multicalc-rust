@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from one that loaded minus the half that mattered. Anything that could change a mass is still
   refused outright rather than recorded. @Thiago316316 (#305)
 
+### Changed
+
+- **PolylinePath.** Cache the cumulative arc length for each waypoint in `PolylinePath`. It 
+  enhances the performance of `lookahead_point`. @SummerGram (#224)
+
 ### Fixed
 
 - Particle filters floor an underflowed zero weight at the scalar's smallest positive value before
