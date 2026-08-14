@@ -79,6 +79,14 @@ model is `Copy` and needs no heap.
   model validated once, every query afterwards is total.
 - `KinematicTreeState`: the world pose of every joint frame for one configuration, returned by
   `forward_kinematics` and indexed by joint.
+- `KinematicJacobian`: how each joint's rate moves a chosen frame — six rows, three of
+  straight-line motion then three of turning, one column per joint. `geometric_jacobian_at` builds
+  one from a configuration; `geometric_jacobian` reuses poses you already solved for.
+- `InverseKinematics`: the other direction — the joint readings that put a chosen frame at a pose
+  you name. Steps toward the target, damping the step near a pose where the arm loses a direction
+  of motion, keeping every reading inside its travel.
+- `SecondaryObjective`: what an arm with joints to spare should do with the freedom the task
+  leaves it — hold a comfortable posture, or stay off its limits.
 
 Every joint takes a configuration slot, welds included, so joint index and configuration index agree.
 
@@ -124,6 +132,85 @@ of any frame's pose with respect to any joint reading, with nothing hand-derived
 
 Full demo:
 [forward_kinematics.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/forward_kinematics.rs).
+
+## Loading a model from a file
+
+Building a model joint by joint is fine for a two-link arm. For a real robot, read it out of the
+file the manufacturer's model ships as. `multicalc-mjcf` reads MuJoCo MJCF files — the format the
+MuJoCo Menagerie models use — into the same types.
+
+```rust,ignore
+use multicalc_mjcf::load_path;
+
+let model = load_path(std::path::Path::new("third_party/menagerie/franka_emika_panda/panda.xml"))?;
+
+// Eleven bodies: seven turning joints, two sliding fingers, and two welds.
+assert_eq!(model.body_count(), 11);
+
+// The arm alone: the chain running from the world down to the hand.
+let arm = model.kinematic_tree_to::<9>("hand")?;
+let state = arm.forward_kinematics(&Vector::zeros())?;
+```
+
+(`multicalc-mjcf` is not a dependency of `multicalc` itself — see its own
+[README](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc-mjcf/README.md) for a
+demo that actually compiles.)
+
+The travel limits, the reference reading, and the armature, damping and friction figures come across
+with the model, so a solver holds each joint inside the travel the file states and a later dynamics
+pass has the numbers it needs. What the reader passed over is listed in `model.ignored()`, and
+anything that could change a mass is refused rather than ignored — see the
+[crate README](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc-mjcf/README.md)
+for the part of the format it reads and which models load.
+
+## Working backwards from a pose
+
+```rust
+use multicalc::kinematics::{
+    InverseKinematics, InverseKinematicsTermination, Joint, JointParent, KinematicTree,
+};
+use multicalc::linear_algebra::Vector;
+use multicalc::spatial::{SE3, SO3};
+
+// The same planar two-link arm, with each hinge limited to a half turn either way.
+let about_z = Vector::new([0.0, 0.0, 1.0]);
+let along_x = SE3::from_parts(SO3::identity(), Vector::new([1.0, 0.0, 0.0]));
+let hinge = |origin| Joint::revolute(about_z, origin).with_limits(-3.14, 3.14);
+
+let tree = KinematicTree::<3, f64>::try_from_joints(
+    &[hinge(SE3::identity()), hinge(along_x), Joint::fixed(along_x)],
+    &[
+        JointParent::World,
+        JointParent::Joint(0),
+        JointParent::Joint(1),
+    ],
+)
+.unwrap();
+
+// Put the tool at (1, 1): reachable, with the elbow at a right angle.
+let target = SE3::from_parts(SO3::identity(), Vector::new([1.0, 1.0, 0.0]));
+let seed = Vector::new([0.3, 0.3, 0.0]);
+
+let solver = InverseKinematics::<3, f64>::new();
+let report = solver.solve(&tree, 2, target, &seed).unwrap();
+
+assert_eq!(report.termination, InverseKinematicsTermination::Converged);
+assert!(report.position_error < 1e-6);
+
+// The answer is not unique — which of the two elbow poses you land on depends on the guess you
+// started from. Check the pose it reached, not the readings it chose.
+let reached = tree.forward_kinematics(&report.joint_positions).unwrap();
+let tool = reached.pose(2).unwrap().translation();
+assert!((tool[0] - 1.0).abs() < 1e-6 && (tool[1] - 1.0).abs() < 1e-6);
+```
+
+An arm with more joints than the task needs can move without disturbing the frame it is holding.
+`with_secondary_objective` says what to do with that freedom — `PreferredPosture` drifts toward a
+set of readings you like, `JointLimitMargin` drifts toward the middle of each joint's travel — and
+the task is unaffected either way.
+
+Full demo:
+[3d_arm_ik.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/3d_arm_ik.rs).
 
 
 ---

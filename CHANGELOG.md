@@ -7,11 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Jointed robots from MuJoCo model files.** `multicalc-mjcf` reads the whole body tree a model
+  file describes — hinge and sliding joints with their axes, turning points and travel, the
+  settings a default block supplies to every body below it, files that pull in other files, and
+  mass properties stated either as three numbers or nine. `RobotModel::kinematic_tree` turns it
+  into a `KinematicTree`, and `kinematic_tree_to` gives the chain down to one body you name, so an
+  arm can be read without its gripper. Travel limits, the resting reading, armature, damping and
+  friction come across with the model.
+
+- **A model written out as Rust.** `RobotModel::to_rust_source` writes a model as source that
+  builds the same tree, so a program on a chip never reads a file.
+
+- **Capsule and cylinder geoms are measured rather than refused.** `multicalc-mjcf` works a body's
+  mass and inertia out of the two primitives Menagerie leans on hardest for link geometry, from
+  their closed forms — a cylinder as a disc across and a bar along, a capsule as that barrel plus
+  the two hemispheres capping it, carried out to where they sit. Every number is checked against
+  MuJoCo's own compile of the same geom. A size that is not a radius and a half-length is still
+  refused. @Thiago316316 (#313)
+
+- **A shape can state where its axis starts and stops.** `fromto` gives a capsule or a cylinder its
+  length, its place and its facing from the two ends of its axis, which is how link geometry is
+  usually written, and it comes down a `<default>` block like any other geom setting. Ends given
+  alongside a `pos`, ends in the same place, and ends on a form this loader has not checked against
+  the compiler are all refused by name. @Thiago316316 (#313)
+
+- **A record of what a model file was loaded without.** `RigidBodyModel::ignored` names the
+  top-level sections `multicalc-mjcf` read nothing out of — tendons, actuators, sensors, contact
+  pairs and the rest — sorted and without repeats, so a caller can tell a model that loaded whole
+  from one that loaded minus the half that mattered. Anything that could change a mass is still
+  refused outright rather than recorded. @Thiago316316 (#305)
+
 ### Changed
 
 - **`ExponentialMap::integrate_attitude` now returns `Result<SO3<T>, IntegrateError>`** instead of
   `SO3<T>`. This is a breaking change to the signature: callers must handle or unwrap the result.
   @naseem173 (#307)
+- `RigidBodyModel` is now `RobotModel`, holding every body a file describes rather than one. A
+  single free body is read as a model of one body: `model.body_named("x2")` in place of the
+  accessors that used to sit on the model itself.
+
+- The `3d_arm_ik` showcase now runs on a Franka Panda read from its MuJoCo model file, in place of
+  the earlier synthetic 8-link arm.
+
+- **PolylinePath.** Cache the cumulative arc length for each waypoint in `PolylinePath`. It 
+  enhances the performance of `lookahead_point`. @SummerGram (#224)
 
 ### Fixed
 

@@ -7,6 +7,7 @@ publish = false
 
 [dependencies]
 multicalc = { path = "../../crates/multicalc", features = ["alloc"] }
+multicalc-mjcf = { path = "../../crates/multicalc-mjcf" }
 multicalc-testkit = { path = "../testkit", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -14,7 +15,6 @@ serde_json = "1"
 [dev-dependencies]
 # default-features off skips the plotters/HTML report tree; we render our own markdown in /benchmarks/latency.md
 criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
-multicalc-mjcf = { path = "../../crates/multicalc-mjcf" }
 
 [[bench]]
 name = "latency"

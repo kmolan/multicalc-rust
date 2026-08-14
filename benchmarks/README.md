@@ -20,8 +20,8 @@ within, and which library it is checked against. The tables are generated from t
 | estimation | [`estimation.md`](estimation.md) | Linear and extended Kalman filter predict/update runs against FilterPy, including a coordinated-turn motion model. |
 | control | [`control.md`](control.md) | Riccati solver, and the Lyapunov certificate against scipy, plus the geometric attitude law's conventions. |
 | signal_processing | [`signal_processing.md`](signal_processing.md) | Biquad design, frequency response, and filtered output against `scipy.signal`, including a fourth-order cascade and a harmonic notch. |
-| mjcf | [`mjcf.md`](mjcf.md) | Reading a MuJoCo model file into a rigid body — mass, balance point, and resistance to spinning — against MuJoCo's own compile of it. |
-| kinematics | [`kinematics.md`](kinematics.md) | Working out where every part of a jointed robot ends up from its joint readings — turning, sliding, and fixed joints, shifted zeros, and a branch — against MuJoCo's own solve of the same model. |
+| mjcf | [`mjcf.md`](mjcf.md) | Reading a MuJoCo model file into multicalc's robot types — a free body's mass and spin, and a jointed robot's body tree, joint settings and per-link mass — against MuJoCo's own compile of it. |
+| kinematics | [`kinematics.md`](kinematics.md) | Working out where every part of a jointed robot ends up from its joint readings, and how each joint's rate moves each part, against MuJoCo's own solve of the same model — plus the reverse, the joint readings that put a chosen frame at a pose you name, against mink's differential IK. |
 | dynamics | [`dynamics.md`](dynamics.md) | One rigid body's straight-line and turning accelerations under gravity and an applied push and turn, against MuJoCo's own solve of the same body. |
 | polynomial | [`polynomial.md`](polynomial.md) | Evaluation, derivatives, areas, products, composition, interpolation, fitting, exact real roots, and polynomials in several variables, against numpy. |
 | motion | [`motion.md`](motion.md) | Minimum-snap trajectory coefficients and sampled states, against an independent constrained solve in numpy. |

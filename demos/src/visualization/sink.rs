@@ -185,6 +185,22 @@ pub trait VizSink {
     /// Logs a markdown text panel (the `hud/stats` headline).
     fn text(&mut self, path: &str, markdown: &str) -> Result<(), VizError>;
 
+    /// Logs a triangle mesh: vertex positions, one triangle per index triple into them, and a
+    /// normal and a color for each vertex.
+    ///
+    /// The default is a no-op, so backends that cannot draw a mesh keep working.
+    fn mesh3d(
+        &mut self,
+        path: &str,
+        vertices: &[[f64; 3]],
+        triangles: &[[u32; 3]],
+        normals: &[[f64; 3]],
+        colors: &[Rgba],
+    ) -> Result<(), VizError> {
+        let _ = (path, vertices, triangles, normals, colors);
+        Ok(())
+    }
+
     /// Logs a 3D model read from a file, such as an `.obj` or a `.glb`.
     ///
     /// The file is read and sent as it is; whatever reads it back is what understands the format.

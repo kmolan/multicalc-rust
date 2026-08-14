@@ -50,6 +50,19 @@ The output is deterministic. CI regenerates it and runs `git diff --exit-code` o
 a stale checked-in copy fails the build. Change a fixture and rerun the generator; never edit
 `fixtures.rs` by hand.
 
+The Franka forward-kinematics check needs a whole model, not a handful of numbers, so it gets its
+own generator: `tools/qa/src/bin/gen_model_source.rs` reads
+`third_party/menagerie/franka_emika_panda/panda.xml` through `multicalc-mjcf` and writes
+`tools/embedded-smoke/src/franka_panda_model.rs` as Rust source that builds the same tree, so the
+target never reads a model file. Regenerate with:
+
+```
+cargo run -p multicalc-qa --bin gen_model_source
+```
+
+Guarded the same way: CI regenerates it and runs `git diff --exit-code` on
+`franka_panda_model.rs`. Never edit that file by hand either.
+
 ## Test-set tiering
 
 The `embedded-smoke` `full-smoke` feature (on by default) selects the check set. Both `thumbv7em`

@@ -14,6 +14,6 @@ turn applied, and `g` gravity.
 <!-- BEGIN generated: accuracy -->
 | Operation | Equation | Tolerance | Tested Against |
 | --- | --- | --- | --- |
-| single rigid body accelerations, a spinning body with nothing applied | m·a = R·f + m·g ; I·α + ω×(I·ω) = τ − c×f | 1e-10 | MuJoCo 3.2.6 |
-| single rigid body accelerations, tilted and spinning, under a push and a turn | m·a = R·f + m·g ; I·α + ω×(I·ω) = τ − c×f | 1e-10 | MuJoCo 3.2.6 |
+| single rigid body accelerations, a spinning body with nothing applied | m·a = R·f + m·g ; I·α + ω×(I·ω) = τ − c×f | 1e-10 | MuJoCo 3.11.0 |
+| single rigid body accelerations, tilted and spinning, under a push and a turn | m·a = R·f + m·g ; I·α + ω×(I·ω) = τ − c×f | 1e-10 | MuJoCo 3.11.0 |
 <!-- END generated -->

@@ -5,7 +5,7 @@ Runnable demos for [`multicalc`](../crates/multicalc), in two flavors:
 - **Basics**: headless, terminating programs, one per module. Each prints its results against
   the known analytic value (with the `|err|`) and self-checks with an assert. No viewer, and no
   feature flags bar `localized_lap_check`. They depend only on `multicalc`, except
-  `model_ingestion`, which also reads a model file through `multicalc-mjcf`.
+  `model_ingestion`, which reads both a single body and a jointed robot through `multicalc-mjcf`.
 - **Showcases**: live [Rerun](https://rerun.io) demos that render an animated scene and stream
   live-measured speed and accuracy. They require the `rerun` feature (on by default) and a
   version-matched viewer.
@@ -43,7 +43,7 @@ cargo run -p multicalc-demos --example <name>
 | `linear_algebra` | `linear_algebra` | LU and Cholesky factorizations, linear solves, and the direct 4x4 inverse under a latency + approximation-error stress test on well- and ill-conditioned inputs. |
 | `localized_lap_check` | `estimation`, `control`, `kinematics` | The headless acceptance gate for the `2d_localization_obstacle_avoidance` showcase: drives 600,000 seeded ticks and asserts zero contacts, a fused position RMS under 5 cm, fusion beating dead reckoning threefold, and the per-tick cost. Needs `--features alloc`. |
 | `minimum_snap_trajectory` | `motion` | `MinimumSnapPlanner` planning a trajectory off the loop, then evaluating it inside one. |
-| `model_ingestion` | `spatial`, `multicalc-mjcf` | Loads a MuJoCo model file and reports the body's mass, balance point, and how hard it is to spin, along with the free joint's state layout. |
+| `model_ingestion` | `spatial`, `multicalc-mjcf` | Loads a MuJoCo model file and reports a free body's mass, balance point and resistance to spinning, then a jointed robot's body tree, joint travel and joint settings. |
 | `ode` | `ode` | Fixed-step RK4 and adaptive RK45 on the harmonic oscillator (known solution) plus an acrobot, a tumbling quadrotor, and an outer-solar-system N-body, reporting error and conserved-quantity drift. |
 | `optimization_solvers` | `optimization` | Gauss-Newton on a well-conditioned linear residual (`y = a + b·t`); when GN is enough vs LM (`curve_fit`). |
 | `polynomials` | `polynomial` | Evaluating a polynomial with its derivatives in one pass, finding its real roots, building one from data, and several variables with symbolic partials. |
@@ -84,12 +84,13 @@ The figures below are representative of a modern desktop core (`x86_64`, `--rele
 
   ![2d_localization_obstacle_avoidance_showcase](examples/resources/gifs/2d_localization_obstacle_avoidance_showcase.gif)
 
-- **`3d_arm_ik`** (spatial). An 8-link SE(3) arm chases a moving 3D target in position and
-  orientation. Every millisecond a full Levenberg-Marquardt solve runs whose Jacobian (exp, log,
-  and compose through the whole Lie chain) comes from a single autodiff pass, with no hand-derived
-  kinematics. **Median solve ≈ 30 µs, tracking the moving target pose to a sub-micron position.**
+- **`3d_arm_ik`** (spatial, kinematics). A Franka Panda, read from its MuJoCo model file,
+  chases a moving 3D target in position and orientation. Every millisecond a damped-least-squares
+  solve runs against the arm's analytic geometric Jacobian, holding every joint inside the travel
+  the model states and spending the freedom the task leaves over on a comfortable posture.
+  **The panel shows the live solve cost against the 1 ms budget.**
 
-    ![3d_arm_ik: a 3-link arm running a full LM IK solve every millisecond](examples/resources/gifs/3d_arm_ik_showcase.gif)
+    ![3d_arm_ik](examples/resources/gifs/3d_arm_ik_showcase.gif)
 
 - **`3d_drone_flight`** (dynamics + control + estimation). A Skydio X2, its mass read out of its own
   MuJoCo model file, is set down on a pad knowing roughly where it is and nothing about which way it
@@ -101,7 +102,7 @@ The figures below are representative of a modern desktop core (`x86_64`, `--rele
   gap between the two is the estimate's error at life size. **The whole stack runs in a median
   ≈ 2 µs of the 1 ms tick**.
 
-  ![3d_drone_showcase](demos/examples/resources/gifs/3d_drone_showcase.gif)
+  ![3d_drone_showcase](examples/resources/gifs/3d_drone_showcase.gif)
 
 - **`newton_fractal`** (root finding). Every pixel is a full Newton-system solve with an exact
   autodiff Jacobian, and the cubic's basins swirl as its roots orbit. **≈ 4 million Newton
