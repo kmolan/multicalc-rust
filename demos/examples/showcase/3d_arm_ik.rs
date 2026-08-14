@@ -64,10 +64,10 @@ fn keyframes() -> [Quaternion<f64>; 4] {
 }
 
 /// Loads the Franka Panda model: base-to-hand chain.
-fn arm() -> Result<KinematicTree<N_FRAMES, f64>, Box<dyn std::error::Error>> {
+fn arm() -> Result<KinematicTree<N_FRAMES, N_FRAMES, f64>, Box<dyn std::error::Error>> {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(MODEL_FILE);
     let model = multicalc_mjcf::load_path(&path)?;
-    Ok(model.kinematic_tree_to::<N_FRAMES>(TIP)?)
+    Ok(model.kinematic_tree_to::<N_FRAMES, N_FRAMES>(TIP)?)
 }
 
 /// Joint readings; zero at the welded base/hand slots.
@@ -84,7 +84,7 @@ fn readings(q: &[f64; N_JOINTS]) -> Vector<N_FRAMES, f64> {
 /// All 9 frame poses for one configuration.
 #[must_use]
 fn link_poses(
-    tree: &KinematicTree<N_FRAMES, f64>,
+    tree: &KinematicTree<N_FRAMES, N_FRAMES, f64>,
     q: &Vector<N_FRAMES, f64>,
 ) -> [SE3<f64>; N_FRAMES] {
     let state = tree
@@ -101,7 +101,7 @@ fn link_poses(
 ///
 /// Bounds are loose by design — catches a mis-parsed chain without duplicating the fixture test's
 /// exact values.
-fn verify_model(tree: &KinematicTree<N_FRAMES, f64>) {
+fn verify_model(tree: &KinematicTree<N_FRAMES, N_FRAMES, f64>) {
     assert_eq!(tree.len(), N_FRAMES);
     assert_eq!(
         tree.joint(0).unwrap_or_else(|| unreachable!()).kind(),
@@ -353,7 +353,7 @@ fn load_body_mesh(
 #[must_use]
 fn reachability_sweep(
     solver: &InverseKinematics<N_FRAMES, f64>,
-    tree: &KinematicTree<N_FRAMES, f64>,
+    tree: &KinematicTree<N_FRAMES, N_FRAMES, f64>,
     home_pose: SE3<f64>,
 ) -> f64 {
     let mut joint_readings = readings(&HOME_POSTURE);

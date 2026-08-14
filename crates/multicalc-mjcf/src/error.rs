@@ -94,11 +94,6 @@ pub enum MjcfError {
         /// The name asked for.
         name: String,
     },
-    /// The model floats free of the world, which a jointed tree cannot hold.
-    FloatingBaseUnsupported {
-        /// The root body's name.
-        body: String,
-    },
     /// The model has more bodies than the tree being built can hold.
     TreeCapacityExceeded {
         /// How many bodies the model has.
@@ -193,10 +188,6 @@ impl core::fmt::Display for MjcfError {
                 )
             }
             MjcfError::UnknownBody { name } => write!(f, "the model has no body called {name}"),
-            MjcfError::FloatingBaseUnsupported { body } => write!(
-                f,
-                "body {body} floats free of the world, which a jointed model cannot hold"
-            ),
             MjcfError::TreeCapacityExceeded { needed, capacity } => write!(
                 f,
                 "the model has {needed} bodies and the model being built holds {capacity}"

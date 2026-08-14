@@ -34,7 +34,7 @@ fn row3(data: &[f64], columns: usize, index: usize) -> Vector3D<f64> {
 }
 
 /// The model the fixture carries, built as a tree, with the joint count it was written for.
-fn tree_from_fixture(fx: &Fixture) -> (KinematicTree<MAX_JOINTS, f64>, usize) {
+fn tree_from_fixture(fx: &Fixture) -> (KinematicTree<MAX_JOINTS, MAX_JOINTS, f64>, usize) {
     let case = fx.case.as_str();
 
     let kinds: Vec<char> = fx.inputs["joint_kinds"].as_str().chars().collect();
@@ -86,7 +86,7 @@ fn tree_from_fixture(fx: &Fixture) -> (KinematicTree<MAX_JOINTS, f64>, usize) {
         });
     }
 
-    let tree = KinematicTree::<MAX_JOINTS, f64>::try_from_joints(&joints, &joint_parents)
+    let tree = KinematicTree::<MAX_JOINTS, MAX_JOINTS, f64>::try_from_joints(&joints, &joint_parents)
         .unwrap_or_else(|e| unreachable!("{case}: building the tree: {e}"));
     (tree, joint_count)
 }

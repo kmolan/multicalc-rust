@@ -22,7 +22,7 @@ fn report(label: &str, value: f64, exact: f64) {
 }
 
 /// Two revolute joints about z on unit links, plus a welded tool frame past the elbow.
-fn planar_arm(shoulder_offset: f64) -> KinematicTree<3, f64> {
+fn planar_arm(shoulder_offset: f64) -> KinematicTree<3, 3, f64> {
     let about_z = Vector::new([0.0, 0.0, 1.0]);
     let along_x = SE3::from_parts(SO3::identity(), Vector::new([1.0, 0.0, 0.0]));
     KinematicTree::try_from_joints(
@@ -70,7 +70,7 @@ fn main() {
 
     // (3) A branch: one revolute joint carrying two welded links, neither of which sees the other.
     let about_z = Vector::new([0.0, 0.0, 1.0]);
-    let branched = KinematicTree::<3, f64>::try_from_joints(
+    let branched = KinematicTree::<3, 3, f64>::try_from_joints(
         &[
             Joint::revolute(about_z, SE3::identity()),
             Joint::fixed(SE3::from_parts(
@@ -115,7 +115,7 @@ fn main() {
             Dual::constant(0.0),
         ]),
     );
-    let differentiable = KinematicTree::<3, Dual<f64>>::try_from_joints(
+    let differentiable = KinematicTree::<3, 3, Dual<f64>>::try_from_joints(
         &[
             Joint::revolute(about_z, SE3::identity()),
             Joint::revolute(about_z, along_x),

@@ -802,7 +802,7 @@ pub fn polynomial_evaluate_identity_f32() -> f64 {
 /// A two-joint planar arm of unit links, welded to a tool frame one link further out.
 /// Shared by the kinematics checks below. Full set only.
 #[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
-fn planar_arm() -> multicalc::kinematics::KinematicTree<3, f64> {
+fn planar_arm() -> multicalc::kinematics::KinematicTree<3, 3, f64> {
     use multicalc::kinematics::{Joint, JointParent, KinematicTree};
     use multicalc::spatial::{SE3, SO3};
 
@@ -818,7 +818,7 @@ fn planar_arm() -> multicalc::kinematics::KinematicTree<3, f64> {
         JointParent::Joint(0),
         JointParent::Joint(1),
     ];
-    KinematicTree::<3, f64>::try_from_joints(&joints, &parents)
+    KinematicTree::<3, 3, f64>::try_from_joints(&joints, &parents)
         .unwrap_or_else(|_| unreachable!("two-joint planar arm is a valid tree"))
 }
 

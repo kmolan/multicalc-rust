@@ -127,7 +127,7 @@ fn walk_body(
                 return Err(MjcfError::FreeJointNotAtRoot { body: name });
             }
             *floating_base = true;
-            None
+            Some(JointRecord::floating(name.clone()))
         }
         _ => read_joint(node, table, class_chain, settings, &name)?,
     };

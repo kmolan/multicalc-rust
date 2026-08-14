@@ -26,7 +26,7 @@ fn translation<T: Numeric>(x: T, y: T, z: T) -> SE3<T> {
 }
 
 /// Two revolute joints about z on unit links, plus a fixed tool one unit past the elbow.
-fn planar_arm<T: Numeric>() -> KinematicTree<3, T> {
+fn planar_arm<T: Numeric>() -> KinematicTree<3, 3, T> {
     let link = translation(T::ONE, T::ZERO, T::ZERO);
     KinematicTree::try_from_joints(
         &[
@@ -59,7 +59,7 @@ fn assert_vector_close(got: Vector3D<f64>, want: [f64; 3], what: &str) {
 #[test]
 fn rejects_more_joints_than_capacity() {
     let joint = Joint::revolute(axis_z::<f64>(), SE3::identity());
-    let built = KinematicTree::<2, f64>::try_from_joints(
+    let built = KinematicTree::<2, 2, f64>::try_from_joints(
         &[joint, joint, joint],
         &[
             JointParent::World,
@@ -73,7 +73,7 @@ fn rejects_more_joints_than_capacity() {
 #[test]
 fn rejects_mismatched_parent_count() {
     let joint = Joint::revolute(axis_z::<f64>(), SE3::identity());
-    let built = KinematicTree::<4, f64>::try_from_joints(&[joint, joint], &[JointParent::World]);
+    let built = KinematicTree::<4, 4, f64>::try_from_joints(&[joint, joint], &[JointParent::World]);
     assert_eq!(built, Err(KinematicsError::JointCountMismatch));
 }
 
@@ -82,14 +82,14 @@ fn rejects_a_parent_that_is_not_earlier() {
     let joint = Joint::revolute(axis_z::<f64>(), SE3::identity());
 
     // A joint attached to itself.
-    let attached_to_itself = KinematicTree::<4, f64>::try_from_joints(
+    let attached_to_itself = KinematicTree::<4, 4, f64>::try_from_joints(
         &[joint, joint],
         &[JointParent::Joint(0), JointParent::Joint(0)],
     );
     assert_eq!(attached_to_itself, Err(KinematicsError::ParentOutOfOrder));
 
     // A joint attached to one that comes after it.
-    let attached_to_a_later_joint = KinematicTree::<4, f64>::try_from_joints(
+    let attached_to_a_later_joint = KinematicTree::<4, 4, f64>::try_from_joints(
         &[joint, joint],
         &[JointParent::Joint(1), JointParent::World],
     );
@@ -101,7 +101,7 @@ fn rejects_a_parent_that_is_not_earlier() {
 
 #[test]
 fn rejects_a_zero_axis() {
-    let mut tree = KinematicTree::<4, f64>::new();
+    let mut tree = KinematicTree::<4, 4, f64>::new();
     assert_eq!(
         tree.push(
             Joint::revolute(Vector::zeros(), SE3::identity()),
@@ -120,7 +120,7 @@ fn rejects_a_zero_axis() {
 
 #[test]
 fn rejects_reversed_limits() {
-    let mut tree = KinematicTree::<4, f64>::new();
+    let mut tree = KinematicTree::<4, 4, f64>::new();
     let joint = Joint::revolute(axis_z::<f64>(), SE3::identity()).with_limits(1.0, -1.0);
     assert_eq!(
         tree.push(joint, JointParent::World),
@@ -130,7 +130,7 @@ fn rejects_reversed_limits() {
 
 #[test]
 fn rejects_non_finite_model_values() {
-    let mut tree = KinematicTree::<4, f64>::new();
+    let mut tree = KinematicTree::<4, 4, f64>::new();
 
     let bad_offset = Joint::revolute(axis_z::<f64>(), SE3::identity()).with_zero_offset(f64::NAN);
     assert_eq!(
@@ -147,7 +147,7 @@ fn rejects_non_finite_model_values() {
 
 #[test]
 fn normalizes_a_non_unit_axis() {
-    let mut tree = KinematicTree::<4, f64>::new();
+    let mut tree = KinematicTree::<4, 4, f64>::new();
     let joint = Joint::revolute(Vector::new([0.0, 0.0, 2.0]), SE3::identity());
     tree.push(joint, JointParent::World).unwrap();
 
@@ -162,7 +162,7 @@ fn normalizes_a_non_unit_axis() {
 
 #[test]
 fn revolute_joint_turns_about_its_axis() {
-    let mut tree = KinematicTree::<1, f64>::new();
+    let mut tree = KinematicTree::<1, 1, f64>::new();
     tree.push(
         Joint::revolute(axis_z::<f64>(), SE3::identity()),
         JointParent::World,
@@ -182,7 +182,7 @@ fn revolute_joint_turns_about_its_axis() {
 
 #[test]
 fn revolute_joint_turns_about_its_anchor() {
-    let mut tree = KinematicTree::<1, f64>::new();
+    let mut tree = KinematicTree::<1, 1, f64>::new();
     let joint =
         Joint::revolute(axis_z::<f64>(), SE3::identity()).with_anchor(Vector::new([1.0, 0.0, 0.0]));
     tree.push(joint, JointParent::World).unwrap();
@@ -196,7 +196,7 @@ fn revolute_joint_turns_about_its_anchor() {
 
 #[test]
 fn prismatic_joint_slides_along_its_axis() {
-    let mut tree = KinematicTree::<1, f64>::new();
+    let mut tree = KinematicTree::<1, 1, f64>::new();
     tree.push(
         Joint::prismatic(axis_x::<f64>(), SE3::identity()),
         JointParent::World,
@@ -216,7 +216,7 @@ fn prismatic_joint_slides_along_its_axis() {
 
 #[test]
 fn fixed_joint_ignores_its_reading() {
-    let mut tree = KinematicTree::<1, f64>::new();
+    let mut tree = KinematicTree::<1, 1, f64>::new();
     let origin = translation(0.3, -0.2, 0.1);
     tree.push(Joint::fixed(origin), JointParent::World).unwrap();
 
@@ -233,7 +233,7 @@ fn fixed_joint_ignores_its_reading() {
 
 #[test]
 fn zero_offset_shifts_where_zero_is() {
-    let mut tree = KinematicTree::<1, f64>::new();
+    let mut tree = KinematicTree::<1, 1, f64>::new();
     let joint = Joint::revolute(axis_z::<f64>(), SE3::identity()).with_zero_offset(FRAC_PI_4);
     tree.push(joint, JointParent::World).unwrap();
 
@@ -280,7 +280,7 @@ fn two_joint_planar_arm_matches_the_closed_form() {
 fn branching_tree_settles_both_arms() {
     let first_branch = translation(1.0, 0.0, 0.0);
     let second_branch = translation(0.0, 1.0, 0.0);
-    let tree = KinematicTree::<3, f64>::try_from_joints(
+    let tree = KinematicTree::<3, 3, f64>::try_from_joints(
         &[
             Joint::revolute(axis_z::<f64>(), SE3::identity()),
             Joint::fixed(first_branch),
@@ -315,7 +315,7 @@ fn branching_tree_settles_both_arms() {
 #[test]
 fn unused_slots_are_not_reported() {
     let link = translation(1.0, 0.0, 0.0);
-    let tree = KinematicTree::<8, f64>::try_from_joints(
+    let tree = KinematicTree::<8, 8, f64>::try_from_joints(
         &[
             Joint::revolute(axis_z::<f64>(), SE3::identity()),
             Joint::revolute(axis_z::<f64>(), link),
@@ -340,7 +340,7 @@ fn unused_slots_are_not_reported() {
 
 #[test]
 fn rejects_a_non_finite_reading() {
-    let mut movable = KinematicTree::<1, f64>::new();
+    let mut movable = KinematicTree::<1, 1, f64>::new();
     movable
         .push(
             Joint::revolute(axis_z::<f64>(), SE3::identity()),
@@ -353,7 +353,7 @@ fn rejects_a_non_finite_reading() {
     );
 
     // A weld never reads its slot, so the same reading is harmless.
-    let mut welded = KinematicTree::<1, f64>::new();
+    let mut welded = KinematicTree::<1, 1, f64>::new();
     welded
         .push(Joint::fixed(SE3::identity()), JointParent::World)
         .unwrap();

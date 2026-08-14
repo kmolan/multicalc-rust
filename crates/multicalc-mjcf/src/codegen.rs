@@ -11,6 +11,8 @@ use crate::{MjcfError, RobotModel};
 /// joint's own numbers are sound before anything is written; unrelated to the capacity the caller
 /// asks the *generated* tree to have.
 const VALIDATION_CAPACITY: usize = 128;
+/// Large enough for [`VALIDATION_CAPACITY`] joints plus one floating base.
+const VALIDATION_CONFIGURATION_CAPACITY: usize = VALIDATION_CAPACITY + 6;
 
 /// Which scalar the generated model is built in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,6 +45,7 @@ pub struct RustSourceOptions {
     function_name: String,
     scalar: GeneratedScalar,
     capacity: usize,
+    configuration_capacity: usize,
     tip: Option<String>,
     header: String,
     documentation: String,
@@ -56,6 +59,7 @@ impl RustSourceOptions {
             function_name: function_name.to_owned(),
             scalar: GeneratedScalar::F32,
             capacity: 0,
+            configuration_capacity: 0,
             tip: None,
             header: String::new(),
             documentation: String::new(),
@@ -72,6 +76,16 @@ impl RustSourceOptions {
     #[must_use]
     pub fn with_capacity(self, capacity: usize) -> Self {
         RustSourceOptions { capacity, ..self }
+    }
+
+    /// The generated tree's configuration-vector capacity. `0` (the default) means as many as the
+    /// model needs: `capacity` plus six if the model has a floating base, else `capacity`.
+    #[must_use]
+    pub fn with_configuration_capacity(self, configuration_capacity: usize) -> Self {
+        RustSourceOptions {
+            configuration_capacity,
+            ..self
+        }
     }
 
     /// Writes the chain down to `tip` rather than the whole model.
@@ -114,15 +128,6 @@ impl RobotModel {
             None => (0..self.bodies().len()).collect::<Vec<usize>>(),
         };
 
-        if self.has_floating_base() {
-            return Err(MjcfError::FloatingBaseUnsupported {
-                body: self
-                    .body(0)
-                    .unwrap_or_else(|| unreachable!("a model always has at least one body"))
-                    .name()
-                    .to_owned(),
-            });
-        }
         let capacity = if options.capacity == 0 {
             slots.len()
         } else {
@@ -134,10 +139,17 @@ impl RobotModel {
                 capacity,
             });
         }
+        let configuration_capacity = if options.configuration_capacity == 0 {
+            capacity + if self.has_floating_base() { 6 } else { 0 }
+        } else {
+            options.configuration_capacity
+        };
 
         let (joints, parents) = self.joints_and_parents(&slots);
-        KinematicTree::<VALIDATION_CAPACITY, f64>::try_from_joints(&joints, &parents)
-            .map_err(MjcfError::Kinematics)?;
+        KinematicTree::<VALIDATION_CAPACITY, VALIDATION_CONFIGURATION_CAPACITY, f64>::try_from_joints(
+            &joints, &parents,
+        )
+        .map_err(MjcfError::Kinematics)?;
 
         let names: Vec<&str> = slots
             .iter()
@@ -147,7 +159,14 @@ impl RobotModel {
                     .name()
             })
             .collect();
-        Ok(render(&joints, &parents, &names, capacity, options))
+        Ok(render(
+            &joints,
+            &parents,
+            &names,
+            capacity,
+            configuration_capacity,
+            options,
+        ))
     }
 }
 
@@ -156,6 +175,7 @@ fn render(
     parents: &[JointParent],
     names: &[&str],
     capacity: usize,
+    configuration_capacity: usize,
     options: &RustSourceOptions,
 ) -> String {
     let scalar = options.scalar;
@@ -181,12 +201,12 @@ fn render(
     }
     let _ = writeln!(
         out,
-        "pub fn {}() -> KinematicTree<{capacity}, {token}> {{",
+        "pub fn {}() -> KinematicTree<{capacity}, {configuration_capacity}, {token}> {{",
         options.function_name
     );
     let _ = writeln!(
         out,
-        "    let mut tree = KinematicTree::<{capacity}, {token}>::new();"
+        "    let mut tree = KinematicTree::<{capacity}, {configuration_capacity}, {token}>::new();"
     );
 
     for ((joint, parent), name) in joints.iter().zip(parents).zip(names) {
@@ -253,6 +273,12 @@ fn render_push(
         JointKind::Fixed => {
             let _ = writeln!(out, "    tree.push(");
             let _ = writeln!(out, "        Joint::fixed({pose_text}),");
+            let _ = writeln!(out, "        {parent_text},");
+            let _ = writeln!(out, "    )");
+        }
+        JointKind::Floating => {
+            let _ = writeln!(out, "    tree.push(");
+            let _ = writeln!(out, "        Joint::floating({pose_text}),");
             let _ = writeln!(out, "        {parent_text},");
             let _ = writeln!(out, "    )");
         }

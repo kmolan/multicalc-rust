@@ -296,7 +296,7 @@ fn check_body_tree(fx: &Fixture) {
     // kinematics never reads armature, damping, friction loss or the zero reference, so this is
     // the only place in the suite that would notice the conversion dropping them.
     let tree = model
-        .kinematic_tree::<16>()
+        .kinematic_tree::<16, 16>()
         .unwrap_or_else(|e| unreachable!("{case}: kinematic_tree: {e}"));
     for index in 0..model.body_count() {
         let joint = tree.joint(index).unwrap();

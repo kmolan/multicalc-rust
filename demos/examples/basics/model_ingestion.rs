@@ -163,7 +163,7 @@ fn main() {
     );
 
     // The arm alone: the chain running from the world down to the hand, leaving the gripper out.
-    let arm = arm_model.kinematic_tree_to::<9>("hand").unwrap();
+    let arm = arm_model.kinematic_tree_to::<9, 9>("hand").unwrap();
     assert_eq!(arm.len(), 9);
 
     let hand = arm
