@@ -210,6 +210,29 @@ impl VizSink for RerunSink {
         self.emit(path, &arch)
     }
 
+    fn mesh3d(
+        &mut self,
+        path: &str,
+        vertices: &[[f64; 3]],
+        triangles: &[[u32; 3]],
+        normals: &[[f64; 3]],
+        colors: &[Rgba],
+    ) -> Result<(), VizError> {
+        let v: Vec<[f32; 3]> = vertices
+            .iter()
+            .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .collect();
+        let n: Vec<[f32; 3]> = normals
+            .iter()
+            .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .collect();
+        let arch = rerun::Mesh3D::new(v)
+            .with_triangle_indices(triangles.iter().copied())
+            .with_vertex_normals(n)
+            .with_vertex_colors(colors_iter(colors));
+        self.emit(path, &arch)
+    }
+
     fn model3d(&mut self, path: &str, file_path: &std::path::Path) -> Result<(), VizError> {
         let asset = rerun::Asset3D::from_file_path(file_path)
             .map_err(|e| VizError::Backend(e.to_string()))?;

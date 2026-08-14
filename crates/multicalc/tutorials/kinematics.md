@@ -133,6 +133,36 @@ of any frame's pose with respect to any joint reading, with nothing hand-derived
 Full demo:
 [forward_kinematics.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/forward_kinematics.rs).
 
+## Loading a model from a file
+
+Building a model joint by joint is fine for a two-link arm. For a real robot, read it out of the
+file the manufacturer's model ships as. `multicalc-mjcf` reads MuJoCo MJCF files — the format the
+MuJoCo Menagerie models use — into the same types.
+
+```rust,ignore
+use multicalc_mjcf::load_path;
+
+let model = load_path(std::path::Path::new("third_party/menagerie/franka_emika_panda/panda.xml"))?;
+
+// Eleven bodies: seven turning joints, two sliding fingers, and two welds.
+assert_eq!(model.body_count(), 11);
+
+// The arm alone: the chain running from the world down to the hand.
+let arm = model.kinematic_tree_to::<9>("hand")?;
+let state = arm.forward_kinematics(&Vector::zeros())?;
+```
+
+(`multicalc-mjcf` is not a dependency of `multicalc` itself — see its own
+[README](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc-mjcf/README.md) for a
+demo that actually compiles.)
+
+The travel limits, the reference reading, and the armature, damping and friction figures come across
+with the model, so a solver holds each joint inside the travel the file states and a later dynamics
+pass has the numbers it needs. What the reader passed over is listed in `model.ignored()`, and
+anything that could change a mass is refused rather than ignored — see the
+[crate README](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc-mjcf/README.md)
+for the part of the format it reads and which models load.
+
 ## Working backwards from a pose
 
 ```rust

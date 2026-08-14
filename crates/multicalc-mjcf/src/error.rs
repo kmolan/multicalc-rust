@@ -1,4 +1,4 @@
-use multicalc::error::SpatialError;
+use multicalc::error::{KinematicsError, SpatialError};
 
 /// Everything that can stop a model from loading.
 #[derive(Debug, Clone, PartialEq)]
@@ -12,22 +12,38 @@ pub enum MjcfError {
     MissingWorldbody,
     /// The model had no bodies.
     NoBodies,
-    /// The model had more than one body, which this loader does not handle.
-    MultipleBodies {
-        /// How many bodies were found.
+    /// A body carried more than one `<joint>`/`<freejoint>`, which this loader does not compose
+    /// into a multi-DOF joint.
+    MultipleJoints {
+        /// The body's name.
+        body: String,
+        /// How many joints were found.
         count: usize,
     },
-    /// The body was not attached to the world by a free joint.
-    MissingFreeJoint {
+    /// A free joint sat on a body other than the root, which cannot be represented in a tree with
+    /// a single fixed or floating base.
+    FreeJointNotAtRoot {
         /// The body's name.
         body: String,
     },
-    /// The body carried a joint other than a free one.
+    /// The body carried a joint kind other than hinge or slide.
     UnsupportedJoint {
         /// The body's name.
         body: String,
         /// The joint type as written in the file.
         joint_type: String,
+    },
+    /// An element gave its orientation in a form other than `quat`.
+    UnsupportedOrientation {
+        /// The element carrying the attribute.
+        element: String,
+        /// The attribute name.
+        attribute: String,
+    },
+    /// A joint was marked limited, or defaults to limited, but states no `range`.
+    LimitsNeedRange {
+        /// The body's name.
+        body: String,
     },
     /// The body stated no mass properties and had no shapes to work them out from.
     NoInertiaSource {
@@ -73,15 +89,46 @@ pub enum MjcfError {
         /// The class name.
         name: String,
     },
-    /// The file pulls in another file, which this loader does not follow.
-    IncludeUnsupported,
+    /// The model has no body by the name asked for.
+    UnknownBody {
+        /// The name asked for.
+        name: String,
+    },
+    /// The model floats free of the world, which a jointed tree cannot hold.
+    FloatingBaseUnsupported {
+        /// The root body's name.
+        body: String,
+    },
+    /// The model has more bodies than the tree being built can hold.
+    TreeCapacityExceeded {
+        /// How many bodies the model has.
+        needed: usize,
+        /// How many the tree can hold.
+        capacity: usize,
+    },
+    /// The model pulls in another file, which can only be followed when the model is read from a
+    /// file rather than text already in memory.
+    IncludeNeedsFile,
+    /// `<include>` files pull in each other, or nest deeper than this loader follows.
+    IncludeTooDeep {
+        /// How deep the chain of includes had reached.
+        depth: usize,
+    },
     /// The mass properties read from the file did not describe a usable body.
     Inertia(SpatialError),
+    /// A joint's own numbers did not describe a usable joint once built into a tree.
+    Kinematics(KinematicsError),
 }
 
 impl From<SpatialError> for MjcfError {
     fn from(e: SpatialError) -> Self {
         MjcfError::Inertia(e)
+    }
+}
+
+impl From<KinematicsError> for MjcfError {
+    fn from(e: KinematicsError) -> Self {
+        MjcfError::Kinematics(e)
     }
 }
 
@@ -92,18 +139,24 @@ impl core::fmt::Display for MjcfError {
             MjcfError::Io(detail) => write!(f, "file could not be read: {detail}"),
             MjcfError::MissingWorldbody => f.write_str("model has no worldbody"),
             MjcfError::NoBodies => f.write_str("model has no bodies"),
-            MjcfError::MultipleBodies { count } => {
-                write!(f, "model has {count} bodies, expected exactly one")
+            MjcfError::MultipleJoints { body, count } => {
+                write!(f, "body {body} carries {count} joints, and one is the limit here")
             }
-            MjcfError::MissingFreeJoint { body } => {
-                write!(
-                    f,
-                    "body {body} is not attached to the world by a free joint"
-                )
-            }
+            MjcfError::FreeJointNotAtRoot { body } => write!(
+                f,
+                "body {body} hangs off the world by a free joint but is not at the top of the model"
+            ),
             MjcfError::UnsupportedJoint { body, joint_type } => write!(
                 f,
-                "body {body} has a {joint_type} joint, and only a free joint is handled"
+                "body {body} has a {joint_type} joint, and only hinge or slide joints are handled"
+            ),
+            MjcfError::UnsupportedOrientation { element, attribute } => write!(
+                f,
+                "the {attribute} attribute on {element} states a turn in a form this loader does not read; write it as a quaternion"
+            ),
+            MjcfError::LimitsNeedRange { body } => write!(
+                f,
+                "the joint on body {body} is limited but states no range"
             ),
             MjcfError::NoInertiaSource { body } => write!(
                 f,
@@ -139,10 +192,23 @@ impl core::fmt::Display for MjcfError {
                     "a shape names class {name}, which the file never defines"
                 )
             }
-            MjcfError::IncludeUnsupported => {
-                f.write_str("file pulls in another file, which this loader does not follow")
+            MjcfError::UnknownBody { name } => write!(f, "the model has no body called {name}"),
+            MjcfError::FloatingBaseUnsupported { body } => write!(
+                f,
+                "body {body} floats free of the world, which a jointed model cannot hold"
+            ),
+            MjcfError::TreeCapacityExceeded { needed, capacity } => write!(
+                f,
+                "the model has {needed} bodies and the model being built holds {capacity}"
+            ),
+            MjcfError::IncludeNeedsFile => f.write_str(
+                "the model pulls in another file, which can only be followed when the model is read from a file itself",
+            ),
+            MjcfError::IncludeTooDeep { depth } => {
+                write!(f, "files pull in other files more than {depth} deep, or pull in each other")
             }
             MjcfError::Inertia(e) => write!(f, "{e}"),
+            MjcfError::Kinematics(e) => write!(f, "{e}"),
         }
     }
 }
@@ -151,6 +217,7 @@ impl std::error::Error for MjcfError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             MjcfError::Inertia(e) => Some(e),
+            MjcfError::Kinematics(e) => Some(e),
             _ => None,
         }
     }

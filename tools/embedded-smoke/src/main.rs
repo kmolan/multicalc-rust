@@ -50,6 +50,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
 mod checks;
 mod fixtures;
+mod franka_panda_model;
 
 // Byte written across free stack so we can find how deep the stack went.
 const PAINT: u8 = 0xAA;
@@ -110,6 +111,7 @@ fn main() -> ! {
             checks::occupancy_ray_cast_identity(),
             checks::kinematic_tree_identity(),
             checks::geometric_jacobian_identity(),
+            checks::franka_forward_kinematics_f32(),
         )
     };
 
@@ -162,6 +164,7 @@ fn main() -> ! {
             occupancy_ray_cast,
             forward_kinematics,
             geometric_jacobian,
+            franka_hand_x,
         ) = full;
         let _ = hprintln!("SMOKE_VAL_quad={:e}", quad);
         let _ = hprintln!("SMOKE_VAL_jac00={:e}", jac00);
@@ -186,6 +189,7 @@ fn main() -> ! {
         let _ = hprintln!("SMOKE_VAL_occupancy_ray_cast={:e}", occupancy_ray_cast);
         let _ = hprintln!("SMOKE_VAL_forward_kinematics={:e}", forward_kinematics);
         let _ = hprintln!("SMOKE_VAL_geometric_jacobian={:e}", geometric_jacobian);
+        let _ = hprintln!("SMOKE_VAL_franka_hand_x={:e}", franka_hand_x);
     }
 
     debug::exit(debug::EXIT_SUCCESS);

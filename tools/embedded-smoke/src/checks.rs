@@ -894,3 +894,49 @@ pub fn geometric_jacobian_identity() -> f64 {
     assert_close!("jac_weld", black_box(weld.linear().norm()), 0.0, 1e-12, 0.0);
     black_box(shoulder.linear()[1])
 }
+
+/// Golden: the Franka arm built from its own model file, read on target in single precision,
+/// puts its hand where MuJoCo puts it. Also checks the joint data the file carried came across.
+/// Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn franka_forward_kinematics_f32() -> f64 {
+    let tree = crate::franka_panda_model::franka_panda_arm();
+
+    // The file states these in a default block every link inherits, so a reader that missed the
+    // block would leave them at zero and forward kinematics would not notice.
+    let shoulder = tree.joint(1).unwrap_or_else(|| unreachable!("nine slots"));
+    assert_close!(
+        "franka_armature",
+        f64::from(shoulder.armature()),
+        0.1,
+        1e-7,
+        0.0
+    );
+    assert_close!(
+        "franka_damping",
+        f64::from(shoulder.damping()),
+        1.0,
+        1e-7,
+        0.0
+    );
+
+    let readings = Vector::from_fn(|i| fixtures::FRANKA_JOINT_READINGS[i] as f32);
+    let state = tree
+        .forward_kinematics(&black_box(readings))
+        .unwrap_or_else(|_| unreachable!("finite readings"));
+    let hand = state
+        .pose(8)
+        .unwrap_or_else(|| unreachable!("nine slots were settled"))
+        .translation();
+
+    for axis in 0..3 {
+        assert_close!(
+            "franka_hand",
+            f64::from(black_box(hand[axis])),
+            fixtures::FRANKA_HAND_POSITION[axis],
+            2e-4,
+            0.0
+        );
+    }
+    f64::from(black_box(hand[0]))
+}
