@@ -75,6 +75,11 @@ pub enum MjcfError {
     },
     /// The file pulls in another file, which this loader does not follow.
     IncludeUnsupported,
+    /// `<include>` files pull in each other, or nest deeper than this loader follows.
+    IncludeTooDeep {
+        /// How deep the chain of includes had reached.
+        depth: usize,
+    },
     /// The mass properties read from the file did not describe a usable body.
     Inertia(SpatialError),
 }
@@ -141,6 +146,9 @@ impl core::fmt::Display for MjcfError {
             }
             MjcfError::IncludeUnsupported => {
                 f.write_str("file pulls in another file, which this loader does not follow")
+            }
+            MjcfError::IncludeTooDeep { depth } => {
+                write!(f, "files pull in other files more than {depth} deep, or pull in each other")
             }
             MjcfError::Inertia(e) => write!(f, "{e}"),
         }

@@ -1,81 +1,100 @@
-//! Loads MuJoCo MJCF model files into multicalc's rigid-body types.
+//! Loads MuJoCo MJCF model files into multicalc's robot types.
 //!
-//! This reads one rigid body attached to the world by a free joint: its name, where it sits, and
-//! how its mass is distributed. Where a model states its own mass properties they are used
-//! directly; where it leaves them to be worked out from the shapes it is built from, they are
-//! computed from those shapes.
+//! Parses the `<worldbody>` tree into a flat, depth-first list of bodies: name, parent index, pose,
+//! spatial inertia, and joint (if any). Inertia comes from `<inertial>` when stated, otherwise it is
+//! computed from the body's `<geom>` primitives.
 //!
-//! Anything outside that — chains of joints, meshes as a source of mass, files that pull in other
-//! files — is refused by name rather than quietly ignored, so a model can never load with the wrong
-//! mass. What a file carries beyond that and this loader has no use for — tendons, actuators,
-//! sensors and the like — is passed over, and named in [`RigidBodyModel::ignored`] so a caller can
-//! see what its model was loaded without.
+//! Converts on request to a [`KinematicTree`](multicalc::kinematics::KinematicTree), either the
+//! whole model or the chain from the root to a named tip body.
 //!
-//! ```no_run
-//! use std::path::Path;
-//!
-//! let model = multicalc_mjcf::load_path(Path::new("third_party/menagerie/skydio_x2/x2.xml"))?;
-//! assert!(model.has_free_joint());
-//! println!("{} weighs {} kg", model.name(), model.inertia().mass());
-//! # Ok::<(), multicalc_mjcf::MjcfError>(())
-//! ```
+//! Unsupported constructs — ball joints, mesh inertia, non-quaternion orientations — are rejected by
+//! name rather than silently dropped, so a model never loads with incorrect mass properties. Sections
+//! this loader does not consume (tendons, actuators, sensors, ...) are skipped and listed in
+//! [`RobotModel::ignored`].
 
 mod body;
+mod compiler;
 mod defaults;
+mod document;
 mod error;
 mod geometry;
 
 use std::path::Path;
 
+use multicalc::kinematics::JointKind;
+use multicalc::linear_algebra::Vector3D;
 use multicalc::spatial::{SE3, SpatialInertia};
 
 pub use error::MjcfError;
 
-/// One rigid body read from a model file.
+/// A parsed MJCF model: its body tree and per-body mass properties.
 #[derive(Debug, Clone, PartialEq)]
-pub struct RigidBodyModel {
+pub struct RobotModel {
     name: String,
-    pose: SE3<f64>,
-    has_free_joint: bool,
-    inertia: SpatialInertia<f64>,
+    bodies: Vec<BodyRecord>,
+    floating_base: bool,
     ignored: Vec<String>,
 }
 
-impl RigidBodyModel {
-    /// The body's name, or `body` where the file gives none.
+impl RobotModel {
+    /// Model name (`model` if unspecified).
     #[inline]
     #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    /// Where the body sits, and how it is turned, relative to the world.
+    /// All bodies, depth-first in document order.
     #[inline]
     #[must_use]
-    pub fn pose(&self) -> SE3<f64> {
-        self.pose
+    pub fn bodies(&self) -> &[BodyRecord] {
+        &self.bodies
     }
 
-    /// Whether the body hangs off the world by a free joint.
+    /// Body at `index`, or `None` if out of range.
     #[inline]
     #[must_use]
-    pub fn has_free_joint(&self) -> bool {
-        self.has_free_joint
+    pub fn body(&self, index: usize) -> Option<&BodyRecord> {
+        self.bodies.get(index)
     }
 
-    /// The body's mass, the point it balances about, and how it resists being spun.
+    /// First body named `name`.
     #[inline]
     #[must_use]
-    pub fn inertia(&self) -> SpatialInertia<f64> {
-        self.inertia
+    pub fn body_named(&self, name: &str) -> Option<&BodyRecord> {
+        self.bodies.iter().find(|record| record.name == name)
     }
 
-    /// The sections of the file this loader read nothing out of, named once each and in a settled
-    /// order. Empty where the whole file was read.
+    /// Body count.
+    #[inline]
+    #[must_use]
+    pub fn body_count(&self) -> usize {
+        self.bodies.len()
+    }
+
+    /// Number of bodies with a joint (degrees of freedom).
+    #[inline]
+    #[must_use]
+    pub fn movable_joint_count(&self) -> usize {
+        self.bodies
+            .iter()
+            .filter(|record| record.joint.is_some())
+            .count()
+    }
+
+    /// Whether the root body has a free joint (floating base) rather than being welded to the
+    /// world.
+    #[inline]
+    #[must_use]
+    pub fn has_floating_base(&self) -> bool {
+        self.floating_base
+    }
+
+    /// Top-level sections not consumed by this loader (sorted, deduplicated). Empty if every
+    /// section was read.
     ///
-    /// A model can only carry these where they change nothing this loader represents — anything
-    /// that would change the mass is refused outright — so this says what a model was loaded
-    /// without, not what went wrong.
+    /// Only sections that cannot affect mass properties can land here — anything that could is
+    /// rejected outright, not ignored.
     ///
     /// ```
     /// let xml = r#"<mujoco>
@@ -86,7 +105,7 @@ impl RigidBodyModel {
     ///              </mujoco>"#;
     ///
     /// let model = multicalc_mjcf::load_str(xml)?;
-    /// assert_eq!(model.inertia().mass(), 1.0);
+    /// assert_eq!(model.body(0).unwrap().inertia().mass(), 1.0);
     /// assert_eq!(model.ignored(), ["actuator".to_owned()]);
     /// # Ok::<(), multicalc_mjcf::MjcfError>(())
     /// ```
@@ -97,21 +116,167 @@ impl RigidBodyModel {
     }
 }
 
-/// Reads a model from a file.
-pub fn load_path(path: &Path) -> Result<RigidBodyModel, MjcfError> {
-    let xml = std::fs::read_to_string(path).map_err(|e| MjcfError::Io(e.to_string()))?;
+/// One body: pose, spatial inertia, and its joint (if any).
+#[derive(Debug, Clone, PartialEq)]
+pub struct BodyRecord {
+    name: String,
+    parent: Option<usize>,
+    pose: SE3<f64>,
+    inertia: SpatialInertia<f64>,
+    joint: Option<JointRecord>,
+}
+
+impl BodyRecord {
+    /// Body name (`body` if unspecified).
+    #[inline]
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Parent body index, or `None` at the root.
+    #[inline]
+    #[must_use]
+    pub fn parent(&self) -> Option<usize> {
+        self.parent
+    }
+
+    /// Pose relative to the parent body frame.
+    #[inline]
+    #[must_use]
+    pub fn pose(&self) -> SE3<f64> {
+        self.pose
+    }
+
+    /// Mass, center of mass, and rotational inertia.
+    #[inline]
+    #[must_use]
+    pub fn inertia(&self) -> SpatialInertia<f64> {
+        self.inertia
+    }
+
+    /// Joint connecting the body to its parent, or `None` if welded.
+    #[inline]
+    #[must_use]
+    pub fn joint(&self) -> Option<&JointRecord> {
+        self.joint.as_ref()
+    }
+}
+
+/// One joint: kinematic and dynamic parameters as read from the file.
+#[derive(Debug, Clone, PartialEq)]
+pub struct JointRecord {
+    name: String,
+    kind: JointKind,
+    axis: Vector3D<f64>,
+    anchor: Vector3D<f64>,
+    limits: Option<(f64, f64)>,
+    zero_offset: f64,
+    armature: f64,
+    damping: f64,
+    friction_loss: f64,
+    spring_reference: f64,
+    spring_stiffness: f64,
+}
+
+impl JointRecord {
+    /// Joint name (`joint` if unspecified).
+    #[inline]
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Revolute or prismatic.
+    #[inline]
+    #[must_use]
+    pub fn kind(&self) -> JointKind {
+        self.kind
+    }
+
+    /// Joint axis (unit vector).
+    #[inline]
+    pub fn axis(&self) -> Vector3D<f64> {
+        self.axis
+    }
+
+    /// Revolute joint's center of rotation; unused for prismatic joints.
+    #[inline]
+    pub fn anchor(&self) -> Vector3D<f64> {
+        self.anchor
+    }
+
+    /// Travel limits `(lower, upper)`, or `None` if unlimited.
+    #[inline]
+    #[must_use]
+    pub fn limits(&self) -> Option<(f64, f64)> {
+        self.limits
+    }
+
+    /// Reference position (MJCF `ref`); joint reading at zero configuration.
+    #[inline]
+    #[must_use]
+    pub fn zero_offset(&self) -> f64 {
+        self.zero_offset
+    }
+
+    /// Reflected rotor inertia added to the joint-space inertia (MJCF `armature`).
+    #[inline]
+    #[must_use]
+    pub fn armature(&self) -> f64 {
+        self.armature
+    }
+
+    /// Velocity-proportional damping coefficient.
+    #[inline]
+    #[must_use]
+    pub fn damping(&self) -> f64 {
+        self.damping
+    }
+
+    /// Coulomb friction (breakaway force/torque).
+    #[inline]
+    #[must_use]
+    pub fn friction_loss(&self) -> f64 {
+        self.friction_loss
+    }
+
+    /// Spring equilibrium position (MJCF `springref`).
+    #[inline]
+    #[must_use]
+    pub fn spring_reference(&self) -> f64 {
+        self.spring_reference
+    }
+
+    /// Spring stiffness coefficient.
+    #[inline]
+    #[must_use]
+    pub fn spring_stiffness(&self) -> f64 {
+        self.spring_stiffness
+    }
+}
+
+/// Loads a model from a file path, resolving any `<include>` elements it pulls in.
+pub fn load_path(path: &Path) -> Result<RobotModel, MjcfError> {
+    let xml = document::assemble(path)?;
     load_str(&xml)
 }
 
-/// Reads a model from XML text already in memory.
-pub fn load_str(xml: &str) -> Result<RigidBodyModel, MjcfError> {
+/// Parses a model from an in-memory XML string.
+pub fn load_str(xml: &str) -> Result<RobotModel, MjcfError> {
     let document = roxmltree::Document::parse(xml).map_err(|e| MjcfError::Xml(e.to_string()))?;
     let body = body::read(&document)?;
-    Ok(RigidBodyModel {
-        name: body.name,
+    let record = BodyRecord {
+        name: body.name.clone(),
+        parent: None,
         pose: body.pose,
-        has_free_joint: body.has_free_joint,
         inertia: body.inertia,
+        joint: None,
+    };
+    Ok(RobotModel {
+        name: body.name,
+        bodies: vec![record],
+        floating_base: body.has_free_joint,
         ignored: body.ignored,
     })
 }
