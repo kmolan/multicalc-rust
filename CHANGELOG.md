@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Jointed robots from MuJoCo model files.** `multicalc-mjcf` reads the whole body tree a model
+  file describes — hinge and sliding joints with their axes, turning points and travel, the
+  settings a default block supplies to every body below it, files that pull in other files, and
+  mass properties stated either as three numbers or nine. `RobotModel::kinematic_tree` turns it
+  into a `KinematicTree`, and `kinematic_tree_to` gives the chain down to one body you name, so an
+  arm can be read without its gripper. Travel limits, the resting reading, armature, damping and
+  friction come across with the model.
+
+- **A model written out as Rust.** `RobotModel::to_rust_source` writes a model as source that
+  builds the same tree, so a program on a chip never reads a file.
+
 - **Capsule and cylinder geoms are measured rather than refused.** `multicalc-mjcf` works a body's
   mass and inertia out of the two primitives Menagerie leans on hardest for link geometry, from
   their closed forms — a cylinder as a disc across and a bar along, a capsule as that barrel plus
@@ -29,6 +40,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refused outright rather than recorded. @Thiago316316 (#305)
 
 ### Changed
+
+- `RigidBodyModel` is now `RobotModel`, holding every body a file describes rather than one. A
+  single free body is read as a model of one body: `model.body_named("x2")` in place of the
+  accessors that used to sit on the model itself.
+
+- The `3d_arm_ik` showcase now runs on a Franka Panda read from its MuJoCo model file, in place of
+  the earlier synthetic 8-link arm.
 
 - **PolylinePath.** Cache the cumulative arc length for each waypoint in `PolylinePath`. It 
   enhances the performance of `lookahead_point`. @SummerGram (#224)

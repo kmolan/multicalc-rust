@@ -10,7 +10,7 @@
 
 https://github.com/user-attachments/assets/ed45ccb5-ca95-4e4b-8399-27d09284b220
 
-*A reel of the live [showcase demos](demos#live-showcases): a quadcopter performing state estimation, planning and control to fly waypoints, 2D robot running particle filter localization + EKF sensor fusion + obstacle avoidance over a 1kHz loop rate; then an 8-link SE(3) arm tracking a moving 3D pose. Every number on screen is measured live, inside a 1 ms tick.*
+*A reel of the live [showcase demos](demos#live-showcases): a quadcopter performing state estimation, planning and control to fly waypoints, 2D robot running particle filter localization + EKF sensor fusion + obstacle avoidance over a 1kHz loop rate; then a Franka Panda arm, loaded from its MuJoCo model file, tracking a moving 3D pose. Every number on screen is measured live, inside a 1 ms tick.*
 
 ## Highlights
 
@@ -170,7 +170,7 @@ cargo run -p multicalc-demos --example <name>
   `demos/` crate. Run one with `cargo run -p multicalc-demos --example <name>`.
 - **[Benchmarks](benchmarks)**: Per-module accuracy tables and latency measurements, generated
   from the QA fixtures and checked in CI.
-- **[Live showcases](demos#live-showcases)**: Six animated Rerun demos, including a quadcopter using particle filter localization then using state estimation to fly a planned loop, a 2D robot using monte carlo localization, then fusing wheel odometry+IMU+GPS for state estimation to lap a course of obstacles. The others are an 8-link SE(3) arm tracking a moving 3D pose, a Newton fractal, Fourier epicycles drawing Ferris, and gradient-driven marbles, each streaming live-measured speed and accuracy.
+- **[Live showcases](demos#live-showcases)**: Six animated Rerun demos, including a quadcopter using particle filter localization then using state estimation to fly a planned loop, a 2D robot using monte carlo localization, then fusing wheel odometry+IMU+GPS for state estimation to lap a course of obstacles. The others are a Franka Panda arm, loaded from its MuJoCo model file tracking a moving 3D pose, a Newton fractal, Fourier epicycles drawing Ferris, and gradient-driven marbles, each streaming live-measured speed and accuracy.
 - **[QA crate](tools/qa)**: `multicalc-qa` holds the CI-enforced accuracy fixtures and generates the [benchmarks](benchmarks) tables from them.
 
 ## Repository layout
@@ -179,9 +179,10 @@ The published library crate lives in [`crates/multicalc`](crates/multicalc); the
 root is a Cargo workspace. Runnable demos live in the dev-only [`demos/`](demos) crate (basics and
 live Rerun showcases), and [`tools/embedded-smoke`](tools/embedded-smoke) runs `multicalc` on the
 four bare-metal targets (three Cortex-M targets + `riscv32imc`) under QEMU every PR.
-[`crates/multicalc-mjcf`](crates/multicalc-mjcf) reads MuJoCo model files into multicalc types, and
-[`third_party/menagerie`](third_party/menagerie) holds the model files it is tested against, under
-their own upstream licences.
+[`crates/multicalc-mjcf`](crates/multicalc-mjcf) reads MuJoCo model files into multicalc's robot
+types — its [README](crates/multicalc-mjcf/README.md) lists the part of the format it reads and
+which models load — and [`third_party/menagerie`](third_party/menagerie) holds the model files it
+is tested against, under their own upstream licences.
 
 ## Contributing
 
