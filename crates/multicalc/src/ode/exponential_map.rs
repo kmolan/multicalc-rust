@@ -23,10 +23,11 @@ impl ExponentialMap {
     /// the fourth power. Use [`ExponentialMap::attitude_step_with_angular_acceleration`] when the
     /// rate is changing and the extra accuracy is wanted for the same one exponential.
     ///
-    /// Behavior: this is infallible and does not validate its input. A non-finite `angular_rate`
-    /// or a non-finite/negative `dt` produces a non-finite result rather than an error; callers
-    /// that need validated input can use [`ExponentialMap::integrate_attitude`] instead, or
-    /// validate upstream - this stays a raw, panic-free primitive for hot per-tick call sites.
+    /// Behavior: this is infallible and does not validate its input. Non-finite input can produce
+    /// a non-finite orientation, while a finite but non-positive `dt` steps backward (or not at
+    /// all) without error. Callers that need a check can validate upstream or use
+    /// [`ExponentialMap::integrate_attitude`]; this stays a raw, panic-free primitive for hot
+    /// per-tick call sites.
     ///
     /// ```
     /// use multicalc::ode::ExponentialMap;
@@ -66,7 +67,7 @@ impl ExponentialMap {
     /// still a true rotation to within rounding.
     ///
     /// Behavior: this is infallible and does not validate its input; see the "Behavior" note on
-    /// [`ExponentialMap::attitude_step`] for how non-finite or negative input is handled.
+    /// [`ExponentialMap::attitude_step`] for how non-finite or non-positive input is handled.
     ///
     /// ```
     /// use multicalc::ode::ExponentialMap;

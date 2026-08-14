@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`ExponentialMap::integrate_attitude` now returns `Result<SO3<T>, IntegrateError>`** instead of
+  `SO3<T>`. This is a breaking change to the signature: callers must handle or unwrap the result.
+  @naseem173 (#307)
+
 ### Fixed
 
 - **`ExponentialMap::integrate_attitude` input validation.** A non-finite timestep, a
@@ -16,7 +22,7 @@ used to silently produce a NaN orientation or integrate backwards without commen
 existing `IntegrateError::NonFinite` instead. `attitude_step` and
 `attitude_step_with_angular_acceleration` stay infallible, as they sit on
 `RigidBody::stepped`'s panic-free per-tick path; their behavior with non-finite or
-negative input is now documented instead of silent. (#302)
+non-positive input is now documented instead of silent. @naseem173 (#307)
 - Particle filters floor an underflowed zero weight at the scalar's smallest positive value before
   the next update, allowing that particle to recover when later measurements favor it.
 
