@@ -1,6 +1,8 @@
 //! Inverse-kinematics tests: convergence, the forward-kinematics round trip, termination reasons,
 //! joint limits, step limiting, singular seeds, error cases, and f32 coverage.
 
+use core::f64::consts::FRAC_PI_4;
+
 use multicalc::error::KinematicsError;
 use multicalc::kinematics::{
     InverseKinematics, InverseKinematicsTermination, JacobianFrame, Joint, JointParent,
@@ -8,7 +10,7 @@ use multicalc::kinematics::{
 };
 use multicalc::linear_algebra::{Vector, Vector3D};
 use multicalc::scalar::Numeric;
-use multicalc::spatial::{SE3, SO3};
+use multicalc::spatial::{Quaternion, SE3, SO3};
 
 /// Slots in the spatial arm: six revolute joints plus the welded tool.
 const SPATIAL_JOINTS: usize = 7;
@@ -613,4 +615,35 @@ fn heavier_joints_move_less() {
             (produced - wanted).norm()
         );
     }
+}
+
+// ---- floating joint ----------------------------------------------------------
+
+#[test]
+fn floating_joint_ik_converges_and_keeps_a_unit_quaternion() {
+    let tree = KinematicTree::<1, 7, f64>::try_from_joints(
+        &[Joint::floating(SE3::identity())],
+        &[JointParent::World],
+    )
+    .unwrap();
+    let seed = Vector::new([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]);
+    let half_angle = FRAC_PI_4;
+    let target = SE3::from_parts(
+        SO3::from_quaternion(Quaternion::new(half_angle.cos(), half_angle.sin(), 0.0, 0.0)),
+        Vector::new([0.3, -0.2, 0.5]),
+    );
+
+    let solver = InverseKinematics::<7, f64>::new()
+        .with_position_tolerance(1e-9)
+        .with_orientation_tolerance(1e-9);
+    let report = solver.solve(&tree, 0, target, &seed).unwrap();
+
+    assert_eq!(report.termination, InverseKinematicsTermination::Converged);
+    let quaternion = Vector::new([
+        report.joint_positions[3],
+        report.joint_positions[4],
+        report.joint_positions[5],
+        report.joint_positions[6],
+    ]);
+    assert!((quaternion.norm() - 1.0).abs() < 1e-9);
 }

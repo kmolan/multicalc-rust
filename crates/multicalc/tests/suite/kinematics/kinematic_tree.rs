@@ -4,7 +4,7 @@
 use core::f64::consts::{FRAC_PI_2, FRAC_PI_4, PI};
 
 use multicalc::error::KinematicsError;
-use multicalc::kinematics::{Joint, JointParent, KinematicTree};
+use multicalc::kinematics::{JacobianFrame, Joint, JointParent, KinematicTree};
 use multicalc::linear_algebra::{Vector, Vector3D};
 use multicalc::scalar::{Dual, Numeric};
 use multicalc::spatial::{SE3, SO3};
@@ -414,4 +414,110 @@ fn runs_in_f32() {
         (y - (shoulder.sin() + (shoulder + elbow).sin())).abs() < 1e-5,
         "tool y: {y}"
     );
+}
+
+// ---- floating joint ----------------------------------------------------------
+
+#[test]
+fn floating_joint_forward_kinematics_at_rest_is_identity() {
+    let tree = KinematicTree::<1, 7, f64>::try_from_joints(
+        &[Joint::floating(SE3::identity())],
+        &[JointParent::World],
+    )
+    .unwrap();
+    let state = tree
+        .forward_kinematics(&Vector::new([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]))
+        .unwrap();
+    let pose = state.pose(0).unwrap();
+    assert!(pose.translation().norm() < TOL);
+    assert!((pose.rotation().quaternion().as_array()[0] - 1.0).abs() < TOL);
+}
+
+#[test]
+fn floating_joint_forward_kinematics_applies_position_and_rotation() {
+    let tree = KinematicTree::<1, 7, f64>::try_from_joints(
+        &[Joint::floating(SE3::identity())],
+        &[JointParent::World],
+    )
+    .unwrap();
+    // Quarter turn about z, one metre along x.
+    let half_angle = FRAC_PI_4;
+    let reading = Vector::new([1.0, 0.0, 0.0, half_angle.cos(), 0.0, 0.0, half_angle.sin()]);
+    let state = tree.forward_kinematics(&reading).unwrap();
+    let pose = state.pose(0).unwrap();
+    assert!((pose.translation() - Vector::new([1.0, 0.0, 0.0])).norm() < TOL);
+    let rotated = pose.rotation().act(Vector::new([1.0, 0.0, 0.0]));
+    assert!(rotated[0].abs() < 1e-9 && (rotated[1] - 1.0).abs() < 1e-9);
+}
+
+#[test]
+fn floating_joint_rejected_off_root_via_try_from_joints() {
+    let tree = KinematicTree::<2, 8, f64>::try_from_joints(
+        &[Joint::fixed(SE3::identity()), Joint::floating(SE3::identity())],
+        &[JointParent::World, JointParent::Joint(0)],
+    );
+    assert_eq!(tree, Err(KinematicsError::FloatingJointNotAtRoot));
+}
+
+#[test]
+fn floating_joint_rejected_off_root_via_push() {
+    let mut tree = KinematicTree::<2, 8, f64>::new();
+    tree.push(Joint::fixed(SE3::identity()), JointParent::World)
+        .unwrap();
+    let result = tree.push(Joint::floating(SE3::identity()), JointParent::Joint(0));
+    assert_eq!(result, Err(KinematicsError::FloatingJointNotAtRoot));
+}
+
+#[test]
+fn configuration_capacity_exceeded_is_reported_specifically() {
+    let mut tree = KinematicTree::<2, 7, f64>::new();
+    tree.push(Joint::floating(SE3::identity()), JointParent::World)
+        .unwrap();
+    let result = tree.push(Joint::fixed(SE3::identity()), JointParent::Joint(0));
+    assert_eq!(result, Err(KinematicsError::ConfigurationCapacityExceeded));
+}
+
+#[test]
+fn floating_joint_jacobian_columns_are_identity_at_rest() {
+    let tree = KinematicTree::<1, 7, f64>::try_from_joints(
+        &[Joint::floating(SE3::identity())],
+        &[JointParent::World],
+    )
+    .unwrap();
+    let state = tree
+        .forward_kinematics(&Vector::new([0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]))
+        .unwrap();
+    let jacobian = tree
+        .geometric_jacobian(&state, 0, JacobianFrame::World)
+        .unwrap();
+    for axis in 0..3 {
+        let column = jacobian.column(axis).unwrap();
+        let mut expected_linear = [0.0; 3];
+        expected_linear[axis] = 1.0;
+        assert!((column.linear() - Vector::new(expected_linear)).norm() < TOL);
+        assert!(column.angular().norm() < TOL);
+    }
+    for axis in 0..3 {
+        let column = jacobian.column(3 + axis).unwrap();
+        let mut expected_angular = [0.0; 3];
+        expected_angular[axis] = 1.0;
+        assert!(column.linear().norm() < TOL);
+        assert!((column.angular() - Vector::new(expected_angular)).norm() < TOL);
+    }
+}
+
+#[test]
+fn floating_base_shifts_later_joint_offsets() {
+    let link = translation(1.0, 0.0, 0.0);
+    let tree = KinematicTree::<2, 8, f64>::try_from_joints(
+        &[Joint::floating(SE3::identity()), Joint::revolute(axis_z(), link)],
+        &[JointParent::World, JointParent::Joint(0)],
+    )
+    .unwrap();
+    assert_eq!(tree.config_offset(0), Some(0));
+    assert_eq!(tree.config_offset(1), Some(7));
+    assert_eq!(tree.velocity_offset(0), Some(0));
+    assert_eq!(tree.velocity_offset(1), Some(6));
+    assert_eq!(tree.config_len(), 8);
+    assert_eq!(tree.velocity_len(), 7);
 }
