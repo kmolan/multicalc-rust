@@ -12,22 +12,38 @@ pub enum MjcfError {
     MissingWorldbody,
     /// The model had no bodies.
     NoBodies,
-    /// The model had more than one body, which this loader does not handle.
-    MultipleBodies {
-        /// How many bodies were found.
+    /// A body carried more than one `<joint>`/`<freejoint>`, which this loader does not compose
+    /// into a multi-DOF joint.
+    MultipleJoints {
+        /// The body's name.
+        body: String,
+        /// How many joints were found.
         count: usize,
     },
-    /// The body was not attached to the world by a free joint.
-    MissingFreeJoint {
+    /// A free joint sat on a body other than the root, which cannot be represented in a tree with
+    /// a single fixed or floating base.
+    FreeJointNotAtRoot {
         /// The body's name.
         body: String,
     },
-    /// The body carried a joint other than a free one.
+    /// The body carried a joint kind other than hinge or slide.
     UnsupportedJoint {
         /// The body's name.
         body: String,
         /// The joint type as written in the file.
         joint_type: String,
+    },
+    /// An element gave its orientation in a form other than `quat`.
+    UnsupportedOrientation {
+        /// The element carrying the attribute.
+        element: String,
+        /// The attribute name.
+        attribute: String,
+    },
+    /// A joint was marked limited, or defaults to limited, but states no `range`.
+    LimitsNeedRange {
+        /// The body's name.
+        body: String,
     },
     /// The body stated no mass properties and had no shapes to work them out from.
     NoInertiaSource {
@@ -97,18 +113,24 @@ impl core::fmt::Display for MjcfError {
             MjcfError::Io(detail) => write!(f, "file could not be read: {detail}"),
             MjcfError::MissingWorldbody => f.write_str("model has no worldbody"),
             MjcfError::NoBodies => f.write_str("model has no bodies"),
-            MjcfError::MultipleBodies { count } => {
-                write!(f, "model has {count} bodies, expected exactly one")
+            MjcfError::MultipleJoints { body, count } => {
+                write!(f, "body {body} carries {count} joints, and one is the limit here")
             }
-            MjcfError::MissingFreeJoint { body } => {
-                write!(
-                    f,
-                    "body {body} is not attached to the world by a free joint"
-                )
-            }
+            MjcfError::FreeJointNotAtRoot { body } => write!(
+                f,
+                "body {body} hangs off the world by a free joint but is not at the top of the model"
+            ),
             MjcfError::UnsupportedJoint { body, joint_type } => write!(
                 f,
-                "body {body} has a {joint_type} joint, and only a free joint is handled"
+                "body {body} has a {joint_type} joint, and only hinge or slide joints are handled"
+            ),
+            MjcfError::UnsupportedOrientation { element, attribute } => write!(
+                f,
+                "the {attribute} attribute on {element} states a turn in a form this loader does not read; write it as a quaternion"
+            ),
+            MjcfError::LimitsNeedRange { body } => write!(
+                f,
+                "the joint on body {body} is limited but states no range"
             ),
             MjcfError::NoInertiaSource { body } => write!(
                 f,

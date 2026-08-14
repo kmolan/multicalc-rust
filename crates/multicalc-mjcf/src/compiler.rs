@@ -1,5 +1,4 @@
 //! File-wide settings read from the `<compiler>` element.
-#![allow(dead_code)]
 
 use roxmltree::Node;
 

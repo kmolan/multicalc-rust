@@ -10,7 +10,9 @@ use multicalc::spatial::Quaternion;
 use roxmltree::Node;
 
 use crate::MjcfError;
-use crate::defaults::{DefaultTable, GeomDefaults, bad_attribute, unit_quaternion};
+use crate::defaults::{
+    DefaultTable, GeomDefaults, bad_attribute, reject_orientation_attributes, unit_quaternion,
+};
 
 /// What MuJoCo assumes for a shape that states nothing. There is no assumed size.
 const ASSUMED_TYPE: &str = "sphere";
@@ -48,10 +50,11 @@ pub(crate) struct GeomMass {
 pub(crate) fn read_geom(
     node: Node,
     table: &DefaultTable,
-    childclass: Option<&str>,
+    class_chain: Option<&str>,
     body: &str,
 ) -> Result<Option<GeomMass>, MjcfError> {
-    let settings = effective(node, table, childclass)?;
+    reject_orientation_attributes(node, "geom")?;
+    let settings = effective(node, table, class_chain)?;
 
     // A shape stated to carry no mass is dropped before its form is looked at, so a model can name
     // a shape this loader cannot measure as long as none of its mass rests there.
@@ -163,14 +166,14 @@ pub(crate) fn read_geom(
 fn effective(
     node: Node,
     table: &DefaultTable,
-    childclass: Option<&str>,
+    class_chain: Option<&str>,
 ) -> Result<GeomDefaults, MjcfError> {
-    let mut settings = table.resolve(None)?.clone();
-    if let Some(name) = childclass {
-        settings = settings.overridden_by(table.resolve(Some(name))?);
+    let mut settings = table.resolve(None)?.geom.clone();
+    if let Some(name) = class_chain {
+        settings = settings.overridden_by(&table.resolve(Some(name))?.geom);
     }
     if let Some(name) = node.attribute("class") {
-        settings = settings.overridden_by(table.resolve(Some(name))?);
+        settings = settings.overridden_by(&table.resolve(Some(name))?.geom);
     }
     Ok(settings.overridden_by(&GeomDefaults::read(node)?))
 }

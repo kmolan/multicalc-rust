@@ -18,6 +18,7 @@ mod defaults;
 mod document;
 mod error;
 mod geometry;
+mod joint;
 
 use std::path::Path;
 
@@ -265,18 +266,22 @@ pub fn load_path(path: &Path) -> Result<RobotModel, MjcfError> {
 /// Parses a model from an in-memory XML string.
 pub fn load_str(xml: &str) -> Result<RobotModel, MjcfError> {
     let document = roxmltree::Document::parse(xml).map_err(|e| MjcfError::Xml(e.to_string()))?;
-    let body = body::read(&document)?;
-    let record = BodyRecord {
-        name: body.name.clone(),
-        parent: None,
-        pose: body.pose,
-        inertia: body.inertia,
-        joint: None,
-    };
+    let parsed = body::read(&document)?;
+    let bodies = parsed
+        .bodies
+        .into_iter()
+        .map(|body| BodyRecord {
+            name: body.name,
+            parent: body.parent,
+            pose: body.pose,
+            inertia: body.inertia,
+            joint: body.joint,
+        })
+        .collect();
     Ok(RobotModel {
-        name: body.name,
-        bodies: vec![record],
-        floating_base: body.has_free_joint,
-        ignored: body.ignored,
+        name: parsed.name,
+        bodies,
+        floating_base: parsed.floating_base,
+        ignored: parsed.ignored,
     })
 }
