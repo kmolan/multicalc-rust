@@ -42,17 +42,6 @@ pub(crate) struct ParsedBody {
 /// name.
 pub(crate) fn read(document: &Document) -> Result<ParsedModel, MjcfError> {
     let root = document.root_element();
-
-    // A file that pulls in another file is refused before anything is read out of it. `load_path`
-    // resolves includes before this runs; this only ever fires for text with no file to resolve
-    // them against.
-    if root
-        .descendants()
-        .any(|node| node.is_element() && node.tag_name().name() == "include")
-    {
-        return Err(MjcfError::IncludeUnsupported);
-    }
-
     let name = root.attribute("model").unwrap_or("model").to_owned();
     let settings = CompilerSettings::read(root)?;
     let table = DefaultTable::build(root)?;

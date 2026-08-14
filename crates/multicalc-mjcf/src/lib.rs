@@ -264,8 +264,17 @@ pub fn load_path(path: &Path) -> Result<RobotModel, MjcfError> {
 }
 
 /// Parses a model from an in-memory XML string.
+///
+/// Text has no directory to resolve an `<include>` against, so a document that pulls in another
+/// file is refused here; [`load_path`] resolves those first.
 pub fn load_str(xml: &str) -> Result<RobotModel, MjcfError> {
     let document = roxmltree::Document::parse(xml).map_err(|e| MjcfError::Xml(e.to_string()))?;
+    if document
+        .descendants()
+        .any(|node| node.is_element() && node.tag_name().name() == "include")
+    {
+        return Err(MjcfError::IncludeNeedsFile);
+    }
     let parsed = body::read(&document)?;
     let bodies = parsed
         .bodies
