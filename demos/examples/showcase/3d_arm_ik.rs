@@ -1,107 +1,87 @@
-//! 1 kHz 3D arm SE(3) IK (kinematics showcase).
+//! 1 kHz Franka Panda SE(3) IK (kinematics showcase).
 //!
-//! An 8-link arm chases a moving 3D target in position and orientation. Every millisecond a full
-//! damped-least-squares solve runs against the arm's analytic geometric Jacobian, holding every
-//! hinge inside its travel and spending the freedom the task leaves over on keeping a comfortable
-//! posture. The panel shows the solve cost against the 1 ms budget.
+//! Franka Panda, loaded from its MuJoCo model file, tracks a moving 3D target in position and
+//! orientation via damped-least-squares IK against the analytic geometric Jacobian, at 1 kHz,
+//! respecting the model's joint limits. Secondary objective: hold a comfortable posture with
+//! leftover DOF. Panel shows solve cost against the 1 ms budget.
 //!
-//! Streams live to a Rerun viewer; see demos/README.md for the WSL setup.
-//! Run with: cargo run --release -p multicalc-demos --example 3d_arm_ik
+//! Streams to a Rerun viewer; see demos/README.md for WSL setup.
+//! Run: cargo run --release -p multicalc-demos --example 3d_arm_ik
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use multicalc::kinematics::{
-    InverseKinematics, InverseKinematicsTermination, Joint, JointParent, KinematicTree,
-    SecondaryObjective,
+    InverseKinematics, InverseKinematicsTermination, JointKind, KinematicTree, SecondaryObjective,
 };
 use multicalc::linear_algebra::Vector;
-use multicalc::scalar::Numeric;
 use multicalc::spatial::{Quaternion, SE3, SO3};
 use multicalc_demos::loop_util::{LatencyRing, Pacer};
-use multicalc_demos::{RerunSink, Rgba, VizError, VizSink};
-use std::collections::VecDeque;
+use multicalc_demos::{RerunSink, Rgba, VizSink};
+use std::collections::{HashMap, VecDeque};
 use std::f64::consts::TAU;
+use std::path::Path;
 use std::time::Instant;
 
 // Palette (§2), sRGB with alpha.
-const HERO: Rgba = [0x39, 0x87, 0xe5, 0xff]; // the solved arm, ee gnomon
+const HERO: Rgba = [0x39, 0x87, 0xe5, 0xff]; // arm, ee gnomon
 const TARGET: Rgba = [0xc9, 0x85, 0x00, 0xff]; // target frame
 const ACCENT: Rgba = [0x90, 0x85, 0xe9, 140]; // ee trail
-const CHROME: Rgba = [0x89, 0x87, 0x81, 0xff]; // reach envelope
+const CHROME: Rgba = [0x89, 0x87, 0x81, 0xff]; // target path
 
-const N_JOINTS: usize = 8;
-const N_FRAMES: usize = N_JOINTS + 1; // the joint frames plus the welded tool frame
-const LINK: f64 = 0.25; // per-link length; reach = N_JOINTS * LINK = 2.0
-const CYCLE: f64 = 20.0; // orientation keyframe cycle (s), 5 s per segment
+const MODEL_FILE: &str = "../third_party/menagerie/franka_emika_panda/panda.xml";
+/// Mesh directory (panda.xml `<compiler meshdir="assets"/>`).
+const MESH_DIR: &str = "../third_party/menagerie/franka_emika_panda/assets";
+/// Tip frame: hand, one weld past the last hinge.
+const TIP: &str = "hand";
+const N_FRAMES: usize = 9; // link0, seven hinges, hand
+const N_JOINTS: usize = 7; // movable joints
+const TOOL_INDEX: usize = 8;
+/// Resting posture, from panda.xml's `home` keyframe (not `PI/2`/`PI/4`-rounded).
+#[allow(clippy::approx_constant)]
+const HOME_POSTURE: [f64; N_JOINTS] = [0.0, 0.0, 0.0, -1.57079, 0.0, 1.57079, -0.7853];
+
+const CYCLE: f64 = 20.0; // orientation keyframe cycle (s), 5 s/segment
 const MAXIMUM_ITERATIONS: usize = 40; // IK budget per tick
-const SECONDARY_GAIN: f64 = 0.2; // how hard the comfortable posture pulls
-const JOINT_LIMIT: f64 = 2.6; // travel per hinge, radians
-/// The posture the arm drifts back toward with whatever freedom the task leaves it.
-const RESTING_POSTURE: f64 = 0.1;
+const SECONDARY_GAIN: f64 = 0.2; // secondary-objective weight
 
 const GEOM_EVERY: i64 = 16; // spatial cadence (~60 Hz)
 const HUD_EVERY: i64 = 1000; // text cadence (1 Hz)
 const WARMUP_TICKS: i64 = 500; // cold-start ticks excluded from timing stats
 const TRAIL_MAX: usize = 180; // ~3 s of ee positions at 60 Hz
-const REACH_SEGS: usize = 128;
+const TARGET_PATH_SEGS: usize = 256;
 const GNOMON: f64 = 0.18; // ee/target frame arrow base length
 
-/// Four target-orientation keyframes (tunable); adjacent geodesic separation stays clear of the
-/// `log` θ = π branch. Slerped over `CYCLE`.
+/// Target-orientation keyframes: small turns (wrist stays in travel), slerped over `CYCLE`,
+/// clear of the `log` θ = π branch.
 #[must_use]
 fn keyframes() -> [Quaternion<f64>; 4] {
     [
         Quaternion::from_euler_zyx(0.0, 0.0, 0.0),
-        Quaternion::from_euler_zyx(0.24, 0.36, 0.48),
-        Quaternion::from_euler_zyx(-0.30, -0.42, 0.72),
-        Quaternion::from_euler_zyx(0.18, 0.18, -0.54),
+        Quaternion::from_euler_zyx(0.20, 0.15, 0.10),
+        Quaternion::from_euler_zyx(-0.18, 0.22, -0.12),
+        Quaternion::from_euler_zyx(0.10, -0.20, 0.25),
     ]
 }
 
-/// The arm as a model, generic over the scalar `S`: joint `i` rotates about the body x-axis (even)
-/// or y-axis (odd), and each joint's origin advances `LINK` along its parent's z-axis. Joint
-/// `N_JOINTS` is a weld carrying the tool frame one link past the last hinge.
-///
-/// Each joint frame therefore sits at the *start* of the link it carries, and that link runs along
-/// the frame's +z. The renderer relies on this.
-#[must_use]
-fn arm<S: Numeric>() -> KinematicTree<N_FRAMES, S> {
-    let step = SE3::from_parts(
-        SO3::identity(),
-        Vector::new([S::ZERO, S::ZERO, S::from_f64(LINK)]),
-    );
-    let mut tree = KinematicTree::<N_FRAMES, S>::new();
-    for i in 0..N_FRAMES {
-        // The first joint sits at the world origin; every later frame starts one link further on.
-        let origin = if i == 0 { SE3::identity() } else { step };
-        let parent = if i == 0 {
-            JointParent::World
-        } else {
-            JointParent::Joint(i - 1)
-        };
-        let joint = if i == N_JOINTS {
-            Joint::fixed(origin)
-        } else {
-            let axis = if i % 2 == 0 {
-                Vector::new([S::ONE, S::ZERO, S::ZERO])
-            } else {
-                Vector::new([S::ZERO, S::ONE, S::ZERO])
-            };
-            Joint::revolute(axis, origin)
-                .with_limits(S::from_f64(-JOINT_LIMIT), S::from_f64(JOINT_LIMIT))
-        };
-        tree.push(joint, parent)
-            .unwrap_or_else(|_| unreachable!("the arm is a valid tree"));
-    }
-    tree
+/// Loads the Franka Panda model: base-to-hand chain.
+fn arm() -> Result<KinematicTree<N_FRAMES, f64>, Box<dyn std::error::Error>> {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(MODEL_FILE);
+    let model = multicalc_mjcf::load_path(&path)?;
+    Ok(model.kinematic_tree_to::<N_FRAMES>(TIP)?)
 }
 
-/// The joint readings, with a zero in the welded tool frame's slot.
-fn readings<S: Numeric>(q: &[S; N_JOINTS]) -> Vector<N_FRAMES, S> {
-    Vector::from_fn(|i| if i < N_JOINTS { q[i] } else { S::ZERO })
+/// Joint readings; zero at the welded base/hand slots.
+fn readings(q: &[f64; N_JOINTS]) -> Vector<N_FRAMES, f64> {
+    Vector::from_fn(|i| {
+        if (1..=N_JOINTS).contains(&i) {
+            q[i - 1]
+        } else {
+            0.0
+        }
+    })
 }
 
-/// Every frame of the arm from one solve: the eight joint frames, then the tool.
+/// All 9 frame poses for one configuration.
 #[must_use]
 fn link_poses(
     tree: &KinematicTree<N_FRAMES, f64>,
@@ -117,71 +97,82 @@ fn link_poses(
     })
 }
 
-/// Startup check on the frame convention: at rest the tool sits one full reach up z, and folding
-/// the first hinge a quarter turn about x swings it onto -y.
-fn verify_frame_convention(tree: &KinematicTree<N_FRAMES, f64>) {
-    let reach = N_JOINTS as f64 * LINK;
-    let tool = |q: &[f64; N_JOINTS]| link_poses(tree, &readings(q))[N_JOINTS];
-
-    let at_rest = tool(&[0.0; N_JOINTS]).translation().into_array();
-    assert!(
-        (at_rest[0]).abs() < 1e-12
-            && at_rest[1].abs() < 1e-12
-            && (at_rest[2] - reach).abs() < 1e-12,
-        "tool at rest: {at_rest:?}, expected [0, 0, {reach}]"
+/// Startup check: model structure and default-class joint settings loaded correctly.
+///
+/// Bounds are loose by design — catches a mis-parsed chain without duplicating the fixture test's
+/// exact values.
+fn verify_model(tree: &KinematicTree<N_FRAMES, f64>) {
+    assert_eq!(tree.len(), N_FRAMES);
+    assert_eq!(
+        tree.joint(0).unwrap_or_else(|| unreachable!()).kind(),
+        JointKind::Fixed
     );
-
-    let mut folded = [0.0; N_JOINTS];
-    folded[0] = std::f64::consts::FRAC_PI_2;
-    let quarter_turn = tool(&folded).translation().into_array();
-    assert!(
-        quarter_turn[0].abs() < 1e-12
-            && (quarter_turn[1] + reach).abs() < 1e-12
-            && quarter_turn[2].abs() < 1e-12,
-        "tool at q0 = pi/2: {quarter_turn:?}, expected [0, {}, 0]",
-        -reach
+    assert_eq!(
+        tree.joint(TOOL_INDEX)
+            .unwrap_or_else(|| unreachable!())
+            .kind(),
+        JointKind::Fixed
     );
+    for slot in 1..=N_JOINTS {
+        let joint = tree.joint(slot).unwrap_or_else(|| unreachable!());
+        assert_eq!(joint.kind(), JointKind::Revolute);
+        assert!(
+            (joint.armature() - 0.1).abs() < 1e-12,
+            "armature at slot {slot}"
+        );
+        assert!(
+            (joint.damping() - 1.0).abs() < 1e-12,
+            "damping at slot {slot}"
+        );
+        assert!(joint.limits().is_some(), "no travel limits at slot {slot}");
+    }
+    // q = 0 rest pose: straight up.
+    let hand = link_poses(tree, &Vector::zeros())[TOOL_INDEX];
+    let [x, y, z] = *hand.translation().as_array();
+    assert!(z > 0.8 && x.hypot(y) < 0.3, "hand at rest: {:?}", [x, y, z]);
 }
 
-/// Lissajous target position; max base-distance ≈ 1.5 < reach 2.0, leaving length slack so the
-/// arm can meet the target orientation without running out of reach.
+/// Target position: Lissajous figure around the rest pose, amplitude per axis measured against
+/// its own convergence cliff (y ~0.21, x/z ~0.07/0.055) rather than clamped to the tightest one.
 #[must_use]
-fn lissajous_pos(t: f64) -> [f64; 3] {
+fn lissajous_position(home: [f64; 3], t: f64) -> [f64; 3] {
     [
-        0.585 * (TAU * 0.11 * t).sin(),
-        0.585 * (TAU * 0.17 * t + 0.4).sin(),
-        1.0 + 0.26 * (TAU * 0.07 * t).sin(),
+        home[0] + 0.06 * (TAU * 0.11 * t).sin(),
+        home[1] + 0.20 * (TAU * 0.17 * t + 0.4).sin(),
+        home[2] + 0.05 * (TAU * 0.07 * t).sin(),
     ]
 }
 
-/// Target orientation: the keyframes slerped over `CYCLE`, 5 s per segment.
+/// Target orientation: rest orientation composed with slerped keyframes, period `CYCLE`.
 #[must_use]
-fn target_orientation(t: f64) -> Quaternion<f64> {
+fn target_orientation(home: SO3<f64>, t: f64) -> SO3<f64> {
     let keys = keyframes();
     let seg = CYCLE / 4.0;
     let phase = (t % CYCLE) / seg; // 0..4
     let i = phase.floor() as usize % 4;
     let frac = phase - phase.floor();
-    keys[i].slerp(keys[(i + 1) % 4], frac)
+    let slerped = keys[i].slerp(keys[(i + 1) % 4], frac);
+    home * SO3::from_quaternion(slerped)
 }
 
-/// The reach envelope: three great circles of radius `N_JOINTS * LINK` in the coordinate planes.
+/// Target pose at `t`: Lissajous position, keyframe-composed orientation.
 #[must_use]
-fn reach_circles() -> Vec<Vec<[f64; 3]>> {
-    let r = N_JOINTS as f64 * LINK;
-    let circle = |plane: usize| -> Vec<[f64; 3]> {
-        (0..=REACH_SEGS)
-            .map(|i| {
-                let a = TAU * i as f64 / REACH_SEGS as f64;
-                match plane {
-                    0 => [r * a.cos(), r * a.sin(), 0.0],
-                    1 => [0.0, r * a.cos(), r * a.sin()],
-                    _ => [r * a.cos(), 0.0, r * a.sin()],
-                }
-            })
-            .collect()
-    };
-    vec![circle(0), circle(1), circle(2)]
+fn target_pose(home: SE3<f64>, t: f64) -> SE3<f64> {
+    SE3::from_parts(
+        target_orientation(home.rotation(), t),
+        Vector::new(lissajous_position(home.translation().into_array(), t)),
+    )
+}
+
+/// Target path over one cycle, closed.
+#[must_use]
+fn target_path(home: SE3<f64>) -> Vec<[f64; 3]> {
+    (0..=TARGET_PATH_SEGS)
+        .map(|i| {
+            let t = CYCLE * i as f64 / TARGET_PATH_SEGS as f64;
+            target_pose(home, t).translation().into_array()
+        })
+        .collect()
 }
 
 /// A frame gnomon: arrows of length ratio 1 : 0.75 : 0.5 along local x, y, z.
@@ -196,43 +187,182 @@ fn gnomon() -> ([[f64; 3]; 3], [[f64; 3]; 3]) {
     (origins, vectors)
 }
 
-/// Brightness ramp along the arm, HERO base.
+// panda.xml `<asset>` materials.
+const MAT_WHITE: Rgba = [255, 255, 255, 255];
+const MAT_OFF_WHITE: Rgba = [230, 235, 237, 255];
+const MAT_BLACK: Rgba = [64, 64, 64, 255];
+const MAT_GREEN: Rgba = [0, 255, 0, 255];
+const MAT_LIGHT_BLUE: Rgba = [10, 138, 199, 255];
+
+/// One body's visual sub-meshes: filename (relative to `MESH_DIR`, `.obj` implied) and material
+/// color, from panda.xml's `<geom class="visual">` entries. No geom has its own `pos`/`quat`.
 #[must_use]
-fn link_color(i: usize) -> Rgba {
-    let f = 0.65 + 0.05 * i as f64;
-    let s = |c: u8| (c as f64 * f).min(255.0) as u8;
-    [s(HERO[0]), s(HERO[1]), s(HERO[2]), 0xff]
+fn body_meshes(slot: usize) -> &'static [(&'static str, Rgba)] {
+    match slot {
+        0 => &[
+            ("link0_0", MAT_OFF_WHITE),
+            ("link0_1", MAT_BLACK),
+            ("link0_2", MAT_OFF_WHITE),
+            ("link0_3", MAT_BLACK),
+            ("link0_4", MAT_OFF_WHITE),
+            ("link0_5", MAT_BLACK),
+            ("link0_7", MAT_WHITE),
+            ("link0_8", MAT_WHITE),
+            ("link0_9", MAT_BLACK),
+            ("link0_10", MAT_OFF_WHITE),
+            ("link0_11", MAT_WHITE),
+        ],
+        1 => &[("link1", MAT_WHITE)],
+        2 => &[("link2", MAT_WHITE)],
+        3 => &[
+            ("link3_0", MAT_WHITE),
+            ("link3_1", MAT_WHITE),
+            ("link3_2", MAT_WHITE),
+            ("link3_3", MAT_BLACK),
+        ],
+        4 => &[
+            ("link4_0", MAT_WHITE),
+            ("link4_1", MAT_WHITE),
+            ("link4_2", MAT_BLACK),
+            ("link4_3", MAT_WHITE),
+        ],
+        5 => &[
+            ("link5_0", MAT_BLACK),
+            ("link5_1", MAT_WHITE),
+            ("link5_2", MAT_WHITE),
+        ],
+        6 => &[
+            ("link6_0", MAT_OFF_WHITE),
+            ("link6_1", MAT_WHITE),
+            ("link6_2", MAT_BLACK),
+            ("link6_3", MAT_WHITE),
+            ("link6_4", MAT_WHITE),
+            ("link6_5", MAT_WHITE),
+            ("link6_6", MAT_WHITE),
+            ("link6_7", MAT_LIGHT_BLUE),
+            ("link6_8", MAT_LIGHT_BLUE),
+            ("link6_9", MAT_BLACK),
+            ("link6_10", MAT_BLACK),
+            ("link6_11", MAT_WHITE),
+            ("link6_12", MAT_GREEN),
+            ("link6_13", MAT_WHITE),
+            ("link6_14", MAT_BLACK),
+            ("link6_15", MAT_BLACK),
+            ("link6_16", MAT_WHITE),
+        ],
+        7 => &[
+            ("link7_0", MAT_WHITE),
+            ("link7_1", MAT_BLACK),
+            ("link7_2", MAT_BLACK),
+            ("link7_3", MAT_BLACK),
+            ("link7_4", MAT_BLACK),
+            ("link7_5", MAT_BLACK),
+            ("link7_6", MAT_BLACK),
+            ("link7_7", MAT_WHITE),
+        ],
+        8 => &[
+            ("hand_0", MAT_OFF_WHITE),
+            ("hand_1", MAT_BLACK),
+            ("hand_2", MAT_BLACK),
+            ("hand_3", MAT_WHITE),
+            ("hand_4", MAT_OFF_WHITE),
+        ],
+        _ => unreachable!("nine slots"),
+    }
 }
 
-/// The target pose at time `t`: the Lissajous position carrying the slerped keyframe orientation.
-#[must_use]
-fn target_pose(t: f64) -> SE3<f64> {
-    let quaternion = target_orientation(t).as_array();
-    SE3::from_parts(
-        SO3::from_quaternion(Quaternion::new(
-            quaternion[0],
-            quaternion[1],
-            quaternion[2],
-            quaternion[3],
-        )),
-        Vector::new(lissajous_pos(t)),
-    )
+/// Parses one `.obj` into an indexed triangle mesh.
+///
+/// Faces are `v//vn` (vertex + normal index, no texcoord); a vertex is a (position, normal) pair
+/// since the two indices can differ, so positions may repeat across output vertices. Faces are
+/// always triangles. `mtllib`/`usemtl` are skipped (the referenced `.mtl` isn't shipped) — color
+/// comes from `body_meshes` instead.
+fn read_obj(path: &Path) -> (Vec<[f64; 3]>, Vec<[f64; 3]>, Vec<[u32; 3]>) {
+    let text =
+        std::fs::read_to_string(path).unwrap_or_else(|e| panic!("reading mesh file {path:?}: {e}"));
+
+    let mut positions = Vec::new();
+    let mut raw_normals = Vec::new();
+    let mut vertices = Vec::new();
+    let mut normals = Vec::new();
+    let mut triangles = Vec::new();
+    let mut seen: HashMap<(u32, u32), u32> = HashMap::new();
+
+    for line in text.lines() {
+        let mut fields = line.split_ascii_whitespace();
+        match fields.next() {
+            Some("v") => {
+                let xyz: Vec<f64> = fields.map(|f| f.parse().unwrap()).collect();
+                positions.push([xyz[0], xyz[1], xyz[2]]);
+            }
+            Some("vn") => {
+                let xyz: Vec<f64> = fields.map(|f| f.parse().unwrap()).collect();
+                raw_normals.push([xyz[0], xyz[1], xyz[2]]);
+            }
+            Some("f") => {
+                let mut triangle = [0u32; 3];
+                for (corner, field) in fields.enumerate() {
+                    let mut parts = field.split('/');
+                    let vertex_index: u32 = parts.next().unwrap().parse().unwrap();
+                    let _texture_coordinate = parts.next(); // always empty
+                    let normal_index: u32 = parts.next().unwrap().parse().unwrap();
+                    let key = (vertex_index, normal_index);
+                    let index = *seen.entry(key).or_insert_with(|| {
+                        vertices.push(positions[(vertex_index - 1) as usize]);
+                        normals.push(raw_normals[(normal_index - 1) as usize]);
+                        (vertices.len() - 1) as u32
+                    });
+                    triangle[corner] = index;
+                }
+                triangles.push(triangle);
+            }
+            _ => {}
+        }
+    }
+    (vertices, normals, triangles)
 }
 
-/// Worst-case position residual over one orientation cycle at the live 1 ms cadence, warm-started —
-/// a startup reachability check. Samples at the same step size the loop runs, after a short warmup
-/// so the cold-start transient is excluded. Returns the max residual seen.
+/// Merges one body's visual sub-meshes into one vertex/normal/triangle/color set.
+#[must_use]
+fn load_body_mesh(
+    mesh_dir: &Path,
+    slot: usize,
+) -> (Vec<[f64; 3]>, Vec<[f64; 3]>, Vec<[u32; 3]>, Vec<Rgba>) {
+    let mut vertices = Vec::new();
+    let mut normals = Vec::new();
+    let mut triangles = Vec::new();
+    let mut colors = Vec::new();
+
+    for &(file, color) in body_meshes(slot) {
+        let (part_vertices, part_normals, part_triangles) =
+            read_obj(&mesh_dir.join(format!("{file}.obj")));
+        let offset = vertices.len() as u32;
+        colors.extend(std::iter::repeat_n(color, part_vertices.len()));
+        vertices.extend(part_vertices);
+        normals.extend(part_normals);
+        triangles.extend(
+            part_triangles
+                .into_iter()
+                .map(|[a, b, c]| [a + offset, b + offset, c + offset]),
+        );
+    }
+    (vertices, normals, triangles, colors)
+}
+
+/// Startup reachability check: worst position residual over one cycle at 1 ms cadence, post-warmup.
 #[must_use]
 fn reachability_sweep(
     solver: &InverseKinematics<N_FRAMES, f64>,
     tree: &KinematicTree<N_FRAMES, f64>,
+    home_pose: SE3<f64>,
 ) -> f64 {
-    let mut joint_readings = readings(&[RESTING_POSTURE; N_JOINTS]);
+    let mut joint_readings = readings(&HOME_POSTURE);
     let steps = (CYCLE * 1000.0) as i64; // 1 ms spacing
     let mut worst = 0.0_f64;
     for n in 1..=steps {
         let t = n as f64 / 1000.0;
-        let Ok(report) = solver.solve(tree, N_JOINTS, target_pose(t), &joint_readings) else {
+        let Ok(report) = solver.solve(tree, TOOL_INDEX, target_pose(home_pose, t), &joint_readings)
+        else {
             continue;
         };
         joint_readings = report.joint_positions;
@@ -243,7 +373,7 @@ fn reachability_sweep(
     worst
 }
 
-fn main() -> Result<(), VizError> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     if cfg!(debug_assertions) {
         eprintln!(
             "WARNING: debug build — timing numbers are meaningless. \
@@ -251,43 +381,60 @@ fn main() -> Result<(), VizError> {
         );
     }
 
-    // Built once: the model is fixed, and rebuilding it inside the loop would land in the timing.
-    let tree = arm::<f64>();
-    verify_frame_convention(&tree);
+    // Built once: rebuilding per-tick would pollute the timing.
+    let tree = arm()?;
+    verify_model(&tree);
 
     let solver = InverseKinematics::<N_FRAMES, f64>::new()
         .with_maximum_iterations(MAXIMUM_ITERATIONS)
         .with_position_tolerance(1e-6)
         .with_orientation_tolerance(1e-6)
         .with_secondary_objective(SecondaryObjective::PreferredPosture(readings(
-            &[RESTING_POSTURE; N_JOINTS],
+            &HOME_POSTURE,
         )))
         .with_secondary_gain(SECONDARY_GAIN);
 
-    let worst_reach = reachability_sweep(&solver, &tree);
+    let home_pose = link_poses(&tree, &readings(&HOME_POSTURE))[TOOL_INDEX];
+
+    let worst_reach = reachability_sweep(&solver, &tree, home_pose);
     eprintln!("reachability sweep: worst position residual over one cycle = {worst_reach:.2e} m");
 
     let mut rr = RerunSink::live("multicalc-demos/3d-arm-ik")?;
 
-    // Statics: stamp at tick 0 so they forward-fill across the run (see rerun-viz-gotchas).
+    // Statics: tick 0, forward-fill (see rerun-viz-gotchas).
     rr.set_sequence("tick", 0);
-    rr.line_strips3d("world/reach", &reach_circles(), &[CHROME], &[0.004])?;
+    rr.line_strips3d(
+        "world/target_path",
+        &[target_path(home_pose)],
+        &[CHROME],
+        &[0.003],
+    )?;
     let (g_o, g_v) = gnomon();
     rr.arrows3d("world/target/gnomon", &g_o, &g_v, &[TARGET])?;
     rr.arrows3d("world/arm/tool/gnomon", &g_o, &g_v, &[HERO])?;
-    // One tapered box per link, in its joint's frame (spanning forward toward the next joint).
-    for i in 0..N_JOINTS {
-        let hs = 0.06 - 0.04 * i as f64 / (N_JOINTS - 1) as f64;
-        rr.boxes3d(
-            &format!("world/arm/link{i}/box"),
-            &[[0.0, 0.0, LINK / 2.0]],
-            &[[hs, hs, LINK / 2.0]],
-            &[link_color(i)],
-        )?;
+
+    // Base is a world weld: static pose, logged once.
+    let rest_poses = link_poses(&tree, &Vector::zeros());
+    rr.transform3d(
+        "world/arm/base",
+        rest_poses[0].translation().into_array(),
+        rest_poses[0].rotation().quaternion().as_array(),
+    )?;
+
+    // Real geometry: loaded once, logged under each frame's path so per-tick transform3d moves it.
+    let mesh_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(MESH_DIR);
+    let mesh_path = |slot: usize| match slot {
+        0 => "world/arm/base/mesh".to_owned(),
+        TOOL_INDEX => "world/arm/tool/mesh".to_owned(),
+        slot => format!("world/arm/link{slot}/mesh"),
+    };
+    for slot in 0..N_FRAMES {
+        let (vertices, normals, triangles, colors) = load_body_mesh(&mesh_dir, slot);
+        rr.mesh3d(&mesh_path(slot), &vertices, &triangles, &normals, &colors)?;
     }
 
-    // A gently curled, non-singular start pose.
-    let mut joint_readings = readings(&[RESTING_POSTURE; N_JOINTS]);
+    // Non-singular start pose.
+    let mut joint_readings = readings(&HOME_POSTURE);
 
     let mut pacer = Pacer::new();
     let mut solve_ring = LatencyRing::new(1024);
@@ -304,14 +451,13 @@ fn main() -> Result<(), VizError> {
         let t = n as f64 / 1000.0;
         rr.set_sequence("tick", n);
 
-        let target = target_pose(t);
+        let target = target_pose(home_pose, t);
         let t0 = Instant::now();
-        let result = solver.solve(&tree, N_JOINTS, target, &joint_readings);
+        let result = solver.solve(&tree, TOOL_INDEX, target, &joint_readings);
         let solve_us = t0.elapsed().as_micros() as f64;
 
-        // A solve that ran out of budget or stalled still hands back the nearest pose it managed,
-        // which is what a control loop wants; only a malformed request is an error, and there the
-        // arm holds where it is.
+        // Budget-out/stalled solves still return the nearest pose (control-loop semantics); only a
+        // malformed request errors, and there the arm holds.
         if let Ok(report) = result {
             joint_readings = report.joint_positions;
             residual_pos = report.position_error;
@@ -328,14 +474,14 @@ fn main() -> Result<(), VizError> {
         // Spatial geometry at ~60 Hz.
         if n % GEOM_EVERY == 0 {
             let poses = link_poses(&tree, &joint_readings);
-            for (i, pose) in poses.iter().take(N_JOINTS).enumerate() {
+            for (slot, pose) in poses.iter().enumerate().skip(1).take(N_JOINTS) {
                 rr.transform3d(
-                    &format!("world/arm/link{i}"),
+                    &format!("world/arm/link{slot}"),
                     pose.translation().into_array(),
                     pose.rotation().quaternion().as_array(),
                 )?;
             }
-            let tool = poses[N_JOINTS];
+            let tool = poses[TOOL_INDEX];
             rr.transform3d(
                 "world/arm/tool",
                 tool.translation().into_array(),
@@ -346,6 +492,13 @@ fn main() -> Result<(), VizError> {
                 target.translation().into_array(),
                 target.rotation().quaternion().as_array(),
             )?;
+
+            // Skeleton: line through every frame origin.
+            let skeleton: Vec<[f64; 3]> = poses
+                .iter()
+                .map(|pose| pose.translation().into_array())
+                .collect();
+            rr.line_strips3d("world/arm/skeleton", &[skeleton], &[HERO], &[0.012])?;
 
             let ee = tool.translation().into_array();
             if trail.len() == TRAIL_MAX {
@@ -365,7 +518,7 @@ fn main() -> Result<(), VizError> {
             && let Some(s) = solve_ring.summary()
         {
             let md = format!(
-                "## 3d_arm_ik — multicalc live demo\n\
+                "## 3d_arm_ik — Franka Panda, live from its model file\n\
                  ### full SE(3) IK solve (damped least squares, analytic Jacobian): median {:.0} µs · p99 {:.0} µs ({:.1} % of the 1 ms tick)\n\
                  ### tracking: position error {:.3} µm, orientation error {:.3} µrad · {} stalled ticks",
                 s.median,
