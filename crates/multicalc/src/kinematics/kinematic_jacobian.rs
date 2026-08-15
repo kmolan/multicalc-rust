@@ -19,6 +19,26 @@ pub enum JacobianFrame {
     Body,
 }
 
+/// Task-space character of a rank deficiency: which half of the degenerate twist direction
+/// dominates.
+///
+/// Taken from the singular direction of `J·Jᵀ` belonging to σ_min, split at the `[v; ω]` boundary
+/// and named by whichever half carries over two thirds of its squared norm. The split is
+/// dimensionally inhomogeneous (m/s against rad/s), as is the DLS step it shares a decomposition
+/// with. Deliberately not arm-anatomy terms — the same classifier runs on planar chains, legs and
+/// floating-base trees.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SingularityKind {
+    /// σ_min at or above the threshold: full rank for the purpose of the query.
+    None,
+    /// Degenerate direction is predominantly translational.
+    Positional,
+    /// Degenerate direction is predominantly rotational.
+    Rotational,
+    /// Degenerate direction is translational/rotational, neither half over two thirds.
+    Mixed,
+}
+
 /// Geometric Jacobian of a kinematic tree: a `6 × MAX_CONFIG` twist-per-unit-joint-rate map,
 /// `[v; ω]` row order.
 ///
@@ -224,6 +244,85 @@ impl<const MAX_CONFIG: usize, T: Numeric> KinematicJacobian<MAX_CONFIG, T> {
             .singular_values();
         let smallest = singular_values.get(5).copied().unwrap_or(T::ZERO);
         Ok(smallest.max(T::ZERO).sqrt())
+    }
+
+    /// Classifies the degenerate task-space direction, or [`SingularityKind::None`] at full rank.
+    ///
+    /// `threshold` is compared against σ_min, matching
+    /// [`InverseKinematics`](crate::kinematics::InverseKinematics)'s own damping threshold: at or
+    /// above it, the chain is treated as full rank.
+    ///
+    /// Only the direction belonging to σ_min is classified. Under a nullity above one — any chain
+    /// with fewer than six actuated DOF — that direction is an arbitrary member of the degenerate
+    /// subspace and the rest are not reported.
+    ///
+    /// Errors: [`Linalg`](KinematicsError::Linalg) if the decomposition fails, i.e. a non-finite
+    /// entry.
+    ///
+    /// ```
+    /// use multicalc::kinematics::{JacobianFrame, Joint, JointParent, KinematicTree, SingularityKind};
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::spatial::{SE3, SO3};
+    ///
+    /// let z = Vector::new([0.0, 0.0, 1.0]);
+    /// let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([1.0, 0.0, 0.0]));
+    ///
+    /// // 1-DOF chain: rank 1 against a 6-DOF task, degenerate at every configuration.
+    /// let tree = KinematicTree::<2, 2, f64>::try_from_joints(
+    ///     &[Joint::revolute(z, SE3::identity()), Joint::fixed(link)],
+    ///     &[JointParent::World, JointParent::Joint(0)],
+    /// )
+    /// .unwrap();
+    /// let jacobian = tree
+    ///     .geometric_jacobian_at(&Vector::zeros(), 1, JacobianFrame::World)
+    ///     .unwrap();
+    ///
+    /// assert_ne!(
+    ///     jacobian.classify_singularity(1e-3).unwrap(),
+    ///     SingularityKind::None
+    /// );
+    /// ```
+    pub fn classify_singularity(&self, threshold: T) -> Result<SingularityKind, KinematicsError> {
+        let decomposition = (self.entries * self.entries.transpose()).svd()?;
+        let smallest = decomposition
+            .singular_values()
+            .get(5)
+            .copied()
+            .unwrap_or(T::ZERO)
+            .max(T::ZERO)
+            .sqrt();
+        if smallest >= threshold {
+            return Ok(SingularityKind::None);
+        }
+
+        // V, not U: the Gram matrix is symmetric so both factors span the same directions, but a
+        // U column is left at zero where its singular value is, which is precisely the exactly-rank-
+        // deficient case. Column 5 belongs to σ_min.
+        let directions = decomposition.v();
+        let mut linear_squared = T::ZERO;
+        let mut angular_squared = T::ZERO;
+        for row in 0..6 {
+            let Some(component) = directions.get(row, 5) else {
+                continue;
+            };
+            if row < 3 {
+                linear_squared += *component * *component;
+            } else {
+                angular_squared += *component * *component;
+            }
+        }
+
+        let two_thirds = T::from_f64(2.0 / 3.0);
+        let total = linear_squared + angular_squared;
+        Ok(if total <= T::ZERO {
+            SingularityKind::Mixed
+        } else if linear_squared > two_thirds * total {
+            SingularityKind::Positional
+        } else if angular_squared > two_thirds * total {
+            SingularityKind::Rotational
+        } else {
+            SingularityKind::Mixed
+        })
     }
 
     /// Weighted damped-least-squares inverse `W⁻¹ Jᵀ (J W⁻¹ Jᵀ + λ² I₆)⁺`.

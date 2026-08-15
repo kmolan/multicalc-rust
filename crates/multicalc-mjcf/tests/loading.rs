@@ -585,8 +585,29 @@ fn reads_a_chain_of_bodies() {
     assert_eq!(model.body(1).unwrap().parent(), Some(0));
 
     let joint = model.body(1).unwrap().joint().unwrap();
-    assert_eq!(joint.kind(), JointKind::Revolute);
+    assert_eq!(joint.kind(), JointKind::Continuous);
     assert_eq!(joint.axis().into_array(), [0.0, 1.0, 0.0]);
+}
+
+#[test]
+fn an_explicitly_unlimited_hinge_is_continuous() {
+    let model =
+        load(r#"<body><joint limited="false"/><inertial mass="1" diaginertia="1 1 1"/></body>"#);
+    assert_eq!(
+        model.body(0).unwrap().joint().unwrap().kind(),
+        JointKind::Continuous
+    );
+}
+
+#[test]
+fn a_limited_hinge_stays_revolute() {
+    let model = load(
+        r#"<body><joint limited="true" range="-1 1"/><inertial mass="1" diaginertia="1 1 1"/></body>"#,
+    );
+    assert_eq!(
+        model.body(0).unwrap().joint().unwrap().kind(),
+        JointKind::Revolute
+    );
 }
 
 #[test]

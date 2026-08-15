@@ -45,7 +45,8 @@ pub(crate) fn read_joint(
     let resolved = effective(node, table, class_chain)?;
 
     let joint_type = resolved.joint_type.as_deref().unwrap_or(ASSUMED_JOINT_TYPE);
-    let kind = match joint_type {
+    let is_revolute = joint_type == "hinge";
+    let base_kind = match joint_type {
         "hinge" => JointKind::Revolute,
         "slide" => JointKind::Prismatic,
         other => {
@@ -55,7 +56,6 @@ pub(crate) fn read_joint(
             });
         }
     };
-    let is_revolute = matches!(kind, JointKind::Revolute);
     let to_radians = |value: f64| {
         if is_revolute {
             settings.to_radians(value)
@@ -69,6 +69,13 @@ pub(crate) fn read_joint(
         .ok_or_else(|| bad_attribute(node, "axis", node.attribute("axis").unwrap_or_default()))?;
     let anchor = Vector::new(resolved.pos.unwrap_or([0.0; 3]));
     let limits = read_limits(node, &resolved, settings.auto_limits, to_radians, body_name)?;
+
+    // A hinge with no resolved range is unbounded; everything else keeps its stated type.
+    let kind = if is_revolute && limits.is_none() {
+        JointKind::Continuous
+    } else {
+        base_kind
+    };
 
     let name = node.attribute("name").unwrap_or("joint").to_owned();
 

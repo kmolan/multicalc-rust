@@ -230,6 +230,9 @@ fn build_joint(body: &BodyRecord) -> Joint<f64> {
 
     let joint = match record.kind {
         JointKind::Revolute => Joint::revolute(record.axis, body.pose).with_anchor(record.anchor),
+        JointKind::Continuous => {
+            Joint::continuous(record.axis, body.pose).with_anchor(record.anchor)
+        }
         JointKind::Prismatic => Joint::prismatic(record.axis, body.pose),
         // MuJoCo does not compose a free-jointed body's own pos/quat onto its qpos at runtime —
         // qpos is the world pose directly, and pos/quat only ever seed qpos0's default. Passing
@@ -237,7 +240,9 @@ fn build_joint(body: &BodyRecord) -> Joint<f64> {
         // match MuJoCo's own solve of the same file.
         JointKind::Floating => return Joint::floating(SE3::identity()),
         JointKind::Fixed => {
-            unreachable!("a JointRecord's kind is only ever Revolute, Prismatic, or Floating")
+            unreachable!(
+                "a JointRecord's kind is only ever Revolute, Prismatic, Continuous, or Floating"
+            )
         }
     };
     let joint = joint
@@ -322,7 +327,7 @@ impl JointRecord {
         &self.name
     }
 
-    /// Revolute or prismatic.
+    /// Revolute, prismatic, continuous, or floating.
     #[inline]
     #[must_use]
     pub fn kind(&self) -> JointKind {

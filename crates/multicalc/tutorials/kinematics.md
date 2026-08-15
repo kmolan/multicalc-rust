@@ -73,7 +73,7 @@ model is `Copy` and needs no heap.
 - `Joint`: one single-degree-of-freedom joint. `Joint::revolute`, `Joint::prismatic` and
   `Joint::fixed` build one; the `with_*` methods set the anchor it rotates about, the reference
   configuration, the travel limits, and the armature, damping and friction loss a later dynamics pass
-  reads.
+  reads; `Joint::continuous` builds one with no travel limit, wrapping past ±π instead of stopping.
 - `JointParent`: what a joint is attached to, either `World` or an earlier joint by index.
 - `KinematicTree`: the model. `try_from_joints` and `push` are the only fallible calls; with the
   model validated once, every query afterwards is total.
@@ -133,6 +133,39 @@ of any frame's pose with respect to any joint reading, with nothing hand-derived
 
 Full demo:
 [forward_kinematics.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/forward_kinematics.rs).
+
+## Continuous joints
+
+A revolute joint with no stated limit is merely never clamped. A continuous joint states the
+unboundedness: it can carry no limit at all, and its reading is treated as periodic wherever
+configuration distance is measured — shortest arc about ±π rather than the raw difference. Wheels,
+turrets and spinning wrist rolls; `multicalc-mjcf` maps a hinge with no resolved range to one.
+
+```rust
+use multicalc::kinematics::{Joint, JointParent, KinematicTree};
+use multicalc::linear_algebra::Vector;
+use multicalc::spatial::SE3;
+
+let about_z = Vector::new([0.0, 0.0, 1.0]);
+let tree = KinematicTree::<1, 1, f64>::try_from_joints(
+    &[Joint::continuous(about_z, SE3::identity())],
+    &[JointParent::World],
+)
+.unwrap();
+
+// Readings are not folded back: 7 rad is 7 rad.
+let state = tree.forward_kinematics(&Vector::new([7.0])).unwrap();
+assert!((state.pose(0).unwrap().rotation().log()[2] - (7.0 - 2.0 * core::f64::consts::PI)).abs() < 1e-12);
+
+// 3 rad to -3 rad is 2*pi - 6 the short way, not 6.
+let distance = tree.configuration_distance(&Vector::new([3.0]), &Vector::new([-3.0]));
+assert!((distance - (2.0 * core::f64::consts::PI - 6.0)).abs() < 1e-12);
+```
+
+`configuration_distance` applies that per joint kind across the whole model: plain difference at a
+revolute or prismatic joint, shortest arc at a continuous one, translation plus rotation log at a
+floating one, nothing at a weld. `SecondaryObjective::PreferredPosture` uses the same shortest-arc
+error, so posture bias at a continuous joint drives the short way round.
 
 ## Floating joints
 
@@ -195,6 +228,58 @@ anything that could change a mass is refused rather than ignored — see the
 [crate README](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc-mjcf/README.md)
 for the part of the format it reads and which models load.
 
+## Collision checking
+
+`CollisionQuery` measures sphere and capsule clearance: self-collision between primitives attached
+to the robot's own frames, and environment collision against world-fixed ones. Distances are
+surface-to-surface, negative on overlap. Every pair is checked — no broad phase — so capacities are
+sized for a primitive or two per link rather than mesh geometry, and adjacent-link pairs that
+always touch are dropped with `exclude_pair`.
+
+```rust
+use multicalc::kinematics::{CollisionQuery, Joint, JointParent, KinematicTree, Primitive};
+use multicalc::linear_algebra::Vector;
+use multicalc::spatial::{SE3, SO3};
+
+let about_z = Vector::new([0.0, 0.0, 1.0]);
+let tree = KinematicTree::<1, 1, f64>::try_from_joints(
+    &[Joint::revolute(about_z, SE3::identity())],
+    &[JointParent::World],
+)
+.unwrap();
+
+// A 0.1 m ball carried 1 m out on the link, and an obstacle 1 m out along y.
+let mut query = CollisionQuery::<1, 1, 0, f64>::new();
+let out_along_x = SE3::from_parts(SO3::identity(), Vector::new([1.0, 0.0, 0.0]));
+let obstacle_pose = SE3::from_parts(SO3::identity(), Vector::new([0.0, 1.0, 0.0]));
+query
+    .push_self_primitive(0, Primitive::Sphere { radius: 0.1 }, out_along_x)
+    .unwrap();
+query
+    .push_environment_primitive(Primitive::Sphere { radius: 0.1 }, obstacle_pose)
+    .unwrap();
+
+// A quarter turn apart: sqrt(2) m between centres, less both radii.
+let state = tree.forward_kinematics(&Vector::zeros()).unwrap();
+let report = query.check(&state).unwrap();
+assert!((report.minimum_clearance - (2.0_f64.sqrt() - 0.2)).abs() < 1e-12);
+assert!(report.is_clear(0.05));
+
+// Turned onto the obstacle: the two coincide, so the clearance goes negative.
+let turned = tree
+    .forward_kinematics(&Vector::new([core::f64::consts::FRAC_PI_2]))
+    .unwrap();
+assert!(!query.check(&turned).unwrap().is_clear(0.0));
+```
+
+`Primitive` is posed by an `SE3` alongside it; a capsule's segment runs along its pose's local z,
+matching MJCF's convention. `sphere_sphere_distance`, `capsule_capsule_distance` and
+`sphere_capsule_distance` are public if you want the closed forms without the query around them.
+
+Used as an IK solution filter, this composes rather than hooking into the solver: walk a
+`MultiStartReport`'s `solutions()`, run `forward_kinematics` on each, and keep the first whose
+`check` comes back `is_clear`.
+
 ## Working backwards from a pose
 
 ```rust
@@ -244,6 +329,118 @@ the task is unaffected either way.
 Full demo:
 [3d_arm_ik.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/3d_arm_ik.rs).
 
+## Enumerating branches
+
+One DLS solve converges to whichever branch its seed falls into. `MultiStartInverseKinematics`
+runs up to `MAX_STARTS` solves and keeps the distinct converged configurations, deduplicated by
+`configuration_distance` against a threshold you set. Seeds come from an array you supply, or from
+`solve_seeded`, which runs the base seed unperturbed and then jitters draws from any
+`RandomSource` — uniform across a joint's range where it has limits, `base ± jitter_span` where it
+does not.
+
+```rust
+use multicalc::kinematics::{Joint, JointParent, KinematicTree, MultiStartInverseKinematics};
+use multicalc::linear_algebra::Vector;
+use multicalc::random::Pcg32;
+use multicalc::spatial::{SE3, SO3};
+
+// Six hinges alternating x/y on 0.25 m links, tool welded 0.25 m past the last: 6 DOF against a
+// 6-DOF task, so its solutions are discrete branches.
+let about_x = Vector::new([1.0, 0.0, 0.0]);
+let about_y = Vector::new([0.0, 1.0, 0.0]);
+let link = SE3::from_parts(SO3::identity(), Vector::new([0.0, 0.0, 0.25]));
+
+let mut tree = KinematicTree::<7, 7, f64>::new();
+for index in 0..6 {
+    let axis = if index % 2 == 0 { about_x } else { about_y };
+    let origin = if index == 0 { SE3::identity() } else { link };
+    let parent = if index == 0 {
+        JointParent::World
+    } else {
+        JointParent::Joint(index - 1)
+    };
+    tree.push(Joint::revolute(axis, origin), parent).unwrap();
+}
+tree.push(Joint::fixed(link), JointParent::Joint(5)).unwrap();
+
+let posture = Vector::new([0.3, 0.6, -0.4, 0.9, 0.2, -0.5, 0.0]);
+let target = tree.forward_kinematics(&posture).unwrap().pose(6).unwrap();
+
+let solver = MultiStartInverseKinematics::<8, 7, f64>::new();
+let mut source = Pcg32::<f64>::new(11);
+let report = solver
+    .solve_seeded(&tree, 6, target, &posture, &mut source, 6)
+    .unwrap();
+
+assert_eq!(report.attempts(), 6);
+assert!(report.len() >= 2); // several configurations reach the same pose
+
+// Branch continuity: hold to whichever solution is nearest the configuration already commanded.
+let nearest = report.closest_to(&tree, &posture).unwrap();
+assert!(tree.configuration_distance(&nearest.joint_positions, &posture) < 1e-6);
+```
+
+Nothing here is exhaustive. Without a closed-form solver there is no enumeration of the full
+solution set — multi-start finds some branches, probabilistically from jittered seeds or
+deterministically from chosen ones. Note also that dedup runs through `configuration_distance`, so
+readings 2π apart are two branches on a `Revolute` joint and one on a `Continuous` one.
+
+## Classifying a singularity
+
+`smallest_singular_value` gives σ_min — the distance to a rank deficiency, and what the solver
+ramps its damping against. `classify_singularity` names the degenerate direction instead:
+`Positional` where the lost twist direction is predominantly translational, `Rotational` where it
+is predominantly angular, `Mixed` where neither half carries two thirds, `None` above the
+threshold. Not wrist/elbow/shoulder — the same classifier runs on planar chains, legs and
+floating-base trees.
+
+```rust
+use multicalc::kinematics::{
+    JacobianFrame, Joint, JointParent, KinematicTree, SingularityKind,
+};
+use multicalc::linear_algebra::Vector;
+use multicalc::spatial::SE3;
+
+let about_x = Vector::new([1.0, 0.0, 0.0]);
+let about_y = Vector::new([0.0, 1.0, 0.0]);
+let about_z = Vector::new([0.0, 0.0, 1.0]);
+
+// A gantry: three slides plus hinges about x and y. Rank 5 against a 6-DOF task, degenerate in
+// omega_z.
+let tree = KinematicTree::<6, 6, f64>::try_from_joints(
+    &[
+        Joint::prismatic(about_x, SE3::identity()),
+        Joint::prismatic(about_y, SE3::identity()),
+        Joint::prismatic(about_z, SE3::identity()),
+        Joint::revolute(about_x, SE3::identity()),
+        Joint::revolute(about_y, SE3::identity()),
+        Joint::fixed(SE3::identity()),
+    ],
+    &[
+        JointParent::World,
+        JointParent::Joint(0),
+        JointParent::Joint(1),
+        JointParent::Joint(2),
+        JointParent::Joint(3),
+        JointParent::Joint(4),
+    ],
+)
+.unwrap();
+
+let jacobian = tree
+    .geometric_jacobian_at(&Vector::zeros(), 5, JacobianFrame::World)
+    .unwrap();
+
+assert_eq!(
+    jacobian.classify_singularity(1e-2).unwrap(),
+    SingularityKind::Rotational
+);
+```
+
+The threshold is the solver's own damping threshold: at or above it, the chain reads as full rank.
+Only the direction belonging to σ_min is classified, so under a nullity above one — any chain with
+fewer than six actuated DOF — the reported direction is an arbitrary member of the degenerate
+subspace.
 
 ---
 

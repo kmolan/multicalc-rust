@@ -282,20 +282,21 @@ fn render_push(
             let _ = writeln!(out, "        {parent_text},");
             let _ = writeln!(out, "    )");
         }
-        kind @ (JointKind::Revolute | JointKind::Prismatic) => {
+        kind @ (JointKind::Revolute | JointKind::Prismatic | JointKind::Continuous) => {
             let axis = joint.axis();
             let axis_text = format!("[{}, {}, {}]", n(axis[0]), n(axis[1]), n(axis[2]));
-            let constructor = if kind == JointKind::Revolute {
-                "revolute"
-            } else {
-                "prismatic"
+            let constructor = match kind {
+                JointKind::Revolute => "revolute",
+                JointKind::Prismatic => "prismatic",
+                JointKind::Continuous => "continuous",
+                JointKind::Fixed | JointKind::Floating => unreachable!("handled above"),
             };
             let _ = writeln!(out, "    tree.push(");
             let _ = writeln!(
                 out,
                 "        Joint::{constructor}(Vector::new({axis_text}), {pose_text})"
             );
-            if kind == JointKind::Revolute {
+            if kind == JointKind::Revolute || kind == JointKind::Continuous {
                 let anchor = joint.anchor();
                 let anchor_text = format!("[{}, {}, {}]", n(anchor[0]), n(anchor[1]), n(anchor[2]));
                 let _ = writeln!(out, "            .with_anchor(Vector::new({anchor_text}))");

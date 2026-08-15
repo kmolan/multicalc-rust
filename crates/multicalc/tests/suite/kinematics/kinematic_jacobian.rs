@@ -1,10 +1,12 @@
 //! Geometric-Jacobian tests: closed-form columns, which joints contribute, frame choice, an
-//! autodiff cross-check, error cases, and f32 coverage.
+//! autodiff cross-check, singularity classification, error cases, and f32 coverage.
 
 use core::f64::consts::FRAC_PI_2;
 
 use multicalc::error::KinematicsError;
-use multicalc::kinematics::{JacobianFrame, Joint, JointKind, JointParent, KinematicTree};
+use multicalc::kinematics::{
+    JacobianFrame, Joint, JointKind, JointParent, KinematicTree, SingularityKind,
+};
 use multicalc::linear_algebra::{Matrix3D, Vector, Vector3D};
 use multicalc::scalar::{Dual, Numeric};
 use multicalc::spatial::{SE3, SO3};
@@ -97,6 +99,104 @@ fn spatial_arm<T: Numeric>() -> KinematicTree<8, 8, T> {
         ],
     )
     .unwrap()
+}
+
+/// Three slides along the world axes plus hinges about x and y through the tool frame: rank 5,
+/// degenerate in ω_z.
+fn no_spin_about_z() -> KinematicTree<6, 6, f64> {
+    KinematicTree::try_from_joints(
+        &[
+            Joint::prismatic(axis_x(), SE3::identity()),
+            Joint::prismatic(axis_y(), SE3::identity()),
+            Joint::prismatic(axis_z(), SE3::identity()),
+            Joint::revolute(axis_x(), SE3::identity()),
+            Joint::revolute(axis_y(), SE3::identity()),
+            Joint::fixed(SE3::identity()),
+        ],
+        &[
+            JointParent::World,
+            JointParent::Joint(0),
+            JointParent::Joint(1),
+            JointParent::Joint(2),
+            JointParent::Joint(3),
+            JointParent::Joint(4),
+        ],
+    )
+    .unwrap()
+}
+
+/// Slides along x and y plus hinges about all three axes through the tool frame: rank 5,
+/// degenerate in v_z.
+fn no_move_along_z() -> KinematicTree<6, 6, f64> {
+    KinematicTree::try_from_joints(
+        &[
+            Joint::prismatic(axis_x(), SE3::identity()),
+            Joint::prismatic(axis_y(), SE3::identity()),
+            Joint::revolute(axis_x(), SE3::identity()),
+            Joint::revolute(axis_y(), SE3::identity()),
+            Joint::revolute(axis_z(), SE3::identity()),
+            Joint::fixed(SE3::identity()),
+        ],
+        &[
+            JointParent::World,
+            JointParent::Joint(0),
+            JointParent::Joint(1),
+            JointParent::Joint(2),
+            JointParent::Joint(3),
+            JointParent::Joint(4),
+        ],
+    )
+    .unwrap()
+}
+
+/// As [`no_move_along_z`], but the last hinge's axis is (x + z)/sqrt(2) and its anchor sits 1 m
+/// along -y of the tool, so its twist carries equal v_z and ω_z: rank 5, degenerate in
+/// (v_z - ω_z)/sqrt(2).
+fn tilted_offset_arm() -> KinematicTree<6, 6, f64> {
+    let leaning = Vector::new([
+        core::f64::consts::FRAC_1_SQRT_2,
+        0.0,
+        core::f64::consts::FRAC_1_SQRT_2,
+    ]);
+    KinematicTree::try_from_joints(
+        &[
+            Joint::prismatic(axis_x(), SE3::identity()),
+            Joint::prismatic(axis_y(), SE3::identity()),
+            Joint::revolute(axis_x(), SE3::identity()),
+            Joint::revolute(axis_y(), SE3::identity()),
+            Joint::revolute(leaning, translation(0.0, -1.0, 0.0)),
+            Joint::fixed(translation(0.0, 1.0, 0.0)),
+        ],
+        &[
+            JointParent::World,
+            JointParent::Joint(0),
+            JointParent::Joint(1),
+            JointParent::Joint(2),
+            JointParent::Joint(3),
+            JointParent::Joint(4),
+        ],
+    )
+    .unwrap()
+}
+
+/// Six hinges alternating about x and y on 0.25 m links, tool welded 0.25 m past the last — the
+/// chain `six_hinge_chain_near_singular` fixes. Zero readings leave it stretched along z.
+fn stretched_six_hinge_arm() -> KinematicTree<7, 7, f64> {
+    let link = translation::<f64>(0.0, 0.0, 0.25);
+    let mut tree = KinematicTree::new();
+    for index in 0..6 {
+        let axis = if index % 2 == 0 { axis_x() } else { axis_y() };
+        let origin = if index == 0 { SE3::identity() } else { link };
+        let parent = if index == 0 {
+            JointParent::World
+        } else {
+            JointParent::Joint(index - 1)
+        };
+        tree.push(Joint::revolute(axis, origin), parent).unwrap();
+    }
+    tree.push(Joint::fixed(link), JointParent::Joint(5))
+        .unwrap();
+    tree
 }
 
 /// A configuration that leaves no joint at a special angle.
@@ -315,6 +415,107 @@ fn matches_autodiff_through_forward_kinematics() {
                 "joint {moved}, row {row}: got {got}, want {want}"
             );
         }
+    }
+}
+
+// ---- singularity classification ---------------------------------------------
+
+#[test]
+fn a_chain_well_clear_of_a_singularity_reports_none() {
+    let jacobian = spatial_arm::<f64>()
+        .geometric_jacobian_at(&generic_readings(), 7, JacobianFrame::World)
+        .unwrap();
+
+    assert_eq!(
+        jacobian.classify_singularity(1e-2),
+        Ok(SingularityKind::None)
+    );
+}
+
+#[test]
+fn the_threshold_decides_what_counts_as_near_singular() {
+    // Same Jacobian either side of its own σ_min.
+    let jacobian = spatial_arm::<f64>()
+        .geometric_jacobian_at(&generic_readings(), 7, JacobianFrame::World)
+        .unwrap();
+    let smallest = jacobian.smallest_singular_value().unwrap();
+
+    assert_eq!(
+        jacobian.classify_singularity(smallest * 0.5),
+        Ok(SingularityKind::None)
+    );
+    assert_ne!(
+        jacobian.classify_singularity(smallest * 2.0),
+        Ok(SingularityKind::None)
+    );
+}
+
+#[test]
+fn a_tool_that_cannot_be_spun_about_z_is_rotational() {
+    // Rank 5: span is {v_x, v_y, v_z, ω_x, ω_y}, nullity 1 at ω_z.
+    let jacobian = no_spin_about_z()
+        .geometric_jacobian_at(&Vector::zeros(), 5, JacobianFrame::World)
+        .unwrap();
+
+    assert_eq!(
+        jacobian.classify_singularity(1e-2),
+        Ok(SingularityKind::Rotational)
+    );
+}
+
+#[test]
+fn a_tool_that_cannot_be_moved_along_z_is_positional() {
+    // Rank 5: span is {v_x, v_y, ω_x, ω_y, ω_z}, nullity 1 at v_z.
+    let jacobian = no_move_along_z()
+        .geometric_jacobian_at(&Vector::zeros(), 5, JacobianFrame::World)
+        .unwrap();
+
+    assert_eq!(
+        jacobian.classify_singularity(1e-2),
+        Ok(SingularityKind::Positional)
+    );
+}
+
+#[test]
+fn a_lost_direction_that_both_moves_and_turns_is_mixed() {
+    // Rank 5, nullity 1 at (v_z - ω_z)/sqrt(2): the last joint's 1 m offset makes its v_z and ω_z
+    // contributions equal, so the halves split 50/50 and neither clears two thirds.
+    let jacobian = tilted_offset_arm()
+        .geometric_jacobian_at(&Vector::zeros(), 5, JacobianFrame::World)
+        .unwrap();
+
+    assert_eq!(
+        jacobian.classify_singularity(1e-2),
+        Ok(SingularityKind::Mixed)
+    );
+}
+
+#[test]
+fn a_stretched_out_chain_is_degenerate() {
+    // Rank 4 at the stretched configuration: nullity 2, spanning v_z and ω_z. Which member the SVD
+    // returns at index 5 is arbitrary, so only the degeneracy itself is pinned.
+    let jacobian = stretched_six_hinge_arm()
+        .geometric_jacobian_at(&Vector::zeros(), 6, JacobianFrame::World)
+        .unwrap();
+
+    assert_ne!(
+        jacobian.classify_singularity(1e-2),
+        Ok(SingularityKind::None)
+    );
+}
+
+#[test]
+fn a_two_link_arm_is_always_degenerate() {
+    // Rank <= 2 against a 6-DOF task at every configuration.
+    let tree = planar_arm::<f64>();
+    for readings in [Vector::zeros(), Vector::new([0.3, -0.7, 0.0])] {
+        let jacobian = tree
+            .geometric_jacobian_at(&readings, 2, JacobianFrame::World)
+            .unwrap();
+        assert_ne!(
+            jacobian.classify_singularity(1e-2),
+            Ok(SingularityKind::None)
+        );
     }
 }
 

@@ -118,6 +118,12 @@ pub enum KinematicsError {
     ConfigurationCapacityExceeded,
     /// A floating joint's orientation reading was all zeros, which names no direction.
     OrientationHasNoDirection,
+    /// A `Continuous` joint carried travel limits, which it can never have.
+    ContinuousJointHasLimits,
+    /// More multi-start seeds were supplied than the wrapper's capacity.
+    StartCapacityExceeded,
+    /// More collision primitives or excluded pairs were supplied than the query can hold.
+    CollisionCapacityExceeded,
     /// A matrix step inside the solver failed.
     Linalg(LinalgError),
 }
@@ -627,6 +633,15 @@ impl core::fmt::Display for KinematicsError {
             }
             KinematicsError::OrientationHasNoDirection => {
                 "a floating joint's orientation reading was all zeros, which names no direction"
+            }
+            KinematicsError::ContinuousJointHasLimits => {
+                "a continuous joint carried travel limits, which it can never have"
+            }
+            KinematicsError::StartCapacityExceeded => {
+                "more multi-start seeds than the wrapper can hold"
+            }
+            KinematicsError::CollisionCapacityExceeded => {
+                "more collision primitives or excluded pairs than the query can hold"
             }
             KinematicsError::Linalg(e) => return write!(f, "{e}"),
         };
