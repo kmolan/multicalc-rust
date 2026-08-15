@@ -1,3 +1,4 @@
+mod collision;
 mod continuous_joint;
 mod differential_drive;
 mod inverse_kinematics;

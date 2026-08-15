@@ -102,9 +102,10 @@ pub use kinematics::{BodyArc, BodyTwist, DifferentialDrive, WheelRotations, Whee
 
 /// Robot models, forward and inverse kinematics, and geometric Jacobians.
 pub use kinematics::{
-    InverseKinematics, InverseKinematicsReport, InverseKinematicsTermination, JacobianFrame, Joint,
-    JointKind, JointParent, KinematicJacobian, KinematicTree, KinematicTreeState,
-    MultiStartInverseKinematics, MultiStartReport, SecondaryObjective, SingularityKind,
+    CollisionQuery, CollisionReport, CollisionSource, InverseKinematics, InverseKinematicsReport,
+    InverseKinematicsTermination, JacobianFrame, Joint, JointKind, JointParent, KinematicJacobian,
+    KinematicTree, KinematicTreeState, MultiStartInverseKinematics, MultiStartReport, Primitive,
+    SecondaryObjective, SingularityKind,
 };
 
 /// Occupancry grid and scan geometry

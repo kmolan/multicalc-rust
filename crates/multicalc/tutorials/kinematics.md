@@ -228,6 +228,58 @@ anything that could change a mass is refused rather than ignored — see the
 [crate README](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc-mjcf/README.md)
 for the part of the format it reads and which models load.
 
+## Collision checking
+
+`CollisionQuery` measures sphere and capsule clearance: self-collision between primitives attached
+to the robot's own frames, and environment collision against world-fixed ones. Distances are
+surface-to-surface, negative on overlap. Every pair is checked — no broad phase — so capacities are
+sized for a primitive or two per link rather than mesh geometry, and adjacent-link pairs that
+always touch are dropped with `exclude_pair`.
+
+```rust
+use multicalc::kinematics::{CollisionQuery, Joint, JointParent, KinematicTree, Primitive};
+use multicalc::linear_algebra::Vector;
+use multicalc::spatial::{SE3, SO3};
+
+let about_z = Vector::new([0.0, 0.0, 1.0]);
+let tree = KinematicTree::<1, 1, f64>::try_from_joints(
+    &[Joint::revolute(about_z, SE3::identity())],
+    &[JointParent::World],
+)
+.unwrap();
+
+// A 0.1 m ball carried 1 m out on the link, and an obstacle 1 m out along y.
+let mut query = CollisionQuery::<1, 1, 0, f64>::new();
+let out_along_x = SE3::from_parts(SO3::identity(), Vector::new([1.0, 0.0, 0.0]));
+let obstacle_pose = SE3::from_parts(SO3::identity(), Vector::new([0.0, 1.0, 0.0]));
+query
+    .push_self_primitive(0, Primitive::Sphere { radius: 0.1 }, out_along_x)
+    .unwrap();
+query
+    .push_environment_primitive(Primitive::Sphere { radius: 0.1 }, obstacle_pose)
+    .unwrap();
+
+// A quarter turn apart: sqrt(2) m between centres, less both radii.
+let state = tree.forward_kinematics(&Vector::zeros()).unwrap();
+let report = query.check(&state).unwrap();
+assert!((report.minimum_clearance - (2.0_f64.sqrt() - 0.2)).abs() < 1e-12);
+assert!(report.is_clear(0.05));
+
+// Turned onto the obstacle: the two coincide, so the clearance goes negative.
+let turned = tree
+    .forward_kinematics(&Vector::new([core::f64::consts::FRAC_PI_2]))
+    .unwrap();
+assert!(!query.check(&turned).unwrap().is_clear(0.0));
+```
+
+`Primitive` is posed by an `SE3` alongside it; a capsule's segment runs along its pose's local z,
+matching MJCF's convention. `sphere_sphere_distance`, `capsule_capsule_distance` and
+`sphere_capsule_distance` are public if you want the closed forms without the query around them.
+
+Used as an IK solution filter, this composes rather than hooking into the solver: walk a
+`MultiStartReport`'s `solutions()`, run `forward_kinematics` on each, and keep the first whose
+`check` comes back `is_clear`.
+
 ## Working backwards from a pose
 
 ```rust

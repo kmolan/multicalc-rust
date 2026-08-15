@@ -122,6 +122,8 @@ pub enum KinematicsError {
     ContinuousJointHasLimits,
     /// More multi-start seeds were supplied than the wrapper's capacity.
     StartCapacityExceeded,
+    /// More collision primitives or excluded pairs were supplied than the query can hold.
+    CollisionCapacityExceeded,
     /// A matrix step inside the solver failed.
     Linalg(LinalgError),
 }
@@ -637,6 +639,9 @@ impl core::fmt::Display for KinematicsError {
             }
             KinematicsError::StartCapacityExceeded => {
                 "more multi-start seeds than the wrapper can hold"
+            }
+            KinematicsError::CollisionCapacityExceeded => {
+                "more collision primitives or excluded pairs than the query can hold"
             }
             KinematicsError::Linalg(e) => return write!(f, "{e}"),
         };

@@ -11,6 +11,8 @@
 //! - [`InverseKinematics`] — the joint readings that put a chosen frame where you want it.
 //! - [`MultiStartInverseKinematics`] — the same solve run from several seeds, collecting the
 //!   distinct branches found.
+//! - [`CollisionQuery`] — sphere/capsule clearance between a robot's own links, or against
+//!   world-fixed obstacles.
 //!
 //! Generic over [`Numeric`](crate::Numeric) (so `f32`/`f64`/autodiff — an odometry step through
 //! [`Dual`](crate::Dual) gives exact Jacobians). SI units, radians, twists linear-first `[v; ω]`
@@ -18,6 +20,7 @@
 //! arc integration follow Thrun/Burgard/Fox, *Probabilistic Robotics*, ch. 5, and
 //! Siegwart/Nourbakhsh, *Introduction to Autonomous Mobile Robots*, ch. 3.
 
+mod collision;
 mod differential_drive;
 mod inverse_kinematics;
 mod joint;
@@ -28,6 +31,10 @@ mod multi_start_inverse_kinematics;
 mod odometry;
 mod unicycle;
 
+pub use collision::{
+    CollisionQuery, CollisionReport, CollisionSource, Primitive, capsule_capsule_distance,
+    sphere_capsule_distance, sphere_sphere_distance,
+};
 pub use differential_drive::{
     BodyArc, BodyTwist, DifferentialDrive, WheelRotations, WheelVelocities,
 };
