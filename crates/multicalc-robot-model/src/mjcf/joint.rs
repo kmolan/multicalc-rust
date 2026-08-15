@@ -5,7 +5,7 @@ use multicalc::kinematics::JointKind;
 use multicalc::linear_algebra::Vector;
 use roxmltree::Node;
 
-use crate::JointRecord;
+use crate::JointDescription;
 use crate::ModelError;
 use crate::mjcf::compiler::CompilerSettings;
 use crate::mjcf::defaults::{DefaultTable, JointDefaults};
@@ -24,7 +24,7 @@ pub(crate) fn read_joint(
     class_chain: Option<&str>,
     settings: &CompilerSettings,
     body_name: &str,
-) -> Result<Option<JointRecord>, ModelError> {
+) -> Result<Option<JointDescription>, ModelError> {
     let joints: Vec<Node> = body
         .children()
         .filter(|child| {
@@ -80,7 +80,7 @@ pub(crate) fn read_joint(
 
     let name = node.attribute("name").unwrap_or("joint").to_owned();
 
-    Ok(Some(JointRecord {
+    Ok(Some(JointDescription {
         name,
         kind,
         axis,
@@ -92,6 +92,8 @@ pub(crate) fn read_joint(
         friction_loss: resolved.friction_loss.unwrap_or(0.0),
         spring_reference: to_radians(resolved.spring_reference.unwrap_or(0.0)),
         spring_stiffness: resolved.stiffness.unwrap_or(0.0),
+        // MJCF has no way to say one joint follows another.
+        mimic: None,
     }))
 }
 

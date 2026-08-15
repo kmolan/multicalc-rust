@@ -7,7 +7,7 @@ use multicalc::linear_algebra::{Matrix, Matrix3D, Vector, Vector3D};
 use multicalc::spatial::{SE3, SO3, SpatialInertia};
 use roxmltree::{Document, Node};
 
-use crate::JointRecord;
+use crate::JointDescription;
 use crate::ModelError;
 use crate::mjcf::compiler::{CompilerSettings, InertiaFromGeom};
 use crate::mjcf::defaults::{DefaultTable, reject_orientation_attributes};
@@ -19,7 +19,7 @@ use crate::xml::{
 };
 
 /// The top-level sections this loader takes something from. Every other section a file carries is
-/// passed over, and named in the record rather than going quietly.
+/// passed over, and listed by name rather than going quietly.
 const READ_SECTIONS: [&str; 3] = ["compiler", "default", "worldbody"];
 
 /// Everything one model file says, as a flat list of bodies in the order they appear.
@@ -38,7 +38,7 @@ pub(crate) struct ParsedBody {
     /// The body's mass properties. MJCF always states them or works them out, so this reader never
     /// leaves it empty; the model type allows it because URDF does.
     pub inertia: Option<SpatialInertia<f64>>,
-    pub joint: Option<JointRecord>,
+    pub joint: Option<JointDescription>,
 }
 
 /// Reads the tree of bodies a file describes, refusing anything outside this loader's subset by
@@ -130,7 +130,7 @@ fn walk_body(
                 return Err(ModelError::FreeJointNotAtRoot { body: name });
             }
             *floating_base = true;
-            Some(JointRecord::floating(name.clone()))
+            Some(JointDescription::floating(name.clone()))
         }
         _ => read_joint(node, table, class_chain, settings, &name)?,
     };

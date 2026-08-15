@@ -52,7 +52,7 @@ impl core::fmt::Display for ModelFormat {
 pub struct RobotModel {
     name: String,
     format: ModelFormat,
-    bodies: Vec<BodyRecord>,
+    bodies: Vec<BodyDescription>,
     floating_base: bool,
     ignored: Vec<String>,
 }
@@ -75,22 +75,22 @@ impl RobotModel {
     /// All bodies, depth-first in document order.
     #[inline]
     #[must_use]
-    pub fn bodies(&self) -> &[BodyRecord] {
+    pub fn bodies(&self) -> &[BodyDescription] {
         &self.bodies
     }
 
     /// Body at `index`, or `None` if out of range.
     #[inline]
     #[must_use]
-    pub fn body(&self, index: usize) -> Option<&BodyRecord> {
+    pub fn body(&self, index: usize) -> Option<&BodyDescription> {
         self.bodies.get(index)
     }
 
     /// First body named `name`.
     #[inline]
     #[must_use]
-    pub fn body_named(&self, name: &str) -> Option<&BodyRecord> {
-        self.bodies.iter().find(|record| record.name == name)
+    pub fn body_named(&self, name: &str) -> Option<&BodyDescription> {
+        self.bodies.iter().find(|body| body.name == name)
     }
 
     /// Body count.
@@ -106,7 +106,7 @@ impl RobotModel {
     pub fn movable_joint_count(&self) -> usize {
         self.bodies
             .iter()
-            .filter(|record| record.joint.is_some())
+            .filter(|body| body.joint.is_some())
             .count()
     }
 
@@ -246,19 +246,19 @@ impl RobotModel {
     }
 }
 
-/// The `Joint` one body's record describes: its geometry, then the dynamics data carried
+/// The `Joint` a body's own description asks for: its geometry, then the dynamics data carried
 /// alongside it.
-fn build_joint(body: &BodyRecord) -> Joint<f64> {
-    let Some(record) = &body.joint else {
+fn build_joint(body: &BodyDescription) -> Joint<f64> {
+    let Some(description) = &body.joint else {
         return Joint::fixed(body.pose);
     };
 
-    let joint = match record.kind {
-        JointKind::Revolute => Joint::revolute(record.axis, body.pose).with_anchor(record.anchor),
+    let joint = match description.kind {
+        JointKind::Revolute => Joint::revolute(description.axis, body.pose).with_anchor(description.anchor),
         JointKind::Continuous => {
-            Joint::continuous(record.axis, body.pose).with_anchor(record.anchor)
+            Joint::continuous(description.axis, body.pose).with_anchor(description.anchor)
         }
-        JointKind::Prismatic => Joint::prismatic(record.axis, body.pose),
+        JointKind::Prismatic => Joint::prismatic(description.axis, body.pose),
         // MuJoCo does not compose a free-jointed body's own pos/quat onto its qpos at runtime —
         // qpos is the world pose directly, and pos/quat only ever seed qpos0's default. Passing
         // body.pose here would place an identity reading away from the origin, which does not
@@ -266,16 +266,16 @@ fn build_joint(body: &BodyRecord) -> Joint<f64> {
         JointKind::Floating => return Joint::floating(SE3::identity()),
         JointKind::Fixed => {
             unreachable!(
-                "a JointRecord's kind is only ever Revolute, Prismatic, Continuous, or Floating"
+                "a JointDescription's kind is only ever Revolute, Prismatic, Continuous, or Floating"
             )
         }
     };
     let joint = joint
-        .with_zero_offset(record.zero_offset)
-        .with_armature(record.armature)
-        .with_damping(record.damping)
-        .with_friction_loss(record.friction_loss);
-    match record.limits {
+        .with_zero_offset(description.zero_offset)
+        .with_armature(description.armature)
+        .with_damping(description.damping)
+        .with_friction_loss(description.friction_loss);
+    match description.limits {
         Some((lower, upper)) => joint.with_limits(lower, upper),
         None => joint,
     }
@@ -283,15 +283,15 @@ fn build_joint(body: &BodyRecord) -> Joint<f64> {
 
 /// One body: pose, spatial inertia, and its joint (if any).
 #[derive(Debug, Clone, PartialEq)]
-pub struct BodyRecord {
+pub struct BodyDescription {
     name: String,
     parent: Option<usize>,
     pose: SE3<f64>,
     inertia: Option<SpatialInertia<f64>>,
-    joint: Option<JointRecord>,
+    joint: Option<JointDescription>,
 }
 
-impl BodyRecord {
+impl BodyDescription {
     /// Body name (`body` if unspecified).
     #[inline]
     #[must_use]
@@ -326,14 +326,48 @@ impl BodyRecord {
     /// Joint connecting the body to its parent, or `None` if welded.
     #[inline]
     #[must_use]
-    pub fn joint(&self) -> Option<&JointRecord> {
+    pub fn joint(&self) -> Option<&JointDescription> {
         self.joint.as_ref()
+    }
+}
+
+/// One joint following another, at a fixed ratio and offset.
+///
+/// A tree of joints that each move on their own cannot describe this, so a model carrying one is
+/// read in full but cannot be turned into a whole-model tree.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MimicDescription {
+    joint: String,
+    multiplier: f64,
+    offset: f64,
+}
+
+impl MimicDescription {
+    /// The joint this one follows.
+    #[inline]
+    #[must_use]
+    pub fn joint(&self) -> &str {
+        &self.joint
+    }
+
+    /// How far this joint moves for each unit the joint it follows moves.
+    #[inline]
+    #[must_use]
+    pub fn multiplier(&self) -> f64 {
+        self.multiplier
+    }
+
+    /// Where this joint sits when the joint it follows reads zero.
+    #[inline]
+    #[must_use]
+    pub fn offset(&self) -> f64 {
+        self.offset
     }
 }
 
 /// One joint: kinematic and dynamic parameters as read from the file.
 #[derive(Debug, Clone, PartialEq)]
-pub struct JointRecord {
+pub struct JointDescription {
     name: String,
     kind: JointKind,
     axis: Vector3D<f64>,
@@ -345,9 +379,10 @@ pub struct JointRecord {
     friction_loss: f64,
     spring_reference: f64,
     spring_stiffness: f64,
+    mimic: Option<MimicDescription>,
 }
 
-impl JointRecord {
+impl JointDescription {
     /// Joint name (`joint` if unspecified).
     #[inline]
     #[must_use]
@@ -423,12 +458,19 @@ impl JointRecord {
         self.spring_stiffness
     }
 
-    /// A floating (6-DOF) joint record: a file that frees a body to move in all six directions
-    /// states none of a `JointRecord`'s other fields, so every one of them is left at its inert
+    /// The joint this one is driven by, or `None` where it moves on its own.
+    #[inline]
+    #[must_use]
+    pub fn mimic(&self) -> Option<&MimicDescription> {
+        self.mimic.as_ref()
+    }
+
+    /// A floating (6-DOF) joint: a file that frees a body to move in all six directions states
+    /// none of a `JointDescription`'s other fields, so every one of them is left at its inert
     /// default.
     #[cfg(any(feature = "mjcf", feature = "urdf"))]
     pub(crate) fn floating(name: String) -> Self {
-        JointRecord {
+        JointDescription {
             name,
             kind: JointKind::Floating,
             axis: Vector3D::new([1.0, 0.0, 0.0]),
@@ -440,6 +482,7 @@ impl JointRecord {
             friction_loss: 0.0,
             spring_reference: 0.0,
             spring_stiffness: 0.0,
+            mimic: None,
         }
     }
 }

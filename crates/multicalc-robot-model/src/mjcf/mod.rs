@@ -9,7 +9,7 @@ mod joint;
 
 use std::path::Path;
 
-use crate::{BodyRecord, ModelError, ModelFormat, RobotModel};
+use crate::{BodyDescription, ModelError, ModelFormat, RobotModel};
 
 /// Loads a model from a file path, resolving any `<include>` elements it pulls in.
 pub fn load_path(path: &Path) -> Result<RobotModel, ModelError> {
@@ -33,7 +33,7 @@ pub fn load_str(xml: &str) -> Result<RobotModel, ModelError> {
     let bodies = parsed
         .bodies
         .into_iter()
-        .map(|body| BodyRecord {
+        .map(|body| BodyDescription {
             name: body.name,
             parent: body.parent,
             pose: body.pose,
