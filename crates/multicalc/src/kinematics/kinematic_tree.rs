@@ -647,14 +647,14 @@ impl<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>
         self.geometric_jacobian(&state, tool_index, frame)
     }
 
-    /// Configuration-space distance between `a` and `b`: linear for `Revolute`/`Prismatic`, the
-    /// shortest angular difference (wrapped mod 2π via [`Numeric::wrap_to_pi`]) for `Continuous`,
-    /// an `SE3::log()`-based pose distance for `Floating`, and no contribution from a `Fixed`
-    /// joint. Squared per-joint terms are summed then square-rooted, mixing metres and radians the
-    /// same way every other joint-space quantity in this module already does.
+    /// Configuration-space distance between `a` and `b`, per joint kind: plain difference for
+    /// `Revolute`/`Prismatic`, [`Numeric::wrap_to_pi`] of the difference for `Continuous`,
+    /// translation plus `SO3::log()` of the relative rotation for `Floating`, nothing for `Fixed`.
+    /// Squared terms summed, then square-rooted — metres and radians mixed, as elsewhere in this
+    /// module's joint-space norms.
     ///
-    /// Used to decide whether two solutions of the same target are the same branch, and to pick
-    /// the branch closest to a previous configuration near a singularity.
+    /// Branch identity for multi-solution IK, and nearest-branch selection against a previous
+    /// configuration.
     ///
     /// ```
     /// use core::f64::consts::PI;
@@ -669,7 +669,7 @@ impl<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>
     /// )
     /// .unwrap();
     ///
-    /// // 3 and -3 radians are only a shade over a quarter turn apart the short way, not 6 radians.
+    /// // 3 rad to -3 rad is 2*pi - 6 the short way, not 6.
     /// let distance = tree.configuration_distance(&Vector::new([3.0]), &Vector::new([-3.0]));
     /// assert!((distance - (2.0 * PI - 6.0)).abs() < 1e-12);
     /// ```

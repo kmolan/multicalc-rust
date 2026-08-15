@@ -70,7 +70,7 @@ pub(crate) fn read_joint(
     let anchor = Vector::new(resolved.pos.unwrap_or([0.0; 3]));
     let limits = read_limits(node, &resolved, settings.auto_limits, to_radians, body_name)?;
 
-    // An unlimited hinge spins freely; anything else keeps the type its MJCF attribute names.
+    // A hinge with no resolved range is unbounded; everything else keeps its stated type.
     let kind = if is_revolute && limits.is_none() {
         JointKind::Continuous
     } else {

@@ -80,9 +80,9 @@ impl<T: Numeric> Joint<T> {
         Joint::from_kind(JointKind::Revolute, axis, origin)
     }
 
-    /// Continuous joint about `axis`, with parent-to-joint transform `origin`: turns like a
-    /// `Revolute` joint but never stops — [`with_limits`](Joint::with_limits) is refused for it when
-    /// the joint is added to a [`KinematicTree`](crate::kinematics::KinematicTree).
+    /// Continuous joint about `axis`, with parent-to-joint transform `origin`: `Revolute`
+    /// kinematics with no travel limit. [`KinematicTree::push`](crate::kinematics::KinematicTree::push)
+    /// rejects one carrying [`with_limits`](Joint::with_limits).
     ///
     /// Defaults are as for [`revolute`](Joint::revolute).
     ///

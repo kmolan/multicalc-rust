@@ -1,6 +1,6 @@
-//! Continuous-joint tests: construction and limit refusal, forward-kinematics and Jacobian parity
-//! with an equivalent unlimited `Revolute` joint at an angle past ±2π, wrap-aware
-//! configuration-space distance, wrap-aware preferred-posture bias, and f32 coverage.
+//! Continuous-joint tests: construction and limit refusal, FK and Jacobian parity with an
+//! unlimited `Revolute` joint past ±2π, wrapped configuration distance, shortest-arc
+//! preferred-posture bias, and f32 coverage.
 
 use core::f64::consts::PI;
 
@@ -25,7 +25,7 @@ fn translation<T: Numeric>(x: T, y: T, z: T) -> SE3<T> {
     SE3::from_parts(SO3::identity(), Vector::new([x, y, z]))
 }
 
-/// One joint of the given kind about z, with a tool frame one unit out along x.
+/// One joint about z, tool frame welded 1 m along x.
 fn single_joint_arm<T: Numeric>(joint: Joint<T>) -> KinematicTree<2, 2, T> {
     KinematicTree::try_from_joints(
         &[joint, Joint::fixed(translation(T::ONE, T::ZERO, T::ZERO))],
@@ -38,8 +38,7 @@ fn assert_close(got: f64, want: f64, what: &str) {
     assert!((got - want).abs() < TOL, "{what}: got {got}, want {want}");
 }
 
-/// Tool pose and Jacobian column agree between an unlimited revolute arm and a continuous one at
-/// the same reading.
+/// Tool pose matches between an unlimited revolute chain and a continuous one at the same reading.
 fn assert_matches_revolute_at(reading: f64) {
     let revolute = single_joint_arm(Joint::revolute(axis_z::<f64>(), SE3::identity()));
     let continuous = single_joint_arm(Joint::continuous(axis_z::<f64>(), SE3::identity()));
@@ -112,8 +111,7 @@ fn matches_an_unlimited_revolute_at_a_wrapped_angle() {
 
 #[test]
 fn turns_as_far_as_the_reading_says() {
-    // Past a full turn the tool keeps going round rather than folding back: 7 rad is 7 - 2*pi past
-    // the start.
+    // No folding back past 2*pi: 7 rad is 7 rad.
     let tree = single_joint_arm(Joint::continuous(axis_z::<f64>(), SE3::identity()));
     let tool = tree
         .forward_kinematics(&Vector::new([7.0, 0.0]))
@@ -164,7 +162,7 @@ fn matches_plain_difference_for_a_revolute_joint() {
 fn zero_for_a_fixed_joint_regardless_of_reading() {
     let tree = single_joint_arm(Joint::continuous(axis_z::<f64>(), SE3::identity()));
 
-    // The weld's slot is never read, so changing it alone changes nothing.
+    // The weld's slot is never read.
     let weld_only = tree.configuration_distance(&Vector::new([1.0, 0.0]), &Vector::new([1.0, 5.0]));
     assert_close(weld_only, 0.0, "weld-only difference");
 
@@ -176,9 +174,8 @@ fn zero_for_a_fixed_joint_regardless_of_reading() {
 
 // ---- secondary bias ---------------------------------------------------------
 
-/// Two joints of the same kind about z, stacked at the same point, with a tool frame on the second
-/// one. Only their sum moves the tool, so one direction of joint motion is free for the secondary
-/// objective to use.
+/// Two coaxial joints about z at the same origin, tool on the second. Rank 1 against 2 DOF, so the
+/// null space carries the secondary objective.
 fn stacked_pair(kind: JointKind) -> KinematicTree<2, 2, f64> {
     let build = |origin| match kind {
         JointKind::Continuous => Joint::continuous(axis_z::<f64>(), origin),
@@ -191,13 +188,12 @@ fn stacked_pair(kind: JointKind) -> KinematicTree<2, 2, f64> {
     .unwrap()
 }
 
-/// Distance from `reading` to the preferred 3.0 rad, measured the short way round.
+/// Shortest-arc error from `reading` to the preferred 3.0 rad.
 fn wrapped_gap_to_preference(reading: f64) -> f64 {
     (reading - 3.0).wrap_to_pi().abs()
 }
 
-/// One solve of a stacked pair seeded near -3.0 rad, preferring 3.0 rad, returning the first
-/// joint's new reading.
+/// One iteration of a stacked pair seeded at -3.0 rad, preferring 3.0 rad; returns joint 0.
 fn first_reading_after_one_solve(kind: JointKind) -> f64 {
     let tree = stacked_pair(kind);
     let seed = Vector::new([-3.0, 0.0]);
@@ -214,8 +210,7 @@ fn first_reading_after_one_solve(kind: JointKind) -> f64 {
 
 #[test]
 fn preferred_posture_wraps_for_a_continuous_joint() {
-    // -3.0 rad is already close to a preferred 3.0 rad the short way round, so the joint should
-    // close that small gap rather than travelling the long way.
+    // -3.0 to 3.0 is -0.283 rad the short way, so the null-space term drives negative.
     let before = wrapped_gap_to_preference(-3.0);
     let after = wrapped_gap_to_preference(first_reading_after_one_solve(JointKind::Continuous));
     assert!(after < before, "gap after {after} should be under {before}");
@@ -223,8 +218,7 @@ fn preferred_posture_wraps_for_a_continuous_joint() {
 
 #[test]
 fn preferred_posture_takes_the_long_way_for_a_revolute_joint() {
-    // A limited joint has no periodicity to exploit, so the same preference drives it the other
-    // way — the full 6 rad — and the short-way gap grows.
+    // Aperiodic: the same preference reads as +6 rad, driving positive and widening the arc.
     let before = wrapped_gap_to_preference(-3.0);
     let after = wrapped_gap_to_preference(first_reading_after_one_solve(JointKind::Revolute));
     assert!(after > before, "gap after {after} should be over {before}");

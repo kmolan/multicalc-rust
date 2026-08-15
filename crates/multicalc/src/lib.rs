@@ -104,7 +104,7 @@ pub use kinematics::{BodyArc, BodyTwist, DifferentialDrive, WheelRotations, Whee
 pub use kinematics::{
     InverseKinematics, InverseKinematicsReport, InverseKinematicsTermination, JacobianFrame, Joint,
     JointKind, JointParent, KinematicJacobian, KinematicTree, KinematicTreeState,
-    SecondaryObjective,
+    SecondaryObjective, SingularityKind,
 };
 
 /// Occupancry grid and scan geometry

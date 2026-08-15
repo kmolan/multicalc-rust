@@ -527,7 +527,7 @@ fn secondary_bias<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>(
         let wanted = match objective {
             SecondaryObjective::None => continue,
             SecondaryObjective::PreferredPosture(reference) => match reference.get(co).copied() {
-                // An unlimited joint takes whichever way round is shorter.
+                // Unbounded joint: shortest-arc error, not the raw difference.
                 Some(preferred) if joint.kind() == JointKind::Continuous => {
                     gain * (preferred - reading).wrap_to_pi()
                 }
