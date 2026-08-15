@@ -120,6 +120,8 @@ pub enum KinematicsError {
     OrientationHasNoDirection,
     /// A `Continuous` joint carried travel limits, which it can never have.
     ContinuousJointHasLimits,
+    /// More multi-start seeds were supplied than the wrapper's capacity.
+    StartCapacityExceeded,
     /// A matrix step inside the solver failed.
     Linalg(LinalgError),
 }
@@ -632,6 +634,9 @@ impl core::fmt::Display for KinematicsError {
             }
             KinematicsError::ContinuousJointHasLimits => {
                 "a continuous joint carried travel limits, which it can never have"
+            }
+            KinematicsError::StartCapacityExceeded => {
+                "more multi-start seeds than the wrapper can hold"
             }
             KinematicsError::Linalg(e) => return write!(f, "{e}"),
         };

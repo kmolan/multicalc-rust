@@ -277,6 +277,62 @@ the task is unaffected either way.
 Full demo:
 [3d_arm_ik.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/3d_arm_ik.rs).
 
+## Enumerating branches
+
+One DLS solve converges to whichever branch its seed falls into. `MultiStartInverseKinematics`
+runs up to `MAX_STARTS` solves and keeps the distinct converged configurations, deduplicated by
+`configuration_distance` against a threshold you set. Seeds come from an array you supply, or from
+`solve_seeded`, which runs the base seed unperturbed and then jitters draws from any
+`RandomSource` — uniform across a joint's range where it has limits, `base ± jitter_span` where it
+does not.
+
+```rust
+use multicalc::kinematics::{Joint, JointParent, KinematicTree, MultiStartInverseKinematics};
+use multicalc::linear_algebra::Vector;
+use multicalc::random::Pcg32;
+use multicalc::spatial::{SE3, SO3};
+
+// Six hinges alternating x/y on 0.25 m links, tool welded 0.25 m past the last: 6 DOF against a
+// 6-DOF task, so its solutions are discrete branches.
+let about_x = Vector::new([1.0, 0.0, 0.0]);
+let about_y = Vector::new([0.0, 1.0, 0.0]);
+let link = SE3::from_parts(SO3::identity(), Vector::new([0.0, 0.0, 0.25]));
+
+let mut tree = KinematicTree::<7, 7, f64>::new();
+for index in 0..6 {
+    let axis = if index % 2 == 0 { about_x } else { about_y };
+    let origin = if index == 0 { SE3::identity() } else { link };
+    let parent = if index == 0 {
+        JointParent::World
+    } else {
+        JointParent::Joint(index - 1)
+    };
+    tree.push(Joint::revolute(axis, origin), parent).unwrap();
+}
+tree.push(Joint::fixed(link), JointParent::Joint(5)).unwrap();
+
+let posture = Vector::new([0.3, 0.6, -0.4, 0.9, 0.2, -0.5, 0.0]);
+let target = tree.forward_kinematics(&posture).unwrap().pose(6).unwrap();
+
+let solver = MultiStartInverseKinematics::<8, 7, f64>::new();
+let mut source = Pcg32::<f64>::new(11);
+let report = solver
+    .solve_seeded(&tree, 6, target, &posture, &mut source, 6)
+    .unwrap();
+
+assert_eq!(report.attempts(), 6);
+assert!(report.len() >= 2); // several configurations reach the same pose
+
+// Branch continuity: hold to whichever solution is nearest the configuration already commanded.
+let nearest = report.closest_to(&tree, &posture).unwrap();
+assert!(tree.configuration_distance(&nearest.joint_positions, &posture) < 1e-6);
+```
+
+Nothing here is exhaustive. Without a closed-form solver there is no enumeration of the full
+solution set — multi-start finds some branches, probabilistically from jittered seeds or
+deterministically from chosen ones. Note also that dedup runs through `configuration_distance`, so
+readings 2π apart are two branches on a `Revolute` joint and one on a `Continuous` one.
+
 ## Classifying a singularity
 
 `smallest_singular_value` gives σ_min — the distance to a rank deficiency, and what the solver
