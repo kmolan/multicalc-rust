@@ -28,10 +28,30 @@ use multicalc::spatial::{SE3, SpatialInertia};
 pub use codegen::{GeneratedScalar, RustSourceOptions};
 pub use error::ModelError;
 
+/// Which file format a model was read from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ModelFormat {
+    /// MuJoCo MJCF.
+    Mjcf,
+    /// URDF.
+    Urdf,
+}
+
+impl core::fmt::Display for ModelFormat {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            ModelFormat::Mjcf => f.write_str("MJCF"),
+            ModelFormat::Urdf => f.write_str("URDF"),
+        }
+    }
+}
+
 /// A robot as a model file describes it: its body tree and per-body mass properties.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RobotModel {
     name: String,
+    format: ModelFormat,
     bodies: Vec<BodyRecord>,
     floating_base: bool,
     ignored: Vec<String>,
@@ -43,6 +63,13 @@ impl RobotModel {
     #[must_use]
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    /// The format the model was read from.
+    #[inline]
+    #[must_use]
+    pub fn format(&self) -> ModelFormat {
+        self.format
     }
 
     /// All bodies, depth-first in document order.
@@ -106,7 +133,7 @@ impl RobotModel {
     ///              </mujoco>"#;
     ///
     /// let model = multicalc_robot_model::mjcf::load_str(xml)?;
-    /// assert_eq!(model.body(0).unwrap().inertia().mass(), 1.0);
+    /// assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 1.0);
     /// assert_eq!(model.ignored(), ["actuator".to_owned()]);
     /// # Ok::<(), multicalc_robot_model::ModelError>(())
     /// ```
@@ -260,7 +287,7 @@ pub struct BodyRecord {
     name: String,
     parent: Option<usize>,
     pose: SE3<f64>,
-    inertia: SpatialInertia<f64>,
+    inertia: Option<SpatialInertia<f64>>,
     joint: Option<JointRecord>,
 }
 
@@ -286,10 +313,13 @@ impl BodyRecord {
         self.pose
     }
 
-    /// Mass, center of mass, and rotational inertia.
+    /// Mass, center of mass, and rotational inertia, or `None` where the file stated none.
+    ///
+    /// A body with no mass properties is still a real body: it takes a slot in the tree and its
+    /// pose is read like any other. URDF uses such bodies for tool and sensor frames.
     #[inline]
     #[must_use]
-    pub fn inertia(&self) -> SpatialInertia<f64> {
+    pub fn inertia(&self) -> Option<SpatialInertia<f64>> {
         self.inertia
     }
 

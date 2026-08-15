@@ -9,7 +9,7 @@ mod joint;
 
 use std::path::Path;
 
-use crate::{BodyRecord, ModelError, RobotModel};
+use crate::{BodyRecord, ModelError, ModelFormat, RobotModel};
 
 /// Loads a model from a file path, resolving any `<include>` elements it pulls in.
 pub fn load_path(path: &Path) -> Result<RobotModel, ModelError> {
@@ -43,6 +43,7 @@ pub fn load_str(xml: &str) -> Result<RobotModel, ModelError> {
         .collect();
     Ok(RobotModel {
         name: parsed.name,
+        format: ModelFormat::Mjcf,
         bodies,
         floating_base: parsed.floating_base,
         ignored: parsed.ignored,

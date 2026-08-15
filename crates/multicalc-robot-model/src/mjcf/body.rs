@@ -35,7 +35,9 @@ pub(crate) struct ParsedBody {
     pub name: String,
     pub parent: Option<usize>,
     pub pose: SE3<f64>,
-    pub inertia: SpatialInertia<f64>,
+    /// The body's mass properties. MJCF always states them or works them out, so this reader never
+    /// leaves it empty; the model type allows it because URDF does.
+    pub inertia: Option<SpatialInertia<f64>>,
     pub joint: Option<JointRecord>,
 }
 
@@ -134,19 +136,19 @@ fn walk_body(
     };
 
     let inertia = match settings.inertia_from_geom {
-        InertiaFromGeom::Always => synthesized_inertia(node, table, class_chain, &name)?,
+        InertiaFromGeom::Always => Some(synthesized_inertia(node, table, class_chain, &name)?),
         InertiaFromGeom::Never => {
             let inertial = element(node, "inertial")
                 .ok_or_else(|| ModelError::NoInertiaSource { body: name.clone() })?;
             reject_orientation_attributes(inertial, "inertial")?;
-            stated_inertia(inertial)?
+            Some(stated_inertia(inertial)?)
         }
         InertiaFromGeom::Auto => match element(node, "inertial") {
             Some(inertial) => {
                 reject_orientation_attributes(inertial, "inertial")?;
-                stated_inertia(inertial)?
+                Some(stated_inertia(inertial)?)
             }
-            None => synthesized_inertia(node, table, class_chain, &name)?,
+            None => Some(synthesized_inertia(node, table, class_chain, &name)?),
         },
     };
 

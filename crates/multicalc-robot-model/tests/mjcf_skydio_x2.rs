@@ -73,7 +73,7 @@ fn reads_where_the_body_sits() {
 #[test]
 fn works_the_mass_out_from_the_shapes() {
     let model = x2();
-    let inertia = model.body_named("x2").unwrap().inertia();
+    let inertia = model.body_named("x2").unwrap().inertia().unwrap();
 
     assert_close(inertia.mass(), MASS, "mass");
 
@@ -89,7 +89,7 @@ fn works_out_how_hard_the_body_is_to_spin() {
     let inertia = model
         .body_named("x2")
         .unwrap()
-        .inertia()
+        .inertia().unwrap()
         .rotational_inertia();
 
     for row in 0..3 {

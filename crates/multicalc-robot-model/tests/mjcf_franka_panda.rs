@@ -106,7 +106,7 @@ fn the_two_fingers_are_independent_sliding_joints() {
 #[test]
 fn reads_link1s_full_inertia_tensor() {
     let model = panda();
-    let inertia = model.body_named("link1").unwrap().inertia();
+    let inertia = model.body_named("link1").unwrap().inertia().unwrap();
 
     assert_close(inertia.mass(), 4.970684, "link1 mass");
     assert_close(inertia.rotational_inertia()[(0, 1)], -0.000139, "link1 ixy");

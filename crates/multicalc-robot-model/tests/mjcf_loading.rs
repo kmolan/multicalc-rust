@@ -28,7 +28,7 @@ fn refuse(inner: &str) -> ModelError {
 /// The three numbers down the diagonal of how the first body resists being spun.
 #[must_use]
 fn diagonal(loaded: &RobotModel) -> [f64; 3] {
-    let inertia = loaded.body(0).unwrap().inertia().rotational_inertia();
+    let inertia = loaded.body(0).unwrap().inertia().unwrap().rotational_inertia();
     [inertia[(0, 0)], inertia[(1, 1)], inertia[(2, 2)]]
 }
 
@@ -64,7 +64,7 @@ fn reads_mass_properties_a_file_states() {
     let body = model.body(0).unwrap();
     assert_eq!(body.name(), "drone");
     assert!(model.has_floating_base());
-    assert_eq!(body.inertia().mass(), 2.0);
+    assert_eq!(body.inertia().unwrap().mass(), 2.0);
     assert_eq!(diagonal(&model), [1.0, 2.0, 3.0]);
 }
 
@@ -134,7 +134,7 @@ fn skips_a_shape_that_carries_no_mass_before_looking_at_its_form() {
     let model = load(
         r#"<body><freejoint/><geom type="hfield" hfield="terrain" mass="0"/><geom type="box" size="1 1 1" mass="6"/></body>"#,
     );
-    assert_eq!(model.body(0).unwrap().inertia().mass(), 6.0);
+    assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 6.0);
 }
 
 #[test]
@@ -191,7 +191,7 @@ fn measures_a_box() {
     // two half-widths across from that axis.
     let model = load(r#"<body><freejoint/><geom type="box" size="1 2 3" mass="6"/></body>"#);
 
-    assert_eq!(model.body(0).unwrap().inertia().mass(), 6.0);
+    assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 6.0);
     assert_eq!(diagonal(&model), [26.0, 20.0, 10.0]);
 }
 
@@ -201,7 +201,7 @@ fn measures_a_sphere() {
     // another: two fifths of its mass times the square of its radius.
     let model = load(r#"<body><freejoint/><geom type="sphere" size="2" mass="10"/></body>"#);
 
-    assert_eq!(model.body(0).unwrap().inertia().mass(), 10.0);
+    assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 10.0);
     assert_eq!(diagonal(&model), [16.0, 16.0, 16.0]);
 }
 
@@ -212,7 +212,7 @@ fn reads_a_shape_that_names_no_form_as_a_sphere() {
     let model = load(r#"<body><freejoint/><geom size="1"/></body>"#);
 
     let expected_mass = 1000.0 * 4.0 / 3.0 * std::f64::consts::PI;
-    assert!((model.body(0).unwrap().inertia().mass() - expected_mass).abs() < 1e-9);
+    assert!((model.body(0).unwrap().inertia().unwrap().mass() - expected_mass).abs() < 1e-9);
 
     let [first, second, third] = diagonal(&model);
     for spin in [first, second, third] {
@@ -225,7 +225,7 @@ fn measures_an_ellipsoid() {
     // The same pattern, with a fifth of the mass rather than a third.
     let model = load(r#"<body><freejoint/><geom type="ellipsoid" size="1 2 3" mass="5"/></body>"#);
 
-    assert_eq!(model.body(0).unwrap().inertia().mass(), 5.0);
+    assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 5.0);
     assert_eq!(diagonal(&model), [13.0, 10.0, 5.0]);
 }
 
@@ -237,7 +237,7 @@ fn measures_a_cylinder() {
     // is m·r²/2, and across it m·(3r² + 4h²)/12.
     let model = load(r#"<body><freejoint/><geom type="cylinder" size="1 3" mass="12"/></body>"#);
 
-    assert_eq!(model.body(0).unwrap().inertia().mass(), 12.0);
+    assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 12.0);
     assert_eq!(diagonal(&model), [39.0, 39.0, 6.0]);
 }
 
@@ -249,7 +249,7 @@ fn measures_a_capsule() {
     // 6·(r²/4 + h²/3) + 4·(2r²/5 + h² + 3rh/4) = 12.1.
     let model = load(r#"<body><freejoint/><geom type="capsule" size="1 1" mass="10"/></body>"#);
 
-    assert_eq!(model.body(0).unwrap().inertia().mass(), 10.0);
+    assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 10.0);
     let [first, second, third] = diagonal(&model);
     assert_golden(first, 12.1, "first");
     assert_golden(second, 12.1, "second");
@@ -308,7 +308,7 @@ fn measures_capsules_and_cylinders_as_mujoco_compiles_them() {
 
     for (geom, mass, expected) in cases {
         let model = load(&format!(r#"<body><freejoint/>{geom}</body>"#));
-        assert_golden(model.body(0).unwrap().inertia().mass(), mass, geom);
+        assert_golden(model.body(0).unwrap().inertia().unwrap().mass(), mass, geom);
         for (spin, want) in diagonal(&model).into_iter().zip(expected) {
             assert_golden(spin, want, geom);
         }
@@ -324,8 +324,8 @@ fn reads_a_shape_that_states_where_its_axis_starts_and_stops() {
     );
 
     let body = model.body(0).unwrap();
-    assert_golden(body.inertia().mass(), 4.0, "mass");
-    assert_eq!(body.inertia().center_of_mass().into_array(), [0.0; 3]);
+    assert_golden(body.inertia().unwrap().mass(), 4.0, "mass");
+    assert_eq!(body.inertia().unwrap().center_of_mass().into_array(), [0.0; 3]);
     for (spin, want) in diagonal(&model).into_iter().zip([
         0.191_090_909_090_909_1,
         0.191_090_909_090_909_1,
@@ -346,10 +346,10 @@ fn turns_a_shape_onto_the_line_between_its_ends() {
     );
 
     let body = model.body(0).unwrap();
-    assert_golden(body.inertia().mass(), 4.0, "mass");
+    assert_golden(body.inertia().unwrap().mass(), 4.0, "mass");
     // Halfway along the line between the two ends.
     for (place, want) in body
-        .inertia()
+        .inertia().unwrap()
         .center_of_mass()
         .into_array()
         .into_iter()
@@ -363,7 +363,7 @@ fn turns_a_shape_onto_the_line_between_its_ends() {
         [0.0, 0.145_473_684_210_526_3, 0.0],
         [-0.060_631_578_947_368_41, 0.0, 0.100_000_000_000_000_03],
     ];
-    let inertia = body.inertia().rotational_inertia();
+    let inertia = body.inertia().unwrap().rotational_inertia();
     for (row, wanted) in expected.into_iter().enumerate() {
         for (column, want) in wanted.into_iter().enumerate() {
             assert_golden(inertia[(row, column)], want, "against MuJoCo");
@@ -380,9 +380,9 @@ fn measures_a_cylinder_stated_by_its_ends() {
     );
 
     let body = model.body(0).unwrap();
-    assert_golden(body.inertia().mass(), 7.0, "mass");
+    assert_golden(body.inertia().unwrap().mass(), 7.0, "mass");
     for (place, want) in body
-        .inertia()
+        .inertia().unwrap()
         .center_of_mass()
         .into_array()
         .into_iter()
@@ -400,7 +400,7 @@ fn measures_a_cylinder_stated_by_its_ends() {
         [-1.166_250_000_000_001_1, 9.921_875, -4.664_999_999_999_999],
         [-2.332_5, -4.665, 2.924_374_999_999_999_5],
     ];
-    let inertia = body.inertia().rotational_inertia();
+    let inertia = body.inertia().unwrap().rotational_inertia();
     for (row, wanted) in expected.into_iter().enumerate() {
         for (column, want) in wanted.into_iter().enumerate() {
             assert_golden(inertia[(row, column)], want, "against MuJoCo");
@@ -427,7 +427,7 @@ fn takes_the_ends_of_an_axis_down_a_default_block() {
     )
     .unwrap();
 
-    assert_golden(model.body(0).unwrap().inertia().mass(), 4.0, "mass");
+    assert_golden(model.body(0).unwrap().inertia().unwrap().mass(), 4.0, "mass");
     assert_golden(diagonal(&model)[2], 0.019_272_727_272_727_275, "about z");
 }
 
@@ -500,15 +500,15 @@ fn combines_the_shapes_a_body_is_built_from() {
     );
 
     let body = model.body(0).unwrap();
-    assert_eq!(body.inertia().mass(), 2.0);
-    assert_eq!(body.inertia().center_of_mass().into_array(), [0.0; 3]);
+    assert_eq!(body.inertia().unwrap().mass(), 2.0);
+    assert_eq!(body.inertia().unwrap().center_of_mass().into_array(), [0.0; 3]);
 
     let [first, second, third] = diagonal(&model);
     assert_close(first, 4.0 / 3.0, "first");
     assert_close(second, 10.0 / 3.0, "second");
     assert_close(third, 10.0 / 3.0, "third");
 
-    let inertia = body.inertia().rotational_inertia();
+    let inertia = body.inertia().unwrap().rotational_inertia();
     for (row, column) in [(0, 1), (0, 2), (1, 2)] {
         assert_close(inertia[(row, column)], 0.0, "off the diagonal");
     }
@@ -538,7 +538,7 @@ fn inherits_settings_through_nested_default_blocks() {
     )
     .unwrap();
 
-    assert_eq!(model.body(0).unwrap().inertia().mass(), 5.0);
+    assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 5.0);
     assert_eq!(diagonal(&model), [2.0, 2.0, 2.0]);
 }
 
@@ -726,7 +726,7 @@ fn reads_a_full_inertia_tensor() {
     let model = load(r#"<body><inertial mass="2" fullinertia="1 2 3 0.1 0.2 0.3"/></body>"#);
 
     let expected = [[1.0, 0.1, 0.2], [0.1, 2.0, 0.3], [0.2, 0.3, 3.0]];
-    let inertia = model.body(0).unwrap().inertia().rotational_inertia();
+    let inertia = model.body(0).unwrap().inertia().unwrap().rotational_inertia();
     for (row, wanted) in expected.into_iter().enumerate() {
         for (column, want) in wanted.into_iter().enumerate() {
             assert_close(inertia[(row, column)], want, "fullinertia entry");

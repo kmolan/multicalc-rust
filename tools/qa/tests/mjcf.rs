@@ -53,21 +53,24 @@ fn check_free_body(fx: &Fixture) {
         .body_named("x2")
         .unwrap_or_else(|| unreachable!("{case}: model has no body called x2"));
     let t = fx.tolerances.f64;
+    let inertia = body
+        .inertia()
+        .unwrap_or_else(|| unreachable!("{case}: body x2 states no mass properties"));
 
     assert_scalar(
-        body.inertia().mass(),
+        inertia.mass(),
         &fx.expected["mass"],
         t,
         &format!("{case} mass"),
     );
     assert_vector::<3>(
-        &body.inertia().center_of_mass(),
+        &inertia.center_of_mass(),
         &fx.expected["center_of_mass"],
         t,
         &format!("{case} center_of_mass"),
     );
     assert_matrix::<3, 3>(
-        &body.inertia().rotational_inertia(),
+        &inertia.rotational_inertia(),
         &fx.expected["rotational_inertia"],
         t,
         &format!("{case} rotational_inertia"),
@@ -208,15 +211,18 @@ fn check_body_tree(fx: &Fixture) {
             );
         }
 
-        assert!(close(body.inertia().mass(), masses[index], t), "{ctx} mass");
-        let center_of_mass = body.inertia().center_of_mass();
+        let mass_properties = body
+            .inertia()
+            .unwrap_or_else(|| unreachable!("{ctx}: body states no mass properties"));
+        assert!(close(mass_properties.mass(), masses[index], t), "{ctx} mass");
+        let center_of_mass = mass_properties.center_of_mass();
         for axis in 0..3 {
             assert!(
                 close(center_of_mass[axis], centers_of_mass[3 * index + axis], t),
                 "{ctx} center_of_mass[{axis}]"
             );
         }
-        let inertia = body.inertia().rotational_inertia();
+        let inertia = mass_properties.rotational_inertia();
         for row in 0..3 {
             for column in 0..3 {
                 assert!(
@@ -401,11 +407,14 @@ fn check_go1_tree(fx: &Fixture) {
         let ctx = format!("{case} {label}");
         let field = |suffix: &str| -> &Value { &fx.expected[format!("{label}_{suffix}").as_str()] };
 
+        let mass_properties = body
+            .inertia()
+            .unwrap_or_else(|| unreachable!("{ctx}: body states no mass properties"));
         assert!(
-            close(body.inertia().mass(), field("mass").as_scalar(), t),
+            close(mass_properties.mass(), field("mass").as_scalar(), t),
             "{ctx} mass"
         );
-        let center_of_mass = body.inertia().center_of_mass();
+        let center_of_mass = mass_properties.center_of_mass();
         let want_com = field("center_of_mass").as_vector();
         for axis in 0..3 {
             assert!(
@@ -413,7 +422,7 @@ fn check_go1_tree(fx: &Fixture) {
                 "{ctx} center_of_mass[{axis}]"
             );
         }
-        let inertia = body.inertia().rotational_inertia();
+        let inertia = mass_properties.rotational_inertia();
         let (_, _, want_inertia) = field("rotational_inertia").as_matrix();
         for row in 0..3 {
             for column in 0..3 {

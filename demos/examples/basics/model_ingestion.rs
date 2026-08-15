@@ -39,7 +39,7 @@ fn main() {
 
     // (2) The file states no mass of its own — every number below is worked out from the shapes
     // the body is built from: four rotor discs and a hull.
-    let inertia = body.inertia();
+    let inertia = body.inertia().unwrap();
     println!("\nMass, worked out from the shapes");
     report("mass (kg)", inertia.mass(), 1.325);
 

@@ -1,5 +1,7 @@
 use multicalc::error::{KinematicsError, SpatialError};
 
+use crate::ModelFormat;
+
 /// Everything that can stop a model from loading, whichever format it came from.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
@@ -109,6 +111,16 @@ pub enum ModelError {
         /// How deep the chain of includes had reached.
         depth: usize,
     },
+    /// The document's root element was not one this crate reads.
+    UnexpectedRootElement {
+        /// The element found.
+        found: String,
+    },
+    /// The model is in a format this build was compiled without.
+    FormatNotEnabled {
+        /// The format the file is in.
+        format: ModelFormat,
+    },
     /// The mass properties read from the file did not describe a usable body.
     Inertia(SpatialError),
     /// A joint's own numbers did not describe a usable joint once built into a tree.
@@ -198,6 +210,14 @@ impl core::fmt::Display for ModelError {
             ModelError::IncludeTooDeep { depth } => {
                 write!(f, "files pull in other files more than {depth} deep, or pull in each other")
             }
+            ModelError::UnexpectedRootElement { found } => write!(
+                f,
+                "the document starts with {found}, and only mujoco or robot are read"
+            ),
+            ModelError::FormatNotEnabled { format } => write!(
+                f,
+                "the file is {format} and this build was compiled without that reader"
+            ),
             ModelError::Inertia(e) => write!(f, "{e}"),
             ModelError::Kinematics(e) => write!(f, "{e}"),
         }

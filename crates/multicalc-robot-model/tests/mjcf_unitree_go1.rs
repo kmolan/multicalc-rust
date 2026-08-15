@@ -109,7 +109,7 @@ fn the_twelve_leg_joints_are_revolute_with_class_supplied_dynamics() {
 #[test]
 fn reads_the_trunks_full_inertia_tensor() {
     let model = go1();
-    let inertia = model.body_named("trunk").unwrap().inertia();
+    let inertia = model.body_named("trunk").unwrap().inertia().unwrap();
 
     assert_close(inertia.mass(), 5.204, "trunk mass");
 }
