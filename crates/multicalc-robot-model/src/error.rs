@@ -111,6 +111,13 @@ pub enum ModelError {
         /// How deep the chain of includes had reached.
         depth: usize,
     },
+    /// A joint follows another joint, which a tree of independent joints cannot express.
+    MimicJointInTree {
+        /// The following joint's name.
+        joint: String,
+        /// The joint it follows.
+        follows: String,
+    },
     /// The document's root element was not one this crate reads.
     UnexpectedRootElement {
         /// The element found.
@@ -210,6 +217,10 @@ impl core::fmt::Display for ModelError {
             ModelError::IncludeTooDeep { depth } => {
                 write!(f, "files pull in other files more than {depth} deep, or pull in each other")
             }
+            ModelError::MimicJointInTree { joint, follows } => write!(
+                f,
+                "joint {joint} follows joint {follows}, which a tree of joints that each move on their own cannot describe"
+            ),
             ModelError::UnexpectedRootElement { found } => write!(
                 f,
                 "the document starts with {found}, and only mujoco or robot are read"

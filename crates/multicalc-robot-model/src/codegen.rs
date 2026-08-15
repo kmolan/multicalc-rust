@@ -121,12 +121,15 @@ impl RobotModel {
     /// checked in and compiled into a program that never reads the file.
     ///
     /// Errors: as [`kinematic_tree_to`](RobotModel::kinematic_tree_to), since the model is built
-    /// once here to check it is sound before anything is written.
+    /// once here to check it is sound before anything is written — including
+    /// [`MimicJointInTree`](ModelError::MimicJointInTree) where a joint being written out follows
+    /// another.
     pub fn to_rust_source(&self, options: &RustSourceOptions) -> Result<String, ModelError> {
         let slots = match &options.tip {
             Some(tip) => self.path_to(tip)?,
             None => (0..self.bodies().len()).collect::<Vec<usize>>(),
         };
+        self.reject_mimic_joints(&slots)?;
 
         let capacity = if options.capacity == 0 {
             slots.len()

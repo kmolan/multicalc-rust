@@ -150,8 +150,10 @@ impl RobotModel {
     /// friction figures included.
     ///
     /// Errors: [`TreeCapacityExceeded`](ModelError::TreeCapacityExceeded) where the model has more
-    /// bodies than `MAX_JOINTS`, and [`Kinematics`](ModelError::Kinematics) where a joint's own
-    /// numbers do not describe a usable joint.
+    /// bodies than `MAX_JOINTS`, [`Kinematics`](ModelError::Kinematics) where a joint's own
+    /// numbers do not describe a usable joint, and
+    /// [`MimicJointInTree`](ModelError::MimicJointInTree) where any joint in the model follows
+    /// another.
     pub fn kinematic_tree<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
     ) -> Result<KinematicTree<MAX_JOINTS, MAX_CONFIG, f64>, ModelError> {
@@ -165,7 +167,9 @@ impl RobotModel {
     /// read as the arm alone.
     ///
     /// Errors: as [`kinematic_tree`](RobotModel::kinematic_tree), plus
-    /// [`UnknownBody`](ModelError::UnknownBody) where the model has no body by that name.
+    /// [`UnknownBody`](ModelError::UnknownBody) where the model has no body by that name, and
+    /// [`MimicJointInTree`](ModelError::MimicJointInTree) where a joint on the chain follows
+    /// another.
     pub fn kinematic_tree_to<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
         tip: &str,
@@ -206,6 +210,7 @@ impl RobotModel {
         &self,
         slots: &[usize],
     ) -> Result<KinematicTree<MAX_JOINTS, MAX_CONFIG, f64>, ModelError> {
+        self.reject_mimic_joints(slots)?;
         if slots.len() > MAX_JOINTS {
             return Err(ModelError::TreeCapacityExceeded {
                 needed: slots.len(),
@@ -215,6 +220,26 @@ impl RobotModel {
 
         let (joints, parents) = self.joints_and_parents(slots);
         KinematicTree::try_from_joints(&joints, &parents).map_err(ModelError::Kinematics)
+    }
+
+    /// Refuses the first joint among these slots that follows another joint.
+    ///
+    /// A tree holds joints that each move on their own, so one driven by another has nowhere to
+    /// go. Checking only the slots asked for means a chain that leaves the following joint out
+    /// still builds.
+    pub(crate) fn reject_mimic_joints(&self, slots: &[usize]) -> Result<(), ModelError> {
+        for &index in slots {
+            let body = &self.bodies[index];
+            if let Some(description) = &body.joint
+                && let Some(mimic) = &description.mimic
+            {
+                return Err(ModelError::MimicJointInTree {
+                    joint: description.name.clone(),
+                    follows: mimic.joint.clone(),
+                });
+            }
+        }
+        Ok(())
     }
 
     /// The `Joint` and `JointParent` each slot needs, in slot order. A slot's parent is `World`
