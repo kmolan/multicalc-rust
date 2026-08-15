@@ -9,7 +9,7 @@
 use std::path::Path;
 
 use multicalc::kinematics::JointKind;
-use multicalc_mjcf::RobotModel;
+use multicalc_robot_model::RobotModel;
 
 const BODY_NAMES: [&str; 13] = [
     "trunk", "FR_hip", "FR_thigh", "FR_calf", "FL_hip", "FL_thigh", "FL_calf", "RR_hip",
@@ -38,7 +38,7 @@ const PARENTS: [Option<usize>; 13] = [
 fn go1() -> RobotModel {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../third_party/menagerie/unitree_go1/go1.xml");
-    multicalc_mjcf::load_path(&path).unwrap()
+    multicalc_robot_model::load_path(&path).unwrap()
 }
 
 fn assert_close(actual: f64, expected: f64, label: &str) {

@@ -107,10 +107,10 @@ impl RobotModel {
     ///                <actuator><motor name="thrust" gear="0 0 1 0 0 0"/></actuator>
     ///              </mujoco>"#;
     ///
-    /// let model = multicalc_mjcf::load_str(xml)?;
+    /// let model = multicalc_robot_model::load_str(xml)?;
     /// assert_eq!(model.body(0).unwrap().inertia().mass(), 1.0);
     /// assert_eq!(model.ignored(), ["actuator".to_owned()]);
-    /// # Ok::<(), multicalc_mjcf::MjcfError>(())
+    /// # Ok::<(), multicalc_robot_model::MjcfError>(())
     /// ```
     #[inline]
     #[must_use]

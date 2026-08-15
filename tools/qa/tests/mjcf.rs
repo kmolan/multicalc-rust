@@ -47,7 +47,7 @@ fn ingested_models_match_mujoco() {
 fn check_free_body(fx: &Fixture) {
     let case = fx.case.as_str();
     let path = menagerie().join(fx.inputs["model_file"].as_str());
-    let model = multicalc_mjcf::load_path(&path)
+    let model = multicalc_robot_model::load_path(&path)
         .unwrap_or_else(|e| unreachable!("{case}: loading {path:?}: {e}"));
     let body = model
         .body_named("x2")
@@ -120,7 +120,7 @@ fn check_free_body(fx: &Fixture) {
 fn check_body_tree(fx: &Fixture) {
     let case = fx.case.as_str();
     let path = menagerie().join(fx.inputs["model_file"].as_str());
-    let model = multicalc_mjcf::load_path(&path)
+    let model = multicalc_robot_model::load_path(&path)
         .unwrap_or_else(|e| unreachable!("{case}: loading {path:?}: {e}"));
     let t = fx.tolerances.f64;
 
@@ -331,7 +331,7 @@ fn check_body_tree(fx: &Fixture) {
 fn check_go1_tree(fx: &Fixture) {
     let case = fx.case.as_str();
     let path = menagerie().join(fx.inputs["model_file"].as_str());
-    let model = multicalc_mjcf::load_path(&path)
+    let model = multicalc_robot_model::load_path(&path)
         .unwrap_or_else(|e| unreachable!("{case}: loading {path:?}: {e}"));
     let t = fx.tolerances.f64;
 

@@ -6,7 +6,7 @@
 use std::f64::consts::{FRAC_PI_2, FRAC_PI_4};
 
 use multicalc::kinematics::JointKind;
-use multicalc_mjcf::{MjcfError, RobotModel, load_str};
+use multicalc_robot_model::{MjcfError, RobotModel, load_str};
 
 /// A model file holding whatever the case needs inside its `<worldbody>`.
 #[must_use]

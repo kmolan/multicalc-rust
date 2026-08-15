@@ -9,7 +9,7 @@
 
 use std::path::Path;
 
-use multicalc_mjcf::RobotModel;
+use multicalc_robot_model::RobotModel;
 
 /// Mass, in kilograms: four 0.25 kg rotors and a 0.325 kg hull.
 const MASS: f64 = 1.325;
@@ -33,7 +33,7 @@ const TOLERANCE: f64 = 1e-12;
 fn x2() -> RobotModel {
     let path =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../third_party/menagerie/skydio_x2/x2.xml");
-    multicalc_mjcf::load_path(&path).unwrap()
+    multicalc_robot_model::load_path(&path).unwrap()
 }
 
 fn assert_close(actual: f64, expected: f64, label: &str) {

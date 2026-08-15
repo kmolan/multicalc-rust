@@ -8,7 +8,7 @@
 use std::path::Path;
 
 use multicalc::kinematics::JointKind;
-use multicalc_mjcf::{MjcfError, RobotModel};
+use multicalc_robot_model::{MjcfError, RobotModel};
 
 const BODY_NAMES: [&str; 11] = [
     "link0",
@@ -28,7 +28,7 @@ const BODY_NAMES: [&str; 11] = [
 fn panda() -> RobotModel {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../third_party/menagerie/franka_emika_panda/panda.xml");
-    multicalc_mjcf::load_path(&path).unwrap()
+    multicalc_robot_model::load_path(&path).unwrap()
 }
 
 fn assert_close(actual: f64, expected: f64, label: &str) {

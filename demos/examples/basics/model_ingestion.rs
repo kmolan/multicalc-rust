@@ -22,7 +22,7 @@ fn main() {
     // (1) Read the model. The file ships with this repository under its own upstream licence.
     let path =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../third_party/menagerie/skydio_x2/x2.xml");
-    let model = multicalc_mjcf::load_path(&path).unwrap();
+    let model = multicalc_robot_model::load_path(&path).unwrap();
     let body = model.body_named("x2").unwrap();
 
     println!("Model: {}", model.name());
@@ -93,7 +93,7 @@ fn main() {
     // (5) The same reader on a jointed robot: the Franka Panda, eleven bodies and nine joints.
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../third_party/menagerie/franka_emika_panda/panda.xml");
-    let arm_model = multicalc_mjcf::load_path(&path).unwrap();
+    let arm_model = multicalc_robot_model::load_path(&path).unwrap();
 
     println!("\nModel: {}", arm_model.name());
     println!("  bodies                 = {}", arm_model.body_count());

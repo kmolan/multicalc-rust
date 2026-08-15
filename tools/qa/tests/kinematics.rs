@@ -270,7 +270,7 @@ fn unitree_go1_forward_kinematics_and_jacobian_matches_mujoco() {
     let tolerance = fx.tolerances.f64;
 
     let path = menagerie().join(fx.inputs["model_file"].as_str());
-    let model = multicalc_mjcf::load_path(&path)
+    let model = multicalc_robot_model::load_path(&path)
         .unwrap_or_else(|e| unreachable!("{case}: loading {path:?}: {e}"));
     let tree = model
         .kinematic_tree::<13, 19>()

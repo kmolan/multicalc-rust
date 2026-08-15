@@ -66,7 +66,7 @@ fn keyframes() -> [Quaternion<f64>; 4] {
 /// Loads the Franka Panda model: base-to-hand chain.
 fn arm() -> Result<KinematicTree<N_FRAMES, N_FRAMES, f64>, Box<dyn std::error::Error>> {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(MODEL_FILE);
-    let model = multicalc_mjcf::load_path(&path)?;
+    let model = multicalc_robot_model::load_path(&path)?;
     Ok(model.kinematic_tree_to::<N_FRAMES, N_FRAMES>(TIP)?)
 }
 

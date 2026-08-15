@@ -5,13 +5,13 @@
 
 use std::path::{Path, PathBuf};
 
-use multicalc_mjcf::{MjcfError, load_path};
+use multicalc_robot_model::{MjcfError, load_path};
 
 /// A fresh directory under the system temp directory, unique to this process and this case.
 #[must_use]
 fn scratch_dir(case: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!(
-        "multicalc-mjcf-include-{}-{case}",
+        "multicalc-robot-model-include-{}-{case}",
         std::process::id()
     ));
     let _ = std::fs::remove_dir_all(&dir);

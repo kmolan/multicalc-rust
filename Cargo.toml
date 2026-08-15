@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "crates/multicalc",
-    "crates/multicalc-mjcf",
+    "crates/multicalc-robot-model",
     "tools/embedded-smoke",
     "tools/qa",
     "tools/testkit",
