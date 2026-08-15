@@ -6,10 +6,10 @@
 
 use std::collections::HashMap;
 
-use multicalc::spatial::Quaternion;
 use roxmltree::Node;
 
 use crate::MjcfError;
+use crate::orientation::Orientation;
 
 /// The geom settings one default class supplies, with `None` meaning "not set here".
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -18,7 +18,7 @@ pub(crate) struct GeomDefaults {
     pub size: Option<Vec<f64>>,
     pub fromto: Option<[f64; 6]>,
     pub pos: Option<[f64; 3]>,
-    pub quat: Option<[f64; 4]>,
+    pub orientation: Orientation,
     pub mass: Option<f64>,
     pub density: Option<f64>,
 }
@@ -31,7 +31,7 @@ impl GeomDefaults {
             size: parse_list(node, "size")?,
             fromto: fixed::<6>(node, "fromto")?,
             pos: parse_vector3(node, "pos")?,
-            quat: parse_vector4(node, "quat")?,
+            orientation: Orientation::read(node)?,
             mass: parse_scalar(node, "mass")?,
             density: parse_scalar(node, "density")?,
         })
@@ -45,7 +45,7 @@ impl GeomDefaults {
             size: other.size.clone().or_else(|| self.size.clone()),
             fromto: other.fromto.or(self.fromto),
             pos: other.pos.or(self.pos),
-            quat: other.quat.or(self.quat),
+            orientation: self.orientation.overridden_by(other.orientation),
             mass: other.mass.or(self.mass),
             density: other.density.or(self.density),
         }
@@ -184,24 +184,6 @@ pub(crate) fn element<'a, 'input>(
     elements(node, tag).next()
 }
 
-/// The turn a `quat` attribute describes, as a unit quaternion. MJCF writes the scalar part
-/// first, which is also how the crate stores it, so the four numbers carry straight over.
-pub(crate) fn unit_quaternion(
-    node: Node,
-    quat: [f64; 4],
-    attribute: &'static str,
-) -> Result<Quaternion<f64>, MjcfError> {
-    Quaternion::new(quat[0], quat[1], quat[2], quat[3])
-        .try_normalized()
-        .ok_or_else(|| {
-            bad_attribute(
-                node,
-                attribute,
-                node.attribute(attribute).unwrap_or_default(),
-            )
-        })
-}
-
 /// The error for an attribute that does not hold the numbers it should.
 #[must_use]
 pub(crate) fn bad_attribute(node: Node, attribute: &str, text: &str) -> MjcfError {
@@ -250,22 +232,6 @@ pub(crate) fn parse_vector4(node: Node, attribute: &str) -> Result<Option<[f64; 
 /// The six numbers an attribute holds.
 pub(crate) fn parse_vector6(node: Node, attribute: &str) -> Result<Option<[f64; 6]>, MjcfError> {
     fixed::<6>(node, attribute)
-}
-
-/// Orientation attributes this loader does not read; only `pos`/`quat` are.
-const UNSUPPORTED_ORIENTATION_ATTRIBUTES: [&str; 4] = ["euler", "axisangle", "xyaxes", "zaxis"];
-
-/// Refuses an element that gives its orientation any way other than `quat`.
-pub(crate) fn reject_orientation_attributes(node: Node, element: &str) -> Result<(), MjcfError> {
-    for attribute in UNSUPPORTED_ORIENTATION_ATTRIBUTES {
-        if node.has_attribute(attribute) {
-            return Err(MjcfError::UnsupportedOrientation {
-                element: element.to_owned(),
-                attribute: attribute.to_owned(),
-            });
-        }
-    }
-    Ok(())
 }
 
 /// The numbers an attribute holds, where the count is fixed. Too many or too few is as much an

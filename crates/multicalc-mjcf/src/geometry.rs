@@ -10,9 +10,8 @@ use multicalc::spatial::Quaternion;
 use roxmltree::Node;
 
 use crate::MjcfError;
-use crate::defaults::{
-    DefaultTable, GeomDefaults, bad_attribute, reject_orientation_attributes, unit_quaternion,
-};
+use crate::compiler::CompilerSettings;
+use crate::defaults::{DefaultTable, GeomDefaults, bad_attribute};
 
 /// What MuJoCo assumes for a shape that states nothing. There is no assumed size.
 const ASSUMED_TYPE: &str = "sphere";
@@ -51,9 +50,9 @@ pub(crate) fn read_geom(
     node: Node,
     table: &DefaultTable,
     class_chain: Option<&str>,
+    compiler: &CompilerSettings,
     body: &str,
 ) -> Result<Option<GeomMass>, MjcfError> {
-    reject_orientation_attributes(node, "geom")?;
     let settings = effective(node, table, class_chain)?;
 
     // A shape stated to carry no mass is dropped before its form is looked at, so a model can name
@@ -140,11 +139,11 @@ pub(crate) fn read_geom(
     ];
 
     // Those three numbers are along the shape's own axes, so turn them into the body's. Stated
-    // ends carry their own facing, and MuJoCo lets that beat a `quat` written alongside them
-    // rather than refusing the pair, so the same is done here.
+    // ends carry their own facing, and MuJoCo lets that beat any of the five forms written
+    // alongside them rather than refusing the pair, so the same is done here.
     let turn = match &axis {
         Some(axis) => axis.turn,
-        None => unit_quaternion(node, settings.quat.unwrap_or([1.0, 0.0, 0.0, 0.0]), "quat")?,
+        None => settings.orientation.resolve(node, compiler)?,
     };
     let rotation = turn.to_rotation_matrix();
     let inertia = rotation * Matrix::from_diagonal(principal) * rotation.transpose();

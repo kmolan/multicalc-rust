@@ -33,6 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   alongside a `pos`, ends in the same place, and ends on a form this loader has not checked against
   the compiler are all refused by name. @Thiago316316 (#313)
 
+- **All five ways a model file states which way something faces.** `euler`, `axisangle`, `xyaxes`
+  and `zaxis` join `quat` on every element `multicalc-mjcf` reads a turn from — bodies, geoms,
+  inertials, and the `<default>` blocks that supply them. `<compiler angle>` now reaches the two
+  forms written in angles, and `<compiler eulerseq>` says which axes a `euler` turns about and
+  whether each rides along with the turns before it or stands still. Every form is checked against
+  MuJoCo's own compile of the same file, down to the frame it settles on for a `zaxis` pointing
+  straight down. An element stating its facing two ways at once is refused rather than silently
+  read one way. @Thiago316316 (#279)
+
 - **A record of what a model file was loaded without.** `RigidBodyModel::ignored` names the
   top-level sections `multicalc-mjcf` read nothing out of — tendons, actuators, sensors, contact
   pairs and the rest — sorted and without repeats, so a caller can tell a model that loaded whole
@@ -40,6 +49,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refused outright rather than recorded. @Thiago316316 (#305)
 
 ### Changed
+
+- **`MjcfError::UnsupportedOrientation` is gone**, replaced by `MultipleOrientations` for an element
+  that states its facing more than one way. Nothing is refused for the form it was written in any
+  more. A new `FullInertiaWithOrientation` refuses an `<inertial>` that states a full tensor beside
+  a turn: a full tensor already stands in the body's own axes, so the turn names no frame, and
+  MuJoCo refuses the pair rather than reading one and dropping the other. @Thiago316316 (#279)
 
 - **`ExponentialMap::integrate_attitude` now returns `Result<SO3<T>, IntegrateError>`** instead of
   `SO3<T>`. This is a breaking change to the signature: callers must handle or unwrap the result.
