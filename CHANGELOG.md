@@ -40,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whether each rides along with the turns before it or stands still. Every form is checked against
   MuJoCo's own compile of the same file, down to the frame it settles on for a `zaxis` pointing
   straight down. An element stating its facing two ways at once is refused rather than silently
-  read one way. @Thiago316316 (#279)
+  read one way. @Thiago316316 (#320)
 
 - **A record of what a model file was loaded without.** `RigidBodyModel::ignored` names the
   top-level sections `multicalc-mjcf` read nothing out of — tendons, actuators, sensors, contact
@@ -54,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that states its facing more than one way. Nothing is refused for the form it was written in any
   more. A new `FullInertiaWithOrientation` refuses an `<inertial>` that states a full tensor beside
   a turn: a full tensor already stands in the body's own axes, so the turn names no frame, and
-  MuJoCo refuses the pair rather than reading one and dropping the other. @Thiago316316 (#279)
+  MuJoCo refuses the pair rather than reading one and dropping the other. @Thiago316316 (#320)
 
 - **`ExponentialMap::integrate_attitude` now returns `Result<SO3<T>, IntegrateError>`** instead of
   `SO3<T>`. This is a breaking change to the signature: callers must handle or unwrap the result.
