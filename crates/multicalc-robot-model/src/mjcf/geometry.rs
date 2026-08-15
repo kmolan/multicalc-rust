@@ -9,10 +9,9 @@ use multicalc::linear_algebra::{Matrix, Matrix3D, Vector, Vector3D};
 use multicalc::spatial::Quaternion;
 use roxmltree::Node;
 
-use crate::MjcfError;
-use crate::defaults::{
-    DefaultTable, GeomDefaults, bad_attribute, reject_orientation_attributes, unit_quaternion,
-};
+use crate::ModelError;
+use crate::mjcf::defaults::{DefaultTable, GeomDefaults, reject_orientation_attributes};
+use crate::xml::{bad_attribute, unit_quaternion};
 
 /// What MuJoCo assumes for a shape that states nothing. There is no assumed size.
 const ASSUMED_TYPE: &str = "sphere";
@@ -52,7 +51,7 @@ pub(crate) fn read_geom(
     table: &DefaultTable,
     class_chain: Option<&str>,
     body: &str,
-) -> Result<Option<GeomMass>, MjcfError> {
+) -> Result<Option<GeomMass>, ModelError> {
     reject_orientation_attributes(node, "geom")?;
     let settings = effective(node, table, class_chain)?;
 
@@ -69,12 +68,12 @@ pub(crate) fn read_geom(
         "cylinder" => Shape::Cylinder,
         "capsule" => Shape::Capsule,
         "mesh" => {
-            return Err(MjcfError::MeshInertiaUnsupported {
+            return Err(ModelError::MeshInertiaUnsupported {
                 body: body.to_owned(),
             });
         }
         other => {
-            return Err(MjcfError::UnsupportedGeomType {
+            return Err(ModelError::UnsupportedGeomType {
                 body: body.to_owned(),
                 geom_type: other.to_owned(),
             });
@@ -167,7 +166,7 @@ fn effective(
     node: Node,
     table: &DefaultTable,
     class_chain: Option<&str>,
-) -> Result<GeomDefaults, MjcfError> {
+) -> Result<GeomDefaults, ModelError> {
     let mut settings = table.resolve(None)?.geom.clone();
     if let Some(name) = class_chain {
         settings = settings.overridden_by(&table.resolve(Some(name))?.geom);
@@ -227,12 +226,12 @@ fn axis(
     settings: &GeomDefaults,
     shape: &Shape,
     body: &str,
-) -> Result<Option<Axis>, MjcfError> {
+) -> Result<Option<Axis>, ModelError> {
     let Some(ends) = settings.fromto else {
         return Ok(None);
     };
     if !matches!(shape, Shape::Cylinder | Shape::Capsule) {
-        return Err(MjcfError::UnsupportedFromTo {
+        return Err(ModelError::UnsupportedFromTo {
             body: body.to_owned(),
             geom_type: settings
                 .geom_type
@@ -243,7 +242,7 @@ fn axis(
     // The two ends already say where the shape sits, so a `pos` alongside them is a second answer
     // to the same question. MuJoCo refuses that pair outright, and so does this.
     if settings.pos.is_some() {
-        return Err(MjcfError::ConflictingPlacement {
+        return Err(ModelError::ConflictingPlacement {
             body: body.to_owned(),
         });
     }
@@ -280,7 +279,7 @@ fn extents(
     settings: &GeomDefaults,
     shape: &Shape,
     axis: Option<&Axis>,
-) -> Result<[f64; 3], MjcfError> {
+) -> Result<[f64; 3], ModelError> {
     let size = settings.size.as_deref().unwrap_or_default();
     let reach = match (shape, size, axis) {
         // A shape whose ends are stated has already been measured along its axis, and MuJoCo

@@ -5,7 +5,7 @@ use std::fmt::Write as _;
 
 use multicalc::kinematics::{Joint, JointKind, JointParent, KinematicTree};
 
-use crate::{MjcfError, RobotModel};
+use crate::{ModelError, RobotModel};
 
 /// Large enough for any model this loader can realistically parse. Used only to check every
 /// joint's own numbers are sound before anything is written; unrelated to the capacity the caller
@@ -122,7 +122,7 @@ impl RobotModel {
     ///
     /// Errors: as [`kinematic_tree_to`](RobotModel::kinematic_tree_to), since the model is built
     /// once here to check it is sound before anything is written.
-    pub fn to_rust_source(&self, options: &RustSourceOptions) -> Result<String, MjcfError> {
+    pub fn to_rust_source(&self, options: &RustSourceOptions) -> Result<String, ModelError> {
         let slots = match &options.tip {
             Some(tip) => self.path_to(tip)?,
             None => (0..self.bodies().len()).collect::<Vec<usize>>(),
@@ -134,7 +134,7 @@ impl RobotModel {
             options.capacity
         };
         if slots.len() > capacity {
-            return Err(MjcfError::TreeCapacityExceeded {
+            return Err(ModelError::TreeCapacityExceeded {
                 needed: slots.len(),
                 capacity,
             });
@@ -149,7 +149,7 @@ impl RobotModel {
         KinematicTree::<VALIDATION_CAPACITY, VALIDATION_CONFIGURATION_CAPACITY, f64>::try_from_joints(
             &joints, &parents,
         )
-        .map_err(MjcfError::Kinematics)?;
+        .map_err(ModelError::Kinematics)?;
 
         let names: Vec<&str> = slots
             .iter()

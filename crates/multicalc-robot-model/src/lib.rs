@@ -1,36 +1,34 @@
-//! Loads MuJoCo MJCF model files into multicalc's robot types.
+//! Loads robot model files into multicalc's robot types.
 //!
-//! Parses the `<worldbody>` tree into a flat, depth-first list of bodies: name, parent index, pose,
-//! spatial inertia, and joint (if any). Inertia comes from `<inertial>` when stated, otherwise it is
-//! computed from the body's `<geom>` primitives.
+//! Reads MuJoCo MJCF and URDF into one [`RobotModel`]: a flat, depth-first list of bodies, each
+//! with a name, a parent index, a pose, mass properties where the file states them, and a joint
+//! where the body has one.
 //!
 //! Converts on request to a [`KinematicTree`](multicalc::kinematics::KinematicTree), either the
 //! whole model or the chain from the root to a named tip body.
 //!
-//! Unsupported constructs — ball joints, mesh inertia, non-quaternion orientations — are rejected by
-//! name rather than silently dropped, so a model never loads with incorrect mass properties. Sections
-//! this loader does not consume (tendons, actuators, sensors, ...) are skipped and listed in
-//! [`RobotModel::ignored`].
+//! Constructs a reader does not handle are rejected by name rather than silently dropped, so a
+//! model never loads with incorrect mass properties. Sections a reader does not consume are
+//! skipped and listed in [`RobotModel::ignored`].
 
-mod body;
 mod codegen;
-mod compiler;
-mod defaults;
-mod document;
 mod error;
-mod geometry;
-mod joint;
+// Only a reader reads XML, so with neither compiled in the crate is the model types and the
+// codegen alone.
+#[cfg(any(feature = "mjcf", feature = "urdf"))]
+mod xml;
 
-use std::path::Path;
+#[cfg(feature = "mjcf")]
+pub mod mjcf;
 
 use multicalc::kinematics::{Joint, JointKind, JointParent, KinematicTree};
 use multicalc::linear_algebra::Vector3D;
 use multicalc::spatial::{SE3, SpatialInertia};
 
 pub use codegen::{GeneratedScalar, RustSourceOptions};
-pub use error::MjcfError;
+pub use error::ModelError;
 
-/// A parsed MJCF model: its body tree and per-body mass properties.
+/// A robot as a model file describes it: its body tree and per-body mass properties.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RobotModel {
     name: String,
@@ -107,10 +105,10 @@ impl RobotModel {
     ///                <actuator><motor name="thrust" gear="0 0 1 0 0 0"/></actuator>
     ///              </mujoco>"#;
     ///
-    /// let model = multicalc_robot_model::load_str(xml)?;
+    /// let model = multicalc_robot_model::mjcf::load_str(xml)?;
     /// assert_eq!(model.body(0).unwrap().inertia().mass(), 1.0);
     /// assert_eq!(model.ignored(), ["actuator".to_owned()]);
-    /// # Ok::<(), multicalc_robot_model::MjcfError>(())
+    /// # Ok::<(), multicalc_robot_model::ModelError>(())
     /// ```
     #[inline]
     #[must_use]
@@ -124,12 +122,12 @@ impl RobotModel {
     /// are the same number. Every joint carries what the file said about it, the resistance and
     /// friction figures included.
     ///
-    /// Errors: [`TreeCapacityExceeded`](MjcfError::TreeCapacityExceeded) where the model has more
-    /// bodies than `MAX_JOINTS`, and [`Kinematics`](MjcfError::Kinematics) where a joint's own
+    /// Errors: [`TreeCapacityExceeded`](ModelError::TreeCapacityExceeded) where the model has more
+    /// bodies than `MAX_JOINTS`, and [`Kinematics`](ModelError::Kinematics) where a joint's own
     /// numbers do not describe a usable joint.
     pub fn kinematic_tree<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
-    ) -> Result<KinematicTree<MAX_JOINTS, MAX_CONFIG, f64>, MjcfError> {
+    ) -> Result<KinematicTree<MAX_JOINTS, MAX_CONFIG, f64>, ModelError> {
         let slots: Vec<usize> = (0..self.bodies.len()).collect();
         self.build_tree(&slots)
     }
@@ -140,24 +138,24 @@ impl RobotModel {
     /// read as the arm alone.
     ///
     /// Errors: as [`kinematic_tree`](RobotModel::kinematic_tree), plus
-    /// [`UnknownBody`](MjcfError::UnknownBody) where the model has no body by that name.
+    /// [`UnknownBody`](ModelError::UnknownBody) where the model has no body by that name.
     pub fn kinematic_tree_to<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
         tip: &str,
-    ) -> Result<KinematicTree<MAX_JOINTS, MAX_CONFIG, f64>, MjcfError> {
+    ) -> Result<KinematicTree<MAX_JOINTS, MAX_CONFIG, f64>, ModelError> {
         let slots = self.path_to(tip)?;
         self.build_tree(&slots)
     }
 
     /// The bodies from the world down to the one you name, by index, the world end first.
     ///
-    /// Errors: [`UnknownBody`](MjcfError::UnknownBody) where the model has no body by that name.
-    pub fn path_to(&self, tip: &str) -> Result<Vec<usize>, MjcfError> {
+    /// Errors: [`UnknownBody`](ModelError::UnknownBody) where the model has no body by that name.
+    pub fn path_to(&self, tip: &str) -> Result<Vec<usize>, ModelError> {
         let mut index = self
             .bodies
             .iter()
             .position(|body| body.name == tip)
-            .ok_or_else(|| MjcfError::UnknownBody {
+            .ok_or_else(|| ModelError::UnknownBody {
                 name: tip.to_owned(),
             })?;
 
@@ -180,16 +178,16 @@ impl RobotModel {
     fn build_tree<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
         slots: &[usize],
-    ) -> Result<KinematicTree<MAX_JOINTS, MAX_CONFIG, f64>, MjcfError> {
+    ) -> Result<KinematicTree<MAX_JOINTS, MAX_CONFIG, f64>, ModelError> {
         if slots.len() > MAX_JOINTS {
-            return Err(MjcfError::TreeCapacityExceeded {
+            return Err(ModelError::TreeCapacityExceeded {
                 needed: slots.len(),
                 capacity: MAX_JOINTS,
             });
         }
 
         let (joints, parents) = self.joints_and_parents(slots);
-        KinematicTree::try_from_joints(&joints, &parents).map_err(MjcfError::Kinematics)
+        KinematicTree::try_from_joints(&joints, &parents).map_err(ModelError::Kinematics)
     }
 
     /// The `Joint` and `JointParent` each slot needs, in slot order. A slot's parent is `World`
@@ -395,8 +393,10 @@ impl JointRecord {
         self.spring_stiffness
     }
 
-    /// A floating (6-DOF) joint record: MJCF's `<freejoint>` carries none of a `JointRecord`'s
-    /// other fields, so every one of them is left at its inert default.
+    /// A floating (6-DOF) joint record: a file that frees a body to move in all six directions
+    /// states none of a `JointRecord`'s other fields, so every one of them is left at its inert
+    /// default.
+    #[cfg(any(feature = "mjcf", feature = "urdf"))]
     pub(crate) fn floating(name: String) -> Self {
         JointRecord {
             name,
@@ -414,40 +414,3 @@ impl JointRecord {
     }
 }
 
-/// Loads a model from a file path, resolving any `<include>` elements it pulls in.
-pub fn load_path(path: &Path) -> Result<RobotModel, MjcfError> {
-    let xml = document::assemble(path)?;
-    load_str(&xml)
-}
-
-/// Parses a model from an in-memory XML string.
-///
-/// Text has no directory to resolve an `<include>` against, so a document that pulls in another
-/// file is refused here; [`load_path`] resolves those first.
-pub fn load_str(xml: &str) -> Result<RobotModel, MjcfError> {
-    let document = roxmltree::Document::parse(xml).map_err(|e| MjcfError::Xml(e.to_string()))?;
-    if document
-        .descendants()
-        .any(|node| node.is_element() && node.tag_name().name() == "include")
-    {
-        return Err(MjcfError::IncludeNeedsFile);
-    }
-    let parsed = body::read(&document)?;
-    let bodies = parsed
-        .bodies
-        .into_iter()
-        .map(|body| BodyRecord {
-            name: body.name,
-            parent: body.parent,
-            pose: body.pose,
-            inertia: body.inertia,
-            joint: body.joint,
-        })
-        .collect();
-    Ok(RobotModel {
-        name: parsed.name,
-        bodies,
-        floating_base: parsed.floating_base,
-        ignored: parsed.ignored,
-    })
-}

@@ -6,7 +6,8 @@
 use std::f64::consts::{FRAC_PI_2, FRAC_PI_4};
 
 use multicalc::kinematics::JointKind;
-use multicalc_robot_model::{MjcfError, RobotModel, load_str};
+use multicalc_robot_model::mjcf::load_str;
+use multicalc_robot_model::{ModelError, RobotModel};
 
 /// A model file holding whatever the case needs inside its `<worldbody>`.
 #[must_use]
@@ -20,7 +21,7 @@ fn load(inner: &str) -> RobotModel {
 }
 
 #[must_use]
-fn refuse(inner: &str) -> MjcfError {
+fn refuse(inner: &str) -> ModelError {
     load_str(&model(inner)).unwrap_err()
 }
 
@@ -91,16 +92,16 @@ fn names_a_body_the_file_leaves_unnamed() {
 fn refuses_a_file_with_no_worldbody_or_no_bodies() {
     assert_eq!(
         load_str("<mujoco></mujoco>").unwrap_err(),
-        MjcfError::MissingWorldbody
+        ModelError::MissingWorldbody
     );
-    assert_eq!(refuse(""), MjcfError::NoBodies);
+    assert_eq!(refuse(""), ModelError::NoBodies);
 }
 
 #[test]
 fn refuses_a_body_with_nothing_to_weigh() {
     assert_eq!(
         refuse(r#"<body name="empty"><freejoint/></body>"#),
-        MjcfError::NoInertiaSource {
+        ModelError::NoInertiaSource {
             body: "empty".to_owned(),
         }
     );
@@ -112,7 +113,7 @@ fn refuses_a_shape_carrying_mass_it_cannot_measure() {
         refuse(
             r#"<body name="ground"><freejoint/><geom type="hfield" hfield="terrain" mass="1"/></body>"#
         ),
-        MjcfError::UnsupportedGeomType {
+        ModelError::UnsupportedGeomType {
             body: "ground".to_owned(),
             geom_type: "hfield".to_owned(),
         }
@@ -120,7 +121,7 @@ fn refuses_a_shape_carrying_mass_it_cannot_measure() {
 
     assert_eq!(
         refuse(r#"<body name="hull"><freejoint/><geom type="mesh" mesh="x" mass="1"/></body>"#),
-        MjcfError::MeshInertiaUnsupported {
+        ModelError::MeshInertiaUnsupported {
             body: "hull".to_owned(),
         }
     );
@@ -140,7 +141,7 @@ fn skips_a_shape_that_carries_no_mass_before_looking_at_its_form() {
 fn refuses_an_attribute_that_does_not_hold_numbers() {
     assert_eq!(
         refuse(r#"<body><freejoint/><geom type="box" size="not a number" mass="1"/></body>"#),
-        MjcfError::BadAttribute {
+        ModelError::BadAttribute {
             element: "geom".to_owned(),
             attribute: "size".to_owned(),
             value: "not a number".to_owned(),
@@ -152,7 +153,7 @@ fn refuses_an_attribute_that_does_not_hold_numbers() {
 fn refuses_a_class_the_file_never_defines() {
     assert_eq!(
         refuse(r#"<body><freejoint/><geom class="nowhere" mass="1"/></body>"#),
-        MjcfError::UndefinedClass {
+        ModelError::UndefinedClass {
             name: "nowhere".to_owned(),
         }
     );
@@ -165,13 +166,13 @@ fn refuses_an_include_from_text() {
     assert_eq!(
         load_str(r#"<mujoco><worldbody><include file="other.xml"/></worldbody></mujoco>"#)
             .unwrap_err(),
-        MjcfError::IncludeNeedsFile
+        ModelError::IncludeNeedsFile
     );
 }
 
 #[test]
 fn refuses_text_that_is_not_well_formed_xml() {
-    assert!(matches!(load_str("<mujoco>"), Err(MjcfError::Xml(_))));
+    assert!(matches!(load_str("<mujoco>"), Err(ModelError::Xml(_))));
 }
 
 #[test]
@@ -180,7 +181,7 @@ fn refuses_stated_mass_properties_that_do_not_describe_a_body() {
         load_str(&model(
             r#"<body><freejoint/><inertial mass="0" diaginertia="1 1 1"/></body>"#
         )),
-        Err(MjcfError::Inertia(_))
+        Err(ModelError::Inertia(_))
     ));
 }
 
@@ -437,7 +438,7 @@ fn refuses_ends_that_say_nothing_the_loader_can_use() {
         refuse(
             r#"<body><freejoint/><geom type="capsule" size="0.1" fromto="1 2 3 1 2 3" mass="4"/></body>"#
         ),
-        MjcfError::BadAttribute {
+        ModelError::BadAttribute {
             element: "geom".to_owned(),
             attribute: "fromto".to_owned(),
             value: "1 2 3 1 2 3".to_owned(),
@@ -449,7 +450,7 @@ fn refuses_ends_that_say_nothing_the_loader_can_use() {
         refuse(
             r#"<body name="arm"><freejoint/><geom type="capsule" size="0.1" fromto="0 0 0 0 0 1" pos="9 9 9" mass="4"/></body>"#
         ),
-        MjcfError::ConflictingPlacement {
+        ModelError::ConflictingPlacement {
             body: "arm".to_owned(),
         }
     );
@@ -460,7 +461,7 @@ fn refuses_ends_that_say_nothing_the_loader_can_use() {
         refuse(
             r#"<body name="link"><freejoint/><geom type="box" size="0.1 0.2" fromto="0 0 0 0 0 1" mass="4"/></body>"#
         ),
-        MjcfError::UnsupportedFromTo {
+        ModelError::UnsupportedFromTo {
             body: "link".to_owned(),
             geom_type: "box".to_owned(),
         }
@@ -478,7 +479,7 @@ fn refuses_a_capsule_or_cylinder_that_is_not_sized_by_a_radius_and_a_half_length
                 refuse(&format!(
                     r#"<body><freejoint/><geom type="{form}" size="{size}" mass="1"/></body>"#
                 )),
-                MjcfError::BadAttribute {
+                ModelError::BadAttribute {
                     element: "geom".to_owned(),
                     attribute: "size".to_owned(),
                     value: size.to_owned(),
@@ -739,7 +740,7 @@ fn refuses_a_ball_joint() {
         refuse(
             r#"<body name="arm"><joint type="ball"/><inertial mass="1" diaginertia="1 1 1"/></body>"#
         ),
-        MjcfError::UnsupportedJoint {
+        ModelError::UnsupportedJoint {
             body: "arm".to_owned(),
             joint_type: "ball".to_owned(),
         }
@@ -752,7 +753,7 @@ fn refuses_two_joints_on_one_body() {
         refuse(
             r#"<body name="arm"><joint/><joint/><inertial mass="1" diaginertia="1 1 1"/></body>"#
         ),
-        MjcfError::MultipleJoints {
+        ModelError::MultipleJoints {
             body: "arm".to_owned(),
             count: 2,
         }
@@ -767,7 +768,7 @@ fn refuses_a_free_joint_below_the_top() {
                  <body name="forearm" pos="0 0 1"><freejoint/><inertial mass="1" diaginertia="1 1 1"/></body>
                </body>"#
         ),
-        MjcfError::FreeJointNotAtRoot {
+        ModelError::FreeJointNotAtRoot {
             body: "forearm".to_owned(),
         }
     );
@@ -777,7 +778,7 @@ fn refuses_a_free_joint_below_the_top() {
 fn refuses_a_turn_written_as_angles() {
     assert_eq!(
         refuse(r#"<body euler="0 0 1"><inertial mass="1" diaginertia="1 1 1"/></body>"#),
-        MjcfError::UnsupportedOrientation {
+        ModelError::UnsupportedOrientation {
             element: "body".to_owned(),
             attribute: "euler".to_owned(),
         }
@@ -790,7 +791,7 @@ fn refuses_a_limited_joint_with_no_range() {
         refuse(
             r#"<body name="arm"><joint limited="true"/><inertial mass="1" diaginertia="1 1 1"/></body>"#
         ),
-        MjcfError::LimitsNeedRange {
+        ModelError::LimitsNeedRange {
             body: "arm".to_owned(),
         }
     );
@@ -801,7 +802,7 @@ fn refuses_a_tip_the_model_does_not_have() {
     let model = load(r#"<body><inertial mass="1" diaginertia="1 1 1"/></body>"#);
     assert_eq!(
         model.kinematic_tree_to::<4, 4>("gripper").unwrap_err(),
-        MjcfError::UnknownBody {
+        ModelError::UnknownBody {
             name: "gripper".to_owned(),
         }
     );
@@ -818,7 +819,7 @@ fn refuses_a_model_too_big_for_the_tree() {
     );
     assert_eq!(
         model.kinematic_tree::<2, 2>().unwrap_err(),
-        MjcfError::TreeCapacityExceeded {
+        ModelError::TreeCapacityExceeded {
             needed: 3,
             capacity: 2,
         }

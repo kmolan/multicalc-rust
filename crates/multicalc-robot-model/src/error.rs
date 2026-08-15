@@ -1,9 +1,9 @@
 use multicalc::error::{KinematicsError, SpatialError};
 
-/// Everything that can stop a model from loading.
+/// Everything that can stop a model from loading, whichever format it came from.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
-pub enum MjcfError {
+pub enum ModelError {
     /// The file was not well-formed XML.
     Xml(String),
     /// The file could not be read.
@@ -115,65 +115,65 @@ pub enum MjcfError {
     Kinematics(KinematicsError),
 }
 
-impl From<SpatialError> for MjcfError {
+impl From<SpatialError> for ModelError {
     fn from(e: SpatialError) -> Self {
-        MjcfError::Inertia(e)
+        ModelError::Inertia(e)
     }
 }
 
-impl From<KinematicsError> for MjcfError {
+impl From<KinematicsError> for ModelError {
     fn from(e: KinematicsError) -> Self {
-        MjcfError::Kinematics(e)
+        ModelError::Kinematics(e)
     }
 }
 
-impl core::fmt::Display for MjcfError {
+impl core::fmt::Display for ModelError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            MjcfError::Xml(detail) => write!(f, "file is not well-formed XML: {detail}"),
-            MjcfError::Io(detail) => write!(f, "file could not be read: {detail}"),
-            MjcfError::MissingWorldbody => f.write_str("model has no worldbody"),
-            MjcfError::NoBodies => f.write_str("model has no bodies"),
-            MjcfError::MultipleJoints { body, count } => {
+            ModelError::Xml(detail) => write!(f, "file is not well-formed XML: {detail}"),
+            ModelError::Io(detail) => write!(f, "file could not be read: {detail}"),
+            ModelError::MissingWorldbody => f.write_str("model has no worldbody"),
+            ModelError::NoBodies => f.write_str("model has no bodies"),
+            ModelError::MultipleJoints { body, count } => {
                 write!(f, "body {body} carries {count} joints, and one is the limit here")
             }
-            MjcfError::FreeJointNotAtRoot { body } => write!(
+            ModelError::FreeJointNotAtRoot { body } => write!(
                 f,
                 "body {body} hangs off the world by a free joint but is not at the top of the model"
             ),
-            MjcfError::UnsupportedJoint { body, joint_type } => write!(
+            ModelError::UnsupportedJoint { body, joint_type } => write!(
                 f,
                 "body {body} has a {joint_type} joint, and only hinge or slide joints are handled"
             ),
-            MjcfError::UnsupportedOrientation { element, attribute } => write!(
+            ModelError::UnsupportedOrientation { element, attribute } => write!(
                 f,
                 "the {attribute} attribute on {element} states a turn in a form this loader does not read; write it as a quaternion"
             ),
-            MjcfError::LimitsNeedRange { body } => write!(
+            ModelError::LimitsNeedRange { body } => write!(
                 f,
                 "the joint on body {body} is limited but states no range"
             ),
-            MjcfError::NoInertiaSource { body } => write!(
+            ModelError::NoInertiaSource { body } => write!(
                 f,
                 "body {body} states no mass properties and has no shapes to work them out from"
             ),
-            MjcfError::UnsupportedGeomType { body, geom_type } => write!(
+            ModelError::UnsupportedGeomType { body, geom_type } => write!(
                 f,
                 "body {body} carries mass on a {geom_type} shape, which this loader cannot measure"
             ),
-            MjcfError::MeshInertiaUnsupported { body } => write!(
+            ModelError::MeshInertiaUnsupported { body } => write!(
                 f,
                 "body {body} carries mass on a mesh, whose mass cannot be worked out from the file alone"
             ),
-            MjcfError::UnsupportedFromTo { body, geom_type } => write!(
+            ModelError::UnsupportedFromTo { body, geom_type } => write!(
                 f,
                 "body {body} gives the ends of a {geom_type} shape's axis, which this loader reads only for capsules and cylinders"
             ),
-            MjcfError::ConflictingPlacement { body } => write!(
+            ModelError::ConflictingPlacement { body } => write!(
                 f,
                 "a shape on body {body} gives both the ends of its axis and a position, and they need not agree"
             ),
-            MjcfError::BadAttribute {
+            ModelError::BadAttribute {
                 element,
                 attribute,
                 value,
@@ -181,34 +181,34 @@ impl core::fmt::Display for MjcfError {
                 f,
                 "the {attribute} attribute on {element} could not be read as numbers: {value}"
             ),
-            MjcfError::UndefinedClass { name } => {
+            ModelError::UndefinedClass { name } => {
                 write!(
                     f,
                     "a shape names class {name}, which the file never defines"
                 )
             }
-            MjcfError::UnknownBody { name } => write!(f, "the model has no body called {name}"),
-            MjcfError::TreeCapacityExceeded { needed, capacity } => write!(
+            ModelError::UnknownBody { name } => write!(f, "the model has no body called {name}"),
+            ModelError::TreeCapacityExceeded { needed, capacity } => write!(
                 f,
                 "the model has {needed} bodies and the model being built holds {capacity}"
             ),
-            MjcfError::IncludeNeedsFile => f.write_str(
+            ModelError::IncludeNeedsFile => f.write_str(
                 "the model pulls in another file, which can only be followed when the model is read from a file itself",
             ),
-            MjcfError::IncludeTooDeep { depth } => {
+            ModelError::IncludeTooDeep { depth } => {
                 write!(f, "files pull in other files more than {depth} deep, or pull in each other")
             }
-            MjcfError::Inertia(e) => write!(f, "{e}"),
-            MjcfError::Kinematics(e) => write!(f, "{e}"),
+            ModelError::Inertia(e) => write!(f, "{e}"),
+            ModelError::Kinematics(e) => write!(f, "{e}"),
         }
     }
 }
 
-impl std::error::Error for MjcfError {
+impl std::error::Error for ModelError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            MjcfError::Inertia(e) => Some(e),
-            MjcfError::Kinematics(e) => Some(e),
+            ModelError::Inertia(e) => Some(e),
+            ModelError::Kinematics(e) => Some(e),
             _ => None,
         }
     }

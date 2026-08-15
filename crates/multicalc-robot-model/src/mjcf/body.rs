@@ -8,14 +8,15 @@ use multicalc::spatial::{SE3, SO3, SpatialInertia};
 use roxmltree::{Document, Node};
 
 use crate::JointRecord;
-use crate::MjcfError;
-use crate::compiler::{CompilerSettings, InertiaFromGeom};
-use crate::defaults::{
-    DefaultTable, bad_attribute, element, elements, parse_scalar, parse_vector3, parse_vector4,
-    parse_vector6, reject_orientation_attributes, unit_quaternion,
+use crate::ModelError;
+use crate::mjcf::compiler::{CompilerSettings, InertiaFromGeom};
+use crate::mjcf::defaults::{DefaultTable, reject_orientation_attributes};
+use crate::mjcf::geometry::{GeomMass, read_geom};
+use crate::mjcf::joint::read_joint;
+use crate::xml::{
+    bad_attribute, element, elements, parse_scalar, parse_vector3, parse_vector4, parse_vector6,
+    unit_quaternion,
 };
-use crate::geometry::{GeomMass, read_geom};
-use crate::joint::read_joint;
 
 /// The top-level sections this loader takes something from. Every other section a file carries is
 /// passed over, and named in the record rather than going quietly.
@@ -40,12 +41,12 @@ pub(crate) struct ParsedBody {
 
 /// Reads the tree of bodies a file describes, refusing anything outside this loader's subset by
 /// name.
-pub(crate) fn read(document: &Document) -> Result<ParsedModel, MjcfError> {
+pub(crate) fn read(document: &Document) -> Result<ParsedModel, ModelError> {
     let root = document.root_element();
     let name = root.attribute("model").unwrap_or("model").to_owned();
     let settings = CompilerSettings::read(root)?;
     let table = DefaultTable::build(root)?;
-    let worldbody = element(root, "worldbody").ok_or(MjcfError::MissingWorldbody)?;
+    let worldbody = element(root, "worldbody").ok_or(ModelError::MissingWorldbody)?;
 
     let mut bodies = Vec::new();
     let mut floating_base = false;
@@ -62,7 +63,7 @@ pub(crate) fn read(document: &Document) -> Result<ParsedModel, MjcfError> {
     }
 
     if bodies.is_empty() {
-        return Err(MjcfError::NoBodies);
+        return Err(ModelError::NoBodies);
     }
 
     Ok(ParsedModel {
@@ -102,7 +103,7 @@ fn walk_body(
     settings: &CompilerSettings,
     bodies: &mut Vec<ParsedBody>,
     floating_base: &mut bool,
-) -> Result<(), MjcfError> {
+) -> Result<(), ModelError> {
     let name = node.attribute("name").unwrap_or("body").to_owned();
     reject_orientation_attributes(node, "body")?;
 
@@ -124,7 +125,7 @@ fn walk_body(
     let joint = match joint_like.as_slice() {
         [only] if is_free_joint(*only) => {
             if parent.is_some() {
-                return Err(MjcfError::FreeJointNotAtRoot { body: name });
+                return Err(ModelError::FreeJointNotAtRoot { body: name });
             }
             *floating_base = true;
             Some(JointRecord::floating(name.clone()))
@@ -136,7 +137,7 @@ fn walk_body(
         InertiaFromGeom::Always => synthesized_inertia(node, table, class_chain, &name)?,
         InertiaFromGeom::Never => {
             let inertial = element(node, "inertial")
-                .ok_or_else(|| MjcfError::NoInertiaSource { body: name.clone() })?;
+                .ok_or_else(|| ModelError::NoInertiaSource { body: name.clone() })?;
             reject_orientation_attributes(inertial, "inertial")?;
             stated_inertia(inertial)?
         }
@@ -198,7 +199,7 @@ fn ignored_sections(root: Node) -> Vec<String> {
 }
 
 /// The mass properties a file states outright, from either `diaginertia` or `fullinertia`.
-fn stated_inertia(node: Node) -> Result<SpatialInertia<f64>, MjcfError> {
+fn stated_inertia(node: Node) -> Result<SpatialInertia<f64>, ModelError> {
     let position = parse_vector3(node, "pos")?.unwrap_or([0.0; 3]);
     let mass = parse_scalar(node, "mass")?.ok_or_else(|| required(node, "mass"))?;
 
@@ -226,7 +227,7 @@ fn stated_inertia(node: Node) -> Result<SpatialInertia<f64>, MjcfError> {
         }
     };
 
-    SpatialInertia::new(mass, Vector::new(position), tensor).map_err(MjcfError::Inertia)
+    SpatialInertia::new(mass, Vector::new(position), tensor).map_err(ModelError::Inertia)
 }
 
 /// The mass properties worked out from the shapes a body is built from, for a body with no stated
@@ -237,7 +238,7 @@ fn synthesized_inertia(
     table: &DefaultTable,
     class_chain: Option<&str>,
     name: &str,
-) -> Result<SpatialInertia<f64>, MjcfError> {
+) -> Result<SpatialInertia<f64>, ModelError> {
     let mut shapes: Vec<GeomMass> = Vec::new();
     for geom in elements(body, "geom") {
         if let Some(shape) = read_geom(geom, table, class_chain, name)? {
@@ -249,7 +250,7 @@ fn synthesized_inertia(
     // a massless body from ever loading.
     let total_mass: f64 = shapes.iter().map(|shape| shape.mass).sum();
     if total_mass == 0.0 {
-        return Err(MjcfError::NoInertiaSource {
+        return Err(ModelError::NoInertiaSource {
             body: name.to_owned(),
         });
     }
@@ -266,7 +267,7 @@ fn synthesized_inertia(
         running + shape.inertia + shifted(shape.mass, shape.center - center_of_mass)
     });
 
-    SpatialInertia::new(total_mass, center_of_mass, summed).map_err(MjcfError::Inertia)
+    SpatialInertia::new(total_mass, center_of_mass, summed).map_err(ModelError::Inertia)
 }
 
 /// How much harder a mass is to spin about a point `offset` away from where it balances.
@@ -280,7 +281,7 @@ fn shifted(mass: f64, offset: Vector3D) -> Matrix3D {
 
 /// The error for an attribute the file has to carry and does not.
 #[must_use]
-fn required(node: Node, attribute: &str) -> MjcfError {
+fn required(node: Node, attribute: &str) -> ModelError {
     bad_attribute(
         node,
         attribute,

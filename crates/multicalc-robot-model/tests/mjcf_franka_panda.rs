@@ -8,7 +8,7 @@
 use std::path::Path;
 
 use multicalc::kinematics::JointKind;
-use multicalc_robot_model::{MjcfError, RobotModel};
+use multicalc_robot_model::{ModelError, RobotModel};
 
 const BODY_NAMES: [&str; 11] = [
     "link0",
@@ -28,7 +28,7 @@ const BODY_NAMES: [&str; 11] = [
 fn panda() -> RobotModel {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../third_party/menagerie/franka_emika_panda/panda.xml");
-    multicalc_robot_model::load_path(&path).unwrap()
+    multicalc_robot_model::mjcf::load_path(&path).unwrap()
 }
 
 fn assert_close(actual: f64, expected: f64, label: &str) {
@@ -149,7 +149,7 @@ fn the_whole_model_fits_a_tree_of_eleven_but_not_ten() {
     assert!(model.kinematic_tree::<11, 11>().is_ok());
     assert_eq!(
         model.kinematic_tree::<10, 10>().unwrap_err(),
-        MjcfError::TreeCapacityExceeded {
+        ModelError::TreeCapacityExceeded {
             needed: 11,
             capacity: 10,
         }

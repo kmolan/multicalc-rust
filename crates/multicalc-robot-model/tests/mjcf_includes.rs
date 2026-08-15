@@ -5,7 +5,8 @@
 
 use std::path::{Path, PathBuf};
 
-use multicalc_robot_model::{MjcfError, load_path};
+use multicalc_robot_model::ModelError;
+use multicalc_robot_model::mjcf::load_path;
 
 /// A fresh directory under the system temp directory, unique to this process and this case.
 #[must_use]
@@ -79,7 +80,7 @@ fn refuses_two_files_that_include_each_other() {
 
     assert_eq!(
         load_path(&dir.join("a.xml")).unwrap_err(),
-        MjcfError::IncludeTooDeep { depth: 9 }
+        ModelError::IncludeTooDeep { depth: 9 }
     );
 
     std::fs::remove_dir_all(&dir).unwrap();

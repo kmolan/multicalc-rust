@@ -2,8 +2,8 @@
 
 use roxmltree::Node;
 
-use crate::MjcfError;
-use crate::defaults::{bad_attribute, element};
+use crate::ModelError;
+use crate::xml::{bad_attribute, element};
 
 /// File-wide settings that change how the rest of the document is read.
 pub(crate) struct CompilerSettings {
@@ -29,7 +29,7 @@ impl CompilerSettings {
     /// Reads the first `<compiler>` child of `root`, applying MJCF's defaults
     /// (`angle="degree"`, `autolimits="true"`, `inertiafromgeom="auto"`) where an attribute is
     /// absent.
-    pub(crate) fn read(root: Node) -> Result<Self, MjcfError> {
+    pub(crate) fn read(root: Node) -> Result<Self, ModelError> {
         let Some(compiler) = element(root, "compiler") else {
             return Ok(CompilerSettings {
                 angle_in_degrees: true,

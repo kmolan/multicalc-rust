@@ -5,25 +5,25 @@ use std::path::Path;
 
 use roxmltree::{Document, Node};
 
-use crate::MjcfError;
-use crate::defaults::bad_attribute;
+use crate::ModelError;
+use crate::xml::bad_attribute;
 
 /// How deep a chain of includes may nest before this loader gives up. Also what catches a cycle.
 const MAX_INCLUDE_DEPTH: usize = 8;
 
 /// Reads a file and splices in everything it pulls in, giving one piece of text to parse.
-pub(crate) fn assemble(path: &Path) -> Result<String, MjcfError> {
+pub(crate) fn assemble(path: &Path) -> Result<String, ModelError> {
     read(path, 0)
 }
 
 /// Reads one file and resolves its own `<include>` elements, recursing into each included file.
-fn read(path: &Path, depth: usize) -> Result<String, MjcfError> {
+fn read(path: &Path, depth: usize) -> Result<String, ModelError> {
     if depth > MAX_INCLUDE_DEPTH {
-        return Err(MjcfError::IncludeTooDeep { depth });
+        return Err(ModelError::IncludeTooDeep { depth });
     }
 
-    let mut text = std::fs::read_to_string(path).map_err(|e| MjcfError::Io(e.to_string()))?;
-    let document = Document::parse(&text).map_err(|e| MjcfError::Xml(e.to_string()))?;
+    let mut text = std::fs::read_to_string(path).map_err(|e| ModelError::Io(e.to_string()))?;
+    let document = Document::parse(&text).map_err(|e| ModelError::Xml(e.to_string()))?;
 
     let mut includes: Vec<(Range<usize>, String)> = Vec::new();
     for node in document.descendants() {
@@ -46,8 +46,8 @@ fn read(path: &Path, depth: usize) -> Result<String, MjcfError> {
 
 /// The source text of `xml`'s root's element children, joined with `"\n"` — everything inside
 /// its `<mujoco>...</mujoco>` wrapper, with the wrapper itself dropped.
-fn inner_source(xml: &str) -> Result<String, MjcfError> {
-    let document = Document::parse(xml).map_err(|e| MjcfError::Xml(e.to_string()))?;
+fn inner_source(xml: &str) -> Result<String, ModelError> {
+    let document = Document::parse(xml).map_err(|e| ModelError::Xml(e.to_string()))?;
     let pieces: Vec<&str> = document
         .root_element()
         .children()

@@ -3,7 +3,8 @@
 //! Writing a model out as Rust source: what the emitted text contains, that it is stable across
 //! runs, and that a floating-base model emits a `Joint::floating` push.
 
-use multicalc_robot_model::{GeneratedScalar, RustSourceOptions, load_str};
+use multicalc_robot_model::mjcf::load_str;
+use multicalc_robot_model::{GeneratedScalar, RustSourceOptions};
 
 /// A body on a hinge, with the settings that show up literally in the emitted text.
 const TWO_BODY_MODEL: &str = r#"<mujoco>

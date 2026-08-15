@@ -6,9 +6,10 @@ use multicalc::linear_algebra::Vector;
 use roxmltree::Node;
 
 use crate::JointRecord;
-use crate::MjcfError;
-use crate::compiler::CompilerSettings;
-use crate::defaults::{DefaultTable, JointDefaults, bad_attribute};
+use crate::ModelError;
+use crate::mjcf::compiler::CompilerSettings;
+use crate::mjcf::defaults::{DefaultTable, JointDefaults};
+use crate::xml::bad_attribute;
 
 /// MJCF's default joint type when a `<joint>` states none.
 const ASSUMED_JOINT_TYPE: &str = "hinge";
@@ -23,7 +24,7 @@ pub(crate) fn read_joint(
     class_chain: Option<&str>,
     settings: &CompilerSettings,
     body_name: &str,
-) -> Result<Option<JointRecord>, MjcfError> {
+) -> Result<Option<JointRecord>, ModelError> {
     let joints: Vec<Node> = body
         .children()
         .filter(|child| {
@@ -35,7 +36,7 @@ pub(crate) fn read_joint(
         [] => return Ok(None),
         [only] => *only,
         many => {
-            return Err(MjcfError::MultipleJoints {
+            return Err(ModelError::MultipleJoints {
                 body: body_name.to_owned(),
                 count: many.len(),
             });
@@ -50,7 +51,7 @@ pub(crate) fn read_joint(
         "hinge" => JointKind::Revolute,
         "slide" => JointKind::Prismatic,
         other => {
-            return Err(MjcfError::UnsupportedJoint {
+            return Err(ModelError::UnsupportedJoint {
                 body: body_name.to_owned(),
                 joint_type: other.to_owned(),
             });
@@ -101,8 +102,8 @@ fn read_limits(
     auto_limits: bool,
     to_radians: impl Fn(f64) -> f64,
     body_name: &str,
-) -> Result<Option<(f64, f64)>, MjcfError> {
-    let needs_range = || MjcfError::LimitsNeedRange {
+) -> Result<Option<(f64, f64)>, ModelError> {
+    let needs_range = || ModelError::LimitsNeedRange {
         body: body_name.to_owned(),
     };
 
@@ -127,7 +128,7 @@ fn effective(
     node: Node,
     table: &DefaultTable,
     class_chain: Option<&str>,
-) -> Result<JointDefaults, MjcfError> {
+) -> Result<JointDefaults, ModelError> {
     let mut settings = table.resolve(None)?.joint.clone();
     if let Some(name) = class_chain {
         settings = settings.overridden_by(&table.resolve(Some(name))?.joint);
