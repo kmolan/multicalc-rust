@@ -33,12 +33,17 @@ pub enum MjcfError {
         /// The joint type as written in the file.
         joint_type: String,
     },
-    /// An element gave its orientation in a form other than `quat`.
-    UnsupportedOrientation {
-        /// The element carrying the attribute.
+    /// An element stated which way it faces more than once — `quat`, `euler`, `axisangle`,
+    /// `xyaxes` and `zaxis` are five ways of writing one turn, and only one of them may be given.
+    MultipleOrientations {
+        /// The element carrying them.
         element: String,
-        /// The attribute name.
-        attribute: String,
+    },
+    /// An `<inertial>` stated a full tensor and a turn together. A full tensor is already written
+    /// in the body's own axes, so the turn has no frame left to name.
+    FullInertiaWithOrientation {
+        /// The body's name.
+        body: String,
     },
     /// A joint was marked limited, or defaults to limited, but states no `range`.
     LimitsNeedRange {
@@ -145,9 +150,13 @@ impl core::fmt::Display for MjcfError {
                 f,
                 "body {body} has a {joint_type} joint, and only hinge or slide joints are handled"
             ),
-            MjcfError::UnsupportedOrientation { element, attribute } => write!(
+            MjcfError::MultipleOrientations { element } => write!(
                 f,
-                "the {attribute} attribute on {element} states a turn in a form this loader does not read; write it as a quaternion"
+                "{element} states which way it faces more than once, and one way is the limit"
+            ),
+            MjcfError::FullInertiaWithOrientation { body } => write!(
+                f,
+                "the inertial on body {body} states a full tensor and a turn together, and a full tensor already stands in the body's own axes"
             ),
             MjcfError::LimitsNeedRange { body } => write!(
                 f,

@@ -7,7 +7,10 @@
 //! Converts on request to a [`KinematicTree`](multicalc::kinematics::KinematicTree), either the
 //! whole model or the chain from the root to a named tip body.
 //!
-//! Unsupported constructs — ball joints, mesh inertia, non-quaternion orientations — are rejected by
+//! All five MJCF orientation forms are read — `quat`, `euler`, `axisangle`, `xyaxes` and `zaxis` —
+//! honouring `<compiler angle>` and `<compiler eulerseq>` for the two written in angles.
+//!
+//! Unsupported constructs — ball joints, mesh inertia — are rejected by
 //! name rather than silently dropped, so a model never loads with incorrect mass properties. Sections
 //! this loader does not consume (tendons, actuators, sensors, ...) are skipped and listed in
 //! [`RobotModel::ignored`].
@@ -20,6 +23,7 @@ mod document;
 mod error;
 mod geometry;
 mod joint;
+mod orientation;
 
 use std::path::Path;
 
