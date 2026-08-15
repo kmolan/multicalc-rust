@@ -1,3 +1,4 @@
+mod continuous_joint;
 mod differential_drive;
 mod inverse_kinematics;
 mod kinematic_jacobian;

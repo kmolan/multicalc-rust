@@ -210,9 +210,12 @@ impl<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>
                 return Err(KinematicsError::LimitsReversed);
             }
         }
+        if joint.kind() == JointKind::Continuous && joint.limits().is_some() {
+            return Err(KinematicsError::ContinuousJointHasLimits);
+        }
 
         let joint = match joint.kind() {
-            JointKind::Revolute | JointKind::Prismatic => joint.with_axis(
+            JointKind::Revolute | JointKind::Prismatic | JointKind::Continuous => joint.with_axis(
                 joint
                     .axis()
                     .try_normalized()
@@ -363,7 +366,7 @@ impl<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>
             let local = match joint.kind() {
                 // Rotation about an axis through the anchor:
                 // translate(anchor) · rotate · translate(-anchor), composed out.
-                JointKind::Revolute => {
+                JointKind::Revolute | JointKind::Continuous => {
                     let reading = *configuration
                         .get(offset)
                         .ok_or(KinematicsError::NonFinite)?;
@@ -521,7 +524,7 @@ impl<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>
             let mut columns: [Option<(Vector<3, T>, Vector<3, T>)>; 6] = [None; 6];
             match joint.kind() {
                 // Turning sweeps the tool frame around the axis, faster the further out it sits.
-                JointKind::Revolute => {
+                JointKind::Revolute | JointKind::Continuous => {
                     let axis_in_world = pose.rotation().act(joint.axis());
                     let axis_point = pose.act(joint.anchor());
                     columns[0] =
@@ -642,5 +645,98 @@ impl<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>
     ) -> Result<KinematicJacobian<MAX_CONFIG, T>, KinematicsError> {
         let state = self.forward_kinematics(configuration)?;
         self.geometric_jacobian(&state, tool_index, frame)
+    }
+
+    /// Configuration-space distance between `a` and `b`: linear for `Revolute`/`Prismatic`, the
+    /// shortest angular difference (wrapped mod 2π via [`Numeric::wrap_to_pi`]) for `Continuous`,
+    /// an `SE3::log()`-based pose distance for `Floating`, and no contribution from a `Fixed`
+    /// joint. Squared per-joint terms are summed then square-rooted, mixing metres and radians the
+    /// same way every other joint-space quantity in this module already does.
+    ///
+    /// Used to decide whether two solutions of the same target are the same branch, and to pick
+    /// the branch closest to a previous configuration near a singularity.
+    ///
+    /// ```
+    /// use core::f64::consts::PI;
+    /// use multicalc::kinematics::{Joint, JointParent, KinematicTree};
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::spatial::SE3;
+    ///
+    /// let z = Vector::new([0.0, 0.0, 1.0]);
+    /// let tree = KinematicTree::<1, 1, f64>::try_from_joints(
+    ///     &[Joint::continuous(z, SE3::identity())],
+    ///     &[JointParent::World],
+    /// )
+    /// .unwrap();
+    ///
+    /// // 3 and -3 radians are only a shade over a quarter turn apart the short way, not 6 radians.
+    /// let distance = tree.configuration_distance(&Vector::new([3.0]), &Vector::new([-3.0]));
+    /// assert!((distance - (2.0 * PI - 6.0)).abs() < 1e-12);
+    /// ```
+    #[must_use]
+    pub fn configuration_distance(
+        &self,
+        a: &Vector<MAX_CONFIG, T>,
+        b: &Vector<MAX_CONFIG, T>,
+    ) -> T {
+        let mut total = T::ZERO;
+        for index in 0..self.length {
+            let Some(joint) = self.joint(index) else {
+                continue;
+            };
+            let Some(offset) = self.config_offset(index) else {
+                continue;
+            };
+            match joint.kind() {
+                JointKind::Fixed => {}
+                JointKind::Continuous => {
+                    let Some(a_reading) = a.get(offset) else {
+                        continue;
+                    };
+                    let Some(b_reading) = b.get(offset) else {
+                        continue;
+                    };
+                    let difference = (*a_reading - *b_reading).wrap_to_pi();
+                    total += difference * difference;
+                }
+                JointKind::Revolute | JointKind::Prismatic => {
+                    let Some(a_reading) = a.get(offset) else {
+                        continue;
+                    };
+                    let Some(b_reading) = b.get(offset) else {
+                        continue;
+                    };
+                    let difference = *a_reading - *b_reading;
+                    total += difference * difference;
+                }
+                JointKind::Floating => {
+                    let mut a_place = [T::ZERO; 7];
+                    let mut b_place = [T::ZERO; 7];
+                    for (slot, value) in a_place.iter_mut().enumerate() {
+                        *value = a.get(offset + slot).copied().unwrap_or(T::ZERO);
+                    }
+                    for (slot, value) in b_place.iter_mut().enumerate() {
+                        *value = b.get(offset + slot).copied().unwrap_or(T::ZERO);
+                    }
+                    let Some(a_state) =
+                        FreeJointState::from_generalized_vectors(a_place, [T::ZERO; 6])
+                    else {
+                        continue;
+                    };
+                    let Some(b_state) =
+                        FreeJointState::from_generalized_vectors(b_place, [T::ZERO; 6])
+                    else {
+                        continue;
+                    };
+                    let position_difference =
+                        a_state.pose().translation() - b_state.pose().translation();
+                    total += position_difference.dot(position_difference);
+                    let rotation_difference =
+                        (a_state.pose().rotation().inverse() * b_state.pose().rotation()).log();
+                    total += rotation_difference.dot(rotation_difference);
+                }
+            }
+        }
+        total.sqrt()
     }
 }

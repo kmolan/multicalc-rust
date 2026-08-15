@@ -118,6 +118,8 @@ pub enum KinematicsError {
     ConfigurationCapacityExceeded,
     /// A floating joint's orientation reading was all zeros, which names no direction.
     OrientationHasNoDirection,
+    /// A `Continuous` joint stated travel limits — it can only ever be unlimited.
+    ContinuousJointHasLimits,
     /// A matrix step inside the solver failed.
     Linalg(LinalgError),
 }
@@ -627,6 +629,9 @@ impl core::fmt::Display for KinematicsError {
             }
             KinematicsError::OrientationHasNoDirection => {
                 "a floating joint's orientation reading was all zeros, which names no direction"
+            }
+            KinematicsError::ContinuousJointHasLimits => {
+                "a continuous joint stated travel limits, but can only ever be unlimited"
             }
             KinematicsError::Linalg(e) => return write!(f, "{e}"),
         };

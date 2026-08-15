@@ -73,7 +73,7 @@ model is `Copy` and needs no heap.
 - `Joint`: one single-degree-of-freedom joint. `Joint::revolute`, `Joint::prismatic` and
   `Joint::fixed` build one; the `with_*` methods set the anchor it rotates about, the reference
   configuration, the travel limits, and the armature, damping and friction loss a later dynamics pass
-  reads.
+  reads; `Joint::continuous` builds one with no travel limit, wrapping past ±π instead of stopping.
 - `JointParent`: what a joint is attached to, either `World` or an earlier joint by index.
 - `KinematicTree`: the model. `try_from_joints` and `push` are the only fallible calls; with the
   model validated once, every query afterwards is total.
@@ -133,6 +133,40 @@ of any frame's pose with respect to any joint reading, with nothing hand-derived
 
 Full demo:
 [forward_kinematics.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/forward_kinematics.rs).
+
+## Continuous joints
+
+A revolute joint with no stated limit still stops nowhere in particular — it just never gets clamped.
+A continuous joint says the same thing on purpose: it can never carry a limit at all, and every place
+this crate measures the distance between two configurations treats its reading as periodic, wrapping
+the short way around ±π rather than counting the long way. A wheel, a turret, and a wrist roll that
+spins are all continuous; `multicalc-mjcf` reads a hinge with no travel range as one.
+
+```rust
+use multicalc::kinematics::{Joint, JointParent, KinematicTree};
+use multicalc::linear_algebra::Vector;
+use multicalc::spatial::SE3;
+
+let about_z = Vector::new([0.0, 0.0, 1.0]);
+let tree = KinematicTree::<1, 1, f64>::try_from_joints(
+    &[Joint::continuous(about_z, SE3::identity())],
+    &[JointParent::World],
+)
+.unwrap();
+
+// A reading past a full turn turns exactly as far as the number says -- nothing folds it back.
+let state = tree.forward_kinematics(&Vector::new([7.0])).unwrap();
+assert!((state.pose(0).unwrap().rotation().log()[2] - (7.0 - 2.0 * core::f64::consts::PI)).abs() < 1e-12);
+
+// 3 and -3 radians are a shade over a quarter turn apart the short way, not 6 radians apart.
+let distance = tree.configuration_distance(&Vector::new([3.0]), &Vector::new([-3.0]));
+assert!((distance - (2.0 * core::f64::consts::PI - 6.0)).abs() < 1e-12);
+```
+
+`configuration_distance` is what tells two configurations apart across the whole model: a plain
+difference at a revolute or sliding joint, the short way round at a continuous one, a pose distance
+at a floating one, and nothing at all at a weld. `SecondaryObjective::PreferredPosture` uses the same
+rule, so a continuous joint asked to return to a posture takes whichever way round is shorter.
 
 ## Floating joints
 

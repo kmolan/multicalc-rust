@@ -12,6 +12,8 @@ pub enum JointKind {
     Revolute,
     /// One translational degree of freedom along the joint axis.
     Prismatic,
+    /// One rotational degree of freedom about the joint axis, with no travel limit.
+    Continuous,
     /// No degrees of freedom; a weld.
     Fixed,
     /// Free to move in all six directions
@@ -76,6 +78,28 @@ impl<T: Numeric> Joint<T> {
     #[must_use]
     pub fn revolute(axis: Vector3D<T>, origin: SE3<T>) -> Self {
         Joint::from_kind(JointKind::Revolute, axis, origin)
+    }
+
+    /// Continuous joint about `axis`, with parent-to-joint transform `origin`: turns like a
+    /// `Revolute` joint but never stops — [`with_limits`](Joint::with_limits) is refused for it when
+    /// the joint is added to a [`KinematicTree`](crate::kinematics::KinematicTree).
+    ///
+    /// Defaults are as for [`revolute`](Joint::revolute).
+    ///
+    /// ```
+    /// use multicalc::kinematics::{Joint, JointKind};
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::spatial::SE3;
+    ///
+    /// let joint = Joint::continuous(Vector::new([0.0, 0.0, 1.0]), SE3::<f64>::identity());
+    ///
+    /// assert_eq!(joint.kind(), JointKind::Continuous);
+    /// assert_eq!(joint.limits(), None);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn continuous(axis: Vector3D<T>, origin: SE3<T>) -> Self {
+        Joint::from_kind(JointKind::Continuous, axis, origin)
     }
 
     /// Prismatic joint along `axis`, with parent-to-joint transform `origin`. The anchor is unused.
