@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- MJCF content under a .urdf name; dispatch is on the root element. -->
+<mujoco model="not_a_robot">
+  <worldbody>
+    <body name="box">
+      <freejoint/>
+      <inertial pos="0 0 0" mass="1" diaginertia="1 1 1"/>
+    </body>
+  </worldbody>
+</mujoco>

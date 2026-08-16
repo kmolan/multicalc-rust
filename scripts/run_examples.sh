@@ -18,7 +18,7 @@ basics=(
   jacobian_hessian
   lie_groups
   linear_algebra
-  model_ingestion
+  mjcf_model_ingestion
   ode
   optimization_solvers
   root_finding

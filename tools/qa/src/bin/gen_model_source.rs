@@ -6,7 +6,7 @@
 
 use std::path::Path;
 
-use multicalc_mjcf::{GeneratedScalar, RustSourceOptions};
+use multicalc_robot_model::{GeneratedScalar, RustSourceOptions};
 
 fn main() {
     let input = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -14,8 +14,8 @@ fn main() {
     let output =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../embedded-smoke/src/franka_panda_model.rs");
 
-    let model =
-        multicalc_mjcf::load_path(&input).unwrap_or_else(|e| unreachable!("load {input:?}: {e}"));
+    let model = multicalc_robot_model::mjcf::load_path(&input)
+        .unwrap_or_else(|e| unreachable!("load {input:?}: {e}"));
     let options = RustSourceOptions::new("franka_panda_arm")
         .with_scalar(GeneratedScalar::F32)
         .with_capacity(9)

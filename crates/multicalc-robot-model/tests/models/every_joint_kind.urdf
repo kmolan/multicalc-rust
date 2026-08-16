@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<!-- revolute, continuous, prismatic, fixed, in one serial chain. -->
+<robot name="every_joint_kind">
+  <link name="base_link">
+    <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>
+  </link>
+
+  <joint name="turns" type="revolute">
+    <parent link="base_link"/><child link="turning"/>
+    <origin xyz="0 0 1"/><axis xyz="0 0 1"/>
+    <limit lower="-1" upper="1"/>
+  </joint>
+  <link name="turning">
+    <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>
+  </link>
+
+  <joint name="spins" type="continuous">
+    <parent link="turning"/><child link="spinning"/>
+    <origin xyz="0 0 1"/><axis xyz="0 1 0"/>
+  </joint>
+  <link name="spinning">
+    <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>
+  </link>
+
+  <joint name="slides" type="prismatic">
+    <parent link="spinning"/><child link="sliding"/>
+    <origin xyz="0 0 1"/><axis xyz="1 0 0"/>
+    <limit lower="0" upper="2"/>
+  </joint>
+  <link name="sliding">
+    <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>
+  </link>
+
+  <joint name="welds" type="fixed">
+    <parent link="sliding"/><child link="welded"/>
+    <origin xyz="0 0 1"/>
+  </joint>
+  <link name="welded">
+    <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>
+  </link>
+</robot>

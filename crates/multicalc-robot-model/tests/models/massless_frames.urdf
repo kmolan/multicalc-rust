@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!-- One link with inertia, two without: tool and sensor frames, on fixed joints. -->
+<robot name="massless_frames">
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 0.1"/>
+      <mass value="3"/>
+      <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="2"/>
+    </inertial>
+  </link>
+
+  <joint name="tool_mount" type="fixed">
+    <parent link="base_link"/><child link="tool_frame"/>
+    <origin xyz="0 0 0.5"/>
+  </joint>
+  <link name="tool_frame"/>
+
+  <joint name="camera_mount" type="fixed">
+    <parent link="tool_frame"/><child link="camera_frame"/>
+    <origin xyz="0.1 0 0" rpy="0 0 1.5707963267948966"/>
+  </joint>
+  <link name="camera_frame"/>
+</robot>
