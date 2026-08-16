@@ -5,7 +5,8 @@ Runnable demos for [`multicalc`](../crates/multicalc), in two flavors:
 - **Basics**: headless, terminating programs, one per module. Each prints its results against
   the known analytic value (with the `|err|`) and self-checks with an assert. No viewer, and no
   feature flags bar `localized_lap_check`. They depend only on `multicalc`, except
-  `model_ingestion`, which reads both a single body and a jointed robot through `multicalc-mjcf`.
+  `mjcf_model_ingestion` and `urdf_model_ingestion`, which read model files through
+  `multicalc-robot-model`.
 - **Showcases**: live [Rerun](https://rerun.io) demos that render an animated scene and stream
   live-measured speed and accuracy. They require the `rerun` feature (on by default) and a
   version-matched viewer.
@@ -43,7 +44,7 @@ cargo run -p multicalc-demos --example <name>
 | `linear_algebra` | `linear_algebra` | LU and Cholesky factorizations, linear solves, and the direct 4x4 inverse under a latency + approximation-error stress test on well- and ill-conditioned inputs. |
 | `localized_lap_check` | `estimation`, `control`, `kinematics` | The headless acceptance gate for the `2d_localization_obstacle_avoidance` showcase: drives 600,000 seeded ticks and asserts zero contacts, a fused position RMS under 5 cm, fusion beating dead reckoning threefold, and the per-tick cost. Needs `--features alloc`. |
 | `minimum_snap_trajectory` | `motion` | `MinimumSnapPlanner` planning a trajectory off the loop, then evaluating it inside one. |
-| `model_ingestion` | `spatial`, `multicalc-mjcf` | Loads a MuJoCo model file and reports a free body's mass, balance point and resistance to spinning, then a jointed robot's body tree, joint travel and joint settings. |
+| `mjcf_model_ingestion` | `spatial`, `multicalc-robot-model` | Loads a MuJoCo model file and reports a free body's mass, balance point and resistance to spinning, then a jointed robot's body tree, joint travel and joint settings. |
 | `ode` | `ode` | Fixed-step RK4 and adaptive RK45 on the harmonic oscillator (known solution) plus an acrobot, a tumbling quadrotor, and an outer-solar-system N-body, reporting error and conserved-quantity drift. |
 | `optimization_solvers` | `optimization` | Gauss-Newton on a well-conditioned linear residual (`y = a + b·t`); when GN is enough vs LM (`curve_fit`). |
 | `polynomials` | `polynomial` | Evaluating a polynomial with its derivatives in one pass, finding its real roots, building one from data, and several variables with symbolic partials. |
@@ -51,6 +52,7 @@ cargo run -p multicalc-demos --example <name>
 | `root_finding` | `root_finding` | Bracketed bisection, Newton with exact derivatives, damped (backtracking) Newton rescuing a far start, and a square-system Newton solve, each printed against its known root. |
 | `signal_filters` | `signal_processing`, `random` | A notch removing a single tone and a low-pass letting the slow part through, plus `RunningMedian` and `SavitzkyGolay` smoothing on a seeded noisy signal. |
 | `svd` | `linear_algebra::svd` | Singular value decomposition and Moore-Penrose pseudo-inverse under a robotics stress test (Kabsch rotation recovery, a redundant-arm pseudo-inverse, a near-singular Jacobian, and an overdetermined fit) with latency + approximation error. |
+| `urdf_model_ingestion` | `spatial`, `multicalc-robot-model` | Loads a URDF model file and reports the robot's body tree, which links carry mass and which are bare frames, each joint's axis and travel, and the coupled gripper joint that keeps the whole model from becoming one tree. |
 | `vector_field` | `vector_field` | Curl, divergence, line integrals and flux integrals. |
 
 `linear_algebra` and `svd` also print per-call latency; build them `--release` for representative

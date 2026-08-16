@@ -1,7 +1,7 @@
 //! Loads a MuJoCo model file and reports the body's mass, balance point, and how hard it is to
 //! spin, along with the free joint's state layout.
 //!
-//! Run with: `cargo run -p multicalc-demos --example model_ingestion`
+//! Run with: `cargo run -p multicalc-demos --example mjcf_model_ingestion`
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 

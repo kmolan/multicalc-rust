@@ -114,8 +114,8 @@ name = "minimum_snap_trajectory"
 path = "examples/basics/minimum_snap_trajectory.rs"
 
 [[example]]
-name = "model_ingestion"
-path = "examples/basics/model_ingestion.rs"
+name = "mjcf_model_ingestion"
+path = "examples/basics/mjcf_model_ingestion.rs"
 
 [[example]]
 name = "ode"
@@ -144,6 +144,10 @@ path = "examples/basics/signal_filters.rs"
 [[example]]
 name = "svd"
 path = "examples/basics/svd.rs"
+
+[[example]]
+name = "urdf_model_ingestion"
+path = "examples/basics/urdf_model_ingestion.rs"
 
 [[example]]
 name = "vector_field"
