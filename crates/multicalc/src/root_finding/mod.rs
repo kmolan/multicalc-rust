@@ -8,10 +8,12 @@
 //! Every solver takes an iteration budget and reports why it stopped as a [`RootTermination`].
 
 mod bisection;
+mod brent;
 mod newton;
 mod newton_system;
 
 pub use bisection::Bisection;
+pub use brent::Brent;
 pub use newton::Newton;
 pub use newton_system::NewtonSystem;
 

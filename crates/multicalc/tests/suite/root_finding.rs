@@ -4,7 +4,7 @@ use multicalc::error::{LinalgError, SolveError};
 use multicalc::numerical_derivative::FiniteDifferenceSingle;
 use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::root_finding::{
-    Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination,
+    Bisection, Brent, Newton, NewtonSystem, RootReport, RootReportN, RootTermination,
 };
 use multicalc::scalar::{Numeric, ScalarFn, VectorFn, c};
 use multicalc::scalar_fn;
@@ -16,6 +16,14 @@ fn bisect<F: ScalarFn>(
     upper_bound: f64,
 ) -> Result<RootReport<f64>, SolveError> {
     Bisection::default().solve(function, lower_bound, upper_bound)
+}
+
+fn brent<F: ScalarFn>(
+    function: &F,
+    lower_bound: f64,
+    upper_bound: f64,
+) -> Result<RootReport<f64>, SolveError> {
+    Brent::default().solve(function, lower_bound, upper_bound)
 }
 
 fn newton<F: ScalarFn>(function: &F, initial_guess: f64) -> Result<RootReport<f64>, SolveError> {
@@ -127,6 +135,80 @@ fn bisection_exact_endpoint_root() {
     // f(0) = 0 exactly; the solver returns before the first iteration.
     let line = scalar_fn!(|x| x);
     let report = bisect(&line, 0.0_f64, 1.0).unwrap();
+    assert_eq!(report.root, 0.0_f64);
+    assert!(matches!(
+        report.termination,
+        RootTermination::ResidualTolerance
+    ));
+}
+
+// ----- Brent's method -----
+
+#[test]
+fn brent_sqrt2() {
+    let sqrt_two = scalar_fn!(|x| c(-2.0) + x * x);
+    let brent_report = brent(&sqrt_two, 0.0_f64, 2.0).unwrap();
+    let bisect_report = bisect(&sqrt_two, 0.0_f64, 2.0).unwrap();
+
+    assert!((brent_report.root - 2.0_f64.sqrt()).abs() < 1e-9);
+    assert!(brent_report.iterations < bisect_report.iterations);
+    assert!(matches!(
+        brent_report.termination,
+        RootTermination::ResidualTolerance | RootTermination::BracketWidth | RootTermination::StepTolerance
+    ));
+}
+
+#[test]
+fn brent_dottie_number() {
+    let dottie = scalar_fn!(|x| x.cos() - x);
+    let brent_report = brent(&dottie, 0.0_f64, 1.0).unwrap();
+    let bisect_report = bisect(&dottie, 0.0_f64, 1.0).unwrap();
+
+    assert!((brent_report.root - 0.7390851332151607).abs() < 1e-9);
+    assert!(brent_report.iterations < bisect_report.iterations);
+}
+
+#[test]
+fn brent_wien_displacement() {
+    let wien = scalar_fn!(|x| c(-5.0) + x + c(5.0) * (-x).exp());
+    let brent_report = brent(&wien, 1.0_f64, 10.0).unwrap();
+    let bisect_report = bisect(&wien, 1.0_f64, 10.0).unwrap();
+
+    assert!((brent_report.root - 4.965114231744276).abs() < 1e-9);
+    assert!(brent_report.iterations < bisect_report.iterations);
+}
+
+#[test]
+fn brent_invalid_bracket() {
+    let sqrt_two = scalar_fn!(|x| c(-2.0) + x * x);
+    assert!(matches!(
+        brent(&sqrt_two, 2.0_f64, 3.0),
+        Err(SolveError::InvalidBracket)
+    ));
+}
+
+#[test]
+fn brent_non_finite() {
+    let reciprocal = scalar_fn!(|x| c(1.0) / x);
+    assert!(matches!(
+        brent(&reciprocal, -1.0_f64, 1.0),
+        Err(SolveError::NonFinite)
+    ));
+}
+
+#[test]
+fn brent_budget_exhausted() {
+    let sqrt_two = scalar_fn!(|x| c(-2.0) + x * x);
+    let result = Brent::default()
+        .with_max_iterations(1)
+        .solve(&sqrt_two, 0.0_f64, 2.0);
+    assert!(matches!(result, Err(SolveError::DidNotConverge { .. })));
+}
+
+#[test]
+fn brent_exact_endpoint_root() {
+    let line = scalar_fn!(|x| x);
+    let report = brent(&line, 0.0_f64, 1.0).unwrap();
     assert_eq!(report.root, 0.0_f64);
     assert!(matches!(
         report.termination,
