@@ -155,7 +155,9 @@ fn brent_sqrt2() {
     assert!(brent_report.iterations < bisect_report.iterations);
     assert!(matches!(
         brent_report.termination,
-        RootTermination::ResidualTolerance | RootTermination::BracketWidth | RootTermination::StepTolerance
+        RootTermination::ResidualTolerance
+            | RootTermination::BracketWidth
+            | RootTermination::StepTolerance
     ));
 }
 
@@ -223,7 +225,11 @@ fn brent_iqi_formula_exact_evaluation() {
     // Analytical IQI gives exactly s = -0.85
     // If the 3rd denominator regresses to (fc - fa) * (fc - fc), it divides by zero!
     let s = inverse_quadratic_interpolation(-1.0_f64, 0.75, 0.0, -0.25, -0.25, -0.1875);
-    assert!((s - (-0.85)).abs() < 1e-12, "IQI formula returned unexpected value: {}", s);
+    assert!(
+        (s - (-0.85)).abs() < 1e-12,
+        "IQI formula returned unexpected value: {}",
+        s
+    );
 }
 
 #[test]
@@ -236,7 +242,11 @@ fn brent_iqi_polynomial_regression() {
     let bisect_report = bisect(&poly, 0.0_f64, 1.0).unwrap();
 
     assert!((brent_report.root - 0.5_f64.sqrt()).abs() < 1e-9);
-    assert!(brent_report.iterations <= 8, "Expected fast IQI convergence in <= 8 iterations, got {}", brent_report.iterations);
+    assert!(
+        brent_report.iterations <= 8,
+        "Expected fast IQI convergence in <= 8 iterations, got {}",
+        brent_report.iterations
+    );
     assert!(brent_report.iterations < bisect_report.iterations);
     assert!(matches!(
         brent_report.termination,

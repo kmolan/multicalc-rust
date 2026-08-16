@@ -1,7 +1,7 @@
 //! Bracketed scalar Brent's method root solver.
 
 use crate::error::SolveError;
-use crate::root_finding::{same_sign, RootReport, RootTermination};
+use crate::root_finding::{RootReport, RootTermination, same_sign};
 use crate::scalar::{Numeric, ScalarFn};
 
 /// A bracketed scalar root solver using Brent's method (Dekker-Brent algorithm).
@@ -164,7 +164,8 @@ impl<T: Numeric> Brent<T> {
             let condition4 = mflag && (b - c).abs() < tol;
             let condition5 = !mflag && (c - d).abs() < tol;
 
-            if !s.is_finite() || condition1 || condition2 || condition3 || condition4 || condition5 {
+            if !s.is_finite() || condition1 || condition2 || condition3 || condition4 || condition5
+            {
                 s = a * T::HALF + b * T::HALF;
                 mflag = true;
             } else {
@@ -223,14 +224,7 @@ impl<T: Numeric> Brent<T> {
 
 /// Evaluates inverse quadratic interpolation (IQI) through three points `(a, fa)`, `(b, fb)`, `(c, fc)`.
 #[inline]
-pub fn inverse_quadratic_interpolation<T: Numeric>(
-    a: T,
-    fa: T,
-    b: T,
-    fb: T,
-    c: T,
-    fc: T,
-) -> T {
+pub fn inverse_quadratic_interpolation<T: Numeric>(a: T, fa: T, b: T, fb: T, c: T, fc: T) -> T {
     let s_a = a * fb * fc / ((fa - fb) * (fa - fc));
     let s_b = b * fa * fc / ((fb - fa) * (fb - fc));
     let s_c = c * fa * fb / ((fc - fa) * (fc - fb));
