@@ -232,13 +232,13 @@ assert_eq!(model.ignored(), ["actuator".to_owned()]);
     pub(crate) fn reject_mimic_joints(&self, slots: &[usize]) -> Result<(), ModelError> {
         for &index in slots {
             let body = &self.bodies[index];
-            if let Some(description) = &body.joint
-                && let Some(mimic) = &description.mimic
-            {
-                return Err(ModelError::MimicJointInTree {
-                    joint: description.name.clone(),
-                    follows: mimic.joint.clone(),
-                });
+            if let Some(description) = &body.joint {
+                if let Some(mimic) = &description.mimic {
+                    return Err(ModelError::MimicJointInTree {
+                        joint: description.name.clone(),
+                        follows: mimic.joint.clone(),
+                    });
+                }
             }
         }
         Ok(())
