@@ -150,7 +150,7 @@ impl<T: Numeric> Brent<T> {
                 b - fb * (b - a) / (fb - fa)
             };
 
-            let bound1 = (T::THREE * a + b) * T::HALF * T::HALF;
+            let bound1 = a * T::HALF * T::HALF * T::THREE + b * T::HALF * T::HALF;
             let bound2 = b;
             let (min_b, max_b) = if bound1 <= bound2 {
                 (bound1, bound2)
@@ -165,7 +165,7 @@ impl<T: Numeric> Brent<T> {
             let condition5 = !mflag && (c - d).abs() < tol;
 
             if !s.is_finite() || condition1 || condition2 || condition3 || condition4 || condition5 {
-                s = (a + b) * T::HALF;
+                s = a * T::HALF + b * T::HALF;
                 mflag = true;
             } else {
                 mflag = false;

@@ -246,24 +246,28 @@ fn brent_iqi_polynomial_regression() {
 
 #[test]
 fn brent_non_finite_candidate_fallback_recovers() {
-    // Construct a function with extreme magnitude values near floating point limit (1e308)
-    // where secant interpolation (fb * (b - a) / (fb - fa)) overflows to NaN (inf / inf).
-    // The !s.is_finite() guard inside solve() catches the NaN candidate, falls back to bisection,
-    // and successfully recovers the root instead of evaluating f(NaN) and failing with SolveError::NonFinite.
-    struct ExtremeOverflowFn;
-    impl ScalarFn for ExtremeOverflowFn {
+    // Continuous function on large finite bracket [1e308, 1.5e308] with genuine root at 1.25e308:
+    // f(x) = ((x - 1.25e308) / 2.5e307) * 1e308.
+    // At endpoints, f(1e308) = -1e308 and f(1.5e308) = +1e308 (both finite, opposite signs).
+    // Secant numerator and denominator overflow to infinity, yielding NaN (inf/inf).
+    // The !s.is_finite() guard catches the NaN candidate, falls back to overflow-safe bisection midpoint
+    // (a * HALF + b * HALF = 1.25e308), evaluating exactly f(1.25e308) = 0.0 and converging immediately!
+    struct LargeScaleContinuousFn;
+    impl ScalarFn for LargeScaleContinuousFn {
         fn eval<S: Numeric>(&self, x: S) -> S {
-            if x <= S::ONE {
-                -S::from_f64(1e308) * (S::ONE - x) - S::from_f64(1e-10)
-            } else {
-                S::from_f64(1e308) * (x - S::ONE) + S::from_f64(1e-10)
-            }
+            ((x - S::from_f64(1.25e308)) / S::from_f64(2.5e307)) * S::from_f64(1e308)
         }
     }
 
-    let f = ExtremeOverflowFn;
-    let report = Brent::default().solve(&f, 0.0_f64, 2.5_f64).unwrap();
-    assert!((report.root - 1.0).abs() < 1e-8);
+    let f = LargeScaleContinuousFn;
+    let report = Brent::default().solve(&f, 1e308_f64, 1.5e308_f64).unwrap();
+    assert_eq!(report.root, 1.25e308_f64);
+    assert_eq!(report.residual, 0.0_f64);
+    assert_eq!(report.iterations, 1);
+    assert!(matches!(
+        report.termination,
+        RootTermination::ResidualTolerance
+    ));
 }
 
 #[test]
