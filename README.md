@@ -34,9 +34,9 @@ https://github.com/user-attachments/assets/ed45ccb5-ca95-4e4b-8399-27d09284b220
 - [Estimation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/estimation.md): linear, extended, and unscented `KalmanFilter`s (autodiff Jacobians, no hand-derived ones; the unscented one needs no derivatives at all), an `ErrorStateKalmanFilter` that fuses an IMU with position and heading fixes, `MahonyFilter` and `MadgwickFilter` for attitude estimation, and a `ParticleFilter` for nonlinear, non-Gaussian problems (`alloc` only), with a `Monte Carlo Localization` built on top of it.
 - [Control](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/control.md): `Pid` control, infinite horizon `Lqr`,; `GeometricAttitudeController` for drones, the `pure pursuit` path-following law; and `FollowTheGap` reactive obstacle avoidance.
 - [Spatial math](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/spatial-quaternions-and-lie-groups.md): `Quaternion`, the `SO2`/`SE2`/`SO3`/`SE3` Lie groups for 2D and 3D rotations and rigid-body transforms with left and right Jacobians and their inverses on all four, and `Twist`/`Wrench` screw-theory types.
-- [Rigid-body dynamics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/rigid-body-dynamics.md): `RigidBody` computes the motion of a single rigid body, from a `SpatialInertia` saying how its mass is spread out and a `FreeJointState` for a body free to move in all six directions — loadable straight from MuJoCo model files with `multicalc-mjcf`.
+- [Rigid-body dynamics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/rigid-body-dynamics.md): Dynamics of a single rigid body, loadable straight from MuJoCo MJCF and URDF model files with `multicalc-robot-model`.
 - [Plant](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/plant.md): What sits between a command and the force a body actually feels — `MultirotorMixer` shares a wanted lift and turn out across the rotors, and `RotorLag` models the moment a rotor takes to catch up to what it was asked for.
-- [Kinematics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/kinematics.md): `KinematicTree` for revolute/prismatic/continuous/fixed/floating chains and forward and inverse kinematics, generic over the scalar with autodiff; a damped-least-squares SE(3) pose solver with joint limits and null-space redundancy resolution; `MultiStartInverseKinematics` for multi-seed branch enumeration; and `classify_singularity` for reporting a rank deficiency as positional, rotational or mixed.
+- [Kinematics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/kinematics.md): `KinematicTree` for revolute/prismatic/continuous/fixed/floating chains and forward and inverse kinematics, generic over the scalar with autodiff, built by hand or read from an MJCF or URDF file; a damped-least-squares SE(3) pose solver with joint limits and null-space redundancy resolution.
 - [Collision checking](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/kinematics.md#collision-checking): `CollisionQuery` for sphere/capsule proximity — primitives on tree frames against each other and against world-fixed obstacles, with pair exclusions and fixed capacities.
 - [Motion](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/motion.md): `PolylinePath` for waypoint paths with arc-length, closest-point, and lookahead queries, and `MinimumSnapPlanner` for the smoothest trajectory through them.
 - [Mapping](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/mapping.md): 2D `OccupancyGrid` and `ScanGeometry`
@@ -180,10 +180,8 @@ The published library crate lives in [`crates/multicalc`](crates/multicalc); the
 root is a Cargo workspace. Runnable demos live in the dev-only [`demos/`](demos) crate (basics and
 live Rerun showcases), and [`tools/embedded-smoke`](tools/embedded-smoke) runs `multicalc` on the
 four bare-metal targets (three Cortex-M targets + `riscv32imc`) under QEMU every PR.
-[`crates/multicalc-mjcf`](crates/multicalc-mjcf) reads MuJoCo model files into multicalc's robot
-types — its [README](crates/multicalc-mjcf/README.md) lists the part of the format it reads and
-which models load — and [`third_party/menagerie`](third_party/menagerie) holds the model files it
-is tested against, under their own upstream licences.
+[`crates/multicalc-robot-model`](crates/multicalc-robot-model) reads MuJoCo MJCF and URDF model
+files into multicalc's robot types. See [README](crates/multicalc-robot-model/README.md) for more details.
 
 ## Contributing
 

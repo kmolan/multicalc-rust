@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 multicalc = { path = "../../crates/multicalc", features = ["alloc"] }
-multicalc-mjcf = { path = "../../crates/multicalc-mjcf" }
+multicalc-robot-model = { path = "../../crates/multicalc-robot-model" }
 multicalc-testkit = { path = "../testkit", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

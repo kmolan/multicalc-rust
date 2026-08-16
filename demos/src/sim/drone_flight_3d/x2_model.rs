@@ -104,11 +104,12 @@ impl X2Model {
     /// Returns whatever the reader, the body, or the rotor layout refuses on.
     pub fn load() -> Result<Self, Box<dyn Error>> {
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(MODEL_FILE);
-        let model = multicalc_mjcf::load_path(&path)?;
+        let model = multicalc_robot_model::mjcf::load_path(&path)?;
         let inertia = model
             .body_named("x2")
             .ok_or("the model file has no body called x2")?
-            .inertia();
+            .inertia()
+            .ok_or("the body called x2 states no mass properties")?;
 
         let gravity = Vector::new([0.0, 0.0, -GRAVITY_STRENGTH]);
         let body = RigidBody::new(inertia, gravity)?;

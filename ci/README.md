@@ -52,7 +52,7 @@ a stale checked-in copy fails the build. Change a fixture and rerun the generato
 
 The Franka forward-kinematics check needs a whole model, not a handful of numbers, so it gets its
 own generator: `tools/qa/src/bin/gen_model_source.rs` reads
-`third_party/menagerie/franka_emika_panda/panda.xml` through `multicalc-mjcf` and writes
+`third_party/menagerie/franka_emika_panda/panda.xml` through `multicalc-robot-model` and writes
 `tools/embedded-smoke/src/franka_panda_model.rs` as Rust source that builds the same tree, so the
 target never reads a model file. Regenerate with:
 

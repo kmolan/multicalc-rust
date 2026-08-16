@@ -139,7 +139,8 @@ Full demo:
 A revolute joint with no stated limit is merely never clamped. A continuous joint states the
 unboundedness: it can carry no limit at all, and its reading is treated as periodic wherever
 configuration distance is measured — shortest arc about ±π rather than the raw difference. Wheels,
-turrets and spinning wrist rolls; `multicalc-mjcf` maps a hinge with no resolved range to one.
+turrets and spinning wrist rolls; `multicalc-robot-model` maps an MJCF hinge with no resolved
+range to one, and URDF names a `continuous` joint outright.
 
 ```rust
 use multicalc::kinematics::{Joint, JointParent, KinematicTree};
@@ -201,11 +202,12 @@ assert!(state.pose(0).unwrap().translation().norm() < 1e-12);
 ## Loading a model from a file
 
 Building a model joint by joint is fine for a two-link arm. For a real robot, read it out of the
-file the manufacturer's model ships as. `multicalc-mjcf` reads MuJoCo MJCF files — the format the
-MuJoCo Menagerie models use — into the same types.
+file the manufacturer's model ships as. `multicalc-robot-model` reads both MuJoCo MJCF — the format
+the MuJoCo Menagerie models use — and URDF, the one most ROS robots ship, into the same types.
+`load_path` picks the reader from the file's extension.
 
 ```rust,ignore
-use multicalc_mjcf::load_path;
+use multicalc_robot_model::load_path;
 
 let model = load_path(std::path::Path::new("third_party/menagerie/franka_emika_panda/panda.xml"))?;
 
@@ -213,20 +215,37 @@ let model = load_path(std::path::Path::new("third_party/menagerie/franka_emika_p
 assert_eq!(model.body_count(), 11);
 
 // The arm alone: the chain running from the world down to the hand.
-let arm = model.kinematic_tree_to::<9>("hand")?;
+let arm = model.kinematic_tree_to::<9, 9>("hand")?;
 let state = arm.forward_kinematics(&Vector::zeros())?;
 ```
 
-(`multicalc-mjcf` is not a dependency of `multicalc` itself — see its own
-[README](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc-mjcf/README.md) for a
-demo that actually compiles.)
+The same robot as a URDF reads into the same types, with two differences worth knowing. URDF states
+a link's mass outright or not at all, so `inertia()` gives `None` for a link that carries none — the
+MoveIt Panda states none anywhere, being a kinematics-only description. And URDF can couple one
+joint to another, which a tree of independent joints cannot express, so a model with a coupled
+gripper gives its arm through `kinematic_tree_to` rather than the whole tree.
+
+```rust,ignore
+let model = load_path(std::path::Path::new("third_party/moveit_resources_panda/panda.urdf"))?;
+
+// Twelve bodies here: the URDF carries a bare frame between the last arm link and the hand.
+assert_eq!(model.body_count(), 12);
+assert!(model.bodies().iter().all(|body| body.inertia().is_none()));
+
+// The second finger follows the first, so take the chain to the hand.
+let arm = model.kinematic_tree_to::<10, 10>("panda_hand")?;
+```
+
+(`multicalc-robot-model` is not a dependency of `multicalc` itself — see its own
+[README](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc-robot-model/README.md)
+for a demo that actually compiles.)
 
 The travel limits, the reference reading, and the armature, damping and friction figures come across
 with the model, so a solver holds each joint inside the travel the file states and a later dynamics
 pass has the numbers it needs. What the reader passed over is listed in `model.ignored()`, and
 anything that could change a mass is refused rather than ignored — see the
-[crate README](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc-mjcf/README.md)
-for the part of the format it reads and which models load.
+[crate README](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc-robot-model/README.md)
+for the part of each format it reads.
 
 ## Collision checking
 

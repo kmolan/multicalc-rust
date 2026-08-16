@@ -1,0 +1,22 @@
+[package]
+name = "multicalc-robot-model"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Loads MuJoCo MJCF and URDF robot models into multicalc types"
+repository.workspace = true
+license.workspace = true
+publish = false
+
+[features]
+default = ["mjcf", "urdf"]
+mjcf = []
+urdf = []
+
+[dependencies]
+multicalc = { path = "../multicalc" }
+roxmltree = "0.21"
+
+[lints]
+workspace = true

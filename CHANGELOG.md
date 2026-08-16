@@ -50,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **`MjcfError::UnsupportedOrientation` is gone**, replaced by `MultipleOrientations` for an element
+- **`ModelError::UnsupportedOrientation` is gone**, replaced by `MultipleOrientations` for an element
   that states its facing more than one way. Nothing is refused for the form it was written in any
   more. A new `FullInertiaWithOrientation` refuses an `<inertial>` that states a full tensor beside
   a turn: a full tensor already stands in the body's own axes, so the turn names no frame, and

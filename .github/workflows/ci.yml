@@ -45,7 +45,13 @@ jobs:
       - name: Test (alloc feature)
         run: cargo test -p multicalc --features alloc
       - name: Test (model ingestion)
-        run: cargo test -p multicalc-mjcf
+        run: cargo test -p multicalc-robot-model
+      - name: Test model reader, one format at a time
+        run: |
+          cargo test -p multicalc-robot-model --no-default-features --features mjcf
+          cargo test -p multicalc-robot-model --no-default-features --features urdf
+      - name: Check model reader with no reader compiled in
+        run: cargo check -p multicalc-robot-model --no-default-features
       # All features on: the README and tutorial examples are compiled here too, and some of
       # them use the alloc-only types.
       - name: Doctests
@@ -85,7 +91,7 @@ jobs:
       - name: Clippy
         run: cargo clippy -p multicalc --all-targets --features alloc -- -D warnings
       - name: Clippy (model ingestion)
-        run: cargo clippy -p multicalc-mjcf --all-targets -- -D warnings
+        run: cargo clippy -p multicalc-robot-model --all-targets -- -D warnings
       - name: No nightly features
         run: |
           if grep -rnE '#!\[feature\(|generic_const_exprs' crates/*/src; then

@@ -194,6 +194,13 @@ const DOCS: &[Doc] = &[
         }],
     },
     Doc {
+        file: "urdf.md",
+        modules: &[Module {
+            name: "urdf",
+            cases: &["panda_urdf_tree", "panda_urdf_forward_kinematics"],
+        }],
+    },
+    Doc {
         file: "kinematics.md",
         modules: &[
             Module {

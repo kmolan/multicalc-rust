@@ -128,10 +128,10 @@ Errors: `SpatialInertia::new` returns [`SpatialError`](error-handling.md): `NonP
 the per-tick path — `accelerations`, `state_derivative`, and `stepped` — is infallible.
 
 `SpatialInertia` and `FreeJointState` are what a model file loads into. The separate
-`multicalc-mjcf` crate reads one rigid body out of a MuJoCo MJCF file — working its mass out from
-the shapes it is built from where the file does not state it — and is checked against MuJoCo's own
-compile of the same file. Full demo:
-[model_ingestion.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/model_ingestion.rs).
+`multicalc-robot-model` crate reads a rigid body out of a MuJoCo MJCF or a URDF file — for MJCF,
+working its mass out from the shapes it is built from where the file does not state it — and is
+checked against MuJoCo's own compile of the same file. Full demo:
+[mjcf_model_ingestion.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/mjcf_model_ingestion.rs).
 
 The wrench a body is handed usually comes from somewhere — see [Plant](plant.md) for the rotors
 that produce it. Full demo:
