@@ -1,9 +1,27 @@
-# multicalc-mjcf
+# multicalc-robot-model
 
-Reads MuJoCo MJCF model files into [`multicalc`](../multicalc)'s robot types.
+Reads MuJoCo MJCF and URDF model files into [`multicalc`](../multicalc)'s robot types.
 
 This is a workspace-internal crate (`publish = false`): it ships alongside `multicalc` but is not
 published to crates.io on its own.
+
+Both formats parse into one `RobotModel`: a topologically ordered body list carrying name, parent
+index, parent-relative transform, spatial inertia where stated, and joint. Converts to a
+`KinematicTree` on request — `kinematic_tree` for the whole model, `kinematic_tree_to` for the
+root-to-tip chain of a named body.
+
+## Choosing a reader
+
+| Entry point | Dispatch |
+| --- | --- |
+| `load_path(path)` | file extension: `.urdf` reads URDF, anything else MJCF |
+| `load_str(xml)` | root element: `<robot>` reads URDF, `<mujoco>` MJCF |
+| `mjcf::load_path` / `mjcf::load_str` | explicit |
+| `urdf::load_path` / `urdf::load_str` | explicit |
+
+`RobotModel::format()` reports which reader ran. Each reader is a feature — `mjcf`, `urdf`, both on
+by default. The dispatching entry points return `ModelError::FormatNotEnabled` for a reader that is
+not compiled in. With neither feature the crate is the model types plus the codegen.
 
 ## Example: parse the Unitree Go1, run IK
 
@@ -11,7 +29,7 @@ published to crates.io on its own.
 use multicalc::kinematics::{InverseKinematics, InverseKinematicsTermination, JointKind};
 use multicalc::linear_algebra::Vector;
 use multicalc::spatial::SE3;
-use multicalc_mjcf::load_path;
+use multicalc_robot_model::load_path;
 
 let model = load_path(std::path::Path::new(
     "third_party/menagerie/unitree_go1/go1.xml",
@@ -58,11 +76,36 @@ assert_eq!(report.termination, InverseKinematicsTermination::Converged); // 3 it
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
+## Example: parse the MoveIt Panda URDF
+
+```rust
+use multicalc_robot_model::{ModelFormat, load_path};
+
+let model = load_path(std::path::Path::new(
+    "third_party/moveit_resources_panda/panda.urdf",
+))?;
+assert_eq!(model.format(), ModelFormat::Urdf);
+
+// Seven arm joints, two prismatic fingers; panda_joint8 and panda_hand_joint are fixed.
+assert_eq!(model.body_count(), 12);
+assert_eq!(model.movable_joint_count(), 9);
+
+// The file states no <inertial> anywhere: kinematics only. Mass is never invented.
+assert!(model.bodies().iter().all(|body| body.inertia().is_none()));
+
+// panda_finger_joint2 mimics panda_finger_joint1, which a tree cannot express, so take the
+// chain to the hand instead of the whole model.
+assert!(model.kinematic_tree::<16, 16>().is_err());
+let arm = model.kinematic_tree_to::<10, 10>("panda_hand")?;
+assert_eq!(arm.len(), 10);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
 The same `RobotModel` also emits Rust source for a build with no XML parser and no filesystem
 access at runtime:
 
 ```rust
-use multicalc_mjcf::{GeneratedScalar, RustSourceOptions};
+use multicalc_robot_model::{GeneratedScalar, RustSourceOptions};
 
 let options = RustSourceOptions::new("unitree_go1")     // name of the generated fn
     .with_scalar(GeneratedScalar::F32)                    // f32 in the generated code (default; use F64 for f64)
@@ -71,49 +114,61 @@ let options = RustSourceOptions::new("unitree_go1")     // name of the generated
 std::fs::write("unitree_go1.rs", model.to_rust_source(&options)?)?;
 ```
 
-A model converts to a `KinematicTree` on request: `kinematic_tree` for the whole body tree,
-`kinematic_tree_to` for the chain down to one named body.
-
-## The part of the format this reads
+## The part of MJCF this reads
 
 | Construct | What is read |
 | --- | --- |
 | `<compiler>` | `angle`, `autolimits`, `inertiafromgeom` |
-| `<default>` | class blocks and nesting, for `<geom>` and `<joint>`; `childclass` on a body reaches every body below it in the tree |
-| `<include>` | followed, relative to the file that pulls it in, when the model is read from a file |
-| `<worldbody>` / `<body>` | the tree, `pos` and `quat` |
+| `<default>` | nested class blocks for `<geom>` and `<joint>`, plus `childclass` |
+| `<include>` | resolved relative to the including file |
+| `<worldbody>` / `<body>` | the tree, `pos`, `quat` |
 | `<inertial>` | `pos`, `quat`, `mass`, `diaginertia`, `fullinertia` |
-| `<joint>` | `hinge` and `slide`, with `axis`, `pos`, `range`, `limited`, `armature`, `damping`, `frictionloss`, `ref`, `springref`, `stiffness` |
-| `<freejoint>` | on the top body only, marking the model as floating |
-| `<geom>` | `sphere`, `ellipsoid`, `box`, `capsule` and `cylinder`, as a source of mass where a body states none of its own, including `fromto` for the two elongated shapes |
+| `<joint>` | `hinge`, `slide`, with `axis`, `pos`, `range`, `limited`, `armature`, `damping`, `frictionloss`, `ref`, `springref`, `stiffness` |
+| `<freejoint>` | top body only |
+| `<geom>` | `sphere`, `ellipsoid`, `box`, `capsule`, `cylinder`, with `fromto` on the last two |
 
-## Passed over
+Angles are degrees unless `<compiler angle="radian">`. `childclass` on a body applies to every body
+beneath it. `<include>` is followed only by `load_path`, which has a base directory to resolve
+against. Geoms are integrated for mass only where the body states no `<inertial>`; `<freejoint>` on
+the top body marks the model floating.
 
-Tendons, equality constraints, actuators, sensors, contact pairs, keyframes, assets and the
-`<option>` block are not read. Each top-level section a loaded file carried nothing useful from is
-named in [`RobotModel::ignored`](src/lib.rs), sorted and without repeats, so a caller can see what a
-model loaded without.
+## The part of URDF this reads
 
-Passing over a section is only ever safe where it cannot change what a body weighs or where it
-balances. Anything that could is refused by name instead — see below.
+| Construct | What is read |
+| --- | --- |
+| `<robot>` | `name` |
+| `<link>` | the tree, and `<inertial>` where present |
+| `<inertial>` | `<origin xyz rpy>`, `<mass value>`, `<inertia ixx ixy ixz iyy iyz izz>` |
+| `<joint>` | `revolute`, `continuous`, `prismatic`, `fixed`, with `<origin>`, `<parent>`, `<child>`, `<axis>`, `<limit lower upper>`, `<dynamics damping friction>`, `<mimic>` |
 
-## Refused by name
+Metres and radians throughout. `<origin rpy>` is fixed-axis roll-pitch-yaw,
+`R = Rz(yaw)·Ry(pitch)·Rx(roll)`. The transform sits on the joint, so a body's pose is its parent
+joint's `<origin>` and the root is identity; the joint itself sits at the child link frame's origin,
+so `anchor` is always zero. `<axis>` defaults to `[1, 0, 0]`, against MJCF's `[0, 0, 1]`. URDF has no
+armature, `ref`, `springref` or `stiffness`, so those fields stay zero.
 
-- A ball joint, or any joint kind other than `hinge`/`slide`.
-- A free joint anywhere but the root body.
-- More than one joint on a single body.
-- A mesh as a source of mass — its inertia cannot be worked out from the file alone.
-- A turn written as `euler`, `axisangle`, `xyaxes` or `zaxis` — only `quat` is read.
-- A joint marked (or defaulted to) limited that states no `range`.
-- A body with neither stated mass properties nor shapes carrying mass.
-- A shape giving both `fromto` and `pos` — they can disagree about where it sits.
+## What is not read
+
+Skipped only where it cannot affect mass properties; anything that could is rejected by name.
+Top-level elements a reader consumed nothing from appear in [`RobotModel::ignored`](src/lib.rs),
+sorted and deduplicated.
+
+| | Skipped | Rejected |
+| --- | --- | --- |
+| MJCF | tendons, equality constraints, actuators, sensors, contact pairs, keyframes, assets, `<option>` | joints other than `hinge`/`slide`; a free joint off the root; several joints on one body; a mesh as a mass source; `euler`/`axisangle`/`xyaxes`/`zaxis` orientation; a limited joint with no `range`; a body with neither inertial nor mass-bearing geoms; a geom giving both `fromto` and `pos` |
+| URDF | top-level elements other than `<link>`/`<joint>` (`<transmission>`, `<gazebo>`, `<material>`); `<visual>`, `<collision>` and their `package://` meshes; `<safety_controller>` | `planar` and unrecognised joint types; `floating`; `revolute`/`prismatic` with no `<limit lower upper>`; a joint naming an undeclared link; a link claimed by two joints; zero or several root links; a cycle; an unparseable attribute; an `<inertial>` the core rejects, `mass="0"` included |
+
+`<visual>`, `<collision>` and `<safety_controller>` are link or joint children rather than top-level
+elements, so they are skipped without being listed. Soft limits always sit inside the hard `<limit>`
+that is read.
 
 ## Writing a model out as Rust
 
-`RobotModel::to_rust_source(&options) -> Result<String, MjcfError>` renders one `.rs` file
-containing a single function that builds the parsed `KinematicTree` from literal values — no XML
-parsing, no file I/O, so the generated code runs with `no_std`/no filesystem, e.g. on a
-microcontroller. `RustSourceOptions` controls what gets generated:
+`RobotModel::to_rust_source(&options) -> Result<String, ModelError>` renders one `.rs` file holding
+a single function that builds the parsed `KinematicTree` from literals — no XML parsing, no file
+I/O, so the output runs `no_std` and filesystem-free, e.g. on a microcontroller. It reads a
+`RobotModel` and never learns which reader built it, so MJCF and URDF models emit alike.
+`RustSourceOptions` controls the output:
 
 | Method | Default | What it sets |
 | --- | --- | --- |
@@ -130,5 +185,6 @@ microcontroller. `RustSourceOptions` controls what gets generated:
 
 ## Licence note
 
-The vendored model files under [`third_party/menagerie`](../../third_party/menagerie) keep their
-own upstream licences; see the `LICENSE` file alongside each model.
+The vendored models under [`third_party/menagerie`](../../third_party/menagerie) and
+[`third_party/moveit_resources_panda`](../../third_party/moveit_resources_panda) keep their upstream
+licences; see the `LICENSE` and `README.md` alongside each.
