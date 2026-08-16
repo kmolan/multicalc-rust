@@ -273,16 +273,17 @@
   },
   "metadata": {
     "date": "2026-07-06T00:00:00+00:00",
-    "equation": "the smoothest path through four waypoints, from a standstill to a standstill",
+    "equation": "4 waypoints, 3D, rest to rest",
     "generator": "motion",
     "libraries": {
-      "numpy": "2.1.3"
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
     },
     "operations": [
       "segment coefficients",
-      "position, velocity and acceleration at nine times"
+      "p, v, a at 9 samples"
     ],
-    "reference": "NumPy 2.1.3",
+    "reference": "NumPy 2.1.3 / SciPy 1.14.1",
     "sampling": "hand-chosen waypoints with durations either given or from an average speed",
     "seed": 20260706
   },

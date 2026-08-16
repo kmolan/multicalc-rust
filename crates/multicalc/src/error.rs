@@ -301,7 +301,7 @@ pub enum MappingError {
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
 pub enum MotionError {
-    /// A waypoint coordinate was infinite or NaN.
+    /// A waypoint coordinate, distance or time was infinite or NaN.
     NonFinite,
     /// More waypoints were supplied than the path capacity allows.
     CapacityExceeded,
@@ -315,6 +315,10 @@ pub enum MotionError {
     DurationNotPositive,
     /// The planner holds fewer free derivatives than this many segments needs.
     WorkspaceTooSmall,
+    /// A speed, acceleration or jerk ceiling was zero, negative or not finite.
+    LimitNotPositive,
+    /// A jerk-limited profile was asked for without a jerk ceiling to work to.
+    JerkLimitRequired,
     /// The trajectory's linear system could not be factorized.
     Linalg(LinalgError),
     /// A polynomial the trajectory is built from could not be formed.
@@ -824,7 +828,9 @@ impl core::fmt::Display for MappingError {
 impl core::fmt::Display for MotionError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            MotionError::NonFinite => f.write_str("waypoint coordinate was not finite"),
+            MotionError::NonFinite => {
+                f.write_str("waypoint coordinate, distance or time was not finite")
+            }
             MotionError::CapacityExceeded => {
                 f.write_str("more waypoints than the path capacity allows")
             }
@@ -840,6 +846,12 @@ impl core::fmt::Display for MotionError {
             }
             MotionError::WorkspaceTooSmall => {
                 f.write_str("more segments than the planner's free-derivative capacity holds")
+            }
+            MotionError::LimitNotPositive => {
+                f.write_str("a speed, acceleration or jerk ceiling was zero or negative")
+            }
+            MotionError::JerkLimitRequired => {
+                f.write_str("a jerk-limited profile needs a jerk ceiling")
             }
             MotionError::Linalg(e) => write!(f, "trajectory system could not be solved: {e}"),
             MotionError::Polynomial(e) => write!(f, "trajectory piece could not be formed: {e}"),

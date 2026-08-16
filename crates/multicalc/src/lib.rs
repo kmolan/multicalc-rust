@@ -164,10 +164,12 @@ pub use control::{
     ThrustCommand, pure_pursuit_curvature, thrust_command_from_acceleration,
 };
 
-/// Waypoint paths, planned trajectories, and their arc-length, closest-point, and lookahead queries.
+/// Waypoint paths, planned trajectories, point-to-point motion profiles, and their arc-length,
+/// closest-point and lookahead queries.
 pub use motion::{
-    BoundaryDerivatives, EndOfPath, MinimumSnapPlanner, PathProjection, PolylinePath,
-    durations_from_average_speed,
+    BoundaryDerivatives, EndOfPath, MinimumSnapPlanner, MotionProfile, MotionProfilePlanner,
+    PathProjection, PolylinePath, ProfileLimits, ProfileState, ProfileStrategy,
+    SynchronizedProfile, SynchronizedState, durations_from_average_speed,
 };
 
 /// A single rigid body's motion under the forces on it, and the state an integrator carries.
