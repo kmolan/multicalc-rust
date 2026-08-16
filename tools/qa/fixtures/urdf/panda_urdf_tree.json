@@ -1,0 +1,103 @@
+{
+  "case": "panda_urdf_tree",
+  "expected": {
+    "body_count": {
+      "kind": "int",
+      "v": 12
+    },
+    "joint_kinds": {
+      "kind": "str",
+      "v": "RRRRRRRPP"
+    },
+    "joint_names": {
+      "kind": "str",
+      "v": "panda_joint1 panda_joint2 panda_joint3 panda_joint4 panda_joint5 panda_joint6 panda_joint7 panda_finger_joint1 panda_finger_joint2"
+    },
+    "link_names": {
+      "kind": "str",
+      "v": "panda_link0 panda_link1 panda_link2 panda_link3 panda_link4 panda_link5 panda_link6 panda_link7 panda_link8 panda_hand panda_leftfinger panda_rightfinger"
+    },
+    "links_with_mass": {
+      "kind": "int",
+      "v": 0
+    },
+    "lower_limits": {
+      "data": [
+        "0xc007bc9eecbfb15b",
+        "0xbffd525460aa64c3",
+        "0xc007bc9eecbfb15b",
+        "0xc00921ff2e48e8a7",
+        "0xc007bc9eecbfb15b",
+        "0xbfb6594af4f0d845",
+        "0xc007bc9eecbfb15b",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "mimic_joint": {
+      "kind": "str",
+      "v": "panda_finger_joint1"
+    },
+    "mimic_multiplier": {
+      "kind": "scalar",
+      "v": "0x3ff0000000000000"
+    },
+    "mimic_offset": {
+      "kind": "scalar",
+      "v": "0x0000000000000000"
+    },
+    "mimicking_joint": {
+      "kind": "str",
+      "v": "panda_finger_joint2"
+    },
+    "movable_joint_count": {
+      "kind": "int",
+      "v": 9
+    },
+    "upper_limits": {
+      "data": [
+        "0x4007bc9eecbfb15b",
+        "0x3ffd525460aa64c3",
+        "0x4007bc9eecbfb15b",
+        "0x3fb6594af4f0d845",
+        "0x4007bc9eecbfb15b",
+        "0x400e941205bc01a3",
+        "0x4007bc9eecbfb15b",
+        "0x3fa47ae147ae147b",
+        "0x3fa47ae147ae147b"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "model_file": {
+      "kind": "str",
+      "v": "moveit_resources_panda/panda.urdf"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "MoveIt Panda: 12 links, 7 revolute + 2 prismatic, one coupled finger",
+    "generator": "urdf",
+    "libraries": {
+      "pin": "4.1.0"
+    },
+    "operations": [
+      "MoveIt Panda read: link list, joint order and kinds",
+      "MoveIt Panda read: travel limits",
+      "MoveIt Panda read: the coupled finger joint"
+    ],
+    "reference": "Pinocchio 4.1.0",
+    "sampling": "one committed URDF model; goldens are Pinocchio's own parse of the same file",
+    "seed": 20260706
+  },
+  "module": "urdf",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-12,
+      "rel": 1e-11
+    }
+  }
+}
