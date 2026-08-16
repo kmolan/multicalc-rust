@@ -1,5 +1,6 @@
 //! Reading numbers and elements out of an XML document, for both readers.
 
+#[cfg(feature = "mjcf")]
 use multicalc::spatial::Quaternion;
 use roxmltree::Node;
 
@@ -25,6 +26,10 @@ pub(crate) fn element<'a, 'input>(
 
 /// The turn a `quat` attribute describes, as a unit quaternion. MJCF writes the scalar part
 /// first, which is also how the crate stores it, so the four numbers carry straight over.
+///
+/// URDF has no quaternion anywhere — it writes every turn as three angles — so this and the
+/// counts below it are here for the MJCF reader alone.
+#[cfg(feature = "mjcf")]
 pub(crate) fn unit_quaternion(
     node: Node,
     quat: [f64; 4],
@@ -72,6 +77,7 @@ pub(crate) fn parse_scalar(node: Node, attribute: &str) -> Result<Option<f64>, M
 }
 
 /// The two numbers an attribute holds.
+#[cfg(feature = "mjcf")]
 pub(crate) fn parse_vector2(node: Node, attribute: &str) -> Result<Option<[f64; 2]>, ModelError> {
     fixed::<2>(node, attribute)
 }
@@ -82,11 +88,13 @@ pub(crate) fn parse_vector3(node: Node, attribute: &str) -> Result<Option<[f64; 
 }
 
 /// The four numbers an attribute holds.
+#[cfg(feature = "mjcf")]
 pub(crate) fn parse_vector4(node: Node, attribute: &str) -> Result<Option<[f64; 4]>, ModelError> {
     fixed::<4>(node, attribute)
 }
 
 /// The six numbers an attribute holds.
+#[cfg(feature = "mjcf")]
 pub(crate) fn parse_vector6(node: Node, attribute: &str) -> Result<Option<[f64; 6]>, ModelError> {
     fixed::<6>(node, attribute)
 }
@@ -108,4 +116,20 @@ pub(crate) fn fixed<const N: usize>(
             node.attribute(attribute).unwrap_or_default(),
         )),
     }
+}
+
+/// The top-level sections a file carries that a reader takes nothing from, named once each and in
+/// a settled order so a table generated from them does not shuffle between runs.
+#[must_use]
+pub(crate) fn ignored_sections(root: Node, read: &[&str]) -> Vec<String> {
+    let mut names: Vec<String> = root
+        .children()
+        .filter(Node::is_element)
+        .map(|section| section.tag_name().name())
+        .filter(|name| !read.contains(name))
+        .map(str::to_owned)
+        .collect();
+    names.sort();
+    names.dedup();
+    names
 }

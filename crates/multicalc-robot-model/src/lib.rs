@@ -20,6 +20,10 @@ mod xml;
 
 #[cfg(feature = "mjcf")]
 pub mod mjcf;
+#[cfg(feature = "urdf")]
+pub mod urdf;
+
+use std::path::Path;
 
 use multicalc::kinematics::{Joint, JointKind, JointParent, KinematicTree};
 use multicalc::linear_algebra::Vector3D;
@@ -124,19 +128,24 @@ impl RobotModel {
     /// Only sections that cannot affect mass properties can land here — anything that could is
     /// rejected outright, not ignored.
     ///
-    /// ```
-    /// let xml = r#"<mujoco>
-    ///                <worldbody>
-    ///                  <body><freejoint/><inertial mass="1" diaginertia="1 1 1"/></body>
-    ///                </worldbody>
-    ///                <actuator><motor name="thrust" gear="0 0 1 0 0 0"/></actuator>
-    ///              </mujoco>"#;
-    ///
-    /// let model = multicalc_robot_model::mjcf::load_str(xml)?;
-    /// assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 1.0);
-    /// assert_eq!(model.ignored(), ["actuator".to_owned()]);
-    /// # Ok::<(), multicalc_robot_model::ModelError>(())
-    /// ```
+    #[cfg_attr(
+        feature = "mjcf",
+        doc = r##"
+```
+let xml = r#"<mujoco>
+               <worldbody>
+                 <body><freejoint/><inertial mass="1" diaginertia="1 1 1"/></body>
+               </worldbody>
+               <actuator><motor name="thrust" gear="0 0 1 0 0 0"/></actuator>
+             </mujoco>"#;
+
+let model = multicalc_robot_model::mjcf::load_str(xml)?;
+assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 1.0);
+assert_eq!(model.ignored(), ["actuator".to_owned()]);
+# Ok::<(), multicalc_robot_model::ModelError>(())
+```
+"##
+    )]
     #[inline]
     #[must_use]
     pub fn ignored(&self) -> &[String] {
@@ -512,3 +521,85 @@ impl JointDescription {
     }
 }
 
+
+/// Reads a model from a file, choosing the reader from the file's extension: `.urdf` reads URDF,
+/// anything else reads MJCF.
+///
+/// Errors: whatever the chosen reader refuses on, and
+/// [`FormatNotEnabled`](ModelError::FormatNotEnabled) where this build was compiled without it.
+pub fn load_path(path: &Path) -> Result<RobotModel, ModelError> {
+    let is_urdf = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("urdf"));
+    if is_urdf {
+        read_urdf_path(path)
+    } else {
+        read_mjcf_path(path)
+    }
+}
+
+/// Parses a model from text, choosing the reader from the document's root element: `<robot>` reads
+/// URDF, `<mujoco>` reads MJCF.
+///
+/// Errors: as [`load_path`], plus
+/// [`UnexpectedRootElement`](ModelError::UnexpectedRootElement) where the document starts with
+/// anything else.
+pub fn load_str(xml: &str) -> Result<RobotModel, ModelError> {
+    let document = roxmltree::Document::parse(xml).map_err(|e| ModelError::Xml(e.to_string()))?;
+    match document.root_element().tag_name().name() {
+        "robot" => read_urdf_str(xml),
+        "mujoco" => read_mjcf_str(xml),
+        found => Err(ModelError::UnexpectedRootElement {
+            found: found.to_owned(),
+        }),
+    }
+}
+
+#[cfg(feature = "mjcf")]
+fn read_mjcf_path(path: &Path) -> Result<RobotModel, ModelError> {
+    mjcf::load_path(path)
+}
+
+#[cfg(not(feature = "mjcf"))]
+fn read_mjcf_path(_path: &Path) -> Result<RobotModel, ModelError> {
+    Err(ModelError::FormatNotEnabled {
+        format: ModelFormat::Mjcf,
+    })
+}
+
+#[cfg(feature = "mjcf")]
+fn read_mjcf_str(xml: &str) -> Result<RobotModel, ModelError> {
+    mjcf::load_str(xml)
+}
+
+#[cfg(not(feature = "mjcf"))]
+fn read_mjcf_str(_xml: &str) -> Result<RobotModel, ModelError> {
+    Err(ModelError::FormatNotEnabled {
+        format: ModelFormat::Mjcf,
+    })
+}
+
+#[cfg(feature = "urdf")]
+fn read_urdf_path(path: &Path) -> Result<RobotModel, ModelError> {
+    urdf::load_path(path)
+}
+
+#[cfg(not(feature = "urdf"))]
+fn read_urdf_path(_path: &Path) -> Result<RobotModel, ModelError> {
+    Err(ModelError::FormatNotEnabled {
+        format: ModelFormat::Urdf,
+    })
+}
+
+#[cfg(feature = "urdf")]
+fn read_urdf_str(xml: &str) -> Result<RobotModel, ModelError> {
+    urdf::load_str(xml)
+}
+
+#[cfg(not(feature = "urdf"))]
+fn read_urdf_str(_xml: &str) -> Result<RobotModel, ModelError> {
+    Err(ModelError::FormatNotEnabled {
+        format: ModelFormat::Urdf,
+    })
+}

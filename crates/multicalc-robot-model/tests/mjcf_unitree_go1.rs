@@ -1,4 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![cfg(feature = "mjcf")]
 
 //! Loads the vendored Unitree Go1 and checks the structure the parse must produce: a floating base
 //! (the trunk, on a free joint) carrying twelve hinge joints across four branching legs, with the

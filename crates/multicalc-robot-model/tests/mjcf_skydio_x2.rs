@@ -1,4 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![cfg(feature = "mjcf")]
 
 //! Loads the vendored Skydio X2 and checks it against numbers worked out by hand from the file.
 //!

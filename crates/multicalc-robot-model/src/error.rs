@@ -111,6 +111,37 @@ pub enum ModelError {
         /// How deep the chain of includes had reached.
         depth: usize,
     },
+    /// No link sits at the top of the model — every link is some joint's child.
+    MissingRootLink,
+    /// More than one link sits at the top of the model, which is not one robot.
+    MultipleRootLinks {
+        /// The names of the links with no parent, sorted.
+        names: Vec<String>,
+    },
+    /// A joint named a link the model does not have.
+    UnknownLink {
+        /// The joint's name.
+        joint: String,
+        /// The link name it gave.
+        link: String,
+    },
+    /// A link is the child of more than one joint, so it hangs off the model twice.
+    LinkHasTwoParents {
+        /// The link's name.
+        link: String,
+        /// The joints claiming it, sorted.
+        joints: Vec<String>,
+    },
+    /// Links hang off each other in a loop, so the model has no top.
+    CyclicLinkage {
+        /// One link on the loop.
+        link: String,
+    },
+    /// A joint that can travel stated no range.
+    JointNeedsLimit {
+        /// The joint's name.
+        joint: String,
+    },
     /// A joint follows another joint, which a tree of independent joints cannot express.
     MimicJointInTree {
         /// The following joint's name.
@@ -216,6 +247,29 @@ impl core::fmt::Display for ModelError {
             ),
             ModelError::IncludeTooDeep { depth } => {
                 write!(f, "files pull in other files more than {depth} deep, or pull in each other")
+            }
+            ModelError::MissingRootLink => {
+                f.write_str("every link in the model hangs off another one, so the model has no top")
+            }
+            ModelError::MultipleRootLinks { names } => write!(
+                f,
+                "links {} all sit at the top of the model, and one is the limit here",
+                names.join(", ")
+            ),
+            ModelError::UnknownLink { joint, link } => write!(
+                f,
+                "joint {joint} names link {link}, which the model does not have"
+            ),
+            ModelError::LinkHasTwoParents { link, joints } => write!(
+                f,
+                "link {link} hangs off joints {}, and one is the limit here",
+                joints.join(", ")
+            ),
+            ModelError::CyclicLinkage { link } => {
+                write!(f, "link {link} hangs off itself, by a loop of joints")
+            }
+            ModelError::JointNeedsLimit { joint } => {
+                write!(f, "joint {joint} can travel but states no range")
             }
             ModelError::MimicJointInTree { joint, follows } => write!(
                 f,

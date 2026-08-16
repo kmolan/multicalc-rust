@@ -1,4 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![cfg(feature = "mjcf")]
 
 //! Loads the vendored Franka Emika Panda and checks the structure the parse must produce: the
 //! body tree, which joints carry which settings, and where a default class supplies data no body

@@ -1,4 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![cfg(feature = "mjcf")]
 
 //! Writing a model out as Rust source: what the emitted text contains, that it is stable across
 //! runs, and that a floating-base model emits a `Joint::floating` push.

@@ -14,8 +14,8 @@ use crate::mjcf::defaults::{DefaultTable, reject_orientation_attributes};
 use crate::mjcf::geometry::{GeomMass, read_geom};
 use crate::mjcf::joint::read_joint;
 use crate::xml::{
-    bad_attribute, element, elements, parse_scalar, parse_vector3, parse_vector4, parse_vector6,
-    unit_quaternion,
+    bad_attribute, element, elements, ignored_sections, parse_scalar, parse_vector3,
+    parse_vector4, parse_vector6, unit_quaternion,
 };
 
 /// The top-level sections this loader takes something from. Every other section a file carries is
@@ -72,7 +72,7 @@ pub(crate) fn read(document: &Document) -> Result<ParsedModel, ModelError> {
         name,
         bodies,
         floating_base,
-        ignored: ignored_sections(root),
+        ignored: ignored_sections(root, &READ_SECTIONS),
     })
 }
 
@@ -182,22 +182,6 @@ fn is_free_joint(node: Node) -> bool {
         "joint" => node.attribute("type") == Some("free"),
         _ => false,
     }
-}
-
-/// The sections a file carries that this loader reads nothing out of, named once each and in a
-/// settled order so a table generated from them does not shuffle between runs.
-#[must_use]
-fn ignored_sections(root: Node) -> Vec<String> {
-    let mut names: Vec<String> = root
-        .children()
-        .filter(Node::is_element)
-        .map(|section| section.tag_name().name())
-        .filter(|name| !READ_SECTIONS.contains(name))
-        .map(str::to_owned)
-        .collect();
-    names.sort();
-    names.dedup();
-    names
 }
 
 /// The mass properties a file states outright, from either `diaginertia` or `fullinertia`.

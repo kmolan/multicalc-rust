@@ -1,4 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![cfg(feature = "mjcf")]
 
 //! Loading behaviour, driven by small hand-written models: what is read, what is worked out from
 //! the shapes, and what is refused by name.
