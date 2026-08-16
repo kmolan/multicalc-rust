@@ -4,12 +4,11 @@ use multicalc::error::{LinalgError, SolveError};
 use multicalc::numerical_derivative::FiniteDifferenceSingle;
 use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::root_finding::{
-    Bisection, Brent, Newton, NewtonSystem, RootReport, RootReportN, RootTermination,
-    inverse_quadratic_interpolation,
+    Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination,
 };
 use multicalc::scalar::{Numeric, ScalarFn, VectorFn, c};
-use multicalc::scalar_fn;
 use multicalc::scalar_fn_vec;
+use multicalc::{Brent, scalar_fn};
 
 fn bisect<F: ScalarFn>(
     function: &F,
@@ -217,19 +216,6 @@ fn brent_exact_endpoint_root() {
         report.termination,
         RootTermination::ResidualTolerance
     ));
-}
-
-#[test]
-fn brent_iqi_formula_exact_evaluation() {
-    // Distinct points (x, y) = (-1.0, 0.75), (0.0, -0.25), (-0.25, -0.1875)
-    // Analytical IQI gives exactly s = -0.85
-    // If the 3rd denominator regresses to (fc - fa) * (fc - fc), it divides by zero!
-    let s = inverse_quadratic_interpolation(-1.0_f64, 0.75, 0.0, -0.25, -0.25, -0.1875);
-    assert!(
-        (s - (-0.85)).abs() < 1e-12,
-        "IQI formula returned unexpected value: {}",
-        s
-    );
 }
 
 #[test]

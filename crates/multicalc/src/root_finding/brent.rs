@@ -14,7 +14,7 @@ use crate::scalar::{Numeric, ScalarFn};
 ///
 /// # Examples
 /// ```
-/// use multicalc::root_finding::Brent;
+/// use multicalc::Brent;
 /// use multicalc::scalar::c;
 /// use multicalc::scalar_fn;
 ///
@@ -42,7 +42,7 @@ impl<T: Numeric> Brent<T> {
     /// Const constructor (same as [`Default::default`]).
     ///
     /// ```
-    /// use multicalc::root_finding::Brent;
+    /// use multicalc::Brent;
     ///
     /// const B: Brent = Brent::new();
     /// ```
@@ -224,9 +224,29 @@ impl<T: Numeric> Brent<T> {
 
 /// Evaluates inverse quadratic interpolation (IQI) through three points `(a, fa)`, `(b, fb)`, `(c, fc)`.
 #[inline]
-pub fn inverse_quadratic_interpolation<T: Numeric>(a: T, fa: T, b: T, fb: T, c: T, fc: T) -> T {
+#[must_use]
+pub(crate) fn inverse_quadratic_interpolation<T: Numeric>(
+    a: T,
+    fa: T,
+    b: T,
+    fb: T,
+    c: T,
+    fc: T,
+) -> T {
     let s_a = a * fb * fc / ((fa - fb) * (fa - fc));
     let s_b = b * fa * fc / ((fb - fa) * (fb - fc));
     let s_c = c * fa * fb / ((fc - fa) * (fc - fb));
     s_a + s_b + s_c
+}
+
+#[cfg(test)]
+mod tests {
+    use super::inverse_quadratic_interpolation;
+
+    #[test]
+    fn inverse_quadratic_interpolation_matches_analytical_value() {
+        let result = inverse_quadratic_interpolation(-1.0_f64, 0.75, 0.0, -0.25, -0.25, -0.1875);
+
+        assert!((result - (-0.85)).abs() < 1e-12);
+    }
 }

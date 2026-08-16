@@ -148,7 +148,9 @@ pub use random::{Pcg32, RandomSource};
 pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
 
 /// Bracketed and Newton root finders for scalar equations and square systems.
-pub use root_finding::{Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination};
+pub use root_finding::{
+    Bisection, Brent, Newton, NewtonSystem, RootReport, RootReportN, RootTermination,
+};
 
 /// Polynomials by their coefficients, in pieces, and in several variables.
 pub use polynomial::{
