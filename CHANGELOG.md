@@ -67,6 +67,9 @@ non-positive input is now documented instead of silent. @naseem173 (#307)
 - Particle filters floor an underflowed zero weight at the scalar's smallest positive value before
   the next update, allowing that particle to recover when later measurements favor it.
 
+- **Iterative Config Total Iterations** Auto-align iteration counts to the composite rules below
+  12k. 
+
 ## [0.10.0] - 2026-08-09
 
 A feature release adding signal processing, polynomials and minimum-snap trajectories, LQR and

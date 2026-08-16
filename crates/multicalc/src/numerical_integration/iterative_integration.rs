@@ -34,8 +34,22 @@ impl Default for IterativeConfig {
 
 impl IterativeConfig {
     /// Builds a config with an explicit iteration count and rule.
+    ///
+    /// For counts up to 12,000, `total_iterations` is automatically rounded up
+    /// to the nearest valid step multiple required by the chosen integration rule
+    /// (e.g., multiples of 4 for Boole's rule, 3 for Simpson's 3/8 rule).
+    /// Above 12,000, the count is left untouched.
     #[must_use]
     pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self {
+        let total_iterations = if total_iterations <= 12000 {
+            match integration_method {
+                IterativeMethod::Booles => total_iterations.next_multiple_of(4),
+                IterativeMethod::Simpsons => total_iterations.next_multiple_of(3),
+                IterativeMethod::Trapezoidal => total_iterations,
+            }
+        } else {
+            total_iterations
+        };
         IterativeConfig {
             total_iterations,
             integration_method,
