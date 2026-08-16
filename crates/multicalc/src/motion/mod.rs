@@ -6,6 +6,9 @@
 //! - [`MinimumSnapPlanner`] — the smoothest path through a set of waypoints, as a polynomial per
 //!   segment. Planning is a one-off cost, not per-tick work.
 //! - [`durations_from_average_speed`] — a first guess at how long each segment should take.
+//! - [`MotionProfilePlanner`] — time-optimal point-to-point moves within velocity, acceleration and
+//!   jerk limits, as a [`MotionProfile`] a control loop can evaluate at any time.
+//! - [`SynchronizedProfile`] — several of those time-scaled to a common finish time.
 //!
 //! A planned trajectory comes back as a [`PiecewisePolynomial`], which
 //! gives position and as many derivatives as asked for at any time along it. That type belongs to
@@ -15,8 +18,13 @@
 //! module calls it a duration.
 
 mod minimum_snap;
+mod motion_profile;
 mod polyline_path;
 
 pub use crate::polynomial::PiecewisePolynomial;
 pub use minimum_snap::{BoundaryDerivatives, MinimumSnapPlanner, durations_from_average_speed};
+pub use motion_profile::{
+    MotionProfile, MotionProfilePlanner, PROFILE_PHASE_COUNT, ProfileLimits, ProfileState,
+    ProfileStrategy, SynchronizedProfile, SynchronizedState,
+};
 pub use polyline_path::{EndOfPath, PathProjection, PolylinePath};
