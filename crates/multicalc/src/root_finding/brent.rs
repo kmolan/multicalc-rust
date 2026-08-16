@@ -123,32 +123,29 @@ impl<T: Numeric> Brent<T> {
         let mut mflag = true;
 
         for iter in 1..=self.max_iterations {
+            let tol = self.xtol * (T::ONE + b.abs());
+            let m = (a - b) * T::HALF;
+
             if fb.abs() <= self.ftol {
                 return Ok(RootReport {
                     root: b,
                     residual: fb,
-                    iterations: iter,
+                    iterations: iter - 1,
                     termination: RootTermination::ResidualTolerance,
                 });
             }
-
-            let tol = self.xtol * (T::ONE + b.abs());
-            let m = (a - b) * T::HALF;
 
             if m.abs() <= tol || (b - a).abs() <= tol {
                 return Ok(RootReport {
                     root: b,
                     residual: fb,
-                    iterations: iter,
+                    iterations: iter - 1,
                     termination: RootTermination::BracketWidth,
                 });
             }
 
             let mut s = if fa != fc && fb != fc {
-                let s_a = a * fb * fc / ((fa - fb) * (fa - fc));
-                let s_b = b * fa * fc / ((fb - fa) * (fb - fc));
-                let s_c = c * fa * fb / ((fc - fa) * (fc - fc));
-                s_a + s_b + s_c
+                inverse_quadratic_interpolation(a, fa, b, fb, c, fc)
             } else {
                 b - fb * (b - a) / (fb - fa)
             };
@@ -167,7 +164,7 @@ impl<T: Numeric> Brent<T> {
             let condition4 = mflag && (b - c).abs() < tol;
             let condition5 = !mflag && (c - d).abs() < tol;
 
-            if condition1 || condition2 || condition3 || condition4 || condition5 {
+            if !s.is_finite() || condition1 || condition2 || condition3 || condition4 || condition5 {
                 s = (a + b) * T::HALF;
                 mflag = true;
             } else {
@@ -195,10 +192,47 @@ impl<T: Numeric> Brent<T> {
                 core::mem::swap(&mut a, &mut b);
                 core::mem::swap(&mut fa, &mut fb);
             }
+
+            // Check convergence immediately after updating the best estimate
+            if fb.abs() <= self.ftol {
+                return Ok(RootReport {
+                    root: b,
+                    residual: fb,
+                    iterations: iter,
+                    termination: RootTermination::ResidualTolerance,
+                });
+            }
+
+            let tol_after = self.xtol * (T::ONE + b.abs());
+            let m_after = (a - b) * T::HALF;
+            if m_after.abs() <= tol_after || (b - a).abs() <= tol_after {
+                return Ok(RootReport {
+                    root: b,
+                    residual: fb,
+                    iterations: iter,
+                    termination: RootTermination::BracketWidth,
+                });
+            }
         }
 
         Err(SolveError::DidNotConverge {
             iters: self.max_iterations,
         })
     }
+}
+
+/// Evaluates inverse quadratic interpolation (IQI) through three points `(a, fa)`, `(b, fb)`, `(c, fc)`.
+#[inline]
+pub fn inverse_quadratic_interpolation<T: Numeric>(
+    a: T,
+    fa: T,
+    b: T,
+    fb: T,
+    c: T,
+    fc: T,
+) -> T {
+    let s_a = a * fb * fc / ((fa - fb) * (fa - fc));
+    let s_b = b * fa * fc / ((fb - fa) * (fb - fc));
+    let s_c = c * fa * fb / ((fc - fa) * (fc - fb));
+    s_a + s_b + s_c
 }

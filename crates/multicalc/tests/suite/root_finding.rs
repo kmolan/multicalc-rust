@@ -5,6 +5,7 @@ use multicalc::numerical_derivative::FiniteDifferenceSingle;
 use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::root_finding::{
     Bisection, Brent, Newton, NewtonSystem, RootReport, RootReportN, RootTermination,
+    inverse_quadratic_interpolation,
 };
 use multicalc::scalar::{Numeric, ScalarFn, VectorFn, c};
 use multicalc::scalar_fn;
@@ -214,6 +215,81 @@ fn brent_exact_endpoint_root() {
         report.termination,
         RootTermination::ResidualTolerance
     ));
+}
+
+#[test]
+fn brent_iqi_formula_exact_evaluation() {
+    // Distinct points (x, y) = (-1.0, 0.75), (0.0, -0.25), (-0.25, -0.1875)
+    // Analytical IQI gives exactly s = -0.85
+    // If the 3rd denominator regresses to (fc - fa) * (fc - fc), it divides by zero!
+    let s = inverse_quadratic_interpolation(-1.0_f64, 0.75, 0.0, -0.25, -0.25, -0.1875);
+    assert!((s - (-0.85)).abs() < 1e-12, "IQI formula returned unexpected value: {}", s);
+}
+
+#[test]
+fn brent_iqi_polynomial_regression() {
+    // f(x) = x² - 0.5 on [0.0, 1.0], irrational root at 1/√2 ≈ 0.7071067811865475
+    // With IQI interpolation enabled, converges in <= 8 iterations.
+    // Pure bisection requires 30 iterations to reach 1e-9 precision on [0, 1].
+    let poly = scalar_fn!(|x| c(-0.5) + x * x);
+    let brent_report = brent(&poly, 0.0_f64, 1.0).unwrap();
+    let bisect_report = bisect(&poly, 0.0_f64, 1.0).unwrap();
+
+    assert!((brent_report.root - 0.5_f64.sqrt()).abs() < 1e-9);
+    assert!(brent_report.iterations <= 8, "Expected fast IQI convergence in <= 8 iterations, got {}", brent_report.iterations);
+    assert!(brent_report.iterations < bisect_report.iterations);
+    assert!(matches!(
+        brent_report.termination,
+        RootTermination::ResidualTolerance | RootTermination::BracketWidth
+    ));
+}
+
+#[test]
+fn brent_non_finite_candidate_fallback_recovers() {
+    // Construct a function with extreme magnitude values near floating point limit (1e308)
+    // where secant interpolation (fb * (b - a) / (fb - fa)) overflows to NaN (inf / inf).
+    // The !s.is_finite() guard inside solve() catches the NaN candidate, falls back to bisection,
+    // and successfully recovers the root instead of evaluating f(NaN) and failing with SolveError::NonFinite.
+    struct ExtremeOverflowFn;
+    impl ScalarFn for ExtremeOverflowFn {
+        fn eval<S: Numeric>(&self, x: S) -> S {
+            if x <= S::ONE {
+                -S::from_f64(1e308) * (S::ONE - x) - S::from_f64(1e-10)
+            } else {
+                S::from_f64(1e308) * (x - S::ONE) + S::from_f64(1e-10)
+            }
+        }
+    }
+
+    let f = ExtremeOverflowFn;
+    let report = Brent::default().solve(&f, 0.0_f64, 2.5_f64).unwrap();
+    assert!((report.root - 1.0).abs() < 1e-8);
+}
+
+#[test]
+fn brent_exact_root_on_final_iteration() {
+    // f(x) = x - 1 on [0.0, 2.0], root at 1.0 found on iteration 1
+    // Must converge and report success with max_iterations = 1
+    let line = scalar_fn!(|x| c(-1.0) + x);
+    let report = Brent::default()
+        .with_max_iterations(1)
+        .solve(&line, 0.0_f64, 2.0)
+        .unwrap();
+    assert!((report.root - 1.0).abs() < 1e-9);
+    assert_eq!(report.iterations, 1);
+    assert!(matches!(
+        report.termination,
+        RootTermination::ResidualTolerance | RootTermination::BracketWidth
+    ));
+}
+
+#[test]
+fn brent_f32_precision() {
+    // Generic Numeric trait compliance with f32
+    let sqrt_two = scalar_fn!(|x| c(-2.0) + x * x);
+    let solver: Brent<f32> = Brent::new();
+    let report = solver.solve(&sqrt_two, 0.0_f32, 2.0_f32).unwrap();
+    assert!((report.root - 2.0_f32.sqrt()).abs() < 1e-4);
 }
 
 // ----- Scalar Newton and damped Newton -----

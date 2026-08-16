@@ -13,7 +13,7 @@ mod newton;
 mod newton_system;
 
 pub use bisection::Bisection;
-pub use brent::Brent;
+pub use brent::{Brent, inverse_quadratic_interpolation};
 pub use newton::Newton;
 pub use newton_system::NewtonSystem;
 
