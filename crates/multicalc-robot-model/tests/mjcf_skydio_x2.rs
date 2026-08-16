@@ -90,7 +90,8 @@ fn works_out_how_hard_the_body_is_to_spin() {
     let inertia = model
         .body_named("x2")
         .unwrap()
-        .inertia().unwrap()
+        .inertia()
+        .unwrap()
         .rotational_inertia();
 
     for row in 0..3 {

@@ -9,7 +9,9 @@ use std::collections::HashMap;
 use roxmltree::Node;
 
 use crate::ModelError;
-use crate::xml::{elements, fixed, parse_list, parse_scalar, parse_vector2, parse_vector3, parse_vector4};
+use crate::xml::{
+    elements, fixed, parse_list, parse_scalar, parse_vector2, parse_vector3, parse_vector4,
+};
 
 /// The geom settings one default class supplies, with `None` meaning "not set here".
 #[derive(Debug, Clone, Default, PartialEq)]

@@ -41,7 +41,8 @@ fn read_inertial(node: Node) -> Result<SpatialInertia<f64>, ModelError> {
     let mass_node = element(node, "mass").ok_or_else(|| bad_attribute(node, "mass", ""))?;
     let mass = required(mass_node, "value")?;
 
-    let inertia_node = element(node, "inertia").ok_or_else(|| bad_attribute(node, "inertia", ""))?;
+    let inertia_node =
+        element(node, "inertia").ok_or_else(|| bad_attribute(node, "inertia", ""))?;
     let stated = Matrix::from([
         [
             required(inertia_node, "ixx")?,

@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!-- A joint that can stop, stating nowhere to stop. A joint that turns round and round says so
+     with its type instead. -->
+<robot name="bad_revolute_no_limit">
+  <link name="base_link">
+    <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>
+  </link>
+  <joint name="shoulder" type="revolute">
+    <parent link="base_link"/><child link="upper_arm"/>
+    <origin xyz="0 0 0.5"/><axis xyz="0 0 1"/>
+  </joint>
+  <link name="upper_arm">
+    <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>
+  </link>
+</robot>

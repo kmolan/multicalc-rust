@@ -288,7 +288,9 @@ fn build_joint(body: &BodyDescription) -> Joint<f64> {
     };
 
     let joint = match description.kind {
-        JointKind::Revolute => Joint::revolute(description.axis, body.pose).with_anchor(description.anchor),
+        JointKind::Revolute => {
+            Joint::revolute(description.axis, body.pose).with_anchor(description.anchor)
+        }
         JointKind::Continuous => {
             Joint::continuous(description.axis, body.pose).with_anchor(description.anchor)
         }
@@ -520,7 +522,6 @@ impl JointDescription {
         }
     }
 }
-
 
 /// Reads a model from a file, choosing the reader from the file's extension: `.urdf` reads URDF,
 /// anything else reads MJCF.

@@ -14,8 +14,8 @@ use crate::mjcf::defaults::{DefaultTable, reject_orientation_attributes};
 use crate::mjcf::geometry::{GeomMass, read_geom};
 use crate::mjcf::joint::read_joint;
 use crate::xml::{
-    bad_attribute, element, elements, ignored_sections, parse_scalar, parse_vector3,
-    parse_vector4, parse_vector6, unit_quaternion,
+    bad_attribute, element, elements, ignored_sections, parse_scalar, parse_vector3, parse_vector4,
+    parse_vector6, unit_quaternion,
 };
 
 /// The top-level sections this loader takes something from. Every other section a file carries is

@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<!-- The happy path: a root and two turning joints, every part of the read subset filled in.
+     The shoulder is turned a quarter turn about z, and the forearm's mass is stated in axes
+     turned a quarter turn from its own. -->
+<robot name="two_link_arm">
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 0.1"/>
+      <mass value="4"/>
+      <inertia ixx="2" ixy="0" ixz="0" iyy="2" iyz="0" izz="3"/>
+    </inertial>
+  </link>
+
+  <joint name="shoulder" type="revolute">
+    <parent link="base_link"/>
+    <child link="upper_arm"/>
+    <origin xyz="0 0 0.5" rpy="0 0 1.5707963267948966"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-2" upper="2" effort="100" velocity="3"/>
+    <dynamics damping="0.25" friction="0.5"/>
+  </joint>
+
+  <link name="upper_arm">
+    <inertial>
+      <origin xyz="0 0 0.2"/>
+      <mass value="2"/>
+      <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+    </inertial>
+  </link>
+
+  <joint name="elbow" type="revolute">
+    <parent link="upper_arm"/>
+    <child link="forearm"/>
+    <origin xyz="0 0 0.4"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1" upper="1"/>
+    <dynamics damping="0.125"/>
+  </joint>
+
+  <link name="forearm">
+    <inertial>
+      <origin xyz="0 0 0.15" rpy="0 0 1.5707963267948966"/>
+      <mass value="1"/>
+      <inertia ixx="2" ixy="0" ixz="0" iyy="3" iyz="0" izz="4"/>
+    </inertial>
+  </link>
+</robot>

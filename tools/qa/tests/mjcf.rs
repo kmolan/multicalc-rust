@@ -214,7 +214,10 @@ fn check_body_tree(fx: &Fixture) {
         let mass_properties = body
             .inertia()
             .unwrap_or_else(|| unreachable!("{ctx}: body states no mass properties"));
-        assert!(close(mass_properties.mass(), masses[index], t), "{ctx} mass");
+        assert!(
+            close(mass_properties.mass(), masses[index], t),
+            "{ctx} mass"
+        );
         let center_of_mass = mass_properties.center_of_mass();
         for axis in 0..3 {
             assert!(

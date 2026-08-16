@@ -29,7 +29,12 @@ fn refuse(inner: &str) -> ModelError {
 /// The three numbers down the diagonal of how the first body resists being spun.
 #[must_use]
 fn diagonal(loaded: &RobotModel) -> [f64; 3] {
-    let inertia = loaded.body(0).unwrap().inertia().unwrap().rotational_inertia();
+    let inertia = loaded
+        .body(0)
+        .unwrap()
+        .inertia()
+        .unwrap()
+        .rotational_inertia();
     [inertia[(0, 0)], inertia[(1, 1)], inertia[(2, 2)]]
 }
 
@@ -326,7 +331,10 @@ fn reads_a_shape_that_states_where_its_axis_starts_and_stops() {
 
     let body = model.body(0).unwrap();
     assert_golden(body.inertia().unwrap().mass(), 4.0, "mass");
-    assert_eq!(body.inertia().unwrap().center_of_mass().into_array(), [0.0; 3]);
+    assert_eq!(
+        body.inertia().unwrap().center_of_mass().into_array(),
+        [0.0; 3]
+    );
     for (spin, want) in diagonal(&model).into_iter().zip([
         0.191_090_909_090_909_1,
         0.191_090_909_090_909_1,
@@ -350,7 +358,8 @@ fn turns_a_shape_onto_the_line_between_its_ends() {
     assert_golden(body.inertia().unwrap().mass(), 4.0, "mass");
     // Halfway along the line between the two ends.
     for (place, want) in body
-        .inertia().unwrap()
+        .inertia()
+        .unwrap()
         .center_of_mass()
         .into_array()
         .into_iter()
@@ -383,7 +392,8 @@ fn measures_a_cylinder_stated_by_its_ends() {
     let body = model.body(0).unwrap();
     assert_golden(body.inertia().unwrap().mass(), 7.0, "mass");
     for (place, want) in body
-        .inertia().unwrap()
+        .inertia()
+        .unwrap()
         .center_of_mass()
         .into_array()
         .into_iter()
@@ -428,7 +438,11 @@ fn takes_the_ends_of_an_axis_down_a_default_block() {
     )
     .unwrap();
 
-    assert_golden(model.body(0).unwrap().inertia().unwrap().mass(), 4.0, "mass");
+    assert_golden(
+        model.body(0).unwrap().inertia().unwrap().mass(),
+        4.0,
+        "mass",
+    );
     assert_golden(diagonal(&model)[2], 0.019_272_727_272_727_275, "about z");
 }
 
@@ -502,7 +516,10 @@ fn combines_the_shapes_a_body_is_built_from() {
 
     let body = model.body(0).unwrap();
     assert_eq!(body.inertia().unwrap().mass(), 2.0);
-    assert_eq!(body.inertia().unwrap().center_of_mass().into_array(), [0.0; 3]);
+    assert_eq!(
+        body.inertia().unwrap().center_of_mass().into_array(),
+        [0.0; 3]
+    );
 
     let [first, second, third] = diagonal(&model);
     assert_close(first, 4.0 / 3.0, "first");
@@ -727,7 +744,12 @@ fn reads_a_full_inertia_tensor() {
     let model = load(r#"<body><inertial mass="2" fullinertia="1 2 3 0.1 0.2 0.3"/></body>"#);
 
     let expected = [[1.0, 0.1, 0.2], [0.1, 2.0, 0.3], [0.2, 0.3, 3.0]];
-    let inertia = model.body(0).unwrap().inertia().unwrap().rotational_inertia();
+    let inertia = model
+        .body(0)
+        .unwrap()
+        .inertia()
+        .unwrap()
+        .rotational_inertia();
     for (row, wanted) in expected.into_iter().enumerate() {
         for (column, want) in wanted.into_iter().enumerate() {
             assert_close(inertia[(row, column)], want, "fullinertia entry");
