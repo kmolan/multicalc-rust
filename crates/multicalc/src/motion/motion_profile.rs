@@ -101,6 +101,7 @@ struct ProfilePhase<T: Numeric> {
 impl<T: Numeric> ProfilePhase<T> {
     /// A zero-duration phase at rest.
     #[inline]
+    #[must_use]
     fn empty() -> Self {
         Self {
             duration: T::ZERO,
@@ -152,6 +153,7 @@ impl<T: Numeric> MotionProfile<T> {
     /// `accelerations` holds each phase's initial acceleration: the source of the trapezoid's step
     /// changes, and redundant with integrating `jerks` for the S-curve. `sign` is `-1` for a move in
     /// the opposite direction, negating every jerk, velocity and acceleration.
+    #[must_use]
     fn from_phase_plan(
         durations: [T; PROFILE_PHASE_COUNT],
         jerks: [T; PROFILE_PHASE_COUNT],
@@ -254,7 +256,9 @@ impl<T: Numeric> MotionProfile<T> {
 
     /// State at `time`, clamped to `[0, duration]`.
     ///
-    /// Returns [`MotionError::NonFinite`] for a time that is not finite.
+    /// Evaluation is right-continuous, so at a step in acceleration it reads the commanded value,
+    /// not the one being left: a trapezoid reports full acceleration at `t = 0`. Returns
+    /// [`MotionError::NonFinite`] for a time that is not finite.
     pub fn state_at(&self, time: T) -> Result<ProfileState<T>, MotionError> {
         if !time.is_finite() {
             return Err(MotionError::NonFinite);
@@ -292,6 +296,7 @@ impl<T: Numeric> MotionProfile<T> {
 }
 
 /// Zero-displacement profile: zero duration, every phase empty.
+#[must_use]
 fn plan_still<T: Numeric>(sign: T) -> MotionProfile<T> {
     MotionProfile::from_phase_plan(
         [T::ZERO; PROFILE_PHASE_COUNT],
@@ -304,6 +309,7 @@ fn plan_still<T: Numeric>(sign: T) -> MotionProfile<T> {
 /// Three-phase solve at constant acceleration.
 ///
 /// `distance` is non-negative; `sign` carries the direction.
+#[must_use]
 fn plan_trapezoidal<T: Numeric>(
     distance: T,
     limits: &ProfileLimits<T>,
@@ -349,6 +355,7 @@ fn plan_trapezoidal<T: Numeric>(
 ///
 /// Acceleration either saturates at its limit and holds, or peaks below it and reverses at once,
 /// in which case the hold is zero.
+#[must_use]
 fn acceleration_ramp<T: Numeric>(peak_speed: T, acceleration_limit: T, jerk_limit: T) -> (T, T) {
     if peak_speed * jerk_limit >= acceleration_limit * acceleration_limit {
         let jerk_time = acceleration_limit / jerk_limit;
@@ -362,6 +369,7 @@ fn acceleration_ramp<T: Numeric>(peak_speed: T, acceleration_limit: T, jerk_limi
 /// Seven-phase solve with bounded jerk.
 ///
 /// `distance` is non-negative; `sign` carries the direction.
+#[must_use]
 fn plan_jerk_limited<T: Numeric>(
     distance: T,
     limits: &ProfileLimits<T>,
@@ -640,12 +648,14 @@ impl<const DIMENSION: usize, T: Numeric> SynchronizedProfile<DIMENSION, T> {
 }
 
 /// The longest duration among these axes.
+#[must_use]
 fn slowest_duration<const DIMENSION: usize, T: Numeric>(axes: &[MotionProfile<T>; DIMENSION]) -> T {
     axes.iter()
         .fold(T::ZERO, |longest, axis| longest.max(axis.duration()))
 }
 
 /// Every axis time-scaled to finish at `target`.
+#[must_use]
 fn stretched_axes<const DIMENSION: usize, T: Numeric>(
     axes: [MotionProfile<T>; DIMENSION],
     target: T,
