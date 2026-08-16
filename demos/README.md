@@ -45,6 +45,7 @@ cargo run -p multicalc-demos --example <name>
 | `localized_lap_check` | `estimation`, `control`, `kinematics` | The headless acceptance gate for the `2d_localization_obstacle_avoidance` showcase: drives 600,000 seeded ticks and asserts zero contacts, a fused position RMS under 5 cm, fusion beating dead reckoning threefold, and the per-tick cost. Needs `--features alloc`. |
 | `minimum_snap_trajectory` | `motion` | `MinimumSnapPlanner` planning a trajectory off the loop, then evaluating it inside one. |
 | `mjcf_model_ingestion` | `spatial`, `multicalc-robot-model` | Loads a MuJoCo model file and reports a free body's mass, balance point and resistance to spinning, then a jointed robot's body tree, joint travel and joint settings. |
+| `motion_profiles` | `motion` | The same point-to-point move as a trapezoid and as a jerk-limited seven-phase profile, checked against its speed, acceleration and jerk ceilings, then three joints with different ceilings made to finish together. |
 | `ode` | `ode` | Fixed-step RK4 and adaptive RK45 on the harmonic oscillator (known solution) plus an acrobot, a tumbling quadrotor, and an outer-solar-system N-body, reporting error and conserved-quantity drift. |
 | `optimization_solvers` | `optimization` | Gauss-Newton on a well-conditioned linear residual (`y = a + b·t`); when GN is enough vs LM (`curve_fit`). |
 | `polynomials` | `polynomial` | Evaluating a polynomial with its derivatives in one pass, finding its real roots, building one from data, and several variables with symbolic partials. |
