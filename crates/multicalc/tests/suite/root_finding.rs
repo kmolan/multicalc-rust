@@ -7,8 +7,8 @@ use multicalc::root_finding::{
     Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination,
 };
 use multicalc::scalar::{Numeric, ScalarFn, VectorFn, c};
-use multicalc::scalar_fn;
 use multicalc::scalar_fn_vec;
+use multicalc::{Brent, scalar_fn};
 
 fn bisect<F: ScalarFn>(
     function: &F,
@@ -16,6 +16,14 @@ fn bisect<F: ScalarFn>(
     upper_bound: f64,
 ) -> Result<RootReport<f64>, SolveError> {
     Bisection::default().solve(function, lower_bound, upper_bound)
+}
+
+fn brent<F: ScalarFn>(
+    function: &F,
+    lower_bound: f64,
+    upper_bound: f64,
+) -> Result<RootReport<f64>, SolveError> {
+    Brent::default().solve(function, lower_bound, upper_bound)
 }
 
 fn newton<F: ScalarFn>(function: &F, initial_guess: f64) -> Result<RootReport<f64>, SolveError> {
@@ -132,6 +140,156 @@ fn bisection_exact_endpoint_root() {
         report.termination,
         RootTermination::ResidualTolerance
     ));
+}
+
+// ----- Brent's method -----
+
+#[test]
+fn brent_sqrt2() {
+    let sqrt_two = scalar_fn!(|x| c(-2.0) + x * x);
+    let brent_report = brent(&sqrt_two, 0.0_f64, 2.0).unwrap();
+    let bisect_report = bisect(&sqrt_two, 0.0_f64, 2.0).unwrap();
+
+    assert!((brent_report.root - 2.0_f64.sqrt()).abs() < 1e-9);
+    assert!(brent_report.iterations < bisect_report.iterations);
+    assert!(matches!(
+        brent_report.termination,
+        RootTermination::ResidualTolerance
+            | RootTermination::BracketWidth
+            | RootTermination::StepTolerance
+    ));
+}
+
+#[test]
+fn brent_dottie_number() {
+    let dottie = scalar_fn!(|x| x.cos() - x);
+    let brent_report = brent(&dottie, 0.0_f64, 1.0).unwrap();
+    let bisect_report = bisect(&dottie, 0.0_f64, 1.0).unwrap();
+
+    assert!((brent_report.root - 0.7390851332151607).abs() < 1e-9);
+    assert!(brent_report.iterations < bisect_report.iterations);
+}
+
+#[test]
+fn brent_wien_displacement() {
+    let wien = scalar_fn!(|x| c(-5.0) + x + c(5.0) * (-x).exp());
+    let brent_report = brent(&wien, 1.0_f64, 10.0).unwrap();
+    let bisect_report = bisect(&wien, 1.0_f64, 10.0).unwrap();
+
+    assert!((brent_report.root - 4.965114231744276).abs() < 1e-9);
+    assert!(brent_report.iterations < bisect_report.iterations);
+}
+
+#[test]
+fn brent_invalid_bracket() {
+    let sqrt_two = scalar_fn!(|x| c(-2.0) + x * x);
+    assert!(matches!(
+        brent(&sqrt_two, 2.0_f64, 3.0),
+        Err(SolveError::InvalidBracket)
+    ));
+}
+
+#[test]
+fn brent_non_finite() {
+    let reciprocal = scalar_fn!(|x| c(1.0) / x);
+    assert!(matches!(
+        brent(&reciprocal, -1.0_f64, 1.0),
+        Err(SolveError::NonFinite)
+    ));
+}
+
+#[test]
+fn brent_budget_exhausted() {
+    let sqrt_two = scalar_fn!(|x| c(-2.0) + x * x);
+    let result = Brent::default()
+        .with_max_iterations(1)
+        .solve(&sqrt_two, 0.0_f64, 2.0);
+    assert!(matches!(result, Err(SolveError::DidNotConverge { .. })));
+}
+
+#[test]
+fn brent_exact_endpoint_root() {
+    let line = scalar_fn!(|x| x);
+    let report = brent(&line, 0.0_f64, 1.0).unwrap();
+    assert_eq!(report.root, 0.0_f64);
+    assert!(matches!(
+        report.termination,
+        RootTermination::ResidualTolerance
+    ));
+}
+
+#[test]
+fn brent_iqi_polynomial_regression() {
+    // f(x) = x² - 0.5 on [0.0, 1.0], irrational root at 1/√2 ≈ 0.7071067811865475
+    // With IQI interpolation enabled, converges in <= 8 iterations.
+    // Pure bisection requires 30 iterations to reach 1e-9 precision on [0, 1].
+    let poly = scalar_fn!(|x| c(-0.5) + x * x);
+    let brent_report = brent(&poly, 0.0_f64, 1.0).unwrap();
+    let bisect_report = bisect(&poly, 0.0_f64, 1.0).unwrap();
+
+    assert!((brent_report.root - 0.5_f64.sqrt()).abs() < 1e-9);
+    assert!(
+        brent_report.iterations <= 8,
+        "Expected fast IQI convergence in <= 8 iterations, got {}",
+        brent_report.iterations
+    );
+    assert!(brent_report.iterations < bisect_report.iterations);
+    assert!(matches!(
+        brent_report.termination,
+        RootTermination::ResidualTolerance | RootTermination::BracketWidth
+    ));
+}
+
+#[test]
+fn brent_non_finite_candidate_fallback_recovers() {
+    // Continuous function on large finite bracket [1e308, 1.5e308] with genuine root at 1.25e308:
+    // f(x) = ((x - 1.25e308) / 2.5e307) * 1e308.
+    // At endpoints, f(1e308) = -1e308 and f(1.5e308) = +1e308 (both finite, opposite signs).
+    // Secant numerator and denominator overflow to infinity, yielding NaN (inf/inf).
+    // The !s.is_finite() guard catches the NaN candidate, falls back to overflow-safe bisection midpoint
+    // (a * HALF + b * HALF = 1.25e308), evaluating exactly f(1.25e308) = 0.0 and converging immediately!
+    struct LargeScaleContinuousFn;
+    impl ScalarFn for LargeScaleContinuousFn {
+        fn eval<S: Numeric>(&self, x: S) -> S {
+            ((x - S::from_f64(1.25e308)) / S::from_f64(2.5e307)) * S::from_f64(1e308)
+        }
+    }
+
+    let f = LargeScaleContinuousFn;
+    let report = Brent::default().solve(&f, 1e308_f64, 1.5e308_f64).unwrap();
+    assert_eq!(report.root, 1.25e308_f64);
+    assert_eq!(report.residual, 0.0_f64);
+    assert_eq!(report.iterations, 1);
+    assert!(matches!(
+        report.termination,
+        RootTermination::ResidualTolerance
+    ));
+}
+
+#[test]
+fn brent_exact_root_on_final_iteration() {
+    // f(x) = x - 1 on [0.0, 2.0], root at 1.0 found on iteration 1
+    // Must converge and report success with max_iterations = 1
+    let line = scalar_fn!(|x| c(-1.0) + x);
+    let report = Brent::default()
+        .with_max_iterations(1)
+        .solve(&line, 0.0_f64, 2.0)
+        .unwrap();
+    assert!((report.root - 1.0).abs() < 1e-9);
+    assert_eq!(report.iterations, 1);
+    assert!(matches!(
+        report.termination,
+        RootTermination::ResidualTolerance | RootTermination::BracketWidth
+    ));
+}
+
+#[test]
+fn brent_f32_precision() {
+    // Generic Numeric trait compliance with f32
+    let sqrt_two = scalar_fn!(|x| c(-2.0) + x * x);
+    let solver: Brent<f32> = Brent::new();
+    let report = solver.solve(&sqrt_two, 0.0_f32, 2.0_f32).unwrap();
+    assert!((report.root - 2.0_f32.sqrt()).abs() < 1e-4);
 }
 
 // ----- Scalar Newton and damped Newton -----

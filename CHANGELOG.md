@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Brent root finding.** `Brent` combines bracketed convergence with secant and inverse
+  quadratic interpolation steps for scalar equations. @snowyukitty (#323)
+
 - **Jointed robots from MuJoCo model files.** `multicalc-mjcf` reads the whole body tree a model
   file describes — hinge and sliding joints with their axes, turning points and travel, the
   settings a default block supplies to every body below it, files that pull in other files, and
