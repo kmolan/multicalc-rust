@@ -1,21 +1,21 @@
-//! File-wide settings read from the `<compiler>` element.
+//! `<compiler>` settings.
 
 use roxmltree::Node;
 
 use crate::ModelError;
 use crate::xml::{bad_attribute, element};
 
-/// File-wide settings that change how the rest of the document is read.
+/// File-wide settings governing how the rest of the document parses.
 pub(crate) struct CompilerSettings {
-    /// Whether angles in the file are in degrees rather than radians.
+    /// Angles are in degrees rather than radians.
     pub angle_in_degrees: bool,
-    /// Whether a joint stating a range is limited by it without an explicit `limited`.
+    /// A stated `range` bounds the joint without an explicit `limited`.
     pub auto_limits: bool,
-    /// When a body's inertia is computed from its geoms rather than an explicit `<inertial>`.
+    /// When inertia is derived from geoms rather than taken from `<inertial>`.
     pub inertia_from_geom: InertiaFromGeom,
 }
 
-/// MJCF `inertiafromgeom`: when geom-derived inertia overrides or fills in `<inertial>`.
+/// MJCF `inertiafromgeom`.
 pub(crate) enum InertiaFromGeom {
     /// `false`: `<inertial>` is required.
     Never,
@@ -26,9 +26,8 @@ pub(crate) enum InertiaFromGeom {
 }
 
 impl CompilerSettings {
-    /// Reads the first `<compiler>` child of `root`, applying MJCF's defaults
-    /// (`angle="degree"`, `autolimits="true"`, `inertiafromgeom="auto"`) where an attribute is
-    /// absent.
+    /// The first `<compiler>` child of `root`, with MJCF's defaults (`angle="degree"`,
+    /// `autolimits="true"`, `inertiafromgeom="auto"`) for absent attributes.
     pub(crate) fn read(root: Node) -> Result<Self, ModelError> {
         let Some(compiler) = element(root, "compiler") else {
             return Ok(CompilerSettings {
@@ -62,7 +61,7 @@ impl CompilerSettings {
         })
     }
 
-    /// Converts an angle from the file's units to radians.
+    /// An angle in the file's units, in radians.
     pub(crate) fn to_radians(&self, value: f64) -> f64 {
         if self.angle_in_degrees {
             value * std::f64::consts::PI / 180.0

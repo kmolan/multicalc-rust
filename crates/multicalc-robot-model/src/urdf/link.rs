@@ -1,8 +1,7 @@
-//! Reading the links a URDF file describes: name and mass properties.
+//! `<link>` parsing: name and spatial inertia.
 //!
-//! URDF states a link's mass outright or not at all — there is no working it out from shapes, and
-//! a link with none is a real link that simply carries no mass, which is how tool and sensor
-//! frames are written.
+//! `<inertial>` is optional and never derived from geometry. A link without one is massless —
+//! the usual encoding for tool and sensor frames.
 
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::spatial::{Quaternion, SE3, SO3, SpatialInertia};
@@ -11,13 +10,13 @@ use roxmltree::Node;
 use crate::ModelError;
 use crate::xml::{bad_attribute, element, elements, parse_scalar, parse_vector3};
 
-/// One link as the file states it, before the tree is worked out.
+/// A `<link>` as stated, before tree resolution.
 pub(crate) struct ParsedLink {
     pub name: String,
     pub inertia: Option<SpatialInertia<f64>>,
 }
 
-/// Reads every `<link>` child of `<robot>`, in document order.
+/// Every `<link>` child of `<robot>`, in document order.
 pub(crate) fn read_links(root: Node) -> Result<Vec<ParsedLink>, ModelError> {
     let mut links = Vec::new();
     for node in elements(root, "link") {
@@ -31,10 +30,10 @@ pub(crate) fn read_links(root: Node) -> Result<Vec<ParsedLink>, ModelError> {
     Ok(links)
 }
 
-/// The mass properties one `<inertial>` block states.
+/// Spatial inertia from one `<inertial>` block.
 ///
-/// Its `<origin>` says where the link balances and which way the stated numbers are turned, so the
-/// six figures are turned back into the link's own axes before they are stored.
+/// `<origin>` gives the COM and the frame the tensor is expressed in; the tensor is rotated into
+/// link axes as `R I Rᵀ`.
 fn read_inertial(node: Node) -> Result<SpatialInertia<f64>, ModelError> {
     let origin = read_origin(node)?;
 
@@ -67,9 +66,9 @@ fn read_inertial(node: Node) -> Result<SpatialInertia<f64>, ModelError> {
     SpatialInertia::new(mass, origin.translation(), tensor).map_err(ModelError::Inertia)
 }
 
-/// The pose an `<origin xyz rpy>` child describes, or the identity where there is none.
+/// The transform an `<origin xyz rpy>` child gives, or identity if absent.
 ///
-/// `rpy` is a roll, then a pitch, then a yaw, each about a fixed axis.
+/// `rpy` is fixed-axis roll-pitch-yaw: `R = Rz(yaw)·Ry(pitch)·Rx(roll)`.
 pub(crate) fn read_origin(parent: Node) -> Result<SE3<f64>, ModelError> {
     let Some(node) = element(parent, "origin") else {
         return Ok(SE3::identity());
@@ -82,7 +81,7 @@ pub(crate) fn read_origin(parent: Node) -> Result<SE3<f64>, ModelError> {
     ))
 }
 
-/// The one number an attribute the file has to carry holds.
+/// A required scalar attribute.
 fn required(node: Node, attribute: &'static str) -> Result<f64, ModelError> {
     parse_scalar(node, attribute)?.ok_or_else(|| bad_attribute(node, attribute, ""))
 }

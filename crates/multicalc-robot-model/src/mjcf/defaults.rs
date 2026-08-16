@@ -1,8 +1,8 @@
-//! The shape settings a model states once in a `<default>` block and reuses.
+//! `<default>` class inheritance.
 //!
-//! A block can name itself with a class, and a shape can name the block it wants. Blocks nest, an
-//! inner one starting from its parent's settings, and a body can name a block for every shape
-//! inside it. Only `<geom>` settings are read: nothing else in a block can change a mass.
+//! Blocks nest, each inheriting its parent's settings; a geom selects one by `class`, a body sets
+//! one for its subtree by `childclass`. Only `<geom>` and `<joint>` settings are read — nothing
+//! else in a block can affect mass properties.
 
 use std::collections::HashMap;
 
@@ -13,7 +13,7 @@ use crate::xml::{
     elements, fixed, parse_list, parse_scalar, parse_vector2, parse_vector3, parse_vector4,
 };
 
-/// The geom settings one default class supplies, with `None` meaning "not set here".
+/// Geom settings from one default class. `None` means unset at this level.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct GeomDefaults {
     pub geom_type: Option<String>,
@@ -26,7 +26,7 @@ pub(crate) struct GeomDefaults {
 }
 
 impl GeomDefaults {
-    /// The settings written on one `<geom>` element.
+    /// Settings on one `<geom>` element.
     pub(crate) fn read(node: Node) -> Result<Self, ModelError> {
         Ok(GeomDefaults {
             geom_type: node.attribute("type").map(str::to_owned),
@@ -39,7 +39,7 @@ impl GeomDefaults {
         })
     }
 
-    /// A copy of these settings with everything `other` states written over the top.
+    /// These settings with everything `other` states applied over the top.
     #[must_use]
     pub(crate) fn overridden_by(&self, other: &GeomDefaults) -> GeomDefaults {
         GeomDefaults {
@@ -54,7 +54,7 @@ impl GeomDefaults {
     }
 }
 
-/// The joint settings one default class supplies, with `None` meaning "not set here".
+/// Joint settings from one default class. `None` means unset at this level.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct JointDefaults {
     pub joint_type: Option<String>,
@@ -71,7 +71,7 @@ pub(crate) struct JointDefaults {
 }
 
 impl JointDefaults {
-    /// The settings written on one `<joint>` element.
+    /// Settings on one `<joint>` element.
     pub(crate) fn read(node: Node) -> Result<Self, ModelError> {
         Ok(JointDefaults {
             joint_type: node.attribute("type").map(str::to_owned),
@@ -88,7 +88,7 @@ impl JointDefaults {
         })
     }
 
-    /// A copy of these settings with everything `other` states written over the top.
+    /// These settings with everything `other` states applied over the top.
     #[must_use]
     pub(crate) fn overridden_by(&self, other: &JointDefaults) -> JointDefaults {
         JointDefaults {
@@ -107,14 +107,14 @@ impl JointDefaults {
     }
 }
 
-/// One default class's geom and joint settings together.
+/// One default class: its geom and joint settings.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct ClassDefaults {
     pub geom: GeomDefaults,
     pub joint: JointDefaults,
 }
 
-/// Every named class in the file, already flattened so a lookup needs no walking.
+/// Every named class, pre-flattened so lookup needs no traversal.
 #[derive(Debug, Default)]
 pub(crate) struct DefaultTable {
     root: ClassDefaults,
@@ -122,7 +122,7 @@ pub(crate) struct DefaultTable {
 }
 
 impl DefaultTable {
-    /// Reads every `<default>` block in the file.
+    /// Parses every `<default>` block.
     pub(crate) fn build(root: Node) -> Result<Self, ModelError> {
         let mut table = DefaultTable::default();
         for node in elements(root, "default") {
@@ -131,7 +131,7 @@ impl DefaultTable {
         Ok(table)
     }
 
-    /// The settings a class supplies, or the unnamed block's settings when no class is named.
+    /// A class's settings, or the unnamed block's where no class is named.
     pub(crate) fn resolve(&self, class: Option<&str>) -> Result<&ClassDefaults, ModelError> {
         match class {
             None => Ok(&self.root),
@@ -144,7 +144,7 @@ impl DefaultTable {
         }
     }
 
-    /// Records one block, then its nested blocks, each starting from what it inherits.
+    /// Flattens one block, then its nested blocks, each starting from what it inherits.
     fn walk(&mut self, node: Node, inherited: &ClassDefaults) -> Result<(), ModelError> {
         let mut settings = inherited.clone();
         for geom in elements(node, "geom") {
@@ -168,10 +168,10 @@ impl DefaultTable {
     }
 }
 
-/// Orientation attributes this loader does not read; only `pos`/`quat` are.
+/// Orientation attributes this reader does not handle; only `pos`/`quat` are read.
 const UNSUPPORTED_ORIENTATION_ATTRIBUTES: [&str; 4] = ["euler", "axisangle", "xyaxes", "zaxis"];
 
-/// Refuses an element that gives its orientation any way other than `quat`.
+/// Rejects an element stating orientation other than by `quat`.
 pub(crate) fn reject_orientation_attributes(node: Node, element: &str) -> Result<(), ModelError> {
     for attribute in UNSUPPORTED_ORIENTATION_ATTRIBUTES {
         if node.has_attribute(attribute) {

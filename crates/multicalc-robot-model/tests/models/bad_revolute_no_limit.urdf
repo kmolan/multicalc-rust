@@ -1,6 +1,5 @@
 <?xml version="1.0"?>
-<!-- A joint that can stop, stating nowhere to stop. A joint that turns round and round says so
-     with its type instead. -->
+<!-- A revolute joint with no <limit>. Unbounded joints use type="continuous". -->
 <robot name="bad_revolute_no_limit">
   <link name="base_link">
     <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>

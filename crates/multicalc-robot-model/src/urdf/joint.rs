@@ -1,5 +1,4 @@
-//! Reading the joints a URDF file describes: which links they connect, where they sit, how they
-//! move, and what they are driven by.
+//! `<joint>` parsing: topology, placement, axis, limits, dynamics, mimic.
 
 use multicalc::kinematics::JointKind;
 use multicalc::linear_algebra::Vector;
@@ -10,21 +9,20 @@ use crate::urdf::link::read_origin;
 use crate::xml::{bad_attribute, element, elements, parse_scalar, parse_vector3};
 use crate::{JointDescription, MimicDescription, ModelError};
 
-/// The axis a joint turns or slides about where the file states none.
-const ASSUMED_AXIS: [f64; 3] = [1.0, 0.0, 0.0];
+/// URDF's default joint axis. Note MJCF's is `[0, 0, 1]`.
+const DEFAULT_AXIS: [f64; 3] = [1.0, 0.0, 0.0];
 
-/// One joint as the file states it, before the tree is worked out.
+/// A `<joint>` as stated, before tree resolution.
 pub(crate) struct ParsedJoint {
     pub name: String,
     pub parent_link: String,
     pub child_link: String,
     pub origin: SE3<f64>,
-    /// How the child link moves, or `None` where the joint is fixed and the link is welded to its
-    /// parent — which is the one kind a body carries no joint for.
+    /// `None` for a fixed joint: the child body is welded and carries no joint.
     pub description: Option<JointDescription>,
 }
 
-/// Reads every `<joint>` child of `<robot>`, in document order.
+/// Every `<joint>` child of `<robot>`, in document order.
 pub(crate) fn read_joints(root: Node) -> Result<Vec<ParsedJoint>, ModelError> {
     let mut joints = Vec::new();
     for node in elements(root, "joint") {
@@ -33,7 +31,7 @@ pub(crate) fn read_joints(root: Node) -> Result<Vec<ParsedJoint>, ModelError> {
     Ok(joints)
 }
 
-/// Reads one `<joint>`, refusing a kind outside this reader's subset by name.
+/// One `<joint>`. Types outside the supported set are rejected by name.
 fn read_joint(node: Node) -> Result<ParsedJoint, ModelError> {
     let name = node.attribute("name").unwrap_or("joint").to_owned();
     let parent_link = linked(node, "parent")?;
@@ -47,7 +45,7 @@ fn read_joint(node: Node) -> Result<ParsedJoint, ModelError> {
         "floating" => JointKind::Floating,
         other => {
             return Err(ModelError::UnsupportedJoint {
-                // The joint belongs to the link it drives, which is the body it becomes here.
+                // The joint belongs to its child link, which is the body it maps to.
                 body: child_link,
                 joint_type: other.to_owned(),
             });
@@ -57,8 +55,6 @@ fn read_joint(node: Node) -> Result<ParsedJoint, ModelError> {
     let origin = read_origin(node)?;
 
     let description = match kind {
-        // A welded link carries no joint at all, and a free one takes every setting from the
-        // shared constructor.
         JointKind::Fixed => None,
         JointKind::Floating => Some(JointDescription::floating(name.clone())),
         JointKind::Revolute | JointKind::Continuous | JointKind::Prismatic => {
@@ -75,11 +71,11 @@ fn read_joint(node: Node) -> Result<ParsedJoint, ModelError> {
     })
 }
 
-/// A joint that can travel: its axis, how far it goes, and what resists it.
+/// A movable joint: axis, travel limits, and joint dynamics.
 fn movable(node: Node, name: &str, kind: JointKind) -> Result<JointDescription, ModelError> {
     let axis = match element(node, "axis") {
         Some(axis_node) => {
-            let stated = parse_vector3(axis_node, "xyz")?.unwrap_or(ASSUMED_AXIS);
+            let stated = parse_vector3(axis_node, "xyz")?.unwrap_or(DEFAULT_AXIS);
             Vector::new(stated).try_normalized().ok_or_else(|| {
                 bad_attribute(
                     axis_node,
@@ -88,11 +84,11 @@ fn movable(node: Node, name: &str, kind: JointKind) -> Result<JointDescription, 
                 )
             })?
         }
-        None => Vector::new(ASSUMED_AXIS),
+        None => Vector::new(DEFAULT_AXIS),
     };
 
-    // A joint that can only turn round and round has nowhere to stop. URDF still asks for a
-    // `<limit>` there, to carry the effort and speed figures, and its lower and upper mean nothing.
+    // Continuous joints are unbounded. URDF still requires `<limit>` on them for effort and
+    // velocity, where lower/upper carry no meaning.
     let limits = match kind {
         JointKind::Continuous => None,
         _ => Some(read_limits(node, name)?),
@@ -110,12 +106,12 @@ fn movable(node: Node, name: &str, kind: JointKind) -> Result<JointDescription, 
         name: name.to_owned(),
         kind,
         axis,
-        // A URDF joint sits at the origin of the link it drives, so there is no offset to carry.
+        // A URDF joint sits at its child link frame's origin, so the anchor offset is always zero.
         anchor: Vector::zeros(),
         limits,
         damping: setting("damping")?,
         friction_loss: setting("friction")?,
-        // URDF states none of these, so they stay at the value that makes them do nothing.
+        // No URDF equivalent: no `ref`, armature, springref or stiffness.
         zero_offset: 0.0,
         armature: 0.0,
         spring_reference: 0.0,
@@ -124,7 +120,7 @@ fn movable(node: Node, name: &str, kind: JointKind) -> Result<JointDescription, 
     })
 }
 
-/// How far a joint that can stop is allowed to travel. URDF states both ends or neither.
+/// Travel limits. Both bounds are required on revolute and prismatic joints.
 fn read_limits(node: Node, name: &str) -> Result<(f64, f64), ModelError> {
     let needs_limit = || ModelError::JointNeedsLimit {
         joint: name.to_owned(),
@@ -135,7 +131,7 @@ fn read_limits(node: Node, name: &str) -> Result<(f64, f64), ModelError> {
     Ok((lower, upper))
 }
 
-/// The joint this one follows, where the file says it follows one.
+/// The `<mimic>` coupling, if stated. Defaults: multiplier 1, offset 0.
 fn read_mimic(node: Node) -> Result<Option<MimicDescription>, ModelError> {
     let Some(mimic_node) = element(node, "mimic") else {
         return Ok(None);
@@ -151,7 +147,7 @@ fn read_mimic(node: Node) -> Result<Option<MimicDescription>, ModelError> {
     }))
 }
 
-/// The link a `<parent>` or `<child>` element names.
+/// The link named by a `<parent>` or `<child>` element.
 fn linked(node: Node, tag: &'static str) -> Result<String, ModelError> {
     element(node, tag)
         .and_then(|child| child.attribute("link"))

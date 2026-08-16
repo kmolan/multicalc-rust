@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- One link hanging off two joints at once, so it sits in the model twice over. -->
+<!-- One link as the child of two joints. -->
 <robot name="bad_two_parents">
   <link name="base_link">
     <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>

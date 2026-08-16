@@ -1,7 +1,5 @@
 <?xml version="1.0"?>
-<!-- The happy path: a root and two turning joints, every part of the read subset filled in.
-     The shoulder is turned a quarter turn about z, and the forearm's mass is stated in axes
-     turned a quarter turn from its own. -->
+<!-- Full read subset. Non-zero rpy on the shoulder joint and on the forearm's inertial. -->
 <robot name="two_link_arm">
   <link name="base_link">
     <inertial>

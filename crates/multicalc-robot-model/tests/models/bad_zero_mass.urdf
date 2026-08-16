@@ -1,6 +1,5 @@
 <?xml version="1.0"?>
-<!-- A link stating a mass of zero. A link carrying no mass at all leaves the block out; stating
-     zero states something a body cannot have. -->
+<!-- mass="0". A massless link omits <inertial> instead. -->
 <robot name="bad_zero_mass">
   <link name="base_link">
     <inertial>

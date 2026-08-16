@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- A joint free to slide about in a plane, which this reader does not handle. -->
+<!-- planar joint: outside the supported set. -->
 <robot name="bad_planar_joint">
   <link name="base_link">
     <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>

@@ -1,7 +1,6 @@
 <?xml version="1.0"?>
-<!-- The pattern that anchors a robot to a bare world link by a joint freeing it to move in all
-     six directions. Whether a robot is bolted down or free is settled by whoever loads it, not by
-     the file, so this is refused. -->
+<!-- The world-link floating-base anchor pattern. Fixed versus floating base is a load-time
+     choice by the caller, so this is rejected. -->
 <robot name="bad_floating_joint">
   <link name="world"/>
   <joint name="floats" type="floating">

@@ -1,20 +1,17 @@
-//! Loads robot model files into multicalc's robot types.
+//! Robot model file readers for multicalc.
 //!
-//! Reads MuJoCo MJCF and URDF into one [`RobotModel`]: a flat, depth-first list of bodies, each
-//! with a name, a parent index, a pose, mass properties where the file states them, and a joint
-//! where the body has one.
+//! MJCF and URDF both parse into one [`RobotModel`]: a topologically ordered body list carrying
+//! name, parent index, parent-relative transform, spatial inertia where stated, and joint.
 //!
-//! Converts on request to a [`KinematicTree`](multicalc::kinematics::KinematicTree), either the
-//! whole model or the chain from the root to a named tip body.
+//! Converts on demand to a [`KinematicTree`](multicalc::kinematics::KinematicTree), whole or as
+//! the root-to-tip chain for a named body.
 //!
-//! Constructs a reader does not handle are rejected by name rather than silently dropped, so a
-//! model never loads with incorrect mass properties. Sections a reader does not consume are
-//! skipped and listed in [`RobotModel::ignored`].
+//! Unsupported constructs are rejected by name rather than dropped, so a model never loads with
+//! wrong mass properties. Unconsumed top-level elements are listed in [`RobotModel::ignored`].
 
 mod codegen;
 mod error;
-// Only a reader reads XML, so with neither compiled in the crate is the model types and the
-// codegen alone.
+// With neither reader compiled in, the crate is the model types plus the codegen.
 #[cfg(any(feature = "mjcf", feature = "urdf"))]
 mod xml;
 
@@ -32,7 +29,7 @@ use multicalc::spatial::{SE3, SpatialInertia};
 pub use codegen::{GeneratedScalar, RustSourceOptions};
 pub use error::ModelError;
 
-/// Which file format a model was read from.
+/// The format a model was parsed from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ModelFormat {
@@ -51,7 +48,7 @@ impl core::fmt::Display for ModelFormat {
     }
 }
 
-/// A robot as a model file describes it: its body tree and per-body mass properties.
+/// A parsed robot: body tree and per-body mass properties.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RobotModel {
     name: String,
@@ -69,14 +66,14 @@ impl RobotModel {
         &self.name
     }
 
-    /// The format the model was read from.
+    /// The format this model was parsed from.
     #[inline]
     #[must_use]
     pub fn format(&self) -> ModelFormat {
         self.format
     }
 
-    /// All bodies, depth-first in document order.
+    /// All bodies, in topological (depth-first document) order.
     #[inline]
     #[must_use]
     pub fn bodies(&self) -> &[BodyDescription] {
@@ -104,7 +101,7 @@ impl RobotModel {
         self.bodies.len()
     }
 
-    /// Number of bodies with a joint (degrees of freedom).
+    /// Bodies carrying a joint. Welded bodies are excluded.
     #[inline]
     #[must_use]
     pub fn movable_joint_count(&self) -> usize {
@@ -114,19 +111,17 @@ impl RobotModel {
             .count()
     }
 
-    /// Whether the root body has a free joint (floating base) rather than being welded to the
-    /// world.
+    /// Whether the root body has a 6-DoF joint rather than being welded to the world.
     #[inline]
     #[must_use]
     pub fn has_floating_base(&self) -> bool {
         self.floating_base
     }
 
-    /// Top-level sections not consumed by this loader (sorted, deduplicated). Empty if every
-    /// section was read.
+    /// Top-level elements the reader consumed nothing from, sorted and deduplicated.
     ///
-    /// Only sections that cannot affect mass properties can land here — anything that could is
-    /// rejected outright, not ignored.
+    /// Only elements that cannot affect mass properties reach here; anything that could is
+    /// rejected outright.
     ///
     #[cfg_attr(
         feature = "mjcf",
@@ -152,11 +147,10 @@ assert_eq!(model.ignored(), ["actuator".to_owned()]);
         &self.ignored
     }
 
-    /// The whole model as a jointed tree, one slot per body.
+    /// The whole model as a kinematic tree, one slot per body.
     ///
-    /// A body with no joint of its own takes a slot as a weld, so a slot index and a body index
-    /// are the same number. Every joint carries what the file said about it, the resistance and
-    /// friction figures included.
+    /// A jointless body takes a slot as a weld, so slot index equals body index. Joint dynamics —
+    /// damping, friction loss and the rest — carry through as stated.
     ///
     /// Errors: [`TreeCapacityExceeded`](ModelError::TreeCapacityExceeded) where the model has more
     /// bodies than `MAX_JOINTS`, [`Kinematics`](ModelError::Kinematics) where a joint's own
@@ -170,10 +164,10 @@ assert_eq!(model.ignored(), ["actuator".to_owned()]);
         self.build_tree(&slots)
     }
 
-    /// The chain running from the world down to the body you name, and nothing else.
+    /// The root-to-tip chain for a named body, and nothing else.
     ///
-    /// Slot `k` is the `k`-th body along that chain, so a model with a gripper on the end can be
-    /// read as the arm alone.
+    /// Slot `k` is the `k`-th body along the chain, so an arm can be extracted from a model that
+    /// also carries a gripper.
     ///
     /// Errors: as [`kinematic_tree`](RobotModel::kinematic_tree), plus
     /// [`UnknownBody`](ModelError::UnknownBody) where the model has no body by that name, and
@@ -187,7 +181,7 @@ assert_eq!(model.ignored(), ["actuator".to_owned()]);
         self.build_tree(&slots)
     }
 
-    /// The bodies from the world down to the one you name, by index, the world end first.
+    /// Body indices from the root to the named body, root first.
     ///
     /// Errors: [`UnknownBody`](ModelError::UnknownBody) where the model has no body by that name.
     pub fn path_to(&self, tip: &str) -> Result<Vec<usize>, ModelError> {
@@ -210,11 +204,11 @@ assert_eq!(model.ignored(), ["actuator".to_owned()]);
 
     /// Builds a tree over the given body indices, in slot order.
     ///
-    /// A slot's parent is `World` where the body's own parent is absent from `slots`, and
-    /// otherwise the slot the parent body landed in — which is the body's own index for
-    /// [`kinematic_tree`](RobotModel::kinematic_tree) (every body is present, in order) and
-    /// `k - 1` for [`kinematic_tree_to`](RobotModel::kinematic_tree_to)'s slot `k` (`slots` is a
-    /// single root-to-tip chain, so a body's parent is always the previous entry).
+    /// A slot's parent is `World` where the body's parent is absent from `slots`, otherwise the
+    /// slot the parent landed in — the body's own index for
+    /// [`kinematic_tree`](RobotModel::kinematic_tree), and `k - 1` for
+    /// [`kinematic_tree_to`](RobotModel::kinematic_tree_to)'s slot `k`, since a chain's parent is
+    /// always the previous entry.
     fn build_tree<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
         slots: &[usize],
@@ -231,11 +225,10 @@ assert_eq!(model.ignored(), ["actuator".to_owned()]);
         KinematicTree::try_from_joints(&joints, &parents).map_err(ModelError::Kinematics)
     }
 
-    /// Refuses the first joint among these slots that follows another joint.
+    /// Rejects the first mimic joint among these slots.
     ///
-    /// A tree holds joints that each move on their own, so one driven by another has nowhere to
-    /// go. Checking only the slots asked for means a chain that leaves the following joint out
-    /// still builds.
+    /// A `KinematicTree` has no constraint concept, so a coupled joint cannot be represented.
+    /// Checking only the requested slots lets a chain that excludes the mimic joint still build.
     pub(crate) fn reject_mimic_joints(&self, slots: &[usize]) -> Result<(), ModelError> {
         for &index in slots {
             let body = &self.bodies[index];
@@ -251,9 +244,7 @@ assert_eq!(model.ignored(), ["actuator".to_owned()]);
         Ok(())
     }
 
-    /// The `Joint` and `JointParent` each slot needs, in slot order. A slot's parent is `World`
-    /// where the body's own parent is absent from `slots`, and otherwise the slot the parent body
-    /// landed in.
+    /// The `Joint` and `JointParent` per slot, in slot order.
     pub(crate) fn joints_and_parents(
         &self,
         slots: &[usize],
@@ -280,8 +271,7 @@ assert_eq!(model.ignored(), ["actuator".to_owned()]);
     }
 }
 
-/// The `Joint` a body's own description asks for: its geometry, then the dynamics data carried
-/// alongside it.
+/// The `Joint` a body describes: geometry first, then joint dynamics.
 fn build_joint(body: &BodyDescription) -> Joint<f64> {
     let Some(description) = &body.joint else {
         return Joint::fixed(body.pose);
@@ -317,7 +307,7 @@ fn build_joint(body: &BodyDescription) -> Joint<f64> {
     }
 }
 
-/// One body: pose, spatial inertia, and its joint (if any).
+/// One body: parent-relative transform, spatial inertia, and its joint.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BodyDescription {
     name: String,
@@ -335,31 +325,31 @@ impl BodyDescription {
         &self.name
     }
 
-    /// Parent body index, or `None` at the root.
+    /// Parent body index, `None` at the root.
     #[inline]
     #[must_use]
     pub fn parent(&self) -> Option<usize> {
         self.parent
     }
 
-    /// Pose relative to the parent body frame.
+    /// Transform from the parent body frame.
     #[inline]
     #[must_use]
     pub fn pose(&self) -> SE3<f64> {
         self.pose
     }
 
-    /// Mass, center of mass, and rotational inertia, or `None` where the file stated none.
+    /// Mass, COM and rotational inertia, or `None` where the file states none.
     ///
-    /// A body with no mass properties is still a real body: it takes a slot in the tree and its
-    /// pose is read like any other. URDF uses such bodies for tool and sensor frames.
+    /// A massless body is still a body: it takes a tree slot and its transform is read normally.
+    /// URDF uses these for tool and sensor frames.
     #[inline]
     #[must_use]
     pub fn inertia(&self) -> Option<SpatialInertia<f64>> {
         self.inertia
     }
 
-    /// Joint connecting the body to its parent, or `None` if welded.
+    /// Joint to the parent body, `None` if welded.
     #[inline]
     #[must_use]
     pub fn joint(&self) -> Option<&JointDescription> {
@@ -367,10 +357,10 @@ impl BodyDescription {
     }
 }
 
-/// One joint following another, at a fixed ratio and offset.
+/// A joint coupled to another by `child = multiplier * driver + offset`.
 ///
-/// A tree of joints that each move on their own cannot describe this, so a model carrying one is
-/// read in full but cannot be turned into a whole-model tree.
+/// A `KinematicTree` carries no constraints, so a model with one parses in full but cannot be
+/// converted whole.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MimicDescription {
     joint: String,
@@ -379,21 +369,21 @@ pub struct MimicDescription {
 }
 
 impl MimicDescription {
-    /// The joint this one follows.
+    /// The driving joint's name.
     #[inline]
     #[must_use]
     pub fn joint(&self) -> &str {
         &self.joint
     }
 
-    /// How far this joint moves for each unit the joint it follows moves.
+    /// Ratio to the driving joint.
     #[inline]
     #[must_use]
     pub fn multiplier(&self) -> f64 {
         self.multiplier
     }
 
-    /// Where this joint sits when the joint it follows reads zero.
+    /// Value at zero driving-joint position.
     #[inline]
     #[must_use]
     pub fn offset(&self) -> f64 {
@@ -401,7 +391,7 @@ impl MimicDescription {
     }
 }
 
-/// One joint: kinematic and dynamic parameters as read from the file.
+/// One joint's kinematic and dynamic parameters, as stated.
 #[derive(Debug, Clone, PartialEq)]
 pub struct JointDescription {
     name: String,
@@ -426,84 +416,82 @@ impl JointDescription {
         &self.name
     }
 
-    /// Revolute, prismatic, continuous, or floating.
+    /// Revolute, prismatic, continuous or floating.
     #[inline]
     #[must_use]
     pub fn kind(&self) -> JointKind {
         self.kind
     }
 
-    /// Joint axis (unit vector).
+    /// Unit joint axis, in the child body frame.
     #[inline]
     pub fn axis(&self) -> Vector3D<f64> {
         self.axis
     }
 
-    /// Revolute joint's center of rotation; unused for prismatic joints.
+    /// Revolute centre of rotation, as an offset in the body frame. Unused for prismatic joints.
     #[inline]
     pub fn anchor(&self) -> Vector3D<f64> {
         self.anchor
     }
 
-    /// Travel limits `(lower, upper)`, or `None` if unlimited.
+    /// Travel limits `(lower, upper)`, `None` if unbounded.
     #[inline]
     #[must_use]
     pub fn limits(&self) -> Option<(f64, f64)> {
         self.limits
     }
 
-    /// Reference position (MJCF `ref`); joint reading at zero configuration.
+    /// Joint value at zero configuration (MJCF `ref`). Always 0 for URDF.
     #[inline]
     #[must_use]
     pub fn zero_offset(&self) -> f64 {
         self.zero_offset
     }
 
-    /// Reflected rotor inertia added to the joint-space inertia (MJCF `armature`).
+    /// Reflected rotor inertia (MJCF `armature`). Always 0 for URDF.
     #[inline]
     #[must_use]
     pub fn armature(&self) -> f64 {
         self.armature
     }
 
-    /// Velocity-proportional damping coefficient.
+    /// Viscous damping coefficient.
     #[inline]
     #[must_use]
     pub fn damping(&self) -> f64 {
         self.damping
     }
 
-    /// Coulomb friction (breakaway force/torque).
+    /// Coulomb friction (breakaway force or torque).
     #[inline]
     #[must_use]
     pub fn friction_loss(&self) -> f64 {
         self.friction_loss
     }
 
-    /// Spring equilibrium position (MJCF `springref`).
+    /// Spring equilibrium position (MJCF `springref`). Always 0 for URDF.
     #[inline]
     #[must_use]
     pub fn spring_reference(&self) -> f64 {
         self.spring_reference
     }
 
-    /// Spring stiffness coefficient.
+    /// Spring stiffness. Always 0 for URDF.
     #[inline]
     #[must_use]
     pub fn spring_stiffness(&self) -> f64 {
         self.spring_stiffness
     }
 
-    /// The joint this one is driven by, or `None` where it moves on its own.
+    /// The joint driving this one, `None` if independent.
     #[inline]
     #[must_use]
     pub fn mimic(&self) -> Option<&MimicDescription> {
         self.mimic.as_ref()
     }
 
-    /// A floating (6-DOF) joint: a file that frees a body to move in all six directions states
-    /// none of a `JointDescription`'s other fields, so every one of them is left at its inert
-    /// default.
+    /// A 6-DoF joint. No other field applies, so each is left at its inert default.
     #[cfg(any(feature = "mjcf", feature = "urdf"))]
     pub(crate) fn floating(name: String) -> Self {
         JointDescription {
@@ -523,11 +511,10 @@ impl JointDescription {
     }
 }
 
-/// Reads a model from a file, choosing the reader from the file's extension: `.urdf` reads URDF,
-/// anything else reads MJCF.
+/// Reads a model file, dispatching on extension: `.urdf` reads URDF, anything else MJCF.
 ///
-/// Errors: whatever the chosen reader refuses on, and
-/// [`FormatNotEnabled`](ModelError::FormatNotEnabled) where this build was compiled without it.
+/// Errors: whatever the chosen reader rejects, plus
+/// [`FormatNotEnabled`](ModelError::FormatNotEnabled) if that reader is not compiled in.
 pub fn load_path(path: &Path) -> Result<RobotModel, ModelError> {
     let is_urdf = path
         .extension()
@@ -540,12 +527,10 @@ pub fn load_path(path: &Path) -> Result<RobotModel, ModelError> {
     }
 }
 
-/// Parses a model from text, choosing the reader from the document's root element: `<robot>` reads
-/// URDF, `<mujoco>` reads MJCF.
+/// Parses a model, dispatching on root element: `<robot>` reads URDF, `<mujoco>` MJCF.
 ///
 /// Errors: as [`load_path`], plus
-/// [`UnexpectedRootElement`](ModelError::UnexpectedRootElement) where the document starts with
-/// anything else.
+/// [`UnexpectedRootElement`](ModelError::UnexpectedRootElement) for any other root.
 pub fn load_str(xml: &str) -> Result<RobotModel, ModelError> {
     let document = roxmltree::Document::parse(xml).map_err(|e| ModelError::Xml(e.to_string()))?;
     match document.root_element().tag_name().name() {

@@ -1,8 +1,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![cfg(feature = "urdf")]
 
-//! The URDF reader, worked against the hand-written models in `tests/models/`. Each one is small
-//! and exists to reach one part of the subset, and each `bad_` one is refused by name.
+//! The URDF reader against the hand-written models in `tests/models/`, one construct each. Every
+//! `bad_` model is rejected by name.
 
 use std::path::{Path, PathBuf};
 
@@ -11,7 +11,7 @@ use multicalc::linear_algebra::Vector;
 use multicalc::spatial::Quaternion;
 use multicalc_robot_model::{ModelError, ModelFormat, RobotModel, RustSourceOptions};
 
-/// Where the hand-written models live.
+/// Path to a hand-written model.
 fn model_path(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/models")
@@ -23,7 +23,7 @@ fn model(name: &str) -> RobotModel {
         .unwrap_or_else(|e| panic!("loading {name}: {e}"))
 }
 
-/// The error one of the `bad_` models is refused with.
+/// The error a `bad_` model is rejected with.
 fn refusal(name: &str) -> ModelError {
     match multicalc_robot_model::urdf::load_path(&model_path(name)) {
         Ok(_) => panic!("{name} loaded, and it should not have"),
@@ -50,7 +50,7 @@ fn two_link_arm_reads_its_tree() {
 fn joint_origin_becomes_the_body_pose() {
     let arm = model("two_link_arm.urdf");
 
-    // URDF puts the transform on the joint, so the top body sits at the origin.
+    // URDF puts the transform on the joint, so the root body sits at identity.
     let root = arm.body(0).unwrap().pose();
     assert_eq!(root.translation().into_array(), [0.0; 3]);
     assert_eq!(root.rotation().quaternion(), Quaternion::identity());
@@ -68,7 +68,7 @@ fn joint_origin_becomes_the_body_pose() {
 fn rpy_becomes_the_right_turn() {
     let arm = model("two_link_arm.urdf");
 
-    // A quarter turn about z takes the x direction onto the y direction.
+    // Rz(pi/2) maps x onto y.
     let turned = arm
         .body(1)
         .unwrap()
@@ -79,7 +79,7 @@ fn rpy_becomes_the_right_turn() {
         assert!((turned[axis] - want).abs() < 1e-12, "turned[{axis}]");
     }
 
-    // And all three angles at once agree with the same three angles read straight.
+    // All three angles together against `from_euler_zyx` directly.
     let three_angles = model("massless_frames.urdf");
     let stated = Quaternion::from_euler_zyx(0.0, 0.0, std::f64::consts::FRAC_PI_2);
     let read = three_angles.body(2).unwrap().pose().rotation().quaternion();
@@ -99,7 +99,7 @@ fn rpy_becomes_the_right_turn() {
 
 #[test]
 fn axis_defaults_to_x() {
-    // URDF's default axis is x, where MJCF's is z.
+    // URDF defaults to x; MJCF defaults to z.
     let kinds = model("every_joint_kind.urdf");
     let arm = model("two_link_arm.urdf");
     assert_eq!(
@@ -112,7 +112,7 @@ fn axis_defaults_to_x() {
 
 #[test]
 fn anchor_is_always_zero() {
-    // A URDF joint sits at the origin of the link it drives, so it never carries an offset.
+    // A URDF joint sits at its child link frame's origin, so the anchor is always zero.
     for body in model("two_link_arm.urdf").bodies() {
         if let Some(joint) = body.joint() {
             assert_eq!(joint.anchor().into_array(), [0.0; 3], "{}", body.name());
@@ -129,7 +129,7 @@ fn every_joint_kind_reads() {
     assert_eq!(kind_of("turning"), Some(JointKind::Revolute));
     assert_eq!(kind_of("spinning"), Some(JointKind::Continuous));
     assert_eq!(kind_of("sliding"), Some(JointKind::Prismatic));
-    // A welded link carries no joint at all, the same as an MJCF body with none.
+    // A welded link carries no joint, as for an MJCF body with none.
     assert_eq!(kind_of("welded"), None);
     assert_eq!(kinds.movable_joint_count(), 3);
 }
@@ -140,7 +140,7 @@ fn limits_come_across() {
     let joint = |name: &str| kinds.body_named(name).unwrap().joint().unwrap();
     assert_eq!(joint("turning").limits(), Some((-1.0, 1.0)));
     assert_eq!(joint("sliding").limits(), Some((0.0, 2.0)));
-    // A joint that turns round and round has nowhere to stop.
+    // Continuous joints are unbounded.
     assert_eq!(joint("spinning").limits(), None);
 }
 
@@ -151,13 +151,13 @@ fn dynamics_come_across() {
     assert_eq!(shoulder.damping(), 0.25);
     assert_eq!(shoulder.friction_loss(), 0.5);
 
-    // URDF has no equivalent of any of these.
+    // No URDF equivalent.
     assert_eq!(shoulder.armature(), 0.0);
     assert_eq!(shoulder.zero_offset(), 0.0);
     assert_eq!(shoulder.spring_reference(), 0.0);
     assert_eq!(shoulder.spring_stiffness(), 0.0);
 
-    // A joint stating no dynamics at all gets nothing that resists it.
+    // Unstated dynamics default to zero.
     let elbow = arm.body(2).unwrap().joint().unwrap();
     assert_eq!(elbow.damping(), 0.125);
     assert_eq!(elbow.friction_loss(), 0.0);
@@ -220,7 +220,7 @@ fn mimic_refuses_the_whole_tree() {
 fn mimic_allows_a_clean_chain() {
     let gripper = model("mimic_gripper.urdf");
 
-    // The chain down to the finger that moves on its own has no following joint on it.
+    // The chain to the independent finger contains no mimic joint.
     let chain = gripper.kinematic_tree_to::<8, 8>("finger1").unwrap();
     assert_eq!(chain.len(), 2);
 
@@ -241,8 +241,7 @@ fn mimic_refuses_rust_source() {
 
 #[test]
 fn floating_joint_is_refused() {
-    // Whether a robot is bolted down or free to move is settled by whoever loads it, so a file
-    // stating it is refused rather than read.
+    // Floating base is a load-time choice by the caller, so a file stating one is rejected.
     assert_eq!(
         refusal("bad_floating_joint.urdf"),
         ModelError::FreeJointNotAtRoot {
@@ -265,8 +264,8 @@ fn passed_over_sections_are_listed() {
 
 #[test]
 fn visual_and_collision_are_skipped() {
-    // They sit inside a link rather than at the top of the file, so they are skipped without
-    // being named — and no mesh file is ever looked for.
+    // Both sit inside `<link>`, not at the top level, so they are skipped without being listed,
+    // and no mesh file is resolved.
     let shapes = model("visual_and_collision.urdf");
     assert!(shapes.ignored().is_empty());
     assert_eq!(shapes.body_count(), 2);
@@ -275,7 +274,7 @@ fn visual_and_collision_are_skipped() {
 
 #[test]
 fn safety_controller_does_not_change_limits() {
-    // The soft pair a controller is told to keep inside is passed over; the hard pair is read.
+    // Soft limits are passed over; the hard `<limit>` is what is read.
     let safe = model("safety_controller.urdf");
     let shoulder = safe.body(1).unwrap().joint().unwrap();
     assert_eq!(shoulder.limits(), Some((-3.0, 3.0)));
@@ -363,8 +362,7 @@ fn an_axis_pointing_nowhere_is_refused() {
 
 #[test]
 fn a_link_stating_no_mass_at_all_is_refused() {
-    // Leaving the block out says the link carries no mass; stating zero states something a body
-    // cannot have.
+    // An absent `<inertial>` means massless; `mass="0"` states something a body cannot have.
     assert!(matches!(
         refusal("bad_zero_mass.urdf"),
         ModelError::Inertia(multicalc::error::SpatialError::NonPositiveMass)
@@ -383,8 +381,8 @@ fn a_document_that_is_not_a_robot_is_refused() {
 
 #[test]
 fn load_path_dispatches_on_extension() {
-    // A `.urdf` file goes to the URDF reader whatever it holds, which is why a MuJoCo document
-    // under that name is refused for its root element rather than read.
+    // Extension picks the reader regardless of content, so a MuJoCo document named `.urdf` is
+    // rejected on its root element.
     let read = multicalc_robot_model::load_path(&model_path("two_link_arm.urdf")).unwrap();
     assert_eq!(read.format(), ModelFormat::Urdf);
     assert!(matches!(
@@ -423,8 +421,7 @@ fn load_str_reads_a_mujoco_document_too() {
 
 #[test]
 fn rust_source_renders_a_urdf_model() {
-    // Writing a model out as Rust source reads the same `RobotModel` whichever file it came from,
-    // so nothing in the codegen knows about either format.
+    // The codegen reads a `RobotModel` and never learns which reader built it.
     let source = model("two_link_arm.urdf")
         .to_rust_source(&RustSourceOptions::new("two_link_arm"))
         .unwrap();

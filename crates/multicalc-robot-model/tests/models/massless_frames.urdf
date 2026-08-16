@@ -1,6 +1,5 @@
 <?xml version="1.0"?>
-<!-- A link carrying mass, then two that carry none: the tool and sensor frames a file writes as
-     bare links. Both hang off welds, so the whole thing still builds a tree. -->
+<!-- One link with inertia, two without: tool and sensor frames, on fixed joints. -->
 <robot name="massless_frames">
   <link name="base_link">
     <inertial>

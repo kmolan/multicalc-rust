@@ -1,9 +1,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![cfg(feature = "urdf")]
 
-//! The vendored MoveIt Panda, read as published. It covers two things no hand-written model here
-//! does at full size: a gripper finger that follows the other one, and a description that states
-//! no mass at all.
+//! The vendored MoveIt Panda, as published: a mimic gripper joint and a wholly massless model, at
+//! full size.
 
 use std::path::Path;
 
@@ -17,7 +16,7 @@ fn panda() -> RobotModel {
     multicalc_robot_model::urdf::load_path(&path).unwrap()
 }
 
-/// Every body in the file, in the order the links appear.
+/// Bodies in document order.
 const BODIES: [&str; 12] = [
     "panda_link0",
     "panda_link1",
@@ -43,7 +42,7 @@ fn panda_reads_its_tree() {
     let names: Vec<&str> = model.bodies().iter().map(|body| body.name()).collect();
     assert_eq!(names, BODIES);
 
-    // A straight arm down to the hand, with both fingers hanging off the hand.
+    // A serial arm to the hand, with both fingers as children of the hand.
     let parents: Vec<Option<usize>> = model.bodies().iter().map(|body| body.parent()).collect();
     let want = [
         None,
@@ -65,9 +64,8 @@ fn panda_reads_its_tree() {
 
 #[test]
 fn panda_has_no_mass_anywhere() {
-    // The file as published carries no `<inertial>` block on any link: it describes where the
-    // robot's parts are and how they move, and nothing about what they weigh. This is exactly why
-    // a body's mass properties are allowed to be absent.
+    // The published file has no `<inertial>` anywhere: kinematics only, no dynamics. This is why
+    // spatial inertia is optional.
     for body in panda().bodies() {
         assert_eq!(body.inertia(), None, "{}", body.name());
     }
@@ -91,7 +89,7 @@ fn panda_joint_kinds() {
     assert_eq!(kind_of("panda_leftfinger"), Some(JointKind::Prismatic));
     assert_eq!(kind_of("panda_rightfinger"), Some(JointKind::Prismatic));
 
-    // `panda_joint8` and `panda_hand_joint` are welds, so the links they reach carry no joint.
+    // `panda_joint8` and `panda_hand_joint` are fixed, so their child bodies carry no joint.
     assert_eq!(kind_of("panda_link8"), None);
     assert_eq!(kind_of("panda_hand"), None);
     assert_eq!(model.movable_joint_count(), 9);
@@ -115,7 +113,7 @@ fn panda_finger_mimics() {
         .unwrap();
     let mimic = right.mimic().unwrap();
     assert_eq!(mimic.joint(), "panda_finger_joint1");
-    // The file writes `<mimic joint="panda_finger_joint1" />` bare, so both take their defaults.
+    // Written bare as `<mimic joint="panda_finger_joint1" />`, so both take their defaults.
     assert_eq!(mimic.multiplier(), 1.0);
     assert_eq!(mimic.offset(), 0.0);
 }
@@ -133,8 +131,7 @@ fn panda_whole_tree_refuses() {
 
 #[test]
 fn panda_arm_chain_builds() {
-    // The chain down to the hand is the arm and the gripper mount, leaving out the finger that
-    // follows the other one.
+    // The chain to the hand is the arm plus the gripper mount, excluding the mimic finger.
     let model = panda();
     let tree = model.kinematic_tree_to::<10, 10>("panda_hand").unwrap();
     assert_eq!(tree.len(), 10);
@@ -149,11 +146,10 @@ fn panda_arm_chain_builds() {
 #[test]
 #[expect(
     clippy::approx_constant,
-    reason = "-3.1416 is the number the file writes, not a rounded half turn"
+    reason = "-3.1416 is the file's own literal, not an approximation of pi"
 )]
 fn panda_safety_controller_is_not_read() {
-    // The fourth joint states a soft range for a controller that sits inside its hard one. The
-    // hard pair is what a model has to carry.
+    // Joint 4's soft range sits inside its hard one; the hard pair is what is read.
     let model = panda();
     let joint = model.body_named("panda_link4").unwrap().joint().unwrap();
     assert_eq!(joint.name(), "panda_joint4");
@@ -162,7 +158,6 @@ fn panda_safety_controller_is_not_read() {
 
 #[test]
 fn panda_has_no_ignored_sections() {
-    // The file carries only `<link>` and `<joint>` at the top level. Its meshes and its soft
-    // limits sit inside those, so they are skipped without being named.
+    // Only `<link>` and `<joint>` at the top level; meshes and soft limits sit inside those.
     assert!(panda().ignored().is_empty());
 }

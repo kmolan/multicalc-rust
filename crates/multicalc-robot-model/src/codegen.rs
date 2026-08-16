@@ -1,5 +1,5 @@
-//! Writes a `RobotModel` out as Rust source: one function that builds the same tree, so a program
-//! can carry a checked-in model without reading a file at all.
+//! Emits a `RobotModel` as Rust source: one function building the same tree, so a binary can
+//! carry a checked-in model with no file I/O.
 
 use std::fmt::Write as _;
 
@@ -7,9 +7,8 @@ use multicalc::kinematics::{Joint, JointKind, JointParent, KinematicTree};
 
 use crate::{ModelError, RobotModel};
 
-/// Large enough for any model this loader can realistically parse. Used only to check every
-/// joint's own numbers are sound before anything is written; unrelated to the capacity the caller
-/// asks the *generated* tree to have.
+/// Large enough for any model this reader parses. Used only to validate the joints before
+/// emitting; unrelated to the capacity the *generated* tree is given.
 const VALIDATION_CAPACITY: usize = 128;
 /// Large enough for [`VALIDATION_CAPACITY`] joints plus one floating base.
 const VALIDATION_CONFIGURATION_CAPACITY: usize = VALIDATION_CAPACITY + 6;

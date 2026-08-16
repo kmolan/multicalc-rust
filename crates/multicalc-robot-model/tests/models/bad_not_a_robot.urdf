@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- A MuJoCo file under a URDF name. The reader goes by what the document starts with. -->
+<!-- MJCF content under a .urdf name; dispatch is on the root element. -->
 <mujoco model="not_a_robot">
   <worldbody>
     <body name="box">

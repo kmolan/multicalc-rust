@@ -1,7 +1,7 @@
-//! Reading the tree of bodies a model file describes.
+//! `<worldbody>` tree parsing.
 //!
-//! Where the file states a body's mass properties they are used as written. Where it does not,
-//! they are worked out from the shapes the body is built from.
+//! Spatial inertia comes from `<inertial>` where stated, otherwise it is integrated over the
+//! body's geoms.
 
 use multicalc::linear_algebra::{Matrix, Matrix3D, Vector, Vector3D};
 use multicalc::spatial::{SE3, SO3, SpatialInertia};
@@ -18,11 +18,10 @@ use crate::xml::{
     parse_vector6, unit_quaternion,
 };
 
-/// The top-level sections this loader takes something from. Every other section a file carries is
-/// passed over, and listed by name rather than going quietly.
+/// Top-level elements this reader consumes. Every other one is listed in `ignored`.
 const READ_SECTIONS: [&str; 3] = ["compiler", "default", "worldbody"];
 
-/// Everything one model file says, as a flat list of bodies in the order they appear.
+/// One parsed file: bodies in document order, plus what was skipped.
 pub(crate) struct ParsedModel {
     pub name: String,
     pub bodies: Vec<ParsedBody>,
@@ -30,19 +29,18 @@ pub(crate) struct ParsedModel {
     pub ignored: Vec<String>,
 }
 
-/// One body, as read from the file: its place in the tree, its pose, its mass, and its joint.
+/// One `<body>` as parsed: topology, transform, inertia, joint.
 pub(crate) struct ParsedBody {
     pub name: String,
     pub parent: Option<usize>,
     pub pose: SE3<f64>,
-    /// The body's mass properties. MJCF always states them or works them out, so this reader never
-    /// leaves it empty; the model type allows it because URDF does.
+    /// MJCF always states or derives inertia, so this reader never leaves it empty. The model
+    /// type permits `None` because URDF needs it.
     pub inertia: Option<SpatialInertia<f64>>,
     pub joint: Option<JointDescription>,
 }
 
-/// Reads the tree of bodies a file describes, refusing anything outside this loader's subset by
-/// name.
+/// Parses the body tree, rejecting anything outside the supported subset by name.
 pub(crate) fn read(document: &Document) -> Result<ParsedModel, ModelError> {
     let root = document.root_element();
     let name = root.attribute("model").unwrap_or("model").to_owned();
@@ -76,11 +74,10 @@ pub(crate) fn read(document: &Document) -> Result<ParsedModel, ModelError> {
     })
 }
 
-/// The `<body>` children of `<worldbody>`, seeing through any nested `<worldbody>` an `<include>`
-/// spliced in — resolving one only ever puts back what its own `<mujoco>` wrapper held, which for
-/// a file it does not itself pull other bodies out of is a single `<worldbody>` around the same
-/// bodies it always had. A body's own `<body>` children are never wrapped like this, so recursion
-/// from there stays a plain child scan.
+/// The `<body>` children of `<worldbody>`, seeing through a nested `<worldbody>` spliced in by an
+/// `<include>`. Splicing reinserts the included file's `<mujoco>` contents verbatim, so an
+/// included body list arrives wrapped in its own `<worldbody>`. Nested `<body>` elements are never
+/// wrapped this way, so recursion below the top level is a plain child scan.
 fn top_level_bodies<'a, 'input>(worldbody: Node<'a, 'input>) -> Vec<Node<'a, 'input>> {
     let mut found = Vec::new();
     for child in worldbody.children().filter(Node::is_element) {
@@ -93,10 +90,9 @@ fn top_level_bodies<'a, 'input>(worldbody: Node<'a, 'input>) -> Vec<Node<'a, 'in
     found
 }
 
-/// Reads one body, pushes it, then recurses into its own `<body>` children.
+/// Parses one body, emits it, then recurses into its `<body>` children.
 ///
-/// `inherited_class` is the nearest enclosing `childclass`, carried down until a descendant states
-/// its own.
+/// `inherited_class` is the nearest enclosing `childclass`, carried down until overridden.
 fn walk_body(
     node: Node,
     parent: Option<usize>,
@@ -175,7 +171,7 @@ fn walk_body(
     Ok(())
 }
 
-/// Whether a joint-shaped element is a free joint: `<freejoint/>`, or `<joint type="free">`.
+/// Whether an element is a free joint: `<freejoint/>` or `<joint type="free">`.
 fn is_free_joint(node: Node) -> bool {
     match node.tag_name().name() {
         "freejoint" => true,
@@ -184,7 +180,7 @@ fn is_free_joint(node: Node) -> bool {
     }
 }
 
-/// The mass properties a file states outright, from either `diaginertia` or `fullinertia`.
+/// Spatial inertia stated outright, via `diaginertia` or `fullinertia`.
 fn stated_inertia(node: Node) -> Result<SpatialInertia<f64>, ModelError> {
     let position = parse_vector3(node, "pos")?.unwrap_or([0.0; 3]);
     let mass = parse_scalar(node, "mass")?.ok_or_else(|| required(node, "mass"))?;
@@ -194,13 +190,13 @@ fn stated_inertia(node: Node) -> Result<SpatialInertia<f64>, ModelError> {
 
     let tensor = match (diagonal, full) {
         (Some(principal), None) => {
-            // The three numbers run along the axes of a frame turned by `quat` from the body's
-            // own, so turn them back to read the whole tensor in the body's axes.
+            // Principal moments are given in a frame rotated by `quat`; rotate the tensor back
+            // into body axes.
             let quat = parse_vector4(node, "quat")?.unwrap_or([1.0, 0.0, 0.0, 0.0]);
             let rotation = unit_quaternion(node, quat, "quat")?.to_rotation_matrix();
             rotation * Matrix::from_diagonal(principal) * rotation.transpose()
         }
-        // `quat` says nothing about a full tensor; MuJoCo does not read it there either.
+        // `quat` does not apply to a full tensor; MuJoCo ignores it there too.
         (None, Some([ixx, iyy, izz, ixy, ixz, iyz])) => {
             Matrix::from([[ixx, ixy, ixz], [ixy, iyy, iyz], [ixz, iyz, izz]])
         }
@@ -216,9 +212,8 @@ fn stated_inertia(node: Node) -> Result<SpatialInertia<f64>, ModelError> {
     SpatialInertia::new(mass, Vector::new(position), tensor).map_err(ModelError::Inertia)
 }
 
-/// The mass properties worked out from the shapes a body is built from, for a body with no stated
-/// inertia of its own. Only the body's own `<geom>` children are measured, never a descendant
-/// body's.
+/// Spatial inertia integrated over a body's geoms, for a body stating none. Only the body's own
+/// `<geom>` children count, never a descendant body's.
 fn synthesized_inertia(
     body: Node,
     table: &DefaultTable,
@@ -232,8 +227,8 @@ fn synthesized_inertia(
         }
     }
 
-    // No shape carrying mass means nothing to work the body out from. Refusing here is what keeps
-    // a massless body from ever loading.
+    // No mass-bearing geom means nothing to integrate. Rejecting here is what stops a massless
+    // MJCF body from loading.
     let total_mass: f64 = shapes.iter().map(|shape| shape.mass).sum();
     if total_mass == 0.0 {
         return Err(ModelError::NoInertiaSource {
@@ -241,14 +236,13 @@ fn synthesized_inertia(
         });
     }
 
-    // The body balances at the average of the shape centres, each weighted by its mass.
+    // Composite COM: the mass-weighted mean of the geom centres.
     let weighted = shapes.iter().fold(Vector::zeros(), |running, shape| {
         running + shape.center.scale(shape.mass)
     });
     let center_of_mass = weighted.scale(1.0 / total_mass);
 
-    // Each shape resists being spun about the body's balance point by more than about its own
-    // centre, by an amount set by its mass and how far apart the two points are.
+    // Parallel-axis shift of each geom's inertia from its own centre to the composite COM.
     let summed = shapes.iter().fold(Matrix::zeros(), |running, shape| {
         running + shape.inertia + shifted(shape.mass, shape.center - center_of_mass)
     });
@@ -256,7 +250,7 @@ fn synthesized_inertia(
     SpatialInertia::new(total_mass, center_of_mass, summed).map_err(ModelError::Inertia)
 }
 
-/// How much harder a mass is to spin about a point `offset` away from where it balances.
+/// The parallel-axis term for a mass displaced by `offset` from its COM.
 fn shifted(mass: f64, offset: Vector3D) -> Matrix3D {
     let distance_squared = offset.dot(offset);
     Matrix::from_fn(|row, column| {
@@ -265,7 +259,7 @@ fn shifted(mass: f64, offset: Vector3D) -> Matrix3D {
     })
 }
 
-/// The error for an attribute the file has to carry and does not.
+/// Error for a required attribute the file omits.
 #[must_use]
 fn required(node: Node, attribute: &str) -> ModelError {
     bad_attribute(

@@ -1,5 +1,4 @@
-//! Reads the joint one body carries: kind, axis, anchor, travel limits, and the dynamics
-//! parameters forward kinematics does not use.
+//! `<joint>` parsing: kind, axis, anchor, travel limits and joint dynamics.
 
 use multicalc::kinematics::JointKind;
 use multicalc::linear_algebra::Vector;
@@ -11,13 +10,12 @@ use crate::mjcf::compiler::CompilerSettings;
 use crate::mjcf::defaults::{DefaultTable, JointDefaults};
 use crate::xml::bad_attribute;
 
-/// MJCF's default joint type when a `<joint>` states none.
+/// MJCF's default joint type.
 const ASSUMED_JOINT_TYPE: &str = "hinge";
 
-/// Reads the joint a body carries, or `None` where it carries none.
+/// The joint a body carries, `None` if welded.
 ///
-/// A free joint is resolved by the caller before this is reached; a body arriving here carries at
-/// most one ordinary (hinge or slide) joint.
+/// Free joints are handled by the caller; a body reaching here carries at most one hinge or slide.
 pub(crate) fn read_joint(
     body: Node,
     table: &DefaultTable,
@@ -71,7 +69,7 @@ pub(crate) fn read_joint(
     let anchor = Vector::new(resolved.pos.unwrap_or([0.0; 3]));
     let limits = read_limits(node, &resolved, settings.auto_limits, to_radians, body_name)?;
 
-    // A hinge with no resolved range is unbounded; everything else keeps its stated type.
+    // An unlimited hinge is continuous; every other type is kept as stated.
     let kind = if is_revolute && limits.is_none() {
         JointKind::Continuous
     } else {
@@ -92,12 +90,12 @@ pub(crate) fn read_joint(
         friction_loss: resolved.friction_loss.unwrap_or(0.0),
         spring_reference: to_radians(resolved.spring_reference.unwrap_or(0.0)),
         spring_stiffness: resolved.stiffness.unwrap_or(0.0),
-        // MJCF has no way to say one joint follows another.
+        // MJCF has no mimic construct.
         mimic: None,
     }))
 }
 
-/// A joint's travel limits, from `range` and `limited`.
+/// Travel limits, from `range` and `limited`.
 fn read_limits(
     node: Node,
     resolved: &JointDefaults,
@@ -124,8 +122,8 @@ fn read_limits(
     }
 }
 
-/// A joint's settings, with its own attributes winning over its named class, that over the body's
-/// inherited `childclass`, that over the unnamed block.
+/// Joint settings in precedence order: own attributes, named class, inherited `childclass`,
+/// unnamed default block.
 fn effective(
     node: Node,
     table: &DefaultTable,

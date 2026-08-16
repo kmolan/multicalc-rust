@@ -1,4 +1,4 @@
-//! Reading numbers and elements out of an XML document, for both readers.
+//! XML attribute and element access, shared by both readers.
 
 #[cfg(feature = "mjcf")]
 use multicalc::spatial::Quaternion;
@@ -6,7 +6,7 @@ use roxmltree::Node;
 
 use crate::ModelError;
 
-/// The child elements of `node` with the given tag.
+/// Child elements of `node` with the given tag.
 pub(crate) fn elements<'a, 'input>(
     node: Node<'a, 'input>,
     tag: &'static str,
@@ -15,7 +15,7 @@ pub(crate) fn elements<'a, 'input>(
         .filter(move |child| child.is_element() && child.tag_name().name() == tag)
 }
 
-/// The first child element of `node` with the given tag.
+/// First child element of `node` with the given tag.
 #[must_use]
 pub(crate) fn element<'a, 'input>(
     node: Node<'a, 'input>,
@@ -24,11 +24,9 @@ pub(crate) fn element<'a, 'input>(
     elements(node, tag).next()
 }
 
-/// The turn a `quat` attribute describes, as a unit quaternion. MJCF writes the scalar part
-/// first, which is also how the crate stores it, so the four numbers carry straight over.
+/// A `quat` attribute as a unit quaternion. MJCF is scalar-first, matching this crate's storage.
 ///
-/// URDF has no quaternion anywhere — it writes every turn as three angles — so this and the
-/// counts below it are here for the MJCF reader alone.
+/// MJCF-only: URDF states orientation as rpy angles throughout, as do the fixed counts below.
 #[cfg(feature = "mjcf")]
 pub(crate) fn unit_quaternion(
     node: Node,
@@ -46,7 +44,7 @@ pub(crate) fn unit_quaternion(
         })
 }
 
-/// The error for an attribute that does not hold the numbers it should.
+/// Error for an attribute that does not parse as the numbers it should hold.
 #[must_use]
 pub(crate) fn bad_attribute(node: Node, attribute: &str, text: &str) -> ModelError {
     ModelError::BadAttribute {
@@ -56,7 +54,7 @@ pub(crate) fn bad_attribute(node: Node, attribute: &str, text: &str) -> ModelErr
     }
 }
 
-/// Every number an attribute holds, however many there are.
+/// All values in a whitespace-separated attribute, of any count.
 pub(crate) fn parse_list(node: Node, attribute: &str) -> Result<Option<Vec<f64>>, ModelError> {
     let Some(text) = node.attribute(attribute) else {
         return Ok(None);
@@ -71,36 +69,35 @@ pub(crate) fn parse_list(node: Node, attribute: &str) -> Result<Option<Vec<f64>>
     Ok(Some(values))
 }
 
-/// The one number an attribute holds.
+/// A scalar attribute.
 pub(crate) fn parse_scalar(node: Node, attribute: &str) -> Result<Option<f64>, ModelError> {
     Ok(fixed::<1>(node, attribute)?.map(|[value]| value))
 }
 
-/// The two numbers an attribute holds.
+/// A 2-vector attribute.
 #[cfg(feature = "mjcf")]
 pub(crate) fn parse_vector2(node: Node, attribute: &str) -> Result<Option<[f64; 2]>, ModelError> {
     fixed::<2>(node, attribute)
 }
 
-/// The three numbers an attribute holds.
+/// A 3-vector attribute.
 pub(crate) fn parse_vector3(node: Node, attribute: &str) -> Result<Option<[f64; 3]>, ModelError> {
     fixed::<3>(node, attribute)
 }
 
-/// The four numbers an attribute holds.
+/// A 4-vector attribute.
 #[cfg(feature = "mjcf")]
 pub(crate) fn parse_vector4(node: Node, attribute: &str) -> Result<Option<[f64; 4]>, ModelError> {
     fixed::<4>(node, attribute)
 }
 
-/// The six numbers an attribute holds.
+/// A 6-vector attribute.
 #[cfg(feature = "mjcf")]
 pub(crate) fn parse_vector6(node: Node, attribute: &str) -> Result<Option<[f64; 6]>, ModelError> {
     fixed::<6>(node, attribute)
 }
 
-/// The numbers an attribute holds, where the count is fixed. Too many or too few is as much an
-/// error as text that is not a number at all.
+/// A fixed-count attribute. A wrong count is an error, not a truncation.
 pub(crate) fn fixed<const N: usize>(
     node: Node,
     attribute: &str,
@@ -118,8 +115,8 @@ pub(crate) fn fixed<const N: usize>(
     }
 }
 
-/// The top-level sections a file carries that a reader takes nothing from, named once each and in
-/// a settled order so a table generated from them does not shuffle between runs.
+/// Top-level elements the reader consumes nothing from. Sorted and deduplicated, so generated
+/// output is stable across runs.
 #[must_use]
 pub(crate) fn ignored_sections(root: Node, read: &[&str]) -> Vec<String> {
     let mut names: Vec<String> = root

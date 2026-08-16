@@ -1,8 +1,7 @@
-//! Loads URDF model files.
+//! URDF reader.
 //!
-//! URDF states its links and the joints between them as one flat list, so the tree is worked out by
-//! name rather than followed. Angles are always in radians and lengths in metres — URDF has no
-//! setting for either.
+//! `<link>` and `<joint>` are a flat, unordered list, so the kinematic tree is resolved by name.
+//! Units are fixed by the spec: metres and radians.
 
 mod joint;
 mod link;
@@ -13,18 +12,18 @@ use std::path::Path;
 use crate::xml::ignored_sections;
 use crate::{ModelError, ModelFormat, RobotModel};
 
-/// The top-level sections this reader takes something from.
+/// Top-level elements this reader consumes.
 const READ_SECTIONS: [&str; 2] = ["link", "joint"];
 
-/// Loads a model from a file path.
+/// Reads a URDF file.
 pub fn load_path(path: &Path) -> Result<RobotModel, ModelError> {
     let xml = std::fs::read_to_string(path).map_err(|e| ModelError::Io(e.to_string()))?;
     load_str(&xml)
 }
 
-/// Parses a model from an in-memory XML string.
+/// Parses URDF from a string.
 ///
-/// URDF has no way to pull in another file, so text and a file path read the same.
+/// URDF has no include mechanism, so this is equivalent to [`load_path`].
 pub fn load_str(xml: &str) -> Result<RobotModel, ModelError> {
     let document = roxmltree::Document::parse(xml).map_err(|e| ModelError::Xml(e.to_string()))?;
     let root = document.root_element();
@@ -43,8 +42,7 @@ pub fn load_str(xml: &str) -> Result<RobotModel, ModelError> {
         name: root.attribute("name").unwrap_or("model").to_owned(),
         format: ModelFormat::Urdf,
         bodies,
-        // Whether a robot is bolted down or free to move is a caller's decision when loading it,
-        // not something a URDF states, so a model read from one is always bolted down.
+        // Floating base is a load-time choice by the caller, not a file property. See tree.rs.
         floating_base: false,
         ignored: ignored_sections(root, &READ_SECTIONS),
     })

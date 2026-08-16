@@ -1,7 +1,6 @@
-//! How much mass one shape carries, and how hard it is to spin.
+//! Geom mass and rotational inertia.
 //!
-//! A shape's settings can come from the shape itself or from any default block it inherits, so
-//! they are gathered in precedence order first and measured afterwards.
+//! Settings resolve through the default-class chain first; integration happens afterwards.
 
 use std::f64::consts::PI;
 
@@ -13,11 +12,11 @@ use crate::ModelError;
 use crate::mjcf::defaults::{DefaultTable, GeomDefaults, reject_orientation_attributes};
 use crate::xml::{bad_attribute, unit_quaternion};
 
-/// What MuJoCo assumes for a shape that states nothing. There is no assumed size.
+/// MuJoCo's defaults for an unspecified geom. Size has no default.
 const ASSUMED_TYPE: &str = "sphere";
 const ASSUMED_DENSITY: f64 = 1000.0;
 
-/// The shapes this loader can measure.
+/// Geom types this reader can integrate.
 enum Shape {
     Sphere,
     Ellipsoid,
@@ -26,26 +25,25 @@ enum Shape {
     Capsule,
 }
 
-/// What a shape's two stated ends work out to: how long it is, where it sits, and which way it
-/// faces. These stand in for the half-length its size would otherwise give and for `pos` and
-/// `quat`, so once they are worked out the measurement proceeds as for any other shape.
+/// A `fromto` pair resolved to half-length, centre and orientation. These stand in for the size's
+/// half-length and for `pos`/`quat`, so integration then proceeds as for any other geom.
 struct Axis {
     half_length: f64,
     center: [f64; 3],
     turn: Quaternion<f64>,
 }
 
-/// One shape's contribution to the body it belongs to.
+/// One geom's contribution to its body.
 pub(crate) struct GeomMass {
-    /// How much mass the shape carries.
+    /// The geom's mass.
     pub mass: f64,
-    /// Where the shape's own centre sits, in the body's axes.
+    /// The geom's centre, in body axes.
     pub center: Vector3D,
-    /// How the shape resists being spun about its own centre, in the body's axes.
+    /// The geom's rotational inertia about its own centre, in body axes.
     pub inertia: Matrix3D,
 }
 
-/// Measures one shape, or reports that it carries no mass and so contributes nothing.
+/// Integrates one geom, or reports that it is massless and contributes nothing.
 pub(crate) fn read_geom(
     node: Node,
     table: &DefaultTable,
@@ -55,8 +53,8 @@ pub(crate) fn read_geom(
     reject_orientation_attributes(node, "geom")?;
     let settings = effective(node, table, class_chain)?;
 
-    // A shape stated to carry no mass is dropped before its form is looked at, so a model can name
-    // a shape this loader cannot measure as long as none of its mass rests there.
+    // A geom stated massless is dropped before its type is checked, so a model may use a geom
+    // type this reader cannot integrate as long as it carries no mass.
     if settings.mass == Some(0.0) {
         return Ok(None);
     }
@@ -80,15 +78,14 @@ pub(crate) fn read_geom(
         }
     };
 
-    // A shape can say where the two ends of its axis are rather than how long it is and which way
-    // it faces, which is how a model built around where its joints sit is usually written.
+    // `fromto` gives the axis endpoints instead of a length and orientation, which is how models
+    // laid out around joint positions are usually written.
     let axis = axis(node, &settings, &shape, body)?;
     let [first, second, third] = extents(node, &settings, &shape, axis.as_ref())?;
 
-    // Every shape here resists spinning by the same pattern — the mass, times how far that mass
-    // sits from the axis, summed over the two axes across from it. So a form contributes only how
-    // much room it takes up and how widely it spreads its mass along each of its own three axes,
-    // and each form is measured into those four numbers once.
+    // Every type here follows the same pattern: the diagonal inertia is the mass times the sum of
+    // the two transverse second moments. So a type contributes only its volume and its three
+    // squared radii of gyration, and each is reduced to those four numbers once.
     let (volume, spread) = match shape {
         // A ball stretched by a different amount along each axis, so every axis spreads its reach
         // the same way: a fifth of the square of it.

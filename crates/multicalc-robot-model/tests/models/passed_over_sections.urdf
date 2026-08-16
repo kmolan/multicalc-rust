@@ -1,6 +1,5 @@
 <?xml version="1.0"?>
-<!-- A working arm alongside the top-level sections this reader takes nothing from, to check they
-     are named rather than going quietly. -->
+<!-- A working arm plus the top-level elements that must appear in ignored(). -->
 <robot name="passed_over_sections">
   <material name="grey">
     <color rgba="0.5 0.5 0.5 1"/>

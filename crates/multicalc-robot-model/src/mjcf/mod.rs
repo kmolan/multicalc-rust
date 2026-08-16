@@ -1,4 +1,4 @@
-//! Loads MuJoCo MJCF model files.
+//! MJCF reader.
 
 mod body;
 mod compiler;
@@ -11,16 +11,16 @@ use std::path::Path;
 
 use crate::{BodyDescription, ModelError, ModelFormat, RobotModel};
 
-/// Loads a model from a file path, resolving any `<include>` elements it pulls in.
+/// Reads an MJCF file, resolving its `<include>` elements.
 pub fn load_path(path: &Path) -> Result<RobotModel, ModelError> {
     let xml = document::assemble(path)?;
     load_str(&xml)
 }
 
-/// Parses a model from an in-memory XML string.
+/// Parses MJCF from a string.
 ///
-/// Text has no directory to resolve an `<include>` against, so a document that pulls in another
-/// file is refused here; [`load_path`] resolves those first.
+/// An `<include>` has no base directory to resolve against here and is rejected; use
+/// [`load_path`].
 pub fn load_str(xml: &str) -> Result<RobotModel, ModelError> {
     let document = roxmltree::Document::parse(xml).map_err(|e| ModelError::Xml(e.to_string()))?;
     if document

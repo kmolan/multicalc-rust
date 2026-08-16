@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- One of each kind this reader handles, in a single chain, so their order is checkable. -->
+<!-- revolute, continuous, prismatic, fixed, in one serial chain. -->
 <robot name="every_joint_kind">
   <link name="base_link">
     <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>

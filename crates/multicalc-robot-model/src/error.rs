@@ -2,82 +2,79 @@ use multicalc::error::{KinematicsError, SpatialError};
 
 use crate::ModelFormat;
 
-/// Everything that can stop a model from loading, whichever format it came from.
+/// Everything that can stop a model from loading, in either format.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum ModelError {
-    /// The file was not well-formed XML.
+    /// Malformed XML.
     Xml(String),
-    /// The file could not be read.
+    /// File could not be read.
     Io(String),
-    /// The model had no `<worldbody>`.
+    /// No `<worldbody>`.
     MissingWorldbody,
-    /// The model had no bodies.
+    /// No bodies.
     NoBodies,
-    /// A body carried more than one `<joint>`/`<freejoint>`, which this loader does not compose
-    /// into a multi-DOF joint.
+    /// A body carried several `<joint>`/`<freejoint>` elements; multi-DoF joints are not composed.
     MultipleJoints {
         /// The body's name.
         body: String,
         /// How many joints were found.
         count: usize,
     },
-    /// A free joint sat on a body other than the root, which cannot be represented in a tree with
-    /// a single fixed or floating base.
+    /// A 6-DoF joint on a non-root body. A tree takes one fixed or floating base, in slot 0.
     FreeJointNotAtRoot {
         /// The body's name.
         body: String,
     },
-    /// The body carried a joint kind other than hinge or slide.
+    /// Unsupported joint type.
     UnsupportedJoint {
         /// The body's name.
         body: String,
         /// The joint type as written in the file.
         joint_type: String,
     },
-    /// An element gave its orientation in a form other than `quat`.
+    /// Orientation stated other than by `quat`.
     UnsupportedOrientation {
         /// The element carrying the attribute.
         element: String,
         /// The attribute name.
         attribute: String,
     },
-    /// A joint was marked limited, or defaults to limited, but states no `range`.
+    /// A joint is limited, explicitly or by default, but states no `range`.
     LimitsNeedRange {
         /// The body's name.
         body: String,
     },
-    /// The body stated no mass properties and had no shapes to work them out from.
+    /// No `<inertial>` and no geoms to derive it from.
     NoInertiaSource {
         /// The body's name.
         body: String,
     },
-    /// A shape carrying mass had a form this loader cannot measure.
+    /// A mass-bearing geom of a type this reader cannot integrate.
     UnsupportedGeomType {
         /// The body's name.
         body: String,
         /// The shape type as written in the file.
         geom_type: String,
     },
-    /// A shape carrying mass was a mesh, whose mass cannot be worked out from the file alone.
+    /// A mass-bearing mesh geom; its inertia is not derivable from the file alone.
     MeshInertiaUnsupported {
         /// The body's name.
         body: String,
     },
-    /// A shape gave the two ends of its axis, on a form this loader does not read them for.
+    /// `fromto` on a geom type this reader does not read it for.
     UnsupportedFromTo {
         /// The body's name.
         body: String,
         /// The shape type as written in the file.
         geom_type: String,
     },
-    /// A shape gave both the two ends of its axis and a position, which say different things
-    /// about where it sits.
+    /// A geom stated both `fromto` and `pos`, which need not agree.
     ConflictingPlacement {
         /// The body's name.
         body: String,
     },
-    /// An attribute could not be read as the numbers it should hold.
+    /// An attribute did not parse as the numbers it should hold.
     BadAttribute {
         /// The element the attribute was on.
         element: String,
@@ -86,82 +83,81 @@ pub enum ModelError {
         /// The text that could not be read.
         value: String,
     },
-    /// A shape named a class the file never defines.
+    /// A geom named an undefined default class.
     UndefinedClass {
         /// The class name.
         name: String,
     },
-    /// The model has no body by the name asked for.
+    /// No body by that name.
     UnknownBody {
         /// The name asked for.
         name: String,
     },
-    /// The model has more bodies than the tree being built can hold.
+    /// More bodies than the target tree's capacity.
     TreeCapacityExceeded {
         /// How many bodies the model has.
         needed: usize,
         /// How many the tree can hold.
         capacity: usize,
     },
-    /// The model pulls in another file, which can only be followed when the model is read from a
-    /// file rather than text already in memory.
+    /// An `<include>` was found; resolving one needs a file path, not in-memory text.
     IncludeNeedsFile,
-    /// `<include>` files pull in each other, or nest deeper than this loader follows.
+    /// `<include>` nesting exceeded the depth limit, or the includes form a cycle.
     IncludeTooDeep {
         /// How deep the chain of includes had reached.
         depth: usize,
     },
-    /// No link sits at the top of the model — every link is some joint's child.
+    /// No root link: every link is some joint's child.
     MissingRootLink,
-    /// More than one link sits at the top of the model, which is not one robot.
+    /// Several root links, which is not one robot.
     MultipleRootLinks {
-        /// The names of the links with no parent, sorted.
+        /// The parentless link names, sorted.
         names: Vec<String>,
     },
-    /// A joint named a link the model does not have.
+    /// A joint named an undeclared link.
     UnknownLink {
         /// The joint's name.
         joint: String,
-        /// The link name it gave.
+        /// The link name given.
         link: String,
     },
-    /// A link is the child of more than one joint, so it hangs off the model twice.
+    /// A link is the child of several joints.
     LinkHasTwoParents {
         /// The link's name.
         link: String,
-        /// The joints claiming it, sorted.
+        /// The claiming joint names, sorted.
         joints: Vec<String>,
     },
-    /// Links hang off each other in a loop, so the model has no top.
+    /// A cycle in the link graph.
     CyclicLinkage {
-        /// One link on the loop.
+        /// A link on the cycle.
         link: String,
     },
-    /// A joint that can travel stated no range.
+    /// A bounded joint stated no `<limit>` range.
     JointNeedsLimit {
         /// The joint's name.
         joint: String,
     },
-    /// A joint follows another joint, which a tree of independent joints cannot express.
+    /// A mimic joint, which a constraint-free tree cannot express.
     MimicJointInTree {
-        /// The following joint's name.
+        /// The coupled joint's name.
         joint: String,
-        /// The joint it follows.
+        /// The driving joint's name.
         follows: String,
     },
-    /// The document's root element was not one this crate reads.
+    /// Unrecognised root element.
     UnexpectedRootElement {
-        /// The element found.
+        /// The root element found.
         found: String,
     },
-    /// The model is in a format this build was compiled without.
+    /// The file's format has no reader compiled into this build.
     FormatNotEnabled {
-        /// The format the file is in.
+        /// The file's format.
         format: ModelFormat,
     },
-    /// The mass properties read from the file did not describe a usable body.
+    /// The stated mass properties do not describe a usable body.
     Inertia(SpatialError),
-    /// A joint's own numbers did not describe a usable joint once built into a tree.
+    /// The joint parameters do not describe a usable tree.
     Kinematics(KinematicsError),
 }
 

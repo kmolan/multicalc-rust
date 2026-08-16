@@ -1,25 +1,18 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![cfg(all(feature = "mjcf", feature = "urdf"))]
 
-//! The same robot read from both formats: the vendored MoveIt Panda URDF against the vendored
-//! Menagerie Panda MJCF.
+//! MoveIt Panda URDF against Menagerie Panda MJCF: the same arm from two independent
+//! descriptions, not conversions of each other. Measured agreement:
 //!
-//! The two files are separate descriptions of the same arm rather than conversions of each other,
-//! so they are not expected to match everywhere. What they do and do not agree on, measured:
-//!
-//! - **The seven arm joints agree exactly.** Same order, same kind, same axis.
-//! - **The eight arm link frames agree to about a millionth of a millimetre** at the pose where
-//!   every joint reads zero — 2e-12 in position, 5e-12 in turn.
-//! - **The gripper mount sits in the same place**, to 1e-12.
-//! - **The gripper mount's turn agrees only to about 2e-8.** The MJCF writes it as a quaternion
-//!   rounded to seven digits, `0.9238795 0 0 -0.3826834`, where the URDF writes the eighth of a
-//!   turn it stands for as an angle to twelve. The gap is the MJCF file's own rounding.
-//! - **The two files disagree about the tree.** The URDF carries a bare `panda_link8` frame
-//!   between the last arm link and the hand, which the MJCF does not, so the same chain is ten
-//!   bodies in one file and nine in the other.
-//! - **The two files disagree about the second finger.** The URDF mirrors its axis and has it
-//!   follow the first finger; the MJCF gives both fingers the same axis and no such link. The
-//!   fingers are outside the chain compared here.
+//! - Arm joints 1-7: identical order, kind and axis.
+//! - Link frames 0-7 at q = 0: 2e-12 in translation, 5e-12 in rotation.
+//! - Gripper mount translation: 7e-13.
+//! - Gripper mount rotation: 1.6e-8. The MJCF rounds the quaternion to seven digits
+//!   (`0.9238795 0 0 -0.3826834`); the URDF gives the same pi/4 as an rpy angle to twelve.
+//! - Topology differs: the URDF has a `panda_link8` frame between link7 and the hand, so the chain
+//!   is 10 bodies against the MJCF's 9.
+//! - Finger 2 differs: the URDF mirrors the axis and mimics finger 1; the MJCF gives both fingers
+//!   the same axis and no coupling. Both are outside the chain compared here.
 
 use std::path::{Path, PathBuf};
 
@@ -27,10 +20,9 @@ use multicalc::linear_algebra::Vector;
 use multicalc::spatial::SE3;
 use multicalc_robot_model::RobotModel;
 
-/// How far apart the two files' arm frames are allowed to sit.
+/// Agreement required on the arm frames.
 const ARM_TOLERANCE: f64 = 1e-11;
-/// How far apart the gripper mount's turn is allowed to be, which is set by the MJCF's own
-/// rounding of the quaternion it writes rather than by anything either reader does.
+/// Agreement required on the mount's rotation, set by the MJCF's rounded quaternion literal.
 const MOUNT_TURN_TOLERANCE: f64 = 1e-7;
 
 fn third_party(relative: &str) -> PathBuf {
@@ -49,15 +41,15 @@ fn mjcf_panda() -> RobotModel {
         .unwrap()
 }
 
-/// The largest gap between two poses' positions.
+/// Largest per-axis translation difference.
 fn position_gap(left: SE3<f64>, right: SE3<f64>) -> f64 {
     (0..3)
         .map(|axis| (left.translation()[axis] - right.translation()[axis]).abs())
         .fold(0.0, f64::max)
 }
 
-/// The largest gap between two poses' turns, comparing them the same way round — a quaternion and
-/// its negative name the same turn.
+/// Largest per-component quaternion difference, sign-aligned since q and -q are the same
+/// rotation.
 fn turn_gap(left: SE3<f64>, right: SE3<f64>) -> f64 {
     let (a, b) = (left.rotation().quaternion(), right.rotation().quaternion());
     let same_way = a.w() * b.w() + a.x() * b.x() + a.y() * b.y() + a.z() * b.z() >= 0.0;
@@ -112,7 +104,7 @@ fn the_two_files_put_the_arm_in_the_same_place() {
     let from_urdf = urdf_chain.forward_kinematics(&Vector::zeros()).unwrap();
     let from_mjcf = mjcf_chain.forward_kinematics(&Vector::zeros()).unwrap();
 
-    // Slots 0 to 7 are `link0` through `link7` in both files.
+    // Slots 0-7 are link0-link7 in both.
     for slot in 0..=7 {
         let (left, right) = (from_urdf.pose(slot).unwrap(), from_mjcf.pose(slot).unwrap());
         assert!(
@@ -143,9 +135,8 @@ fn the_two_files_put_the_arm_in_the_same_place() {
 
 #[test]
 fn the_two_files_disagree_about_the_second_finger() {
-    // Recorded rather than smoothed over: the URDF closes the gripper by mirroring the second
-    // finger's axis and having it follow the first, while the MJCF gives both fingers the same
-    // axis and no such link. Either describes the same jaws closing.
+    // Recorded, not smoothed over: the URDF mirrors the axis and couples the joints, the MJCF
+    // uses one axis for both and no coupling. Equivalent jaw motion, different encoding.
     let urdf = urdf_panda();
     let mjcf = mjcf_panda();
 

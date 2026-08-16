@@ -1,8 +1,7 @@
-//! Working out the shape of the robot from a flat list of links and the joints between them.
+//! Topology resolution: flat `<link>`/`<joint>` lists to a topologically ordered body list.
 //!
-//! URDF states the links and the joints separately and in no particular order, so the tree has to
-//! be found rather than followed: index the links by name, find the one link nothing hangs off,
-//! and walk down from it.
+//! Index links by name, find the single link that is never a child, then walk depth-first from it.
+//! Visit order guarantees parent index < child index, which `KinematicTree::push` requires.
 
 use std::collections::HashMap;
 
@@ -13,15 +12,14 @@ use crate::urdf::joint::ParsedJoint;
 use crate::urdf::link::ParsedLink;
 use crate::{BodyDescription, ModelError};
 
-/// Orders the links into a tree, depth-first from the one link with no parent.
+/// Resolves the tree, depth-first from the root link.
 ///
-/// Returns one body per link, in visit order, so a body's parent always sits earlier in the list —
-/// which is what a `KinematicTree` needs.
+/// One body per link, in visit order, so every parent precedes its children.
 pub(crate) fn build(
     links: &[ParsedLink],
     joints: &[ParsedJoint],
 ) -> Result<Vec<BodyDescription>, ModelError> {
-    // A repeated link name keeps the first, and a joint naming it resolves to that one.
+    // Duplicate link names: first wins, and joints resolve to it.
     let mut by_name: HashMap<&str, usize> = HashMap::new();
     for (index, link) in links.iter().enumerate() {
         by_name.entry(link.name.as_str()).or_insert(index);
@@ -37,8 +35,7 @@ pub(crate) fn build(
             })
     };
 
-    // The joint that hangs each link off its parent, the joints going the other way, and the link
-    // each joint drives.
+    // Per link: its incoming joint and its outgoing joints. Per joint: the child link it drives.
     let mut incoming: Vec<Option<usize>> = vec![None; links.len()];
     let mut children: Vec<Vec<usize>> = vec![Vec::new(); links.len()];
     let mut driven: Vec<usize> = Vec::with_capacity(joints.len());
@@ -89,18 +86,17 @@ pub(crate) fn build(
         &mut bodies,
     );
 
-    // A walk down from the one root reaches every link unless some of them hang off each other in
-    // a ring that the root never leads into.
+    // The walk reaches every link unless some form a cycle disconnected from the root.
     if let Some(stranded) = visited.iter().position(|seen| !seen) {
         return Err(ModelError::CyclicLinkage {
             link: links[stranded].name.clone(),
         });
     }
 
-    // A URDF joint belongs to the link it drives, and the link at the top of the model is nothing's
-    // child, so a joint freeing the whole robot can never land there. Whether a robot is bolted
-    // down or free to move is something a caller settles when loading it, not something the file
-    // states, so one written into the file is refused rather than read.
+    // A URDF joint belongs to its child link, and the root link is never a child, so a floating
+    // joint can never land on body 0 — which is where `KinematicTree` requires it. Fixed versus
+    // floating base is a load-time choice by the caller (cf. Pinocchio's root-joint argument, or
+    // RBDL's `floating_base` flag), so a floating joint stated in the file is rejected.
     for body in &bodies {
         if body
             .joint
@@ -116,14 +112,13 @@ pub(crate) fn build(
     Ok(bodies)
 }
 
-/// Pushes one link as a body, then walks down into the links hanging off it.
+/// Emits one body, then recurses into its children.
 ///
-/// `incoming` is the joint the link hangs off, which is where its pose and its joint come from;
-/// the root link has none and sits at the origin.
+/// `incoming` is the link's parent joint, which supplies its pose and joint; the root has none and
+/// sits at identity.
 #[expect(
     clippy::too_many_arguments,
-    reason = "the walk carries the file's two lists, the shape worked out from them, and what it \
-              has built so far"
+    reason = "the recursion threads both source lists, the resolved topology, and the output"
 )]
 fn walk(
     link_index: usize,
