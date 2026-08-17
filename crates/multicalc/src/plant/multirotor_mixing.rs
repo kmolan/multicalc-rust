@@ -163,9 +163,18 @@ impl<const ROTOR_COUNT: usize, T: Numeric> MultirotorMixer<ROTOR_COUNT, T> {
         // Going out to the rotors and back has to land where it started; when it does not, some
         // wanted push or turn is one the rotors simply cannot produce. The bar is loose enough
         // that single precision passes and tight enough that a missing direction, which is off by
-        // about one, always fails.
+        // about one, always fails. A fixed absolute bar is wrong here: the round-trip error scales
+        // with the allocation matrix's own magnitude, so the bar is scaled the same way, by the
+        // largest entry the allocation matrix holds, and by the scalar type's own epsilon so the
+        // same layout is judged the same way whether it is built at f32 or f64.
         let round_trip = allocation * distribution;
-        let bar = T::from_f64(1e-4);
+        let mut allocation_scale = T::ONE;
+        for row in 0..4 {
+            for rotor in 0..ROTOR_COUNT {
+                allocation_scale = allocation_scale.max(allocation[(row, rotor)].abs());
+            }
+        }
+        let bar = T::EPSILON_X30 * allocation_scale;
         for row in 0..4 {
             for col in 0..4 {
                 let wanted = if row == col { T::ONE } else { T::ZERO };

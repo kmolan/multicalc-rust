@@ -273,3 +273,73 @@ fn a_mixer_drives_a_body() {
     assert!(motion.linear().norm() < 1e-12);
     assert!(motion.angular().norm() < 1e-12);
 }
+
+/// The round-trip tolerance is scaled by the allocation matrix's own magnitude and the scalar
+/// type's epsilon, so the same rotor layout is judged the same way at `f32` and `f64` - including
+/// when every position and torque ratio is scaled up by a large factor, which scales the
+/// allocation matrix's magnitude along with it.
+#[test]
+fn accept_and_reject_agree_between_f32_and_f64() {
+    // An independent layout, at its usual scale and scaled up by a large factor: accepted both
+    // ways, at both scalar types.
+    for scale in [1.0, 1.0e6] {
+        assert!(
+            MultirotorMixer::<4, f64>::quadrotor_x(
+                ARM_LENGTH * scale,
+                TORQUE_PER_THRUST * scale,
+                MINIMUM_THRUST,
+                MAXIMUM_THRUST,
+            )
+            .is_ok()
+        );
+        assert!(
+            MultirotorMixer::<4, f32>::quadrotor_x(
+                ARM_LENGTH as f32 * scale as f32,
+                TORQUE_PER_THRUST as f32 * scale as f32,
+                MINIMUM_THRUST as f32,
+                MAXIMUM_THRUST as f32,
+            )
+            .is_ok()
+        );
+    }
+
+    // Four rotors all along the x axis: nothing can tip the body about x, so this is refused at
+    // its usual scale and when scaled up, at both scalar types.
+    for scale in [1.0, 1.0e6] {
+        let in_a_line = [
+            Vector::new([0.1 * scale, 0.0, 0.0]),
+            Vector::new([0.2 * scale, 0.0, 0.0]),
+            Vector::new([-0.1 * scale, 0.0, 0.0]),
+            Vector::new([-0.2 * scale, 0.0, 0.0]),
+        ];
+        let alternating = [
+            RotorSpin::Clockwise,
+            RotorSpin::CounterClockwise,
+            RotorSpin::Clockwise,
+            RotorSpin::CounterClockwise,
+        ];
+        assert_eq!(
+            MultirotorMixer::<4, f64>::new(
+                in_a_line,
+                alternating,
+                TORQUE_PER_THRUST,
+                MINIMUM_THRUST,
+                MAXIMUM_THRUST
+            ),
+            Err(PlantError::RotorLayoutNotIndependent)
+        );
+
+        let in_a_line_f32: [Vector3D<f32>; 4] =
+            core::array::from_fn(|rotor| Vector::new(in_a_line[rotor].into_array().map(|x| x as f32)));
+        assert_eq!(
+            MultirotorMixer::<4, f32>::new(
+                in_a_line_f32,
+                alternating,
+                TORQUE_PER_THRUST as f32,
+                MINIMUM_THRUST as f32,
+                MAXIMUM_THRUST as f32
+            ),
+            Err(PlantError::RotorLayoutNotIndependent)
+        );
+    }
+}
