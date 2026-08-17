@@ -329,8 +329,9 @@ fn accept_and_reject_agree_between_f32_and_f64() {
             Err(PlantError::RotorLayoutNotIndependent)
         );
 
-        let in_a_line_f32: [Vector3D<f32>; 4] =
-            core::array::from_fn(|rotor| Vector::new(in_a_line[rotor].into_array().map(|x| x as f32)));
+        let in_a_line_f32: [Vector3D<f32>; 4] = core::array::from_fn(|rotor| {
+            Vector::new(in_a_line[rotor].into_array().map(|x| x as f32))
+        });
         assert_eq!(
             MultirotorMixer::<4, f32>::new(
                 in_a_line_f32,
