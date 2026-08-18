@@ -23,6 +23,20 @@ pub struct Svd<const M: usize, const N: usize, T = f64> {
     pub(crate) v: Matrix<N, N, T>,
 }
 
+/// Configuration for the one-sided Jacobi SVD.
+#[derive(Debug, Clone, Copy)]
+pub struct SvdSettings {
+    /// Maximum number of Jacobi sweeps over the column pairs before giving up on convergence.
+    pub max_sweeps: usize,
+}
+
+impl Default for SvdSettings {
+    /// 60 sweeps, matching the sweep budget [`Matrix::svd`] has always used.
+    fn default() -> Self {
+        SvdSettings { max_sweeps: 60 }
+    }
+}
+
 impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
     /// Decomposes `self` as `U · diag(σ) · Vᵀ` by one-sided Jacobi (thin form, `M ≥ N`).
     ///
@@ -69,6 +83,24 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
     /// }
     /// ```
     pub fn svd(self) -> Result<Svd<M, N, T>, LinalgError> {
+        self.svd_with_settings(&SvdSettings::default())
+    }
+
+    /// Decomposes `self` as `U · diag(σ) · Vᵀ` by one-sided Jacobi (thin form, `M ≥ N`), with an
+    /// explicit sweep budget.
+    ///
+    /// Behaves exactly like [`Matrix::svd`], except the Jacobi sweep count comes from
+    /// `settings.max_sweeps` instead of the default of 60. Returns [`LinalgError::Underdetermined`]
+    /// for a wide matrix (`M < N`) or [`LinalgError::NonFinite`] if any entry is not finite.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::{Matrix, SvdSettings};
+    /// let a = Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
+    /// let settings = SvdSettings { max_sweeps: 10 };
+    /// let svd = a.svd_with_settings(&settings).unwrap();
+    /// assert!(svd.singular_values()[0] > 0.0);
+    /// ```
+    pub fn svd_with_settings(self, settings: &SvdSettings) -> Result<Svd<M, N, T>, LinalgError> {
         if M < N {
             return Err(LinalgError::Underdetermined);
         }
@@ -80,8 +112,7 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
         let mut v = Matrix::<N, N, T>::identity();
 
         // One-sided Jacobi: rotate column pairs of U until its columns are orthogonal.
-        let max_sweeps = 60;
-        for _ in 0..max_sweeps {
+        for _ in 0..settings.max_sweeps {
             let mut off_max = T::ZERO;
             for p in 0..N {
                 for q in (p + 1)..N {

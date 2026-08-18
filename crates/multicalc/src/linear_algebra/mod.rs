@@ -30,7 +30,7 @@ pub use lyapunov::solve_discrete_lyapunov;
 pub use matrix::Matrix;
 pub use qr::{CholeskyFactor, DampedLeastSquares, PivotedQr};
 pub use riccati::solve_discrete_riccati;
-pub use svd::Svd;
+pub use svd::{Svd, SvdSettings};
 pub use symmetric_eigendecomposition::SymmetricEigendecomposition;
 pub use vector::Vector;
 

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Configurable SVD sweep budget.** `SvdSettings` carries the one-sided Jacobi SVD's `max_sweeps`
+  (default 60, matching the previous hardcoded limit unchanged); `Matrix::svd_with_settings` takes
+  it explicitly, and `Matrix::svd` keeps calling it with the default so existing behaviour is
+  unchanged. (#156)
+
 - **Brent root finding.** `Brent` combines bracketed convergence with secant and inverse
   quadratic interpolation steps for scalar equations. @snowyukitty (#323)
 

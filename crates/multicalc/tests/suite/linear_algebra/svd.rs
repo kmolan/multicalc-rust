@@ -1,5 +1,7 @@
 use multicalc::error::LinalgError;
-use multicalc::linear_algebra::{Matrix, Matrix3D, Matrix4D, Matrix6D, Vector, Vector6D};
+use multicalc::linear_algebra::{
+    Matrix, Matrix3D, Matrix4D, Matrix6D, SvdSettings, Vector, Vector6D,
+};
 use multicalc_testkit::tol::{
     assert_identity, assert_matrix_close, svd_moore_penrose, svd_moore_penrose_f32,
     svd_reconstructs,
@@ -320,4 +322,55 @@ fn svd_overdetermined_least_squares() {
     for index in 0..3 {
         assert!((svd_solution[index] - normal_equations_solution[index]).abs() < 1e-9);
     }
+}
+
+#[test]
+fn svd_with_settings_default_matches_svd() {
+    // SvdSettings::default() (max_sweeps = 60) must reproduce today's Matrix::svd() output.
+    let a = Matrix::<12, 6>::from_fn(|row, column| {
+        if row == column {
+            10.0
+        } else {
+            1.0 / (1.0 + (row + column) as f64)
+        }
+    });
+    let default_result = a.svd().unwrap();
+    let settings_result = a.svd_with_settings(&SvdSettings::default()).unwrap();
+    for index in 0..6 {
+        assert!(
+            (default_result.singular_values()[index] - settings_result.singular_values()[index])
+                .abs()
+                < 1e-15
+        );
+    }
+}
+
+#[test]
+fn svd_with_settings_custom_max_sweeps_changes_behavior() {
+    // A matrix that needs more than one or two sweeps to converge to full accuracy, so an
+    // artificially small sweep budget leaves the columns measurably less orthogonal than the
+    // default budget does.
+    let a = Matrix::<20, 6>::from_fn(|row, column| {
+        if row == column {
+            8.0
+        } else {
+            (row as f64 - column as f64) / (5.0 + (row + column) as f64)
+        }
+    });
+
+    let converged = a
+        .svd_with_settings(&SvdSettings { max_sweeps: 60 })
+        .unwrap();
+    let starved = a.svd_with_settings(&SvdSettings { max_sweeps: 1 }).unwrap();
+
+    // The starved run's singular values differ measurably from the converged run's.
+    let mut max_difference: f64 = 0.0;
+    for index in 0..6 {
+        let difference =
+            (converged.singular_values()[index] - starved.singular_values()[index]).abs();
+        if difference > max_difference {
+            max_difference = difference;
+        }
+    }
+    assert!(max_difference > 1e-6);
 }
