@@ -103,6 +103,23 @@ fn median_tracks_a_ramp_with_a_lag() {
     assert_eq!(output, 17.0);
 }
 
+// A NaN among otherwise-finite readings used to defeat the insertion sort outright, since every
+// comparison against it comes back false and leaves the window unsorted around it. It should
+// instead sort to one end, so the reported median is still the median of the finite readings.
+//
+// The finite readings are 1, 2, 2, 3, so their two middle values are both 2 — the median is 2
+// however it is picked, sidestepping any ambiguity about which of an even count of finite
+// readings counts as "the middle one".
+#[test]
+fn median_ignores_a_nan_among_finite_readings() {
+    let mut median = RunningMedian::<5, f64>::new().unwrap();
+    let mut output = 0.0;
+    for reading in [1.0, 2.0, f64::NAN, 3.0, 2.0] {
+        output = median.filter(reading);
+    }
+    assert_eq!(output, 2.0);
+}
+
 // ---- construction -----------------------------------------------------------
 
 #[test]

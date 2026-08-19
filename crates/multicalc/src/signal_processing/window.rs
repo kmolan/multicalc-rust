@@ -174,16 +174,33 @@ impl<const WINDOW: usize, T: Numeric> RunningMedian<WINDOW, T> {
         let mut sorted = self.samples;
         // Sorted by hand: the standard sort needs a total order, which floating-point numbers do
         // not have, and asking for one back would mean unwrapping a comparison that can fail.
+        // `sorts_after` treats a non-finite sample (NaN or +/-infinity) as larger than any finite
+        // one, so a single wild reading is pushed to the top of the window instead of stopping
+        // every comparison it takes part in and leaving the window unsorted around it.
         for placed in 1..WINDOW {
             let moving = sorted[placed];
             let mut slot = placed;
-            while slot > 0 && sorted[slot - 1] > moving {
+            while slot > 0 && sorts_after(sorted[slot - 1], moving) {
                 sorted[slot] = sorted[slot - 1];
                 slot -= 1;
             }
             sorted[slot] = moving;
         }
         sorted[WINDOW / 2]
+    }
+}
+
+/// Whether `a` belongs after `b` in the window's sort order.
+///
+/// Finite samples compare as usual. A non-finite sample (NaN or +/-infinity) compares as larger
+/// than any finite one, and equal to any other non-finite one, so it always sorts to the top of
+/// the window instead of defeating every comparison it takes part in.
+#[inline]
+fn sorts_after<T: Numeric>(a: T, b: T) -> bool {
+    match (a.is_finite(), b.is_finite()) {
+        (true, true) => a > b,
+        (false, true) => true,
+        (true, false) | (false, false) => false,
     }
 }
 
