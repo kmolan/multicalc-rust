@@ -9,7 +9,7 @@ pub enum ModelError {
     /// Malformed XML.
     Xml(String),
     /// File could not be read.
-    Io(String),
+    FileRead(String),
     /// No `<worldbody>`.
     MissingWorldbody,
     /// No bodies.
@@ -162,14 +162,14 @@ pub enum ModelError {
 }
 
 impl From<SpatialError> for ModelError {
-    fn from(e: SpatialError) -> Self {
-        ModelError::Inertia(e)
+    fn from(err: SpatialError) -> Self {
+        ModelError::Inertia(err)
     }
 }
 
 impl From<KinematicsError> for ModelError {
-    fn from(e: KinematicsError) -> Self {
-        ModelError::Kinematics(e)
+    fn from(err: KinematicsError) -> Self {
+        ModelError::Kinematics(err)
     }
 }
 
@@ -177,7 +177,7 @@ impl core::fmt::Display for ModelError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ModelError::Xml(detail) => write!(f, "file is not well-formed XML: {detail}"),
-            ModelError::Io(detail) => write!(f, "file could not be read: {detail}"),
+            ModelError::FileRead(detail) => write!(f, "file could not be read: {detail}"),
             ModelError::MissingWorldbody => f.write_str("model has no worldbody"),
             ModelError::NoBodies => f.write_str("model has no bodies"),
             ModelError::MultipleJoints { body, count } => {
@@ -279,8 +279,8 @@ impl core::fmt::Display for ModelError {
                 f,
                 "the file is {format} and this build was compiled without that reader"
             ),
-            ModelError::Inertia(e) => write!(f, "{e}"),
-            ModelError::Kinematics(e) => write!(f, "{e}"),
+            ModelError::Inertia(err) => write!(f, "{err}"),
+            ModelError::Kinematics(err) => write!(f, "{err}"),
         }
     }
 }
@@ -288,8 +288,8 @@ impl core::fmt::Display for ModelError {
 impl std::error::Error for ModelError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            ModelError::Inertia(e) => Some(e),
-            ModelError::Kinematics(e) => Some(e),
+            ModelError::Inertia(err) => Some(err),
+            ModelError::Kinematics(err) => Some(err),
             _ => None,
         }
     }

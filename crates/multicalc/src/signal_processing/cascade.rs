@@ -100,7 +100,7 @@ impl<const SECTIONS: usize, T: Numeric> BiquadCascade<SECTIONS, T> {
     /// A frequency any one section removes completely reports negative infinity.
     #[must_use]
     pub fn magnitude_in_decibels_at(&self, frequency_hz: T) -> T {
-        T::from_f64(20.0 / core::f64::consts::LN_10) * self.magnitude_at(frequency_hz).ln()
+        T::from_f64(20.0 / core::f64::consts::LN_10) * self.magnitude_at(frequency_hz).log()
     }
 
     /// How far a steady oscillation at this frequency is shifted along by the whole chain, in
@@ -243,7 +243,7 @@ impl<const CHANNELS: usize, T: Numeric> MultiChannelBiquad<CHANNELS, T> {
 pub fn harmonic_notch_coefficients<const SECTIONS: usize, T: Numeric>(
     fundamental_hz: T,
     quality_factor: T,
-    dt: T,
+    timestep: T,
 ) -> Result<[BiquadCoefficients<T>; SECTIONS], SignalError> {
     if SECTIONS == 0 {
         return Err(SignalError::WindowTooShort);
@@ -251,8 +251,8 @@ pub fn harmonic_notch_coefficients<const SECTIONS: usize, T: Numeric>(
 
     // Check the lowest and the highest section before building anything, so a caller that is too
     // close to half the sampling rate hears about it once rather than part-way through.
-    let fundamental = BiquadCoefficients::notch(fundamental_hz, quality_factor, dt)?;
-    if fundamental_hz * T::from_usize(SECTIONS) * dt >= T::HALF {
+    let fundamental = BiquadCoefficients::notch(fundamental_hz, quality_factor, timestep)?;
+    if fundamental_hz * T::from_usize(SECTIONS) * timestep >= T::HALF {
         return Err(SignalError::FrequencyOutOfRange);
     }
 
@@ -261,7 +261,7 @@ pub fn harmonic_notch_coefficients<const SECTIONS: usize, T: Numeric>(
         *section = BiquadCoefficients::notch(
             fundamental_hz * T::from_usize(index + 1),
             quality_factor,
-            dt,
+            timestep,
         )?;
     }
     Ok(sections)

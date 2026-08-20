@@ -7,7 +7,7 @@ use multicalc::numerical_derivative::Jacobian;
 use multicalc::optimization::{
     GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason,
 };
-use multicalc::scalar::{Numeric, VectorFn, c};
+use multicalc::scalar::{Numeric, VectorFn, constant};
 use multicalc::scalar_fn_vec;
 use multicalc_testkit::problems::Rosenbrock;
 
@@ -27,10 +27,10 @@ fn lm_solves_rosenbrock() {
 #[test]
 fn lm_recovers_linear_least_squares() {
     // Fit a*t + b to points lying exactly on y = 2t + 1.
-    let linear_residual = scalar_fn_vec!(|v: &[f64; 2]| [
-        c(-1.0) + v[1],
-        c(-3.0) + v[0] + v[1],
-        c(-5.0) + c(2.0) * v[0] + v[1],
+    let linear_residual = scalar_fn_vec!(|point: &[f64; 2]| [
+        constant(-1.0) + point[1],
+        constant(-3.0) + point[0] + point[1],
+        constant(-5.0) + constant(2.0) * point[0] + point[1],
     ]);
     let report = LevenbergMarquardt::<AutoDiffMulti>::default()
         .minimize(&linear_residual, &[0.0, 0.0])
@@ -43,10 +43,10 @@ fn lm_recovers_linear_least_squares() {
 #[test]
 fn lm_fits_exponential_decay() {
     // a*e^(b*t) through (0,100), (1,50), (2,25): a = 100, b = -ln 2.
-    let exponential_decay = scalar_fn_vec!(|v: &[f64; 2]| [
-        c(-100.0) + v[0],
-        c(-50.0) + v[0] * v[1].exp(),
-        c(-25.0) + v[0] * (c(2.0) * v[1]).exp(),
+    let exponential_decay = scalar_fn_vec!(|point: &[f64; 2]| [
+        constant(-100.0) + point[0],
+        constant(-50.0) + point[0] * point[1].exp(),
+        constant(-25.0) + point[0] * (constant(2.0) * point[1]).exp(),
     ]);
     let report = LevenbergMarquardt::<AutoDiffMulti>::default()
         .minimize(&exponential_decay, &[80.0, -0.3])
@@ -74,7 +74,10 @@ fn lm_solves_rosenbrock_f32() {
 #[test]
 fn lm_rejects_underdetermined() {
     // Two residuals, three parameters.
-    let underdetermined = scalar_fn_vec!(|v: &[f64; 3]| [c(-1.0) + v[0] + v[1], c(-2.0) + v[2]]);
+    let underdetermined = scalar_fn_vec!(|point: &[f64; 3]| [
+        constant(-1.0) + point[0] + point[1],
+        constant(-2.0) + point[2]
+    ]);
     let result =
         LevenbergMarquardt::<AutoDiffMulti>::default().minimize(&underdetermined, &[0.0, 0.0, 0.0]);
     assert!(matches!(
@@ -86,7 +89,7 @@ fn lm_rejects_underdetermined() {
 #[test]
 fn lm_reports_non_finite() {
     // The residual is infinite at the starting point.
-    let residual = scalar_fn_vec!(|v: &[f64; 1]| [c(1.0) / v[0], v[0]]);
+    let residual = scalar_fn_vec!(|point: &[f64; 1]| [constant(1.0) / point[0], point[0]]);
     let result = LevenbergMarquardt::<AutoDiffMulti>::default().minimize(&residual, &[0.0]);
     assert!(matches!(result, Err(SolveError::NonFinite)));
 }
@@ -196,10 +199,10 @@ fn lm_solves_trigonometric() {
 #[test]
 fn gn_recovers_linear_least_squares() {
     // A linear residual: Gauss-Newton reaches the exact least-squares solution.
-    let linear_residual = scalar_fn_vec!(|v: &[f64; 2]| [
-        c(-1.0) + v[1],
-        c(-3.0) + v[0] + v[1],
-        c(-5.0) + c(2.0) * v[0] + v[1],
+    let linear_residual = scalar_fn_vec!(|point: &[f64; 2]| [
+        constant(-1.0) + point[1],
+        constant(-3.0) + point[0] + point[1],
+        constant(-5.0) + constant(2.0) * point[0] + point[1],
     ]);
     let report = GaussNewton::<AutoDiffMulti>::default()
         .minimize(&linear_residual, &[0.0, 0.0])
@@ -224,9 +227,9 @@ fn gn_solves_rosenbrock() {
 #[test]
 fn gn_reports_singular() {
     // The two residuals are proportional, so the Jacobian is rank-deficient.
-    let singular_residual = scalar_fn_vec!(|v: &[f64; 2]| [
-        c(-1.0) + v[0] - v[1],
-        c(-2.0) + c(2.0) * v[0] - c(2.0) * v[1],
+    let singular_residual = scalar_fn_vec!(|point: &[f64; 2]| [
+        constant(-1.0) + point[0] - point[1],
+        constant(-2.0) + constant(2.0) * point[0] - constant(2.0) * point[1],
     ]);
     let result = GaussNewton::<AutoDiffMulti>::default().minimize(&singular_residual, &[0.0, 0.0]);
     assert!(matches!(
@@ -237,7 +240,10 @@ fn gn_reports_singular() {
 
 #[test]
 fn gn_rejects_underdetermined() {
-    let underdetermined = scalar_fn_vec!(|v: &[f64; 3]| [c(-1.0) + v[0] + v[1], c(-2.0) + v[2]]);
+    let underdetermined = scalar_fn_vec!(|point: &[f64; 3]| [
+        constant(-1.0) + point[0] + point[1],
+        constant(-2.0) + point[2]
+    ]);
     let result =
         GaussNewton::<AutoDiffMulti>::default().minimize(&underdetermined, &[0.0, 0.0, 0.0]);
     assert!(matches!(
@@ -248,7 +254,7 @@ fn gn_rejects_underdetermined() {
 
 #[test]
 fn gn_reports_non_finite() {
-    let residual = scalar_fn_vec!(|v: &[f64; 1]| [c(1.0) / v[0], v[0]]);
+    let residual = scalar_fn_vec!(|point: &[f64; 1]| [constant(1.0) / point[0], point[0]]);
     let result = GaussNewton::<AutoDiffMulti>::default().minimize(&residual, &[0.0]);
     assert!(matches!(result, Err(SolveError::NonFinite)));
 }
@@ -345,7 +351,9 @@ fn gn_backtracking_rescues_far_start() {
     // The minimum is x = 0, but past |x| = 1 the full step cubes and flings the iterate off to
     // the saturated tail (|r| -> 1). Backtracking halves the overshoot until the residual drops,
     // landing back in the basin.
-    let residual = || scalar_fn_vec!(|v: &[f64; 1]| [v[0] / (c(1.0) + v[0] * v[0]).sqrt()]);
+    let residual = || {
+        scalar_fn_vec!(|point: &[f64; 1]| [point[0] / (constant(1.0) + point[0] * point[0]).sqrt()])
+    };
     let far = [2.0];
 
     // Plain Gauss-Newton overshoots: it either overflows or stalls on the tail far from x = 0.
@@ -436,7 +444,10 @@ fn autodiff_jacobian_matches_finite_differences() {
     assert!(check_jacobian(&rosenbrock, &[-1.2, 1.0]) < 1e-6);
 
     // A transcendental residual exercises the sin and exp derivatives.
-    let mixed = scalar_fn_vec!(|v: &[f64; 2]| [v[0].sin() * v[1], c(2.0) * v[0] + v[1].exp()]);
+    let mixed = scalar_fn_vec!(|point: &[f64; 2]| [
+        point[0].sin() * point[1],
+        constant(2.0) * point[0] + point[1].exp()
+    ]);
     assert!(check_jacobian(&mixed, &[0.7, -0.4]) < 1e-6);
 }
 

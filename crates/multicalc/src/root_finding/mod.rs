@@ -69,8 +69,8 @@ pub(crate) fn same_sign<T: Numeric>(a: T, b: T) -> bool {
     (a >= T::ZERO) == (b >= T::ZERO)
 }
 
-/// Returns `true` when every element of `v` is finite.
+/// Returns `true` when every element of `values` is finite.
 #[must_use]
-pub(crate) fn all_finite<const K: usize, T: Numeric>(v: &[T; K]) -> bool {
-    v.iter().all(|x| x.is_finite())
+pub(crate) fn all_finite<const K: usize, T: Numeric>(values: &[T; K]) -> bool {
+    values.iter().all(|x| x.is_finite())
 }

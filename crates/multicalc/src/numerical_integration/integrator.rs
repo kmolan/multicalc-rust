@@ -45,8 +45,8 @@ pub(crate) fn is_finite<T: Numeric>(sample: T) -> Result<T, IntegrateError> {
 /// only an infinite end needs the `T::EPSILON` inset that keeps the transform away from
 /// its singular limit.
 #[must_use]
-pub(crate) fn t_bounds<T: Numeric>(d: &Domain<T>) -> (T, T) {
-    match d {
+pub(crate) fn t_bounds<T: Numeric>(domain: &Domain<T>) -> (T, T) {
+    match domain {
         Domain::Finite(a, b) => (*a, *b),
         Domain::LowerToInf(_) => (T::ZERO, T::ONE - T::EPSILON), // finite end t=0, +inf at t=1
         Domain::UpperToInf(_) => (T::ZERO, T::ONE - T::EPSILON), // finite end t=0, -inf at t=1
@@ -57,21 +57,27 @@ pub(crate) fn t_bounds<T: Numeric>(d: &Domain<T>) -> (T, T) {
 /// Maps a sample `t` to its position `x` and the Jacobian `dx/dt` for a domain.
 /// Finite domains are the identity, so the finite path pays nothing extra.
 #[must_use]
-pub(crate) fn map_sample<T: Numeric>(d: &Domain<T>, t: T) -> (T, T) {
-    match *d {
-        Domain::Finite(_, _) => (t, T::ONE),
+pub(crate) fn map_sample<T: Numeric>(domain: &Domain<T>, sample: T) -> (T, T) {
+    match *domain {
+        Domain::Finite(_, _) => (sample, T::ONE),
         Domain::LowerToInf(a) => {
-            let q = T::ONE - t;
-            (a + t / q, T::ONE / (q * q))
+            let one_minus_t = T::ONE - sample;
+            (
+                a + sample / one_minus_t,
+                T::ONE / (one_minus_t * one_minus_t),
+            )
         }
         Domain::UpperToInf(b) => {
-            let q = T::ONE - t;
-            (b - t / q, T::ONE / (q * q))
+            let one_minus_t = T::ONE - sample;
+            (
+                b - sample / one_minus_t,
+                T::ONE / (one_minus_t * one_minus_t),
+            )
         }
         Domain::BothInf => {
-            let u = T::PI * (t - T::HALF);
-            let c = u.cos();
-            (u.tan(), T::PI / (c * c))
+            let angle = T::PI * (sample - T::HALF);
+            let cos_angle = angle.cos();
+            (angle.tan(), T::PI / (cos_angle * cos_angle))
         }
     }
 }

@@ -74,21 +74,21 @@ impl<T: Numeric> SE3<T> {
 
     /// Applies the transform to a 3D point.
     #[inline]
-    pub fn act(self, p: Vector3D<T>) -> Vector3D<T> {
-        self.rotation.act(p) + self.translation
+    pub fn act(self, point: Vector3D<T>) -> Vector3D<T> {
+        self.rotation.act(point) + self.translation
     }
 
     /// The exponential map from a `[v; ω]` twist. Near θ = 0 the SO(3) left Jacobian uses a Taylor
     /// series, keeping the value and its derivative finite.
     #[inline]
     #[must_use]
-    pub fn exp(xi: Vector6D<T>) -> Self {
-        let [vx, vy, vz, px, py, pz] = *xi.as_array();
-        let v = Vector::new([vx, vy, vz]);
-        let phi = Vector::new([px, py, pz]);
+    pub fn exp(twist: Vector6D<T>) -> Self {
+        let [lin_x, lin_y, lin_z, ang_x, ang_y, ang_z] = *twist.as_array();
+        let linear = Vector::new([lin_x, lin_y, lin_z]);
+        let phi = Vector::new([ang_x, ang_y, ang_z]);
         SE3 {
             rotation: SO3::exp(phi),
-            translation: left_jacobian_so3(phi) * v,
+            translation: left_jacobian_so3(phi) * linear,
         }
     }
 
@@ -96,63 +96,63 @@ impl<T: Numeric> SE3<T> {
     #[inline]
     pub fn log(self) -> Vector6D<T> {
         let phi = self.rotation.log();
-        let v = inverse_left_jacobian_so3(phi) * self.translation;
-        let [vx, vy, vz] = *v.as_array();
-        let [px, py, pz] = *phi.as_array();
-        Vector::new([vx, vy, vz, px, py, pz])
+        let linear = inverse_left_jacobian_so3(phi) * self.translation;
+        let [lin_x, lin_y, lin_z] = *linear.as_array();
+        let [ang_x, ang_y, ang_z] = *phi.as_array();
+        Vector::new([lin_x, lin_y, lin_z, ang_x, ang_y, ang_z])
     }
 
     /// The 6×6 adjoint `[[R, [t]×·R], [0, R]]` for the `[v; ω]` ordering.
     #[inline]
     pub fn adjoint(self) -> Matrix6D<T> {
-        let r = self.rotation.to_matrix();
-        let tr = skew3(self.translation) * r;
-        let mut ad = Matrix::zeros();
+        let rotation = self.rotation.to_matrix();
+        let skew_t_r = skew3(self.translation) * rotation;
+        let mut adjoint = Matrix::zeros();
         for i in 0..3 {
             for j in 0..3 {
-                let rij = r[(i, j)];
-                let trij = tr[(i, j)];
-                ad[(i, j)] = rij;
-                ad[(i, j + 3)] = trij;
-                ad[(i + 3, j + 3)] = rij;
+                let rot_entry = rotation[(i, j)];
+                let skew_entry = skew_t_r[(i, j)];
+                adjoint[(i, j)] = rot_entry;
+                adjoint[(i, j + 3)] = skew_entry;
+                adjoint[(i + 3, j + 3)] = rot_entry;
             }
         }
-        ad
+        adjoint
     }
 
     /// The 4×4 Lie-algebra element for a `[v; ω]` twist.
     #[inline]
-    pub fn hat(xi: Vector6D<T>) -> Matrix4D<T> {
-        let [vx, vy, vz, wx, wy, wz] = *xi.as_array();
+    pub fn hat(twist: Vector6D<T>) -> Matrix4D<T> {
+        let [lin_x, lin_y, lin_z, ang_x, ang_y, ang_z] = *twist.as_array();
         Matrix::new([
-            [T::ZERO, -wz, wy, vx],
-            [wz, T::ZERO, -wx, vy],
-            [-wy, wx, T::ZERO, vz],
+            [T::ZERO, -ang_z, ang_y, lin_x],
+            [ang_z, T::ZERO, -ang_x, lin_y],
+            [-ang_y, ang_x, T::ZERO, lin_z],
             [T::ZERO, T::ZERO, T::ZERO, T::ZERO],
         ])
     }
 
     /// The inverse of [`SE3::hat`].
     #[inline]
-    pub fn vee(m: Matrix4D<T>) -> Vector6D<T> {
-        let [[_, _, m02, m03], [m10, _, _, m13], [_, m21, _, m23], _] = m.into_array();
+    pub fn vee(matrix: Matrix4D<T>) -> Vector6D<T> {
+        let [[_, _, m02, m03], [m10, _, _, m13], [_, m21, _, m23], _] = matrix.into_array();
         Vector::new([m03, m13, m23, m21, m02, m10])
     }
 
     /// The 4×4 homogeneous transform matrix.
     #[inline]
     pub fn to_matrix(self) -> Matrix4D<T> {
-        let r = self.rotation.to_matrix();
-        let t = self.translation;
-        let mut m = Matrix::zeros();
+        let rotation = self.rotation.to_matrix();
+        let translation = self.translation;
+        let mut matrix = Matrix::zeros();
         for i in 0..3 {
             for j in 0..3 {
-                m[(i, j)] = r[(i, j)];
+                matrix[(i, j)] = rotation[(i, j)];
             }
-            m[(i, 3)] = t[i];
+            matrix[(i, 3)] = translation[i];
         }
-        m[(3, 3)] = T::ONE;
-        m
+        matrix[(3, 3)] = T::ONE;
+        matrix
     }
 
     /// Builds a transform from a finite 4×4 homogeneous matrix; `None` if the rotation block is not
@@ -160,13 +160,13 @@ impl<T: Numeric> SE3<T> {
     /// round-off.
     #[inline]
     #[must_use]
-    pub fn try_from_matrix(m: Matrix4D<T>) -> Option<Self> {
+    pub fn try_from_matrix(matrix: Matrix4D<T>) -> Option<Self> {
         let [
             [m00, m01, m02, m03],
             [m10, m11, m12, m13],
             [m20, m21, m22, m23],
             [m30, m31, m32, m33],
-        ] = m.into_array();
+        ] = matrix.into_array();
         if !m03.is_finite()
             || !m13.is_finite()
             || !m23.is_finite()
@@ -182,8 +182,8 @@ impl<T: Numeric> SE3<T> {
             return None;
         }
 
-        let r = Matrix::new([[m00, m01, m02], [m10, m11, m12], [m20, m21, m22]]);
-        let rotation = SO3::try_from_matrix(r)?;
+        let rotation_block = Matrix::new([[m00, m01, m02], [m10, m11, m12], [m20, m21, m22]]);
+        let rotation = SO3::try_from_matrix(rotation_block)?;
         Some(SE3 {
             rotation,
             translation: Vector::new([m03, m13, m23]),
@@ -193,8 +193,8 @@ impl<T: Numeric> SE3<T> {
     /// Geodesic (screw-motion) interpolation; `t = 0` gives `self`, `t = 1` gives `other`.
     #[inline]
     #[must_use]
-    pub fn interpolate(self, other: Self, t: T) -> Self {
-        self.compose(Self::exp(self.inverse().compose(other).log() * t))
+    pub fn interpolate(self, other: Self, amount: T) -> Self {
+        self.compose(Self::exp(self.inverse().compose(other).log() * amount))
     }
 
     /// The SE(3) left Jacobian `J_l(ξ)` for the `[v; ω]` twist ordering.
@@ -202,31 +202,31 @@ impl<T: Numeric> SE3<T> {
     /// ```
     /// use multicalc::spatial::SE3;
     /// use multicalc::linear_algebra::Vector;
-    /// let xi = Vector::new([0.1_f64, -0.2, 0.3, 0.2, -0.1, 0.4]);
-    /// let prod = (SE3::left_jacobian(xi) * SE3::left_jacobian_inverse(xi));
+    /// let twist = Vector::new([0.1_f64, -0.2, 0.3, 0.2, -0.1, 0.4]);
+    /// let prod = (SE3::left_jacobian(twist) * SE3::left_jacobian_inverse(twist));
     /// for i in 0..6 { assert!((prod[(i, i)] - 1.0).abs() < 1e-10); }
     /// ```
     #[inline]
-    pub fn left_jacobian(xi: Vector6D<T>) -> Matrix6D<T> {
-        left_jacobian_se3(xi)
+    pub fn left_jacobian(twist: Vector6D<T>) -> Matrix6D<T> {
+        left_jacobian_se3(twist)
     }
 
     /// The SE(3) right Jacobian `J_r(ξ) = J_l(−ξ)`.
     #[inline]
-    pub fn right_jacobian(xi: Vector6D<T>) -> Matrix6D<T> {
-        left_jacobian_se3(-xi)
+    pub fn right_jacobian(twist: Vector6D<T>) -> Matrix6D<T> {
+        left_jacobian_se3(-twist)
     }
 
     /// The inverse SE(3) left Jacobian `J_l⁻¹(ξ)`.
     #[inline]
-    pub fn left_jacobian_inverse(xi: Vector6D<T>) -> Matrix6D<T> {
-        inverse_left_jacobian_se3(xi)
+    pub fn left_jacobian_inverse(twist: Vector6D<T>) -> Matrix6D<T> {
+        inverse_left_jacobian_se3(twist)
     }
 
     /// The inverse SE(3) right Jacobian `J_r⁻¹(ξ) = J_l⁻¹(−ξ)`.
     #[inline]
-    pub fn right_jacobian_inverse(xi: Vector6D<T>) -> Matrix6D<T> {
-        inverse_left_jacobian_se3(-xi)
+    pub fn right_jacobian_inverse(twist: Vector6D<T>) -> Matrix6D<T> {
+        inverse_left_jacobian_se3(-twist)
     }
 }
 

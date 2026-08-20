@@ -19,12 +19,12 @@ use crate::scalar::{Numeric, VectorFn};
 /// # Examples
 /// ```
 /// use multicalc::numerical_derivative::AutoDiffMulti;
-/// use multicalc::scalar::c;
+/// use multicalc::scalar::constant;
 /// use multicalc::scalar_fn_vec;
 /// use multicalc::vector_field::curl_3d;
 ///
 /// // the field (y, -x, 2z)
-/// let vf = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
+/// let vf = scalar_fn_vec!(|point: &[f64; 3]| [point[1], -point[0], constant(2.0) * point[2]]);
 ///
 /// let derivator = AutoDiffMulti::default();
 /// let point = [0.0, 1.0, 3.0];
@@ -37,17 +37,17 @@ pub fn curl_3d<D: DerivatorMultiVariable, F: VectorFn<NUM_VARS, 3>, const NUM_VA
     vector_field: &F,
     point: &[D::Scalar; NUM_VARS],
 ) -> Result<[D::Scalar; 3], DiffError> {
-    let vx = Component::new(vector_field, 0);
-    let vy = Component::new(vector_field, 1);
-    let vz = Component::new(vector_field, 2);
+    let field_x = Component::new(vector_field, 0);
+    let field_y = Component::new(vector_field, 1);
+    let field_z = Component::new(vector_field, 2);
 
     let mut ans = [<D::Scalar as Numeric>::ZERO; 3];
-    ans[0] = derivator.first_partial_derivative(&vz, 1, point)?
-        - derivator.first_partial_derivative(&vy, 2, point)?;
-    ans[1] = derivator.first_partial_derivative(&vx, 2, point)?
-        - derivator.first_partial_derivative(&vz, 0, point)?;
-    ans[2] = derivator.first_partial_derivative(&vy, 0, point)?
-        - derivator.first_partial_derivative(&vx, 1, point)?;
+    ans[0] = derivator.first_partial_derivative(&field_z, 1, point)?
+        - derivator.first_partial_derivative(&field_y, 2, point)?;
+    ans[1] = derivator.first_partial_derivative(&field_x, 2, point)?
+        - derivator.first_partial_derivative(&field_z, 0, point)?;
+    ans[2] = derivator.first_partial_derivative(&field_y, 0, point)?
+        - derivator.first_partial_derivative(&field_x, 1, point)?;
 
     Ok(ans)
 }
@@ -67,12 +67,12 @@ pub fn curl_3d<D: DerivatorMultiVariable, F: VectorFn<NUM_VARS, 3>, const NUM_VA
 /// # Examples
 /// ```
 /// use multicalc::numerical_derivative::AutoDiffMulti;
-/// use multicalc::scalar::c;
+/// use multicalc::scalar::constant;
 /// use multicalc::scalar_fn_vec;
 /// use multicalc::vector_field::curl_2d;
 ///
 /// // the field (2xy, 3cos(y))
-/// let vf = scalar_fn_vec!(|v: &[f64; 2]| [c(2.0) * v[0] * v[1], c(3.0) * v[1].cos()]);
+/// let vf = scalar_fn_vec!(|point: &[f64; 2]| [constant(2.0) * point[0] * point[1], constant(3.0) * point[1].cos()]);
 ///
 /// let derivator = AutoDiffMulti::default();
 /// let point = [1.0, 3.14];
@@ -85,9 +85,9 @@ pub fn curl_2d<D: DerivatorMultiVariable, F: VectorFn<NUM_VARS, 2>, const NUM_VA
     vector_field: &F,
     point: &[D::Scalar; NUM_VARS],
 ) -> Result<D::Scalar, DiffError> {
-    let vx = Component::new(vector_field, 0);
-    let vy = Component::new(vector_field, 1);
+    let field_x = Component::new(vector_field, 0);
+    let field_y = Component::new(vector_field, 1);
 
-    Ok(derivator.first_partial_derivative(&vy, 0, point)?
-        - derivator.first_partial_derivative(&vx, 1, point)?)
+    Ok(derivator.first_partial_derivative(&field_y, 0, point)?
+        - derivator.first_partial_derivative(&field_x, 1, point)?)
 }

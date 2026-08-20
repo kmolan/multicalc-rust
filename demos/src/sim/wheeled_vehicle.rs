@@ -72,13 +72,13 @@ impl WheeledVehicle {
         &self,
         pose: Vector3D,
         command: BodyTwist<f64>,
-        dt: f64,
+        timestep: f64,
         slipping: bool,
         rng: &mut Pcg32,
     ) -> TruthStep {
-        let next = Rk4::step(&Unicycle::new(command).field(), 0.0, &pose, dt);
+        let next = Rk4::step(&Unicycle::new(command).field(), 0.0, &pose, timestep);
         // The arc the body traced this step, split into the turn each wheel had to make for it.
-        let wheel_rotations = self.drive.inverse_arc(command.integrate_over(dt));
+        let wheel_rotations = self.drive.inverse_arc(command.integrate_over(timestep));
         let speed_factor = if slipping {
             self.slip_speed_factor
         } else {

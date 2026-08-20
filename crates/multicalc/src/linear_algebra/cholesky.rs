@@ -16,7 +16,7 @@ use crate::scalar::Numeric;
 #[must_use]
 pub struct Cholesky<const N: usize, T = f64> {
     /// Lower-triangular factor `L`, where `A = L·Lᵀ`.
-    pub(crate) l: Matrix<N, N, T>,
+    pub(crate) lower: Matrix<N, N, T>,
 }
 
 impl<const N: usize, T: Numeric> Matrix<N, N, T> {
@@ -29,48 +29,48 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let a = Matrix::<3, 3>::new([[4.0, 12.0, -16.0], [12.0, 37.0, -43.0], [-16.0, -43.0, 98.0]]);
-    /// let l = a.cholesky().unwrap().l();
+    /// let lower = a.cholesky().unwrap().lower();
     /// // L·Lᵀ == A.
-    /// let prod = l * l.transpose();
-    /// for r in 0..3 {
-    ///     for c in 0..3 {
-    ///         assert!((prod[(r, c)] - a[(r, c)]).abs() < 1e-12);
+    /// let prod = lower * lower.transpose();
+    /// for row in 0..3 {
+    ///     for column in 0..3 {
+    ///         assert!((prod[(row, column)] - a[(row, column)]).abs() < 1e-12);
     ///     }
     /// }
     /// ```
     pub fn cholesky(self) -> Result<Cholesky<N, T>, LinalgError> {
-        let mut l = Matrix::zeros();
+        let mut lower = Matrix::zeros();
 
         for j in 0..N {
             // Diagonal entry: subtract the squares already placed in row j.
-            let mut d = self[(j, j)];
+            let mut diag = self[(j, j)];
             for k in 0..j {
-                d -= l[(j, k)] * l[(j, k)];
+                diag -= lower[(j, k)] * lower[(j, k)];
             }
-            if d <= T::ZERO {
+            if diag <= T::ZERO {
                 return Err(LinalgError::NotPositiveDefinite);
             }
-            let ljj = d.sqrt();
-            l[(j, j)] = ljj;
+            let ljj = diag.sqrt();
+            lower[(j, j)] = ljj;
 
             // Below-diagonal entries of column j.
             for i in (j + 1)..N {
-                let mut s = self[(i, j)];
+                let mut sum = self[(i, j)];
                 for k in 0..j {
-                    s -= l[(i, k)] * l[(j, k)];
+                    sum -= lower[(i, k)] * lower[(j, k)];
                 }
-                l[(i, j)] = s / ljj;
+                lower[(i, j)] = sum / ljj;
             }
         }
 
-        Ok(Cholesky { l })
+        Ok(Cholesky { lower })
     }
 }
 
 impl<const N: usize, T: Numeric> Cholesky<N, T> {
     /// The lower-triangular factor `L`, where `A = L·Lᵀ`.
-    pub fn l(&self) -> Matrix<N, N, T> {
-        self.l
+    pub fn lower(&self) -> Matrix<N, N, T> {
+        self.lower
     }
 
     /// The determinant, `Π L[i][i]²`.
@@ -85,7 +85,7 @@ impl<const N: usize, T: Numeric> Cholesky<N, T> {
     pub fn determinant(&self) -> T {
         let mut det = T::ONE;
         for i in 0..N {
-            det *= self.l[(i, i)] * self.l[(i, i)];
+            det *= self.lower[(i, i)] * self.lower[(i, i)];
         }
         det
     }
@@ -109,19 +109,19 @@ impl<const N: usize, T: Numeric> Cholesky<N, T> {
         // Forward substitution for L·y = b.
         for i in 0..N {
             let mut sum = x[i];
-            for (j, &xj) in x.iter().enumerate().take(i) {
-                sum -= self.l[(i, j)] * xj;
+            for (j, &x_j) in x.iter().enumerate().take(i) {
+                sum -= self.lower[(i, j)] * x_j;
             }
-            x[i] = sum / self.l[(i, i)];
+            x[i] = sum / self.lower[(i, i)];
         }
 
         // Back substitution for Lᵀ·x = y, where Lᵀ[i][j] = L[j][i].
         for i in (0..N).rev() {
             let mut sum = x[i];
-            for (j, &xj) in x.iter().enumerate().skip(i + 1) {
-                sum -= self.l[(j, i)] * xj;
+            for (j, &x_j) in x.iter().enumerate().skip(i + 1) {
+                sum -= self.lower[(j, i)] * x_j;
             }
-            x[i] = sum / self.l[(i, i)];
+            x[i] = sum / self.lower[(i, i)];
         }
 
         Vector::new(x)
@@ -135,17 +135,17 @@ impl<const N: usize, T: Numeric> Cholesky<N, T> {
     /// let identity = Matrix::<2, 2>::identity();
     /// // Solving A·X = I gives X = A⁻¹.
     /// let x = a.cholesky().unwrap().solve_matrix(identity);
-    /// let p = a * x;
-    /// assert!((p[(0, 0)] - 1.0).abs() < 1e-12);
-    /// assert!((p[(1, 1)] - 1.0).abs() < 1e-12);
+    /// let product = a * x;
+    /// assert!((product[(0, 0)] - 1.0).abs() < 1e-12);
+    /// assert!((product[(1, 1)] - 1.0).abs() < 1e-12);
     /// ```
     pub fn solve_matrix<const K: usize>(&self, b: Matrix<N, K, T>) -> Matrix<N, K, T> {
         let mut result = Matrix::zeros();
-        for c in 0..K {
-            let col = Vector::from_fn(|r| b[(r, c)]);
-            let x = self.solve(col);
-            for r in 0..N {
-                result[(r, c)] = x[r];
+        for column in 0..K {
+            let rhs_column = Vector::from_fn(|row| b[(row, column)]);
+            let x = self.solve(rhs_column);
+            for row in 0..N {
+                result[(row, column)] = x[row];
             }
         }
         result
@@ -156,11 +156,11 @@ impl<const N: usize, T: Numeric> Cholesky<N, T> {
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let a = Matrix::<3, 3>::new([[4.0, 12.0, -16.0], [12.0, 37.0, -43.0], [-16.0, -43.0, 98.0]]);
-    /// let p = a * a.cholesky().unwrap().inverse();
-    /// for r in 0..3 {
-    ///     for c in 0..3 {
-    ///         let expected = if r == c { 1.0 } else { 0.0 };
-    ///         assert!((p[(r, c)] - expected).abs() < 1e-12);
+    /// let product = a * a.cholesky().unwrap().inverse();
+    /// for row in 0..3 {
+    ///     for column in 0..3 {
+    ///         let expected = if row == column { 1.0 } else { 0.0 };
+    ///         assert!((product[(row, column)] - expected).abs() < 1e-12);
     ///     }
     /// }
     /// ```

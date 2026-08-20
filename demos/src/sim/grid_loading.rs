@@ -1,7 +1,6 @@
 //! Reading an occupancy grid out of a CSV of `0`s and `1`s.
 
 use std::fmt;
-use std::fs;
 use std::path::Path;
 
 use multicalc::error::MappingError;
@@ -11,7 +10,7 @@ use multicalc::mapping::{DynamicOccupancyGrid, MutableOccupancyMap};
 #[derive(Debug)]
 pub enum GridFileError {
     /// The file could not be read.
-    Io(std::io::Error),
+    IoError(std::io::Error),
     /// A row had a different width than the first, at the given 1-based line number.
     Ragged { line: usize },
     /// A value was neither `0` nor `1`, at the given 1-based line number.
@@ -23,7 +22,7 @@ pub enum GridFileError {
 impl fmt::Display for GridFileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            GridFileError::Io(error) => write!(f, "could not read the grid file: {error}"),
+            GridFileError::IoError(error) => write!(f, "could not read the grid file: {error}"),
             GridFileError::Ragged { line } => {
                 write!(
                     f,
@@ -44,7 +43,7 @@ impl std::error::Error for GridFileError {}
 
 impl From<std::io::Error> for GridFileError {
     fn from(error: std::io::Error) -> Self {
-        GridFileError::Io(error)
+        GridFileError::IoError(error)
     }
 }
 
@@ -65,7 +64,7 @@ pub fn load_occupancy_grid_csv(
     resolution: f64,
     origin: [f64; 2],
 ) -> Result<DynamicOccupancyGrid, GridFileError> {
-    let text = fs::read_to_string(path)?;
+    let text = std::fs::read_to_string(path)?;
 
     // Parse each non-empty, non-comment line into a row of cells, remembering its source line
     // number for error messages.
@@ -77,7 +76,10 @@ pub fn load_occupancy_grid_csv(
             continue;
         }
         let mut row = Vec::new();
-        for token in trimmed.split([',', ' ', '\t']).filter(|t| !t.is_empty()) {
+        for token in trimmed
+            .split([',', ' ', '\t'])
+            .filter(|tok| !tok.is_empty())
+        {
             match token {
                 "0" => row.push(false),
                 "1" => row.push(true),

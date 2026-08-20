@@ -290,34 +290,34 @@ impl<T: Numeric> Numeric for Dual<T> {
     }
     #[inline]
     fn tan(self) -> Self {
-        let t = self.value.tan();
+        let tan_val = self.value.tan();
         Dual {
-            value: t,
-            deriv: (T::ONE + t * t) * self.deriv,
+            value: tan_val,
+            deriv: (T::ONE + tan_val * tan_val) * self.deriv,
         }
     }
     #[inline]
     fn exp(self) -> Self {
-        let e = self.value.exp();
+        let exp_val = self.value.exp();
         Dual {
-            value: e,
-            deriv: e * self.deriv,
+            value: exp_val,
+            deriv: exp_val * self.deriv,
         }
     }
     #[inline]
     fn expm1(self) -> Self {
-        let e = self.value.exp();
+        let exp_val = self.value.exp();
         let em1 = self.value.expm1();
         Dual {
             value: em1,
-            deriv: e * self.deriv,
+            deriv: exp_val * self.deriv,
         }
     }
     /// Defined for `value > 0`; at `0` the value is `-inf` and the derivative unbounded.
     #[inline]
-    fn ln(self) -> Self {
+    fn log(self) -> Self {
         Dual {
-            value: self.value.ln(),
+            value: self.value.log(),
             deriv: self.deriv / self.value,
         }
     }
@@ -334,7 +334,7 @@ impl<T: Numeric> Numeric for Dual<T> {
     fn log2(self) -> Self {
         Self {
             value: self.value.log2(),
-            deriv: self.deriv / self.value / T::TWO.ln(),
+            deriv: self.deriv / self.value / T::TWO.log(),
         }
     }
 
@@ -342,7 +342,7 @@ impl<T: Numeric> Numeric for Dual<T> {
     fn log10(self) -> Self {
         Self {
             value: self.value.log10(),
-            deriv: self.deriv / self.value / T::TEN.ln(),
+            deriv: self.deriv / self.value / T::TEN.log(),
         }
     }
 

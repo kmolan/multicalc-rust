@@ -84,48 +84,48 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
         let max_sweeps = 60;
         for _ in 0..max_sweeps {
             let mut off_max = T::ZERO;
-            for p in 0..N {
-                for q in (p + 1)..N {
-                    let off_diagonal = working[(p, q)];
+            for col_p in 0..N {
+                for col_q in (col_p + 1)..N {
+                    let off_diagonal = working[(col_p, col_q)];
                     off_max = off_max.max(off_diagonal.abs());
                     if off_diagonal.abs() <= threshold {
                         continue;
                     }
 
-                    // Rotation that zeroes the entry shared by rows and columns p and q.
-                    let alpha = working[(p, p)];
-                    let beta = working[(q, q)];
+                    // Rotation that zeroes the entry shared by rows and columns col_p and col_q.
+                    let alpha = working[(col_p, col_p)];
+                    let beta = working[(col_q, col_q)];
                     let gamma = off_diagonal;
                     let zeta = (beta - alpha) / (T::TWO * gamma);
                     let sign = if zeta < T::ZERO { -T::ONE } else { T::ONE };
-                    let t = sign / (zeta.abs() + (T::ONE + zeta * zeta).sqrt());
-                    let c = T::ONE / (T::ONE + t * t).sqrt();
-                    let s = c * t;
+                    let tan = sign / (zeta.abs() + (T::ONE + zeta * zeta).sqrt());
+                    let cos = T::ONE / (T::ONE + tan * tan).sqrt();
+                    let sin = tan * cos;
 
                     // Writing the two off-diagonal entries as exactly zero rather than computing
                     // them keeps the matrix reading the same across the diagonal as sweeps run.
-                    working[(p, p)] = alpha - t * gamma;
-                    working[(q, q)] = beta + t * gamma;
-                    working[(p, q)] = T::ZERO;
-                    working[(q, p)] = T::ZERO;
+                    working[(col_p, col_p)] = alpha - tan * gamma;
+                    working[(col_q, col_q)] = beta + tan * gamma;
+                    working[(col_p, col_q)] = T::ZERO;
+                    working[(col_q, col_p)] = T::ZERO;
 
                     for i in 0..N {
-                        if i == p || i == q {
+                        if i == col_p || i == col_q {
                             continue;
                         }
-                        let old = working[(i, p)];
-                        let other = working[(i, q)];
-                        working[(i, p)] = c * old - s * other;
-                        working[(p, i)] = working[(i, p)];
-                        working[(i, q)] = s * old + c * other;
-                        working[(q, i)] = working[(i, q)];
+                        let old = working[(i, col_p)];
+                        let other = working[(i, col_q)];
+                        working[(i, col_p)] = cos * old - sin * other;
+                        working[(col_p, i)] = working[(i, col_p)];
+                        working[(i, col_q)] = sin * old + cos * other;
+                        working[(col_q, i)] = working[(i, col_q)];
                     }
 
                     for i in 0..N {
-                        let old = eigenvectors[(i, p)];
-                        let other = eigenvectors[(i, q)];
-                        eigenvectors[(i, p)] = c * old - s * other;
-                        eigenvectors[(i, q)] = s * old + c * other;
+                        let old = eigenvectors[(i, col_p)];
+                        let other = eigenvectors[(i, col_q)];
+                        eigenvectors[(i, col_p)] = cos * old - sin * other;
+                        eigenvectors[(i, col_q)] = sin * old + cos * other;
                     }
                 }
             }

@@ -18,36 +18,40 @@ fn report(label: &str, value: f64, exact: f64) {
 }
 
 fn main() {
-    let dt = 0.1;
+    let timestep = 0.1;
 
     // (1) ZOH of the double integrator: F = [[1, dt], [0, 1]], G = [[dt²/2], [dt]].
     let a = Matrix2D::new([[0.0, 1.0], [0.0, 0.0]]);
     let b = Matrix::<2, 1>::new([[0.0], [1.0]]);
-    let (f, g) = zoh::<2, 1, 3, f64>(a, b, dt).unwrap();
-    println!("ZOH double integrator (dt = {dt})");
-    report("F[0,1]", f[(0, 1)], dt);
-    report("G[0,0]", g[(0, 0)], dt * dt / 2.0);
-    report("G[1,0]", g[(1, 0)], dt);
+    let (f, b_disc) = zoh::<2, 1, 3, f64>(a, b, timestep).unwrap();
+    println!("ZOH double integrator (dt = {timestep})");
+    report("F[0,1]", f[(0, 1)], timestep);
+    report("G[0,0]", b_disc[(0, 0)], timestep * timestep / 2.0);
+    report("G[1,0]", b_disc[(1, 0)], timestep);
 
     // (2) Van Loan process-noise discretization.
-    let qc = Matrix2D::new([[0.0, 0.0], [0.0, 1.0]]);
-    let (_f, qd) = van_loan::<2, 4, f64>(a, qc, dt).unwrap();
+    let process_cov = Matrix2D::new([[0.0, 0.0], [0.0, 1.0]]);
+    let (_f, discrete_cov) = van_loan::<2, 4, f64>(a, process_cov, timestep).unwrap();
     println!("\nVan Loan Q_d (continuous white noise on velocity)");
-    report("Q_d[1,1]", qd[(1, 1)], dt);
-    report("symmetry err", (qd[(0, 1)] - qd[(1, 0)]).abs(), 0.0);
+    report("Q_d[1,1]", discrete_cov[(1, 1)], timestep);
+    report(
+        "symmetry err",
+        (discrete_cov[(0, 1)] - discrete_cov[(1, 0)]).abs(),
+        0.0,
+    );
 
     // (3) Discrete white-noise model (filterpy-compatible).
-    let q = q_discrete_white_noise::<2, f64>(dt, 2.0);
+    let q_noise = q_discrete_white_noise::<2, f64>(timestep, 2.0);
     println!("\nq_discrete_white_noise(dim = 2, var = 2.0)");
-    report("Q[0,0]", q[(0, 0)], 2.0 * dt.powi(4) / 4.0);
-    report("Q[1,1]", q[(1, 1)], 2.0 * dt * dt);
+    report("Q[0,0]", q_noise[(0, 0)], 2.0 * timestep.powi(4) / 4.0);
+    report("Q[1,1]", q_noise[(1, 1)], 2.0 * timestep * timestep);
 
     // (4) Autodiff: d/dx expm(x·M)|_{x=0} = M, one Dual through expm.
-    let m = Matrix2D::new([[0.2, 0.5], [-0.1, 0.3]]);
-    let ad = Matrix2D::<Dual<f64>>::from_fn(|i, j| Dual::new(0.0, m[(i, j)]))
+    let seed = Matrix2D::new([[0.2, 0.5], [-0.1, 0.3]]);
+    let a_dual = Matrix2D::<Dual<f64>>::from_fn(|i, j| Dual::new(0.0, seed[(i, j)]))
         .expm()
         .unwrap();
     println!("\nAutodiff: d/dx expm(x·M) at x = 0 equals M");
-    report("d/dx [0,1]", ad[(0, 1)].deriv, m[(0, 1)]);
-    report("d/dx [1,0]", ad[(1, 0)].deriv, m[(1, 0)]);
+    report("d/dx [0,1]", a_dual[(0, 1)].deriv, seed[(0, 1)]);
+    report("d/dx [1,0]", a_dual[(1, 0)].deriv, seed[(1, 0)]);
 }

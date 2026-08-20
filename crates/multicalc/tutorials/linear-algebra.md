@@ -6,7 +6,7 @@ the ergonomic path and panics on out-of-range like `Vec`. Use `get` / `get_mut` 
 `try_row` / `try_column` when you want `Option` instead of a panic (panicking `row` /
 `column` were removed).
 
-- `Matrix::lu` → `Lu`: partial-pivoting Doolittle LU; `solve`, `determinant`, `inverse`.
+- `Matrix::lu_decompose` → `LuDecomposition`: partial-pivoting Doolittle LU; `solve`, `determinant`, `inverse`.
 - `Matrix::cholesky` → `Cholesky`: faster path for symmetric positive-definite matrices.
 - `PivotedQr`: column-pivoted Householder QR; `solve_least_squares`.
 - `Matrix::svd` → `Svd`: one-sided Jacobi SVD; `singular_values`, `condition_number`,
@@ -26,9 +26,9 @@ let a = Matrix3D::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
 let b = Vector::new([7.0, 19.0, 49.0]);
 let x = a.solve(b).unwrap();                        // [1, 2, 3]
 
-let lu = a.lu().unwrap();
-let det = lu.determinant();
-let inv = lu.inverse();
+let factorization = a.lu_decompose().unwrap();
+let det = factorization.determinant();
+let inv = factorization.inverse();
 
 // A symmetric positive-definite matrix has a faster Cholesky path.
 let s = Matrix2D::new([[4.0, 2.0], [2.0, 3.0]]);

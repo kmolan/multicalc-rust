@@ -38,7 +38,10 @@ fn every_case() -> [(ProfileLimits<f64>, f64); 6] {
 }
 
 /// `count` times evenly spaced across the whole profile, ends included.
-fn sample_times(profile: &MotionProfile<f64>, count: usize) -> impl Iterator<Item = f64> + use<'_> {
+fn sample_times<'profile>(
+    profile: &'profile MotionProfile<f64>,
+    count: usize,
+) -> impl Iterator<Item = f64> + use<'profile> {
     (0..=count).map(move |step| profile.duration() * step as f64 / count as f64)
 }
 

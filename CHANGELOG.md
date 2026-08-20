@@ -57,6 +57,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PolylinePath.** Cache the cumulative arc length for each waypoint in `PolylinePath`. It 
   enhances the performance of `lookahead_point`. @SummerGram (#224)
 
+- **Identifier length lint and public API renames.** Workspace Clippy `min_ident_chars` is now
+  enabled (threshold 2). Downstream code must update these symbols:
+  - `multicalc::c` → `multicalc::constant`
+  - `Svd::u()` / `Svd::v()` → `Svd::left()` / `Svd::right()`
+  - `Matrix::lu()` → `Matrix::lu_decompose()`
+  - `ModelError::Io` → `ModelError::FileRead` (`multicalc-robot-model`) @rtmongold (#328)
+
 ### Fixed
 
 - **`ExponentialMap::integrate_attitude` input validation.** A non-finite timestep, a

@@ -10,8 +10,8 @@ use multicalc::scalar::{Jet, Numeric};
 #[test]
 fn from_roots_expands_correctly() {
     // (x - 1)(x - 2)(x - 3) = -6 + 11x - 6x² + x³
-    let p = Polynomial::<4>::from_roots(&[1.0, 2.0, 3.0]).unwrap();
-    for (found, expected) in p.coefficients().iter().zip([-6.0, 11.0, -6.0, 1.0]) {
+    let poly = Polynomial::<4>::from_roots(&[1.0, 2.0, 3.0]).unwrap();
+    for (found, expected) in poly.coefficients().iter().zip([-6.0, 11.0, -6.0, 1.0]) {
         assert!((found - expected).abs() < 1e-12);
     }
 }
@@ -19,9 +19,9 @@ fn from_roots_expands_correctly() {
 #[test]
 fn from_roots_round_trips_through_real_roots() {
     let roots = [-2.5, 0.75, 3.0, 4.25];
-    let p = Polynomial::<5>::from_roots(&roots).unwrap();
+    let poly = Polynomial::<5>::from_roots(&roots).unwrap();
 
-    let found = p.real_roots().unwrap();
+    let found = poly.real_roots().unwrap();
     assert_eq!(found.len(), 4);
     for (found, expected) in found.as_slice().iter().zip(roots) {
         assert!((found - expected).abs() < 1e-10);
@@ -47,10 +47,10 @@ fn from_roots_rejects_more_roots_than_fit() {
 fn from_jet_reproduces_the_series() {
     // Expanding exp about zero gives 1, 1, 1/2, 1/6, 1/24.
     let expanded = Jet::<f64, 5>::variable(0.0).exp();
-    let p = Polynomial::<5>::from_jet(&expanded).unwrap();
+    let poly = Polynomial::<5>::from_jet(&expanded).unwrap();
 
     let expected = [1.0, 1.0, 0.5, 1.0 / 6.0, 1.0 / 24.0];
-    for (found, expected) in p.coefficients().iter().zip(expected) {
+    for (found, expected) in poly.coefficients().iter().zip(expected) {
         assert!((found - expected).abs() < 1e-12);
     }
 
@@ -70,12 +70,12 @@ fn from_points_passes_through_every_point() {
     let nodes = [-2.0, -0.5, 0.75, 1.5, 3.0];
     let values = nodes.map(|node| source.evaluate(node));
 
-    let p = Polynomial::<5>::from_points(&nodes, &values).unwrap();
+    let poly = Polynomial::<5>::from_points(&nodes, &values).unwrap();
     for (node, value) in nodes.iter().zip(values.iter()) {
-        assert!((p.evaluate(*node) - value).abs() < 1e-10);
+        assert!((poly.evaluate(*node) - value).abs() < 1e-10);
     }
     // And it agrees away from the points too, since it is the same polynomial.
-    assert!((p.evaluate(5.0) - source.evaluate(5.0)).abs() < 1e-9);
+    assert!((poly.evaluate(5.0) - source.evaluate(5.0)).abs() < 1e-9);
 }
 
 #[test]
@@ -97,12 +97,12 @@ fn from_points_handles_a_wide_range() {
     let nodes = [0.0, 250.0, 500.0, 750.0, 1000.0];
     let values = nodes.map(|node| source.evaluate(node));
 
-    let p = Polynomial::<5>::from_points(&nodes, &values).unwrap();
+    let poly = Polynomial::<5>::from_points(&nodes, &values).unwrap();
     let peak = values
         .iter()
         .fold(0.0_f64, |peak, value| peak.max(value.abs()));
     for (node, value) in nodes.iter().zip(values.iter()) {
-        assert!((p.evaluate(*node) - value).abs() / peak < 1e-14);
+        assert!((poly.evaluate(*node) - value).abs() / peak < 1e-14);
     }
 }
 
@@ -130,8 +130,8 @@ fn fit_least_squares_recovers_an_exact_polynomial() {
     }
     let values = nodes.map(|node| source.evaluate(node));
 
-    let p = Polynomial::<4>::fit_least_squares(&nodes, &values).unwrap();
-    for (found, expected) in p.coefficients().iter().zip(*source.coefficients()) {
+    let poly = Polynomial::<4>::fit_least_squares(&nodes, &values).unwrap();
+    for (found, expected) in poly.coefficients().iter().zip(*source.coefficients()) {
         assert!((found - expected).abs() < 1e-10);
     }
 }
@@ -149,11 +149,11 @@ fn fit_least_squares_is_least_squares() {
     values[4] += 3.0;
 
     let fitted = Polynomial::<3>::fit_least_squares(&nodes, &values).unwrap();
-    let missed = |p: &Polynomial<3>| -> f64 {
+    let missed = |poly: &Polynomial<3>| -> f64 {
         nodes
             .iter()
             .zip(values.iter())
-            .map(|(node, value)| (p.evaluate(*node) - value).powi(2))
+            .map(|(node, value)| (poly.evaluate(*node) - value).powi(2))
             .sum()
     };
     assert!(missed(&fitted) <= missed(&source));
@@ -178,7 +178,7 @@ fn cubic_hermite_matches_its_endpoints() {
     let (start_value, start_slope) = (1.0, -0.5);
     let (end_value, end_slope) = (4.0, 2.0);
 
-    let p = Polynomial::<4>::from_endpoint_derivatives(
+    let poly = Polynomial::<4>::from_endpoint_derivatives(
         start_value,
         start_slope,
         end_value,
@@ -187,11 +187,11 @@ fn cubic_hermite_matches_its_endpoints() {
     )
     .unwrap();
 
-    assert!((p.evaluate(0.0) - start_value).abs() < 1e-12);
-    assert!((p.evaluate(1.0) - end_value).abs() < 1e-12);
+    assert!((poly.evaluate(0.0) - start_value).abs() < 1e-12);
+    assert!((poly.evaluate(1.0) - end_value).abs() < 1e-12);
     // Slopes are against the outer parameter, so undo the piece's own clock.
-    let [_, start_found] = p.evaluate_with_derivatives(0.0);
-    let [_, end_found] = p.evaluate_with_derivatives(1.0);
+    let [_, start_found] = poly.evaluate_with_derivatives(0.0);
+    let [_, end_found] = poly.evaluate_with_derivatives(1.0);
     assert!((start_found / span - start_slope).abs() < 1e-12);
     assert!((end_found / span - end_slope).abs() < 1e-12);
 }
@@ -202,10 +202,10 @@ fn septic_hermite_matches_its_endpoints() {
     let start = [1.0, -0.5, 0.25, 0.125];
     let end = [4.0, 2.0, -1.0, 0.5];
 
-    let p = Polynomial::<8>::from_endpoint_derivatives(&start, &end, span).unwrap();
+    let poly = Polynomial::<8>::from_endpoint_derivatives(&start, &end, span).unwrap();
 
-    let at_start: [f64; 4] = p.evaluate_with_derivatives(0.0);
-    let at_end: [f64; 4] = p.evaluate_with_derivatives(1.0);
+    let at_start: [f64; 4] = poly.evaluate_with_derivatives(0.0);
+    let at_end: [f64; 4] = poly.evaluate_with_derivatives(1.0);
     // Each derivative is one more division by the span than the one before it.
     let mut span_raised = 1.0;
     for order in 0..4 {

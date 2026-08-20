@@ -42,7 +42,7 @@ pub struct BiquadCoefficients<T: Numeric = f64> {
     /// Weights on the two previous outputs.
     feedback: [T; 2],
     /// Seconds between samples.
-    dt: T,
+    timestep: T,
 }
 
 /// Which of the four filter shapes a design builds. Private: the public way in is one of the
@@ -59,31 +59,31 @@ impl<T: Numeric> BiquadCoefficients<T> {
     /// Builds a filter shape from weights that are already divided through by the leading output
     /// weight, together with the seconds between samples.
     ///
-    /// Returns [`SignalError::NonFinite`] if any weight or `dt` is not finite, or
-    /// [`SignalError::NonPositiveTimestep`] if `dt` is not strictly positive.
-    pub fn new(feed_forward: [T; 3], feedback: [T; 2], dt: T) -> Result<Self, SignalError> {
+    /// Returns [`SignalError::NonFinite`] if any weight or `timestep` is not finite, or
+    /// [`SignalError::NonPositiveTimestep`] if `timestep` is not strictly positive.
+    pub fn new(feed_forward: [T; 3], feedback: [T; 2], timestep: T) -> Result<Self, SignalError> {
         for weight in feed_forward.into_iter().chain(feedback) {
             if !weight.is_finite() {
                 return Err(SignalError::NonFinite);
             }
         }
-        if !dt.is_finite() {
+        if !timestep.is_finite() {
             return Err(SignalError::NonFinite);
         }
-        if dt <= T::ZERO {
+        if timestep <= T::ZERO {
             return Err(SignalError::NonPositiveTimestep);
         }
         Ok(Self {
             feed_forward,
             feedback,
-            dt,
+            timestep,
         })
     }
 
     /// Builds a low-pass, which keeps content below the cutoff and fades out what is above it.
     ///
     /// Returns [`SignalError::NonFinite`] if any argument is not finite,
-    /// [`SignalError::NonPositiveTimestep`] if `dt` is not strictly positive,
+    /// [`SignalError::NonPositiveTimestep`] if `timestep` is not strictly positive,
     /// [`SignalError::NonPositiveQualityFactor`] if `quality_factor` is not strictly positive, or
     /// [`SignalError::FrequencyOutOfRange`] if `cutoff_hz` is not strictly positive or reaches half
     /// the sampling rate.
@@ -94,14 +94,14 @@ impl<T: Numeric> BiquadCoefficients<T> {
     /// let low_pass = BiquadCoefficients::low_pass(50.0_f64, 0.70710678, 0.001).unwrap();
     /// assert_eq!(low_pass.timestep(), 0.001);
     /// ```
-    pub fn low_pass(cutoff_hz: T, quality_factor: T, dt: T) -> Result<Self, SignalError> {
-        Self::build(Design::LowPass, cutoff_hz, quality_factor, dt)
+    pub fn low_pass(cutoff_hz: T, quality_factor: T, timestep: T) -> Result<Self, SignalError> {
+        Self::build(Design::LowPass, cutoff_hz, quality_factor, timestep)
     }
 
     /// Builds a high-pass, which keeps content above the cutoff and fades out what is below it.
     ///
     /// Returns [`SignalError::NonFinite`] if any argument is not finite,
-    /// [`SignalError::NonPositiveTimestep`] if `dt` is not strictly positive,
+    /// [`SignalError::NonPositiveTimestep`] if `timestep` is not strictly positive,
     /// [`SignalError::NonPositiveQualityFactor`] if `quality_factor` is not strictly positive, or
     /// [`SignalError::FrequencyOutOfRange`] if `cutoff_hz` is not strictly positive or reaches half
     /// the sampling rate.
@@ -114,15 +114,15 @@ impl<T: Numeric> BiquadCoefficients<T> {
     /// let weights = high_pass.feed_forward();
     /// assert!((weights[0] + weights[1] + weights[2]).abs() < 1e-12);
     /// ```
-    pub fn high_pass(cutoff_hz: T, quality_factor: T, dt: T) -> Result<Self, SignalError> {
-        Self::build(Design::HighPass, cutoff_hz, quality_factor, dt)
+    pub fn high_pass(cutoff_hz: T, quality_factor: T, timestep: T) -> Result<Self, SignalError> {
+        Self::build(Design::HighPass, cutoff_hz, quality_factor, timestep)
     }
 
     /// Builds a band-pass, which keeps a band of frequencies around the centre and fades out
     /// everything to either side of it.
     ///
     /// Returns [`SignalError::NonFinite`] if any argument is not finite,
-    /// [`SignalError::NonPositiveTimestep`] if `dt` is not strictly positive,
+    /// [`SignalError::NonPositiveTimestep`] if `timestep` is not strictly positive,
     /// [`SignalError::NonPositiveQualityFactor`] if `quality_factor` is not strictly positive, or
     /// [`SignalError::FrequencyOutOfRange`] if `center_hz` is not strictly positive or reaches half
     /// the sampling rate.
@@ -135,15 +135,15 @@ impl<T: Numeric> BiquadCoefficients<T> {
     /// let weights = band_pass.feed_forward();
     /// assert!((weights[0] + weights[1] + weights[2]).abs() < 1e-12);
     /// ```
-    pub fn band_pass(center_hz: T, quality_factor: T, dt: T) -> Result<Self, SignalError> {
-        Self::build(Design::BandPass, center_hz, quality_factor, dt)
+    pub fn band_pass(center_hz: T, quality_factor: T, timestep: T) -> Result<Self, SignalError> {
+        Self::build(Design::BandPass, center_hz, quality_factor, timestep)
     }
 
     /// Builds a notch, which removes a narrow band of frequencies around the centre and leaves
     /// everything to either side of it alone.
     ///
     /// Returns [`SignalError::NonFinite`] if any argument is not finite,
-    /// [`SignalError::NonPositiveTimestep`] if `dt` is not strictly positive,
+    /// [`SignalError::NonPositiveTimestep`] if `timestep` is not strictly positive,
     /// [`SignalError::NonPositiveQualityFactor`] if `quality_factor` is not strictly positive, or
     /// [`SignalError::FrequencyOutOfRange`] if `center_hz` is not strictly positive or reaches half
     /// the sampling rate.
@@ -154,8 +154,8 @@ impl<T: Numeric> BiquadCoefficients<T> {
     /// let notch = BiquadCoefficients::notch(180.0_f64, 4.0, 0.001).unwrap();
     /// assert_eq!(notch.timestep(), 0.001);
     /// ```
-    pub fn notch(center_hz: T, quality_factor: T, dt: T) -> Result<Self, SignalError> {
-        Self::build(Design::Notch, center_hz, quality_factor, dt)
+    pub fn notch(center_hz: T, quality_factor: T, timestep: T) -> Result<Self, SignalError> {
+        Self::build(Design::Notch, center_hz, quality_factor, timestep)
     }
 
     /// The weights on the newest input sample and the two before it.
@@ -177,7 +177,7 @@ impl<T: Numeric> BiquadCoefficients<T> {
     #[inline]
     #[must_use]
     pub fn timestep(&self) -> T {
-        self.dt
+        self.timestep
     }
 
     /// How much of a steady oscillation at this frequency comes through, as a multiple of what
@@ -208,7 +208,7 @@ impl<T: Numeric> BiquadCoefficients<T> {
     /// notch's centre gives.
     #[must_use]
     pub fn magnitude_in_decibels_at(&self, frequency_hz: T) -> T {
-        T::from_f64(20.0 / core::f64::consts::LN_10) * self.magnitude_at(frequency_hz).ln()
+        T::from_f64(20.0 / core::f64::consts::LN_10) * self.magnitude_at(frequency_hz).log()
     }
 
     /// How far a steady oscillation at this frequency is shifted along, in radians. Negative means
@@ -274,7 +274,7 @@ impl<T: Numeric> BiquadCoefficients<T> {
     /// the real and imaginary part of the output side.
     #[must_use]
     fn response_parts(&self, frequency_hz: T) -> (T, T, T, T) {
-        let angle = T::TWO * T::PI * frequency_hz * self.dt;
+        let angle = T::TWO * T::PI * frequency_hz * self.timestep;
         let cosine = angle.cos();
         let sine = angle.sin();
         let double_cosine = (T::TWO * angle).cos();
@@ -293,17 +293,17 @@ impl<T: Numeric> BiquadCoefficients<T> {
     }
 
     /// Checks the arguments every design function shares.
-    fn check_design(frequency_hz: T, quality_factor: T, dt: T) -> Result<(), SignalError> {
-        if !frequency_hz.is_finite() || !quality_factor.is_finite() || !dt.is_finite() {
+    fn check_design(frequency_hz: T, quality_factor: T, timestep: T) -> Result<(), SignalError> {
+        if !frequency_hz.is_finite() || !quality_factor.is_finite() || !timestep.is_finite() {
             return Err(SignalError::NonFinite);
         }
-        if dt <= T::ZERO {
+        if timestep <= T::ZERO {
             return Err(SignalError::NonPositiveTimestep);
         }
         if quality_factor <= T::ZERO {
             return Err(SignalError::NonPositiveQualityFactor);
         }
-        if frequency_hz <= T::ZERO || frequency_hz * dt >= T::HALF {
+        if frequency_hz <= T::ZERO || frequency_hz * timestep >= T::HALF {
             return Err(SignalError::FrequencyOutOfRange);
         }
         Ok(())
@@ -314,11 +314,11 @@ impl<T: Numeric> BiquadCoefficients<T> {
         design: Design,
         frequency_hz: T,
         quality_factor: T,
-        dt: T,
+        timestep: T,
     ) -> Result<Self, SignalError> {
-        Self::check_design(frequency_hz, quality_factor, dt)?;
+        Self::check_design(frequency_hz, quality_factor, timestep)?;
 
-        let angle = T::TWO * T::PI * frequency_hz * dt;
+        let angle = T::TWO * T::PI * frequency_hz * timestep;
         let cosine = angle.cos();
 
         // The sharpness means a different thing in each pair, so each pair gets its own formula
@@ -347,7 +347,7 @@ impl<T: Numeric> BiquadCoefficients<T> {
         Ok(Self::from_unnormalized(
             feed_forward,
             [T::ONE + alpha, -(T::TWO * cosine), T::ONE - alpha],
-            dt,
+            timestep,
         ))
     }
 
@@ -355,7 +355,7 @@ impl<T: Numeric> BiquadCoefficients<T> {
     /// are left. [`Self::build`] reaches this only after its arguments pass
     /// [`Self::check_design`], which leaves the divisor above one.
     #[must_use]
-    fn from_unnormalized(feed_forward: [T; 3], feedback: [T; 3], dt: T) -> Self {
+    fn from_unnormalized(feed_forward: [T; 3], feedback: [T; 3], timestep: T) -> Self {
         let leading = feedback[0];
         Self {
             feed_forward: [
@@ -364,7 +364,7 @@ impl<T: Numeric> BiquadCoefficients<T> {
                 feed_forward[2] / leading,
             ],
             feedback: [feedback[1] / leading, feedback[2] / leading],
-            dt,
+            timestep,
         }
     }
 }

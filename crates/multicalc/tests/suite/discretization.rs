@@ -161,9 +161,9 @@ fn qdwn_matches_closed_form() {
 proptest! {
     #[test]
     fn expm_times_neg_expm_is_identity(
-        v in prop::collection::vec(-0.6f64..0.6, 9)
+        entries in prop::collection::vec(-0.6f64..0.6, 9)
     ) {
-        let matrix = Matrix3D::from_fn(|row, column| v[row * 3 + column]);
+        let matrix = Matrix3D::from_fn(|row, column| entries[row * 3 + column]);
         let product = matrix.expm().unwrap() * matrix.scale(-1.0).expm().unwrap();
         for row in 0..3 {
             for column in 0..3 {

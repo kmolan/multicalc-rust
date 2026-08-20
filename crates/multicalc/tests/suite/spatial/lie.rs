@@ -77,8 +77,8 @@ const RHO: Vector3D = Vector::new([0.5, 0.25, -0.75]);
 /// `pub(crate)`, so assembling the twist and slicing the block out is the only route to it from
 /// the test crate. The tangent ordering is `[ρ; φ]`, linear part first.
 fn q_block(rho: Vector3D, phi: Vector3D) -> Matrix3D {
-    let xi = Vector::new([rho[0], rho[1], rho[2], phi[0], phi[1], phi[2]]);
-    let jacobian = SE3::left_jacobian(xi);
+    let twist = Vector::new([rho[0], rho[1], rho[2], phi[0], phi[1], phi[2]]);
+    let jacobian = SE3::left_jacobian(twist);
     Matrix::from_fn(|row, column| jacobian[(row, column + 3)])
 }
 
@@ -863,10 +863,10 @@ fn se3_to_matrix_goldens() {
 
 #[test]
 fn near_zero_exp_log_and_jacobians_f64() {
-    let z3 = Vector::new([0.0_f64, 0.0, 0.0]);
-    assert_components_close(SO3::exp(z3).log(), z3, 1e-14);
+    let zeros3 = Vector::new([0.0_f64, 0.0, 0.0]);
+    assert_components_close(SO3::exp(zeros3).log(), zeros3, 1e-14);
     assert_entries_close(
-        SO3::left_jacobian(z3) * SO3::left_jacobian_inverse(z3),
+        SO3::left_jacobian(zeros3) * SO3::left_jacobian_inverse(zeros3),
         Matrix::identity(),
         1e-14,
     );
@@ -879,29 +879,29 @@ fn near_zero_exp_log_and_jacobians_f64() {
         1e-9,
     );
 
-    let z6 = Vector::new([0.0_f64; 6]);
-    assert_components_close(SE3::exp(z6).log(), z6, 1e-14);
+    let zeros6 = Vector::new([0.0_f64; 6]);
+    assert_components_close(SE3::exp(zeros6).log(), zeros6, 1e-14);
     let tiny6 = Vector::new([0.0, 0.0, 0.0, 1e-9_f64, 0.0, 0.0]);
     assert_components_close(SE3::exp(tiny6).log(), tiny6, 1e-12);
 
-    let z3_se2 = Vector::new([0.0_f64, 0.0, 0.0]);
-    assert_components_close(SE2::exp(z3_se2).log(), z3_se2, 1e-14);
+    let zeros3_se2 = Vector::new([0.0_f64, 0.0, 0.0]);
+    assert_components_close(SE2::exp(zeros3_se2).log(), zeros3_se2, 1e-14);
     let tiny_se2 = Vector::new([0.0, 0.0, 1e-9_f64]);
     assert_components_close(SE2::exp(tiny_se2).log(), tiny_se2, 1e-12);
 }
 
 #[test]
 fn near_zero_exp_log_and_jacobians_f32() {
-    let z3 = Vector::new([0.0_f32, 0.0, 0.0]);
-    let back = SO3::exp(z3).log();
+    let zeros3 = Vector::new([0.0_f32, 0.0, 0.0]);
+    let back = SO3::exp(zeros3).log();
     for i in 0..3 {
         assert!(back[i].abs() < 1e-5);
     }
-    let jl = SO3::left_jacobian(z3) * SO3::left_jacobian_inverse(z3);
+    let left_jacobian = SO3::left_jacobian(zeros3) * SO3::left_jacobian_inverse(zeros3);
     for i in 0..3 {
         for j in 0..3 {
             let expect = if i == j { 1.0 } else { 0.0 };
-            assert!((jl[(i, j)] - expect).abs() < 1e-4);
+            assert!((left_jacobian[(i, j)] - expect).abs() < 1e-4);
         }
     }
 
@@ -910,16 +910,16 @@ fn near_zero_exp_log_and_jacobians_f32() {
     for i in 0..3 {
         assert!((back_tiny[i] - tiny3[i]).abs() < 1e-5);
     }
-    let jl_tiny = SO3::left_jacobian(tiny3) * SO3::left_jacobian_inverse(tiny3);
+    let left_jacobian_tiny = SO3::left_jacobian(tiny3) * SO3::left_jacobian_inverse(tiny3);
     for i in 0..3 {
         for j in 0..3 {
             let expect = if i == j { 1.0 } else { 0.0 };
-            assert!((jl_tiny[(i, j)] - expect).abs() < 1e-4);
+            assert!((left_jacobian_tiny[(i, j)] - expect).abs() < 1e-4);
         }
     }
 
-    let z6 = Vector::new([0.0_f32; 6]);
-    let back6 = SE3::exp(z6).log();
+    let zeros6 = Vector::new([0.0_f32; 6]);
+    let back6 = SE3::exp(zeros6).log();
     for i in 0..6 {
         assert!(back6[i].abs() < 1e-5);
     }
@@ -929,8 +929,8 @@ fn near_zero_exp_log_and_jacobians_f32() {
         assert!((back6_tiny[i] - tiny6[i]).abs() < 1e-5);
     }
 
-    let z3_se2 = Vector::new([0.0_f32, 0.0, 0.0]);
-    let back_se2 = SE2::exp(z3_se2).log();
+    let zeros3_se2 = Vector::new([0.0_f32, 0.0, 0.0]);
+    let back_se2 = SE2::exp(zeros3_se2).log();
     for i in 0..3 {
         assert!(back_se2[i].abs() < 1e-5);
     }
@@ -1077,12 +1077,12 @@ fn two_direction_pairs_rejects_parallel_directions() {
     let down = Vector::new([0.0, 0.0, -1.0]);
     let north = Vector::new([1.0, 0.0, 0.0]);
     let down_again = down * 2.0;
-    let up = -down;
+    let upward = -down;
 
     // The two observed directions point the same way, so the spin about them is unsettled.
     assert!(SO3::from_two_direction_pairs(down, down_again, down, north).is_none());
     // Opposite directions leave it just as unsettled.
-    assert!(SO3::from_two_direction_pairs(down, up, down, north).is_none());
+    assert!(SO3::from_two_direction_pairs(down, upward, down, north).is_none());
     // The same holds when it is the reference pair that is parallel.
     assert!(SO3::from_two_direction_pairs(down, north, down, down_again).is_none());
 }
@@ -1163,42 +1163,42 @@ fn jacobian_branches_agree_across_small_angle_thresholds() {
         Vector::new([rho[0], rho[1], rho[2], phi[0], phi[1], phi[2]])
     };
 
-    for t in thresholds {
-        let (lo, hi) = (t * (1.0 - delta), t * (1.0 + delta));
+    for threshold in thresholds {
+        let (lower, upper) = (threshold * (1.0 - delta), threshold * (1.0 + delta));
 
         // c1, c2
-        let d = SO3::left_jacobian(axis.scale(hi)) - SO3::left_jacobian(axis.scale(lo));
-        for r in 0..3 {
-            for c in 0..3 {
+        let diff = SO3::left_jacobian(axis.scale(upper)) - SO3::left_jacobian(axis.scale(lower));
+        for row in 0..3 {
+            for column in 0..3 {
                 assert!(
-                    d[(r, c)].abs() < TOL,
-                    "SO3::left_jacobian θ={t:e} row={r} col={c} jump={:e}",
-                    d[(r, c)]
+                    diff[(row, column)].abs() < TOL,
+                    "SO3::left_jacobian θ={threshold:e} row={row} col={column} jump={:e}",
+                    diff[(row, column)]
                 );
             }
         }
 
         // inv c3
-        let d =
-            SO3::left_jacobian_inverse(axis.scale(hi)) - SO3::left_jacobian_inverse(axis.scale(lo));
-        for r in 0..3 {
-            for c in 0..3 {
+        let diff = SO3::left_jacobian_inverse(axis.scale(upper))
+            - SO3::left_jacobian_inverse(axis.scale(lower));
+        for row in 0..3 {
+            for column in 0..3 {
                 assert!(
-                    d[(r, c)].abs() < TOL,
-                    "SO3::left_jacobian_inverse θ={t:e} row={r} col={c} jump={:e}",
-                    d[(r, c)]
+                    diff[(row, column)].abs() < TOL,
+                    "SO3::left_jacobian_inverse θ={threshold:e} row={row} col={column} jump={:e}",
+                    diff[(row, column)]
                 );
             }
         }
 
         // q c2, c3, c5 in the top-right block, alongside c1/c2 on the diagonal
-        let d = SE3::left_jacobian(twist(hi)) - SE3::left_jacobian(twist(lo));
-        for r in 0..6 {
-            for c in 0..6 {
+        let diff = SE3::left_jacobian(twist(upper)) - SE3::left_jacobian(twist(lower));
+        for row in 0..6 {
+            for column in 0..6 {
                 assert!(
-                    d[(r, c)].abs() < TOL,
-                    "SE3::left_jacobian θ={t:e} row={r} col={c} jump={:e}",
-                    d[(r, c)]
+                    diff[(row, column)].abs() < TOL,
+                    "SE3::left_jacobian θ={threshold:e} row={row} col={column} jump={:e}",
+                    diff[(row, column)]
                 );
             }
         }
@@ -1211,7 +1211,7 @@ fn jacobian_branches_agree_across_small_angle_thresholds() {
 /// Computed using mpmath at 80 digits.
 #[test]
 fn left_jacobian_so3_c1_threshold() {
-    let t_hi: Vector<3, f64> = Vector::new([
+    let threshold_hi: Vector<3, f64> = Vector::new([
         0.0018752354719378712,
         -0.002812853207906807,
         0.005625706415813614,
@@ -1234,7 +1234,7 @@ fn left_jacobian_so3_c1_threshold() {
         ],
     ]);
 
-    let t_lo: Vector<3, f64> = Vector::new([
+    let threshold_lo: Vector<3, f64> = Vector::new([
         0.0018752349005092999,
         -0.00281285235076395,
         0.0056257047015279,
@@ -1257,9 +1257,9 @@ fn left_jacobian_so3_c1_threshold() {
         ],
     ]);
 
-    assert_entries_close(SO3::left_jacobian(t_hi), matrix_hi, 1e-13);
+    assert_entries_close(SO3::left_jacobian(threshold_hi), matrix_hi, 1e-13);
 
-    assert_entries_close(SO3::left_jacobian(t_lo), matrix_lo, 1e-13);
+    assert_entries_close(SO3::left_jacobian(threshold_lo), matrix_lo, 1e-13);
 }
 
 /// Left Jacobian SO3
@@ -1268,7 +1268,7 @@ fn left_jacobian_so3_c1_threshold() {
 /// Computed using mpmath at 80 digits.
 #[test]
 fn left_jacobian_so3_c2_threshold() {
-    let t_hi: Vector<3, f64> = Vector::new([
+    let threshold_hi: Vector<3, f64> = Vector::new([
         0.002593614733106478,
         -0.0038904220996597173,
         0.0077808441993194345,
@@ -1290,7 +1290,7 @@ fn left_jacobian_so3_c2_threshold() {
             0.9999963563114298,
         ],
     ]);
-    let t_lo: Vector<3, f64> = Vector::new([
+    let threshold_lo: Vector<3, f64> = Vector::new([
         0.002593614161677907,
         -0.00389042124251686,
         0.00778084248503372,
@@ -1313,9 +1313,9 @@ fn left_jacobian_so3_c2_threshold() {
         ],
     ]);
 
-    assert_entries_close(SO3::left_jacobian(t_hi), matrix_hi, 1e-13);
+    assert_entries_close(SO3::left_jacobian(threshold_hi), matrix_hi, 1e-13);
 
-    assert_entries_close(SO3::left_jacobian(t_lo), matrix_lo, 1e-13);
+    assert_entries_close(SO3::left_jacobian(threshold_lo), matrix_lo, 1e-13);
 }
 
 /// Inverse Left Jacobian SO3
@@ -1324,7 +1324,7 @@ fn left_jacobian_so3_c2_threshold() {
 /// Computed using mpmath at 80 digits.
 #[test]
 fn inverse_left_jacobian_so3_c3_threshold() {
-    let t_hi: Vector<3, f64> = Vector::new([
+    let threshold_hi: Vector<3, f64> = Vector::new([
         0.0034962085234513784,
         -0.005244312785177068,
         0.010488625570354135,
@@ -1346,7 +1346,7 @@ fn inverse_left_jacobian_so3_c3_threshold() {
             0.9999966894675191,
         ],
     ]);
-    let t_lo: Vector<3, f64> = Vector::new([
+    let threshold_lo: Vector<3, f64> = Vector::new([
         0.003496207952022807,
         -0.00524431192803421,
         0.01048862385606842,
@@ -1369,9 +1369,9 @@ fn inverse_left_jacobian_so3_c3_threshold() {
         ],
     ]);
 
-    assert_entries_close(SO3::left_jacobian_inverse(t_hi), matrix_hi, 1e-13);
+    assert_entries_close(SO3::left_jacobian_inverse(threshold_hi), matrix_hi, 1e-13);
 
-    assert_entries_close(SO3::left_jacobian_inverse(t_lo), matrix_lo, 1e-13);
+    assert_entries_close(SO3::left_jacobian_inverse(threshold_lo), matrix_lo, 1e-13);
 }
 
 /// Matrix Q SE3
@@ -1380,7 +1380,7 @@ fn inverse_left_jacobian_so3_c3_threshold() {
 /// Computed using mpmath at 80 digits.
 #[test]
 fn q_matrix_se3_c2_threshold() {
-    let t_hi: Vector<3, f64> = Vector::new([
+    let threshold_hi: Vector<3, f64> = Vector::new([
         0.002593614733106478,
         -0.0038904220996597173,
         0.0077808441993194345,
@@ -1402,7 +1402,7 @@ fn q_matrix_se3_c2_threshold() {
             -0.00010806884348379557,
         ],
     ]);
-    let t_lo: Vector<3, f64> = Vector::new([
+    let threshold_lo: Vector<3, f64> = Vector::new([
         0.002593614161677907,
         -0.00389042124251686,
         0.00778084248503372,
@@ -1425,8 +1425,8 @@ fn q_matrix_se3_c2_threshold() {
         ],
     ]);
 
-    assert_entries_close(q_block(RHO, t_hi), matrix_hi, 1e-13);
-    assert_entries_close(q_block(RHO, t_lo), matrix_lo, 1e-13);
+    assert_entries_close(q_block(RHO, threshold_hi), matrix_hi, 1e-13);
+    assert_entries_close(q_block(RHO, threshold_lo), matrix_lo, 1e-13);
 }
 
 /// Matrix Q SE3
@@ -1435,7 +1435,7 @@ fn q_matrix_se3_c2_threshold() {
 /// Computed using mpmath at 80 digits.
 #[test]
 fn q_matrix_se3_c3_threshold() {
-    let t_hi: Vector<3, f64> = Vector::new([
+    let threshold_hi: Vector<3, f64> = Vector::new([
         0.010896783221004238,
         -0.016345174831506357,
         0.032690349663012715,
@@ -1457,7 +1457,7 @@ fn q_matrix_se3_c3_threshold() {
             -0.0004541485353692165,
         ],
     ]);
-    let t_lo: Vector<3, f64> =
+    let threshold_lo: Vector<3, f64> =
         Vector::new([0.010896782649575667, -0.0163451739743635, 0.032690347948727]);
     let matrix_lo = Matrix::new([
         [
@@ -1477,8 +1477,8 @@ fn q_matrix_se3_c3_threshold() {
         ],
     ]);
 
-    assert_entries_close(q_block(RHO, t_hi), matrix_hi, 1e-13);
-    assert_entries_close(q_block(RHO, t_lo), matrix_lo, 1e-13);
+    assert_entries_close(q_block(RHO, threshold_hi), matrix_hi, 1e-13);
+    assert_entries_close(q_block(RHO, threshold_lo), matrix_lo, 1e-13);
 }
 
 #[test]
@@ -1487,7 +1487,7 @@ fn q_matrix_se3_c3_threshold() {
 /// 0.050193404960717505336016995289832652425413397500753684377067048913466264320148131 +/- 1e-09
 /// Computed using mpmath at 80 digits.
 fn q_matrix_se3_c5_threshold() {
-    let t_hi: Vector<3, f64> = Vector::new([
+    let threshold_hi: Vector<3, f64> = Vector::new([
         0.014340973131633574,
         -0.021511459697450358,
         0.043022919394900716,
@@ -1505,7 +1505,7 @@ fn q_matrix_se3_c5_threshold() {
             -0.0005978047293558165,
         ],
     ]);
-    let t_lo: Vector<3, f64> =
+    let threshold_lo: Vector<3, f64> =
         Vector::new([0.014340972560205001, -0.0215114588403075, 0.043022917680615]);
     let matrix_lo = Matrix::new([
         [
@@ -1525,6 +1525,6 @@ fn q_matrix_se3_c5_threshold() {
         ],
     ]);
 
-    assert_entries_close(q_block(RHO, t_hi), matrix_hi, 1e-13);
-    assert_entries_close(q_block(RHO, t_lo), matrix_lo, 1e-13);
+    assert_entries_close(q_block(RHO, threshold_hi), matrix_hi, 1e-13);
+    assert_entries_close(q_block(RHO, threshold_lo), matrix_lo, 1e-13);
 }

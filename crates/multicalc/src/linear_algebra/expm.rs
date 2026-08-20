@@ -14,8 +14,8 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// # fn main() -> Result<(), multicalc::error::LinalgError> {
-    /// let e = Matrix::<3, 3>::zeros().expm()?; // e^0 = I
-    /// assert!((e[(0, 0)] - 1.0).abs() < 1e-12 && e[(0, 1)].abs() < 1e-12);
+    /// let exponential = Matrix::<3, 3>::zeros().expm()?; // e^0 = I
+    /// assert!((exponential[(0, 0)] - 1.0).abs() < 1e-12 && exponential[(0, 1)].abs() < 1e-12);
     /// # Ok(())
     /// # }
     /// ```
@@ -35,21 +35,21 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
                 nrm = col;
             }
         }
-        // Scale so ‖A / 2^s‖₁ ≤ 1/2. `s` depends only on the primal, so it is AD-safe.
-        let mut s: i32 = 0;
+        // Scale so ‖A / 2^s‖₁ ≤ 1/2. `squares` is that exponent and depends only on the primal, so it is AD-safe.
+        let mut squares: i32 = 0;
         let mut scaled = nrm;
         while scaled > T::HALF {
             scaled *= T::HALF;
-            s += 1;
+            squares += 1;
         }
-        let a = self.scale(T::HALF.powi(s));
+        let a = self.scale(T::HALF.powi(squares));
 
         // Degree-6 Padé coefficients by the standard recurrence (1, 1/2, 5/44, 1/66, …).
-        let mut c = [T::ZERO; 7];
-        c[0] = T::ONE;
+        let mut coef = [T::ZERO; 7];
+        coef[0] = T::ONE;
         for k in 1..7 {
-            let kf = k as f64;
-            c[k] = c[k - 1] * T::from_f64((6.0 - kf + 1.0) / (kf * (12.0 - kf + 1.0)));
+            let k_f = k as f64;
+            coef[k] = coef[k - 1] * T::from_f64((6.0 - k_f + 1.0) / (k_f * (12.0 - k_f + 1.0)));
         }
         // num = Σ c_k A^k, den = Σ c_k (−A)^k, sharing the running power A^k.
         let mut apow = Matrix::identity();
@@ -57,16 +57,16 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
         let mut den = Matrix::zeros();
         #[allow(clippy::needless_range_loop)]
         for k in 0..7 {
-            num += apow.scale(c[k]);
-            let signed = if k % 2 == 0 { c[k] } else { -c[k] };
+            num += apow.scale(coef[k]);
+            let signed = if k % 2 == 0 { coef[k] } else { -coef[k] };
             den += apow.scale(signed);
             if k < 6 {
                 apow = apow * a;
             }
         }
-        // e^A ≈ den⁻¹ · num, then square s times to undo the scaling.
-        let mut result = den.lu()?.solve_matrix(num);
-        for _ in 0..s {
+        // e^A ≈ den⁻¹ · num, then square `squares` times to undo the scaling.
+        let mut result = den.lu_decompose()?.solve_matrix(num);
+        for _ in 0..squares {
             result = result * result;
         }
         if !result.is_finite() {

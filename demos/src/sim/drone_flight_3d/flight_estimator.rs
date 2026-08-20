@@ -184,10 +184,10 @@ struct RangeDownTheBeam;
 
 impl NominalStateFn<1> for RangeDownTheBeam {
     fn eval<S: Numeric>(&self, state: &NominalState<S>) -> [S; 1] {
-        let up = state
+        let up_axis = state
             .orientation()
             .act(Vector::new([S::ZERO, S::ZERO, S::ONE]));
-        [state.position()[2] / up[2]]
+        [state.position()[2] / up_axis[2]]
     }
 }
 
@@ -520,8 +520,8 @@ impl FlightEstimator {
     /// believed lean turns into a large one in the height.
     pub fn fold_in_beam_range(&mut self, range: f64, spread: f64) {
         let state = self.filter.nominal_state();
-        let up: Vector3D<f64> = state.orientation().act(Vector::new([0.0, 0.0, 1.0]));
-        if up[2] < WORST_LEAN_FOR_THE_BEAM.cos() {
+        let up_axis: Vector3D<f64> = state.orientation().act(Vector::new([0.0, 0.0, 1.0]));
+        if up_axis[2] < WORST_LEAN_FOR_THE_BEAM.cos() {
             return;
         }
         let predicted = RangeDownTheBeam.eval(&state);

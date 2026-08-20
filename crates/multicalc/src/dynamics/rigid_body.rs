@@ -167,7 +167,7 @@ impl<T: Numeric> RigidBody<T> {
     ///
     /// `state` is where the body is and how it is moving, `applied_wrench` is everything pushing
     /// and turning it apart from gravity — read in the body's own axes, with the turning part taken
-    /// about the body frame's origin — and `dt` is how long the tick lasts.
+    /// about the body frame's origin — and `timestep` is how long the tick lasts.
     ///
     /// The direction the body faces is carried forward as a turn rather than as four loose numbers,
     /// so what comes back is still a true rotation to within rounding, with no drift to scale away.
@@ -221,7 +221,7 @@ impl<T: Numeric> RigidBody<T> {
         self,
         state: FreeJointState<T>,
         applied_wrench: Wrench<T>,
-        dt: T,
+        timestep: T,
     ) -> FreeJointState<T> {
         let pose = state.pose();
         let orientation = pose.rotation();
@@ -229,7 +229,7 @@ impl<T: Numeric> RigidBody<T> {
         let velocity = state.velocity();
         let linear_velocity = velocity.linear();
         let angular_rate = velocity.angular();
-        let half = dt * T::HALF;
+        let half = timestep * T::HALF;
 
         let at_start = self.accelerations(orientation, angular_rate, applied_wrench);
         let half_way_orientation = ExponentialMap::attitude_step(orientation, angular_rate, half);
@@ -240,10 +240,10 @@ impl<T: Numeric> RigidBody<T> {
             self.accelerations(half_way_orientation, half_way_angular_rate, applied_wrench);
 
         let next_orientation =
-            ExponentialMap::attitude_step(orientation, half_way_angular_rate, dt);
-        let next_position = position + half_way_linear_velocity * dt;
-        let next_linear_velocity = linear_velocity + half_way.linear() * dt;
-        let next_angular_rate = angular_rate + half_way.angular() * dt;
+            ExponentialMap::attitude_step(orientation, half_way_angular_rate, timestep);
+        let next_position = position + half_way_linear_velocity * timestep;
+        let next_linear_velocity = linear_velocity + half_way.linear() * timestep;
+        let next_angular_rate = angular_rate + half_way.angular() * timestep;
 
         FreeJointState::new(
             SE3::from_parts(next_orientation, next_position),

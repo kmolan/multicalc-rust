@@ -25,13 +25,13 @@ pub fn ode_harmonic(_t: f64, y: &Vector2D) -> Vector2D {
 
 /// Two-body orbit `[x, y, vx, vy]` with `GM = 1`: unit circular orbit of period 2π.
 pub fn ode_two_body(_t: f64, y: &Vector<4>) -> Vector<4> {
-    let r = (y[0] * y[0] + y[1] * y[1]).sqrt();
-    let r3 = r * r * r;
-    Vector::new([y[2], y[3], -y[0] / r3, -y[1] / r3])
+    let radius = (y[0] * y[0] + y[1] * y[1]).sqrt();
+    let radius_cubed = radius * radius * radius;
+    Vector::new([y[2], y[3], -y[0] / radius_cubed, -y[1] / radius_cubed])
 }
 
 /// Van der Pol oscillator with `μ = 1`: `y1' = y2, y2' = μ(1 − y1²) y2 − y1`.
 pub fn ode_van_der_pol_mild(_t: f64, y: &Vector2D) -> Vector2D {
-    let mu = 1.0;
-    Vector::new([y[1], mu * (1.0 - y[0] * y[0]) * y[1] - y[0]])
+    let mu_parameter = 1.0;
+    Vector::new([y[1], mu_parameter * (1.0 - y[0] * y[0]) * y[1] - y[0]])
 }

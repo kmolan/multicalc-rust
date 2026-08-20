@@ -15,7 +15,7 @@ fn main() {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../embedded-smoke/src/franka_panda_model.rs");
 
     let model = multicalc_robot_model::mjcf::load_path(&input)
-        .unwrap_or_else(|e| unreachable!("load {input:?}: {e}"));
+        .unwrap_or_else(|err| unreachable!("load {input:?}: {err}"));
     let options = RustSourceOptions::new("franka_panda_arm")
         .with_scalar(GeneratedScalar::F32)
         .with_capacity(9)
@@ -29,8 +29,8 @@ fn main() {
         );
     let source = model
         .to_rust_source(&options)
-        .unwrap_or_else(|e| unreachable!("write source for {input:?}: {e}"));
+        .unwrap_or_else(|err| unreachable!("write source for {input:?}: {err}"));
 
-    std::fs::write(&output, source).unwrap_or_else(|e| unreachable!("write {output:?}: {e}"));
+    std::fs::write(&output, source).unwrap_or_else(|err| unreachable!("write {output:?}: {err}"));
     println!("wrote {}", output.display());
 }

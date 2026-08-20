@@ -288,8 +288,9 @@ fn durations_from_average_speed_covers_the_path() {
 
 #[test]
 fn runs_in_f32() {
-    let points: [Vector<3, f32>; 4] = WAYPOINTS.map(|point| Vector::new(point.map(|v| v as f32)));
-    let durations: [f32; 3] = DURATIONS.map(|d| d as f32);
+    let points: [Vector<3, f32>; 4] =
+        WAYPOINTS.map(|point| Vector::new(point.map(|value| value as f32)));
+    let durations: [f32; 3] = DURATIONS.map(|duration| duration as f32);
 
     let trajectory = MinimumSnapPlanner::<4, 9, 3, f32>::new()
         .plan(&points, &durations)

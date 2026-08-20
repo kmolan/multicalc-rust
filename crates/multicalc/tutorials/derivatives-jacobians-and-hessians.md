@@ -43,7 +43,7 @@ to give the Jacobian; a scalar field gives the Hessian:
 ```rust
 use multicalc::Jacobian;
 use multicalc::Hessian;
-use multicalc::c;
+use multicalc::constant;
 use multicalc::{scalar_fn, scalar_fn_vec};
 
 // the vector function (x*y*z, x^2 + y^2)
@@ -53,7 +53,7 @@ let jacobian: Jacobian = Jacobian::default();
 let j = jacobian.evaluate(&f, &jacobian_point).unwrap();   // [[6, 3, 2], [2, 4, 0]]
 
 // g(x, y) = y*sin(x) + 2*x*e^y
-let g = scalar_fn!(|v: &[f64; 2]| v[1] * v[0].sin() + c(2.0) * v[0] * v[1].exp());
+let g = scalar_fn!(|v: &[f64; 2]| v[1] * v[0].sin() + constant(2.0) * v[0] * v[1].exp());
 let hessian_point = [1.0, 2.0];
 let hessian: Hessian = Hessian::default();
 let h = hessian.evaluate(&g, &hessian_point).unwrap();

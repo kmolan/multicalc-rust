@@ -25,7 +25,7 @@ use crate::spatial::lie::{inverse_left_jacobian_so3, left_jacobian_so3, skew3};
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct SO3<T: Numeric = f64> {
-    q: Quaternion<T>,
+    quaternion: Quaternion<T>,
 }
 
 impl<T: Numeric> SO3<T> {
@@ -34,7 +34,7 @@ impl<T: Numeric> SO3<T> {
     #[must_use]
     pub fn identity() -> Self {
         SO3 {
-            q: Quaternion::identity(),
+            quaternion: Quaternion::identity(),
         }
     }
 
@@ -42,29 +42,35 @@ impl<T: Numeric> SO3<T> {
     /// float division does; use [`SO3::try_from_quaternion`] for a checked version.
     #[inline]
     #[must_use]
-    pub fn from_quaternion(q: Quaternion<T>) -> Self {
-        SO3 { q: q.normalized() }
+    pub fn from_quaternion(quaternion: Quaternion<T>) -> Self {
+        SO3 {
+            quaternion: quaternion.normalized(),
+        }
     }
 
     /// From a quaternion, or `None` if its norm is non-finite or underflows.
     #[inline]
     #[must_use]
-    pub fn try_from_quaternion(q: Quaternion<T>) -> Option<Self> {
-        q.try_normalized().map(|q| SO3 { q })
+    pub fn try_from_quaternion(quaternion: Quaternion<T>) -> Option<Self> {
+        quaternion.try_normalized().map(|normalized| SO3 {
+            quaternion: normalized,
+        })
     }
 
     /// The underlying unit quaternion.
     #[inline]
     #[must_use]
     pub fn quaternion(self) -> Quaternion<T> {
-        self.q
+        self.quaternion
     }
 
     /// Composition (also available as `*`).
     #[inline]
     #[must_use]
     pub fn compose(self, rhs: Self) -> Self {
-        SO3 { q: self.q * rhs.q }
+        SO3 {
+            quaternion: self.quaternion * rhs.quaternion,
+        }
     }
 
     /// The inverse rotation.
@@ -72,14 +78,14 @@ impl<T: Numeric> SO3<T> {
     #[must_use]
     pub fn inverse(self) -> Self {
         SO3 {
-            q: self.q.conjugate(),
+            quaternion: self.quaternion.conjugate(),
         }
     }
 
     /// Rotates a 3D point.
     #[inline]
-    pub fn act(self, p: Vector3D<T>) -> Vector3D<T> {
-        self.q.transform_point(p)
+    pub fn act(self, point: Vector3D<T>) -> Vector3D<T> {
+        self.quaternion.transform_point(point)
     }
 
     /// The exponential map from a rotation vector `φ = θ·n̂`. Near θ = 0 the underlying quaternion
@@ -88,14 +94,14 @@ impl<T: Numeric> SO3<T> {
     #[must_use]
     pub fn exp(phi: Vector3D<T>) -> Self {
         SO3 {
-            q: Quaternion::from_scaled_axis(phi),
+            quaternion: Quaternion::from_scaled_axis(phi),
         }
     }
 
     /// The logarithm, returning `φ` with `‖φ‖ ≤ π` (shortest path). Well-defined across θ = π.
     #[inline]
     pub fn log(self) -> Vector3D<T> {
-        self.q.to_scaled_axis()
+        self.quaternion.to_scaled_axis()
     }
 
     /// The Lie-algebra element `[φ]×` (skew-symmetric).
@@ -106,29 +112,29 @@ impl<T: Numeric> SO3<T> {
 
     /// The inverse of [`SO3::hat`].
     #[inline]
-    pub fn vee(m: Matrix3D<T>) -> Vector3D<T> {
-        let [[_, _, m02], [m10, _, _], [_, m21, _]] = m.into_array();
+    pub fn vee(matrix: Matrix3D<T>) -> Vector3D<T> {
+        let [[_, _, m02], [m10, _, _], [_, m21, _]] = matrix.into_array();
         Vector::new([m21, m02, m10])
     }
 
     /// The adjoint, equal to the rotation matrix (`Ad_R = R`).
     #[inline]
     pub fn adjoint(self) -> Matrix3D<T> {
-        self.q.to_rotation_matrix()
+        self.quaternion.to_rotation_matrix()
     }
 
     /// The 3×3 rotation matrix.
     #[inline]
     pub fn to_matrix(self) -> Matrix3D<T> {
-        self.q.to_rotation_matrix()
+        self.quaternion.to_rotation_matrix()
     }
 
     /// Builds a rotation from a finite 3×3 matrix sufficiently close to a proper unit rotation;
     /// `None` otherwise.
     #[inline]
     #[must_use]
-    pub fn try_from_matrix(m: Matrix3D<T>) -> Option<Self> {
-        let gram = m.transpose() * m;
+    pub fn try_from_matrix(matrix: Matrix3D<T>) -> Option<Self> {
+        let gram = matrix.transpose() * matrix;
         for row in 0..3 {
             for column in 0..3 {
                 let target = if row == column { T::ONE } else { T::ZERO };
@@ -139,12 +145,12 @@ impl<T: Numeric> SO3<T> {
             }
         }
 
-        let determinant = m.determinant();
+        let determinant = matrix.determinant();
         if !determinant.is_finite() || determinant <= T::ZERO {
             return None;
         }
 
-        Quaternion::try_from_rotation_matrix(m).map(|q| SO3 { q })
+        Quaternion::try_from_rotation_matrix(matrix).map(|quaternion| SO3 { quaternion })
     }
 
     /// The orientation of a body from two directions it can see, given where those directions
@@ -224,9 +230,9 @@ impl<T: Numeric> SO3<T> {
     /// Geodesic interpolation (slerp); `t = 0` gives `self`, `t = 1` gives `other`.
     #[inline]
     #[must_use]
-    pub fn interpolate(self, other: Self, t: T) -> Self {
+    pub fn interpolate(self, other: Self, amount: T) -> Self {
         SO3 {
-            q: self.q.slerp(other.q, t),
+            quaternion: self.quaternion.slerp(other.quaternion, amount),
         }
     }
 
@@ -235,7 +241,7 @@ impl<T: Numeric> SO3<T> {
     #[must_use]
     pub fn normalized(self) -> Self {
         SO3 {
-            q: self.q.normalized(),
+            quaternion: self.quaternion.normalized(),
         }
     }
 

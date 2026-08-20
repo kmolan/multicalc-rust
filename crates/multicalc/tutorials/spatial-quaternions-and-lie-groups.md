@@ -4,7 +4,7 @@ Rotations, Lie groups, and rigid-body transforms for 2D and 3D. Fixed-size, stac
 panics, and generic over the `Numeric` scalar, so `f32`, `f64`, and the autodiff duals all work.
 
 - `Quaternion`: Hamilton quaternion, stored scalar-first `[w, x, y, z]`: the raw algebra plus
-  axis-angle / rotation-matrix / ZYX-Euler conversions, `slerp`, and `exp`/`ln`.
+  axis-angle / rotation-matrix / ZYX-Euler conversions, `slerp`, and `exp`/`log`.
 - `SO2` / `SE2`: 2D rotation and rigid-body transform.
 - `SO3` / `SE3`: 3D rotation (wrapping a unit `Quaternion`, which carries the unit-rotation
   invariant) and rigid-body transform.
@@ -34,8 +34,8 @@ let g = SE3::from_parts(r, translation);
 let q = g.act(point);                                // ≈ (1, 3, 3)
 
 // exp/log round trip on the tangent twist [v; ω].
-let xi = g.log();
-let g2 = SE3::exp(xi);
+let twist = g.log();
+let g2 = SE3::exp(twist);
 ```
 
 `SO3::from_two_direction_pairs` reads an orientation straight off two directions the body can see.

@@ -204,7 +204,7 @@ pub struct SlewRateLimiter<T: Numeric = f64> {
     /// Most the value may fall per second.
     fall_per_second: T,
     /// Seconds between calls.
-    dt: T,
+    timestep: T,
     /// Where the output currently sits.
     state: T,
     /// Whether the first call has seeded the output.
@@ -215,13 +215,13 @@ impl<T: Numeric> SlewRateLimiter<T> {
     /// Builds a limiter with separate rise and fall rates, in units per second.
     ///
     /// Returns [`SignalError::NonFinite`] if any argument is not finite,
-    /// [`SignalError::NonPositiveTimestep`] if `dt` is not strictly positive, or
+    /// [`SignalError::NonPositiveTimestep`] if `timestep` is not strictly positive, or
     /// [`SignalError::NonPositiveRate`] if either rate is not strictly positive.
-    pub fn new(rise_per_second: T, fall_per_second: T, dt: T) -> Result<Self, SignalError> {
-        if !rise_per_second.is_finite() || !fall_per_second.is_finite() || !dt.is_finite() {
+    pub fn new(rise_per_second: T, fall_per_second: T, timestep: T) -> Result<Self, SignalError> {
+        if !rise_per_second.is_finite() || !fall_per_second.is_finite() || !timestep.is_finite() {
             return Err(SignalError::NonFinite);
         }
-        if dt <= T::ZERO {
+        if timestep <= T::ZERO {
             return Err(SignalError::NonPositiveTimestep);
         }
         if rise_per_second <= T::ZERO || fall_per_second <= T::ZERO {
@@ -230,7 +230,7 @@ impl<T: Numeric> SlewRateLimiter<T> {
         Ok(Self {
             rise_per_second,
             fall_per_second,
-            dt,
+            timestep,
             state: T::ZERO,
             initialized: false,
         })
@@ -239,8 +239,8 @@ impl<T: Numeric> SlewRateLimiter<T> {
     /// Builds a limiter that rises and falls at the same rate.
     ///
     /// Returns the same errors as [`new`](Self::new).
-    pub fn symmetric(rate_per_second: T, dt: T) -> Result<Self, SignalError> {
-        Self::new(rate_per_second, rate_per_second, dt)
+    pub fn symmetric(rate_per_second: T, timestep: T) -> Result<Self, SignalError> {
+        Self::new(rate_per_second, rate_per_second, timestep)
     }
 
     /// Moves one step toward the target and returns where the output now sits.
@@ -254,14 +254,14 @@ impl<T: Numeric> SlewRateLimiter<T> {
         }
 
         // How far the output may move this call, in each direction.
-        let up = self.rise_per_second * self.dt;
-        let down = self.fall_per_second * self.dt;
+        let rise_step = self.rise_per_second * self.timestep;
+        let fall_step = self.fall_per_second * self.timestep;
 
         let step = target - self.state;
-        self.state += if step > up {
-            up
-        } else if step < -down {
-            -down
+        self.state += if step > rise_step {
+            rise_step
+        } else if step < -fall_step {
+            -fall_step
         } else {
             step
         };

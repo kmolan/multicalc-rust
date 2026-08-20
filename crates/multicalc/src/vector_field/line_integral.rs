@@ -4,10 +4,13 @@ use crate::scalar::Numeric;
 
 /// Builds the curve position [transformations[0](t), ..., transformations[N-1](t)].
 #[must_use]
-fn curve_point<T: Numeric, const N: usize>(transformations: &[&dyn Fn(T) -> T; N], t: T) -> [T; N] {
+fn curve_point<T: Numeric, const N: usize>(
+    transformations: &[&dyn Fn(T) -> T; N],
+    parameter: T,
+) -> [T; N] {
     let mut point = [T::ZERO; N];
     for i in 0..N {
-        point[i] = transformations[i](t);
+        point[i] = transformations[i](parameter);
     }
     point
 }
@@ -33,22 +36,22 @@ fn get_partial<T: Numeric, const N: usize>(
     }
 
     let delta = (integration_limit[1] - integration_limit[0]) / T::from_u64(total_iterations);
-    let mut t = integration_limit[0];
+    let mut parameter = integration_limit[0];
     let mut ans = T::ZERO;
 
     //use the trapezoidal rule for line integrals, caching the shared endpoint so each
     //curve point and field value is evaluated once per node rather than twice
     //https://ocw.mit.edu/ans7870/18/18.013a/textbook/HTML/chapter25/section04.html
-    let mut left = curve_point(transformations, t);
+    let mut left = curve_point(transformations, parameter);
     let mut left_value = vector_field[idx](&left);
 
     for _ in 0..total_iterations {
-        let right = curve_point(transformations, t + delta);
+        let right = curve_point(transformations, parameter + delta);
         let right_value = vector_field[idx](&right);
 
         ans += (right[idx] - left[idx]) * (left_value + right_value) / T::TWO;
 
-        t += delta;
+        parameter += delta;
         left = right;
         left_value = right_value;
     }
@@ -79,7 +82,7 @@ fn get_partial<T: Numeric, const N: usize>(
 /// let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] =
 ///     [&(|args: &[f64; 2]| args[1]), &(|args: &[f64; 2]| -args[0])];
 /// let transformation_matrix: [&dyn Fn(f64) -> f64; 2] =
-///     [&(|t: f64| t.cos()), &(|t: f64| t.sin())];
+///     [&(|parameter: f64| parameter.cos()), &(|parameter: f64| parameter.sin())];
 ///
 /// let limits = [0.0, 6.28];   // one full turn around the circle
 /// let val = line_integral_2d(&vector_field_matrix, &transformation_matrix, &limits).unwrap();

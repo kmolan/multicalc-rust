@@ -36,19 +36,23 @@ fn phase_difference(got: f64, want: f64) -> f64 {
     difference
 }
 
-fn assert_response(magnitude_at: impl Fn(f64) -> f64, phase_at: impl Fn(f64) -> f64, fx: &Fixture) {
-    let probes = fx.inputs["probe_hz"].as_vector();
-    let magnitudes = fx.expected["magnitude"].as_vector();
-    let phases = fx.expected["phase"].as_vector();
-    let t = fx.tolerances.f64;
-    let case = &fx.case;
+fn assert_response(
+    magnitude_at: impl Fn(f64) -> f64,
+    phase_at: impl Fn(f64) -> f64,
+    fixture: &Fixture,
+) {
+    let probes = fixture.inputs["probe_hz"].as_vector();
+    let magnitudes = fixture.expected["magnitude"].as_vector();
+    let phases = fixture.expected["phase"].as_vector();
+    let tolerance = fixture.tolerances.f64;
+    let case = &fixture.case;
 
     for (index, &frequency_hz) in probes.iter().enumerate() {
         let (want_magnitude, want_phase) = (magnitudes[index], phases[index]);
         let got_magnitude = magnitude_at(frequency_hz);
         assert!(
-            close(got_magnitude, want_magnitude, t),
-            "{case}: magnitude at {frequency_hz} Hz: got {got_magnitude}, want {want_magnitude}, tol {t:?}"
+            close(got_magnitude, want_magnitude, tolerance),
+            "{case}: magnitude at {frequency_hz} Hz: got {got_magnitude}, want {want_magnitude}, tol {tolerance:?}"
         );
 
         if want_magnitude < NULL_MAGNITUDE {
@@ -57,23 +61,23 @@ fn assert_response(magnitude_at: impl Fn(f64) -> f64, phase_at: impl Fn(f64) -> 
         let got_phase = phase_at(frequency_hz);
         let shifted = want_phase + phase_difference(got_phase, want_phase);
         assert!(
-            close(shifted, want_phase, t),
-            "{case}: phase at {frequency_hz} Hz: got {got_phase}, want {want_phase}, tol {t:?}"
+            close(shifted, want_phase, tolerance),
+            "{case}: phase at {frequency_hz} Hz: got {got_phase}, want {want_phase}, tol {tolerance:?}"
         );
     }
 }
 
-fn assert_filtered_output(mut filter: impl FnMut(f64) -> f64, fx: &Fixture) {
-    let input = fx.inputs["input"].as_vector();
-    let want = fx.expected["output"].as_vector();
-    let t = fx.tolerances.f64;
-    let case = &fx.case;
+fn assert_filtered_output(mut filter: impl FnMut(f64) -> f64, fixture: &Fixture) {
+    let input = fixture.inputs["input"].as_vector();
+    let want = fixture.expected["output"].as_vector();
+    let tolerance = fixture.tolerances.f64;
+    let case = &fixture.case;
 
     for (index, &sample) in input.iter().enumerate() {
         let got = filter(sample);
         assert!(
-            close(got, want[index], t),
-            "{case}: output[{index}]: got {got}, want {}, tol {t:?}",
+            close(got, want[index], tolerance),
+            "{case}: output[{index}]: got {got}, want {}, tol {tolerance:?}",
             want[index]
         );
     }
@@ -83,24 +87,29 @@ fn assert_filtered_output(mut filter: impl FnMut(f64) -> f64, fx: &Fixture) {
 /// fourth-order low-pass, all in one pass over the reading.
 #[test]
 fn gyro_conditioning_chain() {
-    for fx in load_dir("signal_processing") {
-        if fx.inputs["kind"].as_str() != "gyro_chain" {
+    for fixture in load_dir("signal_processing") {
+        if fixture.inputs["kind"].as_str() != "gyro_chain" {
             continue;
         }
-        let dt = fx.inputs["dt"].as_scalar();
-        let fundamental_hz = fx.inputs["fundamental_hz"].as_scalar();
-        let quality_factor = fx.inputs["quality_factor"].as_scalar();
-        let low_pass_hz = fx.inputs["low_pass_hz"].as_scalar();
-        let low_pass_quality_factors = fx.inputs["low_pass_quality_factors"].as_vector();
-        assert_eq!(fx.inputs["notch_sections"].as_int(), 3, "notch sections");
-        let t = fx.tolerances.f64;
+        let timestep = fixture.inputs["dt"].as_scalar();
+        let fundamental_hz = fixture.inputs["fundamental_hz"].as_scalar();
+        let quality_factor = fixture.inputs["quality_factor"].as_scalar();
+        let low_pass_hz = fixture.inputs["low_pass_hz"].as_scalar();
+        let low_pass_quality_factors = fixture.inputs["low_pass_quality_factors"].as_vector();
+        assert_eq!(
+            fixture.inputs["notch_sections"].as_int(),
+            3,
+            "notch sections"
+        );
+        let tolerance = fixture.tolerances.f64;
 
         let notches =
-            harmonic_notch_coefficients::<3, f64>(fundamental_hz, quality_factor, dt).unwrap();
+            harmonic_notch_coefficients::<3, f64>(fundamental_hz, quality_factor, timestep)
+                .unwrap();
         let low_pass: Vec<_> = low_pass_quality_factors
             .iter()
             .map(|&section_quality| {
-                BiquadCoefficients::low_pass(low_pass_hz, section_quality, dt).unwrap()
+                BiquadCoefficients::low_pass(low_pass_hz, section_quality, timestep).unwrap()
             })
             .collect();
         let chain = [notches[0], notches[1], notches[2], low_pass[0], low_pass[1]];
@@ -109,14 +118,14 @@ fn gyro_conditioning_chain() {
         // different from a low-pass's and the two are built from different formulas.
         assert_vector(
             &Vector::new(notches[0].feed_forward()),
-            &fx.expected["notch_feed_forward"],
-            t,
+            &fixture.expected["notch_feed_forward"],
+            tolerance,
             "notch_feed_forward",
         );
         assert_vector(
             &Vector::new(notches[0].feedback()),
-            &fx.expected["notch_feedback"],
-            t,
+            &fixture.expected["notch_feedback"],
+            tolerance,
             "notch_feedback",
         );
 
@@ -124,11 +133,11 @@ fn gyro_conditioning_chain() {
         assert_response(
             |frequency_hz| cascade.magnitude_at(frequency_hz),
             |frequency_hz| cascade.phase_at(frequency_hz),
-            &fx,
+            &fixture,
         );
 
         let mut running = BiquadCascade::new(chain);
-        assert_filtered_output(|sample| running.filter(sample), &fx);
+        assert_filtered_output(|sample| running.filter(sample), &fixture);
     }
 }
 
@@ -136,46 +145,46 @@ fn gyro_conditioning_chain() {
 /// bias out from under a reading.
 #[test]
 fn single_section_jobs() {
-    for fx in load_dir("signal_processing") {
-        if fx.inputs["kind"].as_str() != "biquad_section" {
+    for fixture in load_dir("signal_processing") {
+        if fixture.inputs["kind"].as_str() != "biquad_section" {
             continue;
         }
-        let frequency_hz = fx.inputs["frequency_hz"].as_scalar();
-        let quality_factor = fx.inputs["quality_factor"].as_scalar();
-        let dt = fx.inputs["dt"].as_scalar();
-        let design = fx.inputs["design"].as_str();
+        let frequency_hz = fixture.inputs["frequency_hz"].as_scalar();
+        let quality_factor = fixture.inputs["quality_factor"].as_scalar();
+        let timestep = fixture.inputs["dt"].as_scalar();
+        let design = fixture.inputs["design"].as_str();
 
         let coefficients = match design {
-            "low_pass" => BiquadCoefficients::low_pass(frequency_hz, quality_factor, dt),
-            "high_pass" => BiquadCoefficients::high_pass(frequency_hz, quality_factor, dt),
-            "band_pass" => BiquadCoefficients::band_pass(frequency_hz, quality_factor, dt),
-            "notch" => BiquadCoefficients::notch(frequency_hz, quality_factor, dt),
+            "low_pass" => BiquadCoefficients::low_pass(frequency_hz, quality_factor, timestep),
+            "high_pass" => BiquadCoefficients::high_pass(frequency_hz, quality_factor, timestep),
+            "band_pass" => BiquadCoefficients::band_pass(frequency_hz, quality_factor, timestep),
+            "notch" => BiquadCoefficients::notch(frequency_hz, quality_factor, timestep),
             design => panic!("unregistered design {design}"),
         }
         .unwrap();
 
-        let t = fx.tolerances.f64;
+        let tolerance = fixture.tolerances.f64;
         assert_vector(
             &Vector::new(coefficients.feed_forward()),
-            &fx.expected["feed_forward"],
-            t,
+            &fixture.expected["feed_forward"],
+            tolerance,
             "feed_forward",
         );
         assert_vector(
             &Vector::new(coefficients.feedback()),
-            &fx.expected["feedback"],
-            t,
+            &fixture.expected["feedback"],
+            tolerance,
             "feedback",
         );
 
         assert_response(
             |frequency_hz| coefficients.magnitude_at(frequency_hz),
             |frequency_hz| coefficients.phase_at(frequency_hz),
-            &fx,
+            &fixture,
         );
 
         let mut filter = Biquad::new(coefficients);
-        assert_filtered_output(|sample| filter.filter(sample), &fx);
+        assert_filtered_output(|sample| filter.filter(sample), &fixture);
     }
 }
 
@@ -207,23 +216,23 @@ fn recover_weights<const WINDOW: usize, const TERMS: usize>(
 /// loop, and at the middle of the window where the extra smoothing is worth the delay.
 #[test]
 fn encoder_curve_fit() {
-    for fx in load_dir("signal_processing") {
-        if fx.inputs["kind"].as_str() != "savitzky_golay" {
+    for fixture in load_dir("signal_processing") {
+        if fixture.inputs["kind"].as_str() != "savitzky_golay" {
             continue;
         }
-        assert_eq!(fx.inputs["window"].as_int(), 11, "window");
+        assert_eq!(fixture.inputs["window"].as_int(), 11, "window");
         assert_eq!(
-            fx.inputs["polynomial_terms"].as_int(),
+            fixture.inputs["polynomial_terms"].as_int(),
             3,
             "polynomial terms"
         );
-        let dt = fx.inputs["dt"].as_scalar();
-        let t = fx.tolerances.f64;
+        let timestep = fixture.inputs["dt"].as_scalar();
+        let tolerance = fixture.tolerances.f64;
 
         for position in ["latest", "centered"] {
             let build = || match position {
-                "latest" => SavitzkyGolay::<11, 3, f64>::latest(dt).unwrap(),
-                _ => SavitzkyGolay::<11, 3, f64>::centered(dt).unwrap(),
+                "latest" => SavitzkyGolay::<11, 3, f64>::latest(timestep).unwrap(),
+                _ => SavitzkyGolay::<11, 3, f64>::centered(timestep).unwrap(),
             };
 
             for (row, read) in [
@@ -235,11 +244,16 @@ fn encoder_curve_fit() {
                 ),
             ] {
                 let key = format!("{position}_{row}");
-                assert_vector(&recover_weights(build, read), &fx.expected[&key], t, &key);
+                assert_vector(
+                    &recover_weights(build, read),
+                    &fixture.expected[&key],
+                    tolerance,
+                    &key,
+                );
             }
 
             let mut filter = build();
-            for sample in fx.inputs["input"].as_vector() {
+            for sample in fixture.inputs["input"].as_vector() {
                 let _ = filter.filter(sample);
             }
             for (quantity, got) in [
@@ -248,7 +262,7 @@ fn encoder_curve_fit() {
                 ("second_derivative", filter.second_derivative()),
             ] {
                 let key = format!("{position}_{quantity}");
-                assert_scalar(got, &fx.expected[&key], t, &key);
+                assert_scalar(got, &fixture.expected[&key], tolerance, &key);
             }
         }
     }
@@ -259,20 +273,20 @@ fn encoder_curve_fit() {
 /// exist.
 #[test]
 fn lidar_despiking() {
-    for fx in load_dir("signal_processing") {
-        if fx.inputs["kind"].as_str() != "window_filters" {
+    for fixture in load_dir("signal_processing") {
+        if fixture.inputs["kind"].as_str() != "window_filters" {
             continue;
         }
-        assert_eq!(fx.inputs["window"].as_int(), 5, "window");
-        let input = fx.inputs["input"].as_vector();
-        let first_compared_index = fx.inputs["first_compared_index"].as_int() as usize;
-        let t = fx.tolerances.f64;
-        let case = &fx.case;
+        assert_eq!(fixture.inputs["window"].as_int(), 5, "window");
+        let input = fixture.inputs["input"].as_vector();
+        let first_compared_index = fixture.inputs["first_compared_index"].as_int() as usize;
+        let tolerance = fixture.tolerances.f64;
+        let case = &fixture.case;
 
         let mut median = RunningMedian::<5, f64>::new().unwrap();
         let mut mean = MovingAverage::<5, f64>::new().unwrap();
-        let want_median = fx.expected["median_output"].as_vector();
-        let want_mean = fx.expected["mean_output"].as_vector();
+        let want_median = fixture.expected["median_output"].as_vector();
+        let want_mean = fixture.expected["mean_output"].as_vector();
 
         for (index, &sample) in input.iter().enumerate() {
             let (got_median, got_mean) = (median.filter(sample), mean.filter(sample));
@@ -283,13 +297,13 @@ fn lidar_despiking() {
             }
             let compared = index - first_compared_index;
             assert!(
-                close(got_median, want_median[compared], t),
-                "{case}: median[{index}]: got {got_median}, want {}, tol {t:?}",
+                close(got_median, want_median[compared], tolerance),
+                "{case}: median[{index}]: got {got_median}, want {}, tol {tolerance:?}",
                 want_median[compared]
             );
             assert!(
-                close(got_mean, want_mean[compared], t),
-                "{case}: mean[{index}]: got {got_mean}, want {}, tol {t:?}",
+                close(got_mean, want_mean[compared], tolerance),
+                "{case}: mean[{index}]: got {got_mean}, want {}, tol {tolerance:?}",
                 want_mean[compared]
             );
         }

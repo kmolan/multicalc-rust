@@ -14,14 +14,14 @@ pub enum VizError {
     /// A backend SDK call failed (stream setup, connection, log, or flush).
     Backend(String),
     /// A filesystem error, from writing a recording.
-    Io(std::io::Error),
+    IoError(std::io::Error),
 }
 
 impl fmt::Display for VizError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            VizError::Backend(m) => write!(f, "viz backend error: {m}"),
-            VizError::Io(e) => write!(f, "viz io error: {e}"),
+            VizError::Backend(msg) => write!(f, "viz backend error: {msg}"),
+            VizError::IoError(err) => write!(f, "viz io error: {err}"),
         }
     }
 }
@@ -29,8 +29,8 @@ impl fmt::Display for VizError {
 impl std::error::Error for VizError {}
 
 impl From<std::io::Error> for VizError {
-    fn from(e: std::io::Error) -> Self {
-        VizError::Io(e)
+    fn from(err: std::io::Error) -> Self {
+        VizError::IoError(err)
     }
 }
 
@@ -68,7 +68,7 @@ pub trait VizSink {
     }
 
     /// Logs a set of 2D points.
-    fn points2d(&mut self, path: &str, xy: &[[f64; 2]]) -> Result<(), VizError>;
+    fn points2d(&mut self, path: &str, points_xy: &[[f64; 2]]) -> Result<(), VizError>;
 
     /// Logs a set of 3D points.
     fn points3d(&mut self, path: &str, xyz: &[[f64; 3]]) -> Result<(), VizError>;
@@ -84,12 +84,12 @@ pub trait VizSink {
     fn points2d_styled(
         &mut self,
         path: &str,
-        xy: &[[f64; 2]],
+        points_xy: &[[f64; 2]],
         colors: &[Rgba],
         radii: &[f32],
     ) -> Result<(), VizError> {
         let _ = (colors, radii);
-        self.points2d(path, xy)
+        self.points2d(path, points_xy)
     }
 
     /// Logs 2D points that each carry a text label, for a legend or a named landmark. `colors` and
@@ -102,13 +102,13 @@ pub trait VizSink {
     fn points2d_labeled(
         &mut self,
         path: &str,
-        xy: &[[f64; 2]],
+        points_xy: &[[f64; 2]],
         colors: &[Rgba],
         radii: &[f32],
         labels: &[&str],
     ) -> Result<(), VizError> {
         let _ = labels;
-        self.points2d_styled(path, xy, colors, radii)
+        self.points2d_styled(path, points_xy, colors, radii)
     }
 
     /// Logs 3D points with per-point styling. Broadcast and unit conventions match

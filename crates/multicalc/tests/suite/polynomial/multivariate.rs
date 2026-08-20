@@ -50,40 +50,40 @@ fn partial_derivative_matches_autodiff() {
 
 #[test]
 fn gradient_at_matches_the_partial_derivatives() {
-    let p = sample();
+    let poly = sample();
     let point = [1.5, -2.0];
 
-    let gradient = p.gradient_at(&point);
+    let gradient = poly.gradient_at(&point);
     for variable in 0..2 {
-        let separately = p.partial_derivative(variable).unwrap().evaluate(&point);
+        let separately = poly.partial_derivative(variable).unwrap().evaluate(&point);
         assert!((gradient[variable] - separately).abs() < 1e-12);
     }
 }
 
 #[test]
 fn partial_antiderivative_then_partial_derivative_returns_original() {
-    let p = sample();
+    let poly = sample();
 
     for variable in 0..2 {
-        let round_tripped = p
+        let round_tripped = poly
             .partial_antiderivative(variable)
             .unwrap()
             .partial_derivative(variable)
             .unwrap();
         for point in [[1.5, -2.0], [0.0, 0.0], [-0.75, 3.25]] {
-            assert!((round_tripped.evaluate(&point) - p.evaluate(&point)).abs() < 1e-12);
+            assert!((round_tripped.evaluate(&point) - poly.evaluate(&point)).abs() < 1e-12);
         }
     }
 }
 
 #[test]
 fn substitute_fixes_one_variable() {
-    let p = sample();
-    let fixed = p.substitute(1, -2.0).unwrap();
+    let poly = sample();
+    let fixed = poly.substitute(1, -2.0).unwrap();
 
     // With y pinned, the value no longer depends on what is passed for it.
     for x in [-1.0, 0.0, 2.5] {
-        assert!((fixed.evaluate(&[x, 99.0]) - p.evaluate(&[x, -2.0])).abs() < 1e-12);
+        assert!((fixed.evaluate(&[x, 99.0]) - poly.evaluate(&[x, -2.0])).abs() < 1e-12);
     }
     assert_eq!(fixed.degree_in(1), Some(0));
 }
@@ -157,26 +157,26 @@ fn add_into_merges_matching_terms() {
 
 #[test]
 fn variable_out_of_range_is_an_error() {
-    let p = sample();
+    let poly = sample();
     assert_eq!(
-        p.partial_derivative(2).err(),
+        poly.partial_derivative(2).err(),
         Some(PolynomialError::VariableOutOfRange)
     );
     assert_eq!(
-        p.partial_antiderivative(2).err(),
+        poly.partial_antiderivative(2).err(),
         Some(PolynomialError::VariableOutOfRange)
     );
     assert_eq!(
-        p.substitute(9, 1.0).err(),
+        poly.substitute(9, 1.0).err(),
         Some(PolynomialError::VariableOutOfRange)
     );
     // The query reports nothing rather than failing.
-    assert_eq!(p.degree_in(2), None);
+    assert_eq!(poly.degree_in(2), None);
 }
 
 #[test]
 fn collect_like_terms_merges_and_drops_zeros() {
-    let mut p: MultivariatePolynomial<2, 4> = MultivariatePolynomial::try_from_terms(&[
+    let mut poly: MultivariatePolynomial<2, 4> = MultivariatePolynomial::try_from_terms(&[
         MultivariateTerm::new(1.0, [1, 0]),
         MultivariateTerm::new(2.0, [1, 0]),
         MultivariateTerm::new(-3.0, [1, 0]),
@@ -184,19 +184,19 @@ fn collect_like_terms_merges_and_drops_zeros() {
     ])
     .unwrap();
 
-    p.collect_like_terms();
+    poly.collect_like_terms();
     // The three x terms add to nothing and disappear, leaving 5y.
-    assert_eq!(p.len(), 1);
-    assert_eq!(p.terms()[0].exponents(), &[0, 1]);
-    assert!((p.terms()[0].coefficient() - 5.0).abs() < 1e-12);
+    assert_eq!(poly.len(), 1);
+    assert_eq!(poly.terms()[0].exponents(), &[0, 1]);
+    assert!((poly.terms()[0].coefficient() - 5.0).abs() < 1e-12);
 }
 
 #[test]
 fn total_degree_and_degree_in() {
-    let p = sample();
-    assert_eq!(p.total_degree(), Some(3));
-    assert_eq!(p.degree_in(0), Some(2));
-    assert_eq!(p.degree_in(1), Some(1));
+    let poly = sample();
+    assert_eq!(poly.total_degree(), Some(3));
+    assert_eq!(poly.degree_in(0), Some(2));
+    assert_eq!(poly.degree_in(1), Some(1));
 
     let empty = MultivariatePolynomial::<2, 3>::new();
     assert!(empty.is_empty());
@@ -206,13 +206,13 @@ fn total_degree_and_degree_in() {
 
 #[test]
 fn runs_in_f32() {
-    let p: MultivariatePolynomial<2, 3, f32> = MultivariatePolynomial::try_from_terms(&[
+    let poly: MultivariatePolynomial<2, 3, f32> = MultivariatePolynomial::try_from_terms(&[
         MultivariateTerm::new(3.0, [2, 1]),
         MultivariateTerm::new(2.0, [1, 1]),
         MultivariateTerm::new(-1.0, [0, 0]),
     ])
     .unwrap();
-    assert!((p.evaluate(&[1.5, -2.0]) + 20.5).abs() < 1e-5);
+    assert!((poly.evaluate(&[1.5, -2.0]) + 20.5).abs() < 1e-5);
 }
 
 #[test]

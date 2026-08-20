@@ -339,7 +339,7 @@ impl<
         let solved = if free_count == 0 {
             Matrix::<MAX_FREE_DERIVATIVES, DIMENSION, T>::zeros()
         } else {
-            system.lu()?.solve_matrix::<DIMENSION>(known_side)
+            system.lu_decompose()?.solve_matrix::<DIMENSION>(known_side)
         };
 
         // Gather each waypoint's four values, taking the known ones directly and the chosen ones
@@ -448,7 +448,7 @@ pub fn durations_from_average_speed<const DIMENSION: usize, T: Numeric>(
 
     for (slot, pair) in durations.iter_mut().zip(waypoints.windows(2)) {
         let distance = match (pair.first(), pair.get(1)) {
-            (Some(from), Some(to)) => (*to - *from).norm(),
+            (Some(from), Some(end)) => (*end - *from).norm(),
             _ => T::ZERO,
         };
         if distance <= T::ZERO {

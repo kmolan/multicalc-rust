@@ -362,16 +362,16 @@ fn add_range<T: Numeric>(pending: &mut [(T, T)], length: &mut usize, range: (T, 
     }
 }
 
-/// How many times the chain's values change sign at `at`, skipping any that land exactly on zero.
+/// How many times the chain's values change sign at `point`, skipping any that land exactly on zero.
 fn sign_changes<const COEFFICIENT_COUNT: usize, T: Numeric>(
     chain: &[Polynomial<COEFFICIENT_COUNT, T>; COEFFICIENT_COUNT],
     length: usize,
-    at: T,
+    point: T,
 ) -> usize {
     let mut changes = 0;
     let mut previous_positive = None;
     for polynomial in chain.iter().take(length) {
-        let value = polynomial.evaluate(at);
+        let value = polynomial.evaluate(point);
         if value == T::ZERO {
             continue;
         }
@@ -533,8 +533,8 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
         }
         let (chain, length) = self.root_counting_chain()?;
         // How many roots sit between two points.
-        let count_between = |from: T, to: T| {
-            sign_changes(&chain, length, from).saturating_sub(sign_changes(&chain, length, to))
+        let count_between = |from: T, end: T| {
+            sign_changes(&chain, length, from).saturating_sub(sign_changes(&chain, length, end))
         };
 
         // Ranges still to look at. Only ones holding a root ever go in, and they never overlap, so

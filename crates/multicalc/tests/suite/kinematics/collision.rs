@@ -17,7 +17,7 @@ const TOL: f64 = 1e-9;
 
 // ---- helpers ----------------------------------------------------------------
 
-fn at<T: Numeric>(x: f64, y: f64, z: f64) -> SE3<T> {
+fn pose_at<T: Numeric>(x: f64, y: f64, z: f64) -> SE3<T> {
     SE3::from_parts(
         SO3::identity(),
         Vector::new([T::from_f64(x), T::from_f64(y), T::from_f64(z)]),
@@ -38,7 +38,7 @@ fn two_frames() -> KinematicTree<2, 2, f64> {
     KinematicTree::try_from_joints(
         &[
             Joint::fixed(SE3::identity()),
-            Joint::fixed(at(1.0, 0.0, 0.0)),
+            Joint::fixed(pose_at(1.0, 0.0, 0.0)),
         ],
         &[JointParent::World, JointParent::Joint(0)],
     )
@@ -49,19 +49,19 @@ fn two_frames() -> KinematicTree<2, 2, f64> {
 
 #[test]
 fn touching_spheres_have_zero_clearance() {
-    let distance = sphere_sphere_distance(at(0.0, 0.0, 0.0), 0.5, at(1.0, 0.0, 0.0), 0.5);
+    let distance = sphere_sphere_distance(pose_at(0.0, 0.0, 0.0), 0.5, pose_at(1.0, 0.0, 0.0), 0.5);
     assert_close(distance, 0.0, "touching");
 }
 
 #[test]
 fn separated_spheres_report_the_gap() {
-    let distance = sphere_sphere_distance(at(0.0, 0.0, 0.0), 0.5, at(3.0, 0.0, 0.0), 1.0);
+    let distance = sphere_sphere_distance(pose_at(0.0, 0.0, 0.0), 0.5, pose_at(3.0, 0.0, 0.0), 1.0);
     assert_close(distance, 1.5, "gap");
 }
 
 #[test]
 fn overlapping_spheres_report_the_penetration() {
-    let distance = sphere_sphere_distance(at(0.0, 0.0, 0.0), 0.5, at(0.5, 0.0, 0.0), 0.5);
+    let distance = sphere_sphere_distance(pose_at(0.0, 0.0, 0.0), 0.5, pose_at(0.5, 0.0, 0.0), 0.5);
     assert_close(distance, -0.5, "penetration");
 }
 
@@ -70,8 +70,14 @@ fn overlapping_spheres_report_the_penetration() {
 #[test]
 fn parallel_capsules_report_the_gap_between_their_axes() {
     // Both along z, axes 1 m apart in x.
-    let distance =
-        capsule_capsule_distance(at(0.0, 0.0, 0.0), 0.2, 1.0, at(1.0, 0.0, 0.0), 0.2, 1.0);
+    let distance = capsule_capsule_distance(
+        pose_at(0.0, 0.0, 0.0),
+        0.2,
+        1.0,
+        pose_at(1.0, 0.0, 0.0),
+        0.2,
+        1.0,
+    );
     assert_close(distance, 0.6, "parallel gap");
 }
 
@@ -79,8 +85,14 @@ fn parallel_capsules_report_the_gap_between_their_axes() {
 fn parallel_capsules_offset_past_their_ends_measure_end_to_end() {
     // Both along z, collinear, centres 4 m apart: 1 m of half-length each leaves 2 m of segment
     // gap, less the radii.
-    let distance =
-        capsule_capsule_distance(at(0.0, 0.0, 0.0), 0.2, 1.0, at(0.0, 0.0, 4.0), 0.3, 1.0);
+    let distance = capsule_capsule_distance(
+        pose_at(0.0, 0.0, 0.0),
+        0.2,
+        1.0,
+        pose_at(0.0, 0.0, 4.0),
+        0.3,
+        1.0,
+    );
     assert_close(distance, 1.5, "end-to-end gap");
 }
 
@@ -95,17 +107,29 @@ fn crossed_capsules_measure_between_their_midpoints() {
 
 #[test]
 fn overlapping_capsules_report_the_penetration() {
-    let distance =
-        capsule_capsule_distance(at(0.0, 0.0, 0.0), 0.5, 1.0, at(0.4, 0.0, 0.0), 0.5, 1.0);
+    let distance = capsule_capsule_distance(
+        pose_at(0.0, 0.0, 0.0),
+        0.5,
+        1.0,
+        pose_at(0.4, 0.0, 0.0),
+        0.5,
+        1.0,
+    );
     assert_close(distance, -0.6, "penetration");
 }
 
 #[test]
 fn a_zero_length_capsule_matches_the_sphere_form() {
     // Half-length zero degenerates the segment to a point, which is a sphere.
-    let capsules =
-        capsule_capsule_distance(at(0.0, 0.0, 0.0), 0.3, 0.0, at(2.0, 0.0, 0.0), 0.2, 0.0);
-    let spheres = sphere_sphere_distance(at(0.0, 0.0, 0.0), 0.3, at(2.0, 0.0, 0.0), 0.2);
+    let capsules = capsule_capsule_distance(
+        pose_at(0.0, 0.0, 0.0),
+        0.3,
+        0.0,
+        pose_at(2.0, 0.0, 0.0),
+        0.2,
+        0.0,
+    );
+    let spheres = sphere_sphere_distance(pose_at(0.0, 0.0, 0.0), 0.3, pose_at(2.0, 0.0, 0.0), 0.2);
     assert_close(capsules, spheres, "degenerate capsule");
     assert_close(capsules, 1.5, "degenerate value");
 }
@@ -115,14 +139,26 @@ fn a_zero_length_capsule_matches_the_sphere_form() {
 #[test]
 fn a_sphere_past_a_capsule_end_measures_from_the_cap() {
     // Capsule along z, half-length 0.5, so its +z end sits at 0.5; sphere centre 1 m past that.
-    let distance = sphere_capsule_distance(at(0.0, 0.0, 1.5), 0.3, at(0.0, 0.0, 0.0), 0.2, 0.5);
+    let distance = sphere_capsule_distance(
+        pose_at(0.0, 0.0, 1.5),
+        0.3,
+        pose_at(0.0, 0.0, 0.0),
+        0.2,
+        0.5,
+    );
     assert_close(distance, 0.5, "past the cap");
 }
 
 #[test]
 fn a_sphere_beside_a_capsule_measures_from_the_axis() {
     // Sphere level with the capsule's midpoint, 2 m out in x.
-    let distance = sphere_capsule_distance(at(2.0, 0.0, 0.0), 0.3, at(0.0, 0.0, 0.0), 0.2, 0.5);
+    let distance = sphere_capsule_distance(
+        pose_at(2.0, 0.0, 0.0),
+        0.3,
+        pose_at(0.0, 0.0, 0.0),
+        0.2,
+        0.5,
+    );
     assert_close(distance, 1.5, "beside the barrel");
 }
 
@@ -133,8 +169,8 @@ fn the_mixed_pair_is_symmetric() {
         radius: 0.2,
         half_length: 0.5,
     };
-    let sphere_pose = at::<f64>(2.0, 0.0, 0.0);
-    let capsule_pose = at::<f64>(0.0, 0.0, 0.0);
+    let sphere_pose = pose_at::<f64>(2.0, 0.0, 0.0);
+    let capsule_pose = pose_at::<f64>(0.0, 0.0, 0.0);
 
     let forward = sphere.distance_to(sphere_pose, capsule, capsule_pose);
     let backward = capsule.distance_to(capsule_pose, sphere, sphere_pose);
@@ -181,7 +217,11 @@ fn a_local_pose_moves_a_primitive_off_its_frame() {
         .push_self_primitive(0, Primitive::Sphere { radius: 0.1 }, SE3::identity())
         .unwrap();
     query
-        .push_self_primitive(1, Primitive::Sphere { radius: 0.1 }, at(-1.0, 0.0, 0.0))
+        .push_self_primitive(
+            1,
+            Primitive::Sphere { radius: 0.1 },
+            pose_at(-1.0, 0.0, 0.0),
+        )
         .unwrap();
 
     let report = query.check(&state).unwrap();
@@ -230,7 +270,7 @@ fn an_environment_primitive_is_checked_against_every_link() {
         .unwrap();
     // An obstacle sitting on the second frame.
     query
-        .push_environment_primitive(Primitive::Sphere { radius: 0.2 }, at(1.05, 0.0, 0.0))
+        .push_environment_primitive(Primitive::Sphere { radius: 0.2 }, pose_at(1.05, 0.0, 0.0))
         .unwrap();
 
     let report = query.check(&state).unwrap();
@@ -275,10 +315,10 @@ fn a_moving_joint_carries_its_primitives() {
 
     let mut query = CollisionQuery::<1, 1, 0, f64>::new();
     query
-        .push_self_primitive(0, Primitive::Sphere { radius: 0.1 }, at(1.0, 0.0, 0.0))
+        .push_self_primitive(0, Primitive::Sphere { radius: 0.1 }, pose_at(1.0, 0.0, 0.0))
         .unwrap();
     query
-        .push_environment_primitive(Primitive::Sphere { radius: 0.1 }, at(0.0, 1.0, 0.0))
+        .push_environment_primitive(Primitive::Sphere { radius: 0.1 }, pose_at(0.0, 1.0, 0.0))
         .unwrap();
 
     let stretched = tree.forward_kinematics(&Vector::new([0.0])).unwrap();
@@ -384,7 +424,7 @@ fn runs_in_f32() {
     let tree = KinematicTree::<2, 2, f32>::try_from_joints(
         &[
             Joint::fixed(SE3::identity()),
-            Joint::fixed(at::<f32>(1.0, 0.0, 0.0)),
+            Joint::fixed(pose_at::<f32>(1.0, 0.0, 0.0)),
         ],
         &[JointParent::World, JointParent::Joint(0)],
     )

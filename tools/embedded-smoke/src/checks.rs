@@ -128,7 +128,10 @@ pub fn portable_path() {
 /// instead of crashing.
 pub fn error_path_returns_err() {
     let singular = black_box(Matrix3D::<f64>::zeros());
-    assert!(matches!(singular.lu(), Err(LinalgError::Singular)));
+    assert!(matches!(
+        singular.lu_decompose(),
+        Err(LinalgError::Singular)
+    ));
     let indefinite = black_box(Matrix2D::new([[1.0, 2.0], [2.0, 1.0]]));
     assert!(matches!(
         indefinite.cholesky(),
@@ -166,10 +169,10 @@ pub fn lie_group_identity() -> f64 {
         0.0,
         core::f64::consts::FRAC_PI_2,
     ])));
-    let p = rz.act(black_box(Vector::new([1.0, 0.0, 0.0])));
-    assert_close!("lie_rot_x", black_box(p[0]), 0.0, 1e-12, 0.0);
-    assert_close!("lie_rot_y", black_box(p[1]), 1.0, 1e-12, 0.0);
-    assert_close!("lie_rot_z", black_box(p[2]), 0.0, 1e-12, 0.0);
+    let point = rz.act(black_box(Vector::new([1.0, 0.0, 0.0])));
+    assert_close!("lie_rot_x", black_box(point[0]), 0.0, 1e-12, 0.0);
+    assert_close!("lie_rot_y", black_box(point[1]), 1.0, 1e-12, 0.0);
+    assert_close!("lie_rot_z", black_box(point[2]), 0.0, 1e-12, 0.0);
 
     // SO(3) exp/log round trip.
     let phi = black_box(Vector::new([0.3, -0.6, 0.2]));
@@ -179,10 +182,10 @@ pub fn lie_group_identity() -> f64 {
     }
 
     // SE(3) exp/log round trip (exercises the left Jacobian and its inverse).
-    let xi = black_box(Vector::new([0.5, -0.2, 0.1, 0.3, -0.6, 0.2]));
-    let back6 = SE3::exp(xi).log();
+    let twist = black_box(Vector::new([0.5, -0.2, 0.1, 0.3, -0.6, 0.2]));
+    let back6 = SE3::exp(twist).log();
     for i in 0..6 {
-        assert_close!("lie_se3", black_box(back6[i]), xi[i], 1e-9, 0.0);
+        assert_close!("lie_se3", black_box(back6[i]), twist[i], 1e-9, 0.0);
     }
     black_box(back6[0])
 }

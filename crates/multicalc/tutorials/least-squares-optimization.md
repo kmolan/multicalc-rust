@@ -14,14 +14,14 @@ under autodiff:
 ```rust
 use multicalc::LevenbergMarquardt;
 use multicalc::AutoDiffMulti;
-use multicalc::c;
+use multicalc::constant;
 use multicalc::scalar_fn_vec;
 
 // Fit a*e^(b*t) to (0, 100), (1, 50), (2, 25): the minimum is a = 100, b = -ln 2.
 let residuals = scalar_fn_vec!(|v: &[f64; 2]| [
-    c(-100.0) + v[0],
-    c(-50.0) + v[0] * v[1].exp(),
-    c(-25.0) + v[0] * (c(2.0) * v[1]).exp(),
+    constant(-100.0) + v[0],
+    constant(-50.0) + v[0] * v[1].exp(),
+    constant(-25.0) + v[0] * (constant(2.0) * v[1]).exp(),
 ]);
 let report = LevenbergMarquardt::<AutoDiffMulti>::default()
     .minimize(&residuals, &[80.0, -0.3])

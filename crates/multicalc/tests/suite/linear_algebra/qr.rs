@@ -108,9 +108,11 @@ fn damped_solve_satisfies_normal_equations() {
 #[test]
 fn damped_zero_diagonal_matches_least_squares() {
     let (jacobian, right_hand_side) = sample_problem();
-    let qr = PivotedQr::decompose(jacobian).unwrap();
-    let expected = qr.solve_least_squares(right_hand_side).unwrap();
-    let (solution, _) = qr.into_damped(right_hand_side).solve_with_zero_diagonal();
+    let pivoted_qr = PivotedQr::decompose(jacobian).unwrap();
+    let expected = pivoted_qr.solve_least_squares(right_hand_side).unwrap();
+    let (solution, _) = pivoted_qr
+        .into_damped(right_hand_side)
+        .solve_with_zero_diagonal();
     for index in 0..3 {
         assert!((solution[index] - expected[index]).abs() < 1e-12);
     }
@@ -185,14 +187,14 @@ fn qr_factorizes_hilbert_stably() {
     let hilbert = Matrix::<8, 8>::from_fn(|row, column| 1.0 / ((row + column + 1) as f64));
     let factorization = PivotedQr::decompose(hilbert).unwrap();
     let permutation = factorization.permutation();
-    let q = factorization.q();
-    let r = factorization.r();
+    let orthogonal = factorization.orthogonal();
+    let triangular = factorization.triangular();
 
     // The factorization stays backward-stable regardless of conditioning.
-    assert_identity(q.transpose() * q, 1e-12);
+    assert_identity(orthogonal.transpose() * orthogonal, 1e-12);
     let column_permuted =
         Matrix::<8, 8>::from_fn(|row, column| hilbert[(row, permutation[column])]);
-    assert_matrix_close(q * r, column_permuted, 1e-12);
+    assert_matrix_close(orthogonal * triangular, column_permuted, 1e-12);
 
     // Solving is backward-stable (tiny residual) though the solution itself degrades.
     let true_coefficients = [1.0; 8];
@@ -257,12 +259,12 @@ fn check_qr_property<const M: usize, const N: usize>(
 
     // M >= N is guaranteed by the generators below, so this never hits `Underdetermined`.
     let factorization = PivotedQr::decompose(matrix).unwrap();
-    let r = factorization.r();
-    let q = factorization.q();
+    let triangular = factorization.triangular();
+    let orthogonal = factorization.orthogonal();
     let permutation = factorization.permutation();
 
     let minimum_diagonal = (0..N).fold(f64::MAX, |smallest, index| {
-        smallest.min(r[(index, index)].abs())
+        smallest.min(triangular[(index, index)].abs())
     });
     prop_assume!(minimum_diagonal >= 1e-6 * scale);
 
@@ -271,14 +273,14 @@ fn check_qr_property<const M: usize, const N: usize>(
     // R is upper-triangular by construction; check anyway as a structural guard.
     for row in 0..N {
         for column in 0..row {
-            assert_eq!(r[(row, column)], 0.0);
+            assert_eq!(triangular[(row, column)], 0.0);
         }
     }
 
-    assert_identity(q.transpose() * q, tolerance);
+    assert_identity(orthogonal.transpose() * orthogonal, tolerance);
 
     let column_permuted = Matrix::<M, N>::from_fn(|row, column| matrix[(row, permutation[column])]);
-    assert_matrix_close(q * r, column_permuted, tolerance);
+    assert_matrix_close(orthogonal * triangular, column_permuted, tolerance);
 
     Ok(())
 }

@@ -9,16 +9,22 @@ use crate::spatial::SE2;
 /// rotations in, arc out.
 #[inline]
 #[must_use]
-fn to_body<T: Numeric>(r: T, b: T, left: T, right: T) -> (T, T) {
-    (r * (right + left) * T::HALF, r * (right - left) / b)
+fn to_body<T: Numeric>(wheel_radius: T, wheelbase: T, left: T, right: T) -> (T, T) {
+    (
+        wheel_radius * (right + left) * T::HALF,
+        wheel_radius * (right - left) / wheelbase,
+    )
 }
 
 /// The inverse of [`to_body`].
 #[inline]
 #[must_use]
-fn to_wheels<T: Numeric>(r: T, b: T, linear: T, angular: T) -> (T, T) {
-    let half_span = angular * b * T::HALF;
-    ((linear - half_span) / r, (linear + half_span) / r)
+fn to_wheels<T: Numeric>(wheel_radius: T, wheelbase: T, linear: T, angular: T) -> (T, T) {
+    let half_span = angular * wheelbase * T::HALF;
+    (
+        (linear - half_span) / wheel_radius,
+        (linear + half_span) / wheel_radius,
+    )
 }
 
 /// Wheel angular velocities [rad/s]. Positive drives the body forward.
@@ -162,31 +168,31 @@ impl<T: Numeric> BodyTwist<T> {
     /// Projects an se(2) tangent onto the motions a differential drive can produce, discarding the
     /// lateral component.
     ///
-    /// Lossy: `BodyTwist::project_tangent(xi).to_tangent()` equals `xi` only when the
+    /// Lossy: `BodyTwist::project_tangent(twist).to_tangent()` equals `twist` only when the
     /// lateral is zero. `tangent_slip` reports what is discarded.
     #[inline]
     #[must_use]
-    pub fn project_tangent(xi: Vector3D<T>) -> Self {
-        let [linear, _, angular] = *xi.as_array();
+    pub fn project_tangent(twist: Vector3D<T>) -> Self {
+        let [linear, _, angular] = *twist.as_array();
         BodyTwist { linear, angular }
     }
 
-    /// The lateral component of `xi`, which [`project_tangent`](Self::project_tangent) discards.
+    /// The lateral component of `twist`, which [`project_tangent`](Self::project_tangent) discards.
     /// Zero for any motion a differential drive can produce.
     #[inline]
     #[must_use]
-    pub fn tangent_slip(xi: Vector3D<T>) -> T {
-        let [_, lateral, _] = *xi.as_array();
+    pub fn tangent_slip(twist: Vector3D<T>) -> T {
+        let [_, lateral, _] = *twist.as_array();
         lateral
     }
 
-    /// The arc traced over `dt` by holding this twist constant.
+    /// The arc traced over `timestep` by holding this twist constant.
     #[inline]
     #[must_use]
-    pub fn integrate_over(self, dt: T) -> BodyArc<T> {
+    pub fn integrate_over(self, timestep: T) -> BodyArc<T> {
         BodyArc {
-            linear: self.linear * dt,
-            angular: self.angular * dt,
+            linear: self.linear * timestep,
+            angular: self.angular * timestep,
         }
     }
 }
@@ -295,24 +301,39 @@ impl<T: Numeric> DifferentialDrive<T> {
     /// The wheel velocities that produce a body twist.
     #[inline]
     #[must_use]
-    pub fn inverse(self, c: BodyTwist<T>) -> WheelVelocities<T> {
-        let (left, right) = to_wheels(self.wheel_radius, self.wheelbase, c.linear(), c.angular());
+    pub fn inverse(self, command: BodyTwist<T>) -> WheelVelocities<T> {
+        let (left, right) = to_wheels(
+            self.wheel_radius,
+            self.wheelbase,
+            command.linear(),
+            command.angular(),
+        );
         WheelVelocities::new(left, right)
     }
 
     /// The arc traced by wheel rotations over one tick.
     #[inline]
     #[must_use]
-    pub fn forward_arc(self, d: WheelRotations<T>) -> BodyArc<T> {
-        let (linear, angular) = to_body(self.wheel_radius, self.wheelbase, d.left(), d.right());
+    pub fn forward_arc(self, rotations: WheelRotations<T>) -> BodyArc<T> {
+        let (linear, angular) = to_body(
+            self.wheel_radius,
+            self.wheelbase,
+            rotations.left(),
+            rotations.right(),
+        );
         BodyArc::new(linear, angular)
     }
 
     /// The wheel rotations that trace an arc over one tick.
     #[inline]
     #[must_use]
-    pub fn inverse_arc(self, d: BodyArc<T>) -> WheelRotations<T> {
-        let (left, right) = to_wheels(self.wheel_radius, self.wheelbase, d.linear(), d.angular());
+    pub fn inverse_arc(self, arc: BodyArc<T>) -> WheelRotations<T> {
+        let (left, right) = to_wheels(
+            self.wheel_radius,
+            self.wheelbase,
+            arc.linear(),
+            arc.angular(),
+        );
         WheelRotations::new(left, right)
     }
 
@@ -326,14 +347,17 @@ impl<T: Numeric> DifferentialDrive<T> {
     /// The distance each wheel travelled, in metres, from its rotation.
     #[inline]
     #[must_use]
-    pub fn wheel_travel(self, d: WheelRotations<T>) -> (T, T) {
-        (d.left() * self.wheel_radius, d.right() * self.wheel_radius)
+    pub fn wheel_travel(self, rotations: WheelRotations<T>) -> (T, T) {
+        (
+            rotations.left() * self.wheel_radius,
+            rotations.right() * self.wheel_radius,
+        )
     }
 
     /// The pose after one tick of wheel motion, along the exact constant-twist arc.
     #[inline]
     #[must_use]
-    pub fn odometry_step(self, pose: SE2<T>, d: WheelRotations<T>) -> SE2<T> {
-        crate::kinematics::odometry::integrate(pose, self.forward_arc(d))
+    pub fn odometry_step(self, pose: SE2<T>, rotations: WheelRotations<T>) -> SE2<T> {
+        crate::kinematics::odometry::integrate(pose, self.forward_arc(rotations))
     }
 }
