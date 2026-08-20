@@ -27,7 +27,7 @@ use std::f64::consts::TAU;
 use std::time::Instant;
 
 /// Grid resolution (§6.3: may drop to 192 only on measured < 5 fps).
-const N: usize = 256;
+const GRID: usize = 256;
 const DOMAIN: f64 = 2.0; // half-width: the grid covers [-2, 2]^2
 const DTAU: f64 = 0.02; // root-orbit advance per completed frame
 const WARMUP_FRAMES: i64 = 3; // cold-start frames excluded from the throughput median
@@ -53,16 +53,16 @@ struct CubicBasins {
 
 impl VectorFn<2, 2> for CubicBasins {
     fn eval<S: Numeric>(&self, z: &[S; 2]) -> [S; 2] {
-        let (mut wr, mut wi) = (S::ONE, S::ZERO); // w = Π (z − r_i), complex MAC
-        for r in &self.roots {
-            let dr = z[0] - S::from_f64(r[0]);
-            let di = z[1] - S::from_f64(r[1]);
-            let nr = wr * dr - wi * di;
-            let ni = wr * di + wi * dr;
-            wr = nr;
-            wi = ni;
+        let (mut prod_re, mut prod_im) = (S::ONE, S::ZERO); // w = Π (z − r_i), complex MAC
+        for root in &self.roots {
+            let delta_re = z[0] - S::from_f64(root[0]);
+            let delta_im = z[1] - S::from_f64(root[1]);
+            let next_re = prod_re * delta_re - prod_im * delta_im;
+            let next_im = prod_re * delta_im + prod_im * delta_re;
+            prod_re = next_re;
+            prod_im = next_im;
         }
-        [wr, wi]
+        [prod_re, prod_im]
     }
 }
 
@@ -78,15 +78,15 @@ fn roots_at(tau: f64) -> [[f64; 2]; 3] {
 
 /// Per-channel lerp from `a` toward `b` by `t` in [0, 1].
 #[must_use]
-fn lerp_rgb(a: [u8; 3], b: [u8; 3], t: f64) -> [u8; 3] {
-    core::array::from_fn(|k| (a[k] as f64 + (b[k] as f64 - a[k] as f64) * t).round() as u8)
+fn lerp_rgb(a: [u8; 3], b: [u8; 3], blend: f64) -> [u8; 3] {
+    core::array::from_fn(|k| (a[k] as f64 + (b[k] as f64 - a[k] as f64) * blend).round() as u8)
 }
 
 /// Shades a converged pixel: fewer iterations are brighter, more fade toward the surface.
 #[must_use]
 fn shade(basin: [u8; 3], iterations: usize) -> [u8; 3] {
-    let t = (0.20 * iterations as f64 / 6.0).min(1.0) * 0.85;
-    lerp_rgb(basin, SURFACE, t)
+    let blend = (0.20 * iterations as f64 / 6.0).min(1.0) * 0.85;
+    lerp_rgb(basin, SURFACE, blend)
 }
 
 fn main() -> Result<(), VizError> {
@@ -97,15 +97,15 @@ fn main() -> Result<(), VizError> {
         );
     }
 
-    let mut rr = RerunSink::live("multicalc-demos/newton-fractal")?;
-    rr.set_sequence("frame", 0);
-    rr.series_style(
+    let mut sink = RerunSink::live("multicalc-demos/newton-fractal")?;
+    sink.set_sequence("frame", 0);
+    sink.series_style(
         "plots/solves_per_sec",
         HERO,
         "Newton solves/s (one core)",
         2.0,
     )?;
-    rr.series_style("plots/mean_iterations", TARGET, "mean iterations", 1.0)?;
+    sink.series_style("plots/mean_iterations", TARGET, "mean iterations", 1.0)?;
 
     // Built once; solve takes &self. Backtracking stays off (default) — it would smooth away the
     // wild Newton steps that make the filigree.
@@ -118,8 +118,8 @@ fn main() -> Result<(), VizError> {
     let mut basins = CubicBasins {
         roots: roots_at(0.0),
     };
-    let mut buf = vec![0u8; N * N * 3];
-    let step = 2.0 * DOMAIN / N as f64; // world units per pixel
+    let mut buf = vec![0u8; GRID * GRID * 3];
+    let step = 2.0 * DOMAIN / GRID as f64; // world units per pixel
     let root_radius_px = 0.05 / step; // spec's 0.05 scene-unit radius, in pixels
 
     let mut throughput_ring = LatencyRing::new(256); // recent per-frame solves/s, for a stable median
@@ -127,18 +127,18 @@ fn main() -> Result<(), VizError> {
     let mut frame: i64 = 0;
     loop {
         frame += 1;
-        rr.set_sequence("frame", frame);
+        sink.set_sequence("frame", frame);
         basins.roots = roots_at(tau);
 
         let mut res_sum = 0.0;
         let mut iter_sum = 0u64;
         let mut converged = 0u64;
 
-        let t0 = Instant::now();
-        for row in 0..N {
+        let tick_start = Instant::now();
+        for row in 0..GRID {
             // Row 0 maps to y = +DOMAIN (top), matching the image's y-down convention.
             let y = DOMAIN - (row as f64 + 0.5) * step;
-            for col in 0..N {
+            for col in 0..GRID {
                 let x = -DOMAIN + (col as f64 + 0.5) * step;
                 let rgb = match solver.solve(&basins, &[x, y]) {
                     Ok(rep) => {
@@ -146,9 +146,10 @@ fn main() -> Result<(), VizError> {
                             .roots
                             .iter()
                             .enumerate()
-                            .map(|(j, rj)| {
-                                let (dx, dy) = (rep.root[0] - rj[0], rep.root[1] - rj[1]);
-                                (j, dx * dx + dy * dy)
+                            .map(|(j, root_j)| {
+                                let (dx, delta_y) =
+                                    (rep.root[0] - root_j[0], rep.root[1] - root_j[1]);
+                                (j, dx * dx + delta_y * delta_y)
                             })
                             .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
                             .unwrap();
@@ -160,18 +161,18 @@ fn main() -> Result<(), VizError> {
                     // SingularMatrix / DidNotConverge / NonFiniteValue: basin-boundary filigree.
                     Err(_) => FILIGREE,
                 };
-                let i = (row * N + col) * 3;
+                let i = (row * GRID + col) * 3;
                 buf[i..i + 3].copy_from_slice(&rgb);
             }
         }
-        let frame_secs = t0.elapsed().as_secs_f64();
-        let solves_per_sec = (N * N) as f64 / frame_secs;
+        let frame_secs = tick_start.elapsed().as_secs_f64();
+        let solves_per_sec = (GRID * GRID) as f64 / frame_secs;
 
         // Roots in the image's pixel space so they overlay the fractal.
         let roots_px: Vec<[f64; 2]> = basins
             .roots
             .iter()
-            .map(|r| [(r[0] + DOMAIN) / step, (DOMAIN - r[1]) / step])
+            .map(|root| [(root[0] + DOMAIN) / step, (DOMAIN - root[1]) / step])
             .collect();
 
         if frame > WARMUP_FRAMES {
@@ -179,39 +180,40 @@ fn main() -> Result<(), VizError> {
         }
         let throughput_median = throughput_ring
             .summary()
-            .map_or(solves_per_sec, |s| s.median);
+            .map_or(solves_per_sec, |stats| stats.median);
 
-        rr.image_rgb8("world/fractal", N as u32, N as u32, &buf)?;
-        rr.points2d_styled(
+        sink.image_rgb8("world/fractal", GRID as u32, GRID as u32, &buf)?;
+        sink.points2d_styled(
             "world/roots",
             &roots_px,
             &BASIN_RGBA,
             &[root_radius_px as f32],
         )?;
-        rr.scalar("plots/solves_per_sec", solves_per_sec)?;
+        sink.scalar("plots/solves_per_sec", solves_per_sec)?;
 
         let conv = converged.max(1) as f64;
         let mean_iterations = iter_sum as f64 / conv;
         let mean_residual = res_sum / conv; // shown in the hud, not plotted
-        rr.scalar("plots/mean_iterations", mean_iterations)?;
+        sink.scalar("plots/mean_iterations", mean_iterations)?;
 
-        let nonconverged_pct = (N * N - converged as usize) as f64 / (N * N) as f64 * 100.0;
-        let md = format!(
+        let nonconverged_pct =
+            (GRID * GRID - converged as usize) as f64 / (GRID * GRID) as f64 * 100.0;
+        let meta = format!(
             "## newton_fractal — multicalc live demo\n\
              ### throughput: {} Newton solves/s (one core, no-std math; median over recent frames)\n\
              ### per frame: {}×{} = {} full solves in {:.0} ms\n\
              ### mean iterations: {:.1}, non-converged: {:.2} %\n\
              ### accuracy: mean residual ‖F‖ = {:.1e}",
             commas(throughput_median as u64),
-            N,
-            N,
-            commas((N * N) as u64),
+            GRID,
+            GRID,
+            commas((GRID * GRID) as u64),
             frame_secs * 1000.0,
             mean_iterations,
             nonconverged_pct,
             mean_residual,
         );
-        rr.text("hud/stats", &md)?;
+        sink.text("hud/stats", &meta)?;
 
         tau += DTAU;
     }

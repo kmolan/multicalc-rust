@@ -38,27 +38,27 @@ use multicalc::{Biquad, BiquadCascade, BiquadCoefficients, MultiChannelBiquad};
 use multicalc::signal_processing::harmonic_notch_coefficients;
 use multicalc::Vector;
 
-let dt = 0.001_f64; // a 1 kHz loop
+let timestep = 0.001_f64; // a 1 kHz loop
 
 // A low-pass is about 3 dB down at its own cutoff, and lags by a few milliseconds below it.
-let low_pass = BiquadCoefficients::low_pass(50.0, 0.70710678, dt).unwrap();
+let low_pass = BiquadCoefficients::low_pass(50.0, 0.70710678, timestep).unwrap();
 assert!((low_pass.magnitude_in_decibels_at(50.0) + 3.0).abs() < 0.5);
 assert!(low_pass.delay_at(5.0) < 0.01);
 
 // A notch removes one frequency: 2000 samples of a 180 Hz oscillation come out flat.
-let mut notch = Biquad::new(BiquadCoefficients::notch(180.0, 4.0, dt).unwrap());
+let mut notch = Biquad::new(BiquadCoefficients::notch(180.0, 4.0, timestep).unwrap());
 let mut last = 0.0;
 for sample in 0..2000 {
-    last = notch.filter((2.0 * core::f64::consts::PI * 180.0 * sample as f64 * dt).sin());
+    last = notch.filter((2.0 * core::f64::consts::PI * 180.0 * sample as f64 * timestep).sin());
 }
 assert!(last.abs() < 0.05);
 
 // Retuning keeps the memory, so a tracked notch does not step as it moves.
-notch.set_coefficients(BiquadCoefficients::notch(210.0, 4.0, dt).unwrap());
+notch.set_coefficients(BiquadCoefficients::notch(210.0, 4.0, timestep).unwrap());
 
 // Notches on 80 Hz and its next two multiples, one section each. The fundamental is 80 Hz and not
 // 180 Hz because a third section on 180 Hz would sit at 540 Hz, past half of a 1 kHz sampling rate.
-let harmonics = harmonic_notch_coefficients::<3, f64>(80.0, 4.0, dt).unwrap();
+let harmonics = harmonic_notch_coefficients::<3, f64>(80.0, 4.0, timestep).unwrap();
 let motor_notch = BiquadCascade::new(harmonics);
 for frequency_hz in [80.0, 160.0, 240.0] {
     assert!(motor_notch.magnitude_at(frequency_hz) < 0.05);
@@ -83,11 +83,11 @@ for reading in [1.0, 1.1, 0.9, 50.0, 1.05] {
 assert_eq!(median.value(), 1.05);
 
 // Three terms fit a curve exactly, so a curve comes back with its slope and bend.
-let dt = 0.001_f64;
-let mut fitted = SavitzkyGolay::<11, 3, f64>::latest(dt).unwrap();
+let timestep = 0.001_f64;
+let mut fitted = SavitzkyGolay::<11, 3, f64>::latest(timestep).unwrap();
 let mut time = 0.0;
 for sample in 0..200 {
-    time = sample as f64 * dt;
+    time = sample as f64 * timestep;
     fitted.filter(0.5 * time * time);
 }
 assert!((fitted.first_derivative() - time).abs() < 1e-6);
@@ -95,7 +95,7 @@ assert!((fitted.second_derivative() - 1.0).abs() < 1e-6);
 
 // Reading at the newest sample costs no delay; reading at the middle costs half a window.
 assert_eq!(fitted.delay(), 0.0);
-assert!((SavitzkyGolay::<11, 3, f64>::centered(dt).unwrap().delay() - 0.005).abs() < 1e-12);
+assert!((SavitzkyGolay::<11, 3, f64>::centered(timestep).unwrap().delay() - 0.005).abs() < 1e-12);
 ```
 
 Which of the three to reach for: a mean for gentle smoothing of a signal whose noise is small and

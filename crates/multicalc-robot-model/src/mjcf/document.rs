@@ -22,8 +22,9 @@ fn read(path: &Path, depth: usize) -> Result<String, ModelError> {
         return Err(ModelError::IncludeTooDeep { depth });
     }
 
-    let mut text = std::fs::read_to_string(path).map_err(|e| ModelError::Io(e.to_string()))?;
-    let document = Document::parse(&text).map_err(|e| ModelError::Xml(e.to_string()))?;
+    let mut text =
+        std::fs::read_to_string(path).map_err(|err| ModelError::FileRead(err.to_string()))?;
+    let document = Document::parse(&text).map_err(|err| ModelError::Xml(err.to_string()))?;
 
     let mut includes: Vec<(Range<usize>, String)> = Vec::new();
     for node in document.descendants() {
@@ -47,7 +48,7 @@ fn read(path: &Path, depth: usize) -> Result<String, ModelError> {
 /// The source text of the root's element children, joined with `"\n"`: the contents of the
 /// `<mujoco>` wrapper, without the wrapper.
 fn inner_source(xml: &str) -> Result<String, ModelError> {
-    let document = Document::parse(xml).map_err(|e| ModelError::Xml(e.to_string()))?;
+    let document = Document::parse(xml).map_err(|err| ModelError::Xml(err.to_string()))?;
     let pieces: Vec<&str> = document
         .root_element()
         .children()

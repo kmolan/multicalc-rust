@@ -4,12 +4,12 @@ use core::fmt::{self, Write};
 use multicalc::error::{CalcError, DiffError, IntegrateError, LinalgError, SolveError};
 
 // Captures the single `write_str` call `Display` makes, so no allocator is needed.
-struct Probe<'a> {
-    expected: &'a str,
+struct Probe<'expected> {
+    expected: &'expected str,
     matched: bool,
 }
 
-impl Write for Probe<'_> {
+impl<'expected> Write for Probe<'expected> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.matched = s == self.expected;
         Ok(())

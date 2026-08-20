@@ -49,10 +49,10 @@ pub struct MinimizationReport<const N: usize, T = f64> {
     pub termination: TerminationReason,
 }
 
-/// Whether every element of `v` is finite.
+/// Whether every element of `values` is finite.
 #[must_use]
-pub(crate) fn is_finite<const K: usize, T: Numeric>(v: &[T; K]) -> bool {
-    v.iter().all(|value| value.is_finite())
+pub(crate) fn is_finite<const K: usize, T: Numeric>(values: &[T; K]) -> bool {
+    values.iter().all(|value| value.is_finite())
 }
 
 /// Assembles a report at the final point (objective is half the sum of squared residuals).

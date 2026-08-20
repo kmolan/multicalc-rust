@@ -2,3 +2,5 @@
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
 allow-panic-in-tests = true
+min-ident-chars-threshold = 2
+allowed-idents-below-min-chars = ["i", "j", "k", "n", "x", "y", "z", "w", "h", "f", "a", "b", "dx"]

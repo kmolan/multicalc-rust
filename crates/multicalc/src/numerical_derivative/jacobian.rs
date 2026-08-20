@@ -62,7 +62,7 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     /// use multicalc::scalar_fn_vec;
     ///
     /// // the vector function (x*y*z, x^2 + y^2)
-    /// let function = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    /// let function = scalar_fn_vec!(|point: &[f64; 3]| [point[0] * point[1] * point[2], point[0] * point[0] + point[1] * point[1]]);
     /// let point = [1.0, 2.0, 3.0];
     ///
     /// let jacobian: Jacobian = Jacobian::default();
@@ -89,8 +89,8 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
             let column = self
                 .derivator
                 .jacobian_column(function, n, vector_of_points)?;
-            for (m, &value) in column.iter().enumerate() {
-                result[(m, n)] = value;
+            for (row, &value) in column.iter().enumerate() {
+                result[(row, n)] = value;
             }
         }
 
@@ -134,8 +134,8 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
             let column = self
                 .derivator
                 .jacobian_column(function, n, vector_of_points)?;
-            for (m, &value) in column.iter().enumerate() {
-                result[m].push(value);
+            for (row, &value) in column.iter().enumerate() {
+                result[row].push(value);
             }
         }
 

@@ -20,25 +20,25 @@ pub fn load_dir(module: &str) -> Vec<Fixture> {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures")
         .join(module);
-    let entries =
-        std::fs::read_dir(&dir).unwrap_or_else(|e| unreachable!("read fixture dir {dir:?}: {e}"));
+    let entries = std::fs::read_dir(&dir)
+        .unwrap_or_else(|err| unreachable!("read fixture dir {dir:?}: {err}"));
     let mut paths: Vec<PathBuf> = entries
-        .filter_map(|entry| entry.ok().map(|e| e.path()))
-        .filter(|p| p.extension().and_then(|x| x.to_str()) == Some("json"))
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| path.extension().and_then(|x| x.to_str()) == Some("json"))
         .collect();
     paths.sort();
 
     let mut fixtures = Vec::new();
     for path in paths {
         let file =
-            std::fs::File::open(&path).unwrap_or_else(|e| unreachable!("open {path:?}: {e}"));
-        let fx: Fixture = serde_json::from_reader(BufReader::new(file))
-            .unwrap_or_else(|e| unreachable!("parse {path:?}: {e}"));
+            std::fs::File::open(&path).unwrap_or_else(|err| unreachable!("open {path:?}: {err}"));
+        let fixture: Fixture = serde_json::from_reader(BufReader::new(file))
+            .unwrap_or_else(|err| unreachable!("parse {path:?}: {err}"));
         assert_eq!(
-            fx.schema_version, SCHEMA_VERSION,
+            fixture.schema_version, SCHEMA_VERSION,
             "schema version mismatch in {path:?}"
         );
-        fixtures.push(fx);
+        fixtures.push(fixture);
     }
 
     assert!(!fixtures.is_empty(), "no fixtures found in {dir:?}");
@@ -46,62 +46,65 @@ pub fn load_dir(module: &str) -> Vec<Fixture> {
 }
 
 /// Builds an `R×C` `f64` matrix from a `Matrix` value, checking the stored shape.
-pub fn to_matrix<const R: usize, const C: usize>(v: &Value) -> Matrix<R, C> {
-    let (r, c, d) = v.as_matrix();
-    assert_eq!((r, c), (R, C), "matrix shape");
-    Matrix::from_fn(|i, j| d[i * C + j])
+pub fn to_matrix<const R: usize, const C: usize>(value: &Value) -> Matrix<R, C> {
+    let (rows, cols, data) = value.as_matrix();
+    assert_eq!((rows, cols), (R, C), "matrix shape");
+    Matrix::from_fn(|i, j| data[i * C + j])
 }
 
 /// Same as [`to_matrix`], narrowing each entry to `f32`.
-pub fn to_matrix_f32<const R: usize, const C: usize>(v: &Value) -> Matrix<R, C, f32> {
-    let (r, c, d) = v.as_matrix();
-    assert_eq!((r, c), (R, C), "matrix shape");
-    Matrix::from_fn(|i, j| d[i * C + j] as f32)
+pub fn to_matrix_f32<const R: usize, const C: usize>(value: &Value) -> Matrix<R, C, f32> {
+    let (rows, cols, data) = value.as_matrix();
+    assert_eq!((rows, cols), (R, C), "matrix shape");
+    Matrix::from_fn(|i, j| data[i * C + j] as f32)
 }
 
 /// Builds an `N`-element `f64` vector from a `Vector` value, checking its length.
-pub fn to_vector<const N: usize>(v: &Value) -> Vector<N> {
-    let d = v.as_vector();
-    assert_eq!(d.len(), N, "vector length");
-    Vector::from_fn(|i| d[i])
+pub fn to_vector<const N: usize>(value: &Value) -> Vector<N> {
+    let data = value.as_vector();
+    assert_eq!(data.len(), N, "vector length");
+    Vector::from_fn(|i| data[i])
 }
 
 pub use multicalc_testkit::tol::close;
 
-/// Asserts a scalar matches the expected value within `t`.
-pub fn assert_scalar(got: f64, want: &Value, t: Tol, ctx: &str) {
+/// Asserts a scalar matches the expected value within `tolerance`.
+pub fn assert_scalar(got: f64, want: &Value, tolerance: Tol, ctx: &str) {
     let w = want.as_scalar();
-    assert!(close(got, w, t), "{ctx}: got {got}, want {w}, tol {t:?}");
+    assert!(
+        close(got, w, tolerance),
+        "{ctx}: got {got}, want {w}, tol {tolerance:?}"
+    );
 }
 
-/// Asserts every component of a vector matches within `t`.
-pub fn assert_vector<const N: usize>(got: &Vector<N>, want: &Value, t: Tol, ctx: &str) {
+/// Asserts every component of a vector matches within `tolerance`.
+pub fn assert_vector<const N: usize>(got: &Vector<N>, want: &Value, tolerance: Tol, ctx: &str) {
     let w = want.as_vector();
     assert_eq!(w.len(), N, "{ctx}: length");
     for i in 0..N {
         assert!(
-            close(got[i], w[i], t),
-            "{ctx}[{i}]: got {}, want {}, tol {t:?}",
+            close(got[i], w[i], tolerance),
+            "{ctx}[{i}]: got {}, want {}, tol {tolerance:?}",
             got[i],
             w[i]
         );
     }
 }
 
-/// Asserts every entry of a matrix matches within `t`.
+/// Asserts every entry of a matrix matches within `tolerance`.
 pub fn assert_matrix<const R: usize, const C: usize>(
     got: &Matrix<R, C>,
     want: &Value,
-    t: Tol,
+    tolerance: Tol,
     ctx: &str,
 ) {
-    let (r, c, w) = want.as_matrix();
-    assert_eq!((r, c), (R, C), "{ctx}: shape");
+    let (rows, cols, w) = want.as_matrix();
+    assert_eq!((rows, cols), (R, C), "{ctx}: shape");
     for i in 0..R {
         for j in 0..C {
             assert!(
-                close(got[(i, j)], w[i * C + j], t),
-                "{ctx}({i},{j}): got {}, want {}, tol {t:?}",
+                close(got[(i, j)], w[i * C + j], tolerance),
+                "{ctx}({i},{j}): got {}, want {}, tol {tolerance:?}",
                 got[(i, j)],
                 w[i * C + j]
             );
@@ -109,19 +112,19 @@ pub fn assert_matrix<const R: usize, const C: usize>(
     }
 }
 
-/// Asserts two matrices agree entrywise within `t`. Used for the identities
+/// Asserts two matrices agree entrywise within `tolerance`. Used for the identities
 /// multicalc checks against its own output rather than against a golden.
 pub fn assert_matrix_close<const R: usize, const C: usize>(
     got: &Matrix<R, C>,
     want: &Matrix<R, C>,
-    t: Tol,
+    tolerance: Tol,
     ctx: &str,
 ) {
     for i in 0..R {
         for j in 0..C {
             assert!(
-                close(got[(i, j)], want[(i, j)], t),
-                "{ctx}({i},{j}): got {}, want {}, tol {t:?}",
+                close(got[(i, j)], want[(i, j)], tolerance),
+                "{ctx}({i},{j}): got {}, want {}, tol {tolerance:?}",
                 got[(i, j)],
                 want[(i, j)]
             );
@@ -133,14 +136,14 @@ pub fn assert_matrix_close<const R: usize, const C: usize>(
 pub fn assert_matrix_close_f32<const R: usize, const C: usize>(
     got: &Matrix<R, C, f32>,
     want: &Matrix<R, C, f32>,
-    t: Tol,
+    tolerance: Tol,
     ctx: &str,
 ) {
     for i in 0..R {
         for j in 0..C {
             assert!(
-                close(got[(i, j)] as f64, want[(i, j)] as f64, t),
-                "{ctx}({i},{j}): got {}, want {}, tol {t:?}",
+                close(got[(i, j)] as f64, want[(i, j)] as f64, tolerance),
+                "{ctx}({i},{j}): got {}, want {}, tol {tolerance:?}",
                 got[(i, j)],
                 want[(i, j)]
             );

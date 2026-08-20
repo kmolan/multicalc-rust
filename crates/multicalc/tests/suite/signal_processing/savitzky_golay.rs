@@ -6,7 +6,7 @@ use multicalc::random::{Pcg32, RandomSource};
 use multicalc::scalar::Numeric;
 use multicalc::signal_processing::SavitzkyGolay;
 
-const DT: f64 = 0.001;
+const TIMESTEP: f64 = 0.001;
 const SAMPLES: usize = 200;
 
 /// The test curve `0.5·t² + 2·t + 1`, with its slope and bend.
@@ -33,10 +33,10 @@ fn assert_reproduces_a_curve_of_its_own_order<T: Numeric>(
     slope_tolerance: T,
     bend_tolerance: T,
 ) {
-    let mut fitted = SavitzkyGolay::<11, 3, T>::latest(T::from_f64(DT)).unwrap();
+    let mut fitted = SavitzkyGolay::<11, 3, T>::latest(T::from_f64(TIMESTEP)).unwrap();
     let mut time = 0.0;
     for sample in 0..SAMPLES {
-        time = sample as f64 * DT;
+        time = sample as f64 * TIMESTEP;
         let _ = fitted.filter(T::from_f64(curve(time)));
     }
 
@@ -58,10 +58,10 @@ fn reproduces_a_curve_of_its_own_order_f32() {
 // The centered form reads its answer from the middle of the window, so it describes a sample from
 // half a window ago. This is what makes that claim testable rather than documentation.
 fn assert_centered_reproduces_the_curve_at_its_own_delay<T: Numeric>(tolerance: T) {
-    let mut fitted = SavitzkyGolay::<11, 3, T>::centered(T::from_f64(DT)).unwrap();
+    let mut fitted = SavitzkyGolay::<11, 3, T>::centered(T::from_f64(TIMESTEP)).unwrap();
     let mut time = 0.0;
     for sample in 0..SAMPLES {
-        time = sample as f64 * DT;
+        time = sample as f64 * TIMESTEP;
         let _ = fitted.filter(T::from_f64(curve(time)));
     }
 
@@ -88,14 +88,14 @@ fn centered_reproduces_the_curve_at_its_own_delay_f32() {
 #[test]
 fn smoothing_beats_a_plain_difference_on_noise() {
     let mut noise = Pcg32::<f64>::new(20260731);
-    let mut fitted = SavitzkyGolay::<11, 3, f64>::latest(DT).unwrap();
+    let mut fitted = SavitzkyGolay::<11, 3, f64>::latest(TIMESTEP).unwrap();
 
     let mut previous = 0.0;
     let mut worst_fitted = 0.0_f64;
     let mut worst_difference = 0.0_f64;
 
     for sample in 0..SAMPLES {
-        let time = sample as f64 * DT;
+        let time = sample as f64 * TIMESTEP;
         let wobble = 0.002 * (noise.next_unit() - 0.5);
         let reading = (2.0 * core::f64::consts::PI * 2.0 * time).sin() + wobble;
         let _ = fitted.filter(reading);
@@ -105,7 +105,8 @@ fn smoothing_beats_a_plain_difference_on_noise() {
         // Ignore the opening samples, where neither method has a full window yet.
         if sample >= 20 {
             worst_fitted = worst_fitted.max((fitted.first_derivative() - true_slope).abs());
-            worst_difference = worst_difference.max(((reading - previous) / DT - true_slope).abs());
+            worst_difference =
+                worst_difference.max(((reading - previous) / TIMESTEP - true_slope).abs());
         }
         previous = reading;
     }
@@ -116,9 +117,9 @@ fn smoothing_beats_a_plain_difference_on_noise() {
 // ---- what the fitted order cannot express -----------------------------------
 
 fn assert_a_line_has_no_bend<T: Numeric>() {
-    let mut fitted = SavitzkyGolay::<9, 2, T>::latest(T::from_f64(DT)).unwrap();
+    let mut fitted = SavitzkyGolay::<9, 2, T>::latest(T::from_f64(TIMESTEP)).unwrap();
     for sample in 0..50 {
-        let time = sample as f64 * DT;
+        let time = sample as f64 * TIMESTEP;
         let _ = fitted.filter(T::from_f64(3.0 * time + 1.0));
     }
     // Two terms describe a straight line, so there is no bend to report at all.
@@ -140,11 +141,11 @@ fn a_line_has_no_bend_f32() {
 #[test]
 fn constructors_reject_unusable_arguments() {
     assert_eq!(
-        SavitzkyGolay::<10, 3, f64>::centered(DT),
+        SavitzkyGolay::<10, 3, f64>::centered(TIMESTEP),
         Err(SignalError::WindowEvenLength)
     );
     assert_eq!(
-        SavitzkyGolay::<3, 5, f64>::latest(DT),
+        SavitzkyGolay::<3, 5, f64>::latest(TIMESTEP),
         Err(SignalError::PolynomialOrderTooHigh)
     );
     assert_eq!(

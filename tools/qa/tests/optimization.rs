@@ -15,33 +15,42 @@ use multicalc_qa::load::*;
 use multicalc_qa::problems::{CircleFit, GaussianPeaks, Rosenbrock, Trigonometric6};
 use multicalc_qa::schema::*;
 
-fn run_lm<F: VectorFn<N, M>, const N: usize, const M: usize>(problem: &F, fx: &Fixture) {
-    let x0 = to_vector::<N>(&fx.inputs["x0"]).into_array();
+fn run_lm<F: VectorFn<N, M>, const N: usize, const M: usize>(problem: &F, fixture: &Fixture) {
+    let initial_guess = to_vector::<N>(&fixture.inputs["x0"]).into_array();
     let report = LevenbergMarquardt::<AutoDiffMulti>::default()
-        .minimize(problem, &x0)
+        .minimize(problem, &initial_guess)
         .unwrap();
-    let t = fx.tolerances.f64;
+    let tolerance = fixture.tolerances.f64;
 
     assert_vector(
         &Vector::new(report.solution),
-        &fx.expected["solution"],
-        t,
+        &fixture.expected["solution"],
+        tolerance,
         "solution",
     );
 
     let residual = problem.eval::<f64>(&report.solution);
-    let norm = residual.iter().map(|v| v * v).sum::<f64>().sqrt();
-    assert_scalar(norm, &fx.expected["residual_norm"], t, "residual_norm");
+    let norm = residual
+        .iter()
+        .map(|component| component * component)
+        .sum::<f64>()
+        .sqrt();
+    assert_scalar(
+        norm,
+        &fixture.expected["residual_norm"],
+        tolerance,
+        "residual_norm",
+    );
 }
 
 #[test]
 fn optimization() {
-    for fx in load_dir("optimization") {
-        match fx.inputs["problem"].as_str() {
-            "rosenbrock" => run_lm(&Rosenbrock, &fx),
-            "trigonometric6" => run_lm(&Trigonometric6, &fx),
-            "circle_fit" => run_lm(&CircleFit, &fx),
-            "gaussian_peaks" => run_lm(&GaussianPeaks, &fx),
+    for fixture in load_dir("optimization") {
+        match fixture.inputs["problem"].as_str() {
+            "rosenbrock" => run_lm(&Rosenbrock, &fixture),
+            "trigonometric6" => run_lm(&Trigonometric6, &fixture),
+            "circle_fit" => run_lm(&CircleFit, &fixture),
+            "gaussian_peaks" => run_lm(&GaussianPeaks, &fixture),
             other => panic!("unknown problem key {other}"),
         }
     }

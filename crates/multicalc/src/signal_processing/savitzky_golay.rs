@@ -28,11 +28,11 @@ use crate::scalar::Numeric;
 /// use multicalc::signal_processing::SavitzkyGolay;
 ///
 /// // Three terms fit a curve exactly, so a curve is reproduced with its slope and bend.
-/// let dt = 0.001_f64;
-/// let mut fitted = SavitzkyGolay::<11, 3, f64>::latest(dt).unwrap();
+/// let timestep = 0.001_f64;
+/// let mut fitted = SavitzkyGolay::<11, 3, f64>::latest(timestep).unwrap();
 /// let mut time = 0.0;
 /// for sample in 0..200 {
-///     time = sample as f64 * dt;
+///     time = sample as f64 * timestep;
 ///     let _ = fitted.filter(0.5 * time * time);
 /// }
 /// assert!((fitted.first_derivative() - time).abs() < 1e-6);
@@ -40,11 +40,11 @@ use crate::scalar::Numeric;
 ///
 /// // Reading at the newest sample costs no delay; reading at the middle costs half a window.
 /// assert_eq!(fitted.delay(), 0.0);
-/// assert!((SavitzkyGolay::<11, 3, f64>::centered(dt).unwrap().delay() - 0.005).abs() < 1e-12);
+/// assert!((SavitzkyGolay::<11, 3, f64>::centered(timestep).unwrap().delay() - 0.005).abs() < 1e-12);
 ///
 /// // A window too short to fit that many terms is rejected.
 /// assert_eq!(
-///     SavitzkyGolay::<3, 5, f64>::latest(dt),
+///     SavitzkyGolay::<3, 5, f64>::latest(timestep),
 ///     Err(SignalError::PolynomialOrderTooHigh)
 /// );
 /// ```
@@ -74,23 +74,23 @@ impl<const WINDOW: usize, const POLYNOMIAL_TERMS: usize, T: Numeric>
     ///
     /// Returns [`SignalError::WindowEvenLength`] if the window length is even, since there would be
     /// no middle sample to read at. The other error paths are [`Self::latest`]'s.
-    pub fn centered(dt: T) -> Result<Self, SignalError> {
+    pub fn centered(timestep: T) -> Result<Self, SignalError> {
         if WINDOW % 2 == 0 {
             return Err(SignalError::WindowEvenLength);
         }
-        Self::build(dt, (WINDOW - 1) / 2)
+        Self::build(timestep, (WINDOW - 1) / 2)
     }
 
     /// Builds a filter reading its answer at the newest sample, so the output describes the sample
     /// just fed in and adds no delay.
     ///
-    /// Returns [`SignalError::NonFinite`] if `dt` is not finite,
+    /// Returns [`SignalError::NonFinite`] if `timestep` is not finite,
     /// [`SignalError::NonPositiveTimestep`] if it is not strictly positive,
     /// [`SignalError::WindowTooShort`] if the window or the number of terms is zero,
     /// [`SignalError::PolynomialOrderTooHigh`] if there are more terms than samples to fit them,
     /// and [`SignalError::Linalg`] if the fit cannot be worked out.
-    pub fn latest(dt: T) -> Result<Self, SignalError> {
-        Self::build(dt, WINDOW - 1)
+    pub fn latest(timestep: T) -> Result<Self, SignalError> {
+        Self::build(timestep, WINDOW - 1)
     }
 
     /// Feeds one sample and returns the smoothed value of the window it now sits in.
@@ -150,11 +150,11 @@ impl<const WINDOW: usize, const POLYNOMIAL_TERMS: usize, T: Numeric>
     ///
     /// `read_position` is where in the window the answer is read: the sample positions are measured
     /// from there, so the fitted curve's constant term is the answer at that point.
-    fn build(dt: T, read_position: usize) -> Result<Self, SignalError> {
-        if !dt.is_finite() {
+    fn build(timestep: T, read_position: usize) -> Result<Self, SignalError> {
+        if !timestep.is_finite() {
             return Err(SignalError::NonFinite);
         }
-        if dt <= T::ZERO {
+        if timestep <= T::ZERO {
             return Err(SignalError::NonPositiveTimestep);
         }
         if WINDOW == 0 || POLYNOMIAL_TERMS == 0 {
@@ -173,7 +173,7 @@ impl<const WINDOW: usize, const POLYNOMIAL_TERMS: usize, T: Numeric>
         let smoothing_weights = core::array::from_fn(|sample| inverse[(0, sample)]);
         let first_derivative_weights = core::array::from_fn(|sample| {
             if POLYNOMIAL_TERMS >= 2 {
-                inverse[(1, sample)] / dt
+                inverse[(1, sample)] / timestep
             } else {
                 T::ZERO
             }
@@ -181,7 +181,7 @@ impl<const WINDOW: usize, const POLYNOMIAL_TERMS: usize, T: Numeric>
         // The curve's third term is half the bend, so it doubles here.
         let second_derivative_weights = core::array::from_fn(|sample| {
             if POLYNOMIAL_TERMS >= 3 {
-                T::TWO * inverse[(2, sample)] / (dt * dt)
+                T::TWO * inverse[(2, sample)] / (timestep * timestep)
             } else {
                 T::ZERO
             }
@@ -194,7 +194,7 @@ impl<const WINDOW: usize, const POLYNOMIAL_TERMS: usize, T: Numeric>
             smoothing_weights,
             first_derivative_weights,
             second_derivative_weights,
-            delay_seconds: T::from_usize(WINDOW - 1 - read_position) * dt,
+            delay_seconds: T::from_usize(WINDOW - 1 - read_position) * timestep,
         })
     }
 

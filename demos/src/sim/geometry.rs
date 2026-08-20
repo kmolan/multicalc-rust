@@ -97,11 +97,11 @@ pub fn rotate_points(points: &[[f64; 2]], center: [f64; 2], angle: f64) -> Vec<[
     let (sin, cos) = angle.sin_cos();
     points
         .iter()
-        .map(|p| {
-            let (dx, dy) = (p[0] - center[0], p[1] - center[1]);
+        .map(|point| {
+            let (dx, delta_y) = (point[0] - center[0], point[1] - center[1]);
             [
-                center[0] + cos * dx - sin * dy,
-                center[1] + sin * dx + cos * dy,
+                center[0] + cos * dx - sin * delta_y,
+                center[1] + sin * dx + cos * delta_y,
             ]
         })
         .collect()

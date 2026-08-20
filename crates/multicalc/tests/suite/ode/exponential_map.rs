@@ -234,9 +234,16 @@ fn integrate_attitude_rejects_non_finite_rate() {
 #[test]
 fn integrate_attitude_rejects_non_finite_timestep() {
     let rate = |_time: f64, _orientation: SO3<f64>| Vector::new([0.0, 0.0, 1.0]);
-    for dt in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+    for timestep in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
         assert_eq!(
-            ExponentialMap::integrate_attitude(&rate, 0.0, SO3::identity(), dt, 10, |_, _| {}),
+            ExponentialMap::integrate_attitude(
+                &rate,
+                0.0,
+                SO3::identity(),
+                timestep,
+                10,
+                |_, _| {}
+            ),
             Err(IntegrateError::NonFinite)
         );
     }

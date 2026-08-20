@@ -23,14 +23,14 @@ const MAX_BACKTRACK: usize = 20;
 /// ```
 /// use multicalc::optimization::GaussNewton;
 /// use multicalc::numerical_derivative::AutoDiffMulti;
-/// use multicalc::scalar::c;
+/// use multicalc::scalar::constant;
 /// use multicalc::scalar_fn_vec;
 ///
 /// // Fit y = a + b*t to points on y = 2t + 1; a linear residual is solved in one step.
-/// let f = scalar_fn_vec!(|v: &[f64; 2]| [
-///     c(-1.0) + v[1],
-///     c(-3.0) + v[0] + v[1],
-///     c(-5.0) + c(2.0) * v[0] + v[1],
+/// let f = scalar_fn_vec!(|point: &[f64; 2]| [
+///     constant(-1.0) + point[1],
+///     constant(-3.0) + point[0] + point[1],
+///     constant(-5.0) + constant(2.0) * point[0] + point[1],
 /// ]);
 /// let initial_guess = [0.0, 0.0];
 ///
@@ -119,7 +119,7 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
         self
     }
 
-    /// Minimizes `‖f(x)‖²` starting from `x0`.
+    /// Minimizes `‖f(x)‖²` starting from `initial_guess`.
     ///
     /// Errors: [`NonFinite`](SolveError::NonFinite) on a non-finite residual or Jacobian,
     /// [`Linalg`](SolveError::Linalg) wrapping [`Underdetermined`](crate::error::LinalgError::Underdetermined)
@@ -129,7 +129,7 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
     pub fn minimize<F, const N: usize, const M: usize>(
         &self,
         f: &F,
-        x0: &[D::Scalar; N],
+        initial_guess: &[D::Scalar; N],
     ) -> Result<MinimizationReport<N, D::Scalar>, SolveError>
     where
         D: Clone,
@@ -140,7 +140,7 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
 
         let jacobian = Jacobian::from_derivator(self.derivator.clone());
 
-        let mut x = *x0;
+        let mut x = *initial_guess;
         let mut residuals = f.eval(&x);
         if !is_finite(&residuals) {
             return Err(SolveError::NonFinite);
@@ -153,7 +153,7 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
             if !j.is_finite() {
                 return Err(SolveError::NonFinite);
             }
-            let qr = PivotedQr::decompose(j)?;
+            let pivoted_qr = PivotedQr::decompose(j)?;
 
             // Already at a perfect fit.
             if fnorm == zero {
@@ -162,11 +162,11 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
 
             // Gradient convergence: max over columns of |(Jᵀr)_c| / (fnorm · ‖columnₙ‖).
             let gradient = j.transpose() * Vector::new(residuals);
-            let ga = *gradient.as_array();
+            let grad = *gradient.as_array();
             let mut gnorm = zero;
-            for (c, &column_norm) in qr.column_norms.iter().enumerate() {
+            for (col, &column_norm) in pivoted_qr.column_norms.iter().enumerate() {
                 if column_norm != zero {
-                    gnorm = max(gnorm, (ga[c] / (fnorm * column_norm)).abs());
+                    gnorm = max(gnorm, (grad[col] / (fnorm * column_norm)).abs());
                 }
             }
             if gnorm <= self.gtol {
@@ -174,15 +174,16 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
             }
 
             // Gauss-Newton step (errors on a rank-deficient Jacobian).
-            let p = qr.solve_least_squares(Vector::new(residuals))?;
-            let pa = *p.as_array();
+            let step = pivoted_qr.solve_least_squares(Vector::new(residuals))?;
+            let step_arr = *step.as_array();
 
             // Take a step, shrinking it (when backtracking) until it is finite and lowers the
             // cost. A non-finite or cost-increasing trial triggers another halving.
             let mut alpha = D::Scalar::ONE;
             let mut tries = 0;
             let (x_new, residuals_new, fnorm_new) = loop {
-                let candidate: [D::Scalar; N] = core::array::from_fn(|k| x[k] - alpha * pa[k]);
+                let candidate: [D::Scalar; N] =
+                    core::array::from_fn(|k| x[k] - alpha * step_arr[k]);
                 let trial = f.eval(&candidate);
                 evaluations += 1;
                 let finite = is_finite(&trial);
@@ -208,7 +209,7 @@ impl<D: DerivatorMultiVariable> GaussNewton<D> {
                 tries += 1;
             };
 
-            let step_norm = alpha * enorm(p.as_array());
+            let step_norm = alpha * enorm(step.as_array());
             let previous_fnorm = fnorm;
             x = x_new;
             residuals = residuals_new;

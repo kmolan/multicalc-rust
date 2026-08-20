@@ -108,18 +108,18 @@ fn matrix_transpose() {
     );
 }
 
-fn check_matrix_is_finite<const ROWS: usize, const COLS: usize>(m: Matrix<ROWS, COLS>) {
+fn check_matrix_is_finite<const ROWS: usize, const COLS: usize>(matrix: Matrix<ROWS, COLS>) {
     assert_eq!(
-        m.is_finite(),
-        m.into_array().iter().flatten().all(|x| x.is_finite())
+        matrix.is_finite(),
+        matrix.into_array().iter().flatten().all(|x| x.is_finite())
     );
 }
 
 // Check the Frobenius norm implementation using the alternate definition
 // `||A||_F = sqrt(Tr(A * A^T))`.
-fn check_matrix_frobenius_norm<const ROWS: usize, const COLS: usize>(m: Matrix<ROWS, COLS>) {
-    let norm = m.frobenius_norm();
-    let alt_def = (m * m.transpose()).trace().sqrt();
+fn check_matrix_frobenius_norm<const ROWS: usize, const COLS: usize>(matrix: Matrix<ROWS, COLS>) {
+    let norm = matrix.frobenius_norm();
+    let alt_def = (matrix * matrix.transpose()).trace().sqrt();
     assert_eq!(norm.is_finite(), alt_def.is_finite(), "{norm} != {alt_def}");
     if norm.is_finite() {
         assert_scalar_close(
@@ -133,20 +133,24 @@ fn check_matrix_frobenius_norm<const ROWS: usize, const COLS: usize>(m: Matrix<R
     }
 }
 
-fn check_matrix_trace<const N: usize>(a: Matrix<N, N>, b: Matrix<N, N>) {
+fn check_matrix_trace<const N: usize>(matrix_a: Matrix<N, N>, matrix_b: Matrix<N, N>) {
     // Property: `tr(I)=N`
-    let id: Matrix<N, N> = Matrix::identity();
-    assert_eq!(id.trace(), N as f64);
+    let identity: Matrix<N, N> = Matrix::identity();
+    assert_eq!(identity.trace(), N as f64);
 
     // Property: `tr(AB)=tr(BA)`
-    let ab = (a * b).trace();
-    let ba = (b * a).trace();
+    let matrix_ab = (matrix_a * matrix_b).trace();
+    let matrix_ba = (matrix_b * matrix_a).trace();
 
-    assert_eq!(ab.is_finite(), ba.is_finite(), "{ab} != {ba}");
-    if ab.is_finite() {
+    assert_eq!(
+        matrix_ab.is_finite(),
+        matrix_ba.is_finite(),
+        "{matrix_ab} != {matrix_ba}"
+    );
+    if matrix_ab.is_finite() {
         assert_scalar_close(
-            ab,
-            ba,
+            matrix_ab,
+            matrix_ba,
             Tol {
                 abs: 0.0,
                 rel: 1e-8,
@@ -156,38 +160,38 @@ fn check_matrix_trace<const N: usize>(a: Matrix<N, N>, b: Matrix<N, N>) {
 }
 
 fn check_matrix_from_diagonal<const N: usize>(diag: [f64; N]) {
-    let m = Matrix::from_diagonal(diag);
+    let matrix = Matrix::from_diagonal(diag);
     for i in 0..N {
-        assert_eq!(m[(i, i)], diag[i]);
+        assert_eq!(matrix[(i, i)], diag[i]);
         for j in 0..N {
             if i != j {
-                assert_eq!(m[(i, j)], 0.0);
+                assert_eq!(matrix[(i, j)], 0.0);
             }
         }
     }
-    let extracted_diagonal = m.diagonal();
+    let extracted_diagonal = matrix.diagonal();
     assert_eq!(extracted_diagonal, diag);
 }
 
 fn check_matrix_symmetric_positive_definite<const N: usize>(
     entries: &[f64],
-    x: Matrix<N, 1>,
+    vector_x: Matrix<N, 1>,
 ) -> Result<(), TestCaseError> {
-    prop_assume!(x.frobenius_norm() > <f64 as multicalc::Numeric>::EPSILON);
+    prop_assume!(vector_x.frobenius_norm() > <f64 as multicalc::Numeric>::EPSILON);
 
     assert_eq!(entries.len(), N * N);
-    let m: Matrix<N, N> = Matrix::symmetric_positive_definite(entries);
+    let matrix: Matrix<N, N> = Matrix::symmetric_positive_definite(entries);
 
     // Check symmetric
     for i in 0..N {
         for j in 0..N {
-            assert_eq!(m[(i, j)], m[(j, i)]);
+            assert_eq!(matrix[(i, j)], matrix[(j, i)]);
         }
     }
 
     // Check positive definite
-    let a = x.transpose() * (m * x);
-    assert!(a[(0, 0)] > 0.0);
+    let matrix_a = vector_x.transpose() * (matrix * vector_x);
+    assert!(matrix_a[(0, 0)] > 0.0);
 
     Ok(())
 }
@@ -196,63 +200,63 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(256))]
 
     #[test]
-    fn matrix_is_finite_1x1(m in matrix_strategy::<1, 1, _>(prop::num::f64::ANY)) {
-        check_matrix_is_finite(m);
+    fn matrix_is_finite_1x1(matrix in matrix_strategy::<1, 1, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(matrix);
     }
 
     #[test]
-    fn matrix_is_finite_2x2(m in matrix_strategy::<2, 2, _>(prop::num::f64::ANY)) {
-        check_matrix_is_finite(m);
+    fn matrix_is_finite_2x2(matrix in matrix_strategy::<2, 2, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(matrix);
     }
 
     #[test]
-    fn matrix_is_finite_3x3(m in matrix_strategy::<3, 3, _>(prop::num::f64::ANY)) {
-        check_matrix_is_finite(m);
+    fn matrix_is_finite_3x3(matrix in matrix_strategy::<3, 3, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(matrix);
     }
 
     #[test]
-    fn matrix_is_finite_4x3(m in matrix_strategy::<4, 3, _>(prop::num::f64::ANY)) {
-        check_matrix_is_finite(m);
+    fn matrix_is_finite_4x3(matrix in matrix_strategy::<4, 3, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(matrix);
     }
 
     #[test]
-    fn matrix_is_finite_3x4(m in matrix_strategy::<3, 4, _>(prop::num::f64::ANY)) {
-        check_matrix_is_finite(m);
+    fn matrix_is_finite_3x4(matrix in matrix_strategy::<3, 4, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(matrix);
     }
 
     #[test]
-    fn matrix_is_finite_4x4(m in matrix_strategy::<4, 4, _>(prop::num::f64::ANY)) {
-        check_matrix_is_finite(m);
+    fn matrix_is_finite_4x4(matrix in matrix_strategy::<4, 4, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(matrix);
     }
 
     #[test]
-    fn matrix_frobenius_norm_1x1(m in matrix_strategy::<1, 1, _>(prop::num::f64::ANY)) {
-        check_matrix_frobenius_norm(m);
+    fn matrix_frobenius_norm_1x1(matrix in matrix_strategy::<1, 1, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(matrix);
     }
 
     #[test]
-    fn matrix_frobenius_norm_2x2(m in matrix_strategy::<2, 2, _>(prop::num::f64::ANY)) {
-        check_matrix_frobenius_norm(m);
+    fn matrix_frobenius_norm_2x2(matrix in matrix_strategy::<2, 2, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(matrix);
     }
 
     #[test]
-    fn matrix_frobenius_norm_3x3(m in matrix_strategy::<3, 3, _>(prop::num::f64::ANY)) {
-        check_matrix_frobenius_norm(m);
+    fn matrix_frobenius_norm_3x3(matrix in matrix_strategy::<3, 3, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(matrix);
     }
 
     #[test]
-    fn matrix_frobenius_norm_4x3(m in matrix_strategy::<4, 3, _>(prop::num::f64::ANY)) {
-        check_matrix_frobenius_norm(m);
+    fn matrix_frobenius_norm_4x3(matrix in matrix_strategy::<4, 3, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(matrix);
     }
 
     #[test]
-    fn matrix_frobenius_norm_3x4(m in matrix_strategy::<3, 4, _>(prop::num::f64::ANY)) {
-        check_matrix_frobenius_norm(m);
+    fn matrix_frobenius_norm_3x4(matrix in matrix_strategy::<3, 4, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(matrix);
     }
 
     #[test]
-    fn matrix_frobenius_norm_4x4(m in matrix_strategy::<4, 4, _>(prop::num::f64::ANY)) {
-        check_matrix_frobenius_norm(m);
+    fn matrix_frobenius_norm_4x4(matrix in matrix_strategy::<4, 4, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(matrix);
     }
 
     // Note: using `prop::num::f64::NORMAL` as opposed to `prop::num::f64::ANY` because
@@ -510,7 +514,7 @@ fn matrix_solve_agrees_with_lu() {
     let solution = matrix.solve(right_hand_side).unwrap();
 
     // The convenience solver matches an explicit LU solve.
-    let lu_solution = matrix.lu().unwrap().solve(right_hand_side);
+    let lu_solution = matrix.lu_decompose().unwrap().solve(right_hand_side);
     for index in 0..3 {
         assert!((solution[index] - lu_solution[index]).abs() < 1e-12);
     }

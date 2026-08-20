@@ -31,7 +31,7 @@ pub use scalar::Jet;
 pub use scalar::{ScalarFn, ScalarFnN, VectorFn};
 
 /// The plain scalar wrapper, and the marker for numeric constants inside a `scalar_fn!` body.
-pub use scalar::{Const, Primal, c};
+pub use scalar::{Const, Primal, constant};
 
 /// Differentiation: the autodiff and finite-difference backends, their shared traits, and the
 /// derivative-matrix types.

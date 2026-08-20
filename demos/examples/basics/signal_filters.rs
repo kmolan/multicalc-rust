@@ -8,7 +8,7 @@ use multicalc::random::{Pcg32, RandomSource};
 use multicalc::signal_processing::{Biquad, BiquadCoefficients, RunningMedian, SavitzkyGolay};
 
 const SAMPLE_RATE_HZ: f64 = 1000.0;
-const DT: f64 = 1.0 / SAMPLE_RATE_HZ;
+const TIMESTEP: f64 = 1.0 / SAMPLE_RATE_HZ;
 const SAMPLES: usize = 4000;
 /// The measurement ignores the first half, by which time the filters have settled.
 const MEASURE_FROM: usize = SAMPLES / 2;
@@ -23,7 +23,7 @@ fn amplitude_at(samples: &[f64], frequency_hz: f64) -> f64 {
     let mut with_sine = 0.0;
     let mut with_cosine = 0.0;
     for (offset, &sample) in samples.iter().enumerate() {
-        let angle = 2.0 * core::f64::consts::PI * frequency_hz * offset as f64 * DT;
+        let angle = 2.0 * core::f64::consts::PI * frequency_hz * offset as f64 * TIMESTEP;
         with_sine += sample * angle.sin();
         with_cosine += sample * angle.cos();
     }
@@ -40,7 +40,7 @@ fn main() {
     // like with a motor spinning nearby.
     let signal: Vec<f64> = (0..SAMPLES)
         .map(|sample| {
-            let time = sample as f64 * DT;
+            let time = sample as f64 * TIMESTEP;
             (2.0 * core::f64::consts::PI * 5.0 * time).sin()
                 + 0.8 * (2.0 * core::f64::consts::PI * 180.0 * time).sin()
         })
@@ -53,7 +53,7 @@ fn main() {
     println!("  180 Hz vibration = {before_fast:.5}");
 
     // (1) A notch on the vibration, leaving everything else alone.
-    let notch = BiquadCoefficients::notch(180.0, 4.0, DT).unwrap();
+    let notch = BiquadCoefficients::notch(180.0, 4.0, TIMESTEP).unwrap();
     let notched = run(Biquad::new(notch), &signal);
     let notched_slow = amplitude_at(&notched[MEASURE_FROM..], 5.0);
     let notched_fast = amplitude_at(&notched[MEASURE_FROM..], 180.0);
@@ -70,7 +70,7 @@ fn main() {
 
     // (2) A low-pass, which removes the vibration as well but delays everything it keeps.
     let low_pass =
-        BiquadCoefficients::low_pass(50.0, core::f64::consts::FRAC_1_SQRT_2, DT).unwrap();
+        BiquadCoefficients::low_pass(50.0, core::f64::consts::FRAC_1_SQRT_2, TIMESTEP).unwrap();
     let smoothed = run(Biquad::new(low_pass), &signal);
     let smoothed_fast = amplitude_at(&smoothed[MEASURE_FROM..], 180.0);
     let delay_seconds = low_pass.delay_at(5.0);

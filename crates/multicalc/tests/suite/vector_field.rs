@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use multicalc::numerical_derivative::AutoDiffMulti;
-use multicalc::scalar::c;
+use multicalc::scalar::constant;
 use multicalc::scalar_fn_vec;
 
 use multicalc::vector_field::{
@@ -23,8 +23,8 @@ fn line_integral_of_a_rotational_field_around_the_unit_circle() {
     ];
 
     let curve: [&dyn Fn(f64) -> f64; 2] = [
-        &(|t: f64| -> f64 { t.cos() }),
-        &(|t: f64| -> f64 { t.sin() }),
+        &(|parameter: f64| -> f64 { parameter.cos() }),
+        &(|parameter: f64| -> f64 { parameter.sin() }),
     ];
 
     let integration_limit = [0.0, core::f64::consts::TAU];
@@ -53,8 +53,8 @@ fn line_integral_rejects_a_zero_interval_count() {
     ];
 
     let curve: [&dyn Fn(f64) -> f64; 2] = [
-        &(|t: f64| -> f64 { t.cos() }),
-        &(|t: f64| -> f64 { t.sin() }),
+        &(|parameter: f64| -> f64 { parameter.cos() }),
+        &(|parameter: f64| -> f64 { parameter.sin() }),
     ];
 
     let integration_limit = [0.0, core::f64::consts::TAU];
@@ -75,8 +75,8 @@ fn line_integral_rejects_reversed_limits() {
     ];
 
     let curve: [&dyn Fn(f64) -> f64; 2] = [
-        &(|t: f64| -> f64 { t.cos() }),
-        &(|t: f64| -> f64 { t.sin() }),
+        &(|parameter: f64| -> f64 { parameter.cos() }),
+        &(|parameter: f64| -> f64 { parameter.sin() }),
     ];
 
     //lower limit higher than upper limit
@@ -99,8 +99,8 @@ fn flux_of_a_rotational_field_through_the_unit_circle_is_zero() {
     ];
 
     let curve: [&dyn Fn(f64) -> f64; 2] = [
-        &(|t: f64| -> f64 { t.cos() }),
-        &(|t: f64| -> f64 { t.sin() }),
+        &(|parameter: f64| -> f64 { parameter.cos() }),
+        &(|parameter: f64| -> f64 { parameter.sin() }),
     ];
 
     let integration_limit = [0.0, core::f64::consts::TAU];
@@ -135,9 +135,9 @@ fn flux_along_a_helix_matches_its_closed_form() {
     ];
 
     let curve: [&dyn Fn(f64) -> f64; 3] = [
-        &(|t: f64| -> f64 { t.cos() }),
-        &(|t: f64| -> f64 { t.sin() }),
-        &(|t: f64| -> f64 { t }),
+        &(|parameter: f64| -> f64 { parameter.cos() }),
+        &(|parameter: f64| -> f64 { parameter.sin() }),
+        &(|parameter: f64| -> f64 { parameter }),
     ];
 
     let two_pi = 2.0 * core::f64::consts::PI;
@@ -160,7 +160,10 @@ fn flux_along_a_helix_matches_its_closed_form() {
 #[test]
 fn curl_2d_matches_its_closed_form() {
     //vector field is (2*x*y, 3*cos(y)); curl is known to be -2*x, so -2.0 at x = 1
-    let vector_field = scalar_fn_vec!(|v: &[f64; 2]| [c(2.0) * v[0] * v[1], c(3.0) * v[1].cos()]);
+    let vector_field = scalar_fn_vec!(|point: &[f64; 2]| [
+        constant(2.0) * point[0] * point[1],
+        constant(3.0) * point[1].cos()
+    ]);
     let point = [1.0, core::f64::consts::PI];
 
     let curl = curl_2d(AutoDiffMulti::default(), &vector_field, &point).unwrap();
@@ -170,7 +173,8 @@ fn curl_2d_matches_its_closed_form() {
 #[test]
 fn curl_3d_matches_its_closed_form() {
     //vector field is (y, -x, 2*z); curl is known to be (0, 0, -2)
-    let vector_field = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
+    let vector_field =
+        scalar_fn_vec!(|point: &[f64; 3]| [point[1], -point[0], constant(2.0) * point[2]]);
     let point = [1.0, 2.0, 3.0];
 
     let curl = curl_3d(AutoDiffMulti::default(), &vector_field, &point).unwrap();
@@ -182,7 +186,10 @@ fn curl_3d_matches_its_closed_form() {
 #[test]
 fn divergence_2d_matches_its_closed_form() {
     //vector field is (2*x*y, 3*cos(y)); divergence is 2*y - 3*sin(y), which is 2*pi at y = pi
-    let vector_field = scalar_fn_vec!(|v: &[f64; 2]| [c(2.0) * v[0] * v[1], c(3.0) * v[1].cos()]);
+    let vector_field = scalar_fn_vec!(|point: &[f64; 2]| [
+        constant(2.0) * point[0] * point[1],
+        constant(3.0) * point[1].cos()
+    ]);
     let point = [1.0, core::f64::consts::PI];
 
     let divergence = divergence_2d(AutoDiffMulti::default(), &vector_field, &point).unwrap();
@@ -192,7 +199,8 @@ fn divergence_2d_matches_its_closed_form() {
 #[test]
 fn divergence_3d_matches_its_closed_form() {
     //vector field is (y, -x, 2*z); divergence is known to be 2.0
-    let vector_field = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
+    let vector_field =
+        scalar_fn_vec!(|point: &[f64; 3]| [point[1], -point[0], constant(2.0) * point[2]]);
     let point = [0.0, 1.0, 3.0];
 
     let divergence = divergence_3d(AutoDiffMulti::default(), &vector_field, &point).unwrap();
@@ -210,9 +218,9 @@ fn line_integral_along_a_helix_matches_its_closed_form() {
     ];
 
     let curve: [&dyn Fn(f64) -> f64; 3] = [
-        &(|t: f64| -> f64 { t.cos() }),
-        &(|t: f64| -> f64 { t.sin() }),
-        &(|t: f64| -> f64 { t }),
+        &(|parameter: f64| -> f64 { parameter.cos() }),
+        &(|parameter: f64| -> f64 { parameter.sin() }),
+        &(|parameter: f64| -> f64 { parameter }),
     ];
 
     let two_pi = 2.0 * core::f64::consts::PI;
@@ -241,7 +249,10 @@ fn line_integral_accepts_a_negative_lower_limit() {
         &(|point: &[f64; 2]| -> f64 { point[0] }),
     ];
 
-    let curve: [&dyn Fn(f64) -> f64; 2] = [&(|t: f64| -> f64 { t }), &(|t: f64| -> f64 { t })];
+    let curve: [&dyn Fn(f64) -> f64; 2] = [
+        &(|parameter: f64| -> f64 { parameter }),
+        &(|parameter: f64| -> f64 { parameter }),
+    ];
 
     let integration_limit = [-2.0, 1.0];
     let total_iterations = 100;
@@ -261,7 +272,8 @@ fn line_integral_accepts_a_negative_lower_limit() {
 #[test]
 fn divergence_3d_matches_its_closed_form_at_f32() {
     //field (y, -x, 2z); divergence is 0 + 0 + 2 = 2. The same authored field evaluates at f32.
-    let vector_field = scalar_fn_vec!(|v: &[f64; 3]| [v[1], -v[0], c(2.0) * v[2]]);
+    let vector_field =
+        scalar_fn_vec!(|point: &[f64; 3]| [point[1], -point[0], constant(2.0) * point[2]]);
     let point = [0.0_f32, 1.0, 3.0];
 
     let divergence = divergence_3d(AutoDiffMulti::<f32>::default(), &vector_field, &point).unwrap();

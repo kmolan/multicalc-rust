@@ -31,18 +31,19 @@ fn row3(data: &[f64], columns: usize, index: usize) -> Vector3D<f64> {
 }
 
 /// The model the fixture carries, built as a tree, with the joint count it was written for.
-fn tree_from_fixture(fx: &Fixture) -> (KinematicTree<MAX_JOINTS, MAX_JOINTS, f64>, usize) {
-    let case = fx.case.as_str();
+fn tree_from_fixture(fixture: &Fixture) -> (KinematicTree<MAX_JOINTS, MAX_JOINTS, f64>, usize) {
+    let case = fixture.case.as_str();
 
-    let kinds: Vec<char> = fx.inputs["joint_kinds"].as_str().chars().collect();
-    let parents = fx.inputs["parents"].as_vector();
-    let zero_offsets = fx.inputs["zero_offsets"].as_vector();
-    let (_, origin_position_columns, origin_positions) = fx.inputs["origin_positions"].as_matrix();
+    let kinds: Vec<char> = fixture.inputs["joint_kinds"].as_str().chars().collect();
+    let parents = fixture.inputs["parents"].as_vector();
+    let zero_offsets = fixture.inputs["zero_offsets"].as_vector();
+    let (_, origin_position_columns, origin_positions) =
+        fixture.inputs["origin_positions"].as_matrix();
     let (_, origin_quaternion_columns, origin_quaternions) =
-        fx.inputs["origin_quaternions"].as_matrix();
-    let (_, axis_columns, axes) = fx.inputs["axes"].as_matrix();
-    let (_, anchor_columns, anchors) = fx.inputs["anchors"].as_matrix();
-    let (_, joint_count, _) = fx.inputs["joint_positions"].as_matrix();
+        fixture.inputs["origin_quaternions"].as_matrix();
+    let (_, axis_columns, axes) = fixture.inputs["axes"].as_matrix();
+    let (_, anchor_columns, anchors) = fixture.inputs["anchors"].as_matrix();
+    let (_, joint_count, _) = fixture.inputs["joint_positions"].as_matrix();
 
     assert_eq!(joint_count, kinds.len(), "{case}: joint count");
     assert!(
@@ -81,14 +82,14 @@ fn tree_from_fixture(fx: &Fixture) -> (KinematicTree<MAX_JOINTS, MAX_JOINTS, f64
             other => unreachable!("{case}: joint {index} has kind {other:?}"),
         });
         joint_parents.push(match parents[index] {
-            p if p < 0.0 => JointParent::World,
-            p => JointParent::Joint(p as usize),
+            parent if parent < 0.0 => JointParent::World,
+            parent => JointParent::Joint(parent as usize),
         });
     }
 
     let tree =
         KinematicTree::<MAX_JOINTS, MAX_JOINTS, f64>::try_from_joints(&joints, &joint_parents)
-            .unwrap_or_else(|e| unreachable!("{case}: building the tree: {e}"));
+            .unwrap_or_else(|err| unreachable!("{case}: building the tree: {err}"));
     (tree, joint_count)
 }
 
@@ -110,27 +111,28 @@ fn readings_at(
 
 #[test]
 fn forward_kinematics_matches_mujoco() {
-    for fx in load_dir("kinematics") {
+    for fixture in load_dir("kinematics") {
         // A bespoke fixture whose configuration is not one scalar per joint slot (a floating
         // base's is seven-wide) — checked by its own test below instead of this shared loop.
-        if fx.case == "unitree_go1_floating_base" {
+        if fixture.case == "unitree_go1_floating_base" {
             continue;
         }
-        let case = fx.case.as_str();
-        let tolerance = fx.tolerances.f64;
-        let (tree, joint_count) = tree_from_fixture(&fx);
-        let (configuration_count, _, configurations) = fx.inputs["joint_positions"].as_matrix();
+        let case = fixture.case.as_str();
+        let tolerance = fixture.tolerances.f64;
+        let (tree, joint_count) = tree_from_fixture(&fixture);
+        let (configuration_count, _, configurations) =
+            fixture.inputs["joint_positions"].as_matrix();
 
-        let (_, position_columns, want_positions) = fx.expected["world_positions"].as_matrix();
+        let (_, position_columns, want_positions) = fixture.expected["world_positions"].as_matrix();
         let (_, quaternion_columns, want_quaternions) =
-            fx.expected["world_quaternions"].as_matrix();
+            fixture.expected["world_quaternions"].as_matrix();
 
         for configuration in 0..configuration_count {
             let start = configuration * joint_count;
             let readings = readings_at(&configurations, joint_count, configuration);
             let state = tree
                 .forward_kinematics(&readings)
-                .unwrap_or_else(|e| unreachable!("{case}: configuration {configuration}: {e}"));
+                .unwrap_or_else(|err| unreachable!("{case}: configuration {configuration}: {err}"));
 
             assert_eq!(state.len(), joint_count, "{case}: settled joint count");
             assert!(
@@ -186,19 +188,20 @@ fn forward_kinematics_matches_mujoco() {
 
 #[test]
 fn geometric_jacobian_matches_mujoco() {
-    for fx in load_dir("kinematics") {
+    for fixture in load_dir("kinematics") {
         // A bespoke fixture whose configuration is not one scalar per joint slot (a floating
         // base's is seven-wide) — checked by its own test below instead of this shared loop.
-        if fx.case == "unitree_go1_floating_base" {
+        if fixture.case == "unitree_go1_floating_base" {
             continue;
         }
-        let case = fx.case.as_str();
-        let tolerance = fx.tolerances.f64;
-        let (tree, joint_count) = tree_from_fixture(&fx);
-        let (configuration_count, _, configurations) = fx.inputs["joint_positions"].as_matrix();
+        let case = fixture.case.as_str();
+        let tolerance = fixture.tolerances.f64;
+        let (tree, joint_count) = tree_from_fixture(&fixture);
+        let (configuration_count, _, configurations) =
+            fixture.inputs["joint_positions"].as_matrix();
 
         // Six rows per body, bodies in tree order, one such block per configuration.
-        let (jacobian_rows, jacobian_columns, want_jacobians) = fx
+        let (jacobian_rows, jacobian_columns, want_jacobians) = fixture
             .expected
             .get("world_jacobians")
             .unwrap_or_else(|| {
@@ -219,14 +222,14 @@ fn geometric_jacobian_matches_mujoco() {
             let readings = readings_at(&configurations, joint_count, configuration);
             let state = tree
                 .forward_kinematics(&readings)
-                .unwrap_or_else(|e| unreachable!("{case}: configuration {configuration}: {e}"));
+                .unwrap_or_else(|err| unreachable!("{case}: configuration {configuration}: {err}"));
 
             for tool_index in 0..joint_count {
                 let jacobian = tree
                     .geometric_jacobian(&state, tool_index, JacobianFrame::World)
-                    .unwrap_or_else(|e| {
+                    .unwrap_or_else(|err| {
                         unreachable!(
-                            "{case}: configuration {configuration}, body {tool_index}: {e}"
+                            "{case}: configuration {configuration}, body {tool_index}: {err}"
                         )
                     });
                 let got = jacobian.matrix();
@@ -262,29 +265,30 @@ fn geometric_jacobian_matches_mujoco() {
 /// reindexing.
 #[test]
 fn unitree_go1_forward_kinematics_and_jacobian_matches_mujoco() {
-    let fx = load_dir("kinematics")
+    let fixture = load_dir("kinematics")
         .into_iter()
-        .find(|fx| fx.case == "unitree_go1_floating_base")
+        .find(|fixture| fixture.case == "unitree_go1_floating_base")
         .unwrap_or_else(|| unreachable!("fixture unitree_go1_floating_base is missing"));
-    let case = fx.case.as_str();
-    let tolerance = fx.tolerances.f64;
+    let case = fixture.case.as_str();
+    let tolerance = fixture.tolerances.f64;
 
-    let path = menagerie().join(fx.inputs["model_file"].as_str());
+    let path = menagerie().join(fixture.inputs["model_file"].as_str());
     let model = multicalc_robot_model::mjcf::load_path(&path)
-        .unwrap_or_else(|e| unreachable!("{case}: loading {path:?}: {e}"));
+        .unwrap_or_else(|err| unreachable!("{case}: loading {path:?}: {err}"));
     let tree = model
         .kinematic_tree::<13, 19>()
-        .unwrap_or_else(|e| unreachable!("{case}: building the tree: {e}"));
+        .unwrap_or_else(|err| unreachable!("{case}: building the tree: {err}"));
     let body_count = tree.len();
 
     let (configuration_count, configuration_columns, configurations) =
-        fx.inputs["configurations"].as_matrix();
+        fixture.inputs["configurations"].as_matrix();
     assert_eq!(configuration_columns, 19, "{case}: configuration width");
 
-    let (_, position_columns, want_positions) = fx.expected["world_positions"].as_matrix();
-    let (_, quaternion_columns, want_quaternions) = fx.expected["world_quaternions"].as_matrix();
+    let (_, position_columns, want_positions) = fixture.expected["world_positions"].as_matrix();
+    let (_, quaternion_columns, want_quaternions) =
+        fixture.expected["world_quaternions"].as_matrix();
     let (jacobian_rows, jacobian_columns, want_jacobians) =
-        fx.expected["world_jacobians"].as_matrix();
+        fixture.expected["world_jacobians"].as_matrix();
     assert_eq!(jacobian_columns, 18, "{case}: Jacobian column count");
     assert_eq!(
         jacobian_rows,
@@ -297,7 +301,7 @@ fn unitree_go1_forward_kinematics_and_jacobian_matches_mujoco() {
         let reading = Vector::<19, f64>::from_fn(|index| configurations[start + index]);
         let state = tree
             .forward_kinematics(&reading)
-            .unwrap_or_else(|e| unreachable!("{case}: configuration {configuration}: {e}"));
+            .unwrap_or_else(|err| unreachable!("{case}: configuration {configuration}: {err}"));
 
         for index in 0..body_count {
             let pose = state.pose(index).unwrap_or_else(|| {
@@ -343,8 +347,8 @@ fn unitree_go1_forward_kinematics_and_jacobian_matches_mujoco() {
 
             let jacobian = tree
                 .geometric_jacobian(&state, index, JacobianFrame::World)
-                .unwrap_or_else(|e| {
-                    unreachable!("{case}: configuration {configuration}, body {index}: {e}")
+                .unwrap_or_else(|err| {
+                    unreachable!("{case}: configuration {configuration}, body {index}: {err}")
                 });
             let got_j = jacobian.matrix();
             let block = want_row * 6;

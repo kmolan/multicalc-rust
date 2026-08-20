@@ -33,7 +33,7 @@ fn lu_reconstructs_pivoted_matrix() {
 fn lu_determinant_matches_direct() {
     // Cross-check against the direct determinant, including the pivot-sign handling.
     let pivoted = Matrix3D::<f64>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
-    assert!((pivoted.lu().unwrap().determinant() - pivoted.determinant()).abs() < 1e-12);
+    assert!((pivoted.lu_decompose().unwrap().determinant() - pivoted.determinant()).abs() < 1e-12);
 
     let non_symmetric = Matrix4D::<f64>::new([
         [1.0, 2.0, 3.0, 4.0],
@@ -42,24 +42,28 @@ fn lu_determinant_matches_direct() {
         [1.0, 0.0, 2.0, 1.0],
     ]);
     assert!(
-        (non_symmetric.lu().unwrap().determinant() - non_symmetric.determinant()).abs() < 1e-12
+        (non_symmetric.lu_decompose().unwrap().determinant() - non_symmetric.determinant()).abs()
+            < 1e-12
     );
-    assert!((non_symmetric.lu().unwrap().determinant() + 20.0).abs() < 1e-12);
+    assert!((non_symmetric.lu_decompose().unwrap().determinant() + 20.0).abs() < 1e-12);
 }
 
 #[test]
 fn lu_rejects_singular() {
     // A zero column: the pivot search turns up only zeros.
     let zero_column = Matrix3D::new([[1.0, 0.0, 2.0], [3.0, 0.0, 4.0], [5.0, 0.0, 6.0]]);
-    assert_eq!(zero_column.lu().err(), Some(LinalgError::Singular));
+    assert_eq!(
+        zero_column.lu_decompose().err(),
+        Some(LinalgError::Singular)
+    );
 
     // Dependent rows drive a pivot to zero during elimination.
     let dependent = Matrix2D::new([[1.0, 2.0], [2.0, 4.0]]);
-    assert_eq!(dependent.lu().err(), Some(LinalgError::Singular));
+    assert_eq!(dependent.lu_decompose().err(), Some(LinalgError::Singular));
 
     // The determinant's large-matrix LU path still maps an exact zero pivot to zero.
     let singular = Matrix::<5, 5>::from_diagonal([1.0, 1.0, 0.0, 1.0, 1.0]);
-    assert_eq!(singular.lu().err(), Some(LinalgError::Singular));
+    assert_eq!(singular.lu_decompose().err(), Some(LinalgError::Singular));
     assert_eq!(singular.determinant(), 0.0);
 }
 
@@ -68,7 +72,10 @@ fn lu_rejects_an_ill_conditioned_pivot_but_preserves_the_determinant() {
     // The matrix is invertible in exact arithmetic but too ill-conditioned for the documented
     // LU/inverse contract. Determinant evaluation can still use the nonzero pivots.
     let near_singular = Matrix::<5, 5>::from_diagonal([1e-300, 1.0, 1.0, 1.0, 1.0]);
-    assert_eq!(near_singular.lu().err(), Some(LinalgError::IllConditioned));
+    assert_eq!(
+        near_singular.lu_decompose().err(),
+        Some(LinalgError::IllConditioned)
+    );
     assert_eq!(
         near_singular.inverse().err(),
         Some(LinalgError::IllConditioned)
@@ -81,7 +88,7 @@ fn lu_rejects_an_ill_conditioned_pivot_but_preserves_the_determinant() {
 
     // The threshold is relative: uniformly tiny, well-conditioned matrices remain valid.
     let uniformly_scaled = Matrix::<5, 5>::from_diagonal([1e-300, 2e-300, 3e-300, 4e-300, 5e-300]);
-    assert!(uniformly_scaled.lu().is_ok());
+    assert!(uniformly_scaled.lu_decompose().is_ok());
     assert!(uniformly_scaled.inverse().is_ok());
 }
 
@@ -96,14 +103,17 @@ fn lu_scales_the_pivot_threshold_against_the_whole_matrix() {
         [0.0, 0.0, 0.0, 1.0, 0.0],
         [0.0, 0.0, 0.0, 0.0, 1.0],
     ]);
-    assert_eq!(matrix.lu().err(), Some(LinalgError::IllConditioned));
+    assert_eq!(
+        matrix.lu_decompose().err(),
+        Some(LinalgError::IllConditioned)
+    );
     assert_eq!(matrix.determinant(), 1.0);
 }
 
 #[test]
 fn lu_solves() {
     let matrix = Matrix3D::<f64>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
-    let factorization = matrix.lu().unwrap();
+    let factorization = matrix.lu_decompose().unwrap();
 
     // Single RHS: A·x = b has the exact solution x = [1, 2, 3], with a tiny residual.
     let right_hand_side = Vector::new([7.0, 19.0, 49.0]);
@@ -137,9 +147,9 @@ fn lu_inverse_matches_reference_5x5() {
         [2.0, 0.0, 1.0, 8.0, 2.0],
         [1.0, 4.0, 0.0, 2.0, 9.0],
     ]);
-    assert!((matrix.lu().unwrap().determinant() - 10406.0).abs() < 1e-9);
+    assert!((matrix.lu_decompose().unwrap().determinant() - 10406.0).abs() < 1e-9);
 
-    let inverse = matrix.lu().unwrap().inverse();
+    let inverse = matrix.lu_decompose().unwrap().inverse();
     let expected = Matrix::new([
         [
             0.2200653469152412,
@@ -195,12 +205,12 @@ fn check_lu_property<const N: usize>(entries: Vec<f64>) -> Result<(), TestCaseEr
     let matrix = Matrix::<N, N>::try_from_row_slice(&entries).expect("N*N entries");
     let scale = max_abs(matrix).max(1.0);
 
-    let lu = matrix.lu();
-    prop_assume!(lu.is_ok());
-    let factorization = lu.unwrap();
+    let factorization = matrix.lu_decompose();
+    prop_assume!(factorization.is_ok());
+    let factorization = factorization.unwrap();
 
     let min_pivot = (0..N).fold(f64::MAX, |smallest, index| {
-        smallest.min(factorization.u()[(index, index)].abs())
+        smallest.min(factorization.upper()[(index, index)].abs())
     });
     prop_assume!(min_pivot >= 1e-6 * scale);
 

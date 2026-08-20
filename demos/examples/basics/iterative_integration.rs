@@ -32,7 +32,7 @@ fn main() {
 
     // ---- compare the three rules on the same integrand ----
     // int_0^1 (yz x^2 e^x) dx folded three times, with y*z = 6  ->  6*(e - 2)
-    let g = |v: &[f64; 3]| v[1] * v[2] * v[0] * v[0] * v[0].exp();
+    let integrand = |point: &[f64; 3]| point[1] * point[2] * point[0] * point[0] * point[0].exp();
     let exact = 6.0 * (std::f64::consts::E - 2.0);
     let point = [1.0, 2.0, 3.0];
     println!("\nint int int (yz x^2 e^x) dx dx dx  (default 120 intervals):");
@@ -46,7 +46,9 @@ fn main() {
 
         let thrice_by_x = [0, 0, 0];
         let limits = [[0.0, 1.0]; 3];
-        let val = solver.integrate(thrice_by_x, &g, &limits, &point).unwrap();
+        let val = solver
+            .integrate(thrice_by_x, &integrand, &limits, &point)
+            .unwrap();
         report(name, val, exact);
     }
 
@@ -77,7 +79,7 @@ fn main() {
 
     // ---- multi-variable partial integral ----
     // integrate (2x + yz) over x in [0, 1] with (x, y, z) = (1, 2, 3); result is 7
-    let h = |v: &[f64; 3]| 2.0 * v[0] + v[1] * v[2];
+    let h = |point: &[f64; 3]| 2.0 * point[0] + point[1] * point[2];
     let multi = IterativeMulti::default();
     println!("\nint_0^1 (2x + yz) dx at (1, 2, 3):");
     report(

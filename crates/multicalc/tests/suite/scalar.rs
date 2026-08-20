@@ -37,7 +37,7 @@ mod numeric_methods {
         assert!((Numeric::powf(2.0_f64, 3.5) - 2.0_f64.powf(3.5)).abs() < TOL);
         assert!((Numeric::exp(3.0_f64) - 3.0_f64.exp()).abs() < TOL);
         assert!((Numeric::expm1(0.03_f64) - f64::exp_m1(0.03)).abs() < TOL);
-        assert!((Numeric::ln(7.0_f64) - 7.0_f64.ln()).abs() < TOL);
+        assert!((Numeric::log(7.0_f64) - 7.0_f64.ln()).abs() < TOL);
         assert!((Numeric::ln_1p(0.05_f64) - 0.05_f64.ln_1p()).abs() < TOL);
         assert!((Numeric::log2(7.0_f64) - 7.0_f64.log2()).abs() < TOL);
         assert!((Numeric::log10(7.0_f64) - 7.0_f64.log10()).abs() < TOL);
@@ -244,7 +244,7 @@ mod dual {
         assert!(f64::abs(em1.deriv - f64::exp(x)) < TOL);
 
         // f(x) = ln(x), f'(x) = 1/x; at x = 2 -> ln 2 and 0.5
-        let logarithm = Dual::variable(2.0_f64).ln();
+        let logarithm = Dual::variable(2.0_f64).log();
         assert!(f64::abs(logarithm.value - f64::ln(2.0)) < TOL);
         assert!(f64::abs(logarithm.deriv - 0.5) < TOL);
 
@@ -256,19 +256,19 @@ mod dual {
         // f(x) = log10(x), f'(x) = 1/(ln(10) * x); at x = 7 -> log10 7 and 1/(7 * ln(10))
         let log10 = Dual::variable(7.0).log10();
         assert!(f64::abs(log10.value - f64::log10(7.0)) < TOL);
-        assert!(f64::abs(log10.deriv - (7.0 * 10.0.ln()).recip()) < TOL);
+        assert!(f64::abs(log10.deriv - (7.0 * 10.0_f64.ln()).recip()) < TOL);
 
         // f(x) = log2(x), f'(x) = 1/(ln(2) * x); at x = 7 -> log2 7 and 1/(7 * ln(2))
         let log2 = Dual::variable(7.0).log2();
         assert!(f64::abs(log2.value - f64::log2(7.0)) < TOL);
-        assert!(f64::abs(log2.deriv - (7.0 * 2.0.ln()).recip()) < TOL);
+        assert!(f64::abs(log2.deriv - (7.0 * 2.0_f64.ln()).recip()) < TOL);
     }
 
     #[test]
     fn test_infinite_value_finite_derivative() {
         // In the limit x -> INFINITY, ln(x) -> INFINITY while d/dx (ln x) -> 0.
         let x = f64::INFINITY;
-        let y = Dual::variable(x).ln();
+        let y = Dual::variable(x).log();
         assert!(y.is_infinite());
         assert!(y.deriv.is_finite());
     }
@@ -330,8 +330,8 @@ mod dual {
     #[test]
     fn generic_over_numeric() {
         // The same function runs with a plain float or with a Dual.
-        fn poly<T: Numeric>(t: T) -> T {
-            t.powi(3) + T::from_f64(2.0) * t
+        fn poly<T: Numeric>(value: T) -> T {
+            value.powi(3) + T::from_f64(2.0) * value
         }
 
         let x = 1.7_f64;
@@ -398,7 +398,7 @@ mod dual {
     #[test]
     fn ln_at_zero_blows_up() {
         // ln(0) = -inf with an unbounded derivative
-        let logarithm = Dual::variable(0.0_f64).ln();
+        let logarithm = Dual::variable(0.0_f64).log();
         assert!(logarithm.value.is_infinite() && logarithm.value < 0.0);
         assert!(logarithm.deriv.is_infinite() && logarithm.deriv > 0.0);
     }
@@ -588,20 +588,20 @@ mod hyper_dual {
     fn log_second_derivative() {
         // f(x) = ln(x) -> f' = 1/x, f'' = -1/x^2
         let x = 7.0;
-        let ln = HyperDual::variable(x).ln();
-        assert!(f64::abs(ln.real - f64::ln(x)) < TOL);
-        assert!(f64::abs(ln.eps1 - x.recip()) < TOL);
-        assert!(f64::abs(ln.eps1eps2 - (-1.0 / (x * x))) < TOL);
+        let logarithm = HyperDual::variable(x).log();
+        assert!(f64::abs(logarithm.real - f64::ln(x)) < TOL);
+        assert!(f64::abs(logarithm.eps1 - x.recip()) < TOL);
+        assert!(f64::abs(logarithm.eps1eps2 - (-1.0 / (x * x))) < TOL);
 
         // f(x) = log2(x) -> f' = 1/(ln2 * x), f'' = -1/(ln2 * x^2)
-        let ln2 = 2.0.ln();
+        let ln2 = 2.0_f64.ln();
         let log2 = HyperDual::variable(x).log2();
         assert!(f64::abs(log2.real - f64::log2(x)) < TOL);
         assert!(f64::abs(log2.eps1 - x.recip() / ln2) < TOL);
         assert!(f64::abs(log2.eps1eps2 - (-1.0 / (ln2 * x * x))) < TOL);
 
         // f(x) = log10(x) -> f' = 1/(ln10 * x), f'' = -1/(ln10 * x^2)
-        let ln10 = 10.0.ln();
+        let ln10 = 10.0_f64.ln();
         let log10 = HyperDual::variable(x).log10();
         assert!(f64::abs(log10.real - f64::log10(x)) < TOL);
         assert!(f64::abs(log10.eps1 - x.recip() / ln10) < TOL);
@@ -610,17 +610,17 @@ mod hyper_dual {
         // f(x) = ln(1 + x) -> f' = 1/(1 + x), f'' = -1/(1 + x)^2
         let x = 0.03;
         let xp1 = x + 1.0;
-        let ln = HyperDual::variable(x).ln_1p();
-        assert!(f64::abs(ln.real - f64::ln_1p(x)) < TOL);
-        assert!(f64::abs(ln.eps1 - xp1.recip()) < TOL);
-        assert!(f64::abs(ln.eps1eps2 - (-1.0 / (xp1 * xp1))) < TOL);
+        let logarithm_1p = HyperDual::variable(x).ln_1p();
+        assert!(f64::abs(logarithm_1p.real - f64::ln_1p(x)) < TOL);
+        assert!(f64::abs(logarithm_1p.eps1 - xp1.recip()) < TOL);
+        assert!(f64::abs(logarithm_1p.eps1eps2 - (-1.0 / (xp1 * xp1))) < TOL);
     }
 
     #[test]
     fn test_infinite_value_finite_derivative() {
         // In the limit x -> INFINITY, ln(x) -> INFINITY while d/dx (ln x) -> 0.
         let x = f64::INFINITY;
-        let y = HyperDual::variable(x).ln();
+        let y = HyperDual::variable(x).log();
         assert!(y.is_infinite());
         assert!(y.eps1.is_finite());
         assert!(y.eps1eps2.is_finite());
@@ -739,8 +739,8 @@ mod hyper_dual {
     #[test]
     fn generic_over_numeric() {
         // The same function runs with a plain float or with a HyperDual.
-        fn polynomial<T: Numeric>(t: T) -> T {
-            t.powi(3) + T::from_f64(2.0) * t
+        fn polynomial<T: Numeric>(value: T) -> T {
+            value.powi(3) + T::from_f64(2.0) * value
         }
 
         let x = 1.7_f64;
@@ -792,7 +792,7 @@ mod hyper_dual {
     #[test]
     fn ln_at_zero_blows_up() {
         // ln(0) = -inf with an unbounded first derivative
-        let logarithm = HyperDual::variable(0.0_f64).ln();
+        let logarithm = HyperDual::variable(0.0_f64).log();
         assert!(logarithm.real.is_infinite() && logarithm.real < 0.0);
         assert!(logarithm.eps1.is_infinite() && logarithm.eps1 > 0.0);
     }
@@ -914,14 +914,14 @@ mod jet {
     fn ln_derivatives_to_third_order() {
         // f(x) = ln(x): f'=1/x, f''=-1/x^2, f'''=2/x^3
         let x = 2.0_f64;
-        let logarithm = Jet::<f64, 4>::variable(x).ln();
+        let logarithm = Jet::<f64, 4>::variable(x).log();
         assert!(f64::abs(logarithm.derivative(0) - f64::ln(x)) < TOL);
         assert!(f64::abs(logarithm.derivative(1) - 1.0 / x) < TOL);
         assert!(f64::abs(logarithm.derivative(2) - (-1.0 / (x * x))) < TOL);
         assert!(f64::abs(logarithm.derivative(3) - 2.0 / (x * x * x)) < TOL);
 
         // f(x) = log2(x): f'=1/(ln2 * x), f''=-1/(ln2 * x^2), f'''=2/(ln2 * x^3)
-        let ln2 = 2.0.ln();
+        let ln2 = 2.0_f64.ln();
         let logarithm = Jet::<f64, 4>::variable(x).log2();
         assert!(f64::abs(logarithm.derivative(0) - f64::log2(x)) < TOL);
         assert!(f64::abs(logarithm.derivative(1) - x.recip() / ln2) < TOL);
@@ -929,7 +929,7 @@ mod jet {
         assert!(f64::abs(logarithm.derivative(3) - 2.0 / (ln2 * x * x * x)) < TOL);
 
         // f(x) = log10(x): f'=1/(ln10 * x), f''=-1/(ln10 * x^2), f'''=2/(ln10 * x^3)
-        let ln10 = 10.0.ln();
+        let ln10 = 10.0_f64.ln();
         let logarithm = Jet::<f64, 4>::variable(x).log10();
         assert!(f64::abs(logarithm.derivative(0) - f64::log10(x)) < TOL);
         assert!(f64::abs(logarithm.derivative(1) - x.recip() / ln10) < TOL);
@@ -950,7 +950,7 @@ mod jet {
     fn test_infinite_value_finite_derivative() {
         // In the limit x -> INFINITY, ln(x) -> INFINITY while d/dx (ln x) -> 0.
         let x = f64::INFINITY;
-        let y = Jet::<f64, 4>::variable(x).ln();
+        let y = Jet::<f64, 4>::variable(x).log();
         assert!(y.is_infinite());
         assert!(y.derivative(1).is_finite());
         assert!(y.derivative(2).is_finite());
@@ -971,8 +971,8 @@ mod jet {
     #[test]
     fn matches_dual_at_first_order() {
         // Jet<T,2> carries the same first derivative as Dual.
-        fn function<T: Numeric>(t: T) -> T {
-            t.sin() * t.exp() + t.powi(3)
+        fn function<T: Numeric>(value: T) -> T {
+            value.sin() * value.exp() + value.powi(3)
         }
         let x = 0.8_f64;
         let jet = function(Jet::<f64, 2>::variable(x));
@@ -984,8 +984,8 @@ mod jet {
     #[test]
     fn generic_over_numeric() {
         // The same function runs with a plain float or with a Jet.
-        fn polynomial<T: Numeric>(t: T) -> T {
-            t.powi(3) + T::from_f64(2.0) * t
+        fn polynomial<T: Numeric>(value: T) -> T {
+            value.powi(3) + T::from_f64(2.0) * value
         }
         let x = 1.5_f64;
         let plain = polynomial(x);
@@ -1113,7 +1113,7 @@ mod jet {
 
 mod function {
     use multicalc::scalar::{Dual, HyperDual, Jet, Numeric};
-    use multicalc::scalar::{ScalarFn, ScalarFnN, VectorFn, c};
+    use multicalc::scalar::{ScalarFn, ScalarFnN, VectorFn, constant};
     use multicalc::{scalar_fn, scalar_fn_vec};
 
     // f(x) = 4x^3 - 3x^2, hand-written over the scalar.
@@ -1166,7 +1166,7 @@ mod function {
     #[test]
     fn macro_single_var() {
         // f(x) = 4x^3 - 3x^2, authored via the macro.
-        let cubic = scalar_fn!(|x| c(4.0) * x * x * x - c(3.0) * x * x);
+        let cubic = scalar_fn!(|x| constant(4.0) * x * x * x - constant(3.0) * x * x);
         assert!(f64::abs(cubic.eval(2.0_f64) - 20.0) < 1e-12);
         assert!(f64::abs(cubic.eval(Dual::variable(2.0_f64)).deriv - 36.0) < 1e-12);
         assert!(f64::abs(cubic.eval(HyperDual::variable(2.0_f64)).eps1eps2 - 42.0) < 1e-12);
@@ -1175,13 +1175,14 @@ mod function {
 
     #[test]
     fn macro_single_var_typed_param() {
-        let scaled_sine = scalar_fn!(|x: f64| c(2.0) * x.sin());
+        let scaled_sine = scalar_fn!(|x: f64| constant(2.0) * x.sin());
         assert!(f64::abs(scaled_sine.eval(0.5_f64) - 2.0 * f64::sin(0.5)) < 1e-12);
     }
 
     #[test]
     fn macro_multivariable() {
-        let mixed = scalar_fn!(|v: &[f64; 3]| v[1] * v[0].sin() + c(2.0) * v[0] * v[2].exp());
+        let mixed = scalar_fn!(|point: &[f64; 3]| point[1] * point[0].sin()
+            + constant(2.0) * point[0] * point[2].exp());
         let point = [1.0_f64, 2.0, 0.5];
         let expected = 2.0 * f64::sin(1.0) + 2.0 * f64::exp(0.5);
         assert!(f64::abs(mixed.eval(&point) - expected) < 1e-12);
@@ -1190,7 +1191,7 @@ mod function {
     #[test]
     fn macro_vector_valued() {
         // f(x, y) = [x*y, sin(y)]
-        let function = scalar_fn_vec!(|v: &[f64; 2]| [v[0] * v[1], v[1].sin()]);
+        let function = scalar_fn_vec!(|point: &[f64; 2]| [point[0] * point[1], point[1].sin()]);
         let outputs = function.eval(&[3.0_f64, 0.5]);
         assert!(f64::abs(outputs[0] - 1.5) < 1e-12);
         assert!(f64::abs(outputs[1] - f64::sin(0.5)) < 1e-12);

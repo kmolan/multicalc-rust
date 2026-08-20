@@ -90,17 +90,17 @@ impl<T: Numeric> FiniteDifferenceSingle<T> {
     #[inline]
     #[must_use]
     fn diff<F: ScalarFn>(&self, order: usize, func: &F, point: T, step: T) -> T {
-        let (lo, hi, denom) = offsets::<T>(self.config.method);
+        let (lower, upper, denom) = offsets::<T>(self.config.method);
 
         if order == 1 {
-            let low = func.eval(point + lo * step);
-            let high = func.eval(point + hi * step);
+            let low = func.eval(point + lower * step);
+            let high = func.eval(point + upper * step);
             return (high - low) / (denom * step);
         }
 
         let next = self.config.step_size_multiplier * step;
-        let low = self.diff(order - 1, func, point + lo * step, next);
-        let high = self.diff(order - 1, func, point + hi * step, next);
+        let low = self.diff(order - 1, func, point + lower * step, next);
+        let high = self.diff(order - 1, func, point + upper * step, next);
         (high - low) / (denom * step)
     }
 }
@@ -150,13 +150,13 @@ impl<T: Numeric> FiniteDifferenceMulti<T> {
         point: &[T; NUM_VARS],
         step: T,
     ) -> T {
-        let (lo, hi, denom) = offsets::<T>(self.config.method);
+        let (lower, upper, denom) = offsets::<T>(self.config.method);
         let var = idx_to_differentiate[order - 1];
 
         let mut low_point = *point;
-        low_point[var] += lo * step;
+        low_point[var] += lower * step;
         let mut high_point = *point;
-        high_point[var] += hi * step;
+        high_point[var] += upper * step;
 
         if order == 1 {
             return (func.eval(&high_point) - func.eval(&low_point)) / (denom * step);
@@ -214,19 +214,19 @@ impl<T: Numeric> DerivatorMultiVariable for FiniteDifferenceMulti<T> {
             return Err(DiffError::IndexOutOfRange);
         }
 
-        let (lo, hi, denom) = offsets::<T>(self.config.method);
+        let (lower, upper, denom) = offsets::<T>(self.config.method);
         let step = self.config.step_size;
 
         let mut low_point = *point;
-        low_point[col] += lo * step;
+        low_point[col] += lower * step;
         let mut high_point = *point;
-        high_point[col] += hi * step;
+        high_point[col] += upper * step;
 
         let low = func.eval(&low_point);
         let high = func.eval(&high_point);
 
-        Ok(core::array::from_fn(|m| {
-            (high[m] - low[m]) / (denom * step)
+        Ok(core::array::from_fn(|row| {
+            (high[row] - low[row]) / (denom * step)
         }))
     }
 }

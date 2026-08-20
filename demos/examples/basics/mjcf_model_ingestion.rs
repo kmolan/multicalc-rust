@@ -113,7 +113,7 @@ fn main() {
         };
         let limits = joint.limits().map_or_else(
             || "unlimited".to_string(),
-            |(lo, hi)| format!("[{lo:.4}, {hi:.4}]"),
+            |(lower, upper)| format!("[{lower:.4}, {upper:.4}]"),
         );
         println!(
             "  {:<14} {:<10?} limits {:<24} armature {:.3}   damping {:.3}",
@@ -150,11 +150,17 @@ fn main() {
     }
 
     assert!(
-        arm_model.ignored().iter().any(|s| s == "tendon"),
+        arm_model
+            .ignored()
+            .iter()
+            .any(|section| section == "tendon"),
         "the finger coupling lives in a tendon, which this reader passes over"
     );
     assert!(
-        arm_model.ignored().iter().any(|s| s == "equality"),
+        arm_model
+            .ignored()
+            .iter()
+            .any(|section| section == "equality"),
         "the finger coupling lives in an equality constraint, which this reader passes over"
     );
     println!(

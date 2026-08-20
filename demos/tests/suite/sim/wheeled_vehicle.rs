@@ -16,15 +16,15 @@ fn noiseless() -> WheeledVehicle {
 fn driving_straight_turns_both_wheels_the_same_way() {
     // Rolling forward, both wheels turn forward by the distance covered over the wheel radius.
     let mut rng = Pcg32::seed_from_u64(1);
-    let (speed, dt) = (1.0, 0.1);
+    let (speed, timestep) = (1.0, 0.1);
     let step = noiseless().step(
         Vector::new([0.0, 0.0, 0.0]),
         BodyTwist::new(speed, 0.0),
-        dt,
+        timestep,
         false,
         &mut rng,
     );
-    let expected = speed * dt / WHEEL_RADIUS;
+    let expected = speed * timestep / WHEEL_RADIUS;
     let rotations = step.wheel_rotations;
     assert!(
         (rotations.left() - expected).abs() < 1e-12,
@@ -43,11 +43,11 @@ fn turning_on_the_spot_turns_the_wheels_opposite_ways() {
     // No forward motion, so one wheel goes forward exactly as far as the other goes back, and the
     // gap between them is the turn spread across the wheelbase.
     let mut rng = Pcg32::seed_from_u64(2);
-    let (yaw_rate, dt) = (1.0, 0.1);
+    let (yaw_rate, timestep) = (1.0, 0.1);
     let step = noiseless().step(
         Vector::new([0.0, 0.0, 0.0]),
         BodyTwist::new(0.0, yaw_rate),
-        dt,
+        timestep,
         false,
         &mut rng,
     );
@@ -64,7 +64,7 @@ fn turning_on_the_spot_turns_the_wheels_opposite_ways() {
     );
     let spread = (rotations.right() - rotations.left()) * WHEEL_RADIUS;
     assert!(
-        (spread - yaw_rate * dt * WHEELBASE).abs() < 1e-12,
+        (spread - yaw_rate * timestep * WHEELBASE).abs() < 1e-12,
         "turn spread across the wheelbase: {spread}"
     );
 }
@@ -75,16 +75,22 @@ fn the_wheel_turn_reproduces_the_motion_that_caused_it() {
     let mut rng = Pcg32::seed_from_u64(3);
     let vehicle = noiseless();
     let command = BodyTwist::new(0.7, -0.4);
-    let dt = 0.05;
-    let step = vehicle.step(Vector::new([0.0, 0.0, 0.0]), command, dt, false, &mut rng);
+    let timestep = 0.05;
+    let step = vehicle.step(
+        Vector::new([0.0, 0.0, 0.0]),
+        command,
+        timestep,
+        false,
+        &mut rng,
+    );
     let arc = vehicle.drive().forward_arc(step.wheel_rotations);
     assert!(
-        (arc.linear() - command.linear() * dt).abs() < 1e-12,
+        (arc.linear() - command.linear() * timestep).abs() < 1e-12,
         "arc length: {}",
         arc.linear()
     );
     assert!(
-        (arc.angular() - command.angular() * dt).abs() < 1e-12,
+        (arc.angular() - command.angular() * timestep).abs() < 1e-12,
         "heading change: {}",
         arc.angular()
     );
@@ -116,18 +122,18 @@ fn straight_motion_advances_x_only() {
 #[test]
 fn a_positive_turn_rate_steers_left() {
     let mut rng = Pcg32::seed_from_u64(2);
-    let dt = 0.2;
+    let timestep = 0.2;
     let yaw_rate = 1.0;
     let step = noiseless().step(
         Vector::new([0.0, 0.0, 0.0]),
         BodyTwist::new(0.5, yaw_rate),
-        dt,
+        timestep,
         false,
         &mut rng,
     );
     // Heading integrates the turn rate exactly, and turning left moves the vehicle up.
     assert!(
-        (step.pose[2] - yaw_rate * dt).abs() < 1e-12,
+        (step.pose[2] - yaw_rate * timestep).abs() < 1e-12,
         "heading: {}",
         step.pose[2]
     );

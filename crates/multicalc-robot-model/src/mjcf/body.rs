@@ -78,7 +78,7 @@ pub(crate) fn read(document: &Document) -> Result<ParsedModel, ModelError> {
 /// `<include>`. Splicing reinserts the included file's `<mujoco>` contents verbatim, so an
 /// included body list arrives wrapped in its own `<worldbody>`. Nested `<body>` elements are never
 /// wrapped this way, so recursion below the top level is a plain child scan.
-fn top_level_bodies<'a, 'input>(worldbody: Node<'a, 'input>) -> Vec<Node<'a, 'input>> {
+fn top_level_bodies<'doc, 'input>(worldbody: Node<'doc, 'input>) -> Vec<Node<'doc, 'input>> {
     let mut found = Vec::new();
     for child in worldbody.children().filter(Node::is_element) {
         match child.tag_name().name() {

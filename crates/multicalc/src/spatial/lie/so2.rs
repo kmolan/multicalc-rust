@@ -10,8 +10,8 @@ use crate::scalar::Numeric;
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct SO2<T: Numeric = f64> {
-    c: T,
-    s: T,
+    cos: T,
+    sin: T,
 }
 
 impl<T: Numeric> SO2<T> {
@@ -20,8 +20,8 @@ impl<T: Numeric> SO2<T> {
     #[must_use]
     pub fn identity() -> Self {
         SO2 {
-            c: T::ONE,
-            s: T::ZERO,
+            cos: T::ONE,
+            sin: T::ZERO,
         }
     }
 
@@ -30,8 +30,8 @@ impl<T: Numeric> SO2<T> {
     #[must_use]
     pub fn from_angle(theta: T) -> Self {
         SO2 {
-            c: theta.cos(),
-            s: theta.sin(),
+            cos: theta.cos(),
+            sin: theta.sin(),
         }
     }
 
@@ -39,7 +39,7 @@ impl<T: Numeric> SO2<T> {
     #[inline]
     #[must_use]
     pub fn cos_sin(self) -> (T, T) {
-        (self.c, self.s)
+        (self.cos, self.sin)
     }
 
     /// Composition (also available as `*`).
@@ -47,8 +47,8 @@ impl<T: Numeric> SO2<T> {
     #[must_use]
     pub fn compose(self, rhs: Self) -> Self {
         SO2 {
-            c: self.c * rhs.c - self.s * rhs.s,
-            s: self.c * rhs.s + self.s * rhs.c,
+            cos: self.cos * rhs.cos - self.sin * rhs.sin,
+            sin: self.cos * rhs.sin + self.sin * rhs.cos,
         }
     }
 
@@ -57,16 +57,19 @@ impl<T: Numeric> SO2<T> {
     #[must_use]
     pub fn inverse(self) -> Self {
         SO2 {
-            c: self.c,
-            s: -self.s,
+            cos: self.cos,
+            sin: -self.sin,
         }
     }
 
     /// Rotates a 2D point.
     #[inline]
-    pub fn act(self, p: Vector2D<T>) -> Vector2D<T> {
-        let [px, py] = *p.as_array();
-        Vector::new([self.c * px - self.s * py, self.s * px + self.c * py])
+    pub fn act(self, point: Vector2D<T>) -> Vector2D<T> {
+        let [point_x, point_y] = *point.as_array();
+        Vector::new([
+            self.cos * point_x - self.sin * point_y,
+            self.sin * point_x + self.cos * point_y,
+        ])
     }
 
     /// The exponential map from the tangent angle.
@@ -80,7 +83,7 @@ impl<T: Numeric> SO2<T> {
     #[inline]
     #[must_use]
     pub fn log(self) -> T {
-        self.s.atan2(self.c)
+        self.sin.atan2(self.cos)
     }
 
     /// The Lie-algebra element `[[0, −θ], [θ, 0]]`.
@@ -92,8 +95,8 @@ impl<T: Numeric> SO2<T> {
     /// The inverse of [`SO2::hat`].
     #[inline]
     #[must_use]
-    pub fn vee(m: Matrix2D<T>) -> T {
-        let [[_, _], [m10, _]] = m.into_array();
+    pub fn vee(matrix: Matrix2D<T>) -> T {
+        let [[_, _], [m10, _]] = matrix.into_array();
         m10
     }
 
@@ -107,42 +110,42 @@ impl<T: Numeric> SO2<T> {
     /// The 2×2 rotation matrix.
     #[inline]
     pub fn to_matrix(self) -> Matrix2D<T> {
-        Matrix::new([[self.c, -self.s], [self.s, self.c]])
+        Matrix::new([[self.cos, -self.sin], [self.sin, self.cos]])
     }
 
     /// Builds a rotation from a finite 2×2 matrix sufficiently close to a proper unit rotation,
     /// removing small round-off drift; `None` otherwise.
     #[inline]
     #[must_use]
-    pub fn try_from_matrix(m: Matrix2D<T>) -> Option<Self> {
-        let [[c, m01], [s, m11]] = m.into_array();
-        let n = c.hypot(s);
+    pub fn try_from_matrix(matrix: Matrix2D<T>) -> Option<Self> {
+        let [[cos, m01], [sin, m11]] = matrix.into_array();
+        let n = cos.hypot(sin);
         if !n.is_finite() || n <= T::EPSILON || (n - T::ONE).abs() > T::EPSILON_X30 {
             return None;
         }
 
-        let c = c / n;
-        let s = s / n;
-        let second_column_error = (m01 + s).hypot(m11 - c);
+        let cos = cos / n;
+        let sin = sin / n;
+        let second_column_error = (m01 + sin).hypot(m11 - cos);
         if !second_column_error.is_finite() || second_column_error > T::EPSILON_X30 {
             return None;
         }
 
-        Some(SO2 { c, s })
+        Some(SO2 { cos, sin })
     }
 
     /// Geodesic interpolation; `t = 0` gives `self`, `t = 1` gives `other`.
     #[inline]
     #[must_use]
-    pub fn interpolate(self, other: Self, t: T) -> Self {
-        self.compose(Self::exp(self.inverse().compose(other).log() * t))
+    pub fn interpolate(self, other: Self, amount: T) -> Self {
+        self.compose(Self::exp(self.inverse().compose(other).log() * amount))
     }
 
     /// The squared norm `c² + s²`.
     #[inline]
     #[must_use]
     fn norm_squared(self) -> T {
-        self.c * self.c + self.s * self.s
+        self.cos * self.cos + self.sin * self.sin
     }
 
     /// The Euclidean norm.
@@ -167,7 +170,7 @@ impl<T: Numeric> SO2<T> {
     ///
     /// let rotation = SO2::<f64>::from_angle(0.3);
     /// let normalized = rotation.normalized();
-    /// let (c, s) = normalized.cos_sin();
+    /// let (cos, sin) = normalized.cos_sin();
     ///
     /// assert!((normalized.norm() - 1.0).abs() <= <f64 as multicalc::Numeric>::EPSILON);
     /// ```
@@ -176,8 +179,8 @@ impl<T: Numeric> SO2<T> {
     pub fn normalized(self) -> Self {
         let scale = self.norm().recip();
         SO2 {
-            c: self.c * scale,
-            s: self.s * scale,
+            cos: self.cos * scale,
+            sin: self.sin * scale,
         }
     }
 

@@ -27,11 +27,11 @@ pub fn integrand<S: Numeric>(key: &str) -> fn(S) -> S {
 }
 
 /// Transcendental `g(x, y, z) = y·sin x + x·cos y + x·y·eᶻ`.
-pub struct G;
+pub struct Transcendental;
 
-impl ScalarFnN<3> for G {
-    fn eval<S: Numeric>(&self, v: &[S; 3]) -> S {
-        v[1] * v[0].sin() + v[0] * v[1].cos() + v[0] * v[1] * v[2].exp()
+impl ScalarFnN<3> for Transcendental {
+    fn eval<S: Numeric>(&self, point: &[S; 3]) -> S {
+        point[1] * point[0].sin() + point[0] * point[1].cos() + point[0] * point[1] * point[2].exp()
     }
 }
 
@@ -52,8 +52,8 @@ impl VectorFn<6, 6> for Trigonometric6 {
     fn eval<S: Numeric>(&self, x: &[S; 6]) -> [S; 6] {
         let n = S::from_f64(6.0);
         let mut cos_sum = S::ZERO;
-        for &xj in x {
-            cos_sum += xj.cos();
+        for &component in x {
+            cos_sum += component.cos();
         }
         core::array::from_fn(|i| {
             n - cos_sum + S::from_f64((i + 1) as f64) * (S::ONE - x[i].cos()) - x[i].sin()
@@ -83,12 +83,12 @@ fn circle_py(i: usize) -> f64 {
 pub struct CircleFit;
 
 impl VectorFn<3, CIRCLE_POINTS> for CircleFit {
-    fn eval<S: Numeric>(&self, p: &[S; 3]) -> [S; CIRCLE_POINTS] {
-        let (cx, cy, r) = (p[0], p[1], p[2]);
+    fn eval<S: Numeric>(&self, params: &[S; 3]) -> [S; CIRCLE_POINTS] {
+        let (center_x, center_y, radius) = (params[0], params[1], params[2]);
         core::array::from_fn(|i| {
-            let dx = S::from_f64(circle_px(i)) - cx;
-            let dy = S::from_f64(circle_py(i)) - cy;
-            (dx * dx + dy * dy).sqrt() - r
+            let dx = S::from_f64(circle_px(i)) - center_x;
+            let delta_y = S::from_f64(circle_py(i)) - center_y;
+            (dx * dx + delta_y * delta_y).sqrt() - radius
         })
     }
 }
@@ -104,13 +104,13 @@ fn gauss_t(i: usize) -> f64 {
 
 #[must_use]
 fn gauss_y(i: usize) -> f64 {
-    let t = gauss_t(i);
+    let sample = gauss_t(i);
     let mut y = 0.0;
     for k in 0..2 {
         let a = GAUSS_TRUTH[3 * k];
-        let mu = GAUSS_TRUTH[3 * k + 1];
+        let mean = GAUSS_TRUTH[3 * k + 1];
         let sigma = GAUSS_TRUTH[3 * k + 2];
-        let z = (t - mu) / sigma;
+        let z = (sample - mean) / sigma;
         y += a * Numeric::exp(-(z * z));
     }
     y
@@ -122,15 +122,15 @@ fn gauss_y(i: usize) -> f64 {
 pub struct GaussianPeaks;
 
 impl VectorFn<6, GAUSS_POINTS> for GaussianPeaks {
-    fn eval<S: Numeric>(&self, p: &[S; 6]) -> [S; GAUSS_POINTS] {
+    fn eval<S: Numeric>(&self, params: &[S; 6]) -> [S; GAUSS_POINTS] {
         core::array::from_fn(|i| {
-            let t = S::from_f64(gauss_t(i));
+            let sample = S::from_f64(gauss_t(i));
             let mut model = S::ZERO;
             for k in 0..2 {
-                let a = p[3 * k];
-                let mu = p[3 * k + 1];
-                let sigma = p[3 * k + 2];
-                let z = (t - mu) / sigma;
+                let a = params[3 * k];
+                let mean = params[3 * k + 1];
+                let sigma = params[3 * k + 2];
+                let z = (sample - mean) / sigma;
                 model += a * (-(z * z)).exp();
             }
             model - S::from_f64(gauss_y(i))
@@ -142,8 +142,10 @@ impl VectorFn<6, GAUSS_POINTS> for GaussianPeaks {
 pub struct HessianTarget;
 
 impl ScalarFnN<3> for HessianTarget {
-    fn eval<S: Numeric>(&self, v: &[S; 3]) -> S {
-        v[1] * v[0].sin() + S::from_f64(2.0) * v[0] * v[1].exp() + v[2] * v[2]
+    fn eval<S: Numeric>(&self, point: &[S; 3]) -> S {
+        point[1] * point[0].sin()
+            + S::from_f64(2.0) * point[0] * point[1].exp()
+            + point[2] * point[2]
     }
 }
 
@@ -151,8 +153,11 @@ impl ScalarFnN<3> for HessianTarget {
 pub struct Jac23;
 
 impl VectorFn<3, 2> for Jac23 {
-    fn eval<S: Numeric>(&self, v: &[S; 3]) -> [S; 2] {
-        [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]
+    fn eval<S: Numeric>(&self, point: &[S; 3]) -> [S; 2] {
+        [
+            point[0] * point[1] * point[2],
+            point[0] * point[0] + point[1] * point[1],
+        ]
     }
 }
 
@@ -176,8 +181,8 @@ impl VectorFn<6, 6> for Jac66 {
 pub struct VField3d;
 
 impl VectorFn<3, 3> for VField3d {
-    fn eval<S: Numeric>(&self, v: &[S; 3]) -> [S; 3] {
-        [v[1], -v[0], S::from_f64(2.0) * v[2]]
+    fn eval<S: Numeric>(&self, point: &[S; 3]) -> [S; 3] {
+        [point[1], -point[0], S::from_f64(2.0) * point[2]]
     }
 }
 
@@ -185,8 +190,8 @@ impl VectorFn<3, 3> for VField3d {
 pub struct ApproxTarget;
 
 impl ScalarFnN<3> for ApproxTarget {
-    fn eval<S: Numeric>(&self, v: &[S; 3]) -> S {
-        v[0] + v[1] * v[1] + v[2] * v[2] * v[2]
+    fn eval<S: Numeric>(&self, point: &[S; 3]) -> S {
+        point[0] + point[1] * point[1] + point[2] * point[2] * point[2]
     }
 }
 
@@ -202,13 +207,15 @@ impl ScalarFn for Wien {
 /// Kepler's equation `E - e·sin E - M`, relating the mean anomaly `M` to the
 /// eccentric anomaly `E` of an orbit with eccentricity `e`.
 pub struct Kepler {
-    pub e: f64,
-    pub m: f64,
+    pub eccentricity: f64,
+    pub mean_anomaly: f64,
 }
 
 impl ScalarFn for Kepler {
-    fn eval<S: Numeric>(&self, big_e: S) -> S {
-        big_e - S::from_f64(self.e) * big_e.sin() - S::from_f64(self.m)
+    fn eval<S: Numeric>(&self, eccentric_anomaly: S) -> S {
+        eccentric_anomaly
+            - S::from_f64(self.eccentricity) * eccentric_anomaly.sin()
+            - S::from_f64(self.mean_anomaly)
     }
 }
 
@@ -221,11 +228,11 @@ pub struct Colebrook {
 
 impl ScalarFn for Colebrook {
     fn eval<S: Numeric>(&self, f: S) -> S {
-        let re = S::from_f64(self.reynolds);
+        let reynolds = S::from_f64(self.reynolds);
         let eps = S::from_f64(self.rel_roughness);
         let root_f = f.sqrt();
-        let inner = eps / S::from_f64(3.7) + S::from_f64(2.51) / (re * root_f);
-        let log10 = inner.ln() / S::from_f64(10.0).ln();
+        let inner = eps / S::from_f64(3.7) + S::from_f64(2.51) / (reynolds * root_f);
+        let log10 = inner.log() / S::from_f64(10.0).log();
         S::ONE / root_f + S::TWO * log10
     }
 }
@@ -242,21 +249,21 @@ impl ScalarFn for Sigmoid {
 /// Two-link planar arm forward kinematics; the root recovers the joint angles
 /// that place the tip at the target `(px, py)`.
 pub struct TwoLinkArm {
-    pub l1: f64,
-    pub l2: f64,
-    pub px: f64,
-    pub py: f64,
+    pub first_link: f64,
+    pub second_link: f64,
+    pub target_x: f64,
+    pub target_y: f64,
 }
 
 impl VectorFn<2, 2> for TwoLinkArm {
-    fn eval<S: Numeric>(&self, v: &[S; 2]) -> [S; 2] {
-        let l1 = S::from_f64(self.l1);
-        let l2 = S::from_f64(self.l2);
-        let px = S::from_f64(self.px);
-        let py = S::from_f64(self.py);
+    fn eval<S: Numeric>(&self, angles: &[S; 2]) -> [S; 2] {
+        let first_link = S::from_f64(self.first_link);
+        let second_link = S::from_f64(self.second_link);
+        let target_x = S::from_f64(self.target_x);
+        let target_y = S::from_f64(self.target_y);
         [
-            l1 * v[0].cos() + l2 * (v[0] + v[1]).cos() - px,
-            l1 * v[0].sin() + l2 * (v[0] + v[1]).sin() - py,
+            first_link * angles[0].cos() + second_link * (angles[0] + angles[1]).cos() - target_x,
+            first_link * angles[0].sin() + second_link * (angles[0] + angles[1]).sin() - target_y,
         ]
     }
 }
@@ -265,10 +272,10 @@ impl VectorFn<2, 2> for TwoLinkArm {
 pub struct CircleHyperbola;
 
 impl VectorFn<2, 2> for CircleHyperbola {
-    fn eval<S: Numeric>(&self, v: &[S; 2]) -> [S; 2] {
+    fn eval<S: Numeric>(&self, point: &[S; 2]) -> [S; 2] {
         [
-            v[0] * v[0] + v[1] * v[1] - S::from_f64(4.0),
-            v[0] * v[1] - S::ONE,
+            point[0] * point[0] + point[1] * point[1] - S::from_f64(4.0),
+            point[0] * point[1] - S::ONE,
         ]
     }
 }
@@ -278,11 +285,11 @@ impl VectorFn<2, 2> for CircleHyperbola {
 pub struct Equilibrium;
 
 impl VectorFn<3, 3> for Equilibrium {
-    fn eval<S: Numeric>(&self, v: &[S; 3]) -> [S; 3] {
+    fn eval<S: Numeric>(&self, point: &[S; 3]) -> [S; 3] {
         [
-            v[0] + v[1] + v[2] - S::ONE,
-            v[1] - S::from_f64(1.25) * v[0] * v[0],
-            v[2] - S::from_f64(5.0) * v[0] * v[1],
+            point[0] + point[1] + point[2] - S::ONE,
+            point[1] - S::from_f64(1.25) * point[0] * point[0],
+            point[2] - S::from_f64(5.0) * point[0] * point[1],
         ]
     }
 }
@@ -321,13 +328,17 @@ mod tests {
     #[test]
     fn residuals_vanish_at_the_solution() {
         // Each problem is a zero-residual fit at its true parameters.
-        let r = Rosenbrock.eval(&[1.0, 1.0]);
-        assert!(r.iter().all(|v: &f64| v.abs() < 1e-12));
+        let rosenbrock = Rosenbrock.eval(&[1.0, 1.0]);
+        assert!(
+            rosenbrock
+                .iter()
+                .all(|residual: &f64| residual.abs() < 1e-12)
+        );
 
-        let c = CircleFit.eval(&[2.0, -1.0, 3.0]);
-        assert!(c.iter().all(|v: &f64| v.abs() < 1e-12));
+        let circle = CircleFit.eval(&[2.0, -1.0, 3.0]);
+        assert!(circle.iter().all(|residual: &f64| residual.abs() < 1e-12));
 
-        let g = GaussianPeaks.eval(&GAUSS_TRUTH);
-        assert!(g.iter().all(|v: &f64| v.abs() < 1e-12));
+        let peaks = GaussianPeaks.eval(&GAUSS_TRUTH);
+        assert!(peaks.iter().all(|residual: &f64| residual.abs() < 1e-12));
     }
 }

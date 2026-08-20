@@ -208,16 +208,16 @@ fn svd_kabsch_rotation_recovery() {
         }
     }
     let factorization = cross_covariance.svd().unwrap();
-    let u = factorization.u();
-    let v = factorization.v();
-    let mut recovered_rotation = u * v.transpose();
+    let left = factorization.left();
+    let right = factorization.right();
+    let mut recovered_rotation = left * right.transpose();
     // Reflection fix: guarantee a proper rotation.
     if recovered_rotation.determinant() < 0.0 {
-        let mut flipped_u = u;
+        let mut flipped_left = left;
         for row in 0..3 {
-            flipped_u[(row, 2)] = -flipped_u[(row, 2)];
+            flipped_left[(row, 2)] = -flipped_left[(row, 2)];
         }
-        recovered_rotation = flipped_u * v.transpose();
+        recovered_rotation = flipped_left * right.transpose();
     }
     // Recovered rotation matches, is orthonormal, and has determinant +1.
     assert_matrix_close(recovered_rotation, rotation, 1e-9);

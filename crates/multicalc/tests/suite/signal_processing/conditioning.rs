@@ -126,8 +126,8 @@ fn slew_rate_limiter_ramps_f32() {
 
 #[test]
 fn rate_limited_output_never_moves_faster_than_its_limit() {
-    let (rise, fall, dt) = (1.5, 0.5, 0.01);
-    let mut limited = SlewRateLimiter::new(rise, fall, dt).unwrap();
+    let (rise, fall, timestep) = (1.5, 0.5, 0.01);
+    let mut limited = SlewRateLimiter::new(rise, fall, timestep).unwrap();
     let mut targets = Pcg32::<f64>::new(20260731);
 
     let mut previous = limited.filter(0.0);
@@ -135,19 +135,19 @@ fn rate_limited_output_never_moves_faster_than_its_limit() {
         let target = 20.0 * targets.next_unit() - 10.0;
         let output = limited.filter(target);
         let step = output - previous;
-        assert!(step <= rise * dt + 1e-12, "climbed by {step}");
-        assert!(step >= -(fall * dt) - 1e-12, "fell by {step}");
+        assert!(step <= rise * timestep + 1e-12, "climbed by {step}");
+        assert!(step >= -(fall * timestep) - 1e-12, "fell by {step}");
         previous = output;
     }
 }
 
 #[test]
 fn rate_limited_output_reaches_a_held_target() {
-    let (rise, dt, target) = (1.5_f64, 0.01, 3.0);
-    let mut limited = SlewRateLimiter::new(rise, 0.5, dt).unwrap();
+    let (rise, timestep, target) = (1.5_f64, 0.01, 3.0);
+    let mut limited = SlewRateLimiter::new(rise, 0.5, timestep).unwrap();
     let _ = limited.filter(0.0);
 
-    let steps = (target / (rise * dt)).ceil() as usize + 10;
+    let steps = (target / (rise * timestep)).ceil() as usize + 10;
     for _ in 0..steps {
         let output = limited.filter(target);
         assert!(output <= target + 1e-12, "overshot to {output}");

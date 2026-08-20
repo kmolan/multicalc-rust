@@ -14,7 +14,7 @@ fn cholesky_reconstructs_spd() {
     ]);
     cholesky_reconstructs(known_factor, 1e-12);
     let expected = Matrix::new([[2.0, 0.0, 0.0], [6.0, 1.0, 0.0], [-8.0, 5.0, 3.0]]);
-    assert_matrix_close(known_factor.cholesky().unwrap().l(), expected, 1e-12);
+    assert_matrix_close(known_factor.cholesky().unwrap().lower(), expected, 1e-12);
 
     // An M·Mᵀ product is symmetric positive-definite for full-rank M.
     let lower_factor_source = Matrix4D::new([
@@ -71,7 +71,7 @@ fn cholesky_solves() {
         assert!((solution[index] - exact_solution[index]).abs() < 1e-12);
     }
     assert!((tridiagonal * solution - right_hand_side).norm() < 1e-12);
-    let lu_solution = tridiagonal.lu().unwrap().solve(right_hand_side);
+    let lu_solution = tridiagonal.lu_decompose().unwrap().solve(right_hand_side);
     for index in 0..3 {
         assert!((solution[index] - lu_solution[index]).abs() < 1e-12);
     }
@@ -102,7 +102,7 @@ fn cholesky_determinant_matches() {
     // (2·1·3)² == 36.
     assert!((determinant - 36.0).abs() < 1e-9);
     assert!((determinant - known_factor.determinant()).abs() < 1e-9);
-    assert!((determinant - known_factor.lu().unwrap().determinant()).abs() < 1e-9);
+    assert!((determinant - known_factor.lu_decompose().unwrap().determinant()).abs() < 1e-9);
 }
 
 #[test]
@@ -111,5 +111,9 @@ fn cholesky_inverse_matches_lu() {
     let inverse = tridiagonal.cholesky().unwrap().inverse();
     assert_identity(inverse * tridiagonal, 1e-12);
     assert_identity(tridiagonal * inverse, 1e-12);
-    assert_matrix_close(inverse, tridiagonal.lu().unwrap().inverse(), 1e-12);
+    assert_matrix_close(
+        inverse,
+        tridiagonal.lu_decompose().unwrap().inverse(),
+        1e-12,
+    );
 }

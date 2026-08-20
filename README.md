@@ -62,13 +62,13 @@ Two formulas, written once, carried through six modules, each step feeding the n
 
 ```rust
 use multicalc::prelude::*;
-use multicalc::{Hessian, Jacobian, KalmanFilter, KalmanModel, Matrix, Newton, SE3, SO3, Vector, c};
+use multicalc::{Hessian, Jacobian, KalmanFilter, KalmanModel, Matrix, Newton, SE3, SO3, Vector, constant };
 use multicalc::{scalar_fn, scalar_fn_vec};
 
 fn main() -> Result<(), CalcError> {
     // Written once, evaluated at f64 here and at an autodiff number wherever a derivative is asked
     // for — the formula text never changes.
-    let f = scalar_fn!(|x| x * x * x - c(2.0) * x);                     // f(x)    = x³ - 2x
+    let f = scalar_fn!(|x| x * x * x - constant(2.0) * x);                     // f(x)    = x³ - 2x
     let g = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1] + v[0].sin()); // g(x, y) = x²y + sin x
 
     // Derivatives — exact, by forward-mode autodiff. No step size, no truncation error.
@@ -84,7 +84,7 @@ fn main() -> Result<(), CalcError> {
     let hessian = Hessian::new().evaluate(&g, &point)?;      // 2x2 second derivatives
     let both = scalar_fn_vec!(|v: &[f64; 2]| [
         v[0] * v[0] * v[1] + v[0].sin(),
-        v[0] * v[0] * v[0] - c(2.0) * v[0],
+        v[0] * v[0] * v[0] - constant(2.0) * v[0],
     ]);
     let jacobian = Jacobian::new().evaluate(&both, &point)?; // 2x2 first derivatives
 

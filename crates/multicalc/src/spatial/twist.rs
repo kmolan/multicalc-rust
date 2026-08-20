@@ -38,9 +38,9 @@ impl<T: Numeric> Twist<T> {
     /// use multicalc::spatial::Twist;
     /// let linear = Vector::new([1.0_f64, 2.0, 3.0]);
     /// let angular = Vector::new([4.0, 5.0, 6.0]);
-    /// let t = Twist::new(linear, angular);
-    /// assert_eq!(t.linear(), Vector::new([1.0, 2.0, 3.0]));
-    /// assert_eq!(t.angular(), Vector::new([4.0, 5.0, 6.0]));
+    /// let twist = Twist::new(linear, angular);
+    /// assert_eq!(twist.linear(), Vector::new([1.0, 2.0, 3.0]));
+    /// assert_eq!(twist.angular(), Vector::new([4.0, 5.0, 6.0]));
     /// ```
     #[inline]
     #[must_use]
@@ -68,16 +68,16 @@ impl<T: Numeric> Twist<T> {
     /// ```
     /// use multicalc::linear_algebra::Vector;
     /// use multicalc::spatial::Twist;
-    /// let t = Twist::from_array([1.0_f64, 2.0, 3.0, 4.0, 5.0, 6.0]);
-    /// assert_eq!(t.angular(), Vector::new([4.0, 5.0, 6.0]));
+    /// let twist = Twist::from_array([1.0_f64, 2.0, 3.0, 4.0, 5.0, 6.0]);
+    /// assert_eq!(twist.angular(), Vector::new([4.0, 5.0, 6.0]));
     /// ```
     #[inline]
     #[must_use]
     pub fn from_array(a: [T; 6]) -> Self {
-        let [vx, vy, vz, wx, wy, wz] = a;
+        let [lin_x, lin_y, lin_z, ang_x, ang_y, ang_z] = a;
         Twist {
-            linear: Vector::new([vx, vy, vz]),
-            angular: Vector::new([wx, wy, wz]),
+            linear: Vector::new([lin_x, lin_y, lin_z]),
+            angular: Vector::new([ang_x, ang_y, ang_z]),
         }
     }
 
@@ -85,15 +85,15 @@ impl<T: Numeric> Twist<T> {
     ///
     /// ```
     /// use multicalc::spatial::Twist;
-    /// let t = Twist::from_array([1.0_f64, 2.0, 3.0, 4.0, 5.0, 6.0]);
-    /// assert_eq!(t.as_array(), [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+    /// let twist = Twist::from_array([1.0_f64, 2.0, 3.0, 4.0, 5.0, 6.0]);
+    /// assert_eq!(twist.as_array(), [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
     /// ```
     #[inline]
     #[must_use]
     pub fn as_array(self) -> [T; 6] {
-        let [vx, vy, vz] = *self.linear.as_array();
-        let [wx, wy, wz] = *self.angular.as_array();
-        [vx, vy, vz, wx, wy, wz]
+        let [lin_x, lin_y, lin_z] = *self.linear.as_array();
+        let [ang_x, ang_y, ang_z] = *self.angular.as_array();
+        [lin_x, lin_y, lin_z, ang_x, ang_y, ang_z]
     }
 
     /// A twist from a flat `[v; ω]` `Vector6D` (the group-API ordering).
@@ -101,13 +101,13 @@ impl<T: Numeric> Twist<T> {
     /// ```
     /// use multicalc::linear_algebra::Vector;
     /// use multicalc::spatial::Twist;
-    /// let t = Twist::from_vector(Vector::new([1.0_f64, 2.0, 3.0, 4.0, 5.0, 6.0]));
-    /// assert_eq!(t.linear(), Vector::new([1.0, 2.0, 3.0]));
+    /// let twist = Twist::from_vector(Vector::new([1.0_f64, 2.0, 3.0, 4.0, 5.0, 6.0]));
+    /// assert_eq!(twist.linear(), Vector::new([1.0, 2.0, 3.0]));
     /// ```
     #[inline]
     #[must_use]
-    pub fn from_vector(v: Vector6D<T>) -> Self {
-        Self::from_array(v.into_array())
+    pub fn from_vector(vector: Vector6D<T>) -> Self {
+        Self::from_array(vector.into_array())
     }
 
     /// The twist as a flat `[v; ω]` `Vector6D` for the group API.
@@ -115,8 +115,8 @@ impl<T: Numeric> Twist<T> {
     /// ```
     /// use multicalc::linear_algebra::Vector;
     /// use multicalc::spatial::Twist;
-    /// let t = Twist::from_array([1.0_f64, 2.0, 3.0, 4.0, 5.0, 6.0]);
-    /// assert_eq!(t.to_vector(), Vector::new([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]));
+    /// let twist = Twist::from_array([1.0_f64, 2.0, 3.0, 4.0, 5.0, 6.0]);
+    /// assert_eq!(twist.to_vector(), Vector::new([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]));
     /// ```
     #[inline]
     pub fn to_vector(self) -> Vector6D<T> {
@@ -139,8 +139,8 @@ impl<T: Numeric> Twist<T> {
     ///
     /// ```
     /// use multicalc::spatial::Twist;
-    /// let t = Twist::from_array([1.0_f64, 2.0, 3.0, 4.0, 5.0, 6.0]);
-    /// assert_eq!(t.scale(2.0).as_array(), [2.0, 4.0, 6.0, 8.0, 10.0, 12.0]);
+    /// let twist = Twist::from_array([1.0_f64, 2.0, 3.0, 4.0, 5.0, 6.0]);
+    /// assert_eq!(twist.scale(2.0).as_array(), [2.0, 4.0, 6.0, 8.0, 10.0, 12.0]);
     /// ```
     #[inline]
     #[must_use]
@@ -191,16 +191,16 @@ impl<T: Numeric> Neg for Twist<T> {
 impl<T: Numeric> From<Vector6D<T>> for Twist<T> {
     /// Reinterprets a flat `[v; ω]` `Vector6D` as a twist.
     #[inline]
-    fn from(v: Vector6D<T>) -> Self {
-        Self::from_vector(v)
+    fn from(vector: Vector6D<T>) -> Self {
+        Self::from_vector(vector)
     }
 }
 
 impl<T: Numeric> From<Twist<T>> for Vector6D<T> {
     /// Flattens a twist into `[v; ω]`.
     #[inline]
-    fn from(t: Twist<T>) -> Self {
-        t.to_vector()
+    fn from(twist: Twist<T>) -> Self {
+        twist.to_vector()
     }
 }
 

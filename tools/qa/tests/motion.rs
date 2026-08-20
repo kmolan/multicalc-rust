@@ -27,11 +27,11 @@ use multicalc_qa::schema::*;
 type Planner = MinimumSnapPlanner<8, 21, 3, f64>;
 
 #[must_use]
-fn boundary(fx: &Fixture, prefix: &str) -> BoundaryDerivatives<3, f64> {
+fn boundary(fixture: &Fixture, prefix: &str) -> BoundaryDerivatives<3, f64> {
     BoundaryDerivatives {
-        velocity: to_vector::<3>(&fx.inputs[&format!("{prefix}_velocity")]),
-        acceleration: to_vector::<3>(&fx.inputs[&format!("{prefix}_acceleration")]),
-        jerk: to_vector::<3>(&fx.inputs[&format!("{prefix}_jerk")]),
+        velocity: to_vector::<3>(&fixture.inputs[&format!("{prefix}_velocity")]),
+        acceleration: to_vector::<3>(&fixture.inputs[&format!("{prefix}_acceleration")]),
+        jerk: to_vector::<3>(&fixture.inputs[&format!("{prefix}_jerk")]),
     }
 }
 
@@ -39,38 +39,48 @@ fn boundary(fx: &Fixture, prefix: &str) -> BoundaryDerivatives<3, f64> {
 fn minimum_snap_matches_an_independent_solve() {
     let fixtures: Vec<_> = load_dir("motion")
         .into_iter()
-        .filter(|fx| fx.case.starts_with("minimum_snap"))
+        .filter(|fixture| fixture.case.starts_with("minimum_snap"))
         .collect();
     assert!(
         fixtures.len() >= 4,
         "expected the whole minimum-snap family"
     );
 
-    for fx in &fixtures {
-        let segments = fx.inputs["segment_count"].as_int() as usize;
-        let durations = fx.inputs["durations"].as_vector();
-        assert_eq!(durations.len(), segments, "{}: duration count", fx.case);
+    for fixture in &fixtures {
+        let segments = fixture.inputs["segment_count"].as_int() as usize;
+        let durations = fixture.inputs["durations"].as_vector();
+        assert_eq!(
+            durations.len(),
+            segments,
+            "{}: duration count",
+            fixture.case
+        );
 
-        let (rows, columns, points) = fx.inputs["waypoints"].as_matrix();
-        assert_eq!((rows, columns), (segments + 1, 3), "{}: waypoints", fx.case);
+        let (rows, columns, points) = fixture.inputs["waypoints"].as_matrix();
+        assert_eq!(
+            (rows, columns),
+            (segments + 1, 3),
+            "{}: waypoints",
+            fixture.case
+        );
         let waypoints: Vec<Vector<3, f64>> = (0..rows)
             .map(|row| Vector::from_fn(|axis| points[row * columns + axis]))
             .collect();
 
         let trajectory = Planner::new()
-            .with_start(boundary(fx, "start"))
-            .with_end(boundary(fx, "end"))
+            .with_start(boundary(fixture, "start"))
+            .with_end(boundary(fixture, "end"))
             .plan(&waypoints, &durations)
             .unwrap();
 
         // Every segment's every axis, against row `segment · 3 + axis`.
         let (coefficient_rows, coefficient_columns, expected) =
-            fx.expected["coefficients"].as_matrix();
+            fixture.expected["coefficients"].as_matrix();
         assert_eq!(
             (coefficient_rows, coefficient_columns),
             (segments * 3, 8),
             "{}: coefficient shape",
-            fx.case
+            fixture.case
         );
         for segment in 0..segments {
             for axis in 0..3 {
@@ -80,27 +90,27 @@ fn minimum_snap_matches_an_independent_solve() {
                     let got = found.coefficient(power).unwrap();
                     let want = expected[base + power];
                     assert!(
-                        close(got, want, fx.tolerances.f64),
+                        close(got, want, fixture.tolerances.f64),
                         "{}: segment {segment} axis {axis} coefficient {power}: got {got}, want {want}",
-                        fx.case
+                        fixture.case
                     );
                 }
             }
         }
 
         // And the states those coefficients produce, at the times the fixture names.
-        let state_tolerance = fx.expected["state_tolerance"].as_vector();
+        let state_tolerance = fixture.expected["state_tolerance"].as_vector();
         let state_tolerance = Tol {
             abs: state_tolerance[0],
             rel: state_tolerance[1],
         };
-        let times = fx.inputs["sample_times"].as_vector();
-        let (state_rows, state_columns, states) = fx.expected["sampled_states"].as_matrix();
+        let times = fixture.inputs["sample_times"].as_vector();
+        let (state_rows, state_columns, states) = fixture.expected["sampled_states"].as_matrix();
         assert_eq!(
             (state_rows, state_columns),
             (times.len() * 3, 3),
             "{}: sampled state shape",
-            fx.case
+            fixture.case
         );
 
         for (sample, time) in times.iter().enumerate() {
@@ -112,7 +122,7 @@ fn minimum_snap_matches_an_independent_solve() {
                     assert!(
                         close(found[axis], want, state_tolerance),
                         "{}: at {time} order {order} axis {axis}: got {}, want {want}",
-                        fx.case,
+                        fixture.case,
                         found[axis]
                     );
                 }
@@ -123,8 +133,8 @@ fn minimum_snap_matches_an_independent_solve() {
 
 /// The tolerance a fixture asks its states to be compared at.
 #[must_use]
-fn state_tolerance(fx: &Fixture) -> Tol {
-    let values = fx.expected["state_tolerance"].as_vector();
+fn state_tolerance(fixture: &Fixture) -> Tol {
+    let values = fixture.expected["state_tolerance"].as_vector();
     Tol {
         abs: values[0],
         rel: values[1],
@@ -133,11 +143,12 @@ fn state_tolerance(fx: &Fixture) -> Tol {
 
 /// The limits a single-axis fixture was planned against.
 #[must_use]
-fn limits_of(fx: &Fixture) -> ProfileLimits<f64> {
+fn limits_of(fixture: &Fixture) -> ProfileLimits<f64> {
     ProfileLimits::try_new(
-        fx.inputs["speed_limit"].as_scalar(),
-        fx.inputs["acceleration_limit"].as_scalar(),
-        (fx.inputs["has_jerk_limit"].as_int() == 1).then(|| fx.inputs["jerk_limit"].as_scalar()),
+        fixture.inputs["speed_limit"].as_scalar(),
+        fixture.inputs["acceleration_limit"].as_scalar(),
+        (fixture.inputs["has_jerk_limit"].as_int() == 1)
+            .then(|| fixture.inputs["jerk_limit"].as_scalar()),
     )
     .unwrap()
 }
@@ -168,21 +179,23 @@ fn check_state(
 fn motion_profiles_match_a_constrained_minimum_time_solve() {
     let fixtures: Vec<_> = load_dir("motion")
         .into_iter()
-        .filter(|fx| fx.case.starts_with("profile_") && !fx.case.contains("synchronized"))
+        .filter(|fixture| {
+            fixture.case.starts_with("profile_") && !fixture.case.contains("synchronized")
+        })
         .collect();
     assert!(
         fixtures.len() >= 5,
         "expected the whole single-axis profile family"
     );
 
-    for fx in &fixtures {
-        let profile = MotionProfilePlanner::new(limits_of(fx))
-            .plan(fx.inputs["distance"].as_scalar())
+    for fixture in &fixtures {
+        let profile = MotionProfilePlanner::new(limits_of(fixture))
+            .plan(fixture.inputs["distance"].as_scalar())
             .unwrap();
 
         // The seven phase lengths, against what the minimizer settled on.
-        let wanted = fx.expected["phase_durations"].as_vector();
-        assert_eq!(wanted.len(), 7, "{}: phase count", fx.case);
+        let wanted = fixture.expected["phase_durations"].as_vector();
+        assert_eq!(wanted.len(), 7, "{}: phase count", fixture.case);
         for (index, (got, want)) in profile
             .phase_durations()
             .iter()
@@ -190,29 +203,29 @@ fn motion_profiles_match_a_constrained_minimum_time_solve() {
             .enumerate()
         {
             assert!(
-                close(*got, *want, fx.tolerances.f64),
+                close(*got, *want, fixture.tolerances.f64),
                 "{}: phase {index}: got {got}, want {want}",
-                fx.case
+                fixture.case
             );
         }
 
-        let total = fx.expected["total_duration"].as_scalar();
+        let total = fixture.expected["total_duration"].as_scalar();
         assert!(
-            close(profile.duration(), total, fx.tolerances.f64),
+            close(profile.duration(), total, fixture.tolerances.f64),
             "{}: total duration: got {}, want {total}",
-            fx.case,
+            fixture.case,
             profile.duration()
         );
 
         // Then the states, against the numerically integrated ones.
-        let tolerance = state_tolerance(fx);
-        let times = fx.inputs["sample_times"].as_vector();
-        let (rows, columns, states) = fx.expected["sampled_states"].as_matrix();
+        let tolerance = state_tolerance(fixture);
+        let times = fixture.inputs["sample_times"].as_vector();
+        let (rows, columns, states) = fixture.expected["sampled_states"].as_matrix();
         assert_eq!(
             (rows, columns),
             (times.len(), 3),
             "{}: state shape",
-            fx.case
+            fixture.case
         );
 
         for (sample, time) in times.iter().enumerate() {
@@ -222,7 +235,7 @@ fn motion_profiles_match_a_constrained_minimum_time_solve() {
                 *time,
                 &states[base..base + columns],
                 tolerance,
-                &fx.case,
+                &fixture.case,
                 "state",
             );
         }
@@ -233,20 +246,20 @@ fn motion_profiles_match_a_constrained_minimum_time_solve() {
 fn synchronized_profiles_match_a_constrained_minimum_time_solve() {
     let fixtures: Vec<_> = load_dir("motion")
         .into_iter()
-        .filter(|fx| fx.case.contains("synchronized"))
+        .filter(|fixture| fixture.case.contains("synchronized"))
         .collect();
     assert!(!fixtures.is_empty(), "expected a synchronized fixture");
 
-    for fx in &fixtures {
-        let displacements = fx.inputs["displacements"].as_vector();
-        let speed_limits = fx.inputs["speed_limits"].as_vector();
-        let acceleration_limits = fx.inputs["acceleration_limits"].as_vector();
-        let jerk_limits = fx.inputs["jerk_limits"].as_vector();
-        let axes = fx.inputs["axis_count"].as_int() as usize;
+    for fixture in &fixtures {
+        let displacements = fixture.inputs["displacements"].as_vector();
+        let speed_limits = fixture.inputs["speed_limits"].as_vector();
+        let acceleration_limits = fixture.inputs["acceleration_limits"].as_vector();
+        let jerk_limits = fixture.inputs["jerk_limits"].as_vector();
+        let axes = fixture.inputs["axis_count"].as_int() as usize;
         assert_eq!(
             axes, 3,
             "{}: the fixture is written for three axes",
-            fx.case
+            fixture.case
         );
 
         // One planner per axis, so each carries its own limits.
@@ -263,23 +276,23 @@ fn synchronized_profiles_match_a_constrained_minimum_time_solve() {
         });
         let synchronized = SynchronizedProfile::<3, f64>::from_profiles(planned);
 
-        let total = fx.expected["total_duration"].as_scalar();
+        let total = fixture.expected["total_duration"].as_scalar();
         assert!(
-            close(synchronized.duration(), total, fx.tolerances.f64),
+            close(synchronized.duration(), total, fixture.tolerances.f64),
             "{}: total duration: got {}, want {total}",
-            fx.case,
+            fixture.case,
             synchronized.duration()
         );
 
         // One row per time and axis, in that order.
-        let tolerance = state_tolerance(fx);
-        let times = fx.inputs["sample_times"].as_vector();
-        let (rows, columns, states) = fx.expected["sampled_states"].as_matrix();
+        let tolerance = state_tolerance(fixture);
+        let times = fixture.inputs["sample_times"].as_vector();
+        let (rows, columns, states) = fixture.expected["sampled_states"].as_matrix();
         assert_eq!(
             (rows, columns),
             (times.len() * axes, 3),
             "{}: state shape",
-            fx.case
+            fixture.case
         );
 
         for (sample, time) in times.iter().enumerate() {
@@ -290,7 +303,7 @@ fn synchronized_profiles_match_a_constrained_minimum_time_solve() {
                     *time,
                     &states[base..base + columns],
                     tolerance,
-                    &fx.case,
+                    &fixture.case,
                     &format!("axis {index}"),
                 );
             }

@@ -56,12 +56,12 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     /// # Examples
     /// ```
     /// use multicalc::numerical_derivative::Hessian;
-    /// use multicalc::scalar::c;
+    /// use multicalc::scalar::constant;
     /// use multicalc::scalar_fn;
     ///
     /// // f(x, y) = y*sin(x) + 2*x*e^y
     /// let function =
-    ///     scalar_fn!(|args: &[f64; 2]| args[1] * args[0].sin() + c(2.0) * args[0] * args[1].exp());
+    ///     scalar_fn!(|args: &[f64; 2]| args[1] * args[0].sin() + constant(2.0) * args[0] * args[1].exp());
     /// let point = [1.0, 2.0];
     ///
     /// let hessian: Hessian = Hessian::default();

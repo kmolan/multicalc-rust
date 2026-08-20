@@ -1,15 +1,15 @@
-use crate::linear_algebra::qr::{PivotedQr, enorm, max, min};
 use crate::linear_algebra::{Matrix, Vector};
+use crate::linear_algebra::{PivotedQr, enorm, max, min};
 use crate::scalar::Numeric;
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-/// Asserts every entry of `m` is within tolerance of the identity matrix.
-fn approx_identity<const N: usize>(m: Matrix<N, N>) {
-    let id: Matrix<N, N> = Matrix::identity();
-    for r in 0..N {
-        for c in 0..N {
-            assert!((m[(r, c)] - id[(r, c)]).abs() < 1e-12);
+/// Asserts every entry of `matrix` is within tolerance of the identity matrix.
+fn approx_identity<const N: usize>(matrix: Matrix<N, N>) {
+    let identity: Matrix<N, N> = Matrix::identity();
+    for row in 0..N {
+        for col in 0..N {
+            assert!((matrix[(row, col)] - identity[(row, col)]).abs() < 1e-12);
         }
     }
 }
@@ -33,8 +33,8 @@ fn enorm_matches_naive_norm() {
     // On ordinary values, enorm agrees with the plain sqrt-of-dot norm.
     assert!((enorm(&[3.0_f64, 4.0]) - 5.0).abs() < 1e-12);
 
-    let v = Vector::new([1.0_f64, 2.0, 2.0]);
-    assert!((enorm(v.as_array()) - v.norm()).abs() < 1e-12);
+    let values = Vector::new([1.0_f64, 2.0, 2.0]);
+    assert!((enorm(values.as_array()) - values.norm()).abs() < 1e-12);
 }
 
 #[test]
@@ -98,25 +98,25 @@ fn qr_reconstructs_pivoted_matrix() {
     assert!((f.column_norms[1] - 94.0_f64.sqrt()).abs() < 1e-12);
     assert!((f.column_norms[2] - 146.0_f64.sqrt()).abs() < 1e-12);
 
-    let q = f.q();
-    let r = f.r();
+    let orthogonal = f.orthogonal();
+    let triangular = f.triangular();
 
     // R is upper-triangular.
     for row in 0..3 {
         for col in 0..row {
-            assert_eq!(r[(row, col)], 0.0);
+            assert_eq!(triangular[(row, col)], 0.0);
         }
     }
 
     // Q has orthonormal columns.
-    approx_identity(q.transpose() * q);
+    approx_identity(orthogonal.transpose() * orthogonal);
 
     // A * P == Q * R.
-    let ap = Matrix::<4, 3>::from_fn(|i, c| a[(i, perm[c])]);
-    let product = q * r;
+    let permuted = Matrix::<4, 3>::from_fn(|i, col| a[(i, perm[col])]);
+    let product = orthogonal * triangular;
     for i in 0..4 {
-        for c in 0..3 {
-            assert!((ap[(i, c)] - product[(i, c)]).abs() < 1e-12);
+        for col in 0..3 {
+            assert!((permuted[(i, col)] - product[(i, col)]).abs() < 1e-12);
         }
     }
 }
@@ -138,11 +138,11 @@ fn qr_handles_zero_column() {
     assert!(f.r_diag[2].abs() < 1e-12);
 
     // The factorization still reproduces A * P.
-    let ap = Matrix::<4, 3>::from_fn(|i, c| a[(i, perm[c])]);
-    let product = f.q() * f.r();
+    let permuted = Matrix::<4, 3>::from_fn(|i, col| a[(i, perm[col])]);
+    let product = f.orthogonal() * f.triangular();
     for i in 0..4 {
-        for c in 0..3 {
-            assert!((ap[(i, c)] - product[(i, c)]).abs() < 1e-12);
+        for col in 0..3 {
+            assert!((permuted[(i, col)] - product[(i, col)]).abs() < 1e-12);
         }
     }
 }
@@ -154,28 +154,28 @@ fn damped_cholesky_factor_matches_normal_matrix() {
     let (j, b) = sample_problem();
     let diag = [1.0, 0.5, 2.0];
     let dls = PivotedQr::decompose(j).unwrap().into_damped(b);
-    let (_, cf) = dls.solve_with_diagonal(&diag);
+    let (_, factor) = dls.solve_with_diagonal(&diag);
 
     // Reconstruct S (upper triangular) from the factor.
-    let s = Matrix::<3, 3>::from_fn(|row, col| {
+    let upper = Matrix::<3, 3>::from_fn(|row, col| {
         if row == col {
-            cf.s_diag[row]
+            factor.s_diag[row]
         } else if col > row {
-            cf.s[(col, row)]
+            factor.factor[(col, row)]
         } else {
             0.0
         }
     });
 
     // SᵀS must equal RᵀR + D², with D permuted the way qrsolv applies it.
-    let sts = s.transpose() * s;
-    let rtr = dls.r.transpose() * dls.r;
+    let sts = upper.transpose() * upper;
+    let rtr = dls.triangular.transpose() * dls.triangular;
     for row in 0..3 {
         for col in 0..3 {
             let mut expected = rtr[(row, col)];
             if row == col {
-                let d = diag[dls.permutation[row]];
-                expected += d * d;
+                let diag_entry = diag[dls.permutation[row]];
+                expected += diag_entry * diag_entry;
             }
             assert!((sts[(row, col)] - expected).abs() < 1e-9);
         }
@@ -329,7 +329,7 @@ impl Numeric for Counted {
     fn exp(self) -> Self {
         Counted(libm::exp(self.0))
     }
-    fn ln(self) -> Self {
+    fn log(self) -> Self {
         Counted(libm::log(self.0))
     }
     fn atan2(self, other: Self) -> Self {
@@ -383,8 +383,8 @@ fn factorization_work_counts() {
         MUL_DIV_OPS.load(Ordering::Relaxed)
     };
 
-    let lu = measure(&|| {
-        let _ = a.lu().unwrap();
+    let lu_decompose = measure(&|| {
+        let _ = a.lu_decompose().unwrap();
     });
     let cholesky = measure(&|| {
         let _ = a.cholesky().unwrap();
@@ -394,14 +394,14 @@ fn factorization_work_counts() {
     });
 
     // One-sided Jacobi SVD on a fixed 3x3 (a deterministic sweep sequence).
-    let a3 = Matrix::<3, 3, Counted>::from_fn(|i, j| {
+    let matrix3 = Matrix::<3, 3, Counted>::from_fn(|i, j| {
         Counted([[4.0, 1.0, 2.0], [1.0, 5.0, 3.0], [2.0, 3.0, 6.0]][i][j])
     });
     let svd = measure(&|| {
-        let _ = a3.svd().unwrap();
+        let _ = matrix3.svd().unwrap();
     });
 
-    assert_eq!((lu, cholesky, inverse), (21, 16, 100));
+    assert_eq!((lu_decompose, cholesky, inverse), (21, 16, 100));
     // One-sided Jacobi converges in a fixed number of sweeps for this input.
     assert_eq!(svd, 441);
 }

@@ -298,7 +298,7 @@ impl<const MAX_CONFIG: usize, T: Numeric> KinematicJacobian<MAX_CONFIG, T> {
         // V, not U: the Gram matrix is symmetric so both factors span the same directions, but a
         // U column is left at zero where its singular value is, which is precisely the exactly-rank-
         // deficient case. Column 5 belongs to σ_min.
-        let directions = decomposition.v();
+        let directions = decomposition.right();
         let mut linear_squared = T::ZERO;
         let mut angular_squared = T::ZERO;
         for row in 0..6 {

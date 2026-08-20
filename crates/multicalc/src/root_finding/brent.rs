@@ -15,11 +15,11 @@ use crate::scalar::{Numeric, ScalarFn};
 /// # Examples
 /// ```
 /// use multicalc::Brent;
-/// use multicalc::scalar::c;
+/// use multicalc::scalar::constant;
 /// use multicalc::scalar_fn;
 ///
 /// // f(x) = x² − 2, root at √2 ≈ 1.41421356
-/// let function = scalar_fn!(|x| c(-2.0) + x * x);
+/// let function = scalar_fn!(|x| constant(-2.0) + x * x);
 /// let lower_bound = 0.0_f64;
 /// let upper_bound = 2.0;
 ///
@@ -83,71 +83,71 @@ impl<T: Numeric> Brent<T> {
     /// [`InvalidBracket`](SolveError::InvalidBracket) if `f(a)` and `f(b)` share a sign, or
     /// [`DidNotConverge`](SolveError::DidNotConverge) if the budget is exhausted.
     pub fn solve<F: ScalarFn>(&self, f: &F, a: T, b: T) -> Result<RootReport<T>, SolveError> {
-        let mut fa = f.eval(a);
-        let mut fb = f.eval(b);
+        let mut f_at_a = f.eval(a);
+        let mut f_at_b = f.eval(b);
 
-        if !fa.is_finite() || !fb.is_finite() {
+        if !f_at_a.is_finite() || !f_at_b.is_finite() {
             return Err(SolveError::NonFinite);
         }
-        if fa == T::ZERO {
+        if f_at_a == T::ZERO {
             return Ok(RootReport {
                 root: a,
-                residual: fa,
+                residual: f_at_a,
                 iterations: 0,
                 termination: RootTermination::ResidualTolerance,
             });
         }
-        if fb == T::ZERO {
+        if f_at_b == T::ZERO {
             return Ok(RootReport {
                 root: b,
-                residual: fb,
+                residual: f_at_b,
                 iterations: 0,
                 termination: RootTermination::ResidualTolerance,
             });
         }
-        if same_sign(fa, fb) {
+        if same_sign(f_at_a, f_at_b) {
             return Err(SolveError::InvalidBracket);
         }
 
         let mut a = a;
         let mut b = b;
 
-        if fa.abs() < fb.abs() {
+        if f_at_a.abs() < f_at_b.abs() {
             core::mem::swap(&mut a, &mut b);
-            core::mem::swap(&mut fa, &mut fb);
+            core::mem::swap(&mut f_at_a, &mut f_at_b);
         }
 
-        let mut c = a;
-        let mut fc = fa;
-        let mut d = b - a;
+        let mut point_c = a;
+        let mut f_at_c = f_at_a;
+        let mut prev_step = b - a;
         let mut mflag = true;
 
         for iter in 1..=self.max_iterations {
             let tol = self.xtol * (T::ONE + b.abs());
-            let m = (a - b) * T::HALF;
+            let midpoint = (a - b) * T::HALF;
 
-            if fb.abs() <= self.ftol {
+            if f_at_b.abs() <= self.ftol {
                 return Ok(RootReport {
                     root: b,
-                    residual: fb,
+                    residual: f_at_b,
                     iterations: iter - 1,
                     termination: RootTermination::ResidualTolerance,
                 });
             }
 
-            if m.abs() <= tol || (b - a).abs() <= tol {
+            if midpoint.abs() <= tol || (b - a).abs() <= tol {
                 return Ok(RootReport {
                     root: b,
-                    residual: fb,
+                    residual: f_at_b,
                     iterations: iter - 1,
                     termination: RootTermination::BracketWidth,
                 });
             }
 
-            let mut s = if fa != fc && fb != fc {
-                inverse_quadratic_interpolation(a, fa, b, fb, c, fc)
+            let mut trial = if f_at_a != f_at_c && f_at_b != f_at_c {
+                inverse_quadratic_interpolation(a, f_at_a, b, f_at_b, point_c, f_at_c)
             } else {
-                b - fb * (b - a) / (fb - fa)
+                b - f_at_b * (b - a) / (f_at_b - f_at_a)
             };
 
             let bound1 = a * T::HALF * T::HALF * T::THREE + b * T::HALF * T::HALF;
@@ -158,58 +158,63 @@ impl<T: Numeric> Brent<T> {
                 (bound2, bound1)
             };
 
-            let condition1 = s < min_b || s > max_b;
-            let condition2 = mflag && (s - b).abs() >= (b - c).abs() * T::HALF;
-            let condition3 = !mflag && (s - b).abs() >= (c - d).abs() * T::HALF;
-            let condition4 = mflag && (b - c).abs() < tol;
-            let condition5 = !mflag && (c - d).abs() < tol;
+            let condition1 = trial < min_b || trial > max_b;
+            let condition2 = mflag && (trial - b).abs() >= (b - point_c).abs() * T::HALF;
+            let condition3 = !mflag && (trial - b).abs() >= (point_c - prev_step).abs() * T::HALF;
+            let condition4 = mflag && (b - point_c).abs() < tol;
+            let condition5 = !mflag && (point_c - prev_step).abs() < tol;
 
-            if !s.is_finite() || condition1 || condition2 || condition3 || condition4 || condition5
+            if !trial.is_finite()
+                || condition1
+                || condition2
+                || condition3
+                || condition4
+                || condition5
             {
-                s = a * T::HALF + b * T::HALF;
+                trial = a * T::HALF + b * T::HALF;
                 mflag = true;
             } else {
                 mflag = false;
             }
 
-            let fs = f.eval(s);
-            if !fs.is_finite() {
+            let f_at_trial = f.eval(trial);
+            if !f_at_trial.is_finite() {
                 return Err(SolveError::NonFinite);
             }
 
-            d = c;
-            c = b;
-            fc = fb;
+            prev_step = point_c;
+            point_c = b;
+            f_at_c = f_at_b;
 
-            if same_sign(fa, fs) {
-                a = s;
-                fa = fs;
+            if same_sign(f_at_a, f_at_trial) {
+                a = trial;
+                f_at_a = f_at_trial;
             } else {
-                b = s;
-                fb = fs;
+                b = trial;
+                f_at_b = f_at_trial;
             }
 
-            if fa.abs() < fb.abs() {
+            if f_at_a.abs() < f_at_b.abs() {
                 core::mem::swap(&mut a, &mut b);
-                core::mem::swap(&mut fa, &mut fb);
+                core::mem::swap(&mut f_at_a, &mut f_at_b);
             }
 
             // Check convergence immediately after updating the best estimate
-            if fb.abs() <= self.ftol {
+            if f_at_b.abs() <= self.ftol {
                 return Ok(RootReport {
                     root: b,
-                    residual: fb,
+                    residual: f_at_b,
                     iterations: iter,
                     termination: RootTermination::ResidualTolerance,
                 });
             }
 
             let tol_after = self.xtol * (T::ONE + b.abs());
-            let m_after = (a - b) * T::HALF;
-            if m_after.abs() <= tol_after || (b - a).abs() <= tol_after {
+            let midpoint_after = (a - b) * T::HALF;
+            if midpoint_after.abs() <= tol_after || (b - a).abs() <= tol_after {
                 return Ok(RootReport {
                     root: b,
-                    residual: fb,
+                    residual: f_at_b,
                     iterations: iter,
                     termination: RootTermination::BracketWidth,
                 });
@@ -227,15 +232,15 @@ impl<T: Numeric> Brent<T> {
 #[must_use]
 pub(crate) fn inverse_quadratic_interpolation<T: Numeric>(
     a: T,
-    fa: T,
+    f_at_a: T,
     b: T,
-    fb: T,
-    c: T,
-    fc: T,
+    f_at_b: T,
+    point_c: T,
+    f_at_c: T,
 ) -> T {
-    let s_a = a * fb * fc / ((fa - fb) * (fa - fc));
-    let s_b = b * fa * fc / ((fb - fa) * (fb - fc));
-    let s_c = c * fa * fb / ((fc - fa) * (fc - fb));
+    let s_a = a * f_at_b * f_at_c / ((f_at_a - f_at_b) * (f_at_a - f_at_c));
+    let s_b = b * f_at_a * f_at_c / ((f_at_b - f_at_a) * (f_at_b - f_at_c));
+    let s_c = point_c * f_at_a * f_at_b / ((f_at_c - f_at_a) * (f_at_c - f_at_b));
     s_a + s_b + s_c
 }
 

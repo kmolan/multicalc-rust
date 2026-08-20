@@ -42,8 +42,8 @@ pub struct ConstantTurnAndSpeed {
 impl VectorFn<5, 5> for ConstantTurnAndSpeed {
     fn eval<S: Numeric>(&self, state: &[S; 5]) -> [S; 5] {
         let [x, y, heading, speed, turn_rate] = *state;
-        let dt = S::from_f64(self.timestep);
-        let next_heading = heading + turn_rate * dt;
+        let timestep = S::from_f64(self.timestep);
+        let next_heading = heading + turn_rate * timestep;
         // Straighten the arc when the turn rate is tiny, so the radius cannot blow up.
         let (next_x, next_y) = if turn_rate.abs() > S::from_f64(1e-6) {
             let radius = speed / turn_rate;
@@ -53,8 +53,8 @@ impl VectorFn<5, 5> for ConstantTurnAndSpeed {
             )
         } else {
             (
-                x + speed * heading.cos() * dt,
-                y + speed * heading.sin() * dt,
+                x + speed * heading.cos() * timestep,
+                y + speed * heading.sin() * timestep,
             )
         };
         [next_x, next_y, next_heading.wrap_to_pi(), speed, turn_rate]

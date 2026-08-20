@@ -5,41 +5,44 @@ use crate::linear_algebra::Vector;
 use crate::ode::tableau::*;
 use crate::scalar::Numeric;
 
-/// One accepted RK45 step, carrying the data for cubic-Hermite interpolation inside `[t0, t1]`.
+/// One accepted RK45 step, carrying the data for cubic-Hermite interpolation inside `[time_start, time_end]`.
 #[derive(Debug, Clone, Copy)]
 pub struct Step<const N: usize, T: Numeric = f64> {
     /// Step start time.
-    pub t0: T,
+    pub time_start: T,
     /// Step end time.
-    pub t1: T,
-    /// State at `t0`.
-    pub y0: Vector<N, T>,
-    /// State at `t1`.
-    pub y1: Vector<N, T>,
-    /// Derivative `f(t0, y0)`.
-    pub f0: Vector<N, T>,
-    /// Derivative `f(t1, y1)`.
-    pub f1: Vector<N, T>,
+    pub time_end: T,
+    /// State at `time_start`.
+    pub state_start: Vector<N, T>,
+    /// State at `time_end`.
+    pub state_end: Vector<N, T>,
+    /// Derivative `f(time_start, state_start)`.
+    pub derivative_start: Vector<N, T>,
+    /// Derivative `f(time_end, state_end)`.
+    pub derivative_end: Vector<N, T>,
 }
 
 impl<const N: usize, T: Numeric> Step<N, T> {
-    /// Cubic-Hermite interpolation of the state at `t` in `[t0, t1]`. Returns `y0` at `t0`
-    /// and `y1` at `t1` exactly.
-    pub fn interpolate(&self, t: T) -> Vector<N, T> {
-        let h = self.t1 - self.t0;
-        let s = (t - self.t0) / h; // normalized position in [0, 1]
-        let s2 = s * s;
-        let s3 = s2 * s;
+    /// Cubic-Hermite interpolation of the state at `time` in `[time_start, time_end]`. Returns `state_start` at `time_start`
+    /// and `state_end` at `time_end` exactly.
+    pub fn interpolate(&self, time: T) -> Vector<N, T> {
+        let h = self.time_end - self.time_start;
+        let frac = (time - self.time_start) / h; // normalized position in [0, 1]
+        let frac2 = frac * frac;
+        let frac3 = frac2 * frac;
         let three = T::from_f64(3.0);
-        let h00 = T::TWO * s3 - three * s2 + T::ONE;
-        let h10 = s3 - T::TWO * s2 + s;
-        let h01 = -T::TWO * s3 + three * s2;
-        let h11 = s3 - s2;
-        self.y0.scale(h00) + self.f0.scale(h10 * h) + self.y1.scale(h01) + self.f1.scale(h11 * h)
+        let h00 = T::TWO * frac3 - three * frac2 + T::ONE;
+        let h10 = frac3 - T::TWO * frac2 + frac;
+        let h01 = -T::TWO * frac3 + three * frac2;
+        let h11 = frac3 - frac2;
+        self.state_start.scale(h00)
+            + self.derivative_start.scale(h10 * h)
+            + self.state_end.scale(h01)
+            + self.derivative_end.scale(h11 * h)
     }
 }
 
-/// Adaptive Dormand–Prince 5(4) integrator for `y' = f(t, y)` with state `Vector<N, T>`.
+/// Adaptive Dormand–Prince 5(4) integrator for `y' = f(time, y)` with state `Vector<N, T>`.
 ///
 /// Build with [`Rk45::default`] and adjust with the `with_*` methods. Solve with
 /// [`solve`](Rk45::solve), stream accepted steps with [`for_each_step`](Rk45::for_each_step),
@@ -117,8 +120,8 @@ impl<T: Numeric> Rk45<T> {
 #[must_use]
 fn error_norm<const N: usize, T: Numeric>(
     err: &Vector<N, T>,
-    y0: &Vector<N, T>,
-    y1: &Vector<N, T>,
+    state_start: &Vector<N, T>,
+    state_end: &Vector<N, T>,
     atol: T,
     rtol: T,
 ) -> T {
@@ -126,10 +129,15 @@ fn error_norm<const N: usize, T: Numeric>(
         return T::ZERO;
     }
     let mut sum = T::ZERO;
-    for ((e, a), b) in err.as_array().iter().zip(y0.as_array()).zip(y1.as_array()) {
+    for ((err_i, a), b) in err
+        .as_array()
+        .iter()
+        .zip(state_start.as_array())
+        .zip(state_end.as_array())
+    {
         let scale = atol + rtol * a.abs().max(b.abs());
-        let r = *e / scale;
-        sum += r * r;
+        let ratio = *err_i / scale;
+        sum += ratio * ratio;
     }
     (sum / T::from_usize(N)).sqrt()
 }
@@ -138,7 +146,7 @@ fn error_norm<const N: usize, T: Numeric>(
 /// Returns `T::ZERO` when `N == 0`.
 #[must_use]
 fn scaled_norm<const N: usize, T: Numeric>(
-    v: &Vector<N, T>,
+    vector: &Vector<N, T>,
     y: &Vector<N, T>,
     atol: T,
     rtol: T,
@@ -147,99 +155,106 @@ fn scaled_norm<const N: usize, T: Numeric>(
         return T::ZERO;
     }
     let mut sum = T::ZERO;
-    for (e, a) in v.as_array().iter().zip(y.as_array()) {
+    for (err_i, a) in vector.as_array().iter().zip(y.as_array()) {
         let scale = atol + rtol * a.abs();
-        let r = *e / scale;
-        sum += r * r;
+        let ratio = *err_i / scale;
+        sum += ratio * ratio;
     }
     (sum / T::from_usize(N)).sqrt()
 }
 
 impl<T: Numeric> Rk45<T> {
-    /// One Dormand–Prince 5(4) trial step of size `h` from `(t, y)`.
+    /// One Dormand–Prince 5(4) trial step of size `h` from `(time, y)`.
     ///
-    /// `k1` is `f(t, y)`, supplied by the caller so it can be reused from the previous
-    /// accepted step (FSAL). Returns `(y5, err, k7)`: the 5th-order state `y5`, the embedded
-    /// error estimate `err = y5 − y4`, and `k7 = f(t + h, y5)` (the next step's `k1`).
+    /// `stage1` is `f(time, y)`, supplied by the caller so it can be reused from the previous
+    /// accepted step (FSAL). Returns `(state5, err, stage7)`: the 5th-order state `state5`, the embedded
+    /// error estimate `err = state5 − y4`, and `stage7 = f(time + h, state5)` (the next step's `stage1`).
     fn dopri_step<const N: usize, F>(
         &self,
         f: &F,
-        t: T,
+        time: T,
         y: &Vector<N, T>,
         h: T,
-        k1: Vector<N, T>,
+        stage1: Vector<N, T>,
     ) -> (Vector<N, T>, Vector<N, T>, Vector<N, T>)
     where
         F: Fn(T, &Vector<N, T>) -> Vector<N, T>,
     {
-        let c2 = T::from_f64(C2);
-        let c3 = T::from_f64(C3);
-        let c4 = T::from_f64(C4);
-        let c5 = T::from_f64(C5);
+        let node2 = T::from_f64(NODE2);
+        let node3 = T::from_f64(NODE3);
+        let node4 = T::from_f64(NODE4);
+        let node5 = T::from_f64(NODE5);
         // stage coefficients times h
-        let a21 = T::from_f64(A21) * h;
-        let a31 = T::from_f64(A31) * h;
-        let a32 = T::from_f64(A32) * h;
-        let a41 = T::from_f64(A41) * h;
-        let a42 = T::from_f64(A42) * h;
-        let a43 = T::from_f64(A43) * h;
-        let a51 = T::from_f64(A51) * h;
-        let a52 = T::from_f64(A52) * h;
-        let a53 = T::from_f64(A53) * h;
-        let a54 = T::from_f64(A54) * h;
-        let a61 = T::from_f64(A61) * h;
-        let a62 = T::from_f64(A62) * h;
-        let a63 = T::from_f64(A63) * h;
-        let a64 = T::from_f64(A64) * h;
-        let a65 = T::from_f64(A65) * h;
+        let a21 = T::from_f64(STAGE_A21) * h;
+        let a31 = T::from_f64(STAGE_A31) * h;
+        let a32 = T::from_f64(STAGE_A32) * h;
+        let a41 = T::from_f64(STAGE_A41) * h;
+        let a42 = T::from_f64(STAGE_A42) * h;
+        let a43 = T::from_f64(STAGE_A43) * h;
+        let a51 = T::from_f64(STAGE_A51) * h;
+        let a52 = T::from_f64(STAGE_A52) * h;
+        let a53 = T::from_f64(STAGE_A53) * h;
+        let a54 = T::from_f64(STAGE_A54) * h;
+        let a61 = T::from_f64(STAGE_A61) * h;
+        let a62 = T::from_f64(STAGE_A62) * h;
+        let a63 = T::from_f64(STAGE_A63) * h;
+        let a64 = T::from_f64(STAGE_A64) * h;
+        let a65 = T::from_f64(STAGE_A65) * h;
 
-        let k2 = f(t + c2 * h, &(*y + k1.scale(a21)));
-        let k3 = f(t + c3 * h, &(*y + k1.scale(a31) + k2.scale(a32)));
-        let k4 = f(
-            t + c4 * h,
-            &(*y + k1.scale(a41) + k2.scale(a42) + k3.scale(a43)),
+        let stage2 = f(time + node2 * h, &(*y + stage1.scale(a21)));
+        let stage3 = f(
+            time + node3 * h,
+            &(*y + stage1.scale(a31) + stage2.scale(a32)),
         );
-        let k5 = f(
-            t + c5 * h,
-            &(*y + k1.scale(a51) + k2.scale(a52) + k3.scale(a53) + k4.scale(a54)),
+        let stage4 = f(
+            time + node4 * h,
+            &(*y + stage1.scale(a41) + stage2.scale(a42) + stage3.scale(a43)),
         );
-        let k6 = f(
-            t + h,
-            &(*y + k1.scale(a61) + k2.scale(a62) + k3.scale(a63) + k4.scale(a64) + k5.scale(a65)),
+        let stage5 = f(
+            time + node5 * h,
+            &(*y + stage1.scale(a51) + stage2.scale(a52) + stage3.scale(a53) + stage4.scale(a54)),
+        );
+        let stage6 = f(
+            time + h,
+            &(*y + stage1.scale(a61)
+                + stage2.scale(a62)
+                + stage3.scale(a63)
+                + stage4.scale(a64)
+                + stage5.scale(a65)),
         );
 
-        let y5 = *y
-            + (k1.scale(T::from_f64(B1))
-                + k3.scale(T::from_f64(B3))
-                + k4.scale(T::from_f64(B4))
-                + k5.scale(T::from_f64(B5))
-                + k6.scale(T::from_f64(B6)))
+        let state5 = *y
+            + (stage1.scale(T::from_f64(WEIGHT1))
+                + stage3.scale(T::from_f64(WEIGHT3))
+                + stage4.scale(T::from_f64(WEIGHT4))
+                + stage5.scale(T::from_f64(WEIGHT5))
+                + stage6.scale(T::from_f64(WEIGHT6)))
             .scale(h);
-        let k7 = f(t + h, &y5);
-        let err = (k1.scale(T::from_f64(E1))
-            + k3.scale(T::from_f64(E3))
-            + k4.scale(T::from_f64(E4))
-            + k5.scale(T::from_f64(E5))
-            + k6.scale(T::from_f64(E6))
-            + k7.scale(T::from_f64(E7)))
+        let stage7 = f(time + h, &state5);
+        let err = (stage1.scale(T::from_f64(ERROR1))
+            + stage3.scale(T::from_f64(ERROR3))
+            + stage4.scale(T::from_f64(ERROR4))
+            + stage5.scale(T::from_f64(ERROR5))
+            + stage6.scale(T::from_f64(ERROR6))
+            + stage7.scale(T::from_f64(ERROR7)))
         .scale(h);
-        (y5, err, k7)
+        (state5, err, stage7)
     }
 
     /// Picks the first step size, signed by `dir` (`+1` forward, `-1` backward).
     ///
     /// If `first_step` was set it is used directly (capped by `max_step` and `span`).
     /// Otherwise this is the Hairer–Wanner heuristic: size a tentative step from the
-    /// scaled norms of `y0` and `f0`, take one explicit Euler probe to estimate the second
-    /// derivative, then combine them for a step matched to the method order (5). `f0` is
-    /// `f(t0, y0)` and `span` is `|tf − t0|`; the result never exceeds `max_step` or `span`.
+    /// scaled norms of `state_start` and `derivative_start`, take one explicit Euler probe to estimate the second
+    /// derivative, then combine them for a step matched to the method order (5). `derivative_start` is
+    /// `f(time_start, state_start)` and `span` is `|time_final − time_start|`; the result never exceeds `max_step` or `span`.
     #[must_use]
     fn select_initial_step<const N: usize, F>(
         &self,
         f: &F,
-        t0: T,
-        y0: &Vector<N, T>,
-        f0: &Vector<N, T>,
+        time_start: T,
+        state_start: &Vector<N, T>,
+        derivative_start: &Vector<N, T>,
         dir: T,
         span: T,
     ) -> T
@@ -250,29 +265,34 @@ impl<T: Numeric> Rk45<T> {
             let h = self.first_step.min(self.max_step).min(span);
             return dir * h;
         }
-        let d0 = scaled_norm(y0, y0, self.atol, self.rtol);
-        let d1 = scaled_norm(f0, y0, self.atol, self.rtol);
-        let h0 = if d0 < T::from_f64(1e-5) || d1 < T::from_f64(1e-5) {
+        let norm0 = scaled_norm(state_start, state_start, self.atol, self.rtol);
+        let norm1 = scaled_norm(derivative_start, state_start, self.atol, self.rtol);
+        let step0 = if norm0 < T::from_f64(1e-5) || norm1 < T::from_f64(1e-5) {
             T::from_f64(1e-6)
         } else {
-            T::from_f64(0.01) * d0 / d1
+            T::from_f64(0.01) * norm0 / norm1
         };
-        let y1 = *y0 + f0.scale(dir * h0);
-        let f1 = f(t0 + dir * h0, &y1);
-        let d2 = scaled_norm(&(f1 - *f0), y0, self.atol, self.rtol) / h0;
+        let state_end = *state_start + derivative_start.scale(dir * step0);
+        let derivative_end = f(time_start + dir * step0, &state_end);
+        let norm2 = scaled_norm(
+            &(derivative_end - *derivative_start),
+            state_start,
+            self.atol,
+            self.rtol,
+        ) / step0;
         // exponent 1/(p+1) with method order p = 5
-        let h1 = if d1.max(d2) <= T::from_f64(1e-15) {
-            (h0 * T::from_f64(1e-3)).max(T::from_f64(1e-6))
+        let step1 = if norm1.max(norm2) <= T::from_f64(1e-15) {
+            (step0 * T::from_f64(1e-3)).max(T::from_f64(1e-6))
         } else {
-            (T::from_f64(0.01) / d1.max(d2)).powf(T::ONE / T::from_f64(6.0))
+            (T::from_f64(0.01) / norm1.max(norm2)).powf(T::ONE / T::from_f64(6.0))
         };
-        let h = (T::from_f64(100.0) * h0)
-            .min(h1)
+        let h = (T::from_f64(100.0) * step0)
+            .min(step1)
             .min(span.min(self.max_step));
         dir * h
     }
 
-    /// Integrates from `t0` to `tf`, invoking `obs` with each accepted [`Step`], and returns
+    /// Integrates from `time_start` to `time_final`, invoking `obs` with each accepted [`Step`], and returns
     /// the final state.
     ///
     /// # Errors
@@ -298,73 +318,78 @@ impl<T: Numeric> Rk45<T> {
     pub fn for_each_step<const N: usize, F, O>(
         &self,
         f: &F,
-        t0: T,
-        y0: &Vector<N, T>,
-        tf: T,
+        time_start: T,
+        state_start: &Vector<N, T>,
+        time_final: T,
         mut obs: O,
     ) -> Result<Vector<N, T>, IntegrateError>
     where
         F: Fn(T, &Vector<N, T>) -> Vector<N, T>,
         O: FnMut(&Step<N, T>),
     {
-        if !t0.is_finite() || !tf.is_finite() || t0 == tf {
+        if !time_start.is_finite() || !time_final.is_finite() || time_start == time_final {
             return Err(IntegrateError::LimitsIllDefined);
         }
-        let span = (tf - t0).abs();
-        let dir = if tf > t0 { T::ONE } else { -T::ONE };
+        let span = (time_final - time_start).abs();
+        let dir = if time_final > time_start {
+            T::ONE
+        } else {
+            -T::ONE
+        };
 
-        let mut t = t0;
-        let mut y = *y0;
-        let mut k1 = f(t, &y);
-        if !y.is_finite() || !k1.is_finite() {
+        let mut time = time_start;
+        let mut y = *state_start;
+        let mut stage1 = f(time, &y);
+        if !y.is_finite() || !stage1.is_finite() {
             return Err(IntegrateError::NonFinite);
         }
-        let mut h = self.select_initial_step(f, t0, &y, &k1, dir, span);
+        let mut h = self.select_initial_step(f, time_start, &y, &stage1, dir, span);
         let mut err_prev = T::from_f64(1e-4);
         let mut kahan_c = T::ZERO;
         let mut steps = 0usize;
 
         for _ in 0..self.max_steps {
             steps += 1;
-            // Do not overshoot tf (compare signed remaining against signed h).
-            let remaining = tf - t;
+            // Do not overshoot time_final (compare signed remaining against signed h).
+            let remaining = time_final - time;
             if h.abs() > remaining.abs() {
                 h = remaining;
             }
 
-            let (y5, err_vec, k7) = self.dopri_step(f, t, &y, h, k1);
-            if !y5.is_finite() || !err_vec.is_finite() {
+            let (state5, err_vec, stage7) = self.dopri_step(f, time, &y, h, stage1);
+            if !state5.is_finite() || !err_vec.is_finite() {
                 return Err(IntegrateError::NonFinite);
             }
-            let err = error_norm(&err_vec, &y, &y5, self.atol, self.rtol);
+            let err = error_norm(&err_vec, &y, &state5, self.atol, self.rtol);
             let accept = err <= T::ONE;
 
             if accept {
-                // Kahan-compensated t += h.
-                let yy = h - kahan_c;
-                let tnew = t + yy;
-                kahan_c = (tnew - t) - yy;
+                // Kahan-compensated time += h.
+                let delta = h - kahan_c;
+                let tnew = time + delta;
+                kahan_c = (tnew - time) - delta;
                 let step = Step {
-                    t0: t,
-                    t1: tnew,
-                    y0: y,
-                    y1: y5,
-                    f0: k1,
-                    f1: k7,
+                    time_start: time,
+                    time_end: tnew,
+                    state_start: y,
+                    state_end: state5,
+                    derivative_start: stage1,
+                    derivative_end: stage7,
                 };
                 obs(&step);
-                t = tnew;
-                y = y5;
-                k1 = k7; // FSAL
-                if (tf - t).abs() <= T::EPSILON * (T::ONE + tf.abs()) {
+                time = tnew;
+                y = state5;
+                stage1 = stage7; // FSAL
+                if (time_final - time).abs() <= T::EPSILON * (T::ONE + time_final.abs()) {
                     return Ok(y);
                 }
             }
 
             // PI step-size update (uses err and the previous accepted err).
-            let e = err.max(T::from_f64(1e-10));
-            let factor =
-                T::from_f64(0.9) * e.powf(-T::from_f64(0.17)) * err_prev.powf(T::from_f64(0.04));
+            let err_i = err.max(T::from_f64(1e-10));
+            let factor = T::from_f64(0.9)
+                * err_i.powf(-T::from_f64(0.17))
+                * err_prev.powf(T::from_f64(0.04));
             let mut factor = factor.max(T::from_f64(0.2)).min(T::from_f64(10.0));
             if !accept {
                 factor = factor.min(T::ONE);
@@ -383,22 +408,22 @@ impl<T: Numeric> Rk45<T> {
         Err(IntegrateError::DidNotConverge { steps })
     }
 
-    /// Integrates from `t0` to `tf` and returns the final state (no per-step callback).
+    /// Integrates from `time_start` to `time_final` and returns the final state (no per-step callback).
     pub fn solve<const N: usize, F>(
         &self,
         f: &F,
-        t0: T,
-        y0: &Vector<N, T>,
-        tf: T,
+        time_start: T,
+        state_start: &Vector<N, T>,
+        time_final: T,
     ) -> Result<Vector<N, T>, IntegrateError>
     where
         F: Fn(T, &Vector<N, T>) -> Vector<N, T>,
     {
-        self.for_each_step(f, t0, y0, tf, |_| {})
+        self.for_each_step(f, time_start, state_start, time_final, |_| {})
     }
 
     /// Samples the solution at each time in `times` (sorted in the integration direction and lying
-    /// within `[t0, tf]`), writing to `out` via cubic-Hermite dense output. No allocation.
+    /// within `[time_start, time_final]`), writing to `out` via cubic-Hermite dense output. No allocation.
     ///
     /// # Errors
     /// [`LimitsIllDefined`](IntegrateError::LimitsIllDefined) if `times.len() !=
@@ -408,7 +433,7 @@ impl<T: Numeric> Rk45<T> {
     /// ```
     /// use multicalc::ode::Rk45;
     /// use multicalc::linear_algebra::Vector;
-    /// // Sample y' = -y at t = 0.5 and t = 1 by cubic-Hermite dense output.
+    /// // Sample y' = -y at time = 0.5 and time = 1 by cubic-Hermite dense output.
     /// let times = [0.5, 1.0];
     /// let mut out = [Vector::<1, f64>::zeros(); 2];
     /// Rk45::default()
@@ -420,8 +445,8 @@ impl<T: Numeric> Rk45<T> {
     pub fn solve_on_grid<const N: usize, F>(
         &self,
         f: &F,
-        t0: T,
-        y0: &Vector<N, T>,
+        time_start: T,
+        state_start: &Vector<N, T>,
         times: &[T],
         out: &mut [Vector<N, T>],
     ) -> Result<(), IntegrateError>
@@ -434,19 +459,19 @@ impl<T: Numeric> Rk45<T> {
         if times.is_empty() {
             return Ok(());
         }
-        let tf = times[times.len() - 1];
+        let time_final = times[times.len() - 1];
         let mut next = 0usize;
-        let _ = self.for_each_step(f, t0, y0, tf, |step| {
+        let _ = self.for_each_step(f, time_start, state_start, time_final, |step| {
             // Consume every requested time that falls in this accepted step (times are sorted).
             while next < times.len() {
-                let tq = times[next];
-                let in_step = if step.t1 >= step.t0 {
-                    tq >= step.t0 && tq <= step.t1
+                let time_query = times[next];
+                let in_step = if step.time_end >= step.time_start {
+                    time_query >= step.time_start && time_query <= step.time_end
                 } else {
-                    tq <= step.t0 && tq >= step.t1
+                    time_query <= step.time_start && time_query >= step.time_end
                 };
                 if in_step {
-                    out[next] = step.interpolate(tq);
+                    out[next] = step.interpolate(time_query);
                     next += 1;
                 } else {
                     break;

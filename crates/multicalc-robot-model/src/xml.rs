@@ -7,20 +7,20 @@ use roxmltree::Node;
 use crate::ModelError;
 
 /// Child elements of `node` with the given tag.
-pub(crate) fn elements<'a, 'input>(
-    node: Node<'a, 'input>,
+pub(crate) fn elements<'doc, 'input>(
+    node: Node<'doc, 'input>,
     tag: &'static str,
-) -> impl Iterator<Item = Node<'a, 'input>> {
+) -> impl Iterator<Item = Node<'doc, 'input>> {
     node.children()
         .filter(move |child| child.is_element() && child.tag_name().name() == tag)
 }
 
 /// First child element of `node` with the given tag.
 #[must_use]
-pub(crate) fn element<'a, 'input>(
-    node: Node<'a, 'input>,
+pub(crate) fn element<'doc, 'input>(
+    node: Node<'doc, 'input>,
     tag: &'static str,
-) -> Option<Node<'a, 'input>> {
+) -> Option<Node<'doc, 'input>> {
     elements(node, tag).next()
 }
 

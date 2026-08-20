@@ -33,7 +33,10 @@ fn main() {
 fn planning() -> (Trajectory, Vec<f64>) {
     println!("== Planning ==");
 
-    let waypoints: Vec<Vector<3, f64>> = WAYPOINTS.iter().map(|p| Vector::new(*p)).collect();
+    let waypoints: Vec<Vector<3, f64>> = WAYPOINTS
+        .iter()
+        .map(|waypoint| Vector::new(*waypoint))
+        .collect();
     let mut durations = vec![0.0; waypoints.len() - 1];
     durations_from_average_speed(&waypoints, AVERAGE_SPEED, &mut durations).unwrap();
 
@@ -49,7 +52,7 @@ fn planning() -> (Trajectory, Vec<f64>) {
         "  durations from {AVERAGE_SPEED} m/s      {:?}",
         durations
             .iter()
-            .map(|d| (d * 100.0).round() / 100.0)
+            .map(|coord| (coord * 100.0).round() / 100.0)
             .collect::<Vec<_>>()
     );
     println!(

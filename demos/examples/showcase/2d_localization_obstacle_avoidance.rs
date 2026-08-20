@@ -57,19 +57,19 @@ fn covariance_ellipse(
     covariance: &Matrix<5, 5, f64>,
     segments: usize,
 ) -> Vec<[f64; 2]> {
-    let (a, b, c) = (covariance[(0, 0)], covariance[(0, 1)], covariance[(1, 1)]);
-    let mean = 0.5 * (a + c);
-    let spread = (0.5 * (a - c)).hypot(b);
+    let (a, b, cov_yy) = (covariance[(0, 0)], covariance[(0, 1)], covariance[(1, 1)]);
+    let mean = 0.5 * (a + cov_yy);
+    let spread = (0.5 * (a - cov_yy)).hypot(b);
     let major = 2.0 * (mean + spread).max(0.0).sqrt();
     let minor = 2.0 * (mean - spread).max(0.0).sqrt();
-    let (sin, cos) = (0.5 * (2.0 * b).atan2(a - c)).sin_cos();
+    let (sin, cos) = (0.5 * (2.0 * b).atan2(a - cov_yy)).sin_cos();
     (0..=segments)
         .map(|i| {
-            let t = TAU * i as f64 / segments as f64;
-            let (ex, ey) = (major * t.cos(), minor * t.sin());
+            let angle = TAU * i as f64 / segments as f64;
+            let (ell_x, ell_y) = (major * angle.cos(), minor * angle.sin());
             [
-                center[0] + cos * ex - sin * ey,
-                center[1] + sin * ex + cos * ey,
+                center[0] + cos * ell_x - sin * ell_y,
+                center[1] + sin * ell_x + cos * ell_y,
             ]
         })
         .collect()
@@ -173,12 +173,12 @@ fn main() -> Result<(), VizError> {
         );
     }
 
-    let mut rr = RerunSink::live("multicalc-demos/2d-localization-obstacle-avoidance")?;
+    let mut sink = RerunSink::live("multicalc-demos/2d-localization-obstacle-avoidance")?;
     let mut world = LapWorld::new(20260722).expect("the pinned configuration is valid");
 
     // Statics at tick 0 so they forward-fill across the run.
-    rr.set_sequence("tick", 0);
-    rr.points2d_styled(
+    sink.set_sequence("tick", 0);
+    sink.points2d_styled(
         "world/map",
         &wall_points(&world.track().grid),
         &[CHROME],
@@ -198,7 +198,7 @@ fn main() -> Result<(), VizError> {
         .collect();
     let legend_colors: Vec<Rgba> = legend.iter().map(|(_, color)| *color).collect();
     let legend_labels: Vec<&str> = legend.iter().map(|(label, _)| *label).collect();
-    rr.points2d_labeled(
+    sink.points2d_labeled(
         "world/legend",
         &legend_points,
         &legend_colors,
@@ -215,7 +215,7 @@ fn main() -> Result<(), VizError> {
     loop {
         let late_us = pacer.wait();
         n += 1;
-        rr.set_sequence("tick", n);
+        sink.set_sequence("tick", n);
         let record = world.step();
 
         if record.phase == Phase::Driving {
@@ -236,19 +236,19 @@ fn main() -> Result<(), VizError> {
         if n % GEOM_EVERY == 0 {
             // The true robot: its body, the way it faces, and the two wheels carrying it there.
             let drive = world.vehicle().drive();
-            rr.line_strips2d(
+            sink.line_strips2d(
                 "world/truth",
                 &[circle_outline(position, FOOTPRINT_RADIUS, 24)],
                 &[TRUTH],
                 &[0.02],
             )?;
-            rr.line_strips2d(
+            sink.line_strips2d(
                 "world/truth/heading",
                 &[heading_tick(pose, 0.3)],
                 &[TRUTH],
                 &[0.02],
             )?;
-            rr.line_strips2d(
+            sink.line_strips2d(
                 "world/truth/wheels",
                 &wheel_shapes(
                     pose,
@@ -268,7 +268,7 @@ fn main() -> Result<(), VizError> {
                         .iter()
                         .map(|particle| [particle[0], particle[1]])
                         .collect();
-                    rr.points2d_styled("world/cloud", &cloud, &[ACCENT], &[0.02])?;
+                    sink.points2d_styled("world/cloud", &cloud, &[ACCENT], &[0.02])?;
                 }
                 Phase::Driving => {
                     let fused = [record.estimate[0], record.estimate[1]];
@@ -278,14 +278,14 @@ fn main() -> Result<(), VizError> {
                     fused_trail.push_back(fused);
 
                     // The fused estimate: a dot, its 2σ ellipse, and its trail.
-                    rr.points2d_styled("world/fused", &[fused], &[HERO], &[0.06])?;
-                    rr.line_strips2d(
+                    sink.points2d_styled("world/fused", &[fused], &[HERO], &[0.06])?;
+                    sink.line_strips2d(
                         "world/fused/ellipse",
                         &[covariance_ellipse(fused, &record.covariance, 32)],
                         &[HERO],
                         &[0.012],
                     )?;
-                    rr.line_strips2d(
+                    sink.line_strips2d(
                         "world/fused/trail",
                         &[fused_trail.iter().copied().collect()],
                         &[HERO],
@@ -294,7 +294,7 @@ fn main() -> Result<(), VizError> {
 
                     // The most recent GPS fix.
                     if let Some(fix) = record.gps_fix {
-                        rr.points2d_styled("world/gps", &[fix], &[ACCENT], &[0.05])?;
+                        sink.points2d_styled("world/gps", &[fix], &[ACCENT], &[0.05])?;
                     }
 
                     // The lidar: a faint ray per beam, and the hit points.
@@ -316,15 +316,15 @@ fn main() -> Result<(), VizError> {
                             hits.push(end);
                         }
                     }
-                    rr.line_strips2d("world/lidar/rays", &rays, &[RAY], &[0.003])?;
-                    rr.points2d_styled("world/lidar/hits", &hits, &[TRUTH], &[0.02])?;
+                    sink.line_strips2d("world/lidar/rays", &rays, &[RAY], &[0.003])?;
+                    sink.points2d_styled("world/lidar/hits", &hits, &[TRUTH], &[0.02])?;
                 }
             }
         }
 
         // Scalars every tick while driving.
         if record.phase == Phase::Driving {
-            rr.scalar("plots/speed", record.twist.linear())?;
+            sink.scalar("plots/speed", record.twist.linear())?;
         }
 
         // Hud every HUD_EVERY ticks.
@@ -361,7 +361,7 @@ fn main() -> Result<(), VizError> {
                     )
                 }
             };
-            rr.text("hud/stats", &markdown)?;
+            sink.text("hud/stats", &markdown)?;
         }
     }
 }

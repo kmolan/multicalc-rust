@@ -41,7 +41,7 @@ pub struct Pid<T: Numeric = f64> {
     proportional_gain: T,
     integral_gain: T,
     derivative_gain: T,
-    dt: T,
+    timestep: T,
     output_minimum: T,
     output_maximum: T,
     integral: T,
@@ -55,29 +55,29 @@ impl<T: Numeric> Pid<T> {
     /// Builds a controller from its three gains and a fixed timestep.
     ///
     /// Returns [`ControlError::NonFinite`] if any argument is not finite, or
-    /// [`ControlError::NonPositiveTimestep`] if `dt` is not strictly positive. The output limits
+    /// [`ControlError::NonPositiveTimestep`] if `timestep` is not strictly positive. The output limits
     /// default to unbounded and the derivative filter defaults to pass-through.
     pub fn new(
         proportional_gain: T,
         integral_gain: T,
         derivative_gain: T,
-        dt: T,
+        timestep: T,
     ) -> Result<Self, ControlError> {
         if !proportional_gain.is_finite()
             || !integral_gain.is_finite()
             || !derivative_gain.is_finite()
-            || !dt.is_finite()
+            || !timestep.is_finite()
         {
             return Err(ControlError::NonFinite);
         }
-        if dt <= T::ZERO {
+        if timestep <= T::ZERO {
             return Err(ControlError::NonPositiveTimestep);
         }
         Ok(Self {
             proportional_gain,
             integral_gain,
             derivative_gain,
-            dt,
+            timestep,
             output_minimum: T::NEG_INFINITY,
             output_maximum: T::INFINITY,
             integral: T::ZERO,
@@ -173,7 +173,7 @@ impl<T: Numeric> Pid<T> {
         // measurement, so the integral is seeded short by that one step and the derivative
         // contributes nothing.
         self.integral =
-            output - self.proportional_gain * error - self.integral_gain * error * self.dt;
+            output - self.proportional_gain * error - self.integral_gain * error * self.timestep;
         self.derivative_filter.reset();
         self.previous_measurement = measurement;
         self.previous_error = error;
@@ -190,7 +190,7 @@ impl<T: Numeric> Pid<T> {
         // The measurement falling is the same as the error rising, so the difference is taken the
         // other way round and the term keeps the sign a textbook PID gives it.
         let raw_derivative = if self.has_previous_measurement {
-            (self.previous_measurement - measurement) / self.dt
+            (self.previous_measurement - measurement) / self.timestep
         } else {
             T::ZERO
         };
@@ -199,7 +199,7 @@ impl<T: Numeric> Pid<T> {
         self.previous_error = error;
         self.has_previous_measurement = true;
 
-        let candidate_integral = self.integral + self.integral_gain * error * self.dt;
+        let candidate_integral = self.integral + self.integral_gain * error * self.timestep;
         let unsaturated = proportional_term + candidate_integral + derivative_term;
         let output = unsaturated
             .max(self.output_minimum)

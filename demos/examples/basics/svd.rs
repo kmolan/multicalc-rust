@@ -27,9 +27,9 @@ fn time<T>(iters: u32, mut f: impl FnMut() -> T) -> (T, f64) {
 #[must_use]
 fn max_abs<const R: usize, const C: usize>(a: Matrix<R, C>, b: Matrix<R, C>) -> f64 {
     let mut worst = 0.0f64;
-    for r in 0..R {
-        for c in 0..C {
-            worst = worst.max((a[(r, c)] - b[(r, c)]).abs());
+    for row in 0..R {
+        for col in 0..C {
+            worst = worst.max((a[(row, col)] - b[(row, col)]).abs());
         }
     }
     worst
@@ -39,9 +39,9 @@ fn max_abs<const R: usize, const C: usize>(a: Matrix<R, C>, b: Matrix<R, C>) -> 
 #[must_use]
 fn max_entry<const R: usize, const C: usize>(a: Matrix<R, C>) -> f64 {
     let mut worst = 0.0f64;
-    for r in 0..R {
-        for c in 0..C {
-            worst = worst.max(a[(r, c)].abs());
+    for row in 0..R {
+        for col in 0..C {
+            worst = worst.max(a[(row, col)].abs());
         }
     }
     worst
@@ -67,26 +67,26 @@ fn kabsch() {
     ];
     // Cross-covariance H = Σ (R·p) pᵀ.
     let mut h = Matrix3D::<f64>::zeros();
-    for p in pts {
-        let pv = Vector::new(p);
-        let q = rot * pv;
+    for point in pts {
+        let vec_p = Vector::new(point);
+        let rotated = rot * vec_p;
         for i in 0..3 {
             for j in 0..3 {
-                h[(i, j)] += q[i] * pv[j];
+                h[(i, j)] += rotated[i] * vec_p[j];
             }
         }
     }
 
-    let (f, ns) = time(100_000, || black_box(h).svd().unwrap());
-    let (u, v) = (f.u(), f.v());
-    let mut rhat = u * v.transpose();
+    let (f, nanos) = time(100_000, || black_box(h).svd().unwrap());
+    let (left, right) = (f.left(), f.right());
+    let mut rhat = left * right.transpose();
     // Reflection fix: force a proper rotation (determinant +1).
     if rhat.determinant() < 0.0 {
-        let mut uf = u;
+        let mut u_fix = left;
         for i in 0..3 {
-            uf[(i, 2)] = -uf[(i, 2)];
+            u_fix[(i, 2)] = -u_fix[(i, 2)];
         }
-        rhat = uf * v.transpose();
+        rhat = u_fix * right.transpose();
     }
     let rot_err = max_abs(rhat, rot);
     let ortho_err = max_abs(rhat.transpose() * rhat, Matrix3D::identity());
@@ -95,60 +95,62 @@ fn kabsch() {
         "SVD should recover the rotation"
     );
     let label = "Kabsch 3x3";
-    println!("  {label:<20} {ns:>8.1} ns   R-error {rot_err:.1e}   orthogonality {ortho_err:.1e}");
+    println!(
+        "  {label:<20} {nanos:>8.1} ns   R-error {rot_err:.1e}   orthogonality {ortho_err:.1e}"
+    );
 }
 
 /// Redundant 7-DoF arm: resolve joint rates with the wide (6x7) Jacobian pseudo-inverse.
 fn redundant_arm() {
-    let j = Matrix::<6, 7>::from_fn(|r, c| {
-        if c < 6 {
-            if r == c {
+    let j = Matrix::<6, 7>::from_fn(|row, col| {
+        if col < 6 {
+            if row == col {
                 2.0
             } else {
-                0.3 / (1.0 + (r + c) as f64)
+                0.3 / (1.0 + (row + col) as f64)
             }
         } else {
-            0.5 * (r as f64 + 1.0)
+            0.5 * (row as f64 + 1.0)
         }
     });
-    let (jp, ns) = time(50_000, || black_box(j).pseudo_inverse().unwrap());
-    let mp_err = max_abs(j * jp * j, j);
-    let jjp = j * jp;
+    let (pinv, nanos) = time(50_000, || black_box(j).pseudo_inverse().unwrap());
+    let mp_err = max_abs(j * pinv * j, j);
+    let jjp = j * pinv;
     let sym_err = max_abs(jjp, jjp.transpose());
     let label = "Redundant arm 6x7";
-    println!("  {label:<20} {ns:>8.1} ns   JJ⁺J-J {mp_err:.1e}   symmetry {sym_err:.1e}");
+    println!("  {label:<20} {nanos:>8.1} ns   JJ⁺J-J {mp_err:.1e}   symmetry {sym_err:.1e}");
 }
 
 /// Near kinematic singularity: two joint axes nearly align, so one singular value is tiny.
 fn near_singular() {
-    let mut j = Matrix6D::from_fn(|i, jj| {
-        if i == jj {
-            1.0 + 0.1 * jj as f64
+    let mut j = Matrix6D::from_fn(|i, jac_col| {
+        if i == jac_col {
+            1.0 + 0.1 * jac_col as f64
         } else {
-            0.2 / (1.0 + (i + jj) as f64)
+            0.2 / (1.0 + (i + jac_col) as f64)
         }
     });
-    for r in 0..6 {
-        let j4 = j[(r, 4)];
-        j[(r, 5)] = j4 + 1e-8 * (r as f64 + 1.0);
+    for row in 0..6 {
+        let col4 = j[(row, 4)];
+        j[(row, 5)] = col4 + 1e-8 * (row as f64 + 1.0);
     }
-    let (f, ns) = time(100_000, || black_box(j).svd().unwrap());
+    let (f, nanos) = time(100_000, || black_box(j).svd().unwrap());
     let cond = f.condition_number();
     let tol = 1e-4 * f.singular_values()[0];
     let rank = f.rank(tol);
     let pinv_max = max_entry(f.pseudo_inverse_tol(tol));
     let label = "Near-singular 6x6";
     println!(
-        "  {label:<20} {ns:>8.1} ns   cond {cond:.1e}   rank {rank}   |pinv|max {pinv_max:.1e}"
+        "  {label:<20} {nanos:>8.1} ns   cond {cond:.1e}   rank {rank}   |pinv|max {pinv_max:.1e}"
     );
 }
 
 /// Overdetermined plane fit: solve 30 noisy samples and cross-check the normal equations.
 fn overdetermined() {
     let sample = |i: usize| ((i as f64 * 0.37).sin(), (i as f64 * 0.53).cos());
-    let design = Matrix::<30, 3>::from_fn(|i, c| {
+    let design = Matrix::<30, 3>::from_fn(|i, col| {
         let (x, y) = sample(i);
-        match c {
+        match col {
             0 => x,
             1 => y,
             _ => 1.0,
@@ -158,7 +160,7 @@ fn overdetermined() {
         let (x, y) = sample(i);
         0.5 * x - 1.2 * y + 2.0 + 1e-3 * (i as f64 * 1.7).sin()
     });
-    let (x_svd, ns) = time(50_000, || {
+    let (x_svd, nanos) = time(50_000, || {
         black_box(design).svd().unwrap().solve(black_box(rhs))
     });
     let x_ne = (design.transpose() * design)
@@ -170,7 +172,7 @@ fn overdetermined() {
     }
     let residual = (design * x_svd - rhs).norm();
     let label = "Overdetermined 30x3";
-    println!("  {label:<20} {ns:>8.1} ns   vs normal-eq {vs_ne:.1e}   residual {residual:.1e}");
+    println!("  {label:<20} {nanos:>8.1} ns   vs normal-eq {vs_ne:.1e}   residual {residual:.1e}");
 }
 
 fn main() {

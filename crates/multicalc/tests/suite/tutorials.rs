@@ -1,4 +1,3 @@
-use std::fs;
 use std::path::Path;
 
 // Every tutorial page is compiled as a doctest through an `include_str!` in
@@ -9,9 +8,9 @@ use std::path::Path;
 fn every_tutorial_page_is_compiled_as_a_doctest() {
     let manifest_directory = Path::new(env!("CARGO_MANIFEST_DIR"));
     let carrier_source =
-        fs::read_to_string(manifest_directory.join("src/tutorial_examples.rs")).unwrap();
+        std::fs::read_to_string(manifest_directory.join("src/tutorial_examples.rs")).unwrap();
 
-    let mut pages: Vec<String> = fs::read_dir(manifest_directory.join("tutorials"))
+    let mut pages: Vec<String> = std::fs::read_dir(manifest_directory.join("tutorials"))
         .unwrap()
         .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
         .filter(|name| name.ends_with(".md"))
