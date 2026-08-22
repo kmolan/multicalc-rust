@@ -4,6 +4,7 @@
 use std::error::Error;
 use std::time::Instant;
 
+use multicalc::error::SignalError;
 use multicalc::estimation::{ImuNoise, MonteCarloLocalizer, NominalState};
 use multicalc::linear_algebra::{Vector, Vector3D};
 use multicalc::spatial::{FreeJointState, SE3, SO3, Twist};
@@ -590,9 +591,11 @@ impl FlightWorld {
 
     /// How far behind the truth the notches put something happening at `frequency_hertz`, in
     /// seconds.
+    ///
+    /// Returns the same errors as
+    /// [`FlightEstimator::notch_delay_at`](super::flight_estimator::FlightEstimator::notch_delay_at).
     #[inline]
-    #[must_use]
-    pub fn notch_delay_at(&self, frequency_hertz: f64) -> f64 {
+    pub fn notch_delay_at(&self, frequency_hertz: f64) -> Result<f64, SignalError> {
         self.estimator.notch_delay_at(frequency_hertz)
     }
 
