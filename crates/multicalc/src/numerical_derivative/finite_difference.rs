@@ -24,7 +24,7 @@ fn offsets<T: Numeric>(method: FiniteDifferenceMode) -> (T, T, T) {
 /// Configuration shared by the single- and multi-variable finite-difference differentiators.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FiniteDifferenceConfig<T = f64> {
-    /// The finite-difference step size. See [`mode::DEFAULT_STEP_SIZE`].
+    /// The finite-difference step size. See [`FiniteDifferenceMode::default_step_size`].
     pub step_size: T,
     /// Forward, Backward or Central difference.
     pub method: FiniteDifferenceMode,
@@ -36,9 +36,10 @@ pub struct FiniteDifferenceConfig<T = f64> {
 impl<T: Numeric> Default for FiniteDifferenceConfig<T> {
     /// Central difference with the default step size and multiplier; best for most cases.
     fn default() -> Self {
+        let method = FiniteDifferenceMode::Central;
         FiniteDifferenceConfig {
-            step_size: T::from_f64(mode::DEFAULT_STEP_SIZE),
-            method: FiniteDifferenceMode::Central,
+            step_size: method.default_step_size(),
+            method,
             step_size_multiplier: T::from_f64(mode::DEFAULT_STEP_SIZE_MULTIPLIER),
         }
     }
@@ -55,10 +56,13 @@ impl<T: Numeric> FiniteDifferenceConfig<T> {
         }
     }
 
-    /// Returns [`DiffError::StepSizeZero`] if the step size is zero.
+    /// Returns an error if the step size is zero, negative, infinite, or NaN.
     fn check_step_size(&self) -> Result<(), DiffError> {
         if self.step_size == T::ZERO {
             return Err(DiffError::StepSizeZero);
+        }
+        if !self.step_size.is_finite() || self.step_size < T::ZERO {
+            return Err(DiffError::InvalidStepSize);
         }
         Ok(())
     }
