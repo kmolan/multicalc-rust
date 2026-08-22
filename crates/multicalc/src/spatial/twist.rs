@@ -4,14 +4,17 @@ use core::ops::{Add, Neg, Sub};
 
 use crate::linear_algebra::{Vector, Vector3D, Vector6D};
 use crate::scalar::Numeric;
+use crate::spatial::Wrench;
 
 /// A spatial velocity (twist), stored linear-first in the crate-wide `[v; ω]` ordering.
 ///
 /// The type owns its layout: the only value constructor takes the linear and angular parts by name,
 /// so an `[ω; v]` mix-up is unrepresentable. Converters to and from a flat `[v; ω]` `Vector6D` are
 /// the explicit seam to the group API (`SE3::exp` and friends). This is a plain element of a vector
-/// space — `Add`/`Sub`/`Neg`/[`scale`](Twist::scale) act component-wise; the spatial *algebra*
-/// (adjoint action, Lie bracket) is not defined here.
+/// space. `Add`/`Sub`/`Neg`/[`scale`](Twist::scale) act component-wise. The spatial algebra is
+/// [`cross`](Twist::cross) (motion ×), [`cross_wrench`](Twist::cross_wrench) (force ×\*),
+/// [`dot_wrench`](Twist::dot_wrench) (power), and
+/// [`SE3::act_twist`](crate::spatial::SE3::act_twist) for a change of frame.
 ///
 /// ```
 /// use multicalc::linear_algebra::Vector6D;
@@ -149,6 +152,59 @@ impl<T: Numeric> Twist<T> {
             linear: self.linear.scale(scalar),
             angular: self.angular.scale(scalar),
         }
+    }
+
+    /// The motion cross product `self × other`: `[ω×v' + v×ω' ; ω×ω']`. Antisymmetric.
+    ///
+    /// ```
+    /// use multicalc::spatial::Twist;
+    /// let turn = Twist::from_array([0.0_f64, 0.0, 0.0, 0.0, 0.0, 1.0]);
+    /// let slide = Twist::from_array([1.0_f64, 0.0, 0.0, 0.0, 0.0, 0.0]);
+    /// // ω_z carries v_x onto y.
+    /// assert_eq!(turn.cross(slide).as_array(), [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]);
+    /// assert_eq!(turn.cross(turn).as_array(), [0.0; 6]);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn cross(self, other: Twist<T>) -> Twist<T> {
+        Twist {
+            linear: self.angular.cross(other.linear) + self.linear.cross(other.angular),
+            angular: self.angular.cross(other.angular),
+        }
+    }
+
+    /// The force cross product `self ×* wrench`: `[ω×f ; ω×τ + v×f]`.
+    ///
+    /// As a 6×6 it is the negative transpose of [`cross`](Twist::cross).
+    ///
+    /// ```
+    /// use multicalc::spatial::{Twist, Wrench};
+    /// let turn = Twist::from_array([0.0_f64, 0.0, 0.0, 0.0, 0.0, 1.0]);
+    /// let push = Wrench::from_array([1.0_f64, 0.0, 0.0, 0.0, 0.0, 0.0]);
+    /// // ω_z carries f_x onto y; no moment, since v and τ are zero.
+    /// assert_eq!(turn.cross_wrench(push).as_array(), [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn cross_wrench(self, wrench: Wrench<T>) -> Wrench<T> {
+        Wrench::new(
+            self.angular.cross(wrench.force()),
+            self.angular.cross(wrench.torque()) + self.linear.cross(wrench.force()),
+        )
+    }
+
+    /// The power product `v·f + ω·τ` against a [`Wrench`].
+    ///
+    /// ```
+    /// use multicalc::spatial::{Twist, Wrench};
+    /// let motion = Twist::from_array([1.0_f64, 2.0, 3.0, 4.0, 5.0, 6.0]);
+    /// let wrench = Wrench::from_array([1.0_f64; 6]);
+    /// assert_eq!(motion.dot_wrench(wrench), 21.0);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn dot_wrench(self, wrench: Wrench<T>) -> T {
+        self.linear.dot(wrench.force()) + self.angular.dot(wrench.torque())
     }
 }
 

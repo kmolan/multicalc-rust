@@ -225,6 +225,18 @@ const DOCS: &[Doc] = &[
         ],
     },
     Doc {
+        file: "spatial.md",
+        modules: &[Module {
+            name: "spatial",
+            cases: &[
+                "plucker_transforms",
+                "spatial_cross_products",
+                "spatial_inertia_algebra",
+                "spatial_inertia_transform_and_composite",
+            ],
+        }],
+    },
+    Doc {
         file: "dynamics.md",
         modules: &[Module {
             name: "dynamics",

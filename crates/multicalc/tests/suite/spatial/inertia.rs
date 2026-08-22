@@ -1,10 +1,10 @@
 //! Rigid-body inertia tests: constructor checks, moving the reference point, combining bodies,
-//! and scalar-generic behaviour at f32 and under autodiff.
+//! the momentum and energy a motion carries, and scalar-generic behaviour at f32 and under autodiff.
 
 use multicalc::error::SpatialError;
 use multicalc::linear_algebra::{Matrix, Matrix3D, Vector, Vector3D};
 use multicalc::scalar::Dual;
-use multicalc::spatial::SpatialInertia;
+use multicalc::spatial::{SE3, SpatialInertia, Twist};
 
 fn unit_inertia() -> Matrix3D {
     Matrix::from_diagonal([1.0, 1.0, 1.0])
@@ -12,6 +12,37 @@ fn unit_inertia() -> Matrix3D {
 
 fn origin() -> Vector3D {
     Vector::new([0.0, 0.0, 0.0])
+}
+
+/// A body that does not balance on its own origin and resists spinning differently about each axis.
+fn offset_body() -> SpatialInertia<f64> {
+    SpatialInertia::new(
+        2.5,
+        Vector::new([0.1, -0.2, 0.3]),
+        Matrix::new([
+            [0.05, 0.01, -0.02],
+            [0.01, 0.07, 0.003],
+            [-0.02, 0.003, 0.09],
+        ]),
+    )
+    .unwrap()
+}
+
+fn second_body() -> SpatialInertia<f64> {
+    SpatialInertia::from_diagonal_inertia(
+        1.25,
+        Vector::new([-0.3, 0.15, 0.05]),
+        Vector::new([0.02, 0.03, 0.04]),
+    )
+    .unwrap()
+}
+
+fn sample_velocity() -> Twist<f64> {
+    Twist::from_array([0.4, -1.1, 0.7, 1.3, 0.6, -0.8])
+}
+
+fn sample_pose() -> SE3<f64> {
+    SE3::exp(Vector::new([0.3, -0.4, 0.5, 0.2, 0.7, -0.1]))
 }
 
 #[test]
@@ -160,4 +191,173 @@ fn differentiates_through_the_mass() {
     // Spinning about the direction the point moved in does not change, so nothing depends on the
     // mass there.
     assert!((shifted[(0, 0)].deriv - 0.0).abs() < 1e-12);
+}
+
+#[test]
+fn momentum_matches_the_matrix_form() {
+    let body = offset_body();
+    let velocity = sample_velocity();
+    let got = body.momentum(velocity).to_vector();
+    let want = body.to_matrix() * velocity.to_vector();
+    for component in 0..6 {
+        assert!((got[component] - want[component]).abs() < 1e-12);
+    }
+}
+
+#[test]
+fn inertia_matrix_reads_the_same_across_the_diagonal() {
+    let block = offset_body().to_matrix();
+    for row in 0..6 {
+        for col in 0..6 {
+            assert!((block[(row, col)] - block[(col, row)]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn kinetic_energy_is_half_the_power_product() {
+    let body = offset_body();
+    let velocity = sample_velocity();
+    let paired = 0.5 * velocity.dot_wrench(body.momentum(velocity));
+    assert!((body.kinetic_energy(velocity) - paired).abs() < 1e-12);
+    assert!(body.kinetic_energy(velocity) > 0.0);
+    assert_eq!(body.kinetic_energy(Twist::zeros()), 0.0);
+}
+
+#[test]
+fn bias_wrench_is_the_velocity_carried_through_the_momentum() {
+    let body = offset_body();
+    let velocity = sample_velocity();
+    assert_eq!(
+        body.bias_wrench(velocity).as_array(),
+        velocity.cross_wrench(body.momentum(velocity)).as_array()
+    );
+}
+
+#[test]
+fn momentum_moves_with_the_frame() {
+    let body = offset_body();
+    let velocity = sample_velocity();
+    let pose = sample_pose();
+
+    let carried = pose.act_wrench(body.momentum(velocity));
+    let restated = pose.act_inertia(body).momentum(pose.act_twist(velocity));
+    assert!((carried - restated).to_vector().norm() < 1e-11);
+}
+
+#[test]
+fn kinetic_energy_does_not_care_which_frame_it_is_read_in() {
+    let body = offset_body();
+    let velocity = sample_velocity();
+    let pose = sample_pose();
+
+    let here = body.kinetic_energy(velocity);
+    let there = pose
+        .act_inertia(body)
+        .kinetic_energy(pose.act_twist(velocity));
+    assert!((here - there).abs() < 1e-11);
+}
+
+#[test]
+fn inertia_action_round_trips() {
+    let body = offset_body();
+    let pose = sample_pose();
+    let round_trip = pose.inverse_act_inertia(pose.act_inertia(body));
+
+    assert!((round_trip.mass() - body.mass()).abs() < 1e-12);
+    assert!((round_trip.center_of_mass() - body.center_of_mass()).norm() < 1e-12);
+    for row in 0..3 {
+        for col in 0..3 {
+            let got = round_trip.rotational_inertia()[(row, col)];
+            assert!((got - body.rotational_inertia()[(row, col)]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn combining_adds_the_masses_and_balances_between_them() {
+    let left = SpatialInertia::new(1.0, Vector::new([-1.0, 0.0, 0.0]), unit_inertia()).unwrap();
+    let right = SpatialInertia::new(1.0, Vector::new([1.0, 0.0, 0.0]), unit_inertia()).unwrap();
+    let whole = left.combined(right);
+
+    assert_eq!(whole.mass(), 2.0);
+    assert!(whole.center_of_mass().norm() < 1e-12);
+    // Each unit inertia picks up 1·1² about y and z from the metre offset, and nothing about x.
+    let diagonal = whole.rotational_inertia().diagonal();
+    assert!((diagonal[0] - 2.0).abs() < 1e-12);
+    assert!((diagonal[1] - 4.0).abs() < 1e-12);
+    assert!((diagonal[2] - 4.0).abs() < 1e-12);
+}
+
+#[test]
+fn combining_adds_the_matrix_forms() {
+    let got = offset_body().combined(second_body()).to_matrix();
+    let want = offset_body().to_matrix() + second_body().to_matrix();
+    for row in 0..6 {
+        for col in 0..6 {
+            assert!((got[(row, col)] - want[(row, col)]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn combining_does_not_depend_on_the_order() {
+    let forwards = offset_body().combined(second_body());
+    let backwards = second_body().combined(offset_body());
+
+    assert!((forwards.mass() - backwards.mass()).abs() < 1e-12);
+    assert!((forwards.center_of_mass() - backwards.center_of_mass()).norm() < 1e-12);
+    for row in 0..3 {
+        for col in 0..3 {
+            let got = forwards.rotational_inertia()[(row, col)];
+            assert!((got - backwards.rotational_inertia()[(row, col)]).abs() < 1e-12);
+        }
+    }
+}
+
+#[test]
+fn inertia_algebra_is_transparent_to_dual_scalars() {
+    // Kinetic energy is ½·m·|v + ω×c|² + ½·ωᵀ·I_c·ω, so seeding the mass with a unit derivative
+    // leaves the first half's coefficient behind.
+    let center = Vector::new([0.1, -0.2, 0.3]);
+    let rotational_inertia = offset_body().rotational_inertia();
+    let body = SpatialInertia::new(
+        Dual::variable(2.5_f64),
+        center.map(Dual::constant),
+        Matrix::from_fn(|row, col| Dual::constant(rotational_inertia[(row, col)])),
+    )
+    .unwrap();
+    let velocity = sample_velocity();
+    let seeded = Twist::new(
+        velocity.linear().map(Dual::constant),
+        velocity.angular().map(Dual::constant),
+    );
+
+    let balance_point_velocity = velocity.linear() + velocity.angular().cross(center);
+    let analytic = 0.5 * balance_point_velocity.dot(balance_point_velocity);
+
+    let energy = body.kinetic_energy(seeded);
+    assert!((energy.value - offset_body().kinetic_energy(velocity)).abs() < 1e-12);
+    assert!((energy.deriv - analytic).abs() < 1e-12);
+}
+
+#[test]
+fn inertia_algebra_works_in_single_precision() {
+    let body = SpatialInertia::new(
+        2.5_f32,
+        Vector::new([0.1_f32, -0.2, 0.3]),
+        Matrix::new([
+            [0.05_f32, 0.01, -0.02],
+            [0.01, 0.07, 0.003],
+            [-0.02, 0.003, 0.09],
+        ]),
+    )
+    .unwrap();
+    let velocity = Twist::from_array([0.4_f32, -1.1, 0.7, 1.3, 0.6, -0.8]);
+
+    let got = body.momentum(velocity).to_vector();
+    let want = body.to_matrix() * velocity.to_vector();
+    for component in 0..6 {
+        assert!((got[component] - want[component]).abs() < 1e-5);
+    }
 }
