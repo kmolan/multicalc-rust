@@ -54,7 +54,7 @@ impl GaussianConfig {
         integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
     ) -> Result<(), IntegrateError> {
         for limit in integration_limit {
-            let ok = match self.integration_method {
+            let limits_ok = match self.integration_method {
                 GaussianQuadratureMethod::GaussLegendre => {
                     limit[0].is_finite() && limit[1].is_finite() && limit[0] < limit[1]
                 }
@@ -66,7 +66,7 @@ impl GaussianConfig {
                 }
             };
 
-            if !ok {
+            if !limits_ok {
                 return Err(IntegrateError::LimitsIllDefined);
             }
         }

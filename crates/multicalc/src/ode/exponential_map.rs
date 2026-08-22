@@ -10,7 +10,7 @@ use crate::spatial::SO3;
 pub struct ExponentialMap;
 
 impl ExponentialMap {
-    /// Turns an orientation forward one step of size `dt` at a steady turn rate.
+    /// Turns an orientation forward one step of size `timestep` at a steady turn rate.
     ///
     /// `angular_rate` is how fast the body is turning, about its own axes, in radians per second.
     /// The step works out the whole turn made over the step and composes it onto the orientation,
@@ -24,7 +24,7 @@ impl ExponentialMap {
     /// rate is changing and the extra accuracy is wanted for the same one exponential.
     ///
     /// Behavior: this is infallible and does not validate its input. Non-finite input can produce
-    /// a non-finite orientation, while a finite but non-positive `dt` steps backward (or not at
+    /// a non-finite orientation, while a finite but non-positive `timestep` steps backward (or not at
     /// all) without error. Callers that need a check can validate upstream or use
     /// [`ExponentialMap::integrate_attitude`]; this stays a raw, panic-free primitive for hot
     /// per-tick call sites.
@@ -53,12 +53,12 @@ impl ExponentialMap {
     pub fn attitude_step<T: Numeric>(
         orientation: SO3<T>,
         angular_rate: Vector3D<T>,
-        dt: T,
+        timestep: T,
     ) -> SO3<T> {
-        orientation * SO3::exp(angular_rate * dt)
+        orientation * SO3::exp(angular_rate * timestep)
     }
 
-    /// Turns an orientation forward one step of size `dt` when the turn rate is itself changing.
+    /// Turns an orientation forward one step of size `timestep` when the turn rate is itself changing.
     ///
     /// `angular_rate` is how fast the body is turning and `angular_acceleration` how fast that is
     /// changing, both about the body's own axes. The step uses the rate half way through rather
@@ -90,13 +90,13 @@ impl ExponentialMap {
         orientation: SO3<T>,
         angular_rate: Vector3D<T>,
         angular_acceleration: Vector3D<T>,
-        dt: T,
+        timestep: T,
     ) -> SO3<T> {
-        let half_way_rate = angular_rate + angular_acceleration * (dt * T::HALF);
-        orientation * SO3::exp(half_way_rate * dt)
+        let half_way_rate = angular_rate + angular_acceleration * (timestep * T::HALF);
+        orientation * SO3::exp(half_way_rate * timestep)
     }
 
-    /// Runs `steps` fixed steps of size `dt`, asking `angular_rate_at` how fast the body is turning
+    /// Runs `steps` fixed steps of size `timestep`, asking `angular_rate_at` how fast the body is turning
     /// as it goes, and hands each node to `observer` — the starting one included — before returning
     /// where the body ends up facing.
     ///
@@ -107,8 +107,8 @@ impl ExponentialMap {
     ///
     /// # Errors
     ///
-    /// [`IntegrateError::NonPositiveTimestep`] if `dt` is not strictly positive, or
-    /// [`IntegrateError::NonFinite`] if `dt` or a rate returned by `angular_rate_at` is not
+    /// [`IntegrateError::NonPositiveTimestep`] if `timestep` is not strictly positive, or
+    /// [`IntegrateError::NonFinite`] if `timestep` or a rate returned by `angular_rate_at` is not
     /// finite.
     ///
     /// ```
@@ -131,9 +131,9 @@ impl ExponentialMap {
     /// ```
     pub fn integrate_attitude<T, F, O>(
         angular_rate_at: &F,
-        t0: T,
+        time_start: T,
         start_orientation: SO3<T>,
-        dt: T,
+        timestep: T,
         steps: usize,
         mut observer: O,
     ) -> Result<SO3<T>, IntegrateError>
@@ -142,14 +142,14 @@ impl ExponentialMap {
         F: Fn(T, SO3<T>) -> Vector3D<T>,
         O: FnMut(T, SO3<T>),
     {
-        if !dt.is_finite() {
+        if !timestep.is_finite() {
             return Err(IntegrateError::NonFinite);
         }
-        if dt <= T::ZERO {
+        if timestep <= T::ZERO {
             return Err(IntegrateError::NonPositiveTimestep);
         }
-        let half = dt * T::HALF;
-        let mut time = t0;
+        let half = timestep * T::HALF;
+        let mut time = time_start;
         let mut orientation = start_orientation;
         observer(time, orientation);
         for _ in 0..steps {
@@ -162,8 +162,8 @@ impl ExponentialMap {
             if !half_way_rate.is_finite() {
                 return Err(IntegrateError::NonFinite);
             }
-            orientation = Self::attitude_step(orientation, half_way_rate, dt);
-            time += dt;
+            orientation = Self::attitude_step(orientation, half_way_rate, timestep);
+            time += timestep;
             observer(time, orientation);
         }
         Ok(orientation)

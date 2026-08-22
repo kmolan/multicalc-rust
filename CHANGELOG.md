@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Brent root finding.** `Brent` combines bracketed convergence with secant and inverse
+  quadratic interpolation steps for scalar equations. @snowyukitty (#323)
+
 - **Jointed robots from MuJoCo model files.** `multicalc-mjcf` reads the whole body tree a model
   file describes — hinge and sliding joints with their axes, turning points and travel, the
   settings a default block supplies to every body below it, files that pull in other files, and
@@ -69,7 +72,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PolylinePath.** Cache the cumulative arc length for each waypoint in `PolylinePath`. It 
   enhances the performance of `lookahead_point`. @SummerGram (#224)
 
+- **Identifier length lint and public API renames.** Workspace Clippy `min_ident_chars` is now
+  enabled (threshold 2). Downstream code must update these symbols:
+  - `multicalc::c` → `multicalc::constant`
+  - `Svd::u()` / `Svd::v()` → `Svd::left()` / `Svd::right()`
+  - `Matrix::lu()` → `Matrix::lu_decompose()`
+  - `ModelError::Io` → `ModelError::FileRead` (`multicalc-robot-model`) @rtmongold (#328)
+
 ### Fixed
+
+- **Finite-difference step scaling and validation.** Default steps now follow the scalar type's
+  machine epsilon and the chosen stencil, improving `f32` accuracy. Negative and non-finite steps
+  are rejected instead of reversing the stencil or returning NaN.
 
 - **`ExponentialMap::integrate_attitude` input validation.** A non-finite timestep, a
 non-positive timestep, or a non-finite rate from the caller's `angular_rate_at` callback
@@ -81,6 +95,9 @@ existing `IntegrateError::NonFinite` instead. `attitude_step` and
 non-positive input is now documented instead of silent. @naseem173 (#307)
 - Particle filters floor an underflowed zero weight at the scalar's smallest positive value before
   the next update, allowing that particle to recover when later measurements favor it.
+
+- **Iterative Config Total Iterations** Auto-align iteration counts to the composite rules below
+  12k. 
 
 ## [0.10.0] - 2026-08-09
 

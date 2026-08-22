@@ -25,19 +25,20 @@ pub(crate) fn determine_lambda_and_parameter_update<const N: usize, T: Numeric>(
     initial_lambda: T,
 ) -> LmParameter<N, T> {
     let dwarf = T::MIN_POSITIVE;
-    let p1 = T::from_f64(0.1);
+    let tenth = T::from_f64(0.1);
     let p001 = T::from_f64(0.001);
 
-    let scale = |v: &Vector<N, T>| -> [T; N] { core::array::from_fn(|j| diag[j] * v[j]) };
+    let scale =
+        |entries: &Vector<N, T>| -> [T; N] { core::array::from_fn(|j| diag[j] * entries[j]) };
 
     // Gauss-Newton direction and its scaled length.
     let (gauss_newton, _) = dls.solve_with_zero_diagonal();
     let full_rank = dls.is_non_singular();
     let mut dxnorm = enorm(&scale(&gauss_newton));
-    let mut fp = dxnorm - delta;
+    let mut boundary_err = dxnorm - delta;
 
     // If the Gauss-Newton step already sits inside the trust region, take it undamped.
-    if fp <= p1 * delta {
+    if boundary_err <= tenth * delta {
         return LmParameter {
             lambda: T::ZERO,
             step: gauss_newton,
@@ -54,28 +55,28 @@ pub(crate) fn determine_lambda_and_parameter_update<const N: usize, T: Numeric>(
         // Forward-solve Rᵀ w = w.
         for j in 0..N {
             let mut sum = T::ZERO;
-            for (i, &wi) in w.iter().enumerate().take(j) {
-                sum += dls.r[(i, j)] * wi;
+            for (i, &entry) in w.iter().enumerate().take(j) {
+                sum += dls.triangular[(i, j)] * entry;
             }
-            let diag_r = dls.r[(j, j)];
+            let diag_r = dls.triangular[(j, j)];
             w[j] = (w[j] - sum) / diag_r;
         }
         let temp = enorm(&w);
-        parl = ((fp / delta) / temp) / temp;
+        parl = ((boundary_err / delta) / temp) / temp;
     }
 
     // Upper bound on λ, from the scaled gradient.
     let w: [T; N] = core::array::from_fn(|j| {
         let mut sum = T::ZERO;
         for i in 0..=j {
-            sum += dls.r[(i, j)] * dls.qt_b[i];
+            sum += dls.triangular[(i, j)] * dls.qt_b[i];
         }
         sum / diag[dls.permutation[j]]
     });
     let gnorm = enorm(&w);
     let mut paru = gnorm / delta;
     if paru == T::ZERO {
-        paru = dwarf / min(delta, p1);
+        paru = dwarf / min(delta, tenth);
     }
 
     // Clamp the starting λ into the bracket.
@@ -98,12 +99,14 @@ pub(crate) fn determine_lambda_and_parameter_update<const N: usize, T: Numeric>(
 
         let scaled_step = scale(&step);
         dxnorm = enorm(&scaled_step);
-        let previous_fp = fp;
-        fp = dxnorm - delta;
+        let previous_boundary_err = boundary_err;
+        boundary_err = dxnorm - delta;
 
         // Accept when close to the boundary, on the rank-deficient plateau, or after 10 tries.
-        if fp.abs() <= p1 * delta
-            || (parl == T::ZERO && fp <= previous_fp && previous_fp < T::ZERO)
+        if boundary_err.abs() <= tenth * delta
+            || (parl == T::ZERO
+                && boundary_err <= previous_boundary_err
+                && previous_boundary_err < T::ZERO)
             || iter == 10
         {
             break;
@@ -117,10 +120,10 @@ pub(crate) fn determine_lambda_and_parameter_update<const N: usize, T: Numeric>(
         if temp == T::ZERO {
             break;
         }
-        let parc = ((fp / delta) / temp) / temp;
+        let parc = ((boundary_err / delta) / temp) / temp;
 
         // Tighten the bracket by the sign of the residual, then improve λ.
-        if fp > T::ZERO {
+        if boundary_err > T::ZERO {
             parl = max(parl, par);
         } else {
             paru = min(paru, par);

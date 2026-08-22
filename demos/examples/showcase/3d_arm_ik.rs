@@ -71,10 +71,10 @@ fn arm() -> Result<KinematicTree<N_FRAMES, N_FRAMES, f64>, Box<dyn std::error::E
 }
 
 /// Joint readings; zero at the welded base/hand slots.
-fn readings(q: &[f64; N_JOINTS]) -> Vector<N_FRAMES, f64> {
+fn readings(joints: &[f64; N_JOINTS]) -> Vector<N_FRAMES, f64> {
     Vector::from_fn(|i| {
         if (1..=N_JOINTS).contains(&i) {
-            q[i - 1]
+            joints[i - 1]
         } else {
             0.0
         }
@@ -85,10 +85,10 @@ fn readings(q: &[f64; N_JOINTS]) -> Vector<N_FRAMES, f64> {
 #[must_use]
 fn link_poses(
     tree: &KinematicTree<N_FRAMES, N_FRAMES, f64>,
-    q: &Vector<N_FRAMES, f64>,
+    joints: &Vector<N_FRAMES, f64>,
 ) -> [SE3<f64>; N_FRAMES] {
     let state = tree
-        .forward_kinematics(q)
+        .forward_kinematics(joints)
         .unwrap_or_else(|_| unreachable!("finite readings"));
     core::array::from_fn(|i| {
         state
@@ -135,32 +135,32 @@ fn verify_model(tree: &KinematicTree<N_FRAMES, N_FRAMES, f64>) {
 /// Target position: Lissajous figure around the rest pose, amplitude per axis measured against
 /// its own convergence cliff (y ~0.21, x/z ~0.07/0.055) rather than clamped to the tightest one.
 #[must_use]
-fn lissajous_position(home: [f64; 3], t: f64) -> [f64; 3] {
+fn lissajous_position(home: [f64; 3], time: f64) -> [f64; 3] {
     [
-        home[0] + 0.06 * (TAU * 0.11 * t).sin(),
-        home[1] + 0.20 * (TAU * 0.17 * t + 0.4).sin(),
-        home[2] + 0.05 * (TAU * 0.07 * t).sin(),
+        home[0] + 0.06 * (TAU * 0.11 * time).sin(),
+        home[1] + 0.20 * (TAU * 0.17 * time + 0.4).sin(),
+        home[2] + 0.05 * (TAU * 0.07 * time).sin(),
     ]
 }
 
 /// Target orientation: rest orientation composed with slerped keyframes, period `CYCLE`.
 #[must_use]
-fn target_orientation(home: SO3<f64>, t: f64) -> SO3<f64> {
+fn target_orientation(home: SO3<f64>, time: f64) -> SO3<f64> {
     let keys = keyframes();
     let seg = CYCLE / 4.0;
-    let phase = (t % CYCLE) / seg; // 0..4
+    let phase = (time % CYCLE) / seg; // 0..4
     let i = phase.floor() as usize % 4;
     let frac = phase - phase.floor();
     let slerped = keys[i].slerp(keys[(i + 1) % 4], frac);
     home * SO3::from_quaternion(slerped)
 }
 
-/// Target pose at `t`: Lissajous position, keyframe-composed orientation.
+/// Target pose at `time`: Lissajous position, keyframe-composed orientation.
 #[must_use]
-fn target_pose(home: SE3<f64>, t: f64) -> SE3<f64> {
+fn target_pose(home: SE3<f64>, time: f64) -> SE3<f64> {
     SE3::from_parts(
-        target_orientation(home.rotation(), t),
-        Vector::new(lissajous_position(home.translation().into_array(), t)),
+        target_orientation(home.rotation(), time),
+        Vector::new(lissajous_position(home.translation().into_array(), time)),
     )
 }
 
@@ -169,8 +169,8 @@ fn target_pose(home: SE3<f64>, t: f64) -> SE3<f64> {
 fn target_path(home: SE3<f64>) -> Vec<[f64; 3]> {
     (0..=TARGET_PATH_SEGS)
         .map(|i| {
-            let t = CYCLE * i as f64 / TARGET_PATH_SEGS as f64;
-            target_pose(home, t).translation().into_array()
+            let time = CYCLE * i as f64 / TARGET_PATH_SEGS as f64;
+            target_pose(home, time).translation().into_array()
         })
         .collect()
 }
@@ -278,8 +278,8 @@ fn body_meshes(slot: usize) -> &'static [(&'static str, Rgba)] {
 /// always triangles. `mtllib`/`usemtl` are skipped (the referenced `.mtl` isn't shipped) — color
 /// comes from `body_meshes` instead.
 fn read_obj(path: &Path) -> (Vec<[f64; 3]>, Vec<[f64; 3]>, Vec<[u32; 3]>) {
-    let text =
-        std::fs::read_to_string(path).unwrap_or_else(|e| panic!("reading mesh file {path:?}: {e}"));
+    let text = std::fs::read_to_string(path)
+        .unwrap_or_else(|err| panic!("reading mesh file {path:?}: {err}"));
 
     let mut positions = Vec::new();
     let mut raw_normals = Vec::new();
@@ -343,7 +343,7 @@ fn load_body_mesh(
         triangles.extend(
             part_triangles
                 .into_iter()
-                .map(|[a, b, c]| [a + offset, b + offset, c + offset]),
+                .map(|[i, j, k]| [i + offset, j + offset, k + offset]),
         );
     }
     (vertices, normals, triangles, colors)
@@ -360,9 +360,13 @@ fn reachability_sweep(
     let steps = (CYCLE * 1000.0) as i64; // 1 ms spacing
     let mut worst = 0.0_f64;
     for n in 1..=steps {
-        let t = n as f64 / 1000.0;
-        let Ok(report) = solver.solve(tree, TOOL_INDEX, target_pose(home_pose, t), &joint_readings)
-        else {
+        let time = n as f64 / 1000.0;
+        let Ok(report) = solver.solve(
+            tree,
+            TOOL_INDEX,
+            target_pose(home_pose, time),
+            &joint_readings,
+        ) else {
             continue;
         };
         joint_readings = report.joint_positions;
@@ -399,23 +403,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let worst_reach = reachability_sweep(&solver, &tree, home_pose);
     eprintln!("reachability sweep: worst position residual over one cycle = {worst_reach:.2e} m");
 
-    let mut rr = RerunSink::live("multicalc-demos/3d-arm-ik")?;
+    let mut sink = RerunSink::live("multicalc-demos/3d-arm-ik")?;
 
     // Statics: tick 0, forward-fill (see rerun-viz-gotchas).
-    rr.set_sequence("tick", 0);
-    rr.line_strips3d(
+    sink.set_sequence("tick", 0);
+    sink.line_strips3d(
         "world/target_path",
         &[target_path(home_pose)],
         &[CHROME],
         &[0.003],
     )?;
     let (g_o, g_v) = gnomon();
-    rr.arrows3d("world/target/gnomon", &g_o, &g_v, &[TARGET])?;
-    rr.arrows3d("world/arm/tool/gnomon", &g_o, &g_v, &[HERO])?;
+    sink.arrows3d("world/target/gnomon", &g_o, &g_v, &[TARGET])?;
+    sink.arrows3d("world/arm/tool/gnomon", &g_o, &g_v, &[HERO])?;
 
     // Base is a world weld: static pose, logged once.
     let rest_poses = link_poses(&tree, &Vector::zeros());
-    rr.transform3d(
+    sink.transform3d(
         "world/arm/base",
         rest_poses[0].translation().into_array(),
         rest_poses[0].rotation().quaternion().as_array(),
@@ -430,7 +434,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     for slot in 0..N_FRAMES {
         let (vertices, normals, triangles, colors) = load_body_mesh(&mesh_dir, slot);
-        rr.mesh3d(&mesh_path(slot), &vertices, &triangles, &normals, &colors)?;
+        sink.mesh3d(&mesh_path(slot), &vertices, &triangles, &normals, &colors)?;
     }
 
     // Non-singular start pose.
@@ -448,13 +452,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         let _ = pacer.wait();
         n += 1;
-        let t = n as f64 / 1000.0;
-        rr.set_sequence("tick", n);
+        let time = n as f64 / 1000.0;
+        sink.set_sequence("tick", n);
 
-        let target = target_pose(home_pose, t);
-        let t0 = Instant::now();
+        let target = target_pose(home_pose, time);
+        let tick_start = Instant::now();
         let result = solver.solve(&tree, TOOL_INDEX, target, &joint_readings);
-        let solve_us = t0.elapsed().as_micros() as f64;
+        let solve_us = tick_start.elapsed().as_micros() as f64;
 
         // Budget-out/stalled solves still return the nearest pose (control-loop semantics); only a
         // malformed request errors, and there the arm holds.
@@ -475,19 +479,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if n % GEOM_EVERY == 0 {
             let poses = link_poses(&tree, &joint_readings);
             for (slot, pose) in poses.iter().enumerate().skip(1).take(N_JOINTS) {
-                rr.transform3d(
+                sink.transform3d(
                     &format!("world/arm/link{slot}"),
                     pose.translation().into_array(),
                     pose.rotation().quaternion().as_array(),
                 )?;
             }
             let tool = poses[TOOL_INDEX];
-            rr.transform3d(
+            sink.transform3d(
                 "world/arm/tool",
                 tool.translation().into_array(),
                 tool.rotation().quaternion().as_array(),
             )?;
-            rr.transform3d(
+            sink.transform3d(
                 "world/target",
                 target.translation().into_array(),
                 target.rotation().quaternion().as_array(),
@@ -498,14 +502,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .iter()
                 .map(|pose| pose.translation().into_array())
                 .collect();
-            rr.line_strips3d("world/arm/skeleton", &[skeleton], &[HERO], &[0.012])?;
+            sink.line_strips3d("world/arm/skeleton", &[skeleton], &[HERO], &[0.012])?;
 
-            let ee = tool.translation().into_array();
+            let end_effector = tool.translation().into_array();
             if trail.len() == TRAIL_MAX {
                 trail.pop_front();
             }
-            trail.push_back(ee);
-            rr.line_strips3d(
+            trail.push_back(end_effector);
+            sink.line_strips3d(
                 "world/trail",
                 &[trail.iter().copied().collect()],
                 &[ACCENT],
@@ -515,20 +519,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Hud at 1 Hz.
         if n % HUD_EVERY == 0
-            && let Some(s) = solve_ring.summary()
+            && let Some(solve_stats) = solve_ring.summary()
         {
-            let md = format!(
+            let meta = format!(
                 "## 3d_arm_ik — Franka Panda, live from its model file\n\
                  ### full SE(3) IK solve (damped least squares, analytic Jacobian): median {:.0} µs · p99 {:.0} µs ({:.1} % of the 1 ms tick)\n\
                  ### tracking: position error {:.3} µm, orientation error {:.3} µrad · {} stalled ticks",
-                s.median,
-                s.p99,
-                s.p99 / 10.0,
+                solve_stats.median,
+                solve_stats.p99,
+                solve_stats.p99 / 10.0,
                 residual_pos * 1e6,
                 residual_ori * 1e6,
                 stalled_ticks,
             );
-            rr.text("hud/stats", &md)?;
+            sink.text("hud/stats", &meta)?;
         }
     }
 }

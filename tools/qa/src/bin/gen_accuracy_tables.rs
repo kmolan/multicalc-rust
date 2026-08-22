@@ -225,6 +225,18 @@ const DOCS: &[Doc] = &[
         ],
     },
     Doc {
+        file: "spatial.md",
+        modules: &[Module {
+            name: "spatial",
+            cases: &[
+                "plucker_transforms",
+                "spatial_cross_products",
+                "spatial_inertia_algebra",
+                "spatial_inertia_transform_and_composite",
+            ],
+        }],
+    },
+    Doc {
         file: "dynamics.md",
         modules: &[Module {
             name: "dynamics",
@@ -283,6 +295,12 @@ const DOCS: &[Doc] = &[
                 "minimum_snap_three_segments_3d",
                 "minimum_snap_three_segments_moving_ends_3d",
                 "minimum_snap_seven_segments_3d",
+                "profile_trapezoid_cruise_1d",
+                "profile_trapezoid_triangular_1d",
+                "profile_jerk_limited_cruise_1d",
+                "profile_jerk_limited_no_cruise_1d",
+                "profile_jerk_limited_short_1d",
+                "profile_synchronized_three_axes",
             ],
         }],
     },
@@ -294,10 +312,10 @@ fn fmt_num(x: f64) -> String {
     if x == 0.0 {
         return "0".to_string();
     }
-    let s = format!("{x:.6e}");
-    let (mantissa, exp) = s
+    let text = format!("{x:.6e}");
+    let (mantissa, exp) = text
         .split_once('e')
-        .unwrap_or_else(|| unreachable!("float format has no exponent: {s}"));
+        .unwrap_or_else(|| unreachable!("float format has no exponent: {text}"));
     let mantissa = mantissa.trim_end_matches('0').trim_end_matches('.');
     format!("{mantissa}e{exp}")
 }
@@ -317,17 +335,17 @@ fn build_table(doc: &Doc) -> String {
         }
         let fixtures = load_dir(module.name);
         for case in module.cases {
-            let Some(fx) = fixtures.iter().find(|f| &f.case == case) else {
+            let Some(fixture) = fixtures.iter().find(|f| &f.case == case) else {
                 continue;
             };
-            for operation in &fx.metadata.operations {
+            for operation in &fixture.metadata.operations {
                 let _ = write!(
                     body,
                     "\n| {} | {} | {} | {} |",
                     operation,
-                    fx.metadata.equation,
-                    fmt_num(fx.tolerances.f64.rel),
-                    fx.metadata.reference,
+                    fixture.metadata.equation,
+                    fmt_num(fixture.tolerances.f64.rel),
+                    fixture.metadata.reference,
                 );
             }
         }

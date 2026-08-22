@@ -24,12 +24,12 @@ fn main() {
 fn motor_speed_loop() {
     println!("PID on a motor");
 
-    const DT: f64 = 0.001;
+    const TIMESTEP: f64 = 0.001;
     const TIME_CONSTANT: f64 = 0.05;
-    let step = |speed: f64, command: f64| speed + DT * (command - speed) / TIME_CONSTANT;
+    let step = |speed: f64, command: f64| speed + TIMESTEP * (command - speed) / TIME_CONSTANT;
 
     let setpoint = 0.6;
-    let mut controller = Pid::new(4.0, 20.0, 0.02, DT)
+    let mut controller = Pid::new(4.0, 20.0, 0.02, TIMESTEP)
         .unwrap()
         .with_output_limits(-1.0, 1.0)
         .unwrap()
@@ -65,7 +65,7 @@ fn motor_speed_loop() {
     for _ in 0..200 {
         speed = step(speed, manual_command);
     }
-    let mut controller = Pid::new(4.0, 20.0, 0.02, DT).unwrap();
+    let mut controller = Pid::new(4.0, 20.0, 0.02, TIMESTEP).unwrap();
     controller
         .resume_from(manual_command, setpoint, speed)
         .unwrap();
@@ -161,7 +161,7 @@ fn tumbling_body() {
 
     let mut attitude = SO3::exp(Vector::new([0.6, -0.4, 0.9]));
     let mut body_rate = Vector::new([1.5, -1.0, 0.8]);
-    const DT: f64 = 0.002;
+    const TIMESTEP: f64 = 0.002;
     for step in 0..4000 {
         if step % 800 == 0 {
             let error = GeometricAttitudeController::<f64>::attitude_error(attitude, target);
@@ -174,10 +174,12 @@ fn tumbling_body() {
         let torque = controller.torque(attitude, body_rate, target, still, still);
         // What is left over after the body's own spin drives the change in turn rate.
         let rate_change = inverse_inertia * (torque - body_rate.cross(inertia * body_rate));
-        body_rate += rate_change.scale(DT);
+        body_rate += rate_change.scale(TIMESTEP);
         // Stepping the rotation along its own turn rate keeps it a rotation, so nothing has to be
         // corrected afterwards.
-        attitude = attitude.compose(SO3::exp(body_rate.scale(DT))).normalized();
+        attitude = attitude
+            .compose(SO3::exp(body_rate.scale(TIMESTEP)))
+            .normalized();
     }
     let error = GeometricAttitudeController::<f64>::attitude_error(attitude, target);
     println!(

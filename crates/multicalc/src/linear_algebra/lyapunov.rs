@@ -24,7 +24,7 @@ const MAXIMUM_PASSES: usize = 64;
 /// it once at design time rather than inside a control loop.
 ///
 /// Returns [`LinalgError::NonFinite`](crate::error::LinalgError::NonFinite) if any entry is not
-/// finite, [`LinalgError::NotSymmetric`](crate::error::LinalgError::NotSymmetric) if `q` does not
+/// finite, [`LinalgError::NotSymmetric`](crate::error::LinalgError::NotSymmetric) if `state_cost` does not
 /// read the same across the diagonal, or
 /// [`LinalgError::DidNotConverge`](crate::error::LinalgError::DidNotConverge) if the total has not
 /// settled within the budget.
@@ -35,27 +35,27 @@ const MAXIMUM_PASSES: usize = 64;
 /// // A single state that keeps half of itself each step, with Q = 1. The series is
 /// // 1 + 1/4 + 1/16 + ... = 4/3.
 /// let a = Matrix::<1, 1>::new([[0.5]]);
-/// let q = Matrix::<1, 1>::new([[1.0]]);
-/// let p = solve_discrete_lyapunov(a, q).unwrap();
-/// assert!((p[(0, 0)] - 4.0 / 3.0).abs() < 1e-12);
+/// let state_cost = Matrix::<1, 1>::new([[1.0]]);
+/// let cost_to_go = solve_discrete_lyapunov(a, state_cost).unwrap();
+/// assert!((cost_to_go[(0, 0)] - 4.0 / 3.0).abs() < 1e-12);
 ///
 /// // A state that grows has no answer.
 /// let unstable = Matrix::<1, 1>::new([[1.5]]);
-/// assert!(solve_discrete_lyapunov(unstable, q).is_err());
+/// assert!(solve_discrete_lyapunov(unstable, state_cost).is_err());
 /// ```
 pub fn solve_discrete_lyapunov<const N: usize, T: Numeric>(
     a: Matrix<N, N, T>,
-    q: Matrix<N, N, T>,
+    state_cost: Matrix<N, N, T>,
 ) -> Result<Matrix<N, N, T>, LinalgError> {
-    if !a.is_finite() || !q.is_finite() {
+    if !a.is_finite() || !state_cost.is_finite() {
         return Err(LinalgError::NonFinite);
     }
 
-    if !q.is_symmetric() {
+    if !state_cost.is_symmetric() {
         return Err(LinalgError::NotSymmetric);
     }
 
-    let mut total = q;
+    let mut total = state_cost;
     let mut power = a;
     for pass in 0..MAXIMUM_PASSES {
         let increment = power.transpose() * total * power;

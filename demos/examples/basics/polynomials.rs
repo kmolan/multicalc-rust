@@ -19,8 +19,8 @@ fn evaluating() {
     println!("== Evaluating ==");
 
     // 1 + 2x + 3x² + 4x³ + 5x⁴ + 6x⁵ + 7x⁶ + 8x⁷, read at x = 1/2 where every power is exact.
-    let p: Polynomial<8> = Polynomial::new([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
-    let [value, slope, bend] = p.evaluate_with_derivatives(0.5);
+    let poly: Polynomial<8> = Polynomial::new([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+    let [value, slope, bend] = poly.evaluate_with_derivatives(0.5);
 
     // Worked out by hand: 1 + 1 + 3/4 + 1/2 + 5/16 + 3/16 + 7/64 + 1/16, and likewise for the rest.
     let (want_value, want_slope, want_bend) = (3.921875, 14.5625, 71.625);
@@ -138,7 +138,7 @@ fn several_variables() {
     println!("== Several variables ==");
 
     // 3x²y + 2xy - 1, held as three terms rather than a grid of coefficients.
-    let p = MultivariatePolynomial::<2, 3>::try_from_terms(&[
+    let poly = MultivariatePolynomial::<2, 3>::try_from_terms(&[
         MultivariateTerm::new(3.0, [2, 1]),
         MultivariateTerm::new(2.0, [1, 1]),
         MultivariateTerm::new(-1.0, [0, 0]),
@@ -146,8 +146,8 @@ fn several_variables() {
     .unwrap();
 
     let point = [1.5, -2.0];
-    let value = p.evaluate(&point);
-    let gradient = p.gradient_at(&point);
+    let value = poly.evaluate(&point);
+    let gradient = poly.gradient_at(&point);
     println!("  3x²y + 2xy - 1 at (1.5, -2)      {value:>10.6}");
     println!("  slope in x (symbolically)        {:>10.6}", gradient[0]);
     println!("  slope in y (symbolically)        {:>10.6}", gradient[1]);

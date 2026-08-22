@@ -120,14 +120,14 @@ impl<T: Numeric> MadgwickFilter<T> {
         upward_reference: Vector3D<T>,
         north_reference: Vector3D<T>,
     ) -> Self {
-        let Some(up) = upward_reference.try_normalized() else {
+        let Some(upward) = upward_reference.try_normalized() else {
             return self;
         };
-        let levelled = north_reference - up * north_reference.dot(up);
+        let levelled = north_reference - upward * north_reference.dot(upward);
         let Some(north) = levelled.try_normalized() else {
             return self;
         };
-        self.upward_reference = up;
+        self.upward_reference = upward;
         self.north_reference = north;
         self
     }

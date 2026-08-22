@@ -43,8 +43,8 @@ fn tracker<T: Numeric>(
 }
 
 #[must_use]
-fn trace<const N: usize>(m: Matrix<N, N>) -> f64 {
-    (0..N).map(|i| m[(i, i)]).sum()
+fn trace<const N: usize>(mat: Matrix<N, N>) -> f64 {
+    (0..N).map(|i| mat[(i, i)]).sum()
 }
 
 /// Range and bearing to a known landmark, from a [x, y, heading] pose. Written once; its Jacobian
@@ -232,8 +232,9 @@ fn position_spread<R: multicalc::random::RandomSource<f64>>(
     let mean = filter.mean();
     let mut variance = 0.0;
     for (particle, &weight) in filter.particles().iter().zip(filter.weights()) {
-        let p = *particle;
-        variance += weight * ((p[0] - mean[0]).powi(2) + (p[1] - mean[1]).powi(2));
+        let particle_state = *particle;
+        variance += weight
+            * ((particle_state[0] - mean[0]).powi(2) + (particle_state[1] - mean[1]).powi(2));
     }
     variance.sqrt()
 }

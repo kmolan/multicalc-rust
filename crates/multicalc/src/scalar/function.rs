@@ -3,7 +3,7 @@
 //!
 //! A type implementing [`ScalarFn`] / [`ScalarFnN`] is generic over the scalar through its `eval`
 //! method, so a single value drives every backend. The `scalar_fn!` macro builds these from
-//! closure-style syntax, and [`c`] marks numeric constants inside the body.
+//! closure-style syntax, and [`constant`] marks numeric constants inside the body.
 
 use core::ops::{Add, Div, Mul, Sub};
 
@@ -32,29 +32,33 @@ pub trait VectorFn<const N: usize, const M: usize> {
 
 /// Wraps one output of a [`VectorFn`] as a [`ScalarFnN`], so a vector-valued function can be
 /// differentiated component-by-component through the scalar derivators.
-pub(crate) struct Component<'a, F, const N: usize, const M: usize> {
-    func: &'a F,
+pub(crate) struct Component<'func, Func, const N: usize, const OUTS: usize> {
+    func: &'func Func,
     index: usize,
 }
 
-impl<'a, F: VectorFn<N, M>, const N: usize, const M: usize> Component<'a, F, N, M> {
-    /// Wraps output `index` of `func`. `N`/`M` are inferred from the function's [`VectorFn`] impl.
+impl<'func, Func: VectorFn<N, OUTS>, const N: usize, const OUTS: usize>
+    Component<'func, Func, N, OUTS>
+{
+    /// Wraps output `index` of `func`. `N`/`OUTS` are inferred from the function's [`VectorFn`] impl.
     #[inline]
     #[must_use]
-    pub fn new(func: &'a F, index: usize) -> Self {
+    pub fn new(func: &'func Func, index: usize) -> Self {
         Component { func, index }
     }
 }
 
-impl<F: VectorFn<N, M>, const N: usize, const M: usize> ScalarFnN<N> for Component<'_, F, N, M> {
+impl<'func, Func: VectorFn<N, OUTS>, const N: usize, const OUTS: usize> ScalarFnN<N>
+    for Component<'func, Func, N, OUTS>
+{
     #[inline]
     fn eval<S: Numeric>(&self, point: &[S; N]) -> S {
         self.func.eval(point)[self.index]
     }
 }
 
-/// A scalar constant marker produced by [`c`], for use on the **left** of an operator with a
-/// [`Numeric`] scalar inside a `scalar_fn!` body (e.g. `c(2.0) * x`).
+/// A scalar constant marker produced by [`constant`], for use on the **left** of an operator with a
+/// [`Numeric`] scalar inside a `scalar_fn!` body (e.g. `constant(2.0) * x`).
 ///
 /// A bare `2.0 * x` cannot typecheck in a generic body (`2.0` is always `f64`); `Const` carries the
 /// constant until it meets the scalar, then takes that scalar's type.
@@ -62,10 +66,10 @@ impl<F: VectorFn<N, M>, const N: usize, const M: usize> ScalarFnN<N> for Compone
 pub struct Const(f64);
 
 /// Marks a scalar constant in a `scalar_fn!` body. Place it on the left of the operator
-/// (`c(2.0) * x`, `c(1.0) + x`); the constant takes the function's scalar type.
+/// (`constant(2.0) * x`, `constant(1.0) + x`); the constant takes the function's scalar type.
 #[inline]
 #[must_use]
-pub fn c(value: f64) -> Const {
+pub fn constant(value: f64) -> Const {
     Const(value)
 }
 
@@ -104,14 +108,14 @@ impl<S: Numeric> Div<S> for Const {
 /// Builds a [`ScalarFn`] (one variable) or [`ScalarFnN`] (`N` variables) from closure-style syntax.
 ///
 /// The body is generic over the scalar, so the same function drives finite differences and
-/// autodiff. Write scalar constants with [`c`](crate::scalar::c), on the left of the operator.
+/// autodiff. Write scalar constants with [`constant`](crate::scalar::constant), on the left of the operator.
 ///
 /// ```
 /// use multicalc::scalar_fn;
-/// use multicalc::scalar::{c, Dual, ScalarFn};
+/// use multicalc::scalar::{ constant, Dual, ScalarFn};
 ///
 /// // f(x) = 4x^3 - 3x^2
-/// let f = scalar_fn!(|x| c(4.0) * x * x * x - c(3.0) * x * x);
+/// let f = scalar_fn!(|x| constant(4.0) * x * x * x - constant(3.0) * x * x);
 /// assert!((f.eval(2.0_f64) - 20.0).abs() < 1e-12); // value
 /// assert!((f.eval(Dual::variable(2.0_f64)).deriv - 36.0).abs() < 1e-12); // f'(2) = 36
 /// ```

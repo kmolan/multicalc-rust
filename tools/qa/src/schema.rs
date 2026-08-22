@@ -27,15 +27,15 @@ impl F64 {
 }
 
 impl Serialize for F64 {
-    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(&format!("0x{:016x}", self.0))
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&format!("0x{:016x}", self.0))
     }
 }
 
 impl<'de> Deserialize<'de> for F64 {
-    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(d)?;
-        let hex = s.strip_prefix("0x").unwrap_or(&s);
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        let hex = text.strip_prefix("0x").unwrap_or(&text);
         u64::from_str_radix(hex, 16)
             .map(F64)
             .map_err(serde::de::Error::custom)
@@ -48,7 +48,8 @@ impl<'de> Deserialize<'de> for F64 {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Value {
     Scalar {
-        v: F64,
+        #[serde(rename = "v")]
+        value: F64,
     },
     Vector {
         data: Vec<F64>,
@@ -59,10 +60,12 @@ pub enum Value {
         row_major: Vec<F64>,
     },
     Int {
-        v: i64,
+        #[serde(rename = "v")]
+        value: i64,
     },
     Str {
-        v: String,
+        #[serde(rename = "v")]
+        value: String,
     },
 }
 
@@ -70,7 +73,7 @@ impl Value {
     #[must_use]
     pub fn as_scalar(&self) -> f64 {
         match self {
-            Value::Scalar { v } => v.to_f64(),
+            Value::Scalar { value } => value.to_f64(),
             other => unreachable!("expected scalar value, got {other:?}"),
         }
     }
@@ -107,7 +110,7 @@ impl Value {
     #[must_use]
     pub fn as_int(&self) -> i64 {
         match self {
-            Value::Int { v } => *v,
+            Value::Int { value } => *value,
             other => unreachable!("expected int value, got {other:?}"),
         }
     }
@@ -115,7 +118,7 @@ impl Value {
     #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
-            Value::Str { v } => v,
+            Value::Str { value } => value,
             other => unreachable!("expected string value, got {other:?}"),
         }
     }
@@ -204,14 +207,14 @@ mod tests {
         expected.insert(
             "det".to_string(),
             Value::Scalar {
-                v: F64::from_f64(2.5),
+                value: F64::from_f64(2.5),
             },
         );
 
         let mut libraries = BTreeMap::new();
         libraries.insert("numpy".to_string(), "2.1.3".to_string());
 
-        let fx = Fixture {
+        let fixture = Fixture {
             schema_version: SCHEMA_VERSION,
             metadata: Metadata {
                 generator: "test".to_string(),
@@ -236,11 +239,11 @@ mod tests {
             expected,
         };
 
-        let json = serde_json::to_string(&fx).unwrap();
+        let json = serde_json::to_string(&fixture).unwrap();
         let back: Fixture = serde_json::from_str(&json).unwrap();
 
-        let (r, c, data) = back.inputs["A"].as_matrix();
-        assert_eq!((r, c), (2, 2));
+        let (rows, cols, data) = back.inputs["A"].as_matrix();
+        assert_eq!((rows, cols), (2, 2));
         assert_eq!(data[1].to_bits(), (-0.0_f64).to_bits());
         assert_eq!(data[2], f64::INFINITY);
         assert_eq!(back.expected["det"].as_scalar(), 2.5);

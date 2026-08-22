@@ -26,9 +26,9 @@ fn rotation() -> Matrix3D<f64> {
 
 /// A symmetric matrix with exactly the given eigenvalues.
 fn with_spectrum(spectrum: [f64; 3]) -> Matrix3D<f64> {
-    let r = rotation();
-    r * Matrix3D::from_fn(|row, column| if row == column { spectrum[row] } else { 0.0 })
-        * r.transpose()
+    let rot = rotation();
+    rot * Matrix3D::from_fn(|row, column| if row == column { spectrum[row] } else { 0.0 })
+        * rot.transpose()
 }
 
 #[test]

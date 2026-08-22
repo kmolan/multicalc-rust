@@ -96,8 +96,8 @@ impl<T: Numeric> FreeJointState<T> {
     /// ```
     #[must_use]
     pub fn from_generalized_vectors(position: [T; 7], velocity: [T; 6]) -> Option<Self> {
-        let [x, y, z, w, qx, qy, qz] = position;
-        let orientation = Quaternion::new(w, qx, qy, qz).try_normalized()?;
+        let [x, y, z, w, quat_x, quat_y, quat_z] = position;
+        let orientation = Quaternion::new(w, quat_x, quat_y, quat_z).try_normalized()?;
         Some(FreeJointState {
             pose: SE3::from_parts(SO3::from_quaternion(orientation), Vector::new([x, y, z])),
             velocity: Twist::from_array(velocity),
@@ -115,8 +115,8 @@ impl<T: Numeric> FreeJointState<T> {
     #[must_use]
     pub fn generalized_position(self) -> [T; 7] {
         let [x, y, z] = *self.pose.translation().as_array();
-        let [w, qx, qy, qz] = self.pose.rotation().quaternion().as_array();
-        [x, y, z, w, qx, qy, qz]
+        let [w, quat_x, quat_y, quat_z] = self.pose.rotation().quaternion().as_array();
+        [x, y, z, w, quat_x, quat_y, quat_z]
     }
 
     /// The six numbers saying how the body is moving.

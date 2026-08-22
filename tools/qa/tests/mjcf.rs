@@ -33,64 +33,64 @@ fn menagerie() -> std::path::PathBuf {
 
 #[test]
 fn ingested_models_match_mujoco() {
-    for fx in load_dir("mjcf") {
-        match fx.case.as_str() {
-            "skydio_x2_free_joint" => check_free_body(&fx),
-            "franka_panda_tree" => check_body_tree(&fx),
-            "unitree_go1_floating_base_tree" => check_go1_tree(&fx),
+    for fixture in load_dir("mjcf") {
+        match fixture.case.as_str() {
+            "skydio_x2_free_joint" => check_free_body(&fixture),
+            "franka_panda_tree" => check_body_tree(&fixture),
+            "unitree_go1_floating_base_tree" => check_go1_tree(&fixture),
             other => unreachable!("no comparison for fixture {other}"),
         }
     }
 }
 
 /// The Skydio X2: a single body on a free joint, its mass worked out from its shapes.
-fn check_free_body(fx: &Fixture) {
-    let case = fx.case.as_str();
-    let path = menagerie().join(fx.inputs["model_file"].as_str());
+fn check_free_body(fixture: &Fixture) {
+    let case = fixture.case.as_str();
+    let path = menagerie().join(fixture.inputs["model_file"].as_str());
     let model = multicalc_robot_model::mjcf::load_path(&path)
-        .unwrap_or_else(|e| unreachable!("{case}: loading {path:?}: {e}"));
+        .unwrap_or_else(|err| unreachable!("{case}: loading {path:?}: {err}"));
     let body = model
         .body_named("x2")
         .unwrap_or_else(|| unreachable!("{case}: model has no body called x2"));
-    let t = fx.tolerances.f64;
+    let tolerance = fixture.tolerances.f64;
     let inertia = body
         .inertia()
         .unwrap_or_else(|| unreachable!("{case}: body x2 states no mass properties"));
 
     assert_scalar(
         inertia.mass(),
-        &fx.expected["mass"],
-        t,
+        &fixture.expected["mass"],
+        tolerance,
         &format!("{case} mass"),
     );
     assert_vector::<3>(
         &inertia.center_of_mass(),
-        &fx.expected["center_of_mass"],
-        t,
+        &fixture.expected["center_of_mass"],
+        tolerance,
         &format!("{case} center_of_mass"),
     );
     assert_matrix::<3, 3>(
         &inertia.rotational_inertia(),
-        &fx.expected["rotational_inertia"],
-        t,
+        &fixture.expected["rotational_inertia"],
+        tolerance,
         &format!("{case} rotational_inertia"),
     );
     assert_vector::<3>(
         &body.pose().translation(),
-        &fx.expected["body_position"],
-        t,
+        &fixture.expected["body_position"],
+        tolerance,
         &format!("{case} body_position"),
     );
 
     // A quaternion and its negative name the same turn, so both sides are compared in their
     // scalar-positive form rather than component by component as written.
     let quaternion = body.pose().rotation().quaternion().as_array();
-    let want = fx.expected["body_quaternion"].as_vector();
+    let want = fixture.expected["body_quaternion"].as_vector();
     let flip = if quaternion[0] < 0.0 { -1.0 } else { 1.0 };
     let want_flip = if want[0] < 0.0 { -1.0 } else { 1.0 };
     for index in 0..4 {
         assert!(
-            close(flip * quaternion[index], want_flip * want[index], t),
+            close(flip * quaternion[index], want_flip * want[index], tolerance),
             "{case} body_quaternion[{index}]: got {}, want {}",
             flip * quaternion[index],
             want_flip * want[index]
@@ -99,7 +99,7 @@ fn check_free_body(fx: &Fixture) {
 
     assert_eq!(
         i64::from(model.has_floating_base()),
-        fx.expected["free_joint"].as_int(),
+        fixture.expected["free_joint"].as_int(),
         "{case} free_joint"
     );
 
@@ -107,12 +107,12 @@ fn check_free_body(fx: &Fixture) {
     // keys keep MuJoCo's own `nq` / `nv` wording, since they record what MuJoCo reported.
     assert_eq!(
         FreeJointState::<f64>::GENERALIZED_POSITION_DIMENSION as i64,
-        fx.expected["configuration_dimension"].as_int(),
+        fixture.expected["configuration_dimension"].as_int(),
         "{case} configuration_dimension"
     );
     assert_eq!(
         FreeJointState::<f64>::GENERALIZED_VELOCITY_DIMENSION as i64,
-        fx.expected["velocity_dimension"].as_int(),
+        fixture.expected["velocity_dimension"].as_int(),
         "{case} velocity_dimension"
     );
 }
@@ -120,30 +120,30 @@ fn check_free_body(fx: &Fixture) {
 /// The Franka Panda: the body tree, every joint's geometry and travel, and the dynamics figures
 /// forward kinematics never reads — field for field against MuJoCo's compiled model, and again
 /// once the model has gone through `kinematic_tree`.
-fn check_body_tree(fx: &Fixture) {
-    let case = fx.case.as_str();
-    let path = menagerie().join(fx.inputs["model_file"].as_str());
+fn check_body_tree(fixture: &Fixture) {
+    let case = fixture.case.as_str();
+    let path = menagerie().join(fixture.inputs["model_file"].as_str());
     let model = multicalc_robot_model::mjcf::load_path(&path)
-        .unwrap_or_else(|e| unreachable!("{case}: loading {path:?}: {e}"));
-    let t = fx.tolerances.f64;
+        .unwrap_or_else(|err| unreachable!("{case}: loading {path:?}: {err}"));
+    let tolerance = fixture.tolerances.f64;
 
     assert_eq!(
         model.body_count() as i64,
-        fx.expected["body_count"].as_int(),
+        fixture.expected["body_count"].as_int(),
         "{case} body_count"
     );
     assert_eq!(
         model.movable_joint_count() as i64,
-        fx.expected["movable_joint_count"].as_int(),
+        fixture.expected["movable_joint_count"].as_int(),
         "{case} movable_joint_count"
     );
     assert_eq!(
         i64::from(model.has_floating_base()),
-        fx.expected["free_joint"].as_int(),
+        fixture.expected["free_joint"].as_int(),
         "{case} free_joint"
     );
 
-    let body_names: Vec<&str> = fx.expected["body_names"]
+    let body_names: Vec<&str> = fixture.expected["body_names"]
         .as_str()
         .split_whitespace()
         .collect();
@@ -160,36 +160,40 @@ fn check_body_tree(fx: &Fixture) {
         );
     }
 
-    let parents = fx.expected["parents"].as_vector();
-    let (_, _, origin_positions) = fx.expected["origin_positions"].as_matrix();
-    let (_, _, origin_quaternions) = fx.expected["origin_quaternions"].as_matrix();
-    let joint_kinds: Vec<char> = fx.expected["joint_kinds"].as_str().chars().collect();
-    let (_, _, axes) = fx.expected["axes"].as_matrix();
-    let (_, _, anchors) = fx.expected["anchors"].as_matrix();
-    let zero_offsets = fx.expected["zero_offsets"].as_vector();
-    let limited = fx.expected["limited"].as_vector();
-    let (_, _, ranges) = fx.expected["ranges"].as_matrix();
-    let armatures = fx.expected["armatures"].as_vector();
-    let dampings = fx.expected["dampings"].as_vector();
-    let friction_losses = fx.expected["friction_losses"].as_vector();
-    let spring_references = fx.expected["spring_references"].as_vector();
-    let spring_stiffnesses = fx.expected["spring_stiffnesses"].as_vector();
-    let masses = fx.expected["masses"].as_vector();
-    let (_, _, centers_of_mass) = fx.expected["centers_of_mass"].as_matrix();
-    let (_, _, rotational_inertias) = fx.expected["rotational_inertias"].as_matrix();
+    let parents = fixture.expected["parents"].as_vector();
+    let (_, _, origin_positions) = fixture.expected["origin_positions"].as_matrix();
+    let (_, _, origin_quaternions) = fixture.expected["origin_quaternions"].as_matrix();
+    let joint_kinds: Vec<char> = fixture.expected["joint_kinds"].as_str().chars().collect();
+    let (_, _, axes) = fixture.expected["axes"].as_matrix();
+    let (_, _, anchors) = fixture.expected["anchors"].as_matrix();
+    let zero_offsets = fixture.expected["zero_offsets"].as_vector();
+    let limited = fixture.expected["limited"].as_vector();
+    let (_, _, ranges) = fixture.expected["ranges"].as_matrix();
+    let armatures = fixture.expected["armatures"].as_vector();
+    let dampings = fixture.expected["dampings"].as_vector();
+    let friction_losses = fixture.expected["friction_losses"].as_vector();
+    let spring_references = fixture.expected["spring_references"].as_vector();
+    let spring_stiffnesses = fixture.expected["spring_stiffnesses"].as_vector();
+    let masses = fixture.expected["masses"].as_vector();
+    let (_, _, centers_of_mass) = fixture.expected["centers_of_mass"].as_matrix();
+    let (_, _, rotational_inertias) = fixture.expected["rotational_inertias"].as_matrix();
 
     for index in 0..model.body_count() {
         let body = model.body(index).unwrap();
         let ctx = format!("{case} body {index}");
 
         let expected_parent = parents[index] as i64;
-        let got_parent = body.parent().map_or(-1, |p| p as i64);
+        let got_parent = body.parent().map_or(-1, |parent| parent as i64);
         assert_eq!(got_parent, expected_parent, "{ctx} parent");
 
         let translation = body.pose().translation();
         for axis in 0..3 {
             assert!(
-                close(translation[axis], origin_positions[3 * index + axis], t),
+                close(
+                    translation[axis],
+                    origin_positions[3 * index + axis],
+                    tolerance
+                ),
                 "{ctx} origin_position[{axis}]"
             );
         }
@@ -206,7 +210,11 @@ fn check_body_tree(fx: &Fixture) {
         let want_flip = if want[0] < 0.0 { -1.0 } else { 1.0 };
         for component in 0..4 {
             assert!(
-                close(flip * quaternion[component], want_flip * want[component], t),
+                close(
+                    flip * quaternion[component],
+                    want_flip * want[component],
+                    tolerance
+                ),
                 "{ctx} origin_quaternion[{component}]"
             );
         }
@@ -215,13 +223,17 @@ fn check_body_tree(fx: &Fixture) {
             .inertia()
             .unwrap_or_else(|| unreachable!("{ctx}: body states no mass properties"));
         assert!(
-            close(mass_properties.mass(), masses[index], t),
+            close(mass_properties.mass(), masses[index], tolerance),
             "{ctx} mass"
         );
         let center_of_mass = mass_properties.center_of_mass();
         for axis in 0..3 {
             assert!(
-                close(center_of_mass[axis], centers_of_mass[3 * index + axis], t),
+                close(
+                    center_of_mass[axis],
+                    centers_of_mass[3 * index + axis],
+                    tolerance
+                ),
                 "{ctx} center_of_mass[{axis}]"
             );
         }
@@ -254,36 +266,47 @@ fn check_body_tree(fx: &Fixture) {
         let axis = joint.axis();
         for component in 0..3 {
             assert!(
-                close(axis[component], axes[3 * index + component], t),
+                close(axis[component], axes[3 * index + component], tolerance),
                 "{ctx} axis[{component}]"
             );
         }
         let anchor = joint.anchor();
         for component in 0..3 {
             assert!(
-                close(anchor[component], anchors[3 * index + component], t),
+                close(anchor[component], anchors[3 * index + component], tolerance),
                 "{ctx} anchor[{component}]"
             );
         }
         assert!(
-            close(joint.zero_offset(), zero_offsets[index], t),
+            close(joint.zero_offset(), zero_offsets[index], tolerance),
             "{ctx} zero_offset"
         );
         assert!(
-            close(joint.armature(), armatures[index], t),
+            close(joint.armature(), armatures[index], tolerance),
             "{ctx} armature"
         );
-        assert!(close(joint.damping(), dampings[index], t), "{ctx} damping");
         assert!(
-            close(joint.friction_loss(), friction_losses[index], t),
+            close(joint.damping(), dampings[index], tolerance),
+            "{ctx} damping"
+        );
+        assert!(
+            close(joint.friction_loss(), friction_losses[index], tolerance),
             "{ctx} friction_loss"
         );
         assert!(
-            close(joint.spring_reference(), spring_references[index], t),
+            close(
+                joint.spring_reference(),
+                spring_references[index],
+                tolerance
+            ),
             "{ctx} spring_reference"
         );
         assert!(
-            close(joint.spring_stiffness(), spring_stiffnesses[index], t),
+            close(
+                joint.spring_stiffness(),
+                spring_stiffnesses[index],
+                tolerance
+            ),
             "{ctx} spring_stiffness"
         );
 
@@ -295,8 +318,8 @@ fn check_body_tree(fx: &Fixture) {
         match (joint.limits(), expected_limits) {
             (None, None) => {}
             (Some((lower, upper)), Some((want_lower, want_upper))) => {
-                assert!(close(lower, want_lower, t), "{ctx} limits lower");
-                assert!(close(upper, want_upper, t), "{ctx} limits upper");
+                assert!(close(lower, want_lower, tolerance), "{ctx} limits lower");
+                assert!(close(upper, want_upper, tolerance), "{ctx} limits upper");
             }
             (got, want) => unreachable!("{ctx}: limits {got:?} does not match {want:?}"),
         }
@@ -307,21 +330,24 @@ fn check_body_tree(fx: &Fixture) {
     // the only place in the suite that would notice the conversion dropping them.
     let tree = model
         .kinematic_tree::<16, 16>()
-        .unwrap_or_else(|e| unreachable!("{case}: kinematic_tree: {e}"));
+        .unwrap_or_else(|err| unreachable!("{case}: kinematic_tree: {err}"));
     for index in 0..model.body_count() {
         let joint = tree.joint(index).unwrap();
         let ctx = format!("{case} tree slot {index}");
         assert!(
-            close(joint.armature(), armatures[index], t),
+            close(joint.armature(), armatures[index], tolerance),
             "{ctx} armature"
         );
-        assert!(close(joint.damping(), dampings[index], t), "{ctx} damping");
         assert!(
-            close(joint.friction_loss(), friction_losses[index], t),
+            close(joint.damping(), dampings[index], tolerance),
+            "{ctx} damping"
+        );
+        assert!(
+            close(joint.friction_loss(), friction_losses[index], tolerance),
             "{ctx} friction_loss"
         );
         assert!(
-            close(joint.zero_offset(), zero_offsets[index], t),
+            close(joint.zero_offset(), zero_offsets[index], tolerance),
             "{ctx} zero_offset"
         );
     }
@@ -337,30 +363,30 @@ fn check_body_tree(fx: &Fixture) {
 /// parent, or joint kind would fail loudly there. What is worth checking here specifically is that
 /// multi-level default-class inheritance and free-joint ingestion both read correctly, which three
 /// representative bodies are enough to show.
-fn check_go1_tree(fx: &Fixture) {
-    let case = fx.case.as_str();
-    let path = menagerie().join(fx.inputs["model_file"].as_str());
+fn check_go1_tree(fixture: &Fixture) {
+    let case = fixture.case.as_str();
+    let path = menagerie().join(fixture.inputs["model_file"].as_str());
     let model = multicalc_robot_model::mjcf::load_path(&path)
-        .unwrap_or_else(|e| unreachable!("{case}: loading {path:?}: {e}"));
-    let t = fx.tolerances.f64;
+        .unwrap_or_else(|err| unreachable!("{case}: loading {path:?}: {err}"));
+    let tolerance = fixture.tolerances.f64;
 
     assert_eq!(
         model.body_count() as i64,
-        fx.expected["body_count"].as_int(),
+        fixture.expected["body_count"].as_int(),
         "{case} body_count"
     );
     assert_eq!(
         model.movable_joint_count() as i64,
-        fx.expected["movable_joint_count"].as_int(),
+        fixture.expected["movable_joint_count"].as_int(),
         "{case} movable_joint_count"
     );
     assert_eq!(
         i64::from(model.has_floating_base()),
-        fx.expected["free_joint"].as_int(),
+        fixture.expected["free_joint"].as_int(),
         "{case} free_joint"
     );
 
-    let body_names: Vec<&str> = fx.expected["body_names"]
+    let body_names: Vec<&str> = fixture.expected["body_names"]
         .as_str()
         .split_whitespace()
         .collect();
@@ -377,9 +403,13 @@ fn check_go1_tree(fx: &Fixture) {
         );
     }
 
-    let parents = fx.expected["parents"].as_vector();
+    let parents = fixture.expected["parents"].as_vector();
     for (index, &expected_parent) in parents.iter().enumerate() {
-        let got_parent = model.body(index).unwrap().parent().map_or(-1, |p| p as i64);
+        let got_parent = model
+            .body(index)
+            .unwrap()
+            .parent()
+            .map_or(-1, |parent| parent as i64);
         assert_eq!(
             got_parent, expected_parent as i64,
             "{case} body {index} parent"
@@ -390,15 +420,15 @@ fn check_go1_tree(fx: &Fixture) {
     // `nq`/`nv`, so a mismatch here means the floating base widened the configuration wrong.
     let tree = model
         .kinematic_tree::<13, 19>()
-        .unwrap_or_else(|e| unreachable!("{case}: kinematic_tree: {e}"));
+        .unwrap_or_else(|err| unreachable!("{case}: kinematic_tree: {err}"));
     assert_eq!(
         tree.config_len() as i64,
-        fx.expected["configuration_dimension"].as_int(),
+        fixture.expected["configuration_dimension"].as_int(),
         "{case} configuration_dimension"
     );
     assert_eq!(
         tree.velocity_len() as i64,
-        fx.expected["velocity_dimension"].as_int(),
+        fixture.expected["velocity_dimension"].as_int(),
         "{case} velocity_dimension"
     );
 
@@ -408,20 +438,21 @@ fn check_go1_tree(fx: &Fixture) {
             .joint()
             .unwrap_or_else(|| unreachable!("{case} {label}: body carries no joint"));
         let ctx = format!("{case} {label}");
-        let field = |suffix: &str| -> &Value { &fx.expected[format!("{label}_{suffix}").as_str()] };
+        let field =
+            |suffix: &str| -> &Value { &fixture.expected[format!("{label}_{suffix}").as_str()] };
 
         let mass_properties = body
             .inertia()
             .unwrap_or_else(|| unreachable!("{ctx}: body states no mass properties"));
         assert!(
-            close(mass_properties.mass(), field("mass").as_scalar(), t),
+            close(mass_properties.mass(), field("mass").as_scalar(), tolerance),
             "{ctx} mass"
         );
         let center_of_mass = mass_properties.center_of_mass();
         let want_com = field("center_of_mass").as_vector();
         for axis in 0..3 {
             assert!(
-                close(center_of_mass[axis], want_com[axis], t),
+                close(center_of_mass[axis], want_com[axis], tolerance),
                 "{ctx} center_of_mass[{axis}]"
             );
         }
@@ -444,7 +475,7 @@ fn check_go1_tree(fx: &Fixture) {
         let want_position = field("origin_position").as_vector();
         for axis in 0..3 {
             assert!(
-                close(translation[axis], want_position[axis], t),
+                close(translation[axis], want_position[axis], tolerance),
                 "{ctx} origin_position[{axis}]"
             );
         }
@@ -457,7 +488,7 @@ fn check_go1_tree(fx: &Fixture) {
                 close(
                     flip * quaternion[component],
                     want_flip * want_quaternion[component],
-                    t
+                    tolerance
                 ),
                 "{ctx} origin_quaternion[{component}]"
             );
@@ -474,7 +505,7 @@ fn check_go1_tree(fx: &Fixture) {
         let want_axis = field("axis").as_vector();
         for component in 0..3 {
             assert!(
-                close(axis[component], want_axis[component], t),
+                close(axis[component], want_axis[component], tolerance),
                 "{ctx} axis[{component}]"
             );
         }
@@ -482,31 +513,39 @@ fn check_go1_tree(fx: &Fixture) {
         let want_anchor = field("anchor").as_vector();
         for component in 0..3 {
             assert!(
-                close(anchor[component], want_anchor[component], t),
+                close(anchor[component], want_anchor[component], tolerance),
                 "{ctx} anchor[{component}]"
             );
         }
         assert!(
-            close(joint.zero_offset(), field("zero_offset").as_scalar(), t),
+            close(
+                joint.zero_offset(),
+                field("zero_offset").as_scalar(),
+                tolerance
+            ),
             "{ctx} zero_offset"
         );
         assert!(
-            close(joint.armature(), field("armature").as_scalar(), t),
+            close(joint.armature(), field("armature").as_scalar(), tolerance),
             "{ctx} armature"
         );
         assert!(
-            close(joint.damping(), field("damping").as_scalar(), t),
+            close(joint.damping(), field("damping").as_scalar(), tolerance),
             "{ctx} damping"
         );
         assert!(
-            close(joint.friction_loss(), field("friction_loss").as_scalar(), t),
+            close(
+                joint.friction_loss(),
+                field("friction_loss").as_scalar(),
+                tolerance
+            ),
             "{ctx} friction_loss"
         );
         assert!(
             close(
                 joint.spring_reference(),
                 field("spring_reference").as_scalar(),
-                t
+                tolerance
             ),
             "{ctx} spring_reference"
         );
@@ -514,7 +553,7 @@ fn check_go1_tree(fx: &Fixture) {
             close(
                 joint.spring_stiffness(),
                 field("spring_stiffness").as_scalar(),
-                t
+                tolerance
             ),
             "{ctx} spring_stiffness"
         );
@@ -527,7 +566,7 @@ fn check_go1_tree(fx: &Fixture) {
         let (lower, upper) = joint
             .limits()
             .unwrap_or_else(|| unreachable!("{ctx}: joint has no limits"));
-        assert!(close(lower, want_range[0], t), "{ctx} limits lower");
-        assert!(close(upper, want_range[1], t), "{ctx} limits upper");
+        assert!(close(lower, want_range[0], tolerance), "{ctx} limits lower");
+        assert!(close(upper, want_range[1], tolerance), "{ctx} limits upper");
     }
 }

@@ -20,14 +20,14 @@ fn model_path(name: &str) -> PathBuf {
 
 fn model(name: &str) -> RobotModel {
     multicalc_robot_model::urdf::load_path(&model_path(name))
-        .unwrap_or_else(|e| panic!("loading {name}: {e}"))
+        .unwrap_or_else(|err| panic!("loading {name}: {err}"))
 }
 
 /// The error a `bad_` model is rejected with.
 fn refusal(name: &str) -> ModelError {
     match multicalc_robot_model::urdf::load_path(&model_path(name)) {
         Ok(_) => panic!("{name} loaded, and it should not have"),
-        Err(e) => e,
+        Err(err) => err,
     }
 }
 

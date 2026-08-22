@@ -8,16 +8,16 @@ use crate::scalar::Numeric;
 ///
 /// ```
 /// use multicalc::linear_algebra::Vector;
-/// let a = Vector::new([1.0, 2.0, 3.0]);
-/// let b = Vector::from([4.0, 5.0, 6.0]);
+/// let vector_a = Vector::new([1.0, 2.0, 3.0]);
+/// let vector_b = Vector::from([4.0, 5.0, 6.0]);
 ///
-/// assert_eq!(a[0], 1.0);
-/// assert_eq!(a.get(0), Some(&1.0));
-/// assert_eq!(a + b, Vector::new([5.0, 7.0, 9.0]));
-/// assert_eq!(b - a, Vector::new([3.0, 3.0, 3.0]));
-/// assert_eq!(-a, Vector::new([-1.0, -2.0, -3.0]));
-/// assert_eq!(a * 2.0, Vector::new([2.0, 4.0, 6.0]));
-/// assert_eq!(a.dot(b), 32.0);
+/// assert_eq!(vector_a[0], 1.0);
+/// assert_eq!(vector_a.get(0), Some(&1.0));
+/// assert_eq!(vector_a + vector_b, Vector::new([5.0, 7.0, 9.0]));
+/// assert_eq!(vector_b - vector_a, Vector::new([3.0, 3.0, 3.0]));
+/// assert_eq!(-vector_a, Vector::new([-1.0, -2.0, -3.0]));
+/// assert_eq!(vector_a * 2.0, Vector::new([2.0, 4.0, 6.0]));
+/// assert_eq!(vector_a.dot(vector_b), 32.0);
 /// ```
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -37,8 +37,8 @@ impl<const N: usize, T> Vector<N, T> {
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    /// let v = Vector::<4>::from_fn(|i| i as f64);
-    /// assert_eq!(v.into_array(), [0.0, 1.0, 2.0, 3.0]);
+    /// let vector = Vector::<4>::from_fn(|i| i as f64);
+    /// assert_eq!(vector.into_array(), [0.0, 1.0, 2.0, 3.0]);
     /// ```
     #[inline]
     pub fn from_fn(f: impl FnMut(usize) -> T) -> Self {
@@ -75,9 +75,9 @@ impl<const N: usize, T> Vector<N, T> {
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    /// let mut v = Vector::new([1.0, 2.0]);
-    /// v.as_mut_slice()[0] = 9.0;
-    /// assert_eq!(v[0], 9.0);
+    /// let mut vector = Vector::new([1.0, 2.0]);
+    /// vector.as_mut_slice()[0] = 9.0;
+    /// assert_eq!(vector[0], 9.0);
     /// ```
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
@@ -88,14 +88,14 @@ impl<const N: usize, T> Vector<N, T> {
     #[inline]
     #[track_caller]
     #[must_use]
-    pub(crate) fn at(&self, i: usize) -> &T {
+    pub(crate) fn get_unchecked(&self, i: usize) -> &T {
         #[allow(clippy::indexing_slicing)]
         &self.data[i]
     }
 
     #[inline]
     #[track_caller]
-    pub(crate) fn at_mut(&mut self, i: usize) -> &mut T {
+    pub(crate) fn get_unchecked_mut(&mut self, i: usize) -> &mut T {
         #[allow(clippy::indexing_slicing)]
         &mut self.data[i]
     }
@@ -104,9 +104,9 @@ impl<const N: usize, T> Vector<N, T> {
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    /// let v = Vector::new([1.0, 2.0]);
-    /// assert_eq!(v.get(0), Some(&1.0));
-    /// assert_eq!(v.get(2), None);
+    /// let vector = Vector::new([1.0, 2.0]);
+    /// assert_eq!(vector.get(0), Some(&1.0));
+    /// assert_eq!(vector.get(2), None);
     /// ```
     #[inline]
     #[must_use]
@@ -118,11 +118,11 @@ impl<const N: usize, T> Vector<N, T> {
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    /// let mut v = Vector::new([1.0, 2.0]);
-    /// if let Some(x) = v.get_mut(1) {
+    /// let mut vector = Vector::new([1.0, 2.0]);
+    /// if let Some(x) = vector.get_mut(1) {
     ///     *x = 9.0;
     /// }
-    /// assert_eq!(v.get(1), Some(&9.0));
+    /// assert_eq!(vector.get(1), Some(&9.0));
     /// ```
     #[inline]
     pub fn get_mut(&mut self, i: usize) -> Option<&mut T> {
@@ -140,9 +140,9 @@ impl<const N: usize, T> Vector<N, T> {
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    /// let v = Vector::new([1.0, 2.0, 3.0]);
-    /// let u = v.map(|x| 2.0 * x);
-    /// assert_eq!(u, Vector::new([2.0, 4.0, 6.0]));
+    /// let vector = Vector::new([1.0, 2.0, 3.0]);
+    /// let mapped_vector = vector.map(|x| 2.0 * x);
+    /// assert_eq!(mapped_vector, Vector::new([2.0, 4.0, 6.0]));
     /// ```
     #[inline]
     pub fn map<F, U>(self, f: F) -> Vector<N, U>
@@ -173,8 +173,8 @@ impl<const N: usize, T: Numeric> Vector<N, T> {
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    /// let v: Vector<3> = Vector::zeros();
-    /// assert_eq!(v.into_array(), [0.0, 0.0, 0.0]);
+    /// let vector: Vector<3> = Vector::zeros();
+    /// assert_eq!(vector.into_array(), [0.0, 0.0, 0.0]);
     /// ```
     #[inline]
     pub fn zeros() -> Self {
@@ -185,9 +185,9 @@ impl<const N: usize, T: Numeric> Vector<N, T> {
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    /// let v = Vector::new([1.0, 2.0]);
+    /// let vector = Vector::new([1.0, 2.0]);
     /// let factor = 3.0;
-    /// assert_eq!(v.scale(factor), Vector::new([3.0, 6.0]));
+    /// assert_eq!(vector.scale(factor), Vector::new([3.0, 6.0]));
     /// ```
     #[inline]
     pub fn scale(self, scalar: T) -> Self {
@@ -198,21 +198,21 @@ impl<const N: usize, T: Numeric> Vector<N, T> {
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    /// let a = Vector::new([1.0, 2.0, 3.0]);
-    /// let b = Vector::new([4.0, 5.0, 6.0]);
-    /// assert_eq!(a.dot(b), 32.0);
+    /// let vector_a = Vector::new([1.0, 2.0, 3.0]);
+    /// let vector_b = Vector::new([4.0, 5.0, 6.0]);
+    /// assert_eq!(vector_a.dot(vector_b), 32.0);
     ///
     /// // perpendicular vectors have a zero dot product
-    /// let along_x = Vector::new([1.0, 0.0]);
-    /// let along_y = Vector::new([0.0, 1.0]);
-    /// assert_eq!(along_x.dot(along_y), 0.0);
+    /// let vector_along_x = Vector::new([1.0, 0.0]);
+    /// let vector_along_y = Vector::new([0.0, 1.0]);
+    /// assert_eq!(vector_along_x.dot(vector_along_y), 0.0);
     /// ```
     #[inline]
     #[must_use]
     pub fn dot(self, rhs: Self) -> T {
         let mut sum = T::ZERO;
-        for (&a, &b) in self.data.iter().zip(&rhs.data) {
-            sum += a * b;
+        for (&component_a, &component_b) in self.data.iter().zip(&rhs.data) {
+            sum += component_a * component_b;
         }
         sum
     }
@@ -288,9 +288,9 @@ impl<const N: usize, T: Numeric> Vector<N, T> {
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    /// let mut v = Vector::new([30.0, 40.0]);
-    /// v.normalize();
-    /// assert_eq!(v, Vector::new([0.6, 0.8]));
+    /// let mut vector = Vector::new([30.0, 40.0]);
+    /// vector.normalize();
+    /// assert_eq!(vector, Vector::new([0.6, 0.8]));
     /// ```
     #[inline]
     pub fn normalize(&mut self) {
@@ -303,16 +303,18 @@ impl<const N: usize, T: Numeric> Vector<N, T> {
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    /// let mut v = Vector::new([30.0, 40.0]);
-    /// assert!(v.try_normalize().is_some());
-    /// assert_eq!(v, Vector::new([0.6, 0.8]));
+    /// let mut vector = Vector::new([30.0, 40.0]);
+    /// assert!(vector.try_normalize().is_some());
+    /// assert_eq!(vector, Vector::new([0.6, 0.8]));
     ///
-    /// let mut v = Vector::new([0.0, 0.0]);
-    /// assert!(v.try_normalize().is_none());
-    /// assert_eq!(v, Vector::new([0.0, 0.0]));
+    /// let mut vector = Vector::new([0.0, 0.0]);
+    /// assert!(vector.try_normalize().is_none());
+    /// assert_eq!(vector, Vector::new([0.0, 0.0]));
     ///
-    /// let mut v = Vector::new([f64::NAN, 1.0]);
-    /// assert!(v.try_normalize().is_none());
+    /// let mut vector = Vector::new([f64::NAN, 1.0]);
+    /// assert!(vector.try_normalize().is_none());
+    /// assert!(vector[0].is_nan());
+    /// assert_eq!(vector[1], 1.0);
     /// ```
     #[inline]
     #[must_use]
@@ -346,7 +348,7 @@ impl<const N: usize, T> Index<usize> for Vector<N, T> {
     #[inline]
     #[track_caller]
     fn index(&self, index: usize) -> &T {
-        self.at(index)
+        self.get_unchecked(index)
     }
 }
 
@@ -355,7 +357,7 @@ impl<const N: usize, T> IndexMut<usize> for Vector<N, T> {
     #[inline]
     #[track_caller]
     fn index_mut(&mut self, index: usize) -> &mut T {
-        self.at_mut(index)
+        self.get_unchecked_mut(index)
     }
 }
 
@@ -433,9 +435,13 @@ impl<T: Numeric> Vector<3, T> {
     /// ```
     #[inline]
     pub fn cross(self, rhs: Self) -> Self {
-        let [ax, ay, az] = self.data;
-        let [bx, by, bz] = rhs.data;
-        Vector::new([ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx])
+        let [self_x, self_y, self_z] = self.data;
+        let [rhs_x, rhs_y, rhs_z] = rhs.data;
+        Vector::new([
+            self_y * rhs_z - self_z * rhs_y,
+            self_z * rhs_x - self_x * rhs_z,
+            self_x * rhs_y - self_y * rhs_x,
+        ])
     }
 
     /// The scalar triple product `self · (b × c)`: the signed volume spanned by the three vectors.
@@ -449,8 +455,8 @@ impl<T: Numeric> Vector<3, T> {
     /// ```
     #[inline]
     #[must_use]
-    pub fn scalar_triple(self, b: Self, c: Self) -> T {
-        self.dot(b.cross(c))
+    pub fn scalar_triple(self, vector_b: Self, vector_c: Self) -> T {
+        self.dot(vector_b.cross(vector_c))
     }
 }
 
@@ -468,8 +474,8 @@ impl<T: Numeric> Vector<2, T> {
     #[inline]
     #[must_use]
     pub fn cross(self, rhs: Self) -> T {
-        let [a0, a1] = self.data;
-        let [b0, b1] = rhs.data;
-        a0 * b1 - a1 * b0
+        let [self_x, self_y] = self.data;
+        let [rhs_x, rhs_y] = rhs.data;
+        self_x * rhs_y - self_y * rhs_x
     }
 }

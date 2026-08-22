@@ -56,21 +56,21 @@ impl<T: Numeric> OnePoleLowPass<T> {
 
     /// Builds a filter from a cutoff frequency in hertz and a timestep in seconds.
     ///
-    /// The smoothing coefficient is `a / (a + 1)` with `a = 2 * pi * cutoff_hz * dt`. Returns
+    /// The smoothing coefficient is `a / (a + 1)` with `a = 2 * pi * cutoff_hz * timestep`. Returns
     /// [`SignalError::NonFinite`] if either argument is not finite,
-    /// [`SignalError::NonPositiveTimestep`] if `dt` is not strictly positive, or
+    /// [`SignalError::NonPositiveTimestep`] if `timestep` is not strictly positive, or
     /// [`SignalError::FrequencyOutOfRange`] if `cutoff_hz` is negative.
-    pub fn from_cutoff(cutoff_hz: T, dt: T) -> Result<Self, SignalError> {
-        if !cutoff_hz.is_finite() || !dt.is_finite() {
+    pub fn from_cutoff(cutoff_hz: T, timestep: T) -> Result<Self, SignalError> {
+        if !cutoff_hz.is_finite() || !timestep.is_finite() {
             return Err(SignalError::NonFinite);
         }
-        if dt <= T::ZERO {
+        if timestep <= T::ZERO {
             return Err(SignalError::NonPositiveTimestep);
         }
         if cutoff_hz < T::ZERO {
             return Err(SignalError::FrequencyOutOfRange);
         }
-        let a = T::TWO * T::PI * cutoff_hz * dt;
+        let a = T::TWO * T::PI * cutoff_hz * timestep;
         let smoothing = a / (a + T::ONE);
         Self::new(smoothing)
     }

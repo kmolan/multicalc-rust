@@ -78,13 +78,15 @@ fn body_settles_on_the_target() {
 
     let mut attitude = SO3::exp(Vector::new([0.6, -0.4, 0.9]));
     let mut body_rate = Vector::new([1.5, -1.0, 0.8]);
-    let dt = 0.002;
+    let timestep = 0.002;
     for _ in 0..4000 {
         let torque = control.torque(attitude, body_rate, target, still, still);
         // What is left over after the body's own spin drives the change in turn rate.
         let rate_change = inverse_inertia * (torque - body_rate.cross(inertia * body_rate));
-        body_rate += rate_change.scale(dt);
-        attitude = attitude.compose(SO3::exp(body_rate.scale(dt))).normalized();
+        body_rate += rate_change.scale(timestep);
+        attitude = attitude
+            .compose(SO3::exp(body_rate.scale(timestep)))
+            .normalized();
     }
     let error = GeometricAttitudeController::<f64>::attitude_error(attitude, target);
     assert!(error.norm() < 1e-3, "error {}", error.norm());
@@ -103,13 +105,15 @@ fn tracks_a_turning_target() {
     let mut target = SO3::<f64>::identity();
     let mut attitude = target;
     let mut body_rate = desired_body_rate;
-    let dt = 0.002;
+    let timestep = 0.002;
     for _ in 0..4000 {
         let torque = control.torque(attitude, body_rate, target, desired_body_rate, still);
         let rate_change = inverse_inertia * (torque - body_rate.cross(inertia * body_rate));
-        body_rate += rate_change.scale(dt);
-        attitude = attitude.compose(SO3::exp(body_rate.scale(dt))).normalized();
-        target = target.compose(SO3::exp(Vector::new([0.0, 0.0, turn_rate * dt])));
+        body_rate += rate_change.scale(timestep);
+        attitude = attitude
+            .compose(SO3::exp(body_rate.scale(timestep)))
+            .normalized();
+        target = target.compose(SO3::exp(Vector::new([0.0, 0.0, turn_rate * timestep])));
 
         let error = GeometricAttitudeController::<f64>::attitude_error(attitude, target);
         assert!(error.norm() < 1e-3, "error {}", error.norm());
@@ -126,12 +130,14 @@ fn works_at_f32() {
 
     let mut attitude = SO3::exp(Vector::new([0.6_f32, -0.4, 0.9]));
     let mut body_rate = Vector::new([1.5_f32, -1.0, 0.8]);
-    let dt = 0.002_f32;
+    let timestep = 0.002_f32;
     for _ in 0..4000 {
         let torque = control.torque(attitude, body_rate, target, still, still);
         let rate_change = inverse_inertia * (torque - body_rate.cross(inertia * body_rate));
-        body_rate += rate_change.scale(dt);
-        attitude = attitude.compose(SO3::exp(body_rate.scale(dt))).normalized();
+        body_rate += rate_change.scale(timestep);
+        attitude = attitude
+            .compose(SO3::exp(body_rate.scale(timestep)))
+            .normalized();
     }
     let error = GeometricAttitudeController::<f32>::attitude_error(attitude, target);
     assert!(error.norm() < 1e-2_f32, "error {}", error.norm());

@@ -8,18 +8,18 @@ use crate::error::LinalgError;
 use crate::linear_algebra::{Matrix, Vector};
 use crate::scalar::Numeric;
 
-/// Euclidean norm of `v`, computed so it neither overflows on large components nor
+/// Euclidean norm of `values`, computed so it neither overflows on large components nor
 /// underflows on small ones.
 ///
 /// Components are split into three magnitude bands. Small and large components are summed
 /// against a running maximum in that band, so every squared term stays within range; only
 /// the mid band is squared directly. This is the MINPACK `enorm` scheme.
 #[must_use]
-pub(crate) fn enorm<T: Numeric>(v: &[T]) -> T {
+pub(crate) fn enorm<T: Numeric>(values: &[T]) -> T {
     // Below `rdwarf`, squaring underflows; above `agiant`, summing the squares overflows.
     let rdwarf = T::MIN_POSITIVE.sqrt();
     let rgiant = T::MAX.sqrt();
-    let agiant = rgiant / T::from_usize(v.len());
+    let agiant = rgiant / T::from_usize(values.len());
 
     let mut small_sum = T::ZERO;
     let mut mid_sum = T::ZERO;
@@ -27,7 +27,7 @@ pub(crate) fn enorm<T: Numeric>(v: &[T]) -> T {
     let mut small_max = T::ZERO;
     let mut large_max = T::ZERO;
 
-    for &value in v {
+    for &value in values {
         let a = value.abs();
 
         if a > rdwarf && a < agiant {
@@ -84,7 +84,7 @@ pub(crate) fn min<T: PartialOrd>(a: T, b: T) -> T {
 
 /// Column-pivoted Householder QR of an `M`-by-`N` matrix with `M >= N`.
 ///
-/// Holds the factorization in packed form: the strict lower triangle of `qr` stores the
+/// Holds the factorization in packed form: the strict lower triangle of `packed` stores the
 /// Householder vectors, the strict upper triangle stores the off-diagonal of `R`, and
 /// `r_diag` holds the diagonal of `R`. `permutation` gives the pivot order, so
 /// `A * P == Q * R`, where column `j` of `P` is column `permutation[j]` of the identity.
@@ -92,7 +92,7 @@ pub(crate) fn min<T: PartialOrd>(a: T, b: T) -> T {
 #[must_use]
 pub struct PivotedQr<const M: usize, const N: usize, T = f64> {
     /// Packed reflectors (below the diagonal) and off-diagonal `R` (above it).
-    pub(crate) qr: Matrix<M, N, T>,
+    pub(crate) packed: Matrix<M, N, T>,
     /// Diagonal of `R`.
     pub(crate) r_diag: [T; N],
     /// Euclidean norms of the original columns of `A`, in original order.
@@ -125,7 +125,7 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
             return Err(LinalgError::Underdetermined);
         }
 
-        let mut qr = a;
+        let mut packed = a;
         let mut r_diag = [T::ZERO; N];
         let mut column_norms = [T::ZERO; N];
         let mut reference_norm = [T::ZERO; N];
@@ -136,7 +136,7 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
         for j in 0..N {
             let mut column = [T::ZERO; M];
             for i in 0..M {
-                column[i] = qr[(i, j)];
+                column[i] = packed[(i, j)];
             }
             let norm = enorm(&column);
             column_norms[j] = norm;
@@ -157,7 +157,7 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
                 }
             }
             if kmax != j {
-                for row in qr.as_mut_slice_rows() {
+                for row in packed.as_mut_slice_rows() {
                     row.swap(j, kmax)
                 }
                 r_diag[kmax] = r_diag[j];
@@ -168,7 +168,7 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
             // Householder transformation zeroing column `j` below the diagonal.
             let mut column = [T::ZERO; M];
             for i in j..M {
-                column[i] = qr[(i, j)];
+                column[i] = packed[(i, j)];
             }
             let mut ajnorm = enorm(&column[j..]);
             if ajnorm == T::ZERO {
@@ -176,28 +176,28 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
                 continue;
             }
             // Sign chosen so the pivot element is at least one, keeping the divisor below safe.
-            if qr[(j, j)] < T::ZERO {
+            if packed[(j, j)] < T::ZERO {
                 ajnorm = -ajnorm;
             }
             for i in j..M {
-                qr[(i, j)] /= ajnorm;
+                packed[(i, j)] /= ajnorm;
             }
-            qr[(j, j)] += T::ONE;
+            packed[(j, j)] += T::ONE;
 
             // Apply the transformation to the remaining columns and downdate their norms.
             for k in (j + 1)..N {
                 let mut sum = T::ZERO;
                 for i in j..M {
-                    sum += qr[(i, j)] * qr[(i, k)];
+                    sum += packed[(i, j)] * packed[(i, k)];
                 }
-                let factor = sum / qr[(j, j)];
+                let factor = sum / packed[(j, j)];
                 for i in j..M {
-                    let reflected = qr[(i, k)] - factor * qr[(i, j)];
-                    qr[(i, k)] = reflected;
+                    let reflected = packed[(i, k)] - factor * packed[(i, j)];
+                    packed[(i, k)] = reflected;
                 }
 
                 if r_diag[k] != T::ZERO {
-                    let ratio = qr[(j, k)] / r_diag[k];
+                    let ratio = packed[(j, k)] / r_diag[k];
                     r_diag[k] *= max(T::ZERO, T::ONE - ratio * ratio).sqrt();
                     // `reference_norm[k]` is the column's original norm, nonzero here.
                     let relative = r_diag[k] / reference_norm[k];
@@ -205,7 +205,7 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
                         // Recompute from the remaining rows to shed accumulated round-off.
                         let mut tail = [T::ZERO; M];
                         for i in (j + 1)..M {
-                            tail[i] = qr[(i, k)];
+                            tail[i] = packed[(i, k)];
                         }
                         r_diag[k] = enorm(&tail[(j + 1)..]);
                         reference_norm[k] = r_diag[k];
@@ -217,7 +217,7 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
         }
 
         Ok(PivotedQr {
-            qr,
+            packed,
             r_diag,
             column_norms,
             permutation,
@@ -226,12 +226,12 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
 
     /// The `N`-by-`N` upper-triangular factor `R`
     #[allow(clippy::indexing_slicing)]
-    pub fn r(&self) -> Matrix<N, N, T> {
+    pub fn triangular(&self) -> Matrix<N, N, T> {
         Matrix::from_fn(|row, col| {
             if row == col {
                 self.r_diag[row]
             } else if col > row {
-                self.qr[(row, col)]
+                self.packed[(row, col)]
             } else {
                 T::ZERO
             }
@@ -240,25 +240,25 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
 
     /// The `M`-by-`N` factor `Q`, formed by applying the stored reflectors to the identity.
     /// Its columns are orthonormal.
-    pub fn q(&self) -> Matrix<M, N, T> {
-        let mut q = Matrix::from_fn(|row, col| if row == col { T::ONE } else { T::ZERO });
+    pub fn orthogonal(&self) -> Matrix<M, N, T> {
+        let mut orthogonal = Matrix::from_fn(|row, col| if row == col { T::ONE } else { T::ZERO });
         for col in 0..N {
             for j in (0..N).rev() {
-                let pivot = self.qr[(j, j)];
+                let pivot = self.packed[(j, j)];
                 if pivot == T::ZERO {
                     continue;
                 }
                 let mut sum = T::ZERO;
                 for i in j..M {
-                    sum += self.qr[(i, j)] * q[(i, col)];
+                    sum += self.packed[(i, j)] * orthogonal[(i, col)];
                 }
                 let factor = sum / pivot;
                 for i in j..M {
-                    q[(i, col)] -= factor * self.qr[(i, j)];
+                    orthogonal[(i, col)] -= factor * self.packed[(i, j)];
                 }
             }
         }
-        q
+        orthogonal
     }
 
     /// The pivot order: column `j` of `A * P` is column `permutation()[j]` of `A`.
@@ -289,17 +289,17 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
         // Apply the reflectors to b, leaving Qᵀb in the first N entries.
         let mut qtb = b;
         for j in 0..N {
-            let pivot = self.qr[(j, j)];
+            let pivot = self.packed[(j, j)];
             if pivot == T::ZERO {
                 continue;
             }
             let mut sum = T::ZERO;
             for i in j..M {
-                sum += self.qr[(i, j)] * qtb[i];
+                sum += self.packed[(i, j)] * qtb[i];
             }
             let factor = sum / pivot;
             for i in j..M {
-                qtb[i] -= factor * self.qr[(i, j)];
+                qtb[i] -= factor * self.packed[(i, j)];
             }
         }
 
@@ -318,7 +318,7 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
             }
             let mut acc = qtb[row];
             for (col, &y_value) in y.iter().enumerate().skip(row + 1) {
-                acc -= self.qr[(row, col)] * y_value;
+                acc -= self.packed[(row, col)] * y_value;
             }
             y[row] = acc / self.r_diag[row];
         }
@@ -337,17 +337,17 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
         // Apply the reflectors to b, leaving Qᵀb in the first N entries.
         let mut transformed = b;
         for j in 0..N {
-            let pivot = self.qr[(j, j)];
+            let pivot = self.packed[(j, j)];
             if pivot == T::ZERO {
                 continue;
             }
             let mut sum = T::ZERO;
             for i in j..M {
-                sum += self.qr[(i, j)] * transformed[i];
+                sum += self.packed[(i, j)] * transformed[i];
             }
             let factor = sum / pivot;
             for i in j..M {
-                transformed[i] -= factor * self.qr[(i, j)];
+                transformed[i] -= factor * self.packed[(i, j)];
             }
         }
         let mut qt_b = [T::ZERO; N];
@@ -356,7 +356,7 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
         }
 
         DampedLeastSquares {
-            r: self.r(),
+            triangular: self.triangular(),
             qt_b,
             permutation: self.permutation,
             column_norms: self.column_norms,
@@ -373,7 +373,7 @@ impl<const M: usize, const N: usize, T: Numeric> PivotedQr<M, N, T> {
 #[must_use]
 pub struct DampedLeastSquares<const N: usize, T = f64> {
     /// Upper-triangular factor `R`.
-    pub(crate) r: Matrix<N, N, T>,
+    pub(crate) triangular: Matrix<N, N, T>,
     /// `Qᵀb`, the right-hand side in factored coordinates.
     pub(crate) qt_b: [T; N],
     /// Pivot order carried over from the factorization.
@@ -388,30 +388,30 @@ impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
     #[allow(clippy::indexing_slicing)]
     pub fn solve_with_diagonal(&self, diag: &[T; N]) -> (Vector<N, T>, CholeskyFactor<N, T>) {
         // Working matrix: upper triangle is R, lower triangle mirrors it as scratch.
-        let mut s = self.r;
+        let mut factor = self.triangular;
         for j in 0..N {
             for i in (j + 1)..N {
-                s[(i, j)] = s[(j, i)];
+                factor[(i, j)] = factor[(j, i)];
             }
         }
 
         let mut saved_diag = [T::ZERO; N];
-        let mut wa = [T::ZERO; N];
+        let mut work = [T::ZERO; N];
         for j in 0..N {
-            saved_diag[j] = s[(j, j)];
-            wa[j] = self.qt_b[j];
+            saved_diag[j] = factor[(j, j)];
+            work[j] = self.qt_b[j];
         }
 
         let mut s_diag = [T::ZERO; N];
         let quarter = T::from_f64(0.25);
 
         for j in 0..N {
-            let l = self.permutation[j];
-            if diag[l] != T::ZERO {
+            let pivot = self.permutation[j];
+            if diag[pivot] != T::ZERO {
                 for entry in s_diag.iter_mut().skip(j) {
                     *entry = T::ZERO;
                 }
-                s_diag[j] = diag[l];
+                s_diag[j] = diag[pivot];
 
                 // Eliminate the diagonal row of D with Givens rotations, carrying the extra
                 // right-hand-side element (initially zero) alongside.
@@ -420,31 +420,31 @@ impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
                     if s_diag[k] == T::ZERO {
                         continue;
                     }
-                    let (sin, cos) = if s[(k, k)].abs() >= s_diag[k].abs() {
-                        let tan = s_diag[k] / s[(k, k)];
+                    let (sin, cos) = if factor[(k, k)].abs() >= s_diag[k].abs() {
+                        let tan = s_diag[k] / factor[(k, k)];
                         let cos = T::HALF / (quarter + quarter * tan * tan).sqrt();
                         (cos * tan, cos)
                     } else {
-                        let cotan = s[(k, k)] / s_diag[k];
+                        let cotan = factor[(k, k)] / s_diag[k];
                         let sin = T::HALF / (quarter + quarter * cotan * cotan).sqrt();
                         (sin, sin * cotan)
                     };
 
-                    s[(k, k)] = cos * s[(k, k)] + sin * s_diag[k];
-                    let wak = wa[k];
+                    factor[(k, k)] = cos * factor[(k, k)] + sin * s_diag[k];
+                    let wak = work[k];
                     let temp = cos * wak + sin * qtbpj;
                     qtbpj = -sin * wak + cos * qtbpj;
-                    wa[k] = temp;
+                    work[k] = temp;
 
                     for i in (k + 1)..N {
-                        let rotated = cos * s[(i, k)] + sin * s_diag[i];
-                        s_diag[i] = -sin * s[(i, k)] + cos * s_diag[i];
-                        s[(i, k)] = rotated;
+                        let rotated = cos * factor[(i, k)] + sin * s_diag[i];
+                        s_diag[i] = -sin * factor[(i, k)] + cos * s_diag[i];
+                        factor[(i, k)] = rotated;
                     }
                 }
             }
-            s_diag[j] = s[(j, j)];
-            s[(j, j)] = saved_diag[j];
+            s_diag[j] = factor[(j, j)];
+            factor[(j, j)] = saved_diag[j];
         }
 
         // Solve the triangular system for the permuted solution, zeroing any singular tail.
@@ -454,25 +454,25 @@ impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
                 nsing = j;
             }
             if nsing < N {
-                wa[j] = T::ZERO;
+                work[j] = T::ZERO;
             }
         }
         for k in 0..nsing {
             let j = nsing - 1 - k;
             let mut sum = T::ZERO;
             for i in (j + 1)..nsing {
-                sum += s[(i, j)] * wa[i];
+                sum += factor[(i, j)] * work[i];
             }
-            wa[j] = (wa[j] - sum) / s_diag[j];
+            work[j] = (work[j] - sum) / s_diag[j];
         }
 
         // Permute the solution back to original coordinates.
         let mut x = [T::ZERO; N];
         for (j, &target) in self.permutation.iter().enumerate() {
-            x[target] = wa[j];
+            x[target] = work[j];
         }
 
-        (Vector::new(x), CholeskyFactor { s, s_diag })
+        (Vector::new(x), CholeskyFactor { factor, s_diag })
     }
 
     /// Solves the undamped problem `AᵀA x = Aᵀb` (the Gauss-Newton direction).
@@ -490,13 +490,13 @@ impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
         }
         let mut result = T::ZERO;
         for j in 0..N {
-            let l = self.permutation[j];
-            if self.column_norms[l] != T::ZERO {
+            let pivot = self.permutation[j];
+            if self.column_norms[pivot] != T::ZERO {
                 let mut sum = T::ZERO;
-                for (i, &qi) in self.qt_b.iter().enumerate().take(j + 1) {
-                    sum += self.r[(i, j)] * (qi / b_norm);
+                for (i, &qt_entry) in self.qt_b.iter().enumerate().take(j + 1) {
+                    sum += self.triangular[(i, j)] * (qt_entry / b_norm);
                 }
-                result = max(result, (sum / self.column_norms[l]).abs());
+                result = max(result, (sum / self.column_norms[pivot]).abs());
             }
         }
         result
@@ -508,9 +508,9 @@ impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
     pub fn a_x_norm(&self, x: &Vector<N, T>) -> T {
         let mut w = [T::ZERO; N];
         for j in 0..N {
-            let xl = x[self.permutation[j]];
+            let x_perm = x[self.permutation[j]];
             for (i, slot) in w.iter_mut().enumerate().take(j + 1) {
-                *slot += self.r[(i, j)] * xl;
+                *slot += self.triangular[(i, j)] * x_perm;
             }
         }
         enorm(&w)
@@ -522,8 +522,8 @@ impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
         if N == 0 {
             return true;
         }
-        let threshold = T::EPSILON * T::from_usize(N) * self.r[(0, 0)].abs();
-        (0..N).all(|j| self.r[(j, j)].abs() > threshold)
+        let threshold = T::EPSILON * T::from_usize(N) * self.triangular[(0, 0)].abs();
+        (0..N).all(|j| self.triangular[(j, j)].abs() > threshold)
     }
 }
 
@@ -536,7 +536,7 @@ impl<const N: usize, T: Numeric> DampedLeastSquares<N, T> {
 #[must_use]
 pub struct CholeskyFactor<const N: usize, T = f64> {
     /// Working matrix whose strict lower triangle holds `Sᵀ`.
-    pub(crate) s: Matrix<N, N, T>,
+    pub(crate) factor: Matrix<N, N, T>,
     /// Diagonal of `S`.
     pub(crate) s_diag: [T; N],
 }
@@ -554,7 +554,7 @@ impl<const N: usize, T: Numeric> CholeskyFactor<N, T> {
             }
             let temp = rhs[j];
             for (i, slot) in rhs.iter_mut().enumerate().skip(j + 1) {
-                *slot -= self.s[(i, j)] * temp;
+                *slot -= self.factor[(i, j)] * temp;
             }
         }
         rhs

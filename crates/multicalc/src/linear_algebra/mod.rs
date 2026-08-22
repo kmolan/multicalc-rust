@@ -14,10 +14,12 @@
 
 mod cholesky;
 mod expm;
+#[allow(clippy::min_ident_chars)]
 mod lu;
 mod lyapunov;
 mod macros;
 mod matrix;
+#[allow(clippy::min_ident_chars)]
 mod qr;
 mod riccati;
 mod svd;
@@ -25,14 +27,24 @@ mod symmetric_eigendecomposition;
 mod vector;
 
 pub use cholesky::Cholesky;
-pub use lu::Lu;
 pub use lyapunov::solve_discrete_lyapunov;
 pub use matrix::Matrix;
-pub use qr::{CholeskyFactor, DampedLeastSquares, PivotedQr};
 pub use riccati::solve_discrete_riccati;
 pub use svd::Svd;
 pub use symmetric_eigendecomposition::SymmetricEigendecomposition;
 pub use vector::Vector;
+
+// Clippy flags `lu`/`qr` in `use` paths, but `#[allow]`/`#[expect]` on those `use` items are
+// reported as useless; a module-level allow is what actually covers the re-exports.
+#[allow(clippy::min_ident_chars)]
+mod short_name_reexports {
+    pub use super::lu::LuDecomposition;
+    pub use super::qr::{CholeskyFactor, DampedLeastSquares, PivotedQr};
+    pub(crate) use super::qr::{enorm, max, min};
+}
+pub use short_name_reexports::{CholeskyFactor, DampedLeastSquares, LuDecomposition, PivotedQr};
+/// Shared numeric helpers, reachable inside the crate now that `qr` is private.
+pub(crate) use short_name_reexports::{enorm, max, min};
 
 // Vector type aliases for ease of life
 pub type Vector2D<T = f64> = Vector<2, T>;
@@ -44,9 +56,6 @@ pub type Matrix2D<T = f64> = Matrix<2, 2, T>;
 pub type Matrix3D<T = f64> = Matrix<3, 3, T>;
 pub type Matrix4D<T = f64> = Matrix<4, 4, T>;
 pub type Matrix6D<T = f64> = Matrix<6, 6, T>;
-
-/// Shared numeric helpers, reachable inside the crate now that `qr` is private.
-pub(crate) use qr::{enorm, max, min};
 
 #[cfg(test)]
 mod test;

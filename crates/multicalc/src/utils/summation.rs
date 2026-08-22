@@ -123,9 +123,9 @@ impl<T: Numeric> KahanSum<T> {
     #[inline]
     pub(crate) fn add(&mut self, value: T) {
         let y = value - self.compensation;
-        let t = self.sum + y;
-        self.compensation = (t - self.sum) - y;
-        self.sum = t;
+        let next = self.sum + y;
+        self.compensation = (next - self.sum) - y;
+        self.sum = next;
     }
 
     #[inline]
@@ -151,10 +151,10 @@ impl<T: Numeric> Acc<T> {
     }
 
     #[inline]
-    pub(crate) fn add(&mut self, v: T) {
+    pub(crate) fn add(&mut self, value: T) {
         match self {
-            Acc::Pairwise(a) => a.add(v),
-            Acc::Kahan(a) => a.add(v),
+            Acc::Pairwise(a) => a.add(value),
+            Acc::Kahan(a) => a.add(value),
         }
     }
 
@@ -184,9 +184,9 @@ mod tests {
 
         let mut acc = PairwiseSum::new();
         let mut naive = 0.0;
-        for &v in &values {
-            acc.add(v);
-            naive += v;
+        for &value in &values {
+            acc.add(value);
+            naive += value;
         }
 
         // Reordered additions, so assert closeness rather than bit-equality.
@@ -199,9 +199,9 @@ mod tests {
 
         let mut acc = PairwiseSum::new();
         let mut naive = 0.0f32;
-        for &v in &values {
-            acc.add(v);
-            naive += v;
+        for &value in &values {
+            acc.add(value);
+            naive += value;
         }
 
         assert!((acc.total() - naive).abs() < 1e-5);

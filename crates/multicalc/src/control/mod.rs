@@ -11,7 +11,7 @@
 //! - [`FollowTheGap`] — reactive gap-following over a range scan.
 //!
 //! Everything is generic over [`Numeric`](crate::Numeric) (so `f32`/`f64`/autodiff), in SI units and
-//! radians, on a fixed timestep `dt`. Depends on [`linear_algebra`](crate::linear_algebra),
+//! radians, on a fixed timestep `timestep`. Depends on [`linear_algebra`](crate::linear_algebra),
 //! [`spatial`](crate::spatial), and [`kinematics`](crate::kinematics), not on
 //! [`motion`](crate::motion).
 

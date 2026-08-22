@@ -7,12 +7,14 @@
 
 use multicalc::approximation::LinearApproximator;
 use multicalc::approximation::QuadraticApproximator;
-use multicalc::scalar::{ScalarFnN, c};
+use multicalc::scalar::{ScalarFnN, constant};
 use multicalc::scalar_fn;
 
 fn main() {
     // ---- linearize f(x, y, z) = x + y^2 + z^3 about (1, 2, 3) ----
-    let f = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] * v[1] + v[2] * v[2] * v[2]);
+    let f = scalar_fn!(|point: &[f64; 3]| point[0]
+        + point[1] * point[1]
+        + point[2] * point[2] * point[2]);
     let base = [1.0, 2.0, 3.0];
 
     let linear: LinearApproximator = LinearApproximator::default();
@@ -50,17 +52,19 @@ fn main() {
     );
 
     // ---- quadratic approximation of e^(x/2) + sin(y) + 2z about (0, pi/2, 10) ----
-    let g = scalar_fn!(|v: &[f64; 3]| (c(0.5) * v[0]).exp() + v[1].sin() + c(2.0) * v[2]);
+    let func = scalar_fn!(|point: &[f64; 3]| (constant(0.5) * point[0]).exp()
+        + point[1].sin()
+        + constant(2.0) * point[2]);
     let base = [0.0, std::f64::consts::FRAC_PI_2, 10.0];
 
     let quadratic: QuadraticApproximator = QuadraticApproximator::default();
-    let model = quadratic.approximate(&g, &base).unwrap();
+    let model = quadratic.approximate(&func, &base).unwrap();
 
     println!("\nQuadratic model of e^(x/2) + sin(y) + 2z about (0, pi/2, 10)");
     let nearby = [0.1, std::f64::consts::FRAC_PI_2 + 0.1, 10.1];
     println!(
         "  predict({nearby:?}) = {:.6}   (truth {:.6})",
         model.predict(&nearby),
-        g.eval(&nearby)
+        func.eval(&nearby)
     );
 }

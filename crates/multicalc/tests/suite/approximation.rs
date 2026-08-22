@@ -2,7 +2,7 @@
 
 use multicalc::approximation::*;
 use multicalc::numerical_derivative::AutoDiffMulti;
-use multicalc::scalar::{Numeric, ScalarFnN, c};
+use multicalc::scalar::{Numeric, ScalarFnN, constant};
 use multicalc::scalar_fn;
 use proptest::prelude::*;
 use rand::Rng;
@@ -21,7 +21,7 @@ fn noisy_points_around(centre: [f64; 3]) -> [[f64; 3]; 1000] {
 #[test]
 fn linear_approximation_is_accurate_near_its_base_point() {
     //function is x + y^2 + z^3, which we want to linearize
-    let truth = scalar_fn!(|v: &[f64; 3]| v[0] + v[1].powi(2) + v[2].powi(3));
+    let truth = scalar_fn!(|vars: &[f64; 3]| vars[0] + vars[1].powi(2) + vars[2].powi(3));
 
     let point = [1.0, 2.0, 3.0]; //the point we want to linearize around
 
@@ -45,7 +45,9 @@ fn linear_approximation_is_accurate_near_its_base_point() {
 #[test]
 fn quadratic_approximation_is_accurate_near_its_base_point() {
     //function is e^(x/2) + sin(y) + 2.0*z
-    let truth = scalar_fn!(|v: &[f64; 3]| (c(0.5) * v[0]).exp() + v[1].sin() + c(2.0) * v[2]);
+    let truth = scalar_fn!(|vars: &[f64; 3]| (constant(0.5) * vars[0]).exp()
+        + vars[1].sin()
+        + constant(2.0) * vars[2]);
 
     let point = [0.0, core::f64::consts::FRAC_PI_2, 10.0]; //the point we want to approximate around
 
@@ -71,7 +73,10 @@ fn quadratic_approximation_is_accurate_near_its_base_point() {
 fn linear_approximation_is_exact_on_an_affine_truth() {
     //an exactly-linear truth: 2x + 3y - z + 5. The linear approximation is exact
     //everywhere, so the fit is perfect (R² == 1, near-zero error).
-    let truth = scalar_fn!(|v: &[f64; 3]| c(5.0) + c(2.0) * v[0] + c(3.0) * v[1] - v[2]);
+    let truth = scalar_fn!(|vars: &[f64; 3]| constant(5.0)
+        + constant(2.0) * vars[0]
+        + constant(3.0) * vars[1]
+        - vars[2]);
 
     let point = [1.0, 2.0, 3.0];
 
@@ -100,7 +105,10 @@ fn linear_approximation_is_exact_on_an_affine_truth() {
 fn kahan_metrics_exact_on_affine() {
     // Same affine truth as the pairwise exactness test: Kahan path must also report
     // a perfect fit so the opt-in wire-in is exercised without changing defaults.
-    let truth = scalar_fn!(|v: &[f64; 3]| c(5.0) + c(2.0) * v[0] + c(3.0) * v[1] - v[2]);
+    let truth = scalar_fn!(|vars: &[f64; 3]| constant(5.0)
+        + constant(2.0) * vars[0]
+        + constant(3.0) * vars[1]
+        - vars[2]);
     let point = [1.0, 2.0, 3.0];
 
     let model = LinearApproximator::<AutoDiffMulti>::default()
@@ -127,14 +135,14 @@ fn metrics_are_accurate_on_large_point_set() {
     //truth is x^2, so a linear approximation about `base_point` has the exact residual
     //-(x - base_point)^2. over a large point set this exercises the four running sums inside the
     //metrics; assert the returned metrics match the closed-form analytic values.
-    const N: usize = 10_000;
-    let truth = scalar_fn!(|v: &[f64; 1]| v[0] * v[0]);
+    const NUM_POINTS: usize = 10_000;
+    let truth = scalar_fn!(|vars: &[f64; 1]| vars[0] * vars[0]);
     let base_point = 6.0;
 
     let approximator = LinearApproximator::<AutoDiffMulti>::default();
     let model = approximator.approximate(&truth, &[base_point]).unwrap();
 
-    let mut prediction_points = [[0.0; 1]; N];
+    let mut prediction_points = [[0.0; 1]; NUM_POINTS];
     for (index, point) in prediction_points.iter_mut().enumerate() {
         point[0] = 1.0 + index as f64 * 0.001; //x spread over [1.0, 11.0)
     }
@@ -142,7 +150,7 @@ fn metrics_are_accurate_on_large_point_set() {
     let metrics = model.prediction_metrics(&prediction_points, &truth);
 
     //closed-form reference: residual(x) = -(x - base_point)^2 and y = x^2
-    let count = N as f64;
+    let count = NUM_POINTS as f64;
     let mut sum_of_absolute_residuals = 0.0;
     let mut residual_sum_of_squares = 0.0;
     let mut sum_of_truth = 0.0;
@@ -192,7 +200,10 @@ fn metrics_are_accurate_on_large_point_set() {
 #[test]
 fn linear_approximation_is_exact_on_an_affine_truth_at_f32() {
     //exactly-linear truth 2x + 3y - z + 5
-    let truth = scalar_fn!(|v: &[f64; 3]| c(5.0) + c(2.0) * v[0] + c(3.0) * v[1] - v[2]);
+    let truth = scalar_fn!(|vars: &[f64; 3]| constant(5.0)
+        + constant(2.0) * vars[0]
+        + constant(3.0) * vars[1]
+        - vars[2]);
 
     let point = [1.0_f32, 2.0, 3.0];
 
@@ -208,18 +219,20 @@ fn linear_approximation_is_exact_on_an_affine_truth_at_f32() {
 }
 
 struct Affine2 {
-    b: f64,
-    a: [f64; 2],
+    intercept: f64,
+    coef: [f64; 2],
 }
 impl ScalarFnN<2> for Affine2 {
     fn eval<S: Numeric>(&self, point: &[S; 2]) -> S {
-        S::from_f64(self.b) + S::from_f64(self.a[0]) * point[0] + S::from_f64(self.a[1]) * point[1]
+        S::from_f64(self.intercept)
+            + S::from_f64(self.coef[0]) * point[0]
+            + S::from_f64(self.coef[1]) * point[1]
     }
 }
 
 struct Quad2 {
-    c: f64,
-    g: [f64; 2],
+    constant: f64,
+    grad: [f64; 2],
     h: [[f64; 2]; 2],
 }
 impl ScalarFnN<2> for Quad2 {
@@ -227,9 +240,9 @@ impl ScalarFnN<2> for Quad2 {
         let x = point[0];
         let y = point[1];
         let coefficient = |value| S::from_f64(value);
-        coefficient(self.c)
-            + coefficient(self.g[0]) * x
-            + coefficient(self.g[1]) * y
+        coefficient(self.constant)
+            + coefficient(self.grad[0]) * x
+            + coefficient(self.grad[1]) * y
             + S::HALF
                 * (coefficient(self.h[0][0]) * x * x
                     + coefficient(self.h[0][1]) * x * y
@@ -247,14 +260,14 @@ proptest! {
 
     #[test]
     fn proptest_linear_exact_on_affine(
-        b in -5.0f64..5.0,
-        a0 in -5.0f64..5.0, a1 in -5.0f64..5.0,
-        px in -2.0f64..2.0, py in -2.0f64..2.0,
+        intercept in -5.0f64..5.0,
+        coef0 in -5.0f64..5.0, coef1 in -5.0f64..5.0,
+        point_x in -2.0f64..2.0, point_y in -2.0f64..2.0,
         samples in prop::collection::vec((-2.0f64..2.0, -2.0f64..2.0), 8),
     ) {
-        let affine = Affine2 { b, a: [a0, a1] };
-        let point = [px, py];
-        let scale = 1.0 + b.abs() + a0.abs() + a1.abs();
+        let affine = Affine2 { intercept, coef: [coef0, coef1] };
+        let point = [point_x, point_y];
+        let scale = 1.0 + intercept.abs() + coef0.abs() + coef1.abs();
         let tolerance = approx_tol(scale, 1.0);
         let model = LinearApproximator::<AutoDiffMulti>::default()
             .approximate(&affine, &point).unwrap();
@@ -282,22 +295,22 @@ proptest! {
 
     #[test]
     fn proptest_quadratic_exact_on_quadratic(
-        c in -5.0f64..5.0,
-        g0 in -5.0f64..5.0, g1 in -5.0f64..5.0,
+        constant in -5.0f64..5.0,
+        grad0 in -5.0f64..5.0, grad1 in -5.0f64..5.0,
         h00 in -5.0f64..5.0, h01 in -5.0f64..5.0, h11 in -5.0f64..5.0,
-        px in -2.0f64..2.0, py in -2.0f64..2.0,
+        point_x in -2.0f64..2.0, point_y in -2.0f64..2.0,
         samples in prop::collection::vec((-2.0f64..2.0, -2.0f64..2.0), 8),
     ) {
         let quadratic = Quad2 {
-            c,
-            g: [g0, g1],
+            constant,
+            grad: [grad0, grad1],
             h: [[h00, h01], [h01, h11]],
         };
-        let point = [px, py];
+        let point = [point_x, point_y];
         let scale = 1.0
-            + c.abs()
-            + g0.abs()
-            + g1.abs()
+            + constant.abs()
+            + grad0.abs()
+            + grad1.abs()
             + h00.abs()
             + h01.abs()
             + h11.abs();

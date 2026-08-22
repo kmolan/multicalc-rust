@@ -6,9 +6,9 @@ use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::root_finding::{
     Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination,
 };
-use multicalc::scalar::{Numeric, ScalarFn, VectorFn, c};
-use multicalc::scalar_fn;
+use multicalc::scalar::{Numeric, ScalarFn, VectorFn, constant};
 use multicalc::scalar_fn_vec;
+use multicalc::{Brent, scalar_fn};
 
 fn bisect<F: ScalarFn>(
     function: &F,
@@ -16,6 +16,14 @@ fn bisect<F: ScalarFn>(
     upper_bound: f64,
 ) -> Result<RootReport<f64>, SolveError> {
     Bisection::default().solve(function, lower_bound, upper_bound)
+}
+
+fn brent<F: ScalarFn>(
+    function: &F,
+    lower_bound: f64,
+    upper_bound: f64,
+) -> Result<RootReport<f64>, SolveError> {
+    Brent::default().solve(function, lower_bound, upper_bound)
 }
 
 fn newton<F: ScalarFn>(function: &F, initial_guess: f64) -> Result<RootReport<f64>, SolveError> {
@@ -37,8 +45,8 @@ struct CircleHyperbola;
 impl VectorFn<2, 2> for CircleHyperbola {
     fn eval<S: Numeric>(&self, point: &[S; 2]) -> [S; 2] {
         [
-            c(-4.0) + point[0] * point[0] + point[1] * point[1],
-            c(-1.0) + point[0] * point[1],
+            constant(-4.0) + point[0] * point[0] + point[1] * point[1],
+            constant(-1.0) + point[0] * point[1],
         ]
     }
 }
@@ -68,7 +76,7 @@ impl VectorFn<2, 2> for TwoLinkArm {
 
 #[test]
 fn bisection_sqrt2() {
-    let sqrt_two = scalar_fn!(|x| c(-2.0) + x * x);
+    let sqrt_two = scalar_fn!(|x| constant(-2.0) + x * x);
     let report = bisect(&sqrt_two, 0.0_f64, 2.0).unwrap();
     assert!((report.root - 2.0_f64.sqrt()).abs() < 1e-9);
     assert!(matches!(
@@ -88,7 +96,7 @@ fn bisection_dottie_number() {
 #[test]
 fn bisection_wien_displacement() {
     // Wien's displacement law: x - 5 + 5*e^(-x) = 0, constant ≈ 4.965114231744276.
-    let wien = scalar_fn!(|x| c(-5.0) + x + c(5.0) * (-x).exp());
+    let wien = scalar_fn!(|x| constant(-5.0) + x + constant(5.0) * (-x).exp());
     let report = bisect(&wien, 1.0_f64, 10.0).unwrap();
     assert!((report.root - 4.965114231744276).abs() < 1e-9);
 }
@@ -96,7 +104,7 @@ fn bisection_wien_displacement() {
 #[test]
 fn bisection_invalid_bracket() {
     // x² - 2 on [2, 3]: both values positive, no sign change.
-    let sqrt_two = scalar_fn!(|x| c(-2.0) + x * x);
+    let sqrt_two = scalar_fn!(|x| constant(-2.0) + x * x);
     assert!(matches!(
         bisect(&sqrt_two, 2.0_f64, 3.0),
         Err(SolveError::InvalidBracket)
@@ -106,7 +114,7 @@ fn bisection_invalid_bracket() {
 #[test]
 fn bisection_non_finite() {
     // 1/x on [-1, 1]: f(-1) and f(1) have opposite signs, but f(0) = +∞.
-    let reciprocal = scalar_fn!(|x| c(1.0) / x);
+    let reciprocal = scalar_fn!(|x| constant(1.0) / x);
     assert!(matches!(
         bisect(&reciprocal, -1.0_f64, 1.0),
         Err(SolveError::NonFinite)
@@ -115,7 +123,7 @@ fn bisection_non_finite() {
 
 #[test]
 fn bisection_budget_exhausted() {
-    let sqrt_two = scalar_fn!(|x| c(-2.0) + x * x);
+    let sqrt_two = scalar_fn!(|x| constant(-2.0) + x * x);
     let result = Bisection::default()
         .with_max_iterations(2)
         .solve(&sqrt_two, 0.0_f64, 2.0);
@@ -134,11 +142,161 @@ fn bisection_exact_endpoint_root() {
     ));
 }
 
+// ----- Brent's method -----
+
+#[test]
+fn brent_sqrt2() {
+    let sqrt_two = scalar_fn!(|x| constant(-2.0) + x * x);
+    let brent_report = brent(&sqrt_two, 0.0_f64, 2.0).unwrap();
+    let bisect_report = bisect(&sqrt_two, 0.0_f64, 2.0).unwrap();
+
+    assert!((brent_report.root - 2.0_f64.sqrt()).abs() < 1e-9);
+    assert!(brent_report.iterations < bisect_report.iterations);
+    assert!(matches!(
+        brent_report.termination,
+        RootTermination::ResidualTolerance
+            | RootTermination::BracketWidth
+            | RootTermination::StepTolerance
+    ));
+}
+
+#[test]
+fn brent_dottie_number() {
+    let dottie = scalar_fn!(|x| x.cos() - x);
+    let brent_report = brent(&dottie, 0.0_f64, 1.0).unwrap();
+    let bisect_report = bisect(&dottie, 0.0_f64, 1.0).unwrap();
+
+    assert!((brent_report.root - 0.7390851332151607).abs() < 1e-9);
+    assert!(brent_report.iterations < bisect_report.iterations);
+}
+
+#[test]
+fn brent_wien_displacement() {
+    let wien = scalar_fn!(|x| constant(-5.0) + x + constant(5.0) * (-x).exp());
+    let brent_report = brent(&wien, 1.0_f64, 10.0).unwrap();
+    let bisect_report = bisect(&wien, 1.0_f64, 10.0).unwrap();
+
+    assert!((brent_report.root - 4.965114231744276).abs() < 1e-9);
+    assert!(brent_report.iterations < bisect_report.iterations);
+}
+
+#[test]
+fn brent_invalid_bracket() {
+    let sqrt_two = scalar_fn!(|x| constant(-2.0) + x * x);
+    assert!(matches!(
+        brent(&sqrt_two, 2.0_f64, 3.0),
+        Err(SolveError::InvalidBracket)
+    ));
+}
+
+#[test]
+fn brent_non_finite() {
+    let reciprocal = scalar_fn!(|x| constant(1.0) / x);
+    assert!(matches!(
+        brent(&reciprocal, -1.0_f64, 1.0),
+        Err(SolveError::NonFinite)
+    ));
+}
+
+#[test]
+fn brent_budget_exhausted() {
+    let sqrt_two = scalar_fn!(|x| constant(-2.0) + x * x);
+    let result = Brent::default()
+        .with_max_iterations(1)
+        .solve(&sqrt_two, 0.0_f64, 2.0);
+    assert!(matches!(result, Err(SolveError::DidNotConverge { .. })));
+}
+
+#[test]
+fn brent_exact_endpoint_root() {
+    let line = scalar_fn!(|x| x);
+    let report = brent(&line, 0.0_f64, 1.0).unwrap();
+    assert_eq!(report.root, 0.0_f64);
+    assert!(matches!(
+        report.termination,
+        RootTermination::ResidualTolerance
+    ));
+}
+
+#[test]
+fn brent_iqi_polynomial_regression() {
+    // f(x) = x² - 0.5 on [0.0, 1.0], irrational root at 1/√2 ≈ 0.7071067811865475
+    // With IQI interpolation enabled, converges in <= 8 iterations.
+    // Pure bisection requires 30 iterations to reach 1e-9 precision on [0, 1].
+    let poly = scalar_fn!(|x| constant(-0.5) + x * x);
+    let brent_report = brent(&poly, 0.0_f64, 1.0).unwrap();
+    let bisect_report = bisect(&poly, 0.0_f64, 1.0).unwrap();
+
+    assert!((brent_report.root - 0.5_f64.sqrt()).abs() < 1e-9);
+    assert!(
+        brent_report.iterations <= 8,
+        "Expected fast IQI convergence in <= 8 iterations, got {}",
+        brent_report.iterations
+    );
+    assert!(brent_report.iterations < bisect_report.iterations);
+    assert!(matches!(
+        brent_report.termination,
+        RootTermination::ResidualTolerance | RootTermination::BracketWidth
+    ));
+}
+
+#[test]
+fn brent_non_finite_candidate_fallback_recovers() {
+    // Continuous function on large finite bracket [1e308, 1.5e308] with genuine root at 1.25e308:
+    // f(x) = ((x - 1.25e308) / 2.5e307) * 1e308.
+    // At endpoints, f(1e308) = -1e308 and f(1.5e308) = +1e308 (both finite, opposite signs).
+    // Secant numerator and denominator overflow to infinity, yielding NaN (inf/inf).
+    // The !s.is_finite() guard catches the NaN candidate, falls back to overflow-safe bisection midpoint
+    // (a * HALF + b * HALF = 1.25e308), evaluating exactly f(1.25e308) = 0.0 and converging immediately!
+    struct LargeScaleContinuousFn;
+    impl ScalarFn for LargeScaleContinuousFn {
+        fn eval<S: Numeric>(&self, x: S) -> S {
+            ((x - S::from_f64(1.25e308)) / S::from_f64(2.5e307)) * S::from_f64(1e308)
+        }
+    }
+
+    let f = LargeScaleContinuousFn;
+    let report = Brent::default().solve(&f, 1e308_f64, 1.5e308_f64).unwrap();
+    assert_eq!(report.root, 1.25e308_f64);
+    assert_eq!(report.residual, 0.0_f64);
+    assert_eq!(report.iterations, 1);
+    assert!(matches!(
+        report.termination,
+        RootTermination::ResidualTolerance
+    ));
+}
+
+#[test]
+fn brent_exact_root_on_final_iteration() {
+    // f(x) = x - 1 on [0.0, 2.0], root at 1.0 found on iteration 1
+    // Must converge and report success with max_iterations = 1
+    let line = scalar_fn!(|x| constant(-1.0) + x);
+    let report = Brent::default()
+        .with_max_iterations(1)
+        .solve(&line, 0.0_f64, 2.0)
+        .unwrap();
+    assert!((report.root - 1.0).abs() < 1e-9);
+    assert_eq!(report.iterations, 1);
+    assert!(matches!(
+        report.termination,
+        RootTermination::ResidualTolerance | RootTermination::BracketWidth
+    ));
+}
+
+#[test]
+fn brent_f32_precision() {
+    // Generic Numeric trait compliance with f32
+    let sqrt_two = scalar_fn!(|x| constant(-2.0) + x * x);
+    let solver: Brent<f32> = Brent::new();
+    let report = solver.solve(&sqrt_two, 0.0_f32, 2.0_f32).unwrap();
+    assert!((report.root - 2.0_f32.sqrt()).abs() < 1e-4);
+}
+
 // ----- Scalar Newton and damped Newton -----
 
 #[test]
 fn newton_sqrt2() {
-    let sqrt_two = scalar_fn!(|x| c(-2.0) + x * x);
+    let sqrt_two = scalar_fn!(|x| constant(-2.0) + x * x);
     let report = newton(&sqrt_two, 2.0_f64).unwrap();
     assert!((report.root - 2.0_f64.sqrt()).abs() < 1e-12);
     assert!(matches!(
@@ -150,14 +308,14 @@ fn newton_sqrt2() {
 #[test]
 fn newton_cbrt2() {
     // x³ - 2 = 0, root at 2^(1/3) ≈ 1.2599210498948732.
-    let cbrt_two = scalar_fn!(|x| c(-2.0) + x.powi(3));
+    let cbrt_two = scalar_fn!(|x| constant(-2.0) + x.powi(3));
     let report = newton(&cbrt_two, 1.0_f64).unwrap();
     assert!((report.root - 2.0_f64.powf(1.0 / 3.0)).abs() < 1e-12);
 }
 
 #[test]
 fn newton_wien_displacement() {
-    let wien = scalar_fn!(|x| c(-5.0) + x + c(5.0) * (-x).exp());
+    let wien = scalar_fn!(|x| constant(-5.0) + x + constant(5.0) * (-x).exp());
     let report = newton(&wien, 5.0_f64).unwrap();
     assert!((report.root - 4.965114231744276).abs() < 1e-12);
 }
@@ -165,7 +323,7 @@ fn newton_wien_displacement() {
 #[test]
 fn newton_finite_difference_backend() {
     // Any DerivatorSingleVariable works in place of the autodiff default.
-    let sqrt_two = scalar_fn!(|x| c(-2.0) + x * x);
+    let sqrt_two = scalar_fn!(|x| constant(-2.0) + x * x);
     let solver = Newton::from_derivator(FiniteDifferenceSingle::<f64>::default());
     let report = solver.solve(&sqrt_two, 2.0_f64).unwrap();
     assert!((report.root - 2.0_f64.sqrt()).abs() < 1e-6);
@@ -174,7 +332,7 @@ fn newton_finite_difference_backend() {
 #[test]
 fn newton_vanishing_derivative() {
     // f'(0) = 0 for x² - 2, so the first step is undefined.
-    let sqrt_two = scalar_fn!(|x| c(-2.0) + x * x);
+    let sqrt_two = scalar_fn!(|x| constant(-2.0) + x * x);
     assert!(matches!(
         newton(&sqrt_two, 0.0_f64),
         Err(SolveError::Linalg(LinalgError::Singular))
@@ -183,7 +341,7 @@ fn newton_vanishing_derivative() {
 
 #[test]
 fn newton_budget_exhausted() {
-    let sqrt_two = scalar_fn!(|x| c(-2.0) + x * x);
+    let sqrt_two = scalar_fn!(|x| constant(-2.0) + x * x);
     let solver: Newton = Newton::default().with_max_iterations(1);
     // One step from an initial guess of 2 is not enough to satisfy either tolerance.
     assert!(matches!(
@@ -197,7 +355,7 @@ fn newton_damped_rescues_far_start() {
     // f(x) = x / sqrt(1 + x²), root at 0. The Newton map is x → −x³, so from an initial guess
     // of 2.0 plain Newton diverges immediately. Backtracking halves the step until |f|
     // decreases, which is enough to land back in the basin of the root.
-    let bounded_sigmoid = scalar_fn!(|x| x / (c(1.0) + x * x).sqrt());
+    let bounded_sigmoid = scalar_fn!(|x| x / (constant(1.0) + x * x).sqrt());
 
     let plain_result = newton(&bounded_sigmoid, 2.0_f64);
     let plain_missed = match &plain_result {
@@ -267,9 +425,9 @@ fn newton_system_two_link_ik() {
 #[test]
 fn newton_system_singular_jacobian() {
     // The two equations are proportional, so the Jacobian is rank-deficient.
-    let proportional_equations = scalar_fn_vec!(|v: &[f64; 2]| [
-        c(-1.0) + v[0] + c(-1.0) * v[1],
-        c(-2.0) + c(2.0) * v[0] + c(-2.0) * v[1],
+    let proportional_equations = scalar_fn_vec!(|point: &[f64; 2]| [
+        constant(-1.0) + point[0] + constant(-1.0) * point[1],
+        constant(-2.0) + constant(2.0) * point[0] + constant(-2.0) * point[1],
     ]);
     assert!(matches!(
         newton_system(&proportional_equations, &[0.0_f64, 0.0]),
@@ -279,8 +437,8 @@ fn newton_system_singular_jacobian() {
 
 #[test]
 fn newton_system_non_finite() {
-    // First component is 1/v[0], which is infinite at the starting point.
-    let pole_at_origin = scalar_fn_vec!(|v: &[f64; 2]| [c(1.0) / v[0], v[1]]);
+    // First component is 1/point[0], which is infinite at the starting point.
+    let pole_at_origin = scalar_fn_vec!(|point: &[f64; 2]| [constant(1.0) / point[0], point[1]]);
     assert!(matches!(
         newton_system(&pole_at_origin, &[0.0_f64, 0.0]),
         Err(SolveError::NonFinite)
@@ -298,12 +456,12 @@ fn newton_system_budget_exhausted() {
 
 #[test]
 fn newton_system_damped_rescues_far_start() {
-    // F(v) = [v[0]/sqrt(1+v[0]²), v[1]/sqrt(1+v[1]²)], root at (0, 0).
+    // F(v) = [point[0]/sqrt(1+point[0]²), point[1]/sqrt(1+point[1]²)], root at (0, 0).
     // Each component has the Newton map x → −x³, so from (3, 3) the plain solver
     // diverges. Backtracking halves the step length until ‖F‖ decreases.
-    let bounded_sigmoids = scalar_fn_vec!(|v: &[f64; 2]| [
-        v[0] / (c(1.0) + v[0] * v[0]).sqrt(),
-        v[1] / (c(1.0) + v[1] * v[1]).sqrt(),
+    let bounded_sigmoids = scalar_fn_vec!(|point: &[f64; 2]| [
+        point[0] / (constant(1.0) + point[0] * point[0]).sqrt(),
+        point[1] / (constant(1.0) + point[1] * point[1]).sqrt(),
     ]);
     let far = [3.0_f64, 3.0];
 
@@ -326,7 +484,7 @@ fn newton_system_damped_rescues_far_start() {
 
 #[test]
 fn newton_sqrt2_f32() {
-    let sqrt_two = scalar_fn!(|x| c(-2.0) + x * x);
+    let sqrt_two = scalar_fn!(|x| constant(-2.0) + x * x);
     let solver = Newton::<AutoDiffSingle<f32>>::default();
     let report = solver.solve(&sqrt_two, 2.0_f32).unwrap();
     assert!((report.root - 2.0_f32.sqrt()).abs() < 1e-3);
@@ -427,7 +585,7 @@ impl ScalarFn for Colebrook {
         let root_friction_factor = friction_factor.sqrt();
         let inner = relative_roughness / S::from_f64(3.7)
             + S::from_f64(2.51) / (reynolds_number * root_friction_factor);
-        let base_ten_log = inner.ln() / S::from_f64(10.0).ln();
+        let base_ten_log = inner.log() / S::from_f64(10.0).log();
         S::ONE / root_friction_factor + S::TWO * base_ten_log
     }
 }
@@ -562,7 +720,7 @@ fn wien_displacement_constant_from_blackbody_peak() {
     // The wavelength peak of the Planck blackbody spectrum solves
     // x - 5 + 5*e^(-x) = 0. Its root yields Wien's displacement constant
     // b = h*c/(x*k_B) ≈ 2.897771955e-3 m·K.
-    let wien = scalar_fn!(|x| c(-5.0) + x + c(5.0) * (-x).exp());
+    let wien = scalar_fn!(|x| constant(-5.0) + x + constant(5.0) * (-x).exp());
     let report = newton(&wien, 5.0_f64).unwrap();
     let x = report.root;
     let planck_constant = 6.62607015e-34_f64;
@@ -581,10 +739,10 @@ fn wien_displacement_constant_from_blackbody_peak() {
 fn chemical_equilibrium_three_species() {
     // Mass balance A + B + C = 1 coupled with two equilibria B = K1*A² and
     // C = K2*A*B. The constants are chosen so the solution is (0.4, 0.2, 0.4).
-    let equilibrium = scalar_fn_vec!(|v: &[f64; 3]| [
-        c(-1.0) + v[0] + v[1] + v[2],
-        v[1] - c(1.25) * v[0] * v[0],
-        v[2] - c(5.0) * v[0] * v[1],
+    let equilibrium = scalar_fn_vec!(|point: &[f64; 3]| [
+        constant(-1.0) + point[0] + point[1] + point[2],
+        point[1] - constant(1.25) * point[0] * point[0],
+        point[2] - constant(5.0) * point[0] * point[1],
     ]);
     let solver: NewtonSystem = NewtonSystem::default();
     let report = solver.solve(&equilibrium, &[0.5_f64, 0.25, 0.25]).unwrap();

@@ -48,12 +48,12 @@ pub struct Quaternion<T: Numeric = f64> {
 /// zero norm and comes back as `None`, though both name a perfectly good axis.
 #[inline]
 #[must_use]
-fn unit_direction<T: Numeric>(v: Vector<3, T>) -> Option<Vector<3, T>> {
-    if !v.is_finite() {
+fn unit_direction<T: Numeric>(vector: Vector<3, T>) -> Option<Vector<3, T>> {
+    if !vector.is_finite() {
         return None;
     }
 
-    let [x, y, z] = *v.as_array();
+    let [x, y, z] = *vector.as_array();
     let scale = x.abs().max(y.abs()).max(z.abs());
 
     if scale == T::ZERO {
@@ -62,7 +62,7 @@ fn unit_direction<T: Numeric>(v: Vector<3, T>) -> Option<Vector<3, T>> {
 
     // Every component is now at most 1 in magnitude and at least one is exactly 1, so the squared
     // norm sits in `[1, 3]` and the division below is exact in the exponent.
-    (v / scale).try_normalized()
+    (vector / scale).try_normalized()
 }
 
 impl<T: Numeric> Quaternion<T> {
@@ -101,8 +101,8 @@ impl<T: Numeric> Quaternion<T> {
     /// Builds a quaternion from a scalar part and a vector part.
     #[inline]
     #[must_use]
-    pub fn from_scalar_vector(w: T, v: Vector3D<T>) -> Self {
-        let [x, y, z] = *v.as_array();
+    pub fn from_scalar_vector(w: T, vector: Vector3D<T>) -> Self {
+        let [x, y, z] = *vector.as_array();
         Quaternion { w, x, y, z }
     }
 
@@ -176,8 +176,8 @@ impl<T: Numeric> Quaternion<T> {
     /// The four-component dot product.
     #[inline]
     #[must_use]
-    pub fn dot(self, r: Self) -> T {
-        self.w * r.w + self.x * r.x + self.y * r.y + self.z * r.z
+    pub fn dot(self, rhs: Self) -> T {
+        self.w * rhs.w + self.x * rhs.x + self.y * rhs.y + self.z * rhs.z
     }
 
     /// The inverse `conjugate / norm²`. For a unit quaternion this equals the conjugate. Yields
@@ -215,20 +215,20 @@ impl<T: Numeric> Quaternion<T> {
     #[must_use]
     pub fn exp(self) -> Self {
         let vn_sq = self.x * self.x + self.y * self.y + self.z * self.z;
-        let ew = self.w.exp();
+        let exp_scalar = self.w.exp();
         let (cos_v, sinc_v) = if vn_sq < small_angle_sq::<T>() {
             // Taylor in ‖v‖²; avoids `sqrt(0)`, whose derivative is NaN.
             (T::ONE - vn_sq / T::TWO, T::ONE - vn_sq / T::from_f64(6.0))
         } else {
-            let vn = vn_sq.sqrt();
-            (vn.cos(), vn.sin() / vn)
+            let vector_norm = vn_sq.sqrt();
+            (vector_norm.cos(), vector_norm.sin() / vector_norm)
         };
-        let s = ew * sinc_v;
+        let scale = exp_scalar * sinc_v;
         Quaternion {
-            w: ew * cos_v,
-            x: self.x * s,
-            y: self.y * s,
-            z: self.z * s,
+            w: exp_scalar * cos_v,
+            x: self.x * scale,
+            y: self.y * scale,
+            z: self.z * scale,
         }
     }
 
@@ -241,18 +241,18 @@ impl<T: Numeric> Quaternion<T> {
     /// [`Quaternion::to_scaled_axis`], which resolves this region via the shortest-path sign fix.
     #[inline]
     #[must_use]
-    pub fn ln(self) -> Self {
+    pub fn log(self) -> Self {
         let n = self.norm();
-        let vn = (self.x * self.x + self.y * self.y + self.z * self.z).sqrt();
+        let vector_norm = (self.x * self.x + self.y * self.y + self.z * self.z).sqrt();
         // Restrict the small-vector fallback to w > 0; near the negative real axis θ ≈ π, not 0,
         // so 1/‖q‖ would be the wrong coefficient (see the doc note above).
-        let coeff = if vn < small_angle::<T>() && self.w > T::ZERO {
+        let coeff = if vector_norm < small_angle::<T>() && self.w > T::ZERO {
             n.recip()
         } else {
-            vn.atan2(self.w) / vn
+            vector_norm.atan2(self.w) / vector_norm
         };
         Quaternion {
-            w: n.ln(),
+            w: n.log(),
             x: self.x * coeff,
             y: self.y * coeff,
             z: self.z * coeff,
@@ -278,18 +278,18 @@ impl<T: Numeric> Quaternion<T> {
     #[inline]
     #[must_use]
     pub fn from_axis_angle(axis: Vector3D<T>, angle: T) -> Self {
-        let an = axis.dot(axis).sqrt();
-        if an <= T::EPSILON {
+        let axis_norm = axis.dot(axis).sqrt();
+        if axis_norm <= T::EPSILON {
             return Self::identity();
         }
         let half = angle * T::HALF;
-        let s = half.sin() / an;
-        let [ax, ay, az] = *axis.as_array();
+        let scale = half.sin() / axis_norm;
+        let [x, y, z] = *axis.as_array();
         Quaternion {
             w: half.cos(),
-            x: ax * s,
-            y: ay * s,
-            z: az * s,
+            x: x * scale,
+            y: y * scale,
+            z: z * scale,
         }
     }
 
@@ -312,12 +312,12 @@ impl<T: Numeric> Quaternion<T> {
             let half = theta * T::HALF;
             (half.cos(), half.sin() / theta)
         };
-        let [rx, ry, rz] = *rotvec.as_array();
+        let [x, y, z] = *rotvec.as_array();
         Quaternion {
             w,
-            x: rx * scale,
-            y: ry * scale,
-            z: rz * scale,
+            x: x * scale,
+            y: y * scale,
+            z: z * scale,
         }
     }
 
@@ -326,14 +326,14 @@ impl<T: Numeric> Quaternion<T> {
     #[inline]
     #[must_use]
     pub fn from_euler_zyx(roll: T, pitch: T, yaw: T) -> Self {
-        let (cr, sr) = ((roll * T::HALF).cos(), (roll * T::HALF).sin());
-        let (cp, sp) = ((pitch * T::HALF).cos(), (pitch * T::HALF).sin());
-        let (cy, sy) = ((yaw * T::HALF).cos(), (yaw * T::HALF).sin());
+        let (cos_roll, sin_roll) = ((roll * T::HALF).cos(), (roll * T::HALF).sin());
+        let (cos_pitch, sin_pitch) = ((pitch * T::HALF).cos(), (pitch * T::HALF).sin());
+        let (cos_yaw, sin_yaw) = ((yaw * T::HALF).cos(), (yaw * T::HALF).sin());
         Quaternion {
-            w: cr * cp * cy + sr * sp * sy,
-            x: sr * cp * cy - cr * sp * sy,
-            y: cr * sp * cy + sr * cp * sy,
-            z: cr * cp * sy - sr * sp * cy,
+            w: cos_roll * cos_pitch * cos_yaw + sin_roll * sin_pitch * sin_yaw,
+            x: sin_roll * cos_pitch * cos_yaw - cos_roll * sin_pitch * sin_yaw,
+            y: cos_roll * sin_pitch * cos_yaw + sin_roll * cos_pitch * sin_yaw,
+            z: cos_roll * cos_pitch * sin_yaw - sin_roll * sin_pitch * cos_yaw,
         }
     }
 
@@ -358,15 +358,15 @@ impl<T: Numeric> Quaternion<T> {
     /// use multicalc::linear_algebra::Vector;
     ///
     /// let from = Vector::new([1.0, 0.0, 0.0]);
-    /// let to = Vector::new([0.0, 2.0, 0.0]);
-    /// let rotated = Quaternion::from_two_vectors(from, to).transform_point(from);
+    /// let target = Vector::new([0.0, 2.0, 0.0]);
+    /// let rotated = Quaternion::from_two_vectors(from, target).transform_point(from);
     ///
-    /// assert!((rotated - to.normalized()).norm() < 1e-12);
+    /// assert!((rotated - target.normalized()).norm() < 1e-12);
     /// ```
     #[inline]
     #[must_use]
-    pub fn from_two_vectors(from: Vector<3, T>, to: Vector<3, T>) -> Self {
-        let (Some(a), Some(b)) = (unit_direction(from), unit_direction(to)) else {
+    pub fn from_two_vectors(from: Vector<3, T>, target: Vector<3, T>) -> Self {
+        let (Some(a), Some(b)) = (unit_direction(from), unit_direction(target)) else {
             return Self::identity();
         };
         // `norm(a + b) = 2.cos(theta/2)` for unit inputs, theta the angle between them. Getting the
@@ -387,10 +387,10 @@ impl<T: Numeric> Quaternion<T> {
             // Antiparallel, where the inputs pin down no axis. Build the pi rotation by crossing
             // `a` with the principal axis it is least aligned with, which keeps that cross
             // product's norm at 0.816 or above.
-            let [ax, ay, az] = *a.as_array();
-            let principal = if ax.abs() <= ay.abs() && ax.abs() <= az.abs() {
+            let [x, y, z] = *a.as_array();
+            let principal = if x.abs() <= y.abs() && x.abs() <= z.abs() {
                 Vector::new([T::ONE, T::ZERO, T::ZERO])
-            } else if ay.abs() <= az.abs() {
+            } else if y.abs() <= z.abs() {
                 Vector::new([T::ZERO, T::ONE, T::ZERO])
             } else {
                 Vector::new([T::ZERO, T::ZERO, T::ONE])
@@ -414,44 +414,44 @@ impl<T: Numeric> Quaternion<T> {
     /// pivot that would divide by zero.
     #[inline]
     #[must_use]
-    pub fn try_from_rotation_matrix(m: Matrix3D<T>) -> Option<Self> {
+    pub fn try_from_rotation_matrix(matrix: Matrix3D<T>) -> Option<Self> {
         let quarter = T::from_f64(0.25);
-        let [[m00, m01, m02], [m10, m11, m12], [m20, m21, m22]] = m.into_array();
+        let [[m00, m01, m02], [m10, m11, m12], [m20, m21, m22]] = matrix.into_array();
         let trace = m00 + m11 + m22;
-        let q = if trace > T::ZERO {
-            let s = (trace + T::ONE).sqrt() * T::TWO; // s = 4·w
+        let quaternion = if trace > T::ZERO {
+            let scale = (trace + T::ONE).sqrt() * T::TWO; // s = 4·w
             Quaternion::new(
-                quarter * s,
-                (m21 - m12) / s,
-                (m02 - m20) / s,
-                (m10 - m01) / s,
+                quarter * scale,
+                (m21 - m12) / scale,
+                (m02 - m20) / scale,
+                (m10 - m01) / scale,
             )
         } else if m00 > m11 && m00 > m22 {
-            let s = (T::ONE + m00 - m11 - m22).sqrt() * T::TWO; // s = 4·x
+            let scale = (T::ONE + m00 - m11 - m22).sqrt() * T::TWO; // s = 4·x
             Quaternion::new(
-                (m21 - m12) / s,
-                quarter * s,
-                (m01 + m10) / s,
-                (m02 + m20) / s,
+                (m21 - m12) / scale,
+                quarter * scale,
+                (m01 + m10) / scale,
+                (m02 + m20) / scale,
             )
         } else if m11 > m22 {
-            let s = (T::ONE + m11 - m00 - m22).sqrt() * T::TWO; // s = 4·y
+            let scale = (T::ONE + m11 - m00 - m22).sqrt() * T::TWO; // s = 4·y
             Quaternion::new(
-                (m02 - m20) / s,
-                (m01 + m10) / s,
-                quarter * s,
-                (m12 + m21) / s,
+                (m02 - m20) / scale,
+                (m01 + m10) / scale,
+                quarter * scale,
+                (m12 + m21) / scale,
             )
         } else {
-            let s = (T::ONE + m22 - m00 - m11).sqrt() * T::TWO; // s = 4·z
+            let scale = (T::ONE + m22 - m00 - m11).sqrt() * T::TWO; // s = 4·z
             Quaternion::new(
-                (m10 - m01) / s,
-                (m02 + m20) / s,
-                (m12 + m21) / s,
-                quarter * s,
+                (m10 - m01) / scale,
+                (m02 + m20) / scale,
+                (m12 + m21) / scale,
+                quarter * scale,
             )
         };
-        q.try_normalized()
+        quaternion.try_normalized()
     }
 
     /// The 3×3 rotation matrix. Assumes a unit quaternion; call [`Quaternion::normalized`] first
@@ -483,15 +483,18 @@ impl<T: Numeric> Quaternion<T> {
     /// quaternion. A near-zero rotation returns the x-axis and a zero angle.
     #[inline]
     pub fn to_axis_angle(self) -> (Vector3D<T>, T) {
-        let q = if self.w < T::ZERO { -self } else { self };
-        let vn = (q.x * q.x + q.y * q.y + q.z * q.z).sqrt();
-        if vn <= T::EPSILON {
+        let quaternion = if self.w < T::ZERO { -self } else { self };
+        let vector_norm = (quaternion.x * quaternion.x
+            + quaternion.y * quaternion.y
+            + quaternion.z * quaternion.z)
+            .sqrt();
+        if vector_norm <= T::EPSILON {
             return (Vector::new([T::ONE, T::ZERO, T::ZERO]), T::ZERO);
         }
-        let inv = vn.recip();
+        let inv = vector_norm.recip();
         (
-            Vector::new([q.x * inv, q.y * inv, q.z * inv]),
-            T::TWO * vn.atan2(q.w),
+            Vector::new([quaternion.x * inv, quaternion.y * inv, quaternion.z * inv]),
+            T::TWO * vector_norm.atan2(quaternion.w),
         )
     }
 
@@ -500,14 +503,21 @@ impl<T: Numeric> Quaternion<T> {
     /// applied so `‖φ‖ ≤ π`.
     #[inline]
     pub fn to_scaled_axis(self) -> Vector3D<T> {
-        let q = if self.w < T::ZERO { -self } else { self };
-        let vn = (q.x * q.x + q.y * q.y + q.z * q.z).sqrt();
-        let coeff = if vn < small_angle::<T>() {
+        let quaternion = if self.w < T::ZERO { -self } else { self };
+        let vector_norm = (quaternion.x * quaternion.x
+            + quaternion.y * quaternion.y
+            + quaternion.z * quaternion.z)
+            .sqrt();
+        let coeff = if vector_norm < small_angle::<T>() {
             T::TWO
         } else {
-            (T::TWO * vn.atan2(q.w)) / vn
+            (T::TWO * vector_norm.atan2(quaternion.w)) / vector_norm
         };
-        Vector::new([q.x * coeff, q.y * coeff, q.z * coeff])
+        Vector::new([
+            quaternion.x * coeff,
+            quaternion.y * coeff,
+            quaternion.z * coeff,
+        ])
     }
 
     /// The ZYX intrinsic Euler angles `(roll, pitch, yaw)`, the inverse of
@@ -537,16 +547,16 @@ impl<T: Numeric> Quaternion<T> {
 
     /// Rotates a point by the sandwich product `q · (0, v) · q⁻¹`. Assumes a unit quaternion.
     #[inline]
-    pub fn transform_point(self, v: Vector3D<T>) -> Vector3D<T> {
-        let [x, y, z] = *v.as_array();
-        let p = Quaternion {
+    pub fn transform_point(self, point: Vector3D<T>) -> Vector3D<T> {
+        let [x, y, z] = *point.as_array();
+        let pure = Quaternion {
             w: T::ZERO,
             x,
             y,
             z,
         };
-        let r = self * p * self.conjugate();
-        Vector::new([r.x, r.y, r.z])
+        let rotated = self * pure * self.conjugate();
+        Vector::new([rotated.x, rotated.y, rotated.z])
     }
 
     /// Rotates a point by the inverse rotation, the sandwich product `q^{-1} . (0, v) . q`.
@@ -566,8 +576,8 @@ impl<T: Numeric> Quaternion<T> {
     // No `#[must_use]`: the returned `Vector` already carries one, and clippy rejects the
     // duplicate. `rotation_angle_to` returns a bare `T` and does need its own.
     #[inline]
-    pub fn inverse_transform_point(self, v: Vector<3, T>) -> Vector<3, T> {
-        self.conjugate().transform_point(v)
+    pub fn inverse_transform_point(self, point: Vector<3, T>) -> Vector<3, T> {
+        self.conjugate().transform_point(point)
     }
 
     /// The angle in `[0, pi]` between two rotations: the rotation angle of the relative rotation
@@ -591,11 +601,12 @@ impl<T: Numeric> Quaternion<T> {
     #[inline]
     #[must_use]
     pub fn rotation_angle_to(self, other: Self) -> T {
-        let r = self.conjugate() * other;
-        let vn = (r.x * r.x + r.y * r.y + r.z * r.z).sqrt();
+        let relative = self.conjugate() * other;
+        let vector_norm =
+            (relative.x * relative.x + relative.y * relative.y + relative.z * relative.z).sqrt();
 
         // `|w|` rather than `w` folds the `theta > pi` half of the double cover back onto `2pi - theta`.
-        T::TWO * vn.atan2(r.w.abs())
+        T::TWO * vector_norm.atan2(relative.w.abs())
     }
 
     /// Spherical linear interpolation from `self` (`t = 0`) to `other` (`t = 1`). Assumes unit
@@ -604,34 +615,34 @@ impl<T: Numeric> Quaternion<T> {
     /// are nearly parallel. The result is renormalized.
     #[inline]
     #[must_use]
-    pub fn slerp(self, other: Self, t: T) -> Self {
-        let mut d = self.dot(other);
-        let mut q2 = other;
-        if d < T::ZERO {
-            d = -d;
-            q2 = -q2;
+    pub fn slerp(self, other: Self, amount: T) -> Self {
+        let mut dot_product = self.dot(other);
+        let mut other_shortest = other;
+        if dot_product < T::ZERO {
+            dot_product = -dot_product;
+            other_shortest = -other_shortest;
         }
-        if d > T::ONE - T::EPSILON {
+        if dot_product > T::ONE - T::EPSILON {
             // Endpoints nearly identical: the great-arc formula divides by ~0, so lerp instead.
-            return (self * (T::ONE - t) + q2 * t).normalized();
+            return (self * (T::ONE - amount) + other_shortest * amount).normalized();
         }
-        let theta = d.acos();
+        let theta = dot_product.acos();
         let sin_theta = theta.sin();
-        let s0 = ((T::ONE - t) * theta).sin() / sin_theta;
-        let s1 = (t * theta).sin() / sin_theta;
-        (self * s0 + q2 * s1).normalized()
+        let weight_start = ((T::ONE - amount) * theta).sin() / sin_theta;
+        let weight_end = (amount * theta).sin() / sin_theta;
+        (self * weight_start + other_shortest * weight_end).normalized()
     }
 }
 
 impl<T: Numeric> Add for Quaternion<T> {
     type Output = Self;
     #[inline]
-    fn add(self, r: Self) -> Self {
+    fn add(self, rhs: Self) -> Self {
         Quaternion {
-            w: self.w + r.w,
-            x: self.x + r.x,
-            y: self.y + r.y,
-            z: self.z + r.z,
+            w: self.w + rhs.w,
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
         }
     }
 }
@@ -639,12 +650,12 @@ impl<T: Numeric> Add for Quaternion<T> {
 impl<T: Numeric> Sub for Quaternion<T> {
     type Output = Self;
     #[inline]
-    fn sub(self, r: Self) -> Self {
+    fn sub(self, rhs: Self) -> Self {
         Quaternion {
-            w: self.w - r.w,
-            x: self.x - r.x,
-            y: self.y - r.y,
-            z: self.z - r.z,
+            w: self.w - rhs.w,
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
         }
     }
 }
@@ -666,12 +677,12 @@ impl<T: Numeric> Neg for Quaternion<T> {
 impl<T: Numeric> Mul<T> for Quaternion<T> {
     type Output = Self;
     #[inline]
-    fn mul(self, s: T) -> Self {
+    fn mul(self, scalar: T) -> Self {
         Quaternion {
-            w: self.w * s,
-            x: self.x * s,
-            y: self.y * s,
-            z: self.z * s,
+            w: self.w * scalar,
+            x: self.x * scalar,
+            y: self.y * scalar,
+            z: self.z * scalar,
         }
     }
 }
@@ -681,12 +692,12 @@ impl<T: Numeric> Mul<T> for Quaternion<T> {
 impl<T: Numeric> Mul for Quaternion<T> {
     type Output = Self;
     #[inline]
-    fn mul(self, r: Self) -> Self {
+    fn mul(self, rhs: Self) -> Self {
         Quaternion {
-            w: self.w * r.w - self.x * r.x - self.y * r.y - self.z * r.z,
-            x: self.w * r.x + self.x * r.w + self.y * r.z - self.z * r.y,
-            y: self.w * r.y - self.x * r.z + self.y * r.w + self.z * r.x,
-            z: self.w * r.z + self.x * r.y - self.y * r.x + self.z * r.w,
+            w: self.w * rhs.w - self.x * rhs.x - self.y * rhs.y - self.z * rhs.z,
+            x: self.w * rhs.x + self.x * rhs.w + self.y * rhs.z - self.z * rhs.y,
+            y: self.w * rhs.y - self.x * rhs.z + self.y * rhs.w + self.z * rhs.x,
+            z: self.w * rhs.z + self.x * rhs.y - self.y * rhs.x + self.z * rhs.w,
         }
     }
 }

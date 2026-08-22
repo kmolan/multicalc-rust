@@ -257,7 +257,7 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
         Ok(scaled
             .cholesky()
             .map_err(|_| EstimationError::NotPositiveDefinite)?
-            .l())
+            .lower())
     }
 
     /// Rolls the state and covariance forward one step through `process_model`.

@@ -2,9 +2,9 @@
 
 use multicalc::error::DiffError;
 use multicalc::numerical_derivative::*;
-use multicalc::scalar::{Numeric, ScalarFn, ScalarFnN, VectorFn, c};
+use multicalc::scalar::{Numeric, ScalarFn, ScalarFnN, VectorFn, constant};
 use multicalc::{scalar_fn, scalar_fn_vec};
-use multicalc_testkit::problems::G;
+use multicalc_testkit::problems::Transcendental;
 use proptest::prelude::*;
 use proptest::test_runner::{RngAlgorithm, TestRng, TestRunner};
 use std::cell::Cell;
@@ -25,7 +25,8 @@ fn ad_single_derivative() {
 #[test]
 fn ad_first_partials() {
     // f(x, y) = 3x^2 + 2xy -> df/dx = 6x + 2y, df/dy = 2x
-    let function = scalar_fn!(|v: &[f64; 2]| c(3.0) * v[0] * v[0] + c(2.0) * v[0] * v[1]);
+    let function = scalar_fn!(|point: &[f64; 2]| constant(3.0) * point[0] * point[0]
+        + constant(2.0) * point[0] * point[1]);
     let derivator = AutoDiffMulti::default();
     let point = [1.0, 3.0];
 
@@ -45,7 +46,7 @@ fn ad_first_partials() {
 #[test]
 fn ad_first_partials_transcendental() {
     // f(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z
-    let function = G;
+    let function = Transcendental;
     let derivator = AutoDiffMulti::default();
     let point = [1.0, 2.0, 3.0];
 
@@ -69,7 +70,7 @@ fn ad_first_partials_transcendental() {
 #[test]
 fn ad_second_partials() {
     // f(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z
-    let function = G;
+    let function = Transcendental;
     let derivator = AutoDiffMulti::default();
     let point = [1.0, 2.0, 3.0];
 
@@ -94,7 +95,8 @@ fn ad_second_partials() {
 #[test]
 fn ad_third_partials() {
     // f = x^3 y^3 z^3:  d3/dx dy dz = 27 x^2 y^2 z^2 = 972;  d3/dx2 dy = 18 x y^2 z^3 = 1944
-    let function = scalar_fn!(|v: &[f64; 3]| v[0].powi(3) * v[1].powi(3) * v[2].powi(3));
+    let function =
+        scalar_fn!(|point: &[f64; 3]| point[0].powi(3) * point[1].powi(3) * point[2].powi(3));
     let derivator = AutoDiffMulti::default();
     let point = [1.0, 2.0, 3.0];
 
@@ -116,7 +118,10 @@ fn ad_third_partials() {
 #[test]
 fn ad_jacobian() {
     // (x*y*z, x^2 + y^2)
-    let function = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    let function = scalar_fn_vec!(|point: &[f64; 3]| [
+        point[0] * point[1] * point[2],
+        point[0] * point[0] + point[1] * point[1]
+    ]);
     let jacobian: Jacobian = Jacobian::default();
     let result = jacobian.evaluate(&function, &[1.0, 2.0, 3.0]).unwrap();
 
@@ -131,7 +136,10 @@ fn ad_jacobian() {
 #[test]
 #[cfg(feature = "alloc")]
 fn ad_jacobian_on_heap() {
-    let function = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    let function = scalar_fn_vec!(|point: &[f64; 3]| [
+        point[0] * point[1] * point[2],
+        point[0] * point[0] + point[1] * point[1]
+    ]);
     let jacobian: Jacobian = Jacobian::default();
     let result = jacobian
         .evaluate_on_heap(&function, &[1.0, 2.0, 3.0])
@@ -148,7 +156,9 @@ fn ad_jacobian_on_heap() {
 #[test]
 fn ad_hessian() {
     // f(x, y) = y*sin(x) + 2*x*e^y
-    let function = scalar_fn!(|v: &[f64; 2]| v[1] * v[0].sin() + c(2.0) * v[0] * v[1].exp());
+    let function =
+        scalar_fn!(|point: &[f64; 2]| point[1] * point[0].sin()
+            + constant(2.0) * point[0] * point[1].exp());
     let hessian: Hessian = Hessian::default();
     let result = hessian.evaluate(&function, &[1.0, 2.0]).unwrap();
 
@@ -175,7 +185,7 @@ fn ad_f32() {
 
 #[test]
 fn ad_error_index_out_of_range() {
-    let function = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] + v[2]);
+    let function = scalar_fn!(|point: &[f64; 3]| point[0] + point[1] + point[2]);
     let derivator = AutoDiffMulti::default();
     let result = derivator.first_partial_derivative(&function, 5, &[1.0, 2.0, 3.0]);
     assert_eq!(result.unwrap_err(), DiffError::IndexOutOfRange);
@@ -183,7 +193,7 @@ fn ad_error_index_out_of_range() {
 
 #[test]
 fn ad_error_order_zero() {
-    let function = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] + v[2]);
+    let function = scalar_fn!(|point: &[f64; 3]| point[0] + point[1] + point[2]);
     let derivator = AutoDiffMulti::default();
     let variable_indices: [usize; 0] = [];
     assert_eq!(
@@ -197,7 +207,7 @@ fn ad_error_order_zero() {
 #[test]
 fn ad_error_order_unsupported() {
     // autodiff multi caps at third order; a fourth-order partial is rejected
-    let function = scalar_fn!(|v: &[f64; 3]| v[0] + v[1] + v[2]);
+    let function = scalar_fn!(|point: &[f64; 3]| point[0] + point[1] + point[2]);
     let derivator = AutoDiffMulti::default();
     assert_eq!(
         derivator
@@ -264,7 +274,10 @@ fn ad_jacobian_is_column_seeded() {
 #[test]
 fn ad_jacobian_column_reads_all_outputs() {
     // one seeded pass on input 0 gives d/dx of both outputs: [y*z, 2x] = [6, 2]
-    let function = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    let function = scalar_fn_vec!(|point: &[f64; 3]| [
+        point[0] * point[1] * point[2],
+        point[0] * point[0] + point[1] * point[1]
+    ]);
     let derivator = AutoDiffMulti::default();
     let column = derivator
         .jacobian_column(&function, 0, &[1.0, 2.0, 3.0])
@@ -275,7 +288,10 @@ fn ad_jacobian_column_reads_all_outputs() {
 
 #[test]
 fn ad_jacobian_column_index_out_of_range() {
-    let function = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    let function = scalar_fn_vec!(|point: &[f64; 3]| [
+        point[0] * point[1] * point[2],
+        point[0] * point[0] + point[1] * point[1]
+    ]);
     let derivator = AutoDiffMulti::default();
     let result = derivator.jacobian_column(&function, 5, &[1.0, 2.0, 3.0]);
     assert_eq!(result.unwrap_err(), DiffError::IndexOutOfRange);
@@ -285,7 +301,10 @@ fn ad_jacobian_column_index_out_of_range() {
 fn fd_jacobian_column_matches() {
     // the finite-difference implementation produces the right matrix, matching the analytic
     // values to finite-difference tolerance (unchanged from the per-Component path it replaces)
-    let function = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
+    let function = scalar_fn_vec!(|point: &[f64; 3]| [
+        point[0] * point[1] * point[2],
+        point[0] * point[0] + point[1] * point[1]
+    ]);
     let jacobian = Jacobian::from_derivator(FiniteDifferenceMulti::default());
     let result = jacobian.evaluate(&function, &[1.0, 2.0, 3.0]).unwrap();
 
@@ -314,22 +333,90 @@ fn fd_jacobian_is_column_seeded() {
 
 #[test]
 fn fd_single_derivative_modes() {
-    // x^2/2, derivative x; check all three finite-difference modes still work
-    let function = scalar_fn!(|x| c(0.5) * x * x);
+    // x^2/2, derivative x; check every mode with its type-scaled default step.
+    let function = scalar_fn!(|x| constant(0.5) * x * x);
     for mode in [
         FiniteDifferenceMode::Forward,
         FiniteDifferenceMode::Backward,
         FiniteDifferenceMode::Central,
     ] {
-        let mut derivator = FiniteDifferenceSingle::default();
-        derivator.config.method = mode;
+        let derivator = FiniteDifferenceSingle::from_parameters(
+            mode.default_step_size::<f64>(),
+            mode,
+            DEFAULT_STEP_SIZE_MULTIPLIER,
+        );
         assert!(f64::abs(derivator.differentiate(1, &function, 2.0).unwrap() - 2.0) < 0.001);
     }
 }
 
 #[test]
+fn fd_default_step_scales_with_scalar_type() {
+    assert_eq!(
+        FiniteDifferenceSingle::<f32>::default().config.step_size,
+        f32::EPSILON.cbrt()
+    );
+    assert_eq!(
+        FiniteDifferenceSingle::<f64>::default().config.step_size,
+        f64::EPSILON.cbrt()
+    );
+    for mode in [
+        FiniteDifferenceMode::Forward,
+        FiniteDifferenceMode::Backward,
+    ] {
+        assert_eq!(mode.default_step_size::<f32>(), f32::EPSILON.sqrt());
+        assert_eq!(mode.default_step_size::<f64>(), f64::EPSILON.sqrt());
+    }
+}
+
+#[test]
+fn fd_default_is_accurate_at_f32() {
+    // f(x) = x²/2, so f'(2) = 2. The error bar follows the expected rounding scale for a
+    // central difference whose step is cbrt(epsilon), rather than a fixed decimal tolerance.
+    let function = scalar_fn!(|x| constant(0.5) * x * x);
+    let derivator = FiniteDifferenceSingle::<f32>::default();
+    let derivative = derivator.differentiate(1, &function, 2.0_f32).unwrap();
+    let step = f32::EPSILON.cbrt();
+
+    assert!((derivative - 2.0).abs() < 4.0 * step * step);
+}
+
+#[test]
+fn fd_explicit_positive_step_is_preserved() {
+    // A forward difference of x²/2 at x=2 is exactly 2 + step/2.
+    let function = scalar_fn!(|x| constant(0.5) * x * x);
+    let step = 0.25_f64;
+    let derivator = FiniteDifferenceSingle::from_parameters(
+        step,
+        FiniteDifferenceMode::Forward,
+        DEFAULT_STEP_SIZE_MULTIPLIER,
+    );
+
+    assert_eq!(derivator.config.step_size, step);
+    assert_eq!(
+        derivator.differentiate(1, &function, 2.0).unwrap(),
+        2.0 + step / 2.0
+    );
+}
+
+#[test]
+fn fd_invalid_step_error() {
+    let function = scalar_fn!(|x| constant(0.5) * x * x);
+    for step in [-1.0_f64, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let derivator = FiniteDifferenceSingle::from_parameters(
+            step,
+            FiniteDifferenceMode::Central,
+            DEFAULT_STEP_SIZE_MULTIPLIER,
+        );
+        assert_eq!(
+            derivator.differentiate(1, &function, 2.0).unwrap_err(),
+            DiffError::InvalidStepSize
+        );
+    }
+}
+
+#[test]
 fn fd_step_size_zero_error() {
-    let function = scalar_fn!(|v: &[f64; 3]| v[1] * v[0].sin());
+    let function = scalar_fn!(|point: &[f64; 3]| point[1] * point[0].sin());
     let derivator = FiniteDifferenceMulti::from_parameters(0.0, FiniteDifferenceMode::Central, 1.0);
     assert_eq!(
         derivator
@@ -379,12 +466,12 @@ impl ScalarFnN<2> for BivariatePoly {
 }
 
 fn coeff_l1(coeffs: &[f64]) -> f64 {
-    coeffs.iter().map(|c| c.abs()).sum()
+    coeffs.iter().map(|coeff| coeff.abs()).sum()
 }
 
-fn ad_fd_tol(ad: f64, h: f64, order: i32, c: f64, coeff_scale: f64) -> f64 {
-    let scale = ad.abs().max(1.0) * coeff_scale.max(1.0);
-    c * h.powi(order) * scale
+fn ad_fd_tol(autodiff: f64, step: f64, order: i32, coeff: f64, coeff_scale: f64) -> f64 {
+    let scale = autodiff.abs().max(1.0) * coeff_scale.max(1.0);
+    coeff * step.powi(order) * scale
 }
 
 proptest! {
@@ -454,16 +541,19 @@ fn proptest_ad_fd_single_second() {
         .run(&strategy, |(inner, outer, x)| {
             let scale = 1.0 + coeff_l1(&inner) + coeff_l1(&outer);
             let f = PolyComp { inner, outer };
-            let h = 1e-4;
-            let ad = AutoDiffSingle::default().differentiate(2, &f, x).unwrap();
-            let fd = FiniteDifferenceSingle::from_parameters(
-                h,
+            let step = 1e-4;
+            let autodiff = AutoDiffSingle::default().differentiate(2, &f, x).unwrap();
+            let finite_diff = FiniteDifferenceSingle::from_parameters(
+                step,
                 FiniteDifferenceMode::Central,
                 DEFAULT_STEP_SIZE_MULTIPLIER,
             );
-            let fd_val = fd.differentiate(2, &f, x).unwrap();
-            let tol = ad_fd_tol(ad, h, 2, 1e4, scale);
-            prop_assert!((fd_val - ad).abs() < tol, "fd={fd_val} ad={ad} tol={tol}");
+            let finite_diff_value = finite_diff.differentiate(2, &f, x).unwrap();
+            let tol = ad_fd_tol(autodiff, step, 2, 1e4, scale);
+            prop_assert!(
+                (finite_diff_value - autodiff).abs() < tol,
+                "fd={finite_diff_value} ad={autodiff} tol={tol}"
+            );
             Ok(())
         })
         .unwrap();

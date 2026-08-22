@@ -33,12 +33,12 @@ https://github.com/user-attachments/assets/ed45ccb5-ca95-4e4b-8399-27d09284b220
 
 - [Estimation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/estimation.md): linear, extended, and unscented `KalmanFilter`s (autodiff Jacobians, no hand-derived ones; the unscented one needs no derivatives at all), an `ErrorStateKalmanFilter` that fuses an IMU with position and heading fixes, `MahonyFilter` and `MadgwickFilter` for attitude estimation, and a `ParticleFilter` for nonlinear, non-Gaussian problems (`alloc` only), with a `Monte Carlo Localization` built on top of it.
 - [Control](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/control.md): `Pid` control, infinite horizon `Lqr`,; `GeometricAttitudeController` for drones, the `pure pursuit` path-following law; and `FollowTheGap` reactive obstacle avoidance.
-- [Spatial math](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/spatial-quaternions-and-lie-groups.md): `Quaternion`, the `SO2`/`SE2`/`SO3`/`SE3` Lie groups for 2D and 3D rotations and rigid-body transforms with left and right Jacobians and their inverses on all four, and `Twist`/`Wrench` screw-theory types.
+- [Spatial math](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/spatial-quaternions-and-lie-groups.md): `Quaternion`, the `SO2`/`SE2`/`SO3`/`SE3` Lie groups with left/right Jacobians and inverses, and `Twist`/`Wrench` spatial algebra in `[v; ω]` — Plücker transforms, 6×6 adjoints, motion and force cross products, and `SpatialInertia` momentum, bias wrench, energy and composition.
 - [Rigid-body dynamics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/rigid-body-dynamics.md): Dynamics of a single rigid body, loadable straight from MuJoCo MJCF and URDF model files with `multicalc-robot-model`.
 - [Plant](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/plant.md): What sits between a command and the force a body actually feels — `MultirotorMixer` shares a wanted lift and turn out across the rotors, and `RotorLag` models the moment a rotor takes to catch up to what it was asked for.
 - [Kinematics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/kinematics.md): `KinematicTree` for revolute/prismatic/continuous/fixed/floating chains and forward and inverse kinematics, generic over the scalar with autodiff, built by hand or read from an MJCF or URDF file; a damped-least-squares SE(3) pose solver with joint limits and null-space redundancy resolution.
 - [Collision checking](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/kinematics.md#collision-checking): `CollisionQuery` for sphere/capsule proximity — primitives on tree frames against each other and against world-fixed obstacles, with pair exclusions and fixed capacities.
-- [Motion](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/motion.md): `PolylinePath` for waypoint paths with arc-length, closest-point, and lookahead queries, and `MinimumSnapPlanner` for the smoothest trajectory through them.
+- [Motion](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/motion.md): `PolylinePath` for waypoint paths with arc-length, closest-point, and lookahead queries, `MinimumSnapPlanner` for the smoothest trajectory through them, and `MotionProfilePlanner` for jerk-limited point-to-point moves with multi-axis synchronization.
 - [Mapping](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/mapping.md): 2D `OccupancyGrid` and `ScanGeometry`
 
 ### Core math
@@ -62,13 +62,13 @@ Two formulas, written once, carried through six modules, each step feeding the n
 
 ```rust
 use multicalc::prelude::*;
-use multicalc::{Hessian, Jacobian, KalmanFilter, KalmanModel, Matrix, Newton, SE3, SO3, Vector, c};
+use multicalc::{Hessian, Jacobian, KalmanFilter, KalmanModel, Matrix, Newton, SE3, SO3, Vector, constant };
 use multicalc::{scalar_fn, scalar_fn_vec};
 
 fn main() -> Result<(), CalcError> {
     // Written once, evaluated at f64 here and at an autodiff number wherever a derivative is asked
     // for — the formula text never changes.
-    let f = scalar_fn!(|x| x * x * x - c(2.0) * x);                     // f(x)    = x³ - 2x
+    let f = scalar_fn!(|x| x * x * x - constant(2.0) * x);                     // f(x)    = x³ - 2x
     let g = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1] + v[0].sin()); // g(x, y) = x²y + sin x
 
     // Derivatives — exact, by forward-mode autodiff. No step size, no truncation error.
@@ -84,7 +84,7 @@ fn main() -> Result<(), CalcError> {
     let hessian = Hessian::new().evaluate(&g, &point)?;      // 2x2 second derivatives
     let both = scalar_fn_vec!(|v: &[f64; 2]| [
         v[0] * v[0] * v[1] + v[0].sin(),
-        v[0] * v[0] * v[0] - c(2.0) * v[0],
+        v[0] * v[0] * v[0] - constant(2.0) * v[0],
     ]);
     let jacobian = Jacobian::new().evaluate(&both, &point)?; // 2x2 first derivatives
 

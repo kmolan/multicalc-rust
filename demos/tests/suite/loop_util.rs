@@ -19,23 +19,23 @@ fn empty_ring_has_no_summary() {
 fn summary_over_a_known_window() {
     // 0..=100 in ascending order: median 50, p99 99, max 100.
     let mut ring = LatencyRing::new(101);
-    for v in 0..=100 {
-        ring.push(v as f64);
+    for sample in 0..=100 {
+        ring.push(sample as f64);
     }
-    let p = ring.summary().unwrap();
-    assert_eq!(p.median, 50.0);
-    assert_eq!(p.p99, 99.0);
-    assert_eq!(p.max, 100.0);
+    let summary = ring.summary().unwrap();
+    assert_eq!(summary.median, 50.0);
+    assert_eq!(summary.p99, 99.0);
+    assert_eq!(summary.max, 100.0);
 }
 
 #[test]
 fn ring_evicts_oldest_when_full() {
     // Capacity 3, push 5 values: the window holds the last three (2, 3, 4).
     let mut ring = LatencyRing::new(3);
-    for v in 0..5 {
-        ring.push(v as f64);
+    for sample in 0..5 {
+        ring.push(sample as f64);
     }
-    let p = ring.summary().unwrap();
-    assert_eq!(p.max, 4.0);
-    assert_eq!(p.median, 3.0);
+    let summary = ring.summary().unwrap();
+    assert_eq!(summary.max, 4.0);
+    assert_eq!(summary.median, 3.0);
 }

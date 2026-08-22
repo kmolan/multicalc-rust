@@ -267,27 +267,27 @@ fn euler_roundtrip() {
 // ---- exponential and logarithm ----------------------------------------------
 
 #[test]
-fn exp_ln_roundtrip() {
+fn exp_log_roundtrip() {
     let mut rng = StdRng::seed_from_u64(20);
     for _ in 0..2000 {
-        // ln ∘ exp on a general (small) quaternion. Keep the vector part below π so exp stays
-        // inside the principal branch that ln inverts.
+        // log ∘ exp on a general (small) quaternion. Keep the vector part below π so exp stays
+        // inside the principal branch that log inverts.
         let quaternion = Quaternion::new(
             rng.gen_range(-1.0..1.0),
             rng.gen_range(-1.0..1.0),
             rng.gen_range(-1.0..1.0),
             rng.gen_range(-1.0..1.0),
         );
-        assert_quaternions_close(quaternion.exp().ln(), quaternion, 1e-10);
+        assert_quaternions_close(quaternion.exp().log(), quaternion, 1e-10);
 
-        // exp ∘ ln on a quaternion with positive real part (clear of the negative-real branch cut).
+        // exp ∘ log on a quaternion with positive real part (clear of the negative-real branch cut).
         let positive_real = Quaternion::new(
             rng.gen_range(0.2..1.0),
             rng.gen_range(-1.0..1.0),
             rng.gen_range(-1.0..1.0),
             rng.gen_range(-1.0..1.0),
         );
-        assert_quaternions_close(positive_real.ln().exp(), positive_real, 1e-10);
+        assert_quaternions_close(positive_real.log().exp(), positive_real, 1e-10);
     }
 }
 
@@ -469,19 +469,19 @@ fn from_two_vectors_maps_one_direction_onto_the_other() {
     for _ in 0..2000 {
         // Unnormalized inputs: only the directions matter.
         let from = random_unit_vector(&mut rng) * rng.gen_range(0.1..10.0);
-        let to = random_unit_vector(&mut rng) * rng.gen_range(0.1..10.0);
-        let rotation = Quaternion::from_two_vectors(from, to);
+        let end = random_unit_vector(&mut rng) * rng.gen_range(0.1..10.0);
+        let rotation = Quaternion::from_two_vectors(from, end);
 
         assert!((rotation.norm() - 1.0).abs() < TOL);
         assert_vectors_close(
             rotation.transform_point(from.normalized()),
-            to.normalized(),
+            end.normalized(),
             1e-10,
         );
         // Shortest: the rotation angle is exactly the angle between the two directions.
         let separation = from
             .normalized()
-            .dot(to.normalized())
+            .dot(end.normalized())
             .clamp(-1.0, 1.0)
             .acos();
 
@@ -525,11 +525,11 @@ fn from_two_vectors_near_opposite_directions() {
         for _ in 0..200 {
             let from = random_unit_vector(&mut rng);
             let nudge = from.cross(random_unit_vector(&mut rng)).normalized();
-            let to = (-from + nudge * perturbation).normalized();
-            let rotation = Quaternion::from_two_vectors(from, to);
+            let end = (-from + nudge * perturbation).normalized();
+            let rotation = Quaternion::from_two_vectors(from, end);
 
             assert!((rotation.norm() - 1.0).abs() < TOL);
-            assert_vectors_close(rotation.transform_point(from), to, 1e-14);
+            assert_vectors_close(rotation.transform_point(from), end, 1e-14);
         }
     }
 }
@@ -581,7 +581,7 @@ fn from_two_vectors_extreme_magnitudes() {
         5e-324, // subnormal
         1.0,
     ] {
-        for (from, to) in [
+        for (from, end) in [
             (
                 Vector::<3, f64>::new([scale, 0.0, 0.0]),
                 Vector::new([0.0, 1.0, 0.0]),
@@ -592,7 +592,7 @@ fn from_two_vectors_extreme_magnitudes() {
                 Vector::new([0.0, scale, 0.0]),
             ),
         ] {
-            let rotation = Quaternion::from_two_vectors(from, to);
+            let rotation = Quaternion::from_two_vectors(from, end);
 
             assert!(
                 (rotation.norm() - 1.0).abs() < TOL,
@@ -633,18 +633,18 @@ fn from_two_vectors_degenerate_inputs() {
 fn from_two_vectors_f32_including_opposite() {
     let from = Vector::<3, f32>::new([0.0, 1.0, 0.0]);
 
-    for to in [
+    for end in [
         Vector::new([1.0f32, 0.0, 0.0]),
         Vector::new([0.0f32, -1.0, 0.0]),
         Vector::new([0.0f32, 1.0, 0.0]),
     ] {
-        let rotation = Quaternion::from_two_vectors(from, to);
+        let rotation = Quaternion::from_two_vectors(from, end);
 
         assert!((rotation.norm() - 1.0).abs() < 1e-6);
 
         let rotated = rotation.transform_point(from);
         for index in 0..3 {
-            assert!((rotated[index] - to[index]).abs() < 1e-6);
+            assert!((rotated[index] - end[index]).abs() < 1e-6);
         }
     }
 }
@@ -735,27 +735,27 @@ fn f32_identities() {
 
 fn near_zero_scaled_axis_roundtrip<T: Numeric>() {
     let zero = Vector::new([T::ZERO, T::ZERO, T::ZERO]);
-    let q0 = Quaternion::from_scaled_axis(zero);
-    assert!((q0.norm() - T::ONE).abs() < T::from_f64(1e-5));
-    let back0 = q0.to_scaled_axis();
+    let quat0 = Quaternion::from_scaled_axis(zero);
+    assert!((quat0.norm() - T::ONE).abs() < T::from_f64(1e-5));
+    let back0 = quat0.to_scaled_axis();
     for &comp in back0.as_array() {
         assert!(comp.abs() < T::from_f64(1e-5));
     }
 
     // Sub threshold angle stays on Taylor path; round-trip stays finite/unit.
     let tiny = Vector::new([T::from_f64(1e-9), T::ZERO, T::ZERO]);
-    let q = Quaternion::from_scaled_axis(tiny);
-    assert!(q.norm().is_finite());
-    assert!((q.norm() - T::ONE).abs() < T::from_f64(1e-4));
-    let back = Quaternion::from_scaled_axis(q.to_scaled_axis());
-    for (a, b) in q.as_array().iter().zip(back.as_array().iter()) {
+    let quat = Quaternion::from_scaled_axis(tiny);
+    assert!(quat.norm().is_finite());
+    assert!((quat.norm() - T::ONE).abs() < T::from_f64(1e-4));
+    let back = Quaternion::from_scaled_axis(quat.to_scaled_axis());
+    for (a, b) in quat.as_array().iter().zip(back.as_array().iter()) {
         assert!((*a - *b).abs() < T::from_f64(1e-4));
     }
 
-    let [tx, ty, tz] = *tiny.as_array();
-    let q_exp = Quaternion::new(T::ZERO, tx, ty, tz).exp();
-    let q_ln = q_exp.ln();
-    assert!(q_ln.w().is_finite() && q_ln.x().is_finite());
+    let [twist_x, twist_y, twist_z] = *tiny.as_array();
+    let quat_exp = Quaternion::new(T::ZERO, twist_x, twist_y, twist_z).exp();
+    let quat_ln = quat_exp.log();
+    assert!(quat_ln.w().is_finite() && quat_ln.x().is_finite());
 }
 
 #[test]

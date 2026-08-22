@@ -12,7 +12,7 @@ fn the_corridor_is_nine_hundred_millimetres_wide() {
         .grid
         .cast_ray(centre, -FRAC_PI_2, 2.0)
         .expect("a wall below the centreline");
-    let up = track
+    let up_axis = track
         .grid
         .cast_ray(centre, FRAC_PI_2, 2.0)
         .expect("a wall above the centreline");
@@ -21,8 +21,8 @@ fn the_corridor_is_nine_hundred_millimetres_wide() {
         "distance down to the outer wall: {down}"
     );
     assert!(
-        (up - 0.45).abs() <= cell + 1e-9,
-        "distance up to the inner island: {up}"
+        (up_axis - 0.45).abs() <= cell + 1e-9,
+        "distance up to the inner island: {up_axis}"
     );
 }
 

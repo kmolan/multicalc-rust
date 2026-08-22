@@ -41,6 +41,7 @@ pub trait Numeric:
     // The value `180`.
     const ONE_HUNDRED_EIGHTY: Self;
     /// Archimedes' constant, π.
+    #[allow(clippy::min_ident_chars)]
     const PI: Self;
     /// Two times π (the circle constant τ) — one full turn in radians.
     const TWO_PI: Self;
@@ -105,7 +106,7 @@ pub trait Numeric:
     /// `e` raised to the power `self`.
     fn exp(self) -> Self;
     /// Natural logarithm of `self`.
-    fn ln(self) -> Self;
+    fn log(self) -> Self;
 
     /// Calculates `(e^self) - 1`.
     /// The default implementation computes the result using `exp` and normal subtraction,
@@ -123,7 +124,7 @@ pub trait Numeric:
     }
 
     /// Calculates `ln(1 + x)`.
-    /// The default implementation computes the result using `ln` and normal addition,
+    /// The default implementation computes the result using `log` and normal addition,
     /// however overrides for `f32` and `f64` use a more accurate primitive.
     /// Other implementors of the trait will also likely want to override this method.
     ///
@@ -134,11 +135,11 @@ pub trait Numeric:
     /// assert_eq!(x.ln_1p(), 0.0);
     /// ```
     fn ln_1p(self) -> Self {
-        (self + Self::ONE).ln()
+        (self + Self::ONE).log()
     }
 
     /// Base 2 logarithm.
-    /// The default implementation uses two calls to `ln`.
+    /// The default implementation uses two calls to `log`.
     /// More efficient overrides are used for `f32` and `f64`.
     /// Other implementors of the trait will also likely want to override this method.
     ///
@@ -149,11 +150,11 @@ pub trait Numeric:
     /// assert_eq!(x.log2(), 1.0);
     /// ```
     fn log2(self) -> Self {
-        self.ln() / Self::TWO.ln()
+        self.log() / Self::TWO.log()
     }
 
     /// Base 10 logarithm.
-    /// The default implementation uses two calls to `ln`.
+    /// The default implementation uses two calls to `log`.
     /// More efficient overrides are used for `f32` and `f64`.
     /// Other implementors of the trait will also likely want to override this method.
     ///
@@ -164,7 +165,7 @@ pub trait Numeric:
     /// assert_eq!(x.log10(), 1.0);
     /// ```
     fn log10(self) -> Self {
-        self.ln() / Self::TEN.ln()
+        self.log() / Self::TEN.log()
     }
 
     /// Four-quadrant arctangent of `self / other`, in radians, taking `self` as the y
@@ -366,7 +367,7 @@ pub trait Numeric:
     /// `self > 0`; the `f32`/`f64` impls override for negative bases and edge cases.
     #[inline]
     fn powf(self, n: Self) -> Self {
-        (n * self.ln()).exp()
+        (n * self.log()).exp()
     }
 
     /// `self * a + b`. The `f32`/`f64` impls fuse the operation for extra precision.
@@ -507,7 +508,7 @@ impl Numeric for f64 {
         libm::expm1(self)
     }
     #[inline]
-    fn ln(self) -> Self {
+    fn log(self) -> Self {
         libm::log(self)
     }
     #[inline]
@@ -690,7 +691,7 @@ impl Numeric for f32 {
         libm::expm1f(self)
     }
     #[inline]
-    fn ln(self) -> Self {
+    fn log(self) -> Self {
         libm::logf(self)
     }
     #[inline]

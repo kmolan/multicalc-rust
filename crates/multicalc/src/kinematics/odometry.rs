@@ -27,8 +27,8 @@ use crate::spatial::{SE2, SO2};
 /// ```
 #[inline]
 #[must_use]
-pub fn integrate<T: Numeric>(pose: SE2<T>, d: BodyArc<T>) -> SE2<T> {
-    pose * SE2::exp(Vector::new([d.linear(), T::ZERO, d.angular()]))
+pub fn integrate<T: Numeric>(pose: SE2<T>, arc: BodyArc<T>) -> SE2<T> {
+    pose * SE2::exp(Vector::new([arc.linear(), T::ZERO, arc.angular()]))
 }
 
 /// The odometry process model, `[x, y, θ, Δs, Δθ] → [x', y', θ']`.
@@ -42,11 +42,11 @@ pub fn integrate<T: Numeric>(pose: SE2<T>, d: BodyArc<T>) -> SE2<T> {
 pub struct OdometryStep;
 
 impl VectorFn<5, 3> for OdometryStep {
-    fn eval<S: Numeric>(&self, p: &[S; 5]) -> [S; 3] {
-        let pose = SE2::from_parts(SO2::exp(p[2]), Vector::new([p[0], p[1]]));
-        let next = pose * SE2::exp(Vector::new([p[3], S::ZERO, p[4]]));
-        let t = next.translation();
-        let [tx, ty] = *t.as_array();
-        [tx, ty, next.rotation().log()]
+    fn eval<S: Numeric>(&self, state: &[S; 5]) -> [S; 3] {
+        let pose = SE2::from_parts(SO2::exp(state[2]), Vector::new([state[0], state[1]]));
+        let next = pose * SE2::exp(Vector::new([state[3], S::ZERO, state[4]]));
+        let translation = next.translation();
+        let [translation_x, translation_y] = *translation.as_array();
+        [translation_x, translation_y, next.rotation().log()]
     }
 }

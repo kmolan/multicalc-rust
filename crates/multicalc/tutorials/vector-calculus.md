@@ -9,12 +9,12 @@ Curl and divergence via autodiff, plus line and flux integrals sampled along a c
 
 ```rust
 use multicalc::AutoDiffMulti;
-use multicalc::c;
+use multicalc::constant;
 use multicalc::scalar_fn_vec;
 use multicalc::vector_field::{curl_2d, divergence_2d, flux_integral_2d, line_integral_2d};
 
 // field (2xy, 3cos y)
-let field = scalar_fn_vec!(|v: &[f64; 2]| [c(2.0) * v[0] * v[1], c(3.0) * v[1].cos()]);
+let field = scalar_fn_vec!(|v: &[f64; 2]| [constant(2.0) * v[0] * v[1], constant(3.0) * v[1].cos()]);
 let curl = curl_2d(AutoDiffMulti::default(), &field, &[1.0, 3.14]).unwrap();
 let divergence = divergence_2d(AutoDiffMulti::default(), &field, &[1.0, 3.14]).unwrap();
 

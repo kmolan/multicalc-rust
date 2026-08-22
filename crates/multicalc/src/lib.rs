@@ -31,7 +31,7 @@ pub use scalar::Jet;
 pub use scalar::{ScalarFn, ScalarFnN, VectorFn};
 
 /// The plain scalar wrapper, and the marker for numeric constants inside a `scalar_fn!` body.
-pub use scalar::{Const, Primal, c};
+pub use scalar::{Const, Primal, constant};
 
 /// Differentiation: the autodiff and finite-difference backends, their shared traits, and the
 /// derivative-matrix types.
@@ -148,7 +148,9 @@ pub use random::{Pcg32, RandomSource};
 pub use optimization::{GaussNewton, LevenbergMarquardt, MinimizationReport, TerminationReason};
 
 /// Bracketed and Newton root finders for scalar equations and square systems.
-pub use root_finding::{Bisection, Newton, NewtonSystem, RootReport, RootReportN, RootTermination};
+pub use root_finding::{
+    Bisection, Brent, Newton, NewtonSystem, RootReport, RootReportN, RootTermination,
+};
 
 /// Polynomials by their coefficients, in pieces, and in several variables.
 pub use polynomial::{
@@ -162,10 +164,12 @@ pub use control::{
     ThrustCommand, pure_pursuit_curvature, thrust_command_from_acceleration,
 };
 
-/// Waypoint paths, planned trajectories, and their arc-length, closest-point, and lookahead queries.
+/// Waypoint paths, planned trajectories, point-to-point motion profiles, and their arc-length,
+/// closest-point and lookahead queries.
 pub use motion::{
-    BoundaryDerivatives, EndOfPath, MinimumSnapPlanner, PathProjection, PolylinePath,
-    durations_from_average_speed,
+    BoundaryDerivatives, EndOfPath, MinimumSnapPlanner, MotionProfile, MotionProfilePlanner,
+    PathProjection, PolylinePath, ProfileLimits, ProfileState, ProfileStrategy,
+    SynchronizedProfile, SynchronizedState, durations_from_average_speed,
 };
 
 /// A single rigid body's motion under the forces on it, and the state an integrator carries.

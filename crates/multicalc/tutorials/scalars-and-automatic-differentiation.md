@@ -8,7 +8,7 @@ the forward-mode automatic-differentiation numbers that also implement it.
   second, and arbitrary nth-order derivatives (`Dual` is `Jet<T, 2>`).
 - `ScalarFn` / `ScalarFnN` / `VectorFn`: function traits whose `eval` is generic over the
   scalar, so one formula runs at `f64` or at any autodiff type.
-- The `scalar_fn!` / `scalar_fn_vec!` macros build those traits from closure syntax, and `c()`
+- The `scalar_fn!` / `scalar_fn_vec!` macros build those traits from closure syntax, and `constant()`
   marks numeric constants inside the body (a bare `2.0 * x` cannot typecheck in a generic body).
 
 One formula, differentiated exactly to any order:

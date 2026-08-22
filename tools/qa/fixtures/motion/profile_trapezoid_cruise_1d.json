@@ -1,0 +1,122 @@
+{
+  "case": "profile_trapezoid_cruise_1d",
+  "expected": {
+    "phase_durations": {
+      "data": [
+        "0x0000000000000000",
+        "0x4000000000000000",
+        "0x0000000000000000",
+        "0x4008000000000000",
+        "0x0000000000000000",
+        "0x4000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "sampled_states": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x3fd87ffffffffffc",
+        "0x3febffffffffffff",
+        "0x3ff0000000000000",
+        "0x3ff87ffffffffffe",
+        "0x3ffc000000000000",
+        "0x3ff0000000000000",
+        "0x400a000000000002",
+        "0x4000000000000002",
+        "0x0000000000000000",
+        "0x4014000000000000",
+        "0x4000000000000002",
+        "0x0000000000000000",
+        "0x401b000000000002",
+        "0x4000000000000002",
+        "0x0000000000000000",
+        "0x4020f00000000003",
+        "0x3ffc000000000003",
+        "0xbff0000000000000",
+        "0x40233c0000000003",
+        "0x3fec000000000008",
+        "0xbff0000000000000",
+        "0x4024000000000004",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "rows": 9
+    },
+    "state_tolerance": {
+      "data": [
+        "0x3e112e0be826d695",
+        "0x3e112e0be826d695"
+      ],
+      "kind": "vector"
+    },
+    "total_duration": {
+      "kind": "scalar",
+      "v": "0x401c000000000000"
+    }
+  },
+  "inputs": {
+    "acceleration_limit": {
+      "kind": "scalar",
+      "v": "0x3ff0000000000000"
+    },
+    "distance": {
+      "kind": "scalar",
+      "v": "0x4024000000000000"
+    },
+    "has_jerk_limit": {
+      "kind": "int",
+      "v": 0
+    },
+    "jerk_limit": {
+      "kind": "scalar",
+      "v": "0x0000000000000000"
+    },
+    "sample_times": {
+      "data": [
+        "0x0000000000000000",
+        "0x3fec000000000000",
+        "0x3ffc000000000000",
+        "0x4005000000000000",
+        "0x400c000000000000",
+        "0x4011800000000000",
+        "0x4015000000000000",
+        "0x4018800000000000",
+        "0x401c000000000000"
+      ],
+      "kind": "vector"
+    },
+    "speed_limit": {
+      "kind": "scalar",
+      "v": "0x4000000000000000"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "trapezoidal, d = 10 m, v_max = 2 m/s, a_max = 1 m/s\u00b2; velocity-limited",
+    "generator": "motion",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "operations": [
+      "phase durations",
+      "p, v, a at 9 samples"
+    ],
+    "reference": "NumPy 2.1.3 / SciPy 1.14.1",
+    "sampling": "hand-chosen waypoints with durations either given or from an average speed",
+    "seed": 20260706
+  },
+  "module": "motion",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-07,
+      "rel": 1e-07
+    }
+  }
+}

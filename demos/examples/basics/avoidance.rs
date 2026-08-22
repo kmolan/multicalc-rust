@@ -47,7 +47,7 @@ fn run(
 ) -> RunSummary {
     let mut rng = Pcg32::seed_from_u64(seed);
     let mut pose = Vector::new([0.5, 0.0, 0.0]);
-    let dt = 0.02;
+    let timestep = 0.02;
     let mut minimum_clearance = f64::INFINITY;
     let mut travelled = 0.0;
     let mut blocked_ticks = 0;
@@ -62,10 +62,10 @@ fn run(
         if tick >= 10 {
             minimum_clearance = minimum_clearance.min(output.minimum_clearance());
         }
-        travelled += output.body_twist().linear() * dt;
+        travelled += output.body_twist().linear() * timestep;
 
         let plant = Unicycle::new(output.body_twist());
-        pose = Rk4::step(&plant.field(), 0.0, &pose, dt);
+        pose = Rk4::step(&plant.field(), 0.0, &pose, timestep);
     }
 
     RunSummary {
