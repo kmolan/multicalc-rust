@@ -73,7 +73,7 @@ fn main() {
         BiquadCoefficients::low_pass(50.0, core::f64::consts::FRAC_1_SQRT_2, TIMESTEP).unwrap();
     let smoothed = run(Biquad::new(low_pass), &signal);
     let smoothed_fast = amplitude_at(&smoothed[MEASURE_FROM..], 180.0);
-    let delay_seconds = low_pass.delay_at(5.0);
+    let delay_seconds = low_pass.delay_at(5.0).unwrap();
 
     println!("\nLow-pass at 50 Hz, sharpness 0.707");
     println!("  180 Hz vibration = {smoothed_fast:.5}");
@@ -89,10 +89,10 @@ fn main() {
     for frequency_hz in [5.0, 50.0, 180.0] {
         println!(
             "  {frequency_hz:>5.0} Hz          = {:>8.3} dB",
-            low_pass.magnitude_in_decibels_at(frequency_hz)
+            low_pass.magnitude_in_decibels_at(frequency_hz).unwrap()
         );
     }
-    let at_cutoff = low_pass.magnitude_in_decibels_at(50.0);
+    let at_cutoff = low_pass.magnitude_in_decibels_at(50.0).unwrap();
     assert!(
         (at_cutoff + 3.0).abs() < 0.5,
         "a low-pass is about 3 dB down at its own cutoff"
