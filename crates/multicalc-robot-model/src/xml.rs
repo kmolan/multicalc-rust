@@ -1,7 +1,5 @@
 //! XML attribute and element access, shared by both readers.
 
-#[cfg(feature = "mjcf")]
-use multicalc::spatial::Quaternion;
 use roxmltree::Node;
 
 use crate::ModelError;
@@ -22,26 +20,6 @@ pub(crate) fn element<'doc, 'input>(
     tag: &'static str,
 ) -> Option<Node<'doc, 'input>> {
     elements(node, tag).next()
-}
-
-/// A `quat` attribute as a unit quaternion. MJCF is scalar-first, matching this crate's storage.
-///
-/// MJCF-only: URDF states orientation as rpy angles throughout, as do the fixed counts below.
-#[cfg(feature = "mjcf")]
-pub(crate) fn unit_quaternion(
-    node: Node,
-    quat: [f64; 4],
-    attribute: &'static str,
-) -> Result<Quaternion<f64>, ModelError> {
-    Quaternion::new(quat[0], quat[1], quat[2], quat[3])
-        .try_normalized()
-        .ok_or_else(|| {
-            bad_attribute(
-                node,
-                attribute,
-                node.attribute(attribute).unwrap_or_default(),
-            )
-        })
 }
 
 /// Error for an attribute that does not parse as the numbers it should hold.

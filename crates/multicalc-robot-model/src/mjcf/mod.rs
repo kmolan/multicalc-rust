@@ -6,6 +6,7 @@ mod defaults;
 mod document;
 mod geometry;
 mod joint;
+mod orientation;
 
 use std::path::Path;
 

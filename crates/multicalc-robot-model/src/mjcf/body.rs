@@ -10,12 +10,12 @@ use roxmltree::{Document, Node};
 use crate::JointDescription;
 use crate::ModelError;
 use crate::mjcf::compiler::{CompilerSettings, InertiaFromGeom};
-use crate::mjcf::defaults::{DefaultTable, reject_orientation_attributes};
+use crate::mjcf::defaults::DefaultTable;
 use crate::mjcf::geometry::{GeomMass, read_geom};
 use crate::mjcf::joint::read_joint;
+use crate::mjcf::orientation::Orientation;
 use crate::xml::{
-    bad_attribute, element, elements, ignored_sections, parse_scalar, parse_vector3, parse_vector4,
-    parse_vector6, unit_quaternion,
+    bad_attribute, element, elements, ignored_sections, parse_scalar, parse_vector3, parse_vector6,
 };
 
 /// Top-level elements this reader consumes. Every other one is listed in `ignored`.
@@ -103,14 +103,10 @@ fn walk_body(
     floating_base: &mut bool,
 ) -> Result<(), ModelError> {
     let name = node.attribute("name").unwrap_or("body").to_owned();
-    reject_orientation_attributes(node, "body")?;
 
     let position = parse_vector3(node, "pos")?.unwrap_or([0.0; 3]);
-    let quat = parse_vector4(node, "quat")?.unwrap_or([1.0, 0.0, 0.0, 0.0]);
-    let pose = SE3::from_parts(
-        SO3::from_quaternion(unit_quaternion(node, quat, "quat")?),
-        Vector::new(position),
-    );
+    let turn = Orientation::read(node)?.resolve(node, settings)?;
+    let pose = SE3::from_parts(SO3::from_quaternion(turn), Vector::new(position));
 
     let class_chain = node.attribute("childclass").or(inherited_class);
 
@@ -132,19 +128,27 @@ fn walk_body(
     };
 
     let inertia = match settings.inertia_from_geom {
-        InertiaFromGeom::Always => Some(synthesized_inertia(node, table, class_chain, &name)?),
+        InertiaFromGeom::Always => Some(synthesized_inertia(
+            node,
+            table,
+            class_chain,
+            settings,
+            &name,
+        )?),
         InertiaFromGeom::Never => {
             let inertial = element(node, "inertial")
                 .ok_or_else(|| ModelError::NoInertiaSource { body: name.clone() })?;
-            reject_orientation_attributes(inertial, "inertial")?;
-            Some(stated_inertia(inertial)?)
+            Some(stated_inertia(inertial, settings, &name)?)
         }
         InertiaFromGeom::Auto => match element(node, "inertial") {
-            Some(inertial) => {
-                reject_orientation_attributes(inertial, "inertial")?;
-                Some(stated_inertia(inertial)?)
-            }
-            None => Some(synthesized_inertia(node, table, class_chain, &name)?),
+            Some(inertial) => Some(stated_inertia(inertial, settings, &name)?),
+            None => Some(synthesized_inertia(
+                node,
+                table,
+                class_chain,
+                settings,
+                &name,
+            )?),
         },
     };
 
@@ -181,23 +185,34 @@ fn is_free_joint(node: Node) -> bool {
 }
 
 /// Spatial inertia stated outright, via `diaginertia` or `fullinertia`.
-fn stated_inertia(node: Node) -> Result<SpatialInertia<f64>, ModelError> {
+fn stated_inertia(
+    node: Node,
+    settings: &CompilerSettings,
+    body: &str,
+) -> Result<SpatialInertia<f64>, ModelError> {
     let position = parse_vector3(node, "pos")?.unwrap_or([0.0; 3]);
     let mass = parse_scalar(node, "mass")?.ok_or_else(|| required(node, "mass"))?;
 
     let diagonal = parse_vector3(node, "diaginertia")?;
     let full = parse_vector6(node, "fullinertia")?;
+    let orientation = Orientation::read(node)?;
 
     let tensor = match (diagonal, full) {
         (Some(principal), None) => {
-            // Principal moments are given in a frame rotated by `quat`; rotate the tensor back
-            // into body axes.
-            let quat = parse_vector4(node, "quat")?.unwrap_or([1.0, 0.0, 0.0, 0.0]);
-            let rotation = unit_quaternion(node, quat, "quat")?.to_rotation_matrix();
+            // Principal moments are given in a frame turned from the body's own; turn the tensor
+            // back into body axes.
+            let rotation = orientation.resolve(node, settings)?.to_rotation_matrix();
             rotation * Matrix::from_diagonal(principal) * rotation.transpose()
         }
-        // `quat` does not apply to a full tensor; MuJoCo ignores it there too.
+        // A full tensor already stands in the body's own axes, so a turn stated beside it is a
+        // second answer about the same frame. MuJoCo refuses that pair rather than reading one and
+        // dropping the other, and so does this.
         (None, Some([ixx, iyy, izz, ixy, ixz, iyz])) => {
+            if orientation.is_stated() {
+                return Err(ModelError::FullInertiaWithOrientation {
+                    body: body.to_owned(),
+                });
+            }
             Matrix::from([[ixx, ixy, ixz], [ixy, iyy, iyz], [ixz, iyz, izz]])
         }
         _ => {
@@ -218,11 +233,12 @@ fn synthesized_inertia(
     body: Node,
     table: &DefaultTable,
     class_chain: Option<&str>,
+    settings: &CompilerSettings,
     name: &str,
 ) -> Result<SpatialInertia<f64>, ModelError> {
     let mut shapes: Vec<GeomMass> = Vec::new();
     for geom in elements(body, "geom") {
-        if let Some(shape) = read_geom(geom, table, class_chain, name)? {
+        if let Some(shape) = read_geom(geom, table, class_chain, settings, name)? {
             shapes.push(shape);
         }
     }

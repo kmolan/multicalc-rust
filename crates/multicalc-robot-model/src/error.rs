@@ -33,12 +33,17 @@ pub enum ModelError {
         /// The joint type as written in the file.
         joint_type: String,
     },
-    /// Orientation stated other than by `quat`.
-    UnsupportedOrientation {
-        /// The element carrying the attribute.
+    /// An element stated which way it faces more than once. `quat`, `euler`, `axisangle`,
+    /// `xyaxes` and `zaxis` are five ways of writing one turn, and only one may be given.
+    MultipleOrientations {
+        /// The element carrying them.
         element: String,
-        /// The attribute name.
-        attribute: String,
+    },
+    /// An `<inertial>` stated a full tensor and a turn together. A full tensor already stands in
+    /// the body's own axes, so the turn has no frame left to name.
+    FullInertiaWithOrientation {
+        /// The body's name.
+        body: String,
     },
     /// A joint is limited, explicitly or by default, but states no `range`.
     LimitsNeedRange {
@@ -191,9 +196,13 @@ impl core::fmt::Display for ModelError {
                 f,
                 "body {body} has a {joint_type} joint, and only hinge or slide joints are handled"
             ),
-            ModelError::UnsupportedOrientation { element, attribute } => write!(
+            ModelError::MultipleOrientations { element } => write!(
                 f,
-                "the {attribute} attribute on {element} states a turn in a form this loader does not read; write it as a quaternion"
+                "{element} states which way it faces more than once, and one way is the limit"
+            ),
+            ModelError::FullInertiaWithOrientation { body } => write!(
+                f,
+                "the inertial on body {body} states a full tensor and a turn together, and a full tensor already stands in the body's own axes"
             ),
             ModelError::LimitsNeedRange { body } => write!(
                 f,
