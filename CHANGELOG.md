@@ -41,6 +41,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pairs and the rest — sorted and without repeats, so a caller can tell a model that loaded whole
   from one that loaded minus the half that mattered. Anything that could change a mass is still
   refused outright rather than recorded. @Thiago316316 (#305)
+- **Host-only Python bindings.** `multicalc-py` exposes a thin PyO3 surface over `multicalc`
+  (`Vector4`, `Matrix2` / `Matrix3`, `Pid`, `Polynomial3` / `Polynomial8`, `SO3`, and `LinalgError`)
+  for local smoke-testing via maturin. Workspace-internal (`publish = false`), excluded from
+  cargo-deny, with a README and pytest coverage. Not published to crates.io or PyPI. @rtmongold (#330)
 
 ### Changed
 

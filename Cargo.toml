@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/multicalc",
+    "crates/multicalc-py",
     "crates/multicalc-robot-model",
     "tools/embedded-smoke",
     "tools/qa",
