@@ -333,16 +333,84 @@ fn fd_jacobian_is_column_seeded() {
 
 #[test]
 fn fd_single_derivative_modes() {
-    // x^2/2, derivative x; check all three finite-difference modes still work
+    // x^2/2, derivative x; check every mode with its type-scaled default step.
     let function = scalar_fn!(|x| constant(0.5) * x * x);
     for mode in [
         FiniteDifferenceMode::Forward,
         FiniteDifferenceMode::Backward,
         FiniteDifferenceMode::Central,
     ] {
-        let mut derivator = FiniteDifferenceSingle::default();
-        derivator.config.method = mode;
+        let derivator = FiniteDifferenceSingle::from_parameters(
+            mode.default_step_size::<f64>(),
+            mode,
+            DEFAULT_STEP_SIZE_MULTIPLIER,
+        );
         assert!(f64::abs(derivator.differentiate(1, &function, 2.0).unwrap() - 2.0) < 0.001);
+    }
+}
+
+#[test]
+fn fd_default_step_scales_with_scalar_type() {
+    assert_eq!(
+        FiniteDifferenceSingle::<f32>::default().config.step_size,
+        f32::EPSILON.cbrt()
+    );
+    assert_eq!(
+        FiniteDifferenceSingle::<f64>::default().config.step_size,
+        f64::EPSILON.cbrt()
+    );
+    for mode in [
+        FiniteDifferenceMode::Forward,
+        FiniteDifferenceMode::Backward,
+    ] {
+        assert_eq!(mode.default_step_size::<f32>(), f32::EPSILON.sqrt());
+        assert_eq!(mode.default_step_size::<f64>(), f64::EPSILON.sqrt());
+    }
+}
+
+#[test]
+fn fd_default_is_accurate_at_f32() {
+    // f(x) = x²/2, so f'(2) = 2. The error bar follows the expected rounding scale for a
+    // central difference whose step is cbrt(epsilon), rather than a fixed decimal tolerance.
+    let function = scalar_fn!(|x| constant(0.5) * x * x);
+    let derivator = FiniteDifferenceSingle::<f32>::default();
+    let derivative = derivator.differentiate(1, &function, 2.0_f32).unwrap();
+    let step = f32::EPSILON.cbrt();
+
+    assert!((derivative - 2.0).abs() < 4.0 * step * step);
+}
+
+#[test]
+fn fd_explicit_positive_step_is_preserved() {
+    // A forward difference of x²/2 at x=2 is exactly 2 + step/2.
+    let function = scalar_fn!(|x| constant(0.5) * x * x);
+    let step = 0.25_f64;
+    let derivator = FiniteDifferenceSingle::from_parameters(
+        step,
+        FiniteDifferenceMode::Forward,
+        DEFAULT_STEP_SIZE_MULTIPLIER,
+    );
+
+    assert_eq!(derivator.config.step_size, step);
+    assert_eq!(
+        derivator.differentiate(1, &function, 2.0).unwrap(),
+        2.0 + step / 2.0
+    );
+}
+
+#[test]
+fn fd_invalid_step_error() {
+    let function = scalar_fn!(|x| constant(0.5) * x * x);
+    for step in [-1.0_f64, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let derivator = FiniteDifferenceSingle::from_parameters(
+            step,
+            FiniteDifferenceMode::Central,
+            DEFAULT_STEP_SIZE_MULTIPLIER,
+        );
+        assert_eq!(
+            derivator.differentiate(1, &function, 2.0).unwrap_err(),
+            DiffError::InvalidStepSize
+        );
     }
 }
 

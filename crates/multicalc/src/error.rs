@@ -37,6 +37,8 @@ pub enum DiffError {
     OrderUnsupported,
     /// A finite-difference step size of zero was supplied.
     StepSizeZero,
+    /// A finite-difference step size was negative, infinite, or NaN.
+    InvalidStepSize,
     /// A variable index was outside the bounds of the point array.
     IndexOutOfRange,
     /// An empty set of functions was supplied where at least one was required.
@@ -553,6 +555,7 @@ impl core::fmt::Display for DiffError {
             DiffError::OrderZero => "derivative order cannot be zero",
             DiffError::OrderUnsupported => "derivative order is not supported",
             DiffError::StepSizeZero => "step size cannot be zero",
+            DiffError::InvalidStepSize => "step size must be finite and positive",
             DiffError::IndexOutOfRange => "variable index out of range",
             DiffError::EmptyFunctionSet => "function set cannot be empty",
         })

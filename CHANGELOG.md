@@ -66,6 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Finite-difference step scaling and validation.** Default steps now follow the scalar type's
+  machine epsilon and the chosen stencil, improving `f32` accuracy. Negative and non-finite steps
+  are rejected instead of reversing the stencil or returning NaN.
+
 - **`ExponentialMap::integrate_attitude` input validation.** A non-finite timestep, a
 non-positive timestep, or a non-finite rate from the caller's `angular_rate_at` callback
 used to silently produce a NaN orientation or integrate backwards without comment.
