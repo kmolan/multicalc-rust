@@ -813,7 +813,11 @@ fn turn(loaded: &RobotModel) -> [f64; 4] {
 /// two are brought to the same sign before their numbers are compared. Every number here is at most
 /// one, so the same tolerance serves whether the expectation was worked out or came from MuJoCo.
 fn assert_same_turn(actual: [f64; 4], expected: [f64; 4], label: &str) {
-    let facing_the_same_way: f64 = actual.iter().zip(expected).map(|(a, e)| a * e).sum();
+    let facing_the_same_way: f64 = actual
+        .iter()
+        .zip(expected)
+        .map(|(got, want)| got * want)
+        .sum();
     let aligned = if facing_the_same_way < 0.0 {
         actual.map(|number| -number)
     } else {

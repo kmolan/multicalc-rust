@@ -155,10 +155,10 @@ impl Alternative {
             // the part of it standing square to the first, and the third axis follows from the two.
             // Naming the same line twice leaves nothing of the second to take, which is the one way
             // this fails beyond a direction that points nowhere.
-            Alternative::XyAxes([x1, y1, z1, x2, y2, z2]) => {
-                let x = direction(node, "xyaxes", [x1, y1, z1])?;
-                let stated = Vector::new([x2, y2, z2]);
-                let y = (stated - x.scale(stated.dot(x)))
+            Alternative::XyAxes(stated) => {
+                let x = direction(node, "xyaxes", [stated[0], stated[1], stated[2]])?;
+                let toward_y = Vector::new([stated[3], stated[4], stated[5]]);
+                let y = (toward_y - x.scale(toward_y.dot(x)))
                     .try_normalized()
                     .ok_or_else(|| unreadable(node, "xyaxes"))?;
                 let z = x.cross(y);
