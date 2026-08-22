@@ -8,6 +8,7 @@ use crate::spatial::lie::{
     SO3, inverse_left_jacobian_se3, inverse_left_jacobian_so3, left_jacobian_se3,
     left_jacobian_so3, skew3,
 };
+use crate::spatial::{SpatialInertia, Twist, Wrench};
 
 /// A 3D rigid-body transform: a rotation and a translation. The tangent is `[vx, vy, vz, ωx, ωy, ωz]`.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -118,6 +119,169 @@ impl<T: Numeric> SE3<T> {
             }
         }
         adjoint
+    }
+
+    /// The 6×6 force adjoint `Ad⁻ᵀ = [[R, 0], [[t]×·R, R]]` for the `[f; τ]` ordering.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::spatial::SE3;
+    /// let pose = SE3::exp(Vector::new([0.4_f64, -0.2, 0.7, 0.3, 0.9, -0.5]));
+    /// // Adᵀ · Ad⁻ᵀ = I₆.
+    /// let product = pose.adjoint().transpose() * pose.force_adjoint();
+    /// for index in 0..6 {
+    ///     assert!((product[(index, index)] - 1.0).abs() < 1e-12);
+    /// }
+    /// ```
+    #[inline]
+    pub fn force_adjoint(self) -> Matrix6D<T> {
+        let rotation = self.rotation.to_matrix();
+        let skew_t_r = skew3(self.translation) * rotation;
+        let mut adjoint = Matrix::zeros();
+        for i in 0..3 {
+            for j in 0..3 {
+                let rot_entry = rotation[(i, j)];
+                let skew_entry = skew_t_r[(i, j)];
+                adjoint[(i, j)] = rot_entry;
+                adjoint[(i + 3, j)] = skew_entry;
+                adjoint[(i + 3, j + 3)] = rot_entry;
+            }
+        }
+        adjoint
+    }
+
+    /// Carries a twist through this transform: `ω' = R·ω`, `v' = R·v + t×(R·ω)`.
+    ///
+    /// Block-wise; equals [`adjoint`](SE3::adjoint) applied to the flat `[v; ω]` vector.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::spatial::{SE3, SO3, Twist};
+    /// // Quarter turn about z, offset 1 m along x.
+    /// let pose = SE3::from_parts(
+    ///     SO3::exp(Vector::new([0.0_f64, 0.0, core::f64::consts::FRAC_PI_2])),
+    ///     Vector::new([1.0, 0.0, 0.0]),
+    /// );
+    /// let spin = Twist::new(Vector::zeros(), Vector::new([0.0_f64, 0.0, 1.0]));
+    /// let moved = pose.act_twist(spin);
+    /// // t × ω picks up a linear part.
+    /// assert!((moved.linear() - Vector::new([0.0, -1.0, 0.0])).norm() < 1e-12);
+    /// assert!((moved.angular() - Vector::new([0.0, 0.0, 1.0])).norm() < 1e-12);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn act_twist(self, twist: Twist<T>) -> Twist<T> {
+        let angular = self.rotation.act(twist.angular());
+        let linear = self.rotation.act(twist.linear()) + self.translation.cross(angular);
+        Twist::new(linear, angular)
+    }
+
+    /// Carries a wrench through this transform: `f' = R·f`, `τ' = R·τ + t×(R·f)`.
+    ///
+    /// Block-wise; equals [`force_adjoint`](SE3::force_adjoint) applied to the flat `[f; τ]` vector.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::spatial::{SE3, Wrench};
+    /// let pose = SE3::exp(Vector::new([0.4_f64, -0.2, 0.7, 0.3, 0.9, -0.5]));
+    /// let push = Wrench::from_array([2.0_f64, -1.5, 0.7, 0.9, -0.2, 1.3]);
+    /// let matrix_form = pose.force_adjoint() * push.to_vector();
+    /// assert!((pose.act_wrench(push).to_vector() - matrix_form).norm() < 1e-12);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn act_wrench(self, wrench: Wrench<T>) -> Wrench<T> {
+        let force = self.rotation.act(wrench.force());
+        let torque = self.rotation.act(wrench.torque()) + self.translation.cross(force);
+        Wrench::new(force, torque)
+    }
+
+    /// The inverse twist action: `ω' = Rᵀ·ω`, `v' = Rᵀ·(v − t×ω)`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::spatial::{SE3, Twist};
+    /// let pose = SE3::exp(Vector::new([0.4_f64, -0.2, 0.7, 0.3, 0.9, -0.5]));
+    /// let motion = Twist::from_array([0.3_f64, -0.7, 1.1, 0.5, 0.2, -0.9]);
+    /// let round_trip = pose.inverse_act_twist(pose.act_twist(motion));
+    /// assert!((round_trip - motion).to_vector().norm() < 1e-12);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn inverse_act_twist(self, twist: Twist<T>) -> Twist<T> {
+        let inverse_rotation = self.rotation.inverse();
+        let angular = inverse_rotation.act(twist.angular());
+        let linear = inverse_rotation.act(twist.linear() - self.translation.cross(twist.angular()));
+        Twist::new(linear, angular)
+    }
+
+    /// The inverse wrench action: `f' = Rᵀ·f`, `τ' = Rᵀ·(τ − t×f)`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::spatial::{SE3, Wrench};
+    /// let pose = SE3::exp(Vector::new([0.4_f64, -0.2, 0.7, 0.3, 0.9, -0.5]));
+    /// let push = Wrench::from_array([2.0_f64, -1.5, 0.7, 0.9, -0.2, 1.3]);
+    /// let round_trip = pose.inverse_act_wrench(pose.act_wrench(push));
+    /// assert!((round_trip - push).to_vector().norm() < 1e-12);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn inverse_act_wrench(self, wrench: Wrench<T>) -> Wrench<T> {
+        let inverse_rotation = self.rotation.inverse();
+        let force = inverse_rotation.act(wrench.force());
+        let torque = inverse_rotation.act(wrench.torque() - self.translation.cross(wrench.force()));
+        Wrench::new(force, torque)
+    }
+
+    /// Carries a spatial inertia through this transform: `m` unchanged, `c' = R·c + t`,
+    /// `I_c' = R·I_c·Rᵀ`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::{Matrix, Vector};
+    /// use multicalc::spatial::{SE3, SO3, SpatialInertia};
+    /// let body = SpatialInertia::new(
+    ///     2.0_f64,
+    ///     Vector::new([0.0, 0.0, 0.0]),
+    ///     Matrix::from_diagonal([1.0, 1.0, 1.0]),
+    /// )
+    /// .unwrap();
+    /// // Pure translation along x.
+    /// let pose = SE3::from_parts(SO3::identity(), Vector::new([1.0, 0.0, 0.0]));
+    /// let moved = pose.act_inertia(body);
+    /// assert_eq!(moved.mass(), 2.0);
+    /// assert!((moved.center_of_mass() - Vector::new([1.0, 0.0, 0.0])).norm() < 1e-12);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn act_inertia(self, inertia: SpatialInertia<T>) -> SpatialInertia<T> {
+        let rotation = self.rotation.to_matrix();
+        SpatialInertia::from_parts(
+            inertia.mass(),
+            self.act(inertia.center_of_mass()),
+            rotation * inertia.rotational_inertia() * rotation.transpose(),
+        )
+    }
+
+    /// The inverse inertia action, via [`inverse`](SE3::inverse).
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::{Matrix, Vector};
+    /// use multicalc::spatial::{SE3, SpatialInertia};
+    /// let body = SpatialInertia::new(
+    ///     2.0_f64,
+    ///     Vector::new([0.1, -0.2, 0.3]),
+    ///     Matrix::from_diagonal([1.0, 2.0, 3.0]),
+    /// )
+    /// .unwrap();
+    /// let pose = SE3::exp(Vector::new([0.4_f64, -0.2, 0.7, 0.3, 0.9, -0.5]));
+    /// let round_trip = pose.inverse_act_inertia(pose.act_inertia(body));
+    /// assert!((round_trip.center_of_mass() - body.center_of_mass()).norm() < 1e-12);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn inverse_act_inertia(self, inertia: SpatialInertia<T>) -> SpatialInertia<T> {
+        self.inverse().act_inertia(inertia)
     }
 
     /// The 4×4 Lie-algebra element for a `[v; ω]` twist.

@@ -10,8 +10,8 @@ use crate::scalar::Numeric;
 ///
 /// Like `Twist`, the type owns its layout: the only value constructor takes the force and torque
 /// parts by name, and the flat converters emit `[f; τ]`. `Add`/`Sub`/`Neg`/[`scale`](Wrench::scale)
-/// act component-wise; the spatial *algebra* (coordinate transforms, the `twist · wrench` power
-/// product) is not defined here.
+/// act component-wise. Change of frame is [`SE3::act_wrench`](crate::spatial::SE3::act_wrench);
+/// power against a motion is [`Twist::dot_wrench`](crate::spatial::Twist::dot_wrench).
 ///
 /// ```
 /// use multicalc::spatial::Wrench;
