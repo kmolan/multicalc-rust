@@ -8,7 +8,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use multicalc::dynamics::{RigidBody, free_joint_from_state_vector, state_vector_from_free_joint};
-use multicalc::linear_algebra::{Matrix, Vector, Vector3D};
+use multicalc::linear_algebra::{Vector, Vector3D};
 use multicalc::ode::Rk4;
 use multicalc::plant::{MultirotorMixer, RotorLag};
 use multicalc::spatial::{FreeJointState, SE3, SO3, SpatialInertia, Twist, Wrench};
@@ -59,7 +59,7 @@ fn no_turn() -> Vector3D<f64> {
 fn free_tumble() {
     let no_gravity = Vector::new([0.0, 0.0, 0.0]);
     let machine = body(no_gravity);
-    let resistance = Matrix::from_diagonal([0.005, 0.007, 0.009]);
+    let mass_distribution = machine.inertia();
 
     let starting_turn = Vector::new([7.0, 3.0, 5.0]);
     let start = state_vector_from_free_joint(FreeJointState::new(
@@ -73,19 +73,34 @@ fn free_tumble() {
         |_time: f64, state: &Vector<13, f64>| machine.state_derivative(state, Wrench::zeros());
     let after = Rk4::integrate(&rate, 0.0, &start, step, step_count, |_time, _state| {});
 
-    let spinning_energy = |turn: Vector3D<f64>| 0.5 * turn.dot(resistance * turn);
-    let ending_turn = Vector::new([after[10], after[11], after[12]]);
-    let started_with = spinning_energy(starting_turn);
-    let ended_with = spinning_energy(ending_turn);
+    // Straight-line speed is stated in world axes and the turn in the body's own, so the speed has
+    // to be turned into body axes before the two go into one motion.
+    let motion = |facing: SO3<f64>, world_speed: Vector3D<f64>, turn: Vector3D<f64>| {
+        Twist::new(facing.inverse().act(world_speed), turn)
+    };
+
+    let ending = free_joint_from_state_vector(&after).unwrap();
+    let ending_pose = ending.pose();
+    let ending_turn = ending.velocity().angular();
+
+    let starting_motion = motion(SO3::identity(), Vector::new([0.0, 0.0, 0.0]), starting_turn);
+    let ending_motion = motion(
+        ending_pose.rotation(),
+        ending.velocity().linear(),
+        ending_turn,
+    );
+
+    let started_with = mass_distribution.kinetic_energy(starting_motion);
+    let ended_with = mass_distribution.kinetic_energy(ending_motion);
     let energy_drift = (ended_with - started_with).abs() / started_with;
 
-    // Seen from the world the turning momentum holds still, even though the body's own turn rate
-    // wanders the whole time.
-    let facing = free_joint_from_state_vector(&after)
-        .unwrap()
-        .pose()
-        .rotation();
-    let momentum_drift = (facing.act(resistance * ending_turn) - resistance * starting_turn).norm();
+    // Seen from the world the momentum holds still, even though the body's own turn rate wanders
+    // the whole time.
+    let world_momentum =
+        |pose: SE3<f64>, motion: Twist<f64>| pose.act_wrench(mass_distribution.momentum(motion));
+    let momentum_drift = (world_momentum(ending_pose, ending_motion).to_vector()
+        - world_momentum(SE3::identity(), starting_motion).to_vector())
+    .norm();
 
     let facing_length =
         (after[3] * after[3] + after[4] * after[4] + after[5] * after[5] + after[6] * after[6])
@@ -103,7 +118,7 @@ fn free_tumble() {
     println!(
         "  spinning energy {started_with:.9} J -> {ended_with:.9} J  (drift {energy_drift:.2e})"
     );
-    println!("  turning momentum drift {momentum_drift:.2e}");
+    println!("  momentum drift {momentum_drift:.2e}");
     println!(
         "  the four orientation numbers are {:.2e} away from unit length",
         (facing_length - 1.0).abs()
@@ -112,7 +127,7 @@ fn free_tumble() {
     assert!(energy_drift < 1e-9, "a free tumble must hold its energy");
     assert!(
         momentum_drift < 1e-6,
-        "a free tumble must hold its turning momentum"
+        "a free tumble must hold its momentum"
     );
     assert!(
         (facing_length - 1.0).abs() < 1e-6,
