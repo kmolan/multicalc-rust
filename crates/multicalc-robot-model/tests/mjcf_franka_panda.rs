@@ -166,15 +166,15 @@ fn articulated_body_carries_every_body_inertia() {
         .unwrap();
 
     assert_eq!(body.len(), model.body_count());
-    for index in 0..model.body_count() {
+    assert_eq!(model.body_count(), BODY_NAMES.len());
+    for (index, name) in BODY_NAMES.into_iter().enumerate() {
         let stated = model.body(index).unwrap().inertia();
         match (stated, body.inertia(index)) {
             (Some(stated), Some(carried)) => {
-                assert_close(carried.mass(), stated.mass(), BODY_NAMES[index]);
+                assert_close(carried.mass(), stated.mass(), name);
                 assert!(
                     (carried.center_of_mass() - stated.center_of_mass()).norm() < 1e-12,
-                    "{} centre of mass",
-                    BODY_NAMES[index]
+                    "{name} centre of mass"
                 );
                 let difference = carried.rotational_inertia() - stated.rotational_inertia();
                 for row in 0..3 {
@@ -182,13 +182,13 @@ fn articulated_body_carries_every_body_inertia() {
                         assert_close(
                             difference[(row, column)],
                             0.0,
-                            &format!("{} rotational inertia ({row}, {column})", BODY_NAMES[index]),
+                            &format!("{name} rotational inertia ({row}, {column})"),
                         );
                     }
                 }
             }
             (None, None) => {}
-            _ => panic!("{} disagrees on whether it has mass", BODY_NAMES[index]),
+            _ => panic!("{name} disagrees on whether it has mass"),
         }
     }
 }
