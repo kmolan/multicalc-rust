@@ -571,8 +571,10 @@ impl FlightEstimator {
     /// match best cannot answer it on a smooth circle: the match climbs steadily across the whole
     /// sweep with no peak anywhere in it, so whichever lag comes out on top is picked by the jitter
     /// and not by the delay. The notches know what they charge; nothing has to be inferred.
-    #[must_use]
-    pub fn notch_delay_at(&self, frequency_hertz: f64) -> f64 {
+    ///
+    /// Returns [`SignalError::FrequencyOutOfRange`] if `frequency_hertz` reaches half the loop
+    /// rate, or [`SignalError::NonFinite`] if it is not finite.
+    pub fn notch_delay_at(&self, frequency_hertz: f64) -> Result<f64, SignalError> {
         self.sections
             .iter()
             .map(|section| section.delay_at(frequency_hertz))

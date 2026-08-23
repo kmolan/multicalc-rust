@@ -19,13 +19,16 @@ fn assert_two_sections_cut_deeper_than_one<T: Numeric>(tolerance: T) {
             .unwrap();
     let cascade = BiquadCascade::new([section; 2]);
 
-    assert!(cascade.magnitude_at(T::from_f64(200.0)) < section.magnitude_at(T::from_f64(200.0)));
+    assert!(
+        cascade.magnitude_at(T::from_f64(200.0)).unwrap()
+            < section.magnitude_at(T::from_f64(200.0)).unwrap()
+    );
 
     // Well below the cutoff both leave the signal alone. A fiftieth of the cutoff still costs
     // about 1e-7 of the amplitude for one section and twice that for two, so the check is against
     // that rather than against nothing at all.
-    assert!((section.magnitude_at(T::ONE) - T::ONE).abs() < tolerance);
-    assert!((cascade.magnitude_at(T::ONE) - T::ONE).abs() < tolerance);
+    assert!((section.magnitude_at(T::ONE).unwrap() - T::ONE).abs() < tolerance);
+    assert!((cascade.magnitude_at(T::ONE).unwrap() - T::ONE).abs() < tolerance);
 }
 
 #[test]
@@ -51,8 +54,8 @@ fn assert_cascade_magnitude_is_the_product<T: Numeric>(tolerance: T) {
     let cascade = BiquadCascade::new([first, second]);
 
     let probe = T::from_f64(80.0);
-    let separately = first.magnitude_at(probe) * second.magnitude_at(probe);
-    assert!((cascade.magnitude_at(probe) - separately).abs() < tolerance);
+    let separately = first.magnitude_at(probe).unwrap() * second.magnitude_at(probe).unwrap();
+    assert!((cascade.magnitude_at(probe).unwrap() - separately).abs() < tolerance);
 }
 
 #[test]
@@ -71,7 +74,7 @@ fn cascade_magnitude_is_the_product_f32() {
 fn cascade_phase_adds_up_past_half_a_turn() {
     let section = BiquadCoefficients::low_pass(40.0_f64, FLATTEST, 0.001).unwrap();
     let cascade = BiquadCascade::new([section; 3]);
-    assert!(cascade.phase_at(300.0) < -core::f64::consts::PI);
+    assert!(cascade.phase_at(300.0).unwrap() < -core::f64::consts::PI);
 }
 
 // ---- harmonic notches -------------------------------------------------------
@@ -82,13 +85,64 @@ fn harmonic_notch_hits_every_multiple() {
     let cascade = BiquadCascade::new(sections);
 
     for frequency_hz in [80.0, 160.0, 240.0] {
-        assert!(cascade.magnitude_at(frequency_hz) < 0.05);
+        assert!(cascade.magnitude_at(frequency_hz).unwrap() < 0.05);
     }
 
     // Below the first notch, between two of them, and above the last, the signal survives.
-    assert!(cascade.magnitude_at(20.0) > 0.9);
-    assert!(cascade.magnitude_at(120.0) > 0.7);
-    assert!(cascade.magnitude_at(300.0) > 0.7);
+    assert!(cascade.magnitude_at(20.0).unwrap() > 0.9);
+    assert!(cascade.magnitude_at(120.0).unwrap() > 0.7);
+    assert!(cascade.magnitude_at(300.0).unwrap() > 0.7);
+}
+
+// ---- the response queries ---------------------------------------------------
+
+#[test]
+fn cascade_response_queries_reject_a_frequency_at_or_above_nyquist() {
+    let section = BiquadCoefficients::low_pass(50.0_f64, FLATTEST, 0.001).unwrap();
+    let cascade = BiquadCascade::new([section; 2]);
+    for frequency_hz in [500.0_f64, 600.0] {
+        assert_eq!(
+            cascade.magnitude_at(frequency_hz),
+            Err(SignalError::FrequencyOutOfRange)
+        );
+        assert_eq!(
+            cascade.phase_at(frequency_hz),
+            Err(SignalError::FrequencyOutOfRange)
+        );
+        assert_eq!(
+            cascade.delay_at(frequency_hz),
+            Err(SignalError::FrequencyOutOfRange)
+        );
+    }
+}
+
+#[test]
+fn cascade_response_queries_reject_a_frequency_at_or_below_negative_nyquist() {
+    let section = BiquadCoefficients::low_pass(50.0_f64, FLATTEST, 0.001).unwrap();
+    let cascade = BiquadCascade::new([section; 2]);
+    for frequency_hz in [-500.0_f64, -600.0] {
+        assert_eq!(
+            cascade.magnitude_at(frequency_hz),
+            Err(SignalError::FrequencyOutOfRange)
+        );
+        assert_eq!(
+            cascade.phase_at(frequency_hz),
+            Err(SignalError::FrequencyOutOfRange)
+        );
+        assert_eq!(
+            cascade.delay_at(frequency_hz),
+            Err(SignalError::FrequencyOutOfRange)
+        );
+    }
+}
+
+#[test]
+fn cascade_response_queries_reject_a_non_finite_frequency() {
+    let section = BiquadCoefficients::low_pass(50.0_f64, FLATTEST, 0.001).unwrap();
+    let cascade = BiquadCascade::new([section; 2]);
+    assert_eq!(cascade.magnitude_at(f64::NAN), Err(SignalError::NonFinite));
+    assert_eq!(cascade.phase_at(f64::NAN), Err(SignalError::NonFinite));
+    assert_eq!(cascade.delay_at(f64::NAN), Err(SignalError::NonFinite));
 }
 
 #[test]
