@@ -243,6 +243,8 @@ const DOCS: &[Doc] = &[
             cases: &[
                 "free_body_spinning_no_torque",
                 "free_body_tilted_with_wrench",
+                "articulated_double_pendulum",
+                "articulated_franka_panda",
             ],
         }],
     },

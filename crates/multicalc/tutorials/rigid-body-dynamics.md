@@ -12,6 +12,13 @@ it in place, and how quickly its motion changes under the forces on it.
 - `RigidBody`: takes an inertia and gravity and answers the question an integrator keeps asking —
   given which way the body is facing, how fast it is turning, and what is pushing on it, how quickly
   is its motion changing?
+- `ArticulatedBody`: a jointed robot with mass — the kinematic tree, one spatial inertia per joint
+  slot, and gravity. `inverse_dynamics` gives the joint torque that produces a stated acceleration
+  by the recursive Newton-Euler algorithm, `forward_dynamics` the acceleration a stated torque
+  produces by the articulated-body algorithm, and `joint_space_inertia` the `H(q)` relating the two
+  by the composite-rigid-body algorithm. `kinetic_energy` and `potential_energy` complete the
+  passivity picture. Per-joint armature, viscous damping and Coulomb friction come from the model.
+  Fixed-base.
 
 Both `SpatialInertia` and `FreeJointState` hand their numbers back as plain arrays rather than
 wrapper types, so the conventions matter. The seven place numbers are position first, then
@@ -120,6 +127,184 @@ for _ in 0..1000 {
 let facing = state.pose().rotation().quaternion();
 assert!((facing.norm() - 1.0).abs() < 1e-13);
 # Ok::<(), multicalc::CalcError>(())
+```
+
+## A jointed robot
+
+`ArticulatedBody` pairs the `KinematicTree` forward kinematics already walks with one spatial
+inertia per joint slot and gravity. A slot's inertia is stated in the frame that slot's pose
+returns — the body frame after the joint has moved, which is the frame MJCF's `<inertial>` is
+relative to. A floating base is refused at construction.
+
+Torques carry armature, viscous damping and Coulomb friction as the model states them. The Coulomb
+term is `friction_loss · sign(q̇)`, zero at zero rate and not differentiable there, so under `Dual`
+it contributes nothing to `∂τ/∂q̇`.
+
+The torque `inverse_dynamics` adds when the acceleration changes is exactly `H(q)·q̈`, which is what
+`joint_space_inertia` returns — two readings of one model.
+
+```rust
+use multicalc::dynamics::ArticulatedBody;
+use multicalc::kinematics::{Joint, JointParent, KinematicTree};
+use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::spatial::{SE3, SO3, SpatialInertia};
+
+// Two hinges about y, a unit link between them, each link balancing half a metre out.
+let hinge_axis = Vector::new([0.0, 1.0, 0.0]);
+let link_length = 1.0;
+let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([link_length, 0.0, 0.0]));
+let tree = KinematicTree::<2, 2, f64>::try_from_joints(
+    &[
+        Joint::revolute(hinge_axis, SE3::identity()),
+        Joint::revolute(hinge_axis, link),
+    ],
+    &[JointParent::World, JointParent::Joint(0)],
+)?;
+
+let mass = 1.5;
+let balance_point = Vector::new([0.5, 0.0, 0.0]);
+let resistance_to_spinning = Matrix::from_diagonal([0.02, 0.02, 0.02]);
+let earth_gravity = Vector::new([0.0, 0.0, -9.81]);
+
+let arm = SpatialInertia::new(mass, balance_point, resistance_to_spinning)?;
+let body = ArticulatedBody::new(tree, &[Some(arm), Some(arm)], earth_gravity)?;
+
+let folded = Vector::new([0.3, -0.9]);
+let still = Vector::zeros();
+let speeding_up = Vector::new([1.0, 0.5]);
+
+// The gravity torque, and what the acceleration costs on top of it.
+let holding = body.gravity_torque_at(&folded)?;
+let driving = body.inverse_dynamics_at(&folded, &still, &speeding_up)?;
+let inertial = body.joint_space_inertia_at(&folded)? * speeding_up;
+for joint in 0..2 {
+    assert!((driving[joint] - holding[joint] - inertial[joint]).abs() < 1e-10);
+}
+# Ok::<(), multicalc::CalcError>(())
+```
+
+The two directions are inverses. `forward_dynamics` is `O(n)` in the joint count and never forms
+`H`. `forward_dynamics_with_workspace` takes a caller-owned `DynamicsWorkspace` instead, for a
+control loop that cannot afford a model-sized frame on the stack.
+
+```rust
+use multicalc::dynamics::ArticulatedBody;
+use multicalc::kinematics::{Joint, JointParent, KinematicTree};
+use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::spatial::{SE3, SO3, SpatialInertia};
+
+let hinge_axis = Vector::new([0.0, 1.0, 0.0]);
+let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([1.0, 0.0, 0.0]));
+
+// Reflected rotor inertia, viscous damping and a breakaway friction loss per joint.
+let armature = [0.05, 0.03];
+let damping = [0.7, 0.4];
+let friction_loss = [0.2, 0.1];
+let tree = KinematicTree::<2, 2, f64>::try_from_joints(
+    &[
+        Joint::revolute(hinge_axis, SE3::identity())
+            .with_armature(armature[0])
+            .with_damping(damping[0])
+            .with_friction_loss(friction_loss[0]),
+        Joint::revolute(hinge_axis, link)
+            .with_armature(armature[1])
+            .with_damping(damping[1])
+            .with_friction_loss(friction_loss[1]),
+    ],
+    &[JointParent::World, JointParent::Joint(0)],
+)?;
+
+let mass = 1.5;
+let balance_point = Vector::new([0.5, 0.0, 0.0]);
+let resistance_to_spinning = Matrix::from_diagonal([0.02, 0.02, 0.02]);
+let earth_gravity = Vector::new([0.0, 0.0, -9.81]);
+
+let arm = SpatialInertia::new(mass, balance_point, resistance_to_spinning)?;
+let body = ArticulatedBody::new(tree, &[Some(arm), Some(arm)], earth_gravity)?;
+
+let folded = Vector::new([0.3, -0.9]);
+let moving = Vector::new([1.1, -0.7]);
+let wanted = Vector::new([0.8, 1.4]);
+
+// The torque that produces this acceleration, put back through the other direction.
+let torque = body.inverse_dynamics_at(&folded, &moving, &wanted)?;
+let produced = body.forward_dynamics_at(&folded, &moving, &torque)?;
+for joint in 0..2 {
+    assert!((produced[joint] - wanted[joint]).abs() < 1e-10);
+}
+# Ok::<(), multicalc::CalcError>(())
+```
+
+With no dissipation, a swing released from rest holds `kinetic_energy + potential_energy` along its
+whole trajectory.
+
+```rust
+use multicalc::dynamics::ArticulatedBody;
+use multicalc::kinematics::{Joint, JointParent, KinematicTree};
+use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::ode::Rk4;
+use multicalc::spatial::{SE3, SO3, SpatialInertia};
+
+let hinge_axis = Vector::new([0.0, 1.0, 0.0]);
+let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([1.0, 0.0, 0.0]));
+let tree = KinematicTree::<2, 2, f64>::try_from_joints(
+    &[
+        Joint::revolute(hinge_axis, SE3::identity()),
+        Joint::revolute(hinge_axis, link),
+    ],
+    &[JointParent::World, JointParent::Joint(0)],
+)?;
+
+let mass = 1.5;
+let balance_point = Vector::new([0.5, 0.0, 0.0]);
+let resistance_to_spinning = Matrix::from_diagonal([0.02, 0.02, 0.02]);
+let earth_gravity = Vector::new([0.0, 0.0, -9.81]);
+
+let arm = SpatialInertia::new(mass, balance_point, resistance_to_spinning)?;
+let body = ArticulatedBody::new(tree, &[Some(arm), Some(arm)], earth_gravity)?;
+
+// The four numbers an integrator carries: [q; q̇].
+let total_energy = |state: &Vector<4, f64>| -> Result<f64, multicalc::CalcError> {
+    let solved = body.tree().forward_kinematics(&Vector::new([state[0], state[1]]))?;
+    let rates = Vector::new([state[2], state[3]]);
+    Ok(body.kinetic_energy(&solved, &rates)? + body.potential_energy(&solved)?)
+};
+
+let start = Vector::new([1.2, -0.5, 0.0, 0.0]);
+let rate = |_time: f64, state: &Vector<4, f64>| {
+    let position = Vector::new([state[0], state[1]]);
+    let velocity = Vector::new([state[2], state[3]]);
+    let acceleration = body
+        .forward_dynamics_at(&position, &velocity, &Vector::zeros())
+        .unwrap_or_else(|_| Vector::zeros());
+    Vector::new([velocity[0], velocity[1], acceleration[0], acceleration[1]])
+};
+
+let start_time = 0.0;
+let step = 1e-4;
+let step_count = 1000;
+let after = Rk4::integrate(&rate, start_time, &start, step, step_count, |_time, _state| {});
+let held = (total_energy(&after)? - total_energy(&start)?).abs() / total_energy(&start)?.abs();
+assert!(held < 1e-8);
+# Ok::<(), multicalc::CalcError>(())
+```
+
+A model file loads straight into one. `multicalc-robot-model` is not a dependency of this crate, so
+this block is shown rather than compiled; the `articulated_dynamics` demo runs it.
+
+```rust,ignore
+use multicalc::linear_algebra::Vector;
+
+let earth_gravity = Vector::new([0.0, 0.0, -9.81]);
+let model = multicalc_robot_model::mjcf::load_path(
+    "third_party/menagerie/franka_emika_panda/panda.xml",
+)?;
+let panda = model.articulated_body::<16, 16>(earth_gravity)?;
+
+// What each joint holds against gravity at the zero configuration. Slot 0 is the welded base,
+// and the odd arm joints turn about an axis lined up with gravity, so they hold nothing.
+let holding = panda.gravity_torque_at(&Vector::zeros())?;
+// holding[2] = -4.0399 N·m, holding[4] = -3.2669 N·m, holding[6] = 2.2997 N·m
 ```
 
 Errors: `SpatialInertia::new` returns [`SpatialError`](error-handling.md): `NonPositiveMass`,

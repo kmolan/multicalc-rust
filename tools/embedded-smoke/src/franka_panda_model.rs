@@ -4,9 +4,10 @@
 #![allow(clippy::unreadable_literal)]
 #![allow(dead_code)]
 
+use multicalc::dynamics::ArticulatedBody;
 use multicalc::kinematics::{Joint, JointParent, KinematicTree};
-use multicalc::linear_algebra::Vector;
-use multicalc::spatial::{Quaternion, SE3, SO3};
+use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::spatial::{Quaternion, SE3, SO3, SpatialInertia};
 
 /// The Franka Panda arm: the seven turning joints from the base up to the hand, with the base and the hand as welds.
 pub fn franka_panda_arm() -> KinematicTree<9, 9, f32> {
@@ -108,6 +109,39 @@ pub fn franka_panda_arm() -> KinematicTree<9, 9, f32> {
     )
     .unwrap_or_else(|_| unreachable!("the model this was written from was checked"));
     tree
+}
+
+/// The same model with its stated mass properties and Earth gravity in world axes.
+pub fn franka_panda_arm_body() -> ArticulatedBody<9, 9, f32> {
+    let tree = franka_panda_arm();
+    let inertias = [
+        // link0
+        Some(inertia(0.629769, [-0.041018, -0.00014, 0.049974], [[0.00315, 8.2904e-7, 0.00015], [8.2904e-7, 0.00388, 8.2299e-6], [0.00015, 8.2299e-6, 0.004285]])),
+        // link1
+        Some(inertia(4.970684, [0.003875, 0.002081, -0.04762], [[0.70337, -0.000139, 0.006772], [-0.000139, 0.70661, 0.019169], [0.006772, 0.019169, 0.009117]])),
+        // link2
+        Some(inertia(0.646926, [-0.003141, -0.02872, 0.003495], [[0.007962, -0.003925, 0.010254], [-0.003925, 0.02811, 0.000704], [0.010254, 0.000704, 0.025995]])),
+        // link3
+        Some(inertia(3.228604, [0.027518, 0.039252, -0.066502], [[0.037242, -0.004761, -0.011396], [-0.004761, 0.036155, -0.012805], [-0.011396, -0.012805, 0.01083]])),
+        // link4
+        Some(inertia(3.587895, [-0.05317, 0.104419, 0.027454], [[0.025853, 0.007796, -0.001332], [0.007796, 0.019552, 0.008641], [-0.001332, 0.008641, 0.028323]])),
+        // link5
+        Some(inertia(1.225946, [-0.011953, 0.041065, -0.038437], [[0.035549, -0.002117, -0.004037], [-0.002117, 0.029474, 0.000229], [-0.004037, 0.000229, 0.008627]])),
+        // link6
+        Some(inertia(1.666555, [0.060149, -0.014117, -0.010517], [[0.001964, 0.000109, -0.001158], [0.000109, 0.004354, 0.000341], [-0.001158, 0.000341, 0.005433]])),
+        // link7
+        Some(inertia(0.735522, [0.010517, -0.004252, 0.061597], [[0.012516, -0.000428, -0.001196], [-0.000428, 0.010027, -0.000741], [-0.001196, -0.000741, 0.004815]])),
+        // hand
+        Some(inertia(0.73, [-0.01, 0.0, 0.03], [[0.001, 0.0, 0.0], [0.0, 0.0025, 0.0], [0.0, 0.0, 0.0017]])),
+    ];
+    ArticulatedBody::new(tree, &inertias, Vector::new([0.0, 0.0, -9.81]))
+        .unwrap_or_else(|_| unreachable!("the model this was written from was checked"))
+}
+
+/// A body's mass properties, from the numbers the model file gave.
+fn inertia(mass: f32, center: [f32; 3], rotational: [[f32; 3]; 3]) -> SpatialInertia<f32> {
+    SpatialInertia::new(mass, Vector::new(center), Matrix::new(rotational))
+        .unwrap_or_else(|_| unreachable!("the model this was written from was checked"))
 }
 
 /// Where a joint sits and how it is turned, from the numbers the model file gave.

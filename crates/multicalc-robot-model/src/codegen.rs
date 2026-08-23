@@ -4,6 +4,7 @@
 use std::fmt::Write as _;
 
 use multicalc::kinematics::{Joint, JointKind, JointParent, KinematicTree};
+use multicalc::spatial::SpatialInertia;
 
 use crate::{ModelError, RobotModel};
 
@@ -161,10 +162,19 @@ impl RobotModel {
                     .name()
             })
             .collect();
+        let inertias: Vec<Option<SpatialInertia<f64>>> = slots
+            .iter()
+            .map(|&index| {
+                self.body(index)
+                    .unwrap_or_else(|| unreachable!("slots only ever name real bodies"))
+                    .inertia()
+            })
+            .collect();
         Ok(render(
             &joints,
             &parents,
             &names,
+            &inertias,
             capacity,
             configuration_capacity,
             options,
@@ -176,6 +186,7 @@ fn render(
     joints: &[Joint<f64>],
     parents: &[JointParent],
     names: &[&str],
+    inertias: &[Option<SpatialInertia<f64>>],
     capacity: usize,
     configuration_capacity: usize,
     options: &RustSourceOptions,
@@ -191,12 +202,16 @@ fn render(
     let _ = writeln!(out, "#![allow(clippy::unreadable_literal)]");
     let _ = writeln!(out, "#![allow(dead_code)]");
     let _ = writeln!(out);
+    let _ = writeln!(out, "use multicalc::dynamics::ArticulatedBody;");
     let _ = writeln!(
         out,
         "use multicalc::kinematics::{{Joint, JointParent, KinematicTree}};"
     );
-    let _ = writeln!(out, "use multicalc::linear_algebra::Vector;");
-    let _ = writeln!(out, "use multicalc::spatial::{{Quaternion, SE3, SO3}};");
+    let _ = writeln!(out, "use multicalc::linear_algebra::{{Matrix, Vector}};");
+    let _ = writeln!(
+        out,
+        "use multicalc::spatial::{{Quaternion, SE3, SO3, SpatialInertia}};"
+    );
     let _ = writeln!(out);
     if !options.documentation.is_empty() {
         let _ = writeln!(out, "/// {}", options.documentation);
@@ -218,6 +233,16 @@ fn render(
     let _ = writeln!(out, "    tree");
     let _ = writeln!(out, "}}");
     let _ = writeln!(out);
+
+    render_body(
+        &mut out,
+        names,
+        inertias,
+        capacity,
+        configuration_capacity,
+        options,
+    );
+
     let _ = writeln!(
         out,
         "/// Where a joint sits and how it is turned, from the numbers the model file gave."
@@ -242,6 +267,98 @@ fn render(
     let _ = writeln!(out, "}}");
 
     out
+}
+
+/// The model paired with its stated mass properties and Earth gravity, plus the `inertia` helper
+/// the list is written through.
+fn render_body(
+    out: &mut String,
+    names: &[&str],
+    inertias: &[Option<SpatialInertia<f64>>],
+    capacity: usize,
+    configuration_capacity: usize,
+    options: &RustSourceOptions,
+) {
+    let scalar = options.scalar;
+    let token = scalar.token();
+    let n = |value: f64| scalar.format(value);
+    let name = &options.function_name;
+
+    let _ = writeln!(
+        out,
+        "/// The same model with its stated mass properties and Earth gravity in world axes."
+    );
+    let _ = writeln!(
+        out,
+        "pub fn {name}_body() -> ArticulatedBody<{capacity}, {configuration_capacity}, {token}> {{"
+    );
+    let _ = writeln!(out, "    let tree = {name}();");
+    let _ = writeln!(out, "    let inertias = [");
+
+    for (slot, stated) in inertias.iter().enumerate() {
+        let label = names.get(slot).copied().unwrap_or("");
+        match stated {
+            None => {
+                let _ = writeln!(out, "        // {label}");
+                let _ = writeln!(out, "        None,");
+            }
+            Some(inertia) => {
+                let center = inertia.center_of_mass();
+                let rotational = inertia.rotational_inertia();
+                let row = |index: usize| {
+                    format!(
+                        "[{}, {}, {}]",
+                        n(rotational[(index, 0)]),
+                        n(rotational[(index, 1)]),
+                        n(rotational[(index, 2)]),
+                    )
+                };
+                let _ = writeln!(out, "        // {label}");
+                let _ = writeln!(
+                    out,
+                    "        Some(inertia({}, [{}, {}, {}], [{}, {}, {}])),",
+                    n(inertia.mass()),
+                    n(center[0]),
+                    n(center[1]),
+                    n(center[2]),
+                    row(0),
+                    row(1),
+                    row(2),
+                );
+            }
+        }
+    }
+
+    let _ = writeln!(out, "    ];");
+    let _ = writeln!(
+        out,
+        "    ArticulatedBody::new(tree, &inertias, Vector::new([0.0, 0.0, -9.81]))"
+    );
+    let _ = writeln!(
+        out,
+        "        .unwrap_or_else(|_| unreachable!(\"the model this was written from was checked\"))"
+    );
+    let _ = writeln!(out, "}}");
+    let _ = writeln!(out);
+    let _ = writeln!(
+        out,
+        "/// A body's mass properties, from the numbers the model file gave."
+    );
+    let _ = writeln!(
+        out,
+        "fn inertia(mass: {token}, center: [{token}; 3], rotational: [[{token}; 3]; 3]) \
+         -> SpatialInertia<{token}> {{"
+    );
+    let _ = writeln!(
+        out,
+        "    SpatialInertia::new(mass, Vector::new(center), Matrix::new(rotational))"
+    );
+    let _ = writeln!(
+        out,
+        "        .unwrap_or_else(|_| unreachable!(\"the model this was written from was checked\"))"
+    );
+    let _ = writeln!(out, "}}");
+    let _ = writeln!(out);
 }
 
 fn render_push(
