@@ -24,8 +24,8 @@ use crate::linear_algebra::Matrix;
 #[cold]
 #[track_caller]
 #[allow(clippy::panic)]
-fn matrix_out_of_bounds(row: usize, col: usize, rows: usize, cols: usize) -> ! {
-    panic!("matrix view index ({row}, {col}) out of range for a {rows}x{cols} view")
+fn matrix_out_of_bounds(row: usize, column: usize, rows: usize, cols: usize) -> ! {
+    panic!("matrix view index ({row}, {column}) out of range for a {rows}x{cols} view")
 }
 
 /// A borrowed, strided, read-only `ROWS`×`COLS` window onto someone else's storage.
@@ -43,8 +43,8 @@ fn matrix_out_of_bounds(row: usize, col: usize, rows: usize, cols: usize) -> ! {
 /// ```
 #[derive(Debug)]
 #[must_use]
-pub struct MatrixView<'a, const ROWS: usize, const COLS: usize, T = f64> {
-    data: &'a [T],
+pub struct MatrixView<'data, const ROWS: usize, const COLS: usize, T = f64> {
+    data: &'data [T],
     offset: usize,
     row_stride: usize,
     col_stride: usize,
@@ -67,8 +67,8 @@ pub struct MatrixView<'a, const ROWS: usize, const COLS: usize, T = f64> {
 /// ```
 #[derive(Debug)]
 #[must_use]
-pub struct MatrixViewMut<'a, const ROWS: usize, const COLS: usize, T = f64> {
-    data: &'a mut [T],
+pub struct MatrixViewMut<'data, const ROWS: usize, const COLS: usize, T = f64> {
+    data: &'data mut [T],
     offset: usize,
     row_stride: usize,
     col_stride: usize,
@@ -78,21 +78,21 @@ pub struct MatrixViewMut<'a, const ROWS: usize, const COLS: usize, T = f64> {
 // `T: Copy`. What is copied is the handle -- the slice reference, offset, and two strides -- so
 // it is `Copy` for the same reason `&[T]` is, whatever `T` turns out to be. The elements are
 // never touched; `to_matrix` is the only thing that copies those.
-impl<const ROWS: usize, const COLS: usize, T> Clone for MatrixView<'_, ROWS, COLS, T> {
+impl<'data, const ROWS: usize, const COLS: usize, T> Clone for MatrixView<'data, ROWS, COLS, T> {
     #[inline]
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<const ROWS: usize, const COLS: usize, T> Copy for MatrixView<'_, ROWS, COLS, T> {}
+impl<'data, const ROWS: usize, const COLS: usize, T> Copy for MatrixView<'data, ROWS, COLS, T> {}
 
-impl<'a, const ROWS: usize, const COLS: usize, T> MatrixView<'a, ROWS, COLS, T> {
+impl<'data, const ROWS: usize, const COLS: usize, T> MatrixView<'data, ROWS, COLS, T> {
     /// Builds a view over `data`, or `None` if the shape would reach past the end of the slice.
     /// Every constructor funnels through here, so an existing view is always in range and `get`
     /// can never be defeated by a bad stride.
     #[inline]
     fn from_parts(
-        data: &'a [T],
+        data: &'data [T],
         offset: usize,
         row_stride: usize,
         col_stride: usize,
@@ -117,7 +117,7 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixView<'a, ROWS, COLS, T> 
     /// assert!(MatrixView::<3, 2>::from_row_major_slice(&buffer).is_none());
     /// ```
     #[inline]
-    pub fn from_row_major_slice(slice: &'a [T]) -> Option<Self> {
+    pub fn from_row_major_slice(slice: &'data [T]) -> Option<Self> {
         Self::from_parts(slice, 0, COLS, 1)
     }
 
@@ -162,11 +162,11 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixView<'a, ROWS, COLS, T> 
     }
 
     #[inline]
-    fn index_of(&self, row: usize, col: usize) -> Option<usize> {
-        (row < ROWS && col < COLS).then_some(())?;
+    fn index_of(&self, row: usize, column: usize) -> Option<usize> {
+        (row < ROWS && column < COLS).then_some(())?;
         self.offset
             .checked_add(row.checked_mul(self.row_stride)?)?
-            .checked_add(col.checked_mul(self.col_stride)?)
+            .checked_add(column.checked_mul(self.col_stride)?)
     }
 
     /// Returns a reference to entry `(row, col)`, or `None` if out of range.
@@ -179,8 +179,8 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixView<'a, ROWS, COLS, T> 
     /// ```
     #[inline]
     #[must_use]
-    pub fn get(&self, row: usize, col: usize) -> Option<&T> {
-        self.data.get(self.index_of(row, col)?)
+    pub fn get(&self, row: usize, column: usize) -> Option<&T> {
+        self.data.get(self.index_of(row, column)?)
     }
 
     /// The transpose, in constant time: the two strides trade places and nothing is copied.
@@ -193,7 +193,7 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixView<'a, ROWS, COLS, T> 
     /// assert_eq!(t.to_matrix().into_array(), [[1.0], [2.0], [3.0]]);
     /// ```
     #[inline]
-    pub fn transposed(self) -> MatrixView<'a, COLS, ROWS, T> {
+    pub fn transposed(self) -> MatrixView<'data, COLS, ROWS, T> {
         MatrixView {
             data: self.data,
             offset: self.offset,
@@ -232,7 +232,7 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixView<'a, ROWS, COLS, T> 
         self,
         top: usize,
         left: usize,
-    ) -> Option<MatrixView<'a, R, C, T>> {
+    ) -> Option<MatrixView<'data, R, C, T>> {
         (top.checked_add(R)? <= ROWS && left.checked_add(C)? <= COLS).then_some(())?;
         let offset = self
             .offset
@@ -253,7 +253,7 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixView<'a, ROWS, COLS, T> 
     /// assert_eq!(m.view().row(1).unwrap().to_vector().into_array(), [3.0, 4.0]);
     /// ```
     #[inline]
-    pub fn row(self, row: usize) -> Option<VectorView<'a, COLS, T>> {
+    pub fn row(self, row: usize) -> Option<VectorView<'data, COLS, T>> {
         (row < ROWS).then_some(())?;
         let offset = self.offset.checked_add(row.checked_mul(self.row_stride)?)?;
         VectorView::from_parts(self.data, offset, self.col_stride)
@@ -273,7 +273,7 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixView<'a, ROWS, COLS, T> 
     /// assert_eq!(m.view().column(1).unwrap().to_vector().into_array(), [2.0, 4.0]);
     /// ```
     #[inline]
-    pub fn column(self, column: usize) -> Option<VectorView<'a, ROWS, T>> {
+    pub fn column(self, column: usize) -> Option<VectorView<'data, ROWS, T>> {
         (column < COLS).then_some(())?;
         let offset = self
             .offset
@@ -298,7 +298,7 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixView<'a, ROWS, COLS, T> 
     /// assert_eq!(m.view().diagonal::<2>().unwrap().to_vector().into_array(), [1.0, 5.0]);
     /// ```
     #[inline]
-    pub fn diagonal<const N: usize>(self) -> Option<VectorView<'a, N, T>> {
+    pub fn diagonal<const N: usize>(self) -> Option<VectorView<'data, N, T>> {
         let shorter_side = if ROWS < COLS { ROWS } else { COLS };
         (N == shorter_side).then_some(())?;
         VectorView::from_parts(
@@ -309,7 +309,7 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixView<'a, ROWS, COLS, T> 
     }
 }
 
-impl<const ROWS: usize, const COLS: usize, T: Copy> MatrixView<'_, ROWS, COLS, T> {
+impl<'data, const ROWS: usize, const COLS: usize, T: Copy> MatrixView<'data, ROWS, COLS, T> {
     /// Copies the window into an owned matrix. This is the one operation here that moves elements.
     ///
     /// ```
@@ -326,8 +326,8 @@ impl<const ROWS: usize, const COLS: usize, T: Copy> MatrixView<'_, ROWS, COLS, T
     }
 }
 
-impl<const ROWS: usize, const COLS: usize, T> Index<(usize, usize)>
-    for MatrixView<'_, ROWS, COLS, T>
+impl<'data, const ROWS: usize, const COLS: usize, T> Index<(usize, usize)>
+    for MatrixView<'data, ROWS, COLS, T>
 {
     type Output = T;
 
@@ -342,22 +342,22 @@ impl<const ROWS: usize, const COLS: usize, T> Index<(usize, usize)>
     }
 }
 
-impl<const ROWS: usize, const COLS: usize, T: PartialEq> PartialEq
-    for MatrixView<'_, ROWS, COLS, T>
+impl<'data, const ROWS: usize, const COLS: usize, T: PartialEq> PartialEq
+    for MatrixView<'data, ROWS, COLS, T>
 {
     /// Compares element by element, so two views of different layouts over different buffers are
     /// equal when they present the same entries.
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        (0..ROWS).all(|r| (0..COLS).all(|c| self.get(r, c) == other.get(r, c)))
+        (0..ROWS).all(|row| (0..COLS).all(|column| self.get(row, column) == other.get(row, column)))
     }
 }
 
-impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, T> {
+impl<'data, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'data, ROWS, COLS, T> {
     /// Builds a view over `data`, or `None` if the shape would reach past the end of the slice.
     #[inline]
     pub(super) fn from_parts(
-        data: &'a mut [T],
+        data: &'data mut [T],
         offset: usize,
         row_stride: usize,
         col_stride: usize,
@@ -382,7 +382,7 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, 
     /// assert_eq!(buffer, [0.0, 0.0, 0.0, 0.0, 0.0, 7.0]);
     /// ```
     #[inline]
-    pub fn from_row_major_slice(slice: &'a mut [T]) -> Option<Self> {
+    pub fn from_row_major_slice(slice: &'data mut [T]) -> Option<Self> {
         Self::from_parts(slice, 0, COLS, 1)
     }
 
@@ -418,11 +418,11 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, 
     }
 
     #[inline]
-    fn index_of(&self, row: usize, col: usize) -> Option<usize> {
-        (row < ROWS && col < COLS).then_some(())?;
+    fn index_of(&self, row: usize, column: usize) -> Option<usize> {
+        (row < ROWS && column < COLS).then_some(())?;
         self.offset
             .checked_add(row.checked_mul(self.row_stride)?)?
-            .checked_add(col.checked_mul(self.col_stride)?)
+            .checked_add(column.checked_mul(self.col_stride)?)
     }
 
     /// Returns a reference to entry `(row, col)`, or `None` if out of range.
@@ -438,8 +438,8 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, 
     /// ```
     #[inline]
     #[must_use]
-    pub fn get(&self, row: usize, col: usize) -> Option<&T> {
-        self.data.get(self.index_of(row, col)?)
+    pub fn get(&self, row: usize, column: usize) -> Option<&T> {
+        self.data.get(self.index_of(row, column)?)
     }
 
     /// Returns a mutable reference to entry `(row, col)`, or `None` if out of range.
@@ -454,8 +454,8 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, 
     /// assert_eq!(m.into_array(), [[1.0, 9.0], [3.0, 4.0]]);
     /// ```
     #[inline]
-    pub fn get_mut(&mut self, row: usize, col: usize) -> Option<&mut T> {
-        let index = self.index_of(row, col)?;
+    pub fn get_mut(&mut self, row: usize, column: usize) -> Option<&mut T> {
+        let index = self.index_of(row, column)?;
         self.data.get_mut(index)
     }
 
@@ -514,7 +514,7 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, 
     /// assert_eq!(m[(1, 2)], 9.0);
     /// ```
     #[inline]
-    pub fn transposed(self) -> MatrixViewMut<'a, COLS, ROWS, T> {
+    pub fn transposed(self) -> MatrixViewMut<'data, COLS, ROWS, T> {
         MatrixViewMut {
             data: self.data,
             offset: self.offset,
@@ -541,7 +541,7 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, 
         self,
         top: usize,
         left: usize,
-    ) -> Option<MatrixViewMut<'a, R, C, T>> {
+    ) -> Option<MatrixViewMut<'data, R, C, T>> {
         (top.checked_add(R)? <= ROWS && left.checked_add(C)? <= COLS).then_some(())?;
         let offset = self
             .offset
@@ -562,7 +562,7 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, 
     /// assert_eq!(m.into_array(), [[1.0, 2.0, 3.0], [0.0, 0.0, 0.0]]);
     /// ```
     #[inline]
-    pub fn row(self, row: usize) -> Option<VectorViewMut<'a, COLS, T>> {
+    pub fn row(self, row: usize) -> Option<VectorViewMut<'data, COLS, T>> {
         (row < ROWS).then_some(())?;
         let offset = self.offset.checked_add(row.checked_mul(self.row_stride)?)?;
         VectorViewMut::from_parts(self.data, offset, self.col_stride)
@@ -580,7 +580,7 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, 
     /// assert_eq!(m.into_array(), [[1.0, 2.0, 0.0], [4.0, 5.0, 0.0]]);
     /// ```
     #[inline]
-    pub fn column(self, column: usize) -> Option<VectorViewMut<'a, ROWS, T>> {
+    pub fn column(self, column: usize) -> Option<VectorViewMut<'data, ROWS, T>> {
         (column < COLS).then_some(())?;
         let offset = self
             .offset
@@ -607,8 +607,8 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, 
     pub fn split_rows_at<const TOP: usize, const BOTTOM: usize>(
         self,
     ) -> Option<(
-        MatrixViewMut<'a, TOP, COLS, T>,
-        MatrixViewMut<'a, BOTTOM, COLS, T>,
+        MatrixViewMut<'data, TOP, COLS, T>,
+        MatrixViewMut<'data, BOTTOM, COLS, T>,
     )> {
         (TOP.checked_add(BOTTOM)? == ROWS && self.is_row_major()).then_some(())?;
         let split = self.offset.checked_add(TOP.checked_mul(self.row_stride)?)?;
@@ -621,7 +621,7 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, 
     }
 }
 
-impl<const ROWS: usize, const COLS: usize, T: Copy> MatrixViewMut<'_, ROWS, COLS, T> {
+impl<'data, const ROWS: usize, const COLS: usize, T: Copy> MatrixViewMut<'data, ROWS, COLS, T> {
     /// Copies the window into an owned matrix.
     ///
     /// ```
@@ -649,9 +649,9 @@ impl<const ROWS: usize, const COLS: usize, T: Copy> MatrixViewMut<'_, ROWS, COLS
     /// ```
     #[inline]
     pub fn fill(&mut self, value: T) {
-        for r in 0..ROWS {
-            for c in 0..COLS {
-                if let Some(slot) = self.get_mut(r, c) {
+        for row in 0..ROWS {
+            for column in 0..COLS {
+                if let Some(slot) = self.get_mut(row, column) {
                     *slot = value;
                 }
             }
@@ -672,9 +672,11 @@ impl<const ROWS: usize, const COLS: usize, T: Copy> MatrixViewMut<'_, ROWS, COLS
     /// ```
     #[inline]
     pub fn copy_from(&mut self, src: MatrixView<'_, ROWS, COLS, T>) {
-        for r in 0..ROWS {
-            for c in 0..COLS {
-                if let (Some(value), Some(slot)) = (src.get(r, c).copied(), self.get_mut(r, c)) {
+        for row in 0..ROWS {
+            for column in 0..COLS {
+                if let (Some(value), Some(slot)) =
+                    (src.get(row, column).copied(), self.get_mut(row, column))
+                {
                     *slot = value;
                 }
             }
@@ -682,24 +684,24 @@ impl<const ROWS: usize, const COLS: usize, T: Copy> MatrixViewMut<'_, ROWS, COLS
     }
 }
 
-impl<const ROWS: usize, const COLS: usize, T> Index<(usize, usize)>
-    for MatrixViewMut<'_, ROWS, COLS, T>
+impl<'data, const ROWS: usize, const COLS: usize, T> Index<(usize, usize)>
+    for MatrixViewMut<'data, ROWS, COLS, T>
 {
     type Output = T;
 
     /// Panics if the subscript is out of range. Use [`Self::get`] when it may be.
     #[inline]
     #[track_caller]
-    fn index(&self, (row, col): (usize, usize)) -> &T {
-        match self.get(row, col) {
+    fn index(&self, (row, column): (usize, usize)) -> &T {
+        match self.get(row, column) {
             Some(value) => value,
-            None => matrix_out_of_bounds(row, col, ROWS, COLS),
+            None => matrix_out_of_bounds(row, column, ROWS, COLS),
         }
     }
 }
 
-impl<const ROWS: usize, const COLS: usize, T> IndexMut<(usize, usize)>
-    for MatrixViewMut<'_, ROWS, COLS, T>
+impl<'data, const ROWS: usize, const COLS: usize, T> IndexMut<(usize, usize)>
+    for MatrixViewMut<'data, ROWS, COLS, T>
 {
     /// Panics if the subscript is out of range. Use [`Self::get_mut`] when it may be.
     #[inline]

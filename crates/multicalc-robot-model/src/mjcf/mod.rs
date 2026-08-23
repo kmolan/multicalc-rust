@@ -6,6 +6,7 @@ mod defaults;
 mod document;
 mod geometry;
 mod joint;
+mod orientation;
 
 use std::path::Path;
 
@@ -22,7 +23,8 @@ pub fn load_path(path: &Path) -> Result<RobotModel, ModelError> {
 /// An `<include>` has no base directory to resolve against here and is rejected; use
 /// [`load_path`].
 pub fn load_str(xml: &str) -> Result<RobotModel, ModelError> {
-    let document = roxmltree::Document::parse(xml).map_err(|e| ModelError::Xml(e.to_string()))?;
+    let document =
+        roxmltree::Document::parse(xml).map_err(|err| ModelError::Xml(err.to_string()))?;
     if document
         .descendants()
         .any(|node| node.is_element() && node.tag_name().name() == "include")

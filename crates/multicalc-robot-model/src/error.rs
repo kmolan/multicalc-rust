@@ -9,7 +9,7 @@ pub enum ModelError {
     /// Malformed XML.
     Xml(String),
     /// File could not be read.
-    Io(String),
+    FileRead(String),
     /// No `<worldbody>`.
     MissingWorldbody,
     /// No bodies.
@@ -33,12 +33,17 @@ pub enum ModelError {
         /// The joint type as written in the file.
         joint_type: String,
     },
-    /// Orientation stated other than by `quat`.
-    UnsupportedOrientation {
-        /// The element carrying the attribute.
+    /// An element stated which way it faces more than once. `quat`, `euler`, `axisangle`,
+    /// `xyaxes` and `zaxis` are five ways of writing one turn, and only one may be given.
+    MultipleOrientations {
+        /// The element carrying them.
         element: String,
-        /// The attribute name.
-        attribute: String,
+    },
+    /// An `<inertial>` stated a full tensor and a turn together. A full tensor already stands in
+    /// the body's own axes, so the turn has no frame left to name.
+    FullInertiaWithOrientation {
+        /// The body's name.
+        body: String,
     },
     /// A joint is limited, explicitly or by default, but states no `range`.
     LimitsNeedRange {
@@ -162,14 +167,14 @@ pub enum ModelError {
 }
 
 impl From<SpatialError> for ModelError {
-    fn from(e: SpatialError) -> Self {
-        ModelError::Inertia(e)
+    fn from(err: SpatialError) -> Self {
+        ModelError::Inertia(err)
     }
 }
 
 impl From<KinematicsError> for ModelError {
-    fn from(e: KinematicsError) -> Self {
-        ModelError::Kinematics(e)
+    fn from(err: KinematicsError) -> Self {
+        ModelError::Kinematics(err)
     }
 }
 
@@ -177,7 +182,7 @@ impl core::fmt::Display for ModelError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             ModelError::Xml(detail) => write!(f, "file is not well-formed XML: {detail}"),
-            ModelError::Io(detail) => write!(f, "file could not be read: {detail}"),
+            ModelError::FileRead(detail) => write!(f, "file could not be read: {detail}"),
             ModelError::MissingWorldbody => f.write_str("model has no worldbody"),
             ModelError::NoBodies => f.write_str("model has no bodies"),
             ModelError::MultipleJoints { body, count } => {
@@ -191,9 +196,13 @@ impl core::fmt::Display for ModelError {
                 f,
                 "body {body} has a {joint_type} joint, and only hinge or slide joints are handled"
             ),
-            ModelError::UnsupportedOrientation { element, attribute } => write!(
+            ModelError::MultipleOrientations { element } => write!(
                 f,
-                "the {attribute} attribute on {element} states a turn in a form this loader does not read; write it as a quaternion"
+                "{element} states which way it faces more than once, and one way is the limit"
+            ),
+            ModelError::FullInertiaWithOrientation { body } => write!(
+                f,
+                "the inertial on body {body} states a full tensor and a turn together, and a full tensor already stands in the body's own axes"
             ),
             ModelError::LimitsNeedRange { body } => write!(
                 f,
@@ -279,8 +288,8 @@ impl core::fmt::Display for ModelError {
                 f,
                 "the file is {format} and this build was compiled without that reader"
             ),
-            ModelError::Inertia(e) => write!(f, "{e}"),
-            ModelError::Kinematics(e) => write!(f, "{e}"),
+            ModelError::Inertia(err) => write!(f, "{err}"),
+            ModelError::Kinematics(err) => write!(f, "{err}"),
         }
     }
 }
@@ -288,8 +297,8 @@ impl core::fmt::Display for ModelError {
 impl std::error::Error for ModelError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            ModelError::Inertia(e) => Some(e),
-            ModelError::Kinematics(e) => Some(e),
+            ModelError::Inertia(err) => Some(err),
+            ModelError::Kinematics(err) => Some(err),
             _ => None,
         }
     }

@@ -68,11 +68,17 @@ fn dense_output_endpoints_exact() {
     let step = first.unwrap();
 
     // The endpoints are reproduced exactly.
-    assert_eq!(step.interpolate(step.t0).as_array(), step.y0.as_array());
-    assert_eq!(step.interpolate(step.t1).as_array(), step.y1.as_array());
+    assert_eq!(
+        step.interpolate(step.time_start).as_array(),
+        step.state_start.as_array()
+    );
+    assert_eq!(
+        step.interpolate(step.time_end).as_array(),
+        step.state_end.as_array()
+    );
 
     // An interior sample matches a separate solve to that time.
-    let midpoint_time = 0.5 * (step.t0 + step.t1);
+    let midpoint_time = 0.5 * (step.time_start + step.time_end);
     let interpolated = step.interpolate(midpoint_time);
     let solved = Rk45::default()
         .with_rtol(1e-10)
@@ -146,16 +152,16 @@ proptest! {
     fn exponential_matches_closed_form(
         lambda in -3.0f64..-0.1,
         a in 0.5f64..2.0,
-        tf in 0.5f64..3.0,
+        time_final in 0.5f64..3.0,
     ) {
         // y' = lambda*y, y(0) = a  ->  y(tf) = a * e^{lambda*tf}.
         let decay = |_time: f64, state: &Vector<1, f64>| state.scale(lambda);
         let final_state = Rk45::default()
             .with_rtol(1e-9)
             .with_atol(1e-12)
-            .solve(&decay, 0.0, &Vector::new([a]), tf)
+            .solve(&decay, 0.0, &Vector::new([a]), time_final)
             .unwrap();
-        let exact = a * (lambda * tf).exp();
+        let exact = a * (lambda * time_final).exp();
         prop_assert!((final_state[0] - exact).abs() < 1e-6 * (1.0 + exact.abs()));
     }
 }

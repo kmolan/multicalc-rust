@@ -39,11 +39,11 @@ fn control_goldens() {
 fn check_riccati<const N: usize, const M: usize>(fixture: &Fixture) {
     let a = to_matrix::<N, N>(&fixture.inputs["A"]);
     let b = to_matrix::<N, M>(&fixture.inputs["B"]);
-    let q = to_matrix::<N, N>(&fixture.inputs["Q"]);
-    let r = to_matrix::<M, M>(&fixture.inputs["R"]);
+    let state_cost = to_matrix::<N, N>(&fixture.inputs["Q"]);
+    let input_cost = to_matrix::<M, M>(&fixture.inputs["R"]);
     let tolerance = fixture.tolerances.f64;
 
-    let cost_to_go = solve_discrete_riccati(a, b, q, r).unwrap();
+    let cost_to_go = solve_discrete_riccati(a, b, state_cost, input_cost).unwrap();
     assert_matrix(
         &cost_to_go,
         &fixture.expected["P"],
@@ -52,7 +52,7 @@ fn check_riccati<const N: usize, const M: usize>(fixture: &Fixture) {
     );
 
     // The gain the crate's own controller produces, from the same inputs.
-    let controller = Lqr::<N, M>::new(a, b, q, r).unwrap();
+    let controller = Lqr::<N, M>::new(a, b, state_cost, input_cost).unwrap();
     assert_matrix(
         &controller.gain(),
         &fixture.expected["K"],
@@ -63,8 +63,8 @@ fn check_riccati<const N: usize, const M: usize>(fixture: &Fixture) {
 
 fn check_lyapunov<const N: usize>(fixture: &Fixture) {
     let a = to_matrix::<N, N>(&fixture.inputs["A"]);
-    let q = to_matrix::<N, N>(&fixture.inputs["Q"]);
-    let certificate = solve_discrete_lyapunov(a, q).unwrap();
+    let state_cost = to_matrix::<N, N>(&fixture.inputs["Q"]);
+    let certificate = solve_discrete_lyapunov(a, state_cost).unwrap();
     assert_matrix(
         &certificate,
         &fixture.expected["P"],

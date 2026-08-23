@@ -34,8 +34,22 @@ impl Default for IterativeConfig {
 
 impl IterativeConfig {
     /// Builds a config with an explicit iteration count and rule.
+    ///
+    /// For counts up to 12,000, `total_iterations` is automatically rounded up
+    /// to the nearest valid step multiple required by the chosen integration rule
+    /// (e.g., multiples of 4 for Boole's rule, 3 for Simpson's 3/8 rule).
+    /// Above 12,000, the count is left untouched.
     #[must_use]
     pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self {
+        let total_iterations = if total_iterations <= 12000 {
+            match integration_method {
+                IterativeMethod::Booles => total_iterations.next_multiple_of(4),
+                IterativeMethod::Simpsons => total_iterations.next_multiple_of(3),
+                IterativeMethod::Trapezoidal => total_iterations,
+            }
+        } else {
+            total_iterations
+        };
         IterativeConfig {
             total_iterations,
             integration_method,
@@ -62,42 +76,42 @@ impl IterativeConfig {
     }
 }
 
-/// Dispatches to the chosen rule, integrating `g` over `[lo, hi]` with `iterations`
-/// intervals. The caller decides the domain branch before building `g`, so a finite
+/// Dispatches to the chosen rule, integrating `integrand` over `[lower, upper]` with `iterations`
+/// intervals. The caller decides the domain branch before building `integrand`, so a finite
 /// integral passes `func` straight through with no per-sample transform.
 fn integrate_rule<T: Numeric, G: FnMut(T) -> Result<T, IntegrateError>>(
     method: IterativeMethod,
     iterations: u64,
-    lo: T,
-    hi: T,
-    g: G,
+    lower: T,
+    upper: T,
+    integrand: G,
     summation: SummationMethod,
 ) -> Result<T, IntegrateError> {
     match method {
-        IterativeMethod::Booles => booles(iterations, lo, hi, g, summation),
-        IterativeMethod::Simpsons => simpsons(iterations, lo, hi, g, summation),
-        IterativeMethod::Trapezoidal => trapezoidal(iterations, lo, hi, g, summation),
+        IterativeMethod::Booles => booles(iterations, lower, upper, integrand, summation),
+        IterativeMethod::Simpsons => simpsons(iterations, lower, upper, integrand, summation),
+        IterativeMethod::Trapezoidal => trapezoidal(iterations, lower, upper, integrand, summation),
     }
 }
 
-/// Boole's composite rule over `[lo, hi]`.
+/// Boole's composite rule over `[lower, upper]`.
 fn booles<T: Numeric, G: FnMut(T) -> Result<T, IntegrateError>>(
     iterations: u64,
-    lo: T,
-    hi: T,
-    mut g: G,
+    lower: T,
+    upper: T,
+    mut integrand: G,
     summation: SummationMethod,
 ) -> Result<T, IntegrateError> {
-    let delta = (hi - lo) / T::from_u64(iterations);
-    let mut point = lo;
+    let delta = (upper - lower) / T::from_u64(iterations);
+    let mut point = lower;
 
     let mut ans = Acc::new(summation);
-    ans.add(T::from_f64(7.0) * g(point)?);
+    ans.add(T::from_f64(7.0) * integrand(point)?);
     let mut multiplier = T::from_f64(32.0);
 
     for iter in 0..iterations - 1 {
         point += delta;
-        ans.add(multiplier * g(point)?);
+        ans.add(multiplier * integrand(point)?);
 
         if (iter + 2) % 2 != 0 {
             multiplier = T::from_f64(32.0);
@@ -108,29 +122,29 @@ fn booles<T: Numeric, G: FnMut(T) -> Result<T, IntegrateError>>(
         }
     }
 
-    ans.add(T::from_f64(7.0) * g(hi)?);
+    ans.add(T::from_f64(7.0) * integrand(upper)?);
 
     Ok(T::TWO * delta * ans.total() / T::from_f64(45.0))
 }
 
-/// Simpson's 3/8 composite rule over `[lo, hi]`.
+/// Simpson's 3/8 composite rule over `[lower, upper]`.
 fn simpsons<T: Numeric, G: FnMut(T) -> Result<T, IntegrateError>>(
     iterations: u64,
-    lo: T,
-    hi: T,
-    mut g: G,
+    lower: T,
+    upper: T,
+    mut integrand: G,
     summation: SummationMethod,
 ) -> Result<T, IntegrateError> {
-    let delta = (hi - lo) / T::from_u64(iterations);
-    let mut point = lo;
+    let delta = (upper - lower) / T::from_u64(iterations);
+    let mut point = lower;
 
     let mut ans = Acc::new(summation);
-    ans.add(g(point)?);
+    ans.add(integrand(point)?);
     let mut multiplier = T::from_f64(3.0);
 
     for iter in 0..iterations - 1 {
         point += delta;
-        ans.add(multiplier * g(point)?);
+        ans.add(multiplier * integrand(point)?);
 
         if (iter + 2) % 3 == 0 {
             multiplier = T::TWO;
@@ -139,31 +153,31 @@ fn simpsons<T: Numeric, G: FnMut(T) -> Result<T, IntegrateError>>(
         }
     }
 
-    ans.add(g(hi)?);
+    ans.add(integrand(upper)?);
 
     Ok(T::from_f64(3.0) * delta * ans.total() / T::from_f64(8.0))
 }
 
-/// Trapezoidal composite rule over `[lo, hi]`.
+/// Trapezoidal composite rule over `[lower, upper]`.
 fn trapezoidal<T: Numeric, G: FnMut(T) -> Result<T, IntegrateError>>(
     iterations: u64,
-    lo: T,
-    hi: T,
-    mut g: G,
+    lower: T,
+    upper: T,
+    mut integrand: G,
     summation: SummationMethod,
 ) -> Result<T, IntegrateError> {
-    let delta = (hi - lo) / T::from_u64(iterations);
-    let mut point = lo;
+    let delta = (upper - lower) / T::from_u64(iterations);
+    let mut point = lower;
 
     let mut ans = Acc::new(summation);
-    ans.add(g(point)?);
+    ans.add(integrand(point)?);
 
     for _ in 0..iterations - 1 {
         point += delta;
-        ans.add(T::TWO * g(point)?);
+        ans.add(T::TWO * integrand(point)?);
     }
 
-    ans.add(g(hi)?);
+    ans.add(integrand(upper)?);
 
     Ok(T::HALF * delta * ans.total())
 }
@@ -228,14 +242,14 @@ impl<T: Numeric> IterativeSingle<T> {
                     integrate_rule(method, iterations, a, b, |x| is_finite(func(x)), summation)
                 }
                 _ => {
-                    let (lo, hi) = t_bounds(&domain);
+                    let (lower, upper) = t_bounds(&domain);
                     integrate_rule(
                         method,
                         iterations,
-                        lo,
-                        hi,
-                        |t| {
-                            let (x, jacobian) = map_sample(&domain, t);
+                        lower,
+                        upper,
+                        |sample| {
+                            let (x, jacobian) = map_sample(&domain, sample);
                             is_finite(func(x) * jacobian)
                         },
                         summation,
@@ -250,14 +264,14 @@ impl<T: Numeric> IterativeSingle<T> {
                 integrate_rule(method, iterations, a, b, |_| is_finite(inner), summation)
             }
             _ => {
-                let (lo, hi) = t_bounds(&domain);
+                let (lower, upper) = t_bounds(&domain);
                 integrate_rule(
                     method,
                     iterations,
-                    lo,
-                    hi,
-                    |t| {
-                        let (_, jacobian) = map_sample(&domain, t);
+                    lower,
+                    upper,
+                    |sample| {
+                        let (_, jacobian) = map_sample(&domain, sample);
                         is_finite(inner * jacobian)
                     },
                     summation,
@@ -393,14 +407,14 @@ impl<T: Numeric> IterativeMulti<T> {
                     summation,
                 ),
                 _ => {
-                    let (lo, hi) = t_bounds(&domain);
+                    let (lower, upper) = t_bounds(&domain);
                     integrate_rule(
                         method,
                         iterations,
-                        lo,
-                        hi,
-                        |t| {
-                            let (x, jacobian) = map_sample(&domain, t);
+                        lower,
+                        upper,
+                        |sample| {
+                            let (x, jacobian) = map_sample(&domain, sample);
                             current[var] = x;
                             is_finite(func(&current) * jacobian)
                         },
@@ -430,14 +444,14 @@ impl<T: Numeric> IterativeMulti<T> {
                 summation,
             ),
             _ => {
-                let (lo, hi) = t_bounds(&domain);
+                let (lower, upper) = t_bounds(&domain);
                 integrate_rule(
                     method,
                     iterations,
-                    lo,
-                    hi,
-                    |t| {
-                        let (x, jacobian) = map_sample(&domain, t);
+                    lower,
+                    upper,
+                    |sample| {
+                        let (x, jacobian) = map_sample(&domain, sample);
                         current[var] = x;
                         let inner = self.integrate(
                             level - 1,

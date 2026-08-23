@@ -34,8 +34,8 @@ fn vector_out_of_bounds(index: usize, len: usize) -> ! {
 /// ```
 #[derive(Debug)]
 #[must_use]
-pub struct VectorView<'a, const N: usize, T = f64> {
-    data: &'a [T],
+pub struct VectorView<'data, const N: usize, T = f64> {
+    data: &'data [T],
     offset: usize,
     stride: usize,
 }
@@ -52,26 +52,26 @@ pub struct VectorView<'a, const N: usize, T = f64> {
 /// ```
 #[derive(Debug)]
 #[must_use]
-pub struct VectorViewMut<'a, const N: usize, T = f64> {
-    data: &'a mut [T],
+pub struct VectorViewMut<'data, const N: usize, T = f64> {
+    data: &'data mut [T],
     offset: usize,
     stride: usize,
 }
 
 // Written out rather than derived: a derive would demand `T: Copy`, but what is copied is the
 // handle -- slice reference, offset, stride -- not the components.
-impl<const N: usize, T> Clone for VectorView<'_, N, T> {
+impl<'data, const N: usize, T> Clone for VectorView<'data, N, T> {
     #[inline]
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<const N: usize, T> Copy for VectorView<'_, N, T> {}
+impl<'data, const N: usize, T> Copy for VectorView<'data, N, T> {}
 
-impl<'a, const N: usize, T> VectorView<'a, N, T> {
+impl<'data, const N: usize, T> VectorView<'data, N, T> {
     /// Builds a view over `data`, or `None` if the span would reach past the end of the slice.
     #[inline]
-    pub(super) fn from_parts(data: &'a [T], offset: usize, stride: usize) -> Option<Self> {
+    pub(super) fn from_parts(data: &'data [T], offset: usize, stride: usize) -> Option<Self> {
         let needed = required_len(N, 1, offset, stride, 1)?;
         (needed <= data.len()).then_some(VectorView {
             data,
@@ -89,7 +89,7 @@ impl<'a, const N: usize, T> VectorView<'a, N, T> {
     /// assert!(VectorView::<4>::from_slice(&buffer).is_none());
     /// ```
     #[inline]
-    pub fn from_slice(slice: &'a [T]) -> Option<Self> {
+    pub fn from_slice(slice: &'data [T]) -> Option<Self> {
         Self::from_parts(slice, 0, 1)
     }
 
@@ -145,14 +145,14 @@ impl<'a, const N: usize, T> VectorView<'a, N, T> {
     /// assert_eq!(v.view().segment::<2>(1).unwrap().to_vector().into_array(), [2.0, 3.0]);
     /// ```
     #[inline]
-    pub fn segment<const M: usize>(self, start: usize) -> Option<VectorView<'a, M, T>> {
+    pub fn segment<const M: usize>(self, start: usize) -> Option<VectorView<'data, M, T>> {
         (start.checked_add(M)? <= N).then_some(())?;
         let offset = self.offset.checked_add(start.checked_mul(self.stride)?)?;
         VectorView::from_parts(self.data, offset, self.stride)
     }
 }
 
-impl<const N: usize, T: Copy> VectorView<'_, N, T> {
+impl<'data, const N: usize, T: Copy> VectorView<'data, N, T> {
     /// Copies the window into an owned vector.
     ///
     /// ```
@@ -169,7 +169,7 @@ impl<const N: usize, T: Copy> VectorView<'_, N, T> {
     }
 }
 
-impl<const N: usize, T: Numeric> VectorView<'_, N, T> {
+impl<'data, const N: usize, T: Numeric> VectorView<'data, N, T> {
     /// The dot product with `rhs`, summed left to right, without materializing either side.
     ///
     /// ```
@@ -191,7 +191,7 @@ impl<const N: usize, T: Numeric> VectorView<'_, N, T> {
     }
 }
 
-impl<const N: usize, T> Index<usize> for VectorView<'_, N, T> {
+impl<'data, const N: usize, T> Index<usize> for VectorView<'data, N, T> {
     type Output = T;
 
     /// Panics if `index >= N`. Use [`Self::get`] when it may be out of range.
@@ -205,17 +205,17 @@ impl<const N: usize, T> Index<usize> for VectorView<'_, N, T> {
     }
 }
 
-impl<const N: usize, T: PartialEq> PartialEq for VectorView<'_, N, T> {
+impl<'data, const N: usize, T: PartialEq> PartialEq for VectorView<'data, N, T> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         (0..N).all(|i| self.get(i) == other.get(i))
     }
 }
 
-impl<'a, const N: usize, T> VectorViewMut<'a, N, T> {
+impl<'data, const N: usize, T> VectorViewMut<'data, N, T> {
     /// Builds a view over `data`, or `None` if the span would reach past the end of the slice.
     #[inline]
-    pub(super) fn from_parts(data: &'a mut [T], offset: usize, stride: usize) -> Option<Self> {
+    pub(super) fn from_parts(data: &'data mut [T], offset: usize, stride: usize) -> Option<Self> {
         let needed = required_len(N, 1, offset, stride, 1)?;
         (needed <= data.len()).then_some(VectorViewMut {
             data,
@@ -237,7 +237,7 @@ impl<'a, const N: usize, T> VectorViewMut<'a, N, T> {
     /// assert!(VectorViewMut::<5>::from_slice(&mut buffer).is_none());
     /// ```
     #[inline]
-    pub fn from_slice(slice: &'a mut [T]) -> Option<Self> {
+    pub fn from_slice(slice: &'data mut [T]) -> Option<Self> {
         Self::from_parts(slice, 0, 1)
     }
 
@@ -297,8 +297,8 @@ impl<'a, const N: usize, T> VectorViewMut<'a, N, T> {
     /// ```
     #[inline]
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
-        let at = self.index_of(index)?;
-        self.data.get_mut(at)
+        let flat = self.index_of(index)?;
+        self.data.get_mut(flat)
     }
 
     /// Borrows this window read-only for as long as `self` is untouched.
@@ -364,7 +364,7 @@ impl<'a, const N: usize, T> VectorViewMut<'a, N, T> {
     #[inline]
     pub fn split_at<const HEAD: usize, const TAIL: usize>(
         self,
-    ) -> Option<(VectorViewMut<'a, HEAD, T>, VectorViewMut<'a, TAIL, T>)> {
+    ) -> Option<(VectorViewMut<'data, HEAD, T>, VectorViewMut<'data, TAIL, T>)> {
         (HEAD.checked_add(TAIL)? == N && self.stride == 1).then_some(())?;
         let split = self.offset.checked_add(HEAD)?;
         (split <= self.data.len()).then_some(())?;
@@ -376,7 +376,7 @@ impl<'a, const N: usize, T> VectorViewMut<'a, N, T> {
     }
 }
 
-impl<const N: usize, T: Copy> VectorViewMut<'_, N, T> {
+impl<'data, const N: usize, T: Copy> VectorViewMut<'data, N, T> {
     /// Copies the window into an owned vector.
     ///
     /// ```
@@ -433,7 +433,7 @@ impl<const N: usize, T: Copy> VectorViewMut<'_, N, T> {
     }
 }
 
-impl<const N: usize, T> Index<usize> for VectorViewMut<'_, N, T> {
+impl<'data, const N: usize, T> Index<usize> for VectorViewMut<'data, N, T> {
     type Output = T;
 
     /// Panics if `index >= N`. Use [`Self::get`] when it may be out of range.
@@ -447,7 +447,7 @@ impl<const N: usize, T> Index<usize> for VectorViewMut<'_, N, T> {
     }
 }
 
-impl<const N: usize, T> IndexMut<usize> for VectorViewMut<'_, N, T> {
+impl<'data, const N: usize, T> IndexMut<usize> for VectorViewMut<'data, N, T> {
     /// Panics if `index >= N`. Use [`Self::get_mut`] when it may be out of range.
     #[inline]
     #[track_caller]

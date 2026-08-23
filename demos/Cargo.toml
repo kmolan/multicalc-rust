@@ -118,6 +118,10 @@ name = "mjcf_model_ingestion"
 path = "examples/basics/mjcf_model_ingestion.rs"
 
 [[example]]
+name = "motion_profiles"
+path = "examples/basics/motion_profiles.rs"
+
+[[example]]
 name = "ode"
 path = "examples/basics/ode.rs"
 

@@ -93,10 +93,10 @@ fn get_checked_access() {
     assert_eq!(matrix.get(1, 1), Some(&8.0));
 }
 
-fn check_vector_map<const N: usize, F: Fn(f64) -> f64>(v: Vector<N>, f: F) {
-    let u = v.map(&f);
-    for (a, b) in u.as_slice().iter().zip(v.as_slice()) {
-        assert_eq!(*a, f(*b));
+fn check_vector_map<const N: usize, F: Fn(f64) -> f64>(vector: Vector<N>, f: F) {
+    let mapped_vector = vector.map(&f);
+    for (component_a, component_b) in mapped_vector.as_slice().iter().zip(vector.as_slice()) {
+        assert_eq!(*component_a, f(*component_b));
     }
 }
 
@@ -104,23 +104,23 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(256))]
 
     #[test]
-    fn vector_map_1(v in vector_strategy::<1, _>(prop::num::f64::NORMAL)) {
-        check_vector_map(v, |x| x + PI);
+    fn vector_map_1(vector in vector_strategy::<1, _>(prop::num::f64::NORMAL)) {
+        check_vector_map(vector, |x| x + PI);
     }
 
     #[test]
-    fn vector_map_2(v in vector_strategy::<2, _>(prop::num::f64::NORMAL)) {
-        check_vector_map(v, |x| 2.0 * x);
+    fn vector_map_2(vector in vector_strategy::<2, _>(prop::num::f64::NORMAL)) {
+        check_vector_map(vector, |x| 2.0 * x);
     }
 
     #[test]
-    fn vector_map_3(v in vector_strategy::<3, _>(prop::num::f64::NORMAL)) {
-        check_vector_map(v, |x| x - E);
+    fn vector_map_3(vector in vector_strategy::<3, _>(prop::num::f64::NORMAL)) {
+        check_vector_map(vector, |x| x - E);
     }
 
     #[test]
-    fn vector_map_4(v in vector_strategy::<4, _>(prop::num::f64::NORMAL)) {
-        check_vector_map(v, |x| x * x);
+    fn vector_map_4(vector in vector_strategy::<4, _>(prop::num::f64::NORMAL)) {
+        check_vector_map(vector, |x| x * x);
     }
 }
 
@@ -145,7 +145,7 @@ fn vector_arithmetic() {
     assert_eq!(accumulated, left);
 
     // Check division by zero behavior
-    let a = Vector::new([
+    let vector_a = Vector::new([
         1.0,
         -1.0,
         0.0,
@@ -154,7 +154,7 @@ fn vector_arithmetic() {
         f64::NEG_INFINITY,
         f64::NAN,
     ]);
-    let div_zero = a / 0.0;
+    let div_zero = vector_a / 0.0;
     let expected = Vector::new([
         f64::INFINITY,
         f64::NEG_INFINITY,
@@ -206,8 +206,8 @@ fn vector_is_finite() {
     assert!(!Vector::new([0.0, f64::NEG_INFINITY]).is_finite());
 }
 
-fn check_vector_normalized<const N: usize>(mut v: Vector<N>) -> Result<(), TestCaseError> {
-    let norm = v.norm();
+fn check_vector_normalized<const N: usize>(mut vector: Vector<N>) -> Result<(), TestCaseError> {
+    let norm = vector.norm();
     prop_assume!(norm.is_finite());
     prop_assume!(norm > 1e-16);
 
@@ -216,23 +216,23 @@ fn check_vector_normalized<const N: usize>(mut v: Vector<N>) -> Result<(), TestC
         rel: 1e-8,
     };
 
-    let normalized = v.normalized();
+    let normalized = vector.normalized();
     assert_scalar_close(normalized.norm(), 1.0, tol);
-    assert_vector_close(&v, &normalized.scale(norm), tol);
+    assert_vector_close(&vector, &normalized.scale(norm), tol);
 
     // The normalized and try_normalized operations are identical when normalization is possible.
-    assert_eq!(Some(normalized), v.try_normalized());
+    assert_eq!(Some(normalized), vector.try_normalized());
 
     // Create a copy of the vector to test both mutable operations.
-    let mut v_copy = v;
+    let mut vector_copy = vector;
 
     // In-place normalization gives the same result as returning a copy.
-    v.normalize();
-    assert_eq!(v, normalized);
+    vector.normalize();
+    assert_eq!(vector, normalized);
 
     // Fallible in-place normalization also agrees;
-    assert!(v_copy.try_normalize().is_some());
-    assert_eq!(v_copy, normalized);
+    assert!(vector_copy.try_normalize().is_some());
+    assert_eq!(vector_copy, normalized);
 
     Ok(())
 }
@@ -271,23 +271,23 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(256))]
 
     #[test]
-    fn vector_normalize_1(v in vector_strategy::<1, _>(prop::num::f64::NORMAL)) {
-        check_vector_normalized(v)?;
+    fn vector_normalize_1(vector in vector_strategy::<1, _>(prop::num::f64::NORMAL)) {
+        check_vector_normalized(vector)?;
     }
 
     #[test]
-    fn vector_normalize_2(v in vector_strategy::<2, _>(prop::num::f64::NORMAL)) {
-        check_vector_normalized(v)?;
+    fn vector_normalize_2(vector in vector_strategy::<2, _>(prop::num::f64::NORMAL)) {
+        check_vector_normalized(vector)?;
     }
 
     #[test]
-    fn vector_normalize_3(v in vector_strategy::<3, _>(prop::num::f64::NORMAL)) {
-        check_vector_normalized(v)?;
+    fn vector_normalize_3(vector in vector_strategy::<3, _>(prop::num::f64::NORMAL)) {
+        check_vector_normalized(vector)?;
     }
 
     #[test]
-    fn vector_normalize_4(v in vector_strategy::<4, _>(prop::num::f64::NORMAL)) {
-        check_vector_normalized(v)?;
+    fn vector_normalize_4(vector in vector_strategy::<4, _>(prop::num::f64::NORMAL)) {
+        check_vector_normalized(vector)?;
     }
 }
 

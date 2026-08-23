@@ -43,7 +43,7 @@ pub trait RandomSource<T: RandomScalar> {
             let radius_squared = x_draw.powi(2) + y_draw.powi(2);
 
             if radius_squared > T::ZERO && radius_squared < T::ONE {
-                let scale = (-T::TWO * radius_squared.ln() / radius_squared).sqrt();
+                let scale = (-T::TWO * radius_squared.log() / radius_squared).sqrt();
                 self.set_cache(y_draw * scale);
                 return x_draw * scale;
             }

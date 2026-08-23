@@ -28,9 +28,9 @@ const MAXIMUM_PASSES: usize = 64;
 /// inside a control loop.
 ///
 /// Returns [`LinalgError::NonFinite`](crate::error::LinalgError::NonFinite) if any entry is not
-/// finite, [`LinalgError::NotSymmetric`](crate::error::LinalgError::NotSymmetric) if `q` or `r`
+/// finite, [`LinalgError::NotSymmetric`](crate::error::LinalgError::NotSymmetric) if `state_cost` or `input_cost`
 /// does not read the same across the diagonal,
-/// [`LinalgError::NotPositiveDefinite`](crate::error::LinalgError::NotPositiveDefinite) if `r` has
+/// [`LinalgError::NotPositiveDefinite`](crate::error::LinalgError::NotPositiveDefinite) if `input_cost` has
 /// no Cholesky factor, [`LinalgError::Singular`](crate::error::LinalgError::Singular) if an
 /// intermediate cannot be inverted, or
 /// [`LinalgError::DidNotConverge`](crate::error::LinalgError::DidNotConverge) if the passes run out
@@ -43,33 +43,33 @@ const MAXIMUM_PASSES: usize = 64;
 /// // reduces to p = p - p²/(1 + p) + 1, whose positive root is the golden ratio.
 /// let a = Matrix::<1, 1>::new([[1.0]]);
 /// let b = Matrix::<1, 1>::new([[1.0]]);
-/// let q = Matrix::<1, 1>::new([[1.0]]);
-/// let r = Matrix::<1, 1>::new([[1.0]]);
-/// let p = solve_discrete_riccati(a, b, q, r).unwrap();
+/// let state_cost = Matrix::<1, 1>::new([[1.0]]);
+/// let input_cost = Matrix::<1, 1>::new([[1.0]]);
+/// let cost_to_go = solve_discrete_riccati(a, b, state_cost, input_cost).unwrap();
 /// let golden_ratio = (1.0 + 5.0_f64.sqrt()) / 2.0;
-/// assert!((p[(0, 0)] - golden_ratio).abs() < 1e-10);
+/// assert!((cost_to_go[(0, 0)] - golden_ratio).abs() < 1e-10);
 /// ```
 pub fn solve_discrete_riccati<const N: usize, const M: usize, T: Numeric>(
     a: Matrix<N, N, T>,
     b: Matrix<N, M, T>,
-    q: Matrix<N, N, T>,
-    r: Matrix<M, M, T>,
+    state_cost: Matrix<N, N, T>,
+    input_cost: Matrix<M, M, T>,
 ) -> Result<Matrix<N, N, T>, LinalgError> {
-    if !a.is_finite() || !b.is_finite() || !q.is_finite() || !r.is_finite() {
+    if !a.is_finite() || !b.is_finite() || !state_cost.is_finite() || !input_cost.is_finite() {
         return Err(LinalgError::NonFinite);
     }
-    if !q.is_symmetric() || !r.is_symmetric() {
+    if !state_cost.is_symmetric() || !input_cost.is_symmetric() {
         return Err(LinalgError::NotSymmetric);
     }
 
     // How far the input can push the state, per unit of input cost: `B·R⁻¹·Bᵀ`, formed by solving
     // against the factor of `R` rather than by inverting it.
-    let input_cost = r.cholesky()?;
-    let scaled_input = input_cost.solve_matrix::<N>(b.transpose());
+    let input_cost_factor = input_cost.cholesky()?;
+    let scaled_input = input_cost_factor.solve_matrix::<N>(b.transpose());
     let mut reach = b * scaled_input;
 
     let mut state = a;
-    let mut cost = q;
+    let mut cost = state_cost;
     let mut passes_taken = MAXIMUM_PASSES;
     for pass in 0..MAXIMUM_PASSES {
         let coupling = (Matrix::<N, N, T>::identity() + reach * cost).inverse()?;
@@ -107,12 +107,12 @@ pub fn solve_discrete_riccati<const N: usize, const M: usize, T: Numeric>(
     }
 
     // Put the answer back into the equation and require what is left over to be small.
-    let input_weight = r + b.transpose() * cost * b;
+    let input_weight = input_cost + b.transpose() * cost * b;
     let input_weight_factor = input_weight.cholesky()?;
     let coupling_term = b.transpose() * cost * a;
     let correction =
         coupling_term.transpose() * input_weight_factor.solve_matrix::<N>(coupling_term);
-    let residual = a.transpose() * cost * a - cost - correction + q;
+    let residual = a.transpose() * cost * a - cost - correction + state_cost;
 
     // Deliberately looser than the settling test the passes use: the leftover is built from
     // several matrix products, so it carries far more rounding than the answer itself, and a

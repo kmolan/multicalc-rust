@@ -7,8 +7,8 @@ use multicalc::spatial::{FreeJointState, Quaternion, SE3, SO3, Twist};
 /// leading number on both sides.
 fn leading_positive(place: [f64; 7]) -> [f64; 7] {
     if place[3] < 0.0 {
-        let [x, y, z, w, qx, qy, qz] = place;
-        [x, y, z, -w, -qx, -qy, -qz]
+        let [x, y, z, w, quat_x, quat_y, quat_z] = place;
+        [x, y, z, -w, -quat_x, -quat_y, -quat_z]
     } else {
         place
     }

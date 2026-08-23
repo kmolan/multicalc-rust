@@ -72,7 +72,7 @@ fn range_noise_has_about_the_right_spread() {
     let mean = readings.iter().sum::<f64>() / samples as f64;
     let variance = readings
         .iter()
-        .map(|r| (r - mean) * (r - mean))
+        .map(|range| (range - mean) * (range - mean))
         .sum::<f64>()
         / samples as f64;
     let deviation = variance.sqrt();

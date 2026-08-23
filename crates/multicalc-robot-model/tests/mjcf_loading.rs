@@ -797,15 +797,332 @@ fn refuses_a_free_joint_below_the_top() {
     );
 }
 
+/// The turn the first body of a model makes, as the four numbers MJCF would have written for it.
+#[must_use]
+fn turn(loaded: &RobotModel) -> [f64; 4] {
+    loaded
+        .body(0)
+        .unwrap()
+        .pose()
+        .rotation()
+        .quaternion()
+        .as_array()
+}
+
+/// That two quaternions name one turn. A quaternion and its negative describe the same turn, so the
+/// two are brought to the same sign before their numbers are compared. Every number here is at most
+/// one, so the same tolerance serves whether the expectation was worked out or came from MuJoCo.
+fn assert_same_turn(actual: [f64; 4], expected: [f64; 4], label: &str) {
+    let facing_the_same_way: f64 = actual
+        .iter()
+        .zip(expected)
+        .map(|(got, want)| got * want)
+        .sum();
+    let aligned = if facing_the_same_way < 0.0 {
+        actual.map(|number| -number)
+    } else {
+        actual
+    };
+    for (place, (got, want)) in aligned.into_iter().zip(expected).enumerate() {
+        assert_close(got, want, &format!("{label}, number {place} of the turn"));
+    }
+}
+
+/// A quarter turn about y, written every way MJCF allows. It carries the element's z axis onto the
+/// parent's x, which is the one turn `zaxis` can state as well as the other four: a `zaxis` says
+/// nothing about the turn left over about the axis it names, so only a turn that spends none of it
+/// can be written all five ways.
+const A_QUARTER_TURN_ABOUT_Y: [&str; 5] = [
+    r#"quat="0.7071067811865476 0 0.7071067811865476 0""#,
+    r#"euler="0 90 0""#,
+    r#"axisangle="0 1 0 90""#,
+    r#"xyaxes="0 0 -1 0 1 0""#,
+    r#"zaxis="1 0 0""#,
+];
+
 #[test]
-fn refuses_a_turn_written_as_angles() {
+fn reads_one_turn_written_five_ways_the_same() {
+    let expected = [FRAC_PI_4.cos(), 0.0, FRAC_PI_4.sin(), 0.0];
+
+    for form in A_QUARTER_TURN_ABOUT_Y {
+        let loaded = load(&format!(
+            r#"<body {form}><inertial mass="1" diaginertia="1 1 1"/></body>"#
+        ));
+        assert_same_turn(turn(&loaded), expected, form);
+    }
+}
+
+#[test]
+fn turns_a_geom_the_same_way_however_it_is_written() {
+    // A long thin capsule laid along the element's own z. Turning it onto x has to move the tensor
+    // with it, so the three numbers down the diagonal come out in a different order than they went
+    // in — which is what a turn dropped on the floor would fail to do.
+    let mut previous: Option<[f64; 3]> = None;
+    for form in A_QUARTER_TURN_ABOUT_Y {
+        let loaded = load(&format!(
+            r#"<body><geom type="capsule" size="0.05 0.5" {form}/></body>"#
+        ));
+        // Laid along z the barrel is easiest to spin about z, so the small number sits third.
+        // Turned onto x it has to sit first, and a turn dropped on the floor would leave it third.
+        let measured = diagonal(&loaded);
+        assert!(
+            measured[0] * 10.0 < measured[2],
+            "{form}: the capsule did not turn onto x, diagonal is {measured:?}"
+        );
+        if let Some(first) = previous {
+            for (axis, (one, other)) in first.into_iter().zip(measured).enumerate() {
+                assert_close(other, one, &format!("{form} down axis {axis}"));
+            }
+        }
+        previous = Some(measured);
+    }
+}
+
+#[test]
+fn reads_angles_in_the_units_the_compiler_names() {
+    let in_degrees = r#"<mujoco><worldbody>
+          <body euler="10 20 30"><inertial mass="1" diaginertia="1 1 1"/></body>
+        </worldbody></mujoco>"#;
+    let in_radians = r#"<mujoco><compiler angle="radian"/><worldbody>
+          <body euler="0.17453292519943295 0.3490658503988659 0.5235987755982988">
+            <inertial mass="1" diaginertia="1 1 1"/>
+          </body>
+        </worldbody></mujoco>"#;
+
+    assert_same_turn(
+        turn(&load_str(in_degrees).unwrap()),
+        turn(&load_str(in_radians).unwrap()),
+        "the same euler in degrees and in radians",
+    );
+
+    // The same for `axisangle`, and `zaxis` alongside it to show which attributes the setting does
+    // not reach: it states a direction, not an angle, so it reads the same under either.
+    let degrees = r#"<mujoco><worldbody>
+          <body axisangle="0 1 0 90" pos="0 0 0"><inertial mass="1" diaginertia="1 1 1"/></body>
+        </worldbody></mujoco>"#;
+    let radians = r#"<mujoco><compiler angle="radian"/><worldbody>
+          <body axisangle="0 1 0 1.5707963267948966"><inertial mass="1" diaginertia="1 1 1"/></body>
+        </worldbody></mujoco>"#;
+    let unitless = r#"<mujoco><compiler angle="radian"/><worldbody>
+          <body zaxis="1 0 0"><inertial mass="1" diaginertia="1 1 1"/></body>
+        </worldbody></mujoco>"#;
+
+    let expected = [FRAC_PI_4.cos(), 0.0, FRAC_PI_4.sin(), 0.0];
+    for (label, xml) in [
+        ("an axisangle in degrees", degrees),
+        ("an axisangle in radians", radians),
+        ("a zaxis, which carries no angle at all", unitless),
+    ] {
+        assert_same_turn(turn(&load_str(xml).unwrap()), expected, label);
+    }
+}
+
+#[test]
+fn turns_a_euler_about_the_axes_the_compiler_names_in_the_order_it_names_them() {
+    // Against the four numbers MuJoCo itself produced for these files. The case of the letters is
+    // the whole of the difference between the first two: a lower-case axis is carried along by the
+    // turns already made, an upper-case one stands still in the frame the body is placed in, so the
+    // same three angles about the same three letters come out as two different turns. A sequence
+    // may also name one axis twice, which no fixed roll-pitch-yaw reading would allow.
+    for (sequence, expected) in [
+        (
+            "xyz",
+            [
+                0.943_714_364_147_489,
+                0.127_679_440_695_780_63,
+                0.144_878_125_417_369_14,
+                0.268_535_822_751_569_2,
+            ],
+        ),
+        (
+            "XYZ",
+            [
+                0.951_548_524_643_788_5,
+                0.038_134_576_474_850_15,
+                0.189_307_857_412_0,
+                0.239_298_337_744_730_3,
+            ],
+        ),
+        (
+            "zxz",
+            [
+                0.925_416_578_398_323_4,
+                0.171_010_071_662_834_33,
+                -0.030_153_689_607_045_8,
+                0.336_824_088_833_465_15,
+            ],
+        ),
+    ] {
+        let xml = format!(
+            r#"<mujoco><compiler eulerseq="{sequence}"/><worldbody>
+                 <body euler="10 20 30"><inertial mass="1" diaginertia="1 1 1"/></body>
+               </worldbody></mujoco>"#
+        );
+        assert_same_turn(
+            turn(&load_str(&xml).unwrap()),
+            expected,
+            &format!("eulerseq {sequence}"),
+        );
+    }
+}
+
+#[test]
+fn spends_no_turn_beyond_the_one_a_zaxis_asks_for() {
+    // Against MuJoCo's own numbers again. A `zaxis` says where one axis points and leaves the turn
+    // about it free, and the second case is where that freedom bites: a z axis turned right over
+    // leaves every axis square to it as good as any other, and MuJoCo settles on x. Landing on a
+    // different one would put the z axis in the right place and everything hanging off the body
+    // half a turn away from it.
+    for (stated, expected) in [
+        (
+            "1 2 3",
+            [
+                0.949_153_234_661_630_7,
+                -0.281_578_603_066_871_44,
+                0.140_789_301_533_435_72,
+                0.0,
+            ],
+        ),
+        ("0 0 -1", [0.0, 1.0, 0.0, 0.0]),
+        ("0 0 1", [1.0, 0.0, 0.0, 0.0]),
+    ] {
+        let loaded = load(&format!(
+            r#"<body zaxis="{stated}"><inertial mass="1" diaginertia="1 1 1"/></body>"#
+        ));
+        assert_same_turn(turn(&loaded), expected, &format!("zaxis {stated}"));
+    }
+}
+
+#[test]
+fn squares_the_second_axis_of_an_xyaxes_against_the_first() {
+    // The two axes MuJoCo was given here are neither unit nor square to one another, so all it kept
+    // of the second is the part standing off the first. Against MuJoCo's own numbers.
+    let loaded =
+        load(r#"<body xyaxes="1 1 0 -1 1 1"><inertial mass="1" diaginertia="1 1 1"/></body>"#);
+    assert_same_turn(
+        turn(&loaded),
+        [
+            0.880_476_239_217_149_3,
+            0.279_848_142_333_121_33,
+            0.115_916_895_959_295_14,
+            0.364_705_199_631_000_84,
+        ],
+        "xyaxes needing to be squared up",
+    );
+}
+
+#[test]
+fn lets_a_default_block_state_a_turn_any_of_the_five_ways() {
+    // MuJoCo holds the plain quaternion apart from the other four, so a block and the shape it
+    // reaches can fill one slot each — and there the one that is not the plain quaternion wins,
+    // even though the shape stated its own. The numbers are MuJoCo's, for a box turned a quarter
+    // about z, read back in the body's axes: the first two of the three swap over.
+    let turned = [
+        0.369_999_999_999_999_94,
+        0.050_000_000_000_000_01,
+        0.400_000_000_000_000_1,
+    ];
+
+    let by_default = load_str(
+        r#"<mujoco><default><geom euler="0 0 90"/></default><worldbody>
+             <body><geom type="box" size="0.3 0.1 0.05" quat="1 0 0 0"/></body>
+           </worldbody></mujoco>"#,
+    )
+    .unwrap();
+    let on_the_shape =
+        load(r#"<body><geom type="box" size="0.3 0.1 0.05" euler="0 0 90"/></body>"#);
+    let not_turned = load(r#"<body><geom type="box" size="0.3 0.1 0.05"/></body>"#);
+
+    for (place, measured) in diagonal(&by_default).into_iter().enumerate() {
+        assert_golden(
+            measured,
+            turned[place],
+            &format!("from the block, axis {place}"),
+        );
+    }
+    for (place, measured) in diagonal(&on_the_shape).into_iter().enumerate() {
+        assert_golden(
+            measured,
+            turned[place],
+            &format!("from the shape, axis {place}"),
+        );
+    }
+    // And the same box left alone, so the swap above is the turn doing something rather than the
+    // three numbers having been alike all along.
+    let untouched = [turned[1], turned[0], turned[2]];
+    for (place, measured) in diagonal(&not_turned).into_iter().enumerate() {
+        assert_golden(
+            measured,
+            untouched[place],
+            &format!("left alone, axis {place}"),
+        );
+    }
+}
+
+#[test]
+fn refuses_a_turn_stated_two_ways_at_once() {
     assert_eq!(
-        refuse(r#"<body euler="0 0 1"><inertial mass="1" diaginertia="1 1 1"/></body>"#),
-        ModelError::UnsupportedOrientation {
+        refuse(
+            r#"<body euler="0 0 90" zaxis="1 0 0"><inertial mass="1" diaginertia="1 1 1"/></body>"#
+        ),
+        ModelError::MultipleOrientations {
             element: "body".to_owned(),
-            attribute: "euler".to_owned(),
         }
     );
+    assert_eq!(
+        refuse(
+            r#"<body quat="1 0 0 0" euler="0 0 90"><inertial mass="1" diaginertia="1 1 1"/></body>"#
+        ),
+        ModelError::MultipleOrientations {
+            element: "body".to_owned(),
+        }
+    );
+}
+
+#[test]
+fn refuses_a_full_tensor_stated_beside_a_turn() {
+    assert_eq!(
+        refuse(
+            r#"<body name="link"><inertial mass="1" fullinertia="1 2 3 0 0 0" euler="0 0 90"/></body>"#
+        ),
+        ModelError::FullInertiaWithOrientation {
+            body: "link".to_owned(),
+        }
+    );
+}
+
+#[test]
+fn refuses_a_direction_that_points_nowhere() {
+    for attribute in [
+        r#"axisangle="0 0 0 90""#,
+        r#"zaxis="0 0 0""#,
+        r#"xyaxes="0 0 0 0 1 0""#,
+        // A second axis lying along the first leaves nothing of it standing square to it.
+        r#"xyaxes="1 0 0 2 0 0""#,
+    ] {
+        let loaded = refuse(&format!(
+            r#"<body {attribute}><inertial mass="1" diaginertia="1 1 1"/></body>"#
+        ));
+        assert!(
+            matches!(loaded, ModelError::BadAttribute { .. }),
+            "{attribute}: {loaded:?}"
+        );
+    }
+}
+
+#[test]
+fn refuses_a_euler_sequence_that_names_no_axes() {
+    for sequence in ["abc", "xy", "xyzz", ""] {
+        let xml = format!(
+            r#"<mujoco><compiler eulerseq="{sequence}"/><worldbody>
+                 <body euler="10 20 30"><inertial mass="1" diaginertia="1 1 1"/></body>
+               </worldbody></mujoco>"#
+        );
+        assert!(
+            matches!(load_str(&xml).unwrap_err(), ModelError::BadAttribute { .. }),
+            "eulerseq {sequence:?} was accepted"
+        );
+    }
 }
 
 #[test]

@@ -1,3 +1,4 @@
+mod algebra;
 mod free_joint;
 mod inertia;
 mod lie;

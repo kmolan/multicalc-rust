@@ -51,8 +51,14 @@ struct Sample<T: Numeric> {
     discrepancy: T,
 }
 
-/// Sweeps θ over `[lo, hi]` and returns the samples, highest θ first.
-fn sweep<T, F, G>(f: F, g: G, lo: T, hi: T, steps_per_octave: u64) -> Vec<Sample<T>>
+/// Sweeps θ over `[lower, upper]` and returns the samples, highest θ first.
+fn sweep<T, F, G>(
+    closed_form: F,
+    taylor: G,
+    lower: T,
+    upper: T,
+    steps_per_octave: u64,
+) -> Vec<Sample<T>>
 where
     T: Numeric,
     F: Fn(T) -> T,
@@ -61,11 +67,11 @@ where
     // theta decreases at diminishing step size
     let ratio = T::HALF.powf(T::ONE / T::from_u64(steps_per_octave));
     let mut samples = Vec::new();
-    let mut theta = hi;
-    while theta >= lo {
+    let mut theta = upper;
+    while theta >= lower {
         samples.push(Sample {
             theta,
-            discrepancy: (f(theta) - g(theta)).abs(),
+            discrepancy: (closed_form(theta) - taylor(theta)).abs(),
         });
         theta *= ratio;
     }
@@ -89,11 +95,11 @@ fn crossover<T: Numeric>(samples: &[Sample<T>], window: usize) -> T {
     // Max discrepancy, i, hi, lo
     let mut best = (T::INFINITY, T::NAN);
     for i in 0..samples.len() {
-        let lo = i.saturating_sub(window);
-        let hi = (i + window + 1).min(samples.len());
-        let envelope = samples[lo..hi]
+        let lower = i.saturating_sub(window);
+        let upper = (i + window + 1).min(samples.len());
+        let envelope = samples[lower..upper]
             .iter()
-            .fold(T::ZERO, |acc, s| acc.max(s.discrepancy));
+            .fold(T::ZERO, |acc, sample| acc.max(sample.discrepancy));
         if envelope < best.0 {
             best = (envelope, samples[i].theta);
         }
@@ -140,43 +146,45 @@ fn report<T: Numeric + std::fmt::LowerExp + std::fmt::Display>(
 }
 
 fn run_all<T: Scalar>(label: &str) {
-    let lo = T::from_f64(1.0e-9);
-    let hi = T::PI;
+    let lower = T::from_f64(1.0e-9);
+    let upper = T::PI;
     const PER_OCTAVE: u64 = 8;
 
-    println!("==={label}=== crossover of |closed form − Taylor|, swept θ ∈ [{lo:.0e}, {hi:.0e}]\n");
+    println!(
+        "==={label}=== crossover of |closed form − Taylor|, swept θ ∈ [{lower:.0e}, {upper:.0e}]\n"
+    );
 
     let thalf = T::from_f64(0.5);
-    let t1 = T::from_f64(1.0);
-    let t6 = T::from_f64(6.0);
-    let t8 = T::from_f64(8.0);
+    let one = T::from_f64(1.0);
+    let six = T::from_f64(6.0);
+    let eight = T::from_f64(8.0);
 
     // --- left_jacobian_so3 ------------------------------------------------
     report(
         "so3 c1",
         "(1 − cos θ)/θ²",
         &sweep(
-            |x| (t1 - x.cos()) / (x * x),
+            |x| (one - x.cos()) / (x * x),
             |x| thalf - x * x / T::from_f64(24.0),
-            lo,
-            hi,
+            lower,
+            upper,
             PER_OCTAVE,
         ),
         "(360ϵ)^(1/6)",
-        (T::from_f64(360.0) * T::EPSILON).powf(t1 / t6),
+        (T::from_f64(360.0) * T::EPSILON).powf(one / six),
     );
     report(
         "so3 c2",
         "(θ − sin θ)/θ³",
         &sweep(
             |x| (x - x.sin()) / (x * x * x),
-            |x| t1 / t6 - x * x / T::from_f64(120.0),
-            lo,
-            hi,
+            |x| one / six - x * x / T::from_f64(120.0),
+            lower,
+            upper,
             PER_OCTAVE,
         ),
         "(2520ϵ)^(1/6)",
-        (T::from_f64(2520.0) * T::EPSILON).powf(t1 / t6),
+        (T::from_f64(2520.0) * T::EPSILON).powf(one / six),
     );
 
     // --- inverse_left_jacobian_so3 ----------------------------------------
@@ -186,15 +194,15 @@ fn run_all<T: Scalar>(label: &str) {
         &sweep(
             |x| {
                 let h = x * thalf;
-                (t1 - h * (h.cos() / h.sin())) / (x * x)
+                (one - h * (h.cos() / h.sin())) / (x * x)
             },
-            |x| t1 / T::from_f64(12.0) + x * x / T::from_f64(720.0),
-            lo,
-            hi,
+            |x| one / T::from_f64(12.0) + x * x / T::from_f64(720.0),
+            lower,
+            upper,
             PER_OCTAVE,
         ),
         "(16*945ϵ)^(1/6)",
-        (T::from_f64(16.0) * T::from_f64(945.0) * T::EPSILON).powf(t1 / t6),
+        (T::from_f64(16.0) * T::from_f64(945.0) * T::EPSILON).powf(one / six),
     );
 
     // --- q_matrix_se3 -----------------------------------------------------
@@ -203,13 +211,13 @@ fn run_all<T: Scalar>(label: &str) {
         "(θ − sin θ)/θ³",
         &sweep(
             |x| (x - x.sin()) / (x * x * x),
-            |x| t1 / t6 - x * x / T::from_f64(120.0),
-            lo,
-            hi,
+            |x| one / six - x * x / T::from_f64(120.0),
+            lower,
+            upper,
             PER_OCTAVE,
         ),
         "(2520ϵ)^(1/6)",
-        (T::from_f64(2520.0) * T::EPSILON).powf(t1 / t6),
+        (T::from_f64(2520.0) * T::EPSILON).powf(one / six),
     );
     // NOTE: the series below is NOT the one in the source. The closed form
     // (1 − θ²/2 − cos θ)/θ⁴ expands to −1/24 + θ²/720, but `q_matrix_se3` codes
@@ -218,27 +226,27 @@ fn run_all<T: Scalar>(label: &str) {
         "q c3",
         "(1 − θ²/2 − cos θ)/θ⁴",
         &sweep(
-            |x| (t1 - x * x * thalf - x.cos()) / (x * x * x * x),
-            |x| -t1 / T::from_f64(24.0) + x * x / T::from_f64(720.0),
-            lo,
-            hi,
+            |x| (one - x * x * thalf - x.cos()) / (x * x * x * x),
+            |x| -one / T::from_f64(24.0) + x * x / T::from_f64(720.0),
+            lower,
+            upper,
             PER_OCTAVE,
         ),
         "(12*1680ϵ)^(1/8)",
-        (T::from_f64(12.0) * T::from_f64(1690.0) * T::EPSILON).powf(t1 / t8),
+        (T::from_f64(12.0) * T::from_f64(1690.0) * T::EPSILON).powf(one / eight),
     );
     report(
         "q c5",
         "(θ − sin θ − θ³/6)/θ⁵",
         &sweep(
-            |x| (x - x.sin() - x * x * x / t6) / (x * x * x * x * x),
-            |x| -t1 / T::from_f64(120.0) + x * x / T::from_f64(5040.0),
-            lo,
-            hi,
+            |x| (x - x.sin() - x * x * x / six) / (x * x * x * x * x),
+            |x| -one / T::from_f64(120.0) + x * x / T::from_f64(5040.0),
+            lower,
+            upper,
             PER_OCTAVE,
         ),
         "(0.5*9!ϵ)^(1/8)",
-        (T::from_f64(181_440.0) * T::EPSILON).powf(t1 / t8),
+        (T::from_f64(181_440.0) * T::EPSILON).powf(one / eight),
     );
 }
 

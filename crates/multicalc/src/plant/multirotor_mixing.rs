@@ -135,7 +135,7 @@ impl<const ROTOR_COUNT: usize, T: Numeric> MultirotorMixer<ROTOR_COUNT, T> {
         if !torque_per_thrust.is_finite()
             || !minimum_thrust.is_finite()
             || !maximum_thrust.is_finite()
-            || positions.iter().any(|p| !p.is_finite())
+            || positions.iter().any(|position| !position.is_finite())
         {
             return Err(PlantError::NonFinite);
         }

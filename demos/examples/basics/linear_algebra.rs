@@ -26,9 +26,9 @@ fn time<T>(iters: u32, mut f: impl FnMut() -> T) -> (T, f64) {
 #[must_use]
 fn max_abs<const R: usize, const C: usize>(a: Matrix<R, C>, b: Matrix<R, C>) -> f64 {
     let mut worst = 0.0f64;
-    for r in 0..R {
-        for c in 0..C {
-            worst = worst.max((a[(r, c)] - b[(r, c)]).abs());
+    for row in 0..R {
+        for col in 0..C {
+            worst = worst.max((a[(row, col)] - b[(row, col)]).abs());
         }
     }
     worst
@@ -72,16 +72,16 @@ fn lu_report<const N: usize>(a: Matrix<N, N>, label: &str) -> Result<(), CalcErr
 
     // The factorization is fallible, so the timed closure hands back the `Result` and `?` takes
     // it from there: a singular matrix stops the demo with a typed error instead of a panic.
-    let (factorization, ns) = time(50_000, || black_box(a).lu());
+    let (factorization, nanos) = time(50_000, || black_box(a).lu_decompose());
     let f = factorization?;
 
     // Reconstruction: row i of P·A is row perm[i] of A, and P·A == L·U.
     let perm = f.permutation();
-    let pa = Matrix::<N, N>::from_fn(|i, c| a[(perm[i], c)]);
-    let recon = max_abs(pa, f.l() * f.u());
+    let permuted = Matrix::<N, N>::from_fn(|i, col| a[(perm[i], col)]);
+    let recon = max_abs(permuted, f.lower() * f.upper());
 
     let residual = (a * f.solve(b) - b).norm();
-    println!("  {label:<14} {ns:>8.1} ns   PA-LU {recon:.1e}   residual {residual:.1e}");
+    println!("  {label:<14} {nanos:>8.1} ns   PA-LU {recon:.1e}   residual {residual:.1e}");
     Ok(())
 }
 
@@ -89,26 +89,26 @@ fn cholesky_report<const N: usize>(a: Matrix<N, N>, label: &str) -> Result<(), C
     let x_true = Vector::<N>::from_fn(|i| 1.0 + i as f64);
     let b = a * x_true;
 
-    let (factorization, ns) = time(50_000, || black_box(a).cholesky());
+    let (factorization, nanos) = time(50_000, || black_box(a).cholesky());
     let f = factorization?;
 
-    let l = f.l();
-    let recon = max_abs(a, l * l.transpose());
+    let lower_tri = f.lower();
+    let recon = max_abs(a, lower_tri * lower_tri.transpose());
 
     let x = f.solve(b);
     let residual = (a * x - b).norm();
     // Agreement with the general LU solve on the same system.
-    let lu_x = a.lu()?.solve(b);
+    let lu_x = a.lu_decompose()?.solve(b);
     let vs_lu = (0..N).map(|i| (x[i] - lu_x[i]).abs()).fold(0.0, f64::max);
 
     println!(
-        "  {label:<14} {ns:>8.1} ns   A-LLt {recon:.1e}   residual {residual:.1e}   vs LU {vs_lu:.1e}"
+        "  {label:<14} {nanos:>8.1} ns   A-LLt {recon:.1e}   residual {residual:.1e}   vs LU {vs_lu:.1e}"
     );
     Ok(())
 }
 
 fn symmetric_eigen_report<const N: usize>(a: Matrix<N, N>, label: &str) -> Result<(), CalcError> {
-    let (decomposition, ns) = time(20_000, || black_box(a).symmetric_eigendecomposition());
+    let (decomposition, nanos) = time(20_000, || black_box(a).symmetric_eigendecomposition());
     let f = decomposition?;
 
     let values = f.eigenvalues();
@@ -117,9 +117,9 @@ fn symmetric_eigen_report<const N: usize>(a: Matrix<N, N>, label: &str) -> Resul
     // Reconstruction: V·diag(λ)·Vᵀ == A.
     let recon = max_abs(
         a,
-        Matrix::<N, N>::from_fn(|r, c| {
+        Matrix::<N, N>::from_fn(|row, col| {
             (0..N)
-                .map(|k| vectors[(r, k)] * values[k] * vectors[(c, k)])
+                .map(|k| vectors[(row, k)] * values[k] * vectors[(col, k)])
                 .sum()
         }),
     );
@@ -128,15 +128,15 @@ fn symmetric_eigen_report<const N: usize>(a: Matrix<N, N>, label: &str) -> Resul
     let condition = f.condition_number();
 
     println!(
-        "  {label:<14} {ns:>8.1} ns   A-VLVt {recon:.1e}   VtV-I {right_angles:.1e}   cond {condition:.1e}"
+        "  {label:<14} {nanos:>8.1} ns   A-VLVt {recon:.1e}   VtV-I {right_angles:.1e}   cond {condition:.1e}"
     );
     Ok(())
 }
 
 fn inverse4_report(a: Matrix4D, label: &str) -> Result<(), CalcError> {
-    let (inverse, ns) = time(100_000, || black_box(a).inverse());
+    let (inverse, nanos) = time(100_000, || black_box(a).inverse());
     let identity_err = max_abs(a * inverse?, Matrix4D::identity());
-    println!("  {label:<14} {ns:>8.1} ns   identity err {identity_err:.1e}");
+    println!("  {label:<14} {nanos:>8.1} ns   identity err {identity_err:.1e}");
     Ok(())
 }
 
@@ -149,7 +149,7 @@ fn main() -> Result<(), CalcError> {
         let a = general::<4>();
         let x_true = Vector::<4>::from_fn(|i| 1.0 + i as f64);
         let b = a * x_true;
-        let x = a.lu()?.solve(b);
+        let x = a.lu_decompose()?.solve(b);
         assert!((a * x - b).norm() < 1e-9, "LU solve residual too large");
     }
 

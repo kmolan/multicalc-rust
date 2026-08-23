@@ -31,7 +31,7 @@ const ROTATIONAL_INERTIA: [[f64; 3]; 3] = [
 const TOLERANCE: f64 = 1e-12;
 
 #[must_use]
-fn x2() -> RobotModel {
+fn skydio_x2() -> RobotModel {
     let path =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../third_party/menagerie/skydio_x2/x2.xml");
     multicalc_robot_model::mjcf::load_path(&path).unwrap()
@@ -46,7 +46,7 @@ fn assert_close(actual: f64, expected: f64, label: &str) {
 
 #[test]
 fn reads_the_body_and_its_free_joint() {
-    let model = x2();
+    let model = skydio_x2();
 
     assert_eq!(model.name(), "Skydio X2");
     assert_eq!(model.body(0).unwrap().name(), "x2");
@@ -56,7 +56,7 @@ fn reads_the_body_and_its_free_joint() {
 
 #[test]
 fn reads_where_the_body_sits() {
-    let model = x2();
+    let model = skydio_x2();
     let body = model.body_named("x2").unwrap();
 
     let translation = body.pose().translation().into_array();
@@ -73,7 +73,7 @@ fn reads_where_the_body_sits() {
 
 #[test]
 fn works_the_mass_out_from_the_shapes() {
-    let model = x2();
+    let model = skydio_x2();
     let inertia = model.body_named("x2").unwrap().inertia().unwrap();
 
     assert_close(inertia.mass(), MASS, "mass");
@@ -86,7 +86,7 @@ fn works_the_mass_out_from_the_shapes() {
 
 #[test]
 fn works_out_how_hard_the_body_is_to_spin() {
-    let model = x2();
+    let model = skydio_x2();
     let inertia = model
         .body_named("x2")
         .unwrap()

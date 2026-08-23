@@ -15,11 +15,11 @@ budget and reports why it stopped as a `RootTermination`.
 ```rust
 use multicalc::{Bisection, Newton, NewtonSystem};
 use multicalc::{AutoDiffMulti, AutoDiffSingle};
-use multicalc::c;
+use multicalc::constant;
 use multicalc::{scalar_fn, scalar_fn_vec};
 
 // Bracket a scalar root: f(x) = x^2 - 2 on [0, 2].
-let f = scalar_fn!(|x| c(-2.0) + x * x);
+let f = scalar_fn!(|x| constant(-2.0) + x * x);
 let bracketed = Bisection::default().solve(&f, 0.0, 2.0).unwrap();   // ~ sqrt(2)
 
 // Newton with exact derivatives; damped Newton adds a backtracking line search.
@@ -30,7 +30,7 @@ let damped = Newton::<AutoDiffSingle>::default()
     .unwrap();
 
 // Square system: x^2 + y^2 = 4 and x*y = 1.
-let system = scalar_fn_vec!(|v: &[f64; 2]| [c(-4.0) + v[0] * v[0] + v[1] * v[1], c(-1.0) + v[0] * v[1]]);
+let system = scalar_fn_vec!(|v: &[f64; 2]| [constant(-4.0) + v[0] * v[0] + v[1] * v[1], constant(-1.0) + v[0] * v[1]]);
 let solved = NewtonSystem::<AutoDiffMulti>::default().solve(&system, &[1.5, 0.8]).unwrap();
 // solved.root ~ [1.9319, 0.5176]; solved.termination says which test converged
 ```

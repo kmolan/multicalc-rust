@@ -209,9 +209,9 @@ fn draw_from_remainders<T: Numeric>(
 /// Logs a normalized weight without letting linear underflow make it permanently impossible.
 fn recoverable_log_weight<T: Numeric>(weight: T) -> T {
     if weight == T::ZERO {
-        T::MIN_POSITIVE.ln()
+        T::MIN_POSITIVE.log()
     } else {
-        weight.ln()
+        weight.log()
     }
 }
 
@@ -411,12 +411,12 @@ where
         let initial_factor = initial_covariance
             .cholesky()
             .map_err(|_| EstimationError::NotPositiveDefinite)?
-            .l();
+            .lower();
 
         let process_noise_factor = process_noise
             .cholesky()
             .map_err(|_| EstimationError::NotPositiveDefinite)?
-            .l();
+            .lower();
 
         // Scatter the starting cloud around the mean: each particle is the mean plus the initial
         // factor applied to a vector of standard normal draws, which reshapes those draws to match
@@ -485,7 +485,7 @@ where
         self.process_noise_factor = process_noise
             .cholesky()
             .map_err(|_| EstimationError::NotPositiveDefinite)?
-            .l();
+            .lower();
         Ok(())
     }
 

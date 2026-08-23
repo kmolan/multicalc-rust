@@ -118,11 +118,11 @@ std::fs::write("unitree_go1.rs", model.to_rust_source(&options)?)?;
 
 | Construct | What is read |
 | --- | --- |
-| `<compiler>` | `angle`, `autolimits`, `inertiafromgeom` |
+| `<compiler>` | `angle`, `autolimits`, `inertiafromgeom`, `eulerseq` |
 | `<default>` | nested class blocks for `<geom>` and `<joint>`, plus `childclass` |
 | `<include>` | resolved relative to the including file |
-| `<worldbody>` / `<body>` | the tree, `pos`, `quat` |
-| `<inertial>` | `pos`, `quat`, `mass`, `diaginertia`, `fullinertia` |
+| `<worldbody>` / `<body>` | the tree, `pos`, and any one of `quat`, `euler`, `axisangle`, `xyaxes`, `zaxis` |
+| `<inertial>` | `pos`, the five orientation forms, `mass`, `diaginertia`, `fullinertia` |
 | `<joint>` | `hinge`, `slide`, with `axis`, `pos`, `range`, `limited`, `armature`, `damping`, `frictionloss`, `ref`, `springref`, `stiffness` |
 | `<freejoint>` | top body only |
 | `<geom>` | `sphere`, `ellipsoid`, `box`, `capsule`, `cylinder`, with `fromto` on the last two |
@@ -155,7 +155,7 @@ sorted and deduplicated.
 
 | | Skipped | Rejected |
 | --- | --- | --- |
-| MJCF | tendons, equality constraints, actuators, sensors, contact pairs, keyframes, assets, `<option>` | joints other than `hinge`/`slide`; a free joint off the root; several joints on one body; a mesh as a mass source; `euler`/`axisangle`/`xyaxes`/`zaxis` orientation; a limited joint with no `range`; a body with neither inertial nor mass-bearing geoms; a geom giving both `fromto` and `pos` |
+| MJCF | tendons, equality constraints, actuators, sensors, contact pairs, keyframes, assets, `<option>` | joints other than `hinge`/`slide`; a free joint off the root; several joints on one body; a mesh as a mass source; an element stating its orientation two ways at once; a limited joint with no `range`; a body with neither inertial nor mass-bearing geoms; a geom giving both `fromto` and `pos` |
 | URDF | top-level elements other than `<link>`/`<joint>` (`<transmission>`, `<gazebo>`, `<material>`); `<visual>`, `<collision>` and their `package://` meshes; `<safety_controller>` | `planar` and unrecognised joint types; `floating`; `revolute`/`prismatic` with no `<limit lower upper>`; a joint naming an undeclared link; a link claimed by two joints; zero or several root links; a cycle; an unparseable attribute; an `<inertial>` the core rejects, `mass="0"` included |
 
 `<visual>`, `<collision>` and `<safety_controller>` are link or joint children rather than top-level

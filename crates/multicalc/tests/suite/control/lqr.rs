@@ -13,9 +13,9 @@ fn double_integrator<T: Numeric>() -> (
     Matrix<2, 2, T>,
     Matrix<1, 1, T>,
 ) {
-    let dt = T::from_f64(0.1);
-    let state_transition = Matrix::new([[T::ONE, dt], [T::ZERO, T::ONE]]);
-    let input_model = Matrix::new([[T::from_f64(0.005)], [dt]]);
+    let timestep = T::from_f64(0.1);
+    let state_transition = Matrix::new([[T::ONE, timestep], [T::ZERO, T::ONE]]);
+    let input_model = Matrix::new([[T::from_f64(0.005)], [timestep]]);
     (
         state_transition,
         input_model,

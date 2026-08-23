@@ -37,6 +37,8 @@ pub enum DiffError {
     OrderUnsupported,
     /// A finite-difference step size of zero was supplied.
     StepSizeZero,
+    /// A finite-difference step size was negative, infinite, or NaN.
+    InvalidStepSize,
     /// A variable index was outside the bounds of the point array.
     IndexOutOfRange,
     /// An empty set of functions was supplied where at least one was required.
@@ -199,7 +201,7 @@ pub enum SignalError {
 pub enum ControlError {
     /// A gain, timestep, limit, or filter coefficient was infinite or NaN.
     NonFinite,
-    /// The control timestep `dt` was not strictly positive.
+    /// The control timestep `timestep` was not strictly positive.
     NonPositiveTimestep,
     /// Output saturation limits were given with minimum greater than maximum.
     InvalidOutputLimits,
@@ -301,7 +303,7 @@ pub enum MappingError {
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
 pub enum MotionError {
-    /// A waypoint coordinate was infinite or NaN.
+    /// A waypoint coordinate, distance or time was infinite or NaN.
     NonFinite,
     /// More waypoints were supplied than the path capacity allows.
     CapacityExceeded,
@@ -315,6 +317,10 @@ pub enum MotionError {
     DurationNotPositive,
     /// The planner holds fewer free derivatives than this many segments needs.
     WorkspaceTooSmall,
+    /// A speed, acceleration or jerk ceiling was zero, negative or not finite.
+    LimitNotPositive,
+    /// A jerk-limited profile was asked for without a jerk ceiling to work to.
+    JerkLimitRequired,
     /// The trajectory's linear system could not be factorized.
     Linalg(LinalgError),
     /// A polynomial the trajectory is built from could not be formed.
@@ -392,133 +398,133 @@ pub enum CalcError {
 }
 
 impl From<LinalgError> for SolveError {
-    fn from(e: LinalgError) -> Self {
-        SolveError::Linalg(e)
+    fn from(err: LinalgError) -> Self {
+        SolveError::Linalg(err)
     }
 }
 impl From<DiffError> for SolveError {
-    fn from(e: DiffError) -> Self {
-        SolveError::Diff(e)
+    fn from(err: DiffError) -> Self {
+        SolveError::Diff(err)
     }
 }
 impl From<LinalgError> for KinematicsError {
-    fn from(e: LinalgError) -> Self {
-        KinematicsError::Linalg(e)
+    fn from(err: LinalgError) -> Self {
+        KinematicsError::Linalg(err)
     }
 }
 impl From<DiffError> for EstimationError {
-    fn from(e: DiffError) -> Self {
-        EstimationError::Diff(e)
+    fn from(err: DiffError) -> Self {
+        EstimationError::Diff(err)
     }
 }
 impl From<LinalgError> for SignalError {
-    fn from(e: LinalgError) -> Self {
-        SignalError::Linalg(e)
+    fn from(err: LinalgError) -> Self {
+        SignalError::Linalg(err)
     }
 }
 impl From<LinalgError> for PolynomialError {
-    fn from(e: LinalgError) -> Self {
-        PolynomialError::Linalg(e)
+    fn from(err: LinalgError) -> Self {
+        PolynomialError::Linalg(err)
     }
 }
 impl From<LinalgError> for MotionError {
-    fn from(e: LinalgError) -> Self {
-        MotionError::Linalg(e)
+    fn from(err: LinalgError) -> Self {
+        MotionError::Linalg(err)
     }
 }
 impl From<PolynomialError> for MotionError {
-    fn from(e: PolynomialError) -> Self {
-        MotionError::Polynomial(e)
+    fn from(err: PolynomialError) -> Self {
+        MotionError::Polynomial(err)
     }
 }
 impl From<SignalError> for ControlError {
-    fn from(e: SignalError) -> Self {
-        ControlError::Signal(e)
+    fn from(err: SignalError) -> Self {
+        ControlError::Signal(err)
     }
 }
 impl From<LinalgError> for ControlError {
-    fn from(e: LinalgError) -> Self {
-        ControlError::Linalg(e)
+    fn from(err: LinalgError) -> Self {
+        ControlError::Linalg(err)
     }
 }
 impl From<LinalgError> for DynamicsError {
-    fn from(e: LinalgError) -> Self {
-        DynamicsError::Linalg(e)
+    fn from(err: LinalgError) -> Self {
+        DynamicsError::Linalg(err)
     }
 }
 impl From<LinalgError> for PlantError {
-    fn from(e: LinalgError) -> Self {
-        PlantError::Linalg(e)
+    fn from(err: LinalgError) -> Self {
+        PlantError::Linalg(err)
     }
 }
 impl From<LinalgError> for CalcError {
-    fn from(e: LinalgError) -> Self {
-        CalcError::Linalg(e)
+    fn from(err: LinalgError) -> Self {
+        CalcError::Linalg(err)
     }
 }
 impl From<DiffError> for CalcError {
-    fn from(e: DiffError) -> Self {
-        CalcError::Differentiate(e)
+    fn from(err: DiffError) -> Self {
+        CalcError::Differentiate(err)
     }
 }
 impl From<IntegrateError> for CalcError {
-    fn from(e: IntegrateError) -> Self {
-        CalcError::Integrate(e)
+    fn from(err: IntegrateError) -> Self {
+        CalcError::Integrate(err)
     }
 }
 impl From<SolveError> for CalcError {
-    fn from(e: SolveError) -> Self {
-        CalcError::Solve(e)
+    fn from(err: SolveError) -> Self {
+        CalcError::Solve(err)
     }
 }
 impl From<KinematicsError> for CalcError {
-    fn from(e: KinematicsError) -> Self {
-        CalcError::Kinematics(e)
+    fn from(err: KinematicsError) -> Self {
+        CalcError::Kinematics(err)
     }
 }
 impl From<SpatialError> for CalcError {
-    fn from(e: SpatialError) -> Self {
-        CalcError::Spatial(e)
+    fn from(err: SpatialError) -> Self {
+        CalcError::Spatial(err)
     }
 }
 impl From<EstimationError> for CalcError {
-    fn from(e: EstimationError) -> Self {
-        CalcError::Estimation(e)
+    fn from(err: EstimationError) -> Self {
+        CalcError::Estimation(err)
     }
 }
 impl From<SignalError> for CalcError {
-    fn from(e: SignalError) -> Self {
-        CalcError::Signal(e)
+    fn from(err: SignalError) -> Self {
+        CalcError::Signal(err)
     }
 }
 impl From<ControlError> for CalcError {
-    fn from(e: ControlError) -> Self {
-        CalcError::Control(e)
+    fn from(err: ControlError) -> Self {
+        CalcError::Control(err)
     }
 }
 impl From<DynamicsError> for CalcError {
-    fn from(e: DynamicsError) -> Self {
-        CalcError::Dynamics(e)
+    fn from(err: DynamicsError) -> Self {
+        CalcError::Dynamics(err)
     }
 }
 impl From<PlantError> for CalcError {
-    fn from(e: PlantError) -> Self {
-        CalcError::Plant(e)
+    fn from(err: PlantError) -> Self {
+        CalcError::Plant(err)
     }
 }
 impl From<MappingError> for CalcError {
-    fn from(e: MappingError) -> Self {
-        CalcError::Mapping(e)
+    fn from(err: MappingError) -> Self {
+        CalcError::Mapping(err)
     }
 }
 impl From<MotionError> for CalcError {
-    fn from(e: MotionError) -> Self {
-        CalcError::Motion(e)
+    fn from(err: MotionError) -> Self {
+        CalcError::Motion(err)
     }
 }
 impl From<PolynomialError> for CalcError {
-    fn from(e: PolynomialError) -> Self {
-        CalcError::Polynomial(e)
+    fn from(err: PolynomialError) -> Self {
+        CalcError::Polynomial(err)
     }
 }
 
@@ -549,6 +555,7 @@ impl core::fmt::Display for DiffError {
             DiffError::OrderZero => "derivative order cannot be zero",
             DiffError::OrderUnsupported => "derivative order is not supported",
             DiffError::StepSizeZero => "step size cannot be zero",
+            DiffError::InvalidStepSize => "step size must be finite and positive",
             DiffError::IndexOutOfRange => "variable index out of range",
             DiffError::EmptyFunctionSet => "function set cannot be empty",
         })
@@ -594,8 +601,8 @@ impl core::fmt::Display for SolveError {
             SolveError::InvalidBracket => {
                 f.write_str("bracket endpoints must enclose a sign change")
             }
-            SolveError::Linalg(e) => write!(f, "{e}"),
-            SolveError::Diff(e) => write!(f, "{e}"),
+            SolveError::Linalg(err) => write!(f, "{err}"),
+            SolveError::Diff(err) => write!(f, "{err}"),
         }
     }
 }
@@ -643,7 +650,7 @@ impl core::fmt::Display for KinematicsError {
             KinematicsError::CollisionCapacityExceeded => {
                 "more collision primitives or excluded pairs than the query can hold"
             }
-            KinematicsError::Linalg(e) => return write!(f, "{e}"),
+            KinematicsError::Linalg(err) => return write!(f, "{err}"),
         };
         f.write_str(text)
     }
@@ -671,7 +678,7 @@ impl core::fmt::Display for EstimationError {
                 f.write_str("innovation covariance is not positive definite")
             }
             EstimationError::NonFinite => f.write_str("filter value was not finite"),
-            EstimationError::Diff(e) => write!(f, "{e}"),
+            EstimationError::Diff(err) => write!(f, "{err}"),
             EstimationError::WeightsDegenerate => f.write_str("all particle weights were zero"),
             EstimationError::InvalidTuning => f.write_str("invalid filter tuning"),
             EstimationError::StateIndexOutOfRange => {
@@ -708,7 +715,7 @@ impl core::fmt::Display for SignalError {
             SignalError::SectionIndexOutOfRange => {
                 f.write_str("cascade section index out of range")
             }
-            SignalError::Linalg(e) => write!(f, "filter setup failed: {e}"),
+            SignalError::Linalg(err) => write!(f, "filter setup failed: {err}"),
         }
     }
 }
@@ -757,8 +764,8 @@ impl core::fmt::Display for ControlError {
             ControlError::UndefinedHeadingDirection => {
                 "the push is straight along the wanted heading, so the heading cannot be set"
             }
-            ControlError::Linalg(e) => return write!(f, "{e}"),
-            ControlError::Signal(e) => return write!(f, "{e}"),
+            ControlError::Linalg(err) => return write!(f, "{err}"),
+            ControlError::Signal(err) => return write!(f, "{err}"),
         })
     }
 }
@@ -770,7 +777,9 @@ impl core::fmt::Display for DynamicsError {
             DynamicsError::NonPositiveInertia => {
                 f.write_str("rotational inertia is not positive definite")
             }
-            DynamicsError::Linalg(e) => write!(f, "rotational inertia could not be inverted: {e}"),
+            DynamicsError::Linalg(err) => {
+                write!(f, "rotational inertia could not be inverted: {err}")
+            }
         }
     }
 }
@@ -793,7 +802,7 @@ impl core::fmt::Display for PlantError {
                 f.write_str("rotor lag time must be strictly positive")
             }
             PlantError::NonPositiveTimestep => f.write_str("tick length must be strictly positive"),
-            PlantError::Linalg(e) => write!(f, "rotor layout could not be inverted: {e}"),
+            PlantError::Linalg(err) => write!(f, "rotor layout could not be inverted: {err}"),
         }
     }
 }
@@ -824,7 +833,9 @@ impl core::fmt::Display for MappingError {
 impl core::fmt::Display for MotionError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            MotionError::NonFinite => f.write_str("waypoint coordinate was not finite"),
+            MotionError::NonFinite => {
+                f.write_str("waypoint coordinate, distance or time was not finite")
+            }
             MotionError::CapacityExceeded => {
                 f.write_str("more waypoints than the path capacity allows")
             }
@@ -841,8 +852,16 @@ impl core::fmt::Display for MotionError {
             MotionError::WorkspaceTooSmall => {
                 f.write_str("more segments than the planner's free-derivative capacity holds")
             }
-            MotionError::Linalg(e) => write!(f, "trajectory system could not be solved: {e}"),
-            MotionError::Polynomial(e) => write!(f, "trajectory piece could not be formed: {e}"),
+            MotionError::LimitNotPositive => {
+                f.write_str("a speed, acceleration or jerk ceiling was zero or negative")
+            }
+            MotionError::JerkLimitRequired => {
+                f.write_str("a jerk-limited profile needs a jerk ceiling")
+            }
+            MotionError::Linalg(err) => write!(f, "trajectory system could not be solved: {err}"),
+            MotionError::Polynomial(err) => {
+                write!(f, "trajectory piece could not be formed: {err}")
+            }
         }
     }
 }
@@ -878,8 +897,8 @@ impl core::fmt::Display for PolynomialError {
             PolynomialError::DidNotConverge { steps } => {
                 write!(f, "root isolation stopped after {steps} steps")
             }
-            PolynomialError::Linalg(e) => {
-                write!(f, "polynomial system could not be solved: {e}")
+            PolynomialError::Linalg(err) => {
+                write!(f, "polynomial system could not be solved: {err}")
             }
         }
     }
@@ -888,20 +907,20 @@ impl core::fmt::Display for PolynomialError {
 impl core::fmt::Display for CalcError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            CalcError::Linalg(e) => write!(f, "{e}"),
-            CalcError::Solve(e) => write!(f, "{e}"),
-            CalcError::Integrate(e) => write!(f, "{e}"),
-            CalcError::Differentiate(e) => write!(f, "{e}"),
-            CalcError::Kinematics(e) => write!(f, "{e}"),
-            CalcError::Spatial(e) => write!(f, "{e}"),
-            CalcError::Estimation(e) => write!(f, "{e}"),
-            CalcError::Signal(e) => write!(f, "{e}"),
-            CalcError::Control(e) => write!(f, "{e}"),
-            CalcError::Dynamics(e) => write!(f, "{e}"),
-            CalcError::Plant(e) => write!(f, "{e}"),
-            CalcError::Mapping(e) => write!(f, "{e}"),
-            CalcError::Motion(e) => write!(f, "{e}"),
-            CalcError::Polynomial(e) => write!(f, "{e}"),
+            CalcError::Linalg(err) => write!(f, "{err}"),
+            CalcError::Solve(err) => write!(f, "{err}"),
+            CalcError::Integrate(err) => write!(f, "{err}"),
+            CalcError::Differentiate(err) => write!(f, "{err}"),
+            CalcError::Kinematics(err) => write!(f, "{err}"),
+            CalcError::Spatial(err) => write!(f, "{err}"),
+            CalcError::Estimation(err) => write!(f, "{err}"),
+            CalcError::Signal(err) => write!(f, "{err}"),
+            CalcError::Control(err) => write!(f, "{err}"),
+            CalcError::Dynamics(err) => write!(f, "{err}"),
+            CalcError::Plant(err) => write!(f, "{err}"),
+            CalcError::Mapping(err) => write!(f, "{err}"),
+            CalcError::Motion(err) => write!(f, "{err}"),
+            CalcError::Polynomial(err) => write!(f, "{err}"),
         }
     }
 }
@@ -912,7 +931,7 @@ impl core::error::Error for IntegrateError {}
 impl core::error::Error for KinematicsError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
-            KinematicsError::Linalg(e) => Some(e),
+            KinematicsError::Linalg(err) => Some(err),
             _ => None,
         }
     }
@@ -923,7 +942,7 @@ impl core::error::Error for MappingError {}
 impl core::error::Error for DynamicsError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
-            DynamicsError::Linalg(e) => Some(e),
+            DynamicsError::Linalg(err) => Some(err),
             _ => None,
         }
     }
@@ -932,7 +951,7 @@ impl core::error::Error for DynamicsError {
 impl core::error::Error for PlantError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
-            PlantError::Linalg(e) => Some(e),
+            PlantError::Linalg(err) => Some(err),
             _ => None,
         }
     }
@@ -941,8 +960,8 @@ impl core::error::Error for PlantError {
 impl core::error::Error for MotionError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
-            MotionError::Linalg(e) => Some(e),
-            MotionError::Polynomial(e) => Some(e),
+            MotionError::Linalg(err) => Some(err),
+            MotionError::Polynomial(err) => Some(err),
             _ => None,
         }
     }
@@ -951,7 +970,7 @@ impl core::error::Error for MotionError {
 impl core::error::Error for PolynomialError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
-            PolynomialError::Linalg(e) => Some(e),
+            PolynomialError::Linalg(err) => Some(err),
             _ => None,
         }
     }
@@ -960,7 +979,7 @@ impl core::error::Error for PolynomialError {
 impl core::error::Error for SignalError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
-            SignalError::Linalg(e) => Some(e),
+            SignalError::Linalg(err) => Some(err),
             _ => None,
         }
     }
@@ -969,8 +988,8 @@ impl core::error::Error for SignalError {
 impl core::error::Error for ControlError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
-            ControlError::Signal(e) => Some(e),
-            ControlError::Linalg(e) => Some(e),
+            ControlError::Signal(err) => Some(err),
+            ControlError::Linalg(err) => Some(err),
             _ => None,
         }
     }
@@ -979,7 +998,7 @@ impl core::error::Error for ControlError {
 impl core::error::Error for EstimationError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
-            EstimationError::Diff(e) => Some(e),
+            EstimationError::Diff(err) => Some(err),
             _ => None,
         }
     }
@@ -988,8 +1007,8 @@ impl core::error::Error for EstimationError {
 impl core::error::Error for SolveError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
-            SolveError::Linalg(e) => Some(e),
-            SolveError::Diff(e) => Some(e),
+            SolveError::Linalg(err) => Some(err),
+            SolveError::Diff(err) => Some(err),
             _ => None,
         }
     }
@@ -998,20 +1017,20 @@ impl core::error::Error for SolveError {
 impl core::error::Error for CalcError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
-            CalcError::Linalg(e) => Some(e),
-            CalcError::Solve(e) => Some(e),
-            CalcError::Integrate(e) => Some(e),
-            CalcError::Differentiate(e) => Some(e),
-            CalcError::Kinematics(e) => Some(e),
-            CalcError::Spatial(e) => Some(e),
-            CalcError::Estimation(e) => Some(e),
-            CalcError::Signal(e) => Some(e),
-            CalcError::Control(e) => Some(e),
-            CalcError::Dynamics(e) => Some(e),
-            CalcError::Plant(e) => Some(e),
-            CalcError::Mapping(e) => Some(e),
-            CalcError::Motion(e) => Some(e),
-            CalcError::Polynomial(e) => Some(e),
+            CalcError::Linalg(err) => Some(err),
+            CalcError::Solve(err) => Some(err),
+            CalcError::Integrate(err) => Some(err),
+            CalcError::Differentiate(err) => Some(err),
+            CalcError::Kinematics(err) => Some(err),
+            CalcError::Spatial(err) => Some(err),
+            CalcError::Estimation(err) => Some(err),
+            CalcError::Signal(err) => Some(err),
+            CalcError::Control(err) => Some(err),
+            CalcError::Dynamics(err) => Some(err),
+            CalcError::Plant(err) => Some(err),
+            CalcError::Mapping(err) => Some(err),
+            CalcError::Motion(err) => Some(err),
+            CalcError::Polynomial(err) => Some(err),
         }
     }
 }

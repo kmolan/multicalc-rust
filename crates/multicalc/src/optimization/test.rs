@@ -23,9 +23,9 @@ fn lmpar_accepts_gauss_newton_inside_region() {
     let result = determine_lambda_and_parameter_update(&dls, &diag, 100.0, 0.0);
     assert_eq!(result.lambda, 0.0);
 
-    let (gn, _) = dls.solve_with_zero_diagonal();
+    let (gauss_newton, _) = dls.solve_with_zero_diagonal();
     for i in 0..3 {
-        assert!((result.step[i] - gn[i]).abs() < 1e-12);
+        assert!((result.step[i] - gauss_newton[i]).abs() < 1e-12);
     }
 }
 
@@ -36,8 +36,8 @@ fn lmpar_hits_trust_region_boundary() {
     let dls = PivotedQr::decompose(j).unwrap().into_damped(b);
 
     // Shrink the region below the Gauss-Newton length so damping is required.
-    let (gn, _) = dls.solve_with_zero_diagonal();
-    let delta = 0.5 * gn.norm();
+    let (gauss_newton, _) = dls.solve_with_zero_diagonal();
+    let delta = 0.5 * gauss_newton.norm();
     let result = determine_lambda_and_parameter_update(&dls, &diag, delta, 0.0);
 
     // Damping is positive and the step lands within 10% of the boundary.
@@ -48,8 +48,9 @@ fn lmpar_hits_trust_region_boundary() {
     // The step solves the damped normal equations (JᵀJ + λI) p = Jᵀb (D = I here).
     let jtj = j.transpose() * j;
     let jtb = j.transpose() * b;
-    let lhs = Matrix3D::from_fn(|r, c| jtj[(r, c)] + if r == c { result.lambda } else { 0.0 })
-        * result.step;
+    let lhs = Matrix3D::from_fn(|row, col| {
+        jtj[(row, col)] + if row == col { result.lambda } else { 0.0 }
+    }) * result.step;
     for i in 0..3 {
         assert!((lhs[i] - jtb[i]).abs() < 1e-10);
     }
@@ -60,11 +61,11 @@ fn lmpar_stronger_damping_shortens_step() {
     let (j, b) = sample_jacobian();
     let diag = [1.0, 1.0, 1.0];
     let dls = PivotedQr::decompose(j).unwrap().into_damped(b);
-    let (gn, _) = dls.solve_with_zero_diagonal();
+    let (gauss_newton, _) = dls.solve_with_zero_diagonal();
 
     // A tighter trust region yields a larger λ and a shorter step.
-    let loose = determine_lambda_and_parameter_update(&dls, &diag, 0.6 * gn.norm(), 0.0);
-    let tight = determine_lambda_and_parameter_update(&dls, &diag, 0.3 * gn.norm(), 0.0);
+    let loose = determine_lambda_and_parameter_update(&dls, &diag, 0.6 * gauss_newton.norm(), 0.0);
+    let tight = determine_lambda_and_parameter_update(&dls, &diag, 0.3 * gauss_newton.norm(), 0.0);
     assert!(tight.lambda > loose.lambda);
     assert!(tight.step.norm() < loose.step.norm());
 }

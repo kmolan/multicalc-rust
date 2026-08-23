@@ -27,12 +27,12 @@ fn solve() -> Result<(), CalcError> {
     let a = Matrix::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
     let b = Vector::new([7.0, 19.0, 49.0]);
 
-    let x = a.lu()?.solve(b);          // LinalgError -> CalcError
+    let x = a.lu_decompose()?.solve(b);          // LinalgError -> CalcError
     assert!((a * x - b).norm() < 1e-9);
 
     // A singular matrix returns `LinalgError::Singular` here rather than panicking.
     let singular = Matrix3D::<f64>::zeros();
-    assert!(singular.lu().is_err());
+    assert!(singular.lu_decompose().is_err());
 
     Ok(())
 }

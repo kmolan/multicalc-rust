@@ -150,12 +150,12 @@ impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
     /// # Examples
     /// ```
     /// use multicalc::approximation::QuadraticApproximator;
-    /// use multicalc::scalar::{c, ScalarFnN};
+    /// use multicalc::scalar::{ constant, ScalarFnN};
     /// use multicalc::scalar_fn;
     ///
     /// // e^(x/2) + sin(y) + 2z
     /// let function_to_approximate =
-    ///     scalar_fn!(|v: &[f64; 3]| (c(0.5) * v[0]).exp() + v[1].sin() + c(2.0) * v[2]);
+    ///     scalar_fn!(|v: &[f64; 3]| (constant(0.5) * v[0]).exp() + v[1].sin() + constant(2.0) * v[2]);
     ///
     /// let point = [0.0, 1.57, 10.0]; // the point we want to approximate around
     /// let approximator: QuadraticApproximator = QuadraticApproximator::default();

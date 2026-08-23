@@ -8,9 +8,9 @@ pub fn ground_grid(half_extent: f64, step: f64) -> Vec<Vec<[f64; 3]>> {
     let mut strips = Vec::new();
     let n = (half_extent / step) as i64;
     for k in -n..=n {
-        let c = k as f64 * step;
-        strips.push(vec![[c, -half_extent, 0.0], [c, half_extent, 0.0]]);
-        strips.push(vec![[-half_extent, c, 0.0], [half_extent, c, 0.0]]);
+        let coord = k as f64 * step;
+        strips.push(vec![[coord, -half_extent, 0.0], [coord, half_extent, 0.0]]);
+        strips.push(vec![[-half_extent, coord, 0.0], [half_extent, coord, 0.0]]);
     }
     strips
 }

@@ -295,8 +295,11 @@ impl FlightController {
         // sideways at full power, or straight up when neither was asked for. How nearly the two up
         // directions agree scales the push down to the part that lands where it was meant to, and
         // costs nothing once the body is pointing the right way.
-        let up: Vector3D<f64> = Vector::new([0.0, 0.0, 1.0]);
-        let alignment = orientation.act(up).dot(desired_attitude.act(up)).max(0.0);
+        let up_axis: Vector3D<f64> = Vector::new([0.0, 0.0, 1.0]);
+        let alignment = orientation
+            .act(up_axis)
+            .dot(desired_attitude.act(up_axis))
+            .max(0.0);
         let collective_thrust = thrust_command.thrust_force(self.mass) * alignment;
         let still = Vector::zeros();
         let torque =

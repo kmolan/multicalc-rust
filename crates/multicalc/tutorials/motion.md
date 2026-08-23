@@ -117,6 +117,69 @@ assert!((arrival[0] - 1.0).abs() < 1e-9);
 
 Demo: [minimum_snap_trajectory.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/minimum_snap_trajectory.rs).
 
+## Point-to-point profiles
+
+`PolylinePath` says where to go and `MinimumSnapPlanner` says how to get smoothly through a set of
+waypoints. A profile answers a different question: how to get from here to there as fast as the
+hardware allows and no faster.
+
+- `ProfileLimits::try_new(speed, acceleration, jerk)`: the limits, jerk optional. Any of them zero,
+  negative or not finite gives [`MotionError::LimitNotPositive`].
+- `ProfileStrategy`: `Automatic` (the default), `Trapezoidal`, `JerkLimited`, set with
+  `with_strategy`. `Automatic` reads the limits — a jerk limit means seven phases, none means three.
+- `MotionProfilePlanner::new(limits).plan(distance)`: the planned move. A negative distance moves the
+  other way; zero gives a profile of no duration.
+- `MotionProfile`: `duration`, `distance`, `peak_speed`, `phase_durations`, `state_at`,
+  `stretched_to`.
+- `SynchronizedProfile::from_profiles` / `try_from_profiles_over`: several axes finishing together.
+  A requested duration shorter than the slowest axis needs is replaced by that axis's duration rather
+  than refused, so read `duration()` back if it matters.
+
+The seven phases are: ease the acceleration in, hold it, ease it out, hold the speed, ease the
+deceleration in, hold it, ease it out. A trapezoid is the same seven with the four jerk phases
+lasting no time, its acceleration stepping where the jerk-limited shape ramps. `state_at` is
+right-continuous, so a trapezoid reports full acceleration at `t = 0`.
+
+**Planning is the one-off cost, `state_at` the per-tick one** — but unlike minimum snap, both are
+bounded: planning is a fixed handful of square and cube roots with nothing to factorize, and
+`state_at` walks at most seven phases and evaluates one cubic. Either is safe on a chip. A
+`MotionProfile<f64>` is 296 bytes.
+
+```rust
+use multicalc::motion::{MotionProfilePlanner, ProfileLimits, SynchronizedProfile};
+
+// Ten metres, no faster than 2 m/s, no harder than 1 m/s², easing at 2 m/s³.
+let limits = ProfileLimits::<f64>::try_new(2.0, 1.0, Some(2.0)).unwrap();
+let profile = MotionProfilePlanner::new(limits).plan(10.0).unwrap();
+
+assert!((profile.duration() - 7.5).abs() < 1e-12);          // 7.5 s in all
+assert!((profile.peak_speed() - 2.0).abs() < 1e-12);        // at the speed limit
+
+// What a control loop asks for, once a tick.
+let state = profile.state_at(3.75).unwrap();
+assert!((state.velocity - 2.0).abs() < 1e-12);              // mid-cruise
+assert!(state.acceleration.abs() < 1e-12);
+
+// Two joints with different limits, made to finish together.
+let fast = MotionProfilePlanner::new(ProfileLimits::<f64>::try_new(2.0, 1.0, None).unwrap());
+let slow = MotionProfilePlanner::new(ProfileLimits::<f64>::try_new(0.5, 1.0, None).unwrap());
+let both = SynchronizedProfile::from_profiles([
+    fast.plan(1.0).unwrap(),
+    slow.plan(1.0).unwrap(),
+]);
+
+let end = both.state_at(both.duration()).unwrap();
+assert!((end.position[0] - 1.0).abs() < 1e-12);
+assert!((end.position[1] - 1.0).abs() < 1e-12);
+```
+
+`plan` reports [`MotionError::NonFinite`] for a distance that is not finite and
+[`MotionError::JerkLimitRequired`] for `ProfileStrategy::JerkLimited` against limits with no jerk
+ceiling; `state_at` reports [`MotionError::NonFinite`] for a time that is not finite;
+`try_from_profiles_over` reports [`MotionError::DurationNotPositive`].
+
+Demo: [motion_profiles.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/motion_profiles.rs).
+
 
 ---
 

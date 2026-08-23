@@ -9,9 +9,8 @@ use std::collections::HashMap;
 use roxmltree::Node;
 
 use crate::ModelError;
-use crate::xml::{
-    elements, fixed, parse_list, parse_scalar, parse_vector2, parse_vector3, parse_vector4,
-};
+use crate::mjcf::orientation::Orientation;
+use crate::xml::{elements, fixed, parse_list, parse_scalar, parse_vector2, parse_vector3};
 
 /// Geom settings from one default class. `None` means unset at this level.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -20,7 +19,7 @@ pub(crate) struct GeomDefaults {
     pub size: Option<Vec<f64>>,
     pub fromto: Option<[f64; 6]>,
     pub pos: Option<[f64; 3]>,
-    pub quat: Option<[f64; 4]>,
+    pub orientation: Orientation,
     pub mass: Option<f64>,
     pub density: Option<f64>,
 }
@@ -33,7 +32,7 @@ impl GeomDefaults {
             size: parse_list(node, "size")?,
             fromto: fixed::<6>(node, "fromto")?,
             pos: parse_vector3(node, "pos")?,
-            quat: parse_vector4(node, "quat")?,
+            orientation: Orientation::read(node)?,
             mass: parse_scalar(node, "mass")?,
             density: parse_scalar(node, "density")?,
         })
@@ -47,7 +46,7 @@ impl GeomDefaults {
             size: other.size.clone().or_else(|| self.size.clone()),
             fromto: other.fromto.or(self.fromto),
             pos: other.pos.or(self.pos),
-            quat: other.quat.or(self.quat),
+            orientation: self.orientation.overridden_by(other.orientation),
             mass: other.mass.or(self.mass),
             density: other.density.or(self.density),
         }
@@ -166,20 +165,4 @@ impl DefaultTable {
         }
         Ok(())
     }
-}
-
-/// Orientation attributes this reader does not handle; only `pos`/`quat` are read.
-const UNSUPPORTED_ORIENTATION_ATTRIBUTES: [&str; 4] = ["euler", "axisangle", "xyaxes", "zaxis"];
-
-/// Rejects an element stating orientation other than by `quat`.
-pub(crate) fn reject_orientation_attributes(node: Node, element: &str) -> Result<(), ModelError> {
-    for attribute in UNSUPPORTED_ORIENTATION_ATTRIBUTES {
-        if node.has_attribute(attribute) {
-            return Err(ModelError::UnsupportedOrientation {
-                element: element.to_owned(),
-                attribute: attribute.to_owned(),
-            });
-        }
-    }
-    Ok(())
 }

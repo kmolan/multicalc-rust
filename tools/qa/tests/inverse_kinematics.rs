@@ -42,17 +42,18 @@ fn row3(data: &[f64], columns: usize, index: usize) -> Vector3D<f64> {
 }
 
 /// The model the fixture carries, built as a tree, with the joint count it was written for.
-fn tree_from_fixture(fx: &Fixture) -> (KinematicTree<MAX_JOINTS, MAX_JOINTS, f64>, usize) {
-    let case = fx.case.as_str();
+fn tree_from_fixture(fixture: &Fixture) -> (KinematicTree<MAX_JOINTS, MAX_JOINTS, f64>, usize) {
+    let case = fixture.case.as_str();
 
-    let kinds: Vec<char> = fx.inputs["joint_kinds"].as_str().chars().collect();
-    let parents = fx.inputs["parents"].as_vector();
-    let zero_offsets = fx.inputs["zero_offsets"].as_vector();
-    let (_, origin_position_columns, origin_positions) = fx.inputs["origin_positions"].as_matrix();
+    let kinds: Vec<char> = fixture.inputs["joint_kinds"].as_str().chars().collect();
+    let parents = fixture.inputs["parents"].as_vector();
+    let zero_offsets = fixture.inputs["zero_offsets"].as_vector();
+    let (_, origin_position_columns, origin_positions) =
+        fixture.inputs["origin_positions"].as_matrix();
     let (_, origin_quaternion_columns, origin_quaternions) =
-        fx.inputs["origin_quaternions"].as_matrix();
-    let (_, axis_columns, axes) = fx.inputs["axes"].as_matrix();
-    let (_, anchor_columns, anchors) = fx.inputs["anchors"].as_matrix();
+        fixture.inputs["origin_quaternions"].as_matrix();
+    let (_, axis_columns, axes) = fixture.inputs["axes"].as_matrix();
+    let (_, anchor_columns, anchors) = fixture.inputs["anchors"].as_matrix();
     let joint_count = kinds.len();
 
     assert!(
@@ -89,14 +90,14 @@ fn tree_from_fixture(fx: &Fixture) -> (KinematicTree<MAX_JOINTS, MAX_JOINTS, f64
             other => unreachable!("{case}: joint {index} has kind {other:?}"),
         });
         joint_parents.push(match parents[index] {
-            p if p < 0.0 => JointParent::World,
-            p => JointParent::Joint(p as usize),
+            parent if parent < 0.0 => JointParent::World,
+            parent => JointParent::Joint(parent as usize),
         });
     }
 
     let tree =
         KinematicTree::<MAX_JOINTS, MAX_JOINTS, f64>::try_from_joints(&joints, &joint_parents)
-            .unwrap_or_else(|e| unreachable!("{case}: building the tree: {e}"));
+            .unwrap_or_else(|err| unreachable!("{case}: building the tree: {err}"));
     (tree, joint_count)
 }
 
@@ -118,23 +119,23 @@ fn pose_from(position: &[f64], quaternion: &[f64], what: &str) -> SE3<f64> {
 
 #[test]
 fn inverse_kinematics_matches_mink() {
-    for fx in load_dir("inverse_kinematics") {
+    for fixture in load_dir("inverse_kinematics") {
         // A bespoke fixture whose configuration is not one scalar per joint slot (a floating
         // base's is seven-wide) — checked by its own test below instead of this shared loop.
-        if fx.case == "unitree_go1_floating_base_ik" {
+        if fixture.case == "unitree_go1_floating_base_ik" {
             continue;
         }
-        let case = fx.case.as_str();
-        let tolerance = fx.tolerances.f64;
-        let (tree, joint_count) = tree_from_fixture(&fx);
+        let case = fixture.case.as_str();
+        let tolerance = fixture.tolerances.f64;
+        let (tree, joint_count) = tree_from_fixture(&fixture);
 
-        let tool_index = fx.inputs["tool_index"].as_int() as usize;
+        let tool_index = fixture.inputs["tool_index"].as_int() as usize;
         let target = pose_from(
-            &fx.inputs["target_position"].as_vector(),
-            &fx.inputs["target_quaternion"].as_vector(),
+            &fixture.inputs["target_position"].as_vector(),
+            &fixture.inputs["target_quaternion"].as_vector(),
             case,
         );
-        let seed = padded(&fx.inputs["seed"].as_vector());
+        let seed = padded(&fixture.inputs["seed"].as_vector());
 
         // Driven to the same residual the golden was, so a configuration comparison reflects the
         // two solvers disagreeing rather than either one stopping early.
@@ -142,12 +143,12 @@ fn inverse_kinematics_matches_mink() {
             .with_position_tolerance(1e-9)
             .with_orientation_tolerance(1e-9)
             .solve(&tree, tool_index, target, &seed)
-            .unwrap_or_else(|e| unreachable!("{case}: {e}"));
+            .unwrap_or_else(|err| unreachable!("{case}: {err}"));
 
         // mink only ever writes a fixture for a solve it converged, so the crate's solver has to
         // converge too.
         assert_eq!(
-            fx.expected["converged"].as_int(),
+            fixture.expected["converged"].as_int(),
             1,
             "{case}: fixture holds a solve that did not converge"
         );
@@ -162,13 +163,13 @@ fn inverse_kinematics_matches_mink() {
         // The pose reached is the property both solvers must agree on, whichever configuration
         // each of them picked to get there.
         let reached = pose_from(
-            &fx.expected["reached_position"].as_vector(),
-            &fx.expected["reached_quaternion"].as_vector(),
+            &fixture.expected["reached_position"].as_vector(),
+            &fixture.expected["reached_quaternion"].as_vector(),
             case,
         );
         let solved = tree
             .forward_kinematics(&report.joint_positions)
-            .unwrap_or_else(|e| unreachable!("{case}: resolving the answer: {e}"))
+            .unwrap_or_else(|err| unreachable!("{case}: resolving the answer: {err}"))
             .pose(tool_index)
             .unwrap_or_else(|| unreachable!("{case}: no pose at the tool index"));
 
@@ -194,7 +195,7 @@ fn inverse_kinematics_matches_mink() {
         );
 
         // Only the non-redundant, closely-seeded case carries a configuration to compare.
-        if let Some(want_readings) = fx.expected.get("joint_positions") {
+        if let Some(want_readings) = fixture.expected.get("joint_positions") {
             let want_readings = want_readings.as_vector();
             for (index, want) in want_readings.iter().take(joint_count).enumerate() {
                 let got = report.joint_positions.get(index).copied().unwrap_or(0.0);
@@ -219,30 +220,30 @@ fn inverse_kinematics_matches_mink() {
 /// so there is no configuration golden to pin.
 #[test]
 fn unitree_go1_inverse_kinematics_matches_mink() {
-    let fx = load_dir("inverse_kinematics")
+    let fixture = load_dir("inverse_kinematics")
         .into_iter()
-        .find(|fx| fx.case == "unitree_go1_floating_base_ik")
+        .find(|fixture| fixture.case == "unitree_go1_floating_base_ik")
         .unwrap_or_else(|| unreachable!("fixture unitree_go1_floating_base_ik is missing"));
-    let case = fx.case.as_str();
-    let tolerance = fx.tolerances.f64;
+    let case = fixture.case.as_str();
+    let tolerance = fixture.tolerances.f64;
 
-    let path = menagerie().join(fx.inputs["model_file"].as_str());
+    let path = menagerie().join(fixture.inputs["model_file"].as_str());
     let model = multicalc_robot_model::mjcf::load_path(&path)
-        .unwrap_or_else(|e| unreachable!("{case}: loading {path:?}: {e}"));
+        .unwrap_or_else(|err| unreachable!("{case}: loading {path:?}: {err}"));
     let tree = model
         .kinematic_tree::<13, 19>()
-        .unwrap_or_else(|e| unreachable!("{case}: building the tree: {e}"));
+        .unwrap_or_else(|err| unreachable!("{case}: building the tree: {err}"));
     let tool_index = model
         .bodies()
         .iter()
         .position(|body| body.name() == "FR_calf")
         .unwrap_or_else(|| unreachable!("{case}: model has no body called FR_calf"));
 
-    let seed_values = fx.inputs["seed"].as_vector();
+    let seed_values = fixture.inputs["seed"].as_vector();
     let seed = Vector::<19, f64>::from_fn(|index| seed_values[index]);
     let target = pose_from(
-        &fx.inputs["target_position"].as_vector(),
-        &fx.inputs["target_quaternion"].as_vector(),
+        &fixture.inputs["target_position"].as_vector(),
+        &fixture.inputs["target_quaternion"].as_vector(),
         case,
     );
 
@@ -252,10 +253,10 @@ fn unitree_go1_inverse_kinematics_matches_mink() {
         .with_position_tolerance(1e-9)
         .with_orientation_tolerance(1e-9)
         .solve(&tree, tool_index, target, &seed)
-        .unwrap_or_else(|e| unreachable!("{case}: {e}"));
+        .unwrap_or_else(|err| unreachable!("{case}: {err}"));
 
     assert_eq!(
-        fx.expected["converged"].as_int(),
+        fixture.expected["converged"].as_int(),
         1,
         "{case}: fixture holds a solve that did not converge"
     );
@@ -268,13 +269,13 @@ fn unitree_go1_inverse_kinematics_matches_mink() {
     );
 
     let reached = pose_from(
-        &fx.expected["reached_position"].as_vector(),
-        &fx.expected["reached_quaternion"].as_vector(),
+        &fixture.expected["reached_position"].as_vector(),
+        &fixture.expected["reached_quaternion"].as_vector(),
         case,
     );
     let solved = tree
         .forward_kinematics(&report.joint_positions)
-        .unwrap_or_else(|e| unreachable!("{case}: resolving the answer: {e}"))
+        .unwrap_or_else(|err| unreachable!("{case}: resolving the answer: {err}"))
         .pose(tool_index)
         .unwrap_or_else(|| unreachable!("{case}: no pose at the tool index"));
 

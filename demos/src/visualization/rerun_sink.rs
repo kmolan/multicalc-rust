@@ -8,10 +8,10 @@ use rerun::RecordingStreamBuilder;
 use std::path::Path;
 
 /// Maps our plain `Rgba` arrays to Rerun colors for a `with_colors` call.
-fn colors_iter(colors: &[Rgba]) -> impl Iterator<Item = rerun::Color> + '_ {
+fn colors_iter<'colors>(colors: &'colors [Rgba]) -> impl Iterator<Item = rerun::Color> + 'colors {
     colors
         .iter()
-        .map(|c| rerun::Color::from_unmultiplied_rgba(c[0], c[1], c[2], c[3]))
+        .map(|rgba| rerun::Color::from_unmultiplied_rgba(rgba[0], rgba[1], rgba[2], rgba[3]))
 }
 
 /// A sink backed by a Rerun recording stream.
@@ -34,7 +34,7 @@ impl RerunSink {
             Err(_) if std::env::var_os("WSL_DISTRO_NAME").is_some() => builder.connect_grpc(),
             Err(_) => builder.spawn(),
         }
-        .map_err(|e| VizError::Backend(e.to_string()))?;
+        .map_err(|err| VizError::Backend(err.to_string()))?;
         Ok(Self {
             stream,
             always_static: false,
@@ -45,7 +45,7 @@ impl RerunSink {
     pub fn record(app_id: &str, path: impl AsRef<Path>) -> Result<Self, VizError> {
         let stream = RecordingStreamBuilder::new(app_id.to_owned())
             .save(path.as_ref().to_path_buf())
-            .map_err(|e| VizError::Backend(e.to_string()))?;
+            .map_err(|err| VizError::Backend(err.to_string()))?;
         Ok(Self {
             stream,
             always_static: false,
@@ -59,7 +59,7 @@ impl RerunSink {
     fn emit<A: rerun::AsComponents>(&self, path: &str, archetype: &A) -> Result<(), VizError> {
         self.stream
             .log_with_static(path, self.always_static, archetype)
-            .map_err(|e| VizError::Backend(e.to_string()))
+            .map_err(|err| VizError::Backend(err.to_string()))
     }
 }
 
@@ -80,21 +80,24 @@ impl VizSink for RerunSink {
         self.emit(path, &rerun::Scalars::new(values.to_vec()))
     }
 
-    fn points2d(&mut self, path: &str, xy: &[[f64; 2]]) -> Result<(), VizError> {
-        let pts: Vec<[f32; 2]> = xy.iter().map(|p| [p[0] as f32, p[1] as f32]).collect();
+    fn points2d(&mut self, path: &str, points_xy: &[[f64; 2]]) -> Result<(), VizError> {
+        let pts: Vec<[f32; 2]> = points_xy
+            .iter()
+            .map(|point| [point[0] as f32, point[1] as f32])
+            .collect();
         self.emit(path, &rerun::Points2D::new(pts))
     }
 
     fn points3d(&mut self, path: &str, xyz: &[[f64; 3]]) -> Result<(), VizError> {
         let pts: Vec<[f32; 3]> = xyz
             .iter()
-            .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .map(|point| [point[0] as f32, point[1] as f32, point[2] as f32])
             .collect();
         self.emit(path, &rerun::Points3D::new(pts))
     }
 
     fn tensor(&mut self, path: &str, shape: [usize; 2], data: &[f64]) -> Result<(), VizError> {
-        let data_f32: Vec<f32> = data.iter().map(|&v| v as f32).collect();
+        let data_f32: Vec<f32> = data.iter().map(|&value| value as f32).collect();
         let tensor_data = rerun::datatypes::TensorData::new(
             vec![shape[0] as u64, shape[1] as u64],
             rerun::datatypes::TensorBuffer::F32(data_f32.into()),
@@ -105,11 +108,14 @@ impl VizSink for RerunSink {
     fn points2d_styled(
         &mut self,
         path: &str,
-        xy: &[[f64; 2]],
+        points_xy: &[[f64; 2]],
         colors: &[Rgba],
         radii: &[f32],
     ) -> Result<(), VizError> {
-        let pts: Vec<[f32; 2]> = xy.iter().map(|p| [p[0] as f32, p[1] as f32]).collect();
+        let pts: Vec<[f32; 2]> = points_xy
+            .iter()
+            .map(|point| [point[0] as f32, point[1] as f32])
+            .collect();
         let arch = rerun::Points2D::new(pts)
             .with_colors(colors_iter(colors))
             .with_radii(radii.iter().copied());
@@ -119,12 +125,15 @@ impl VizSink for RerunSink {
     fn points2d_labeled(
         &mut self,
         path: &str,
-        xy: &[[f64; 2]],
+        points_xy: &[[f64; 2]],
         colors: &[Rgba],
         radii: &[f32],
         labels: &[&str],
     ) -> Result<(), VizError> {
-        let pts: Vec<[f32; 2]> = xy.iter().map(|p| [p[0] as f32, p[1] as f32]).collect();
+        let pts: Vec<[f32; 2]> = points_xy
+            .iter()
+            .map(|point| [point[0] as f32, point[1] as f32])
+            .collect();
         let arch = rerun::Points2D::new(pts)
             .with_colors(colors_iter(colors))
             .with_radii(radii.iter().copied())
@@ -142,7 +151,7 @@ impl VizSink for RerunSink {
     ) -> Result<(), VizError> {
         let pts: Vec<[f32; 3]> = xyz
             .iter()
-            .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .map(|point| [point[0] as f32, point[1] as f32, point[2] as f32])
             .collect();
         let arch = rerun::Points3D::new(pts)
             .with_colors(colors_iter(colors))
@@ -159,7 +168,12 @@ impl VizSink for RerunSink {
     ) -> Result<(), VizError> {
         let strips_f32: Vec<Vec<[f32; 2]>> = strips
             .iter()
-            .map(|s| s.iter().map(|p| [p[0] as f32, p[1] as f32]).collect())
+            .map(|strip| {
+                strip
+                    .iter()
+                    .map(|point| [point[0] as f32, point[1] as f32])
+                    .collect()
+            })
             .collect();
         let arch = rerun::LineStrips2D::new(strips_f32)
             .with_colors(colors_iter(colors))
@@ -176,9 +190,10 @@ impl VizSink for RerunSink {
     ) -> Result<(), VizError> {
         let strips_f32: Vec<Vec<[f32; 3]>> = strips
             .iter()
-            .map(|s| {
-                s.iter()
-                    .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .map(|strip| {
+                strip
+                    .iter()
+                    .map(|point| [point[0] as f32, point[1] as f32, point[2] as f32])
                     .collect()
             })
             .collect();
@@ -194,7 +209,7 @@ impl VizSink for RerunSink {
         translation: [f64; 3],
         quat_wxyz: [f64; 4],
     ) -> Result<(), VizError> {
-        let t = [
+        let translation_f32 = [
             translation[0] as f32,
             translation[1] as f32,
             translation[2] as f32,
@@ -206,7 +221,7 @@ impl VizSink for RerunSink {
             quat_wxyz[3] as f32,
             quat_wxyz[0] as f32,
         ]);
-        let arch = rerun::Transform3D::from_translation_rotation(t, rot);
+        let arch = rerun::Transform3D::from_translation_rotation(translation_f32, rot);
         self.emit(path, &arch)
     }
 
@@ -218,24 +233,24 @@ impl VizSink for RerunSink {
         normals: &[[f64; 3]],
         colors: &[Rgba],
     ) -> Result<(), VizError> {
-        let v: Vec<[f32; 3]> = vertices
+        let positions: Vec<[f32; 3]> = vertices
             .iter()
-            .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .map(|point| [point[0] as f32, point[1] as f32, point[2] as f32])
             .collect();
-        let n: Vec<[f32; 3]> = normals
+        let vertex_normals: Vec<[f32; 3]> = normals
             .iter()
-            .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .map(|point| [point[0] as f32, point[1] as f32, point[2] as f32])
             .collect();
-        let arch = rerun::Mesh3D::new(v)
+        let arch = rerun::Mesh3D::new(positions)
             .with_triangle_indices(triangles.iter().copied())
-            .with_vertex_normals(n)
+            .with_vertex_normals(vertex_normals)
             .with_vertex_colors(colors_iter(colors));
         self.emit(path, &arch)
     }
 
     fn model3d(&mut self, path: &str, file_path: &std::path::Path) -> Result<(), VizError> {
         let asset = rerun::Asset3D::from_file_path(file_path)
-            .map_err(|e| VizError::Backend(e.to_string()))?;
+            .map_err(|err| VizError::Backend(err.to_string()))?;
         self.emit(path, &asset)
     }
 
@@ -246,7 +261,7 @@ impl VizSink for RerunSink {
         quat_wxyz: [f64; 4],
         scale: f64,
     ) -> Result<(), VizError> {
-        let t = [
+        let translation_f32 = [
             translation[0] as f32,
             translation[1] as f32,
             translation[2] as f32,
@@ -258,7 +273,8 @@ impl VizSink for RerunSink {
             quat_wxyz[3] as f32,
             quat_wxyz[0] as f32,
         ]);
-        let arch = rerun::Transform3D::from_translation_rotation_scale(t, rot, scale as f32);
+        let arch =
+            rerun::Transform3D::from_translation_rotation_scale(translation_f32, rot, scale as f32);
         self.emit(path, &arch)
     }
 
@@ -269,16 +285,16 @@ impl VizSink for RerunSink {
         half_sizes: &[[f64; 3]],
         colors: &[Rgba],
     ) -> Result<(), VizError> {
-        let c: Vec<[f32; 3]> = centers
+        let centers_f32: Vec<[f32; 3]> = centers
             .iter()
-            .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .map(|point| [point[0] as f32, point[1] as f32, point[2] as f32])
             .collect();
         let h: Vec<[f32; 3]> = half_sizes
             .iter()
-            .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .map(|point| [point[0] as f32, point[1] as f32, point[2] as f32])
             .collect();
-        let arch =
-            rerun::Boxes3D::from_centers_and_half_sizes(c, h).with_colors(colors_iter(colors));
+        let arch = rerun::Boxes3D::from_centers_and_half_sizes(centers_f32, h)
+            .with_colors(colors_iter(colors));
         self.emit(path, &arch)
     }
 
@@ -289,16 +305,16 @@ impl VizSink for RerunSink {
         vectors: &[[f64; 3]],
         colors: &[Rgba],
     ) -> Result<(), VizError> {
-        let o: Vec<[f32; 3]> = origins
+        let origins_f32: Vec<[f32; 3]> = origins
             .iter()
-            .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .map(|point| [point[0] as f32, point[1] as f32, point[2] as f32])
             .collect();
-        let v: Vec<[f32; 3]> = vectors
+        let vectors_f32: Vec<[f32; 3]> = vectors
             .iter()
-            .map(|p| [p[0] as f32, p[1] as f32, p[2] as f32])
+            .map(|point| [point[0] as f32, point[1] as f32, point[2] as f32])
             .collect();
-        let arch = rerun::Arrows3D::from_vectors(v)
-            .with_origins(o)
+        let arch = rerun::Arrows3D::from_vectors(vectors_f32)
+            .with_origins(origins_f32)
             .with_colors(colors_iter(colors));
         self.emit(path, &arch)
     }
@@ -331,7 +347,7 @@ impl VizSink for RerunSink {
             .with_widths([width]);
         self.stream
             .log_static(path, &arch)
-            .map_err(|e| VizError::Backend(e.to_string()))
+            .map_err(|err| VizError::Backend(err.to_string()))
     }
 
     fn series_styles(
@@ -347,12 +363,12 @@ impl VizSink for RerunSink {
             .with_widths(std::iter::repeat_n(width, names.len()));
         self.stream
             .log_static(path, &arch)
-            .map_err(|e| VizError::Backend(e.to_string()))
+            .map_err(|err| VizError::Backend(err.to_string()))
     }
 
     fn flush(&mut self) -> Result<(), VizError> {
         self.stream
             .flush_blocking()
-            .map_err(|e| VizError::Backend(e.to_string()))
+            .map_err(|err| VizError::Backend(err.to_string()))
     }
 }

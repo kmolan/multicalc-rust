@@ -1,6 +1,7 @@
 //! Root finding for scalar equations and square systems.
 //!
 //! - [`Bisection`] — brackets a scalar root and halves the interval within a guaranteed budget.
+//! - [`Brent`] — preserves a bracket while accelerating with interpolation steps.
 //! - [`Newton`] / [`NewtonSystem`] — Newton steps from any
 //!   [`DerivatorSingleVariable`](crate::numerical_derivative::DerivatorSingleVariable) (exact
 //!   autodiff by default), with an optional backtracking line search.
@@ -8,10 +9,12 @@
 //! Every solver takes an iteration budget and reports why it stopped as a [`RootTermination`].
 
 mod bisection;
+mod brent;
 mod newton;
 mod newton_system;
 
 pub use bisection::Bisection;
+pub use brent::Brent;
 pub use newton::Newton;
 pub use newton_system::NewtonSystem;
 
@@ -25,7 +28,7 @@ pub enum RootTermination {
     ResidualTolerance,
     /// The step size fell to or below the step tolerance.
     StepTolerance,
-    /// The bracket width fell to or below the step tolerance (bisection only).
+    /// The bracket width fell to or below the step tolerance.
     BracketWidth,
 }
 
@@ -66,8 +69,8 @@ pub(crate) fn same_sign<T: Numeric>(a: T, b: T) -> bool {
     (a >= T::ZERO) == (b >= T::ZERO)
 }
 
-/// Returns `true` when every element of `v` is finite.
+/// Returns `true` when every element of `values` is finite.
 #[must_use]
-pub(crate) fn all_finite<const K: usize, T: Numeric>(v: &[T; K]) -> bool {
-    v.iter().all(|x| x.is_finite())
+pub(crate) fn all_finite<const K: usize, T: Numeric>(values: &[T; K]) -> bool {
+    values.iter().all(|x| x.is_finite())
 }

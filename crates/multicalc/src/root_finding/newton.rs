@@ -25,11 +25,11 @@ const MAX_BACKTRACK: usize = 20;
 /// # Examples
 /// ```
 /// use multicalc::root_finding::Newton;
-/// use multicalc::scalar::c;
+/// use multicalc::scalar::constant;
 /// use multicalc::scalar_fn;
 ///
 /// // f(x) = x² − 2, root at √2 ≈ 1.41421356
-/// let function = scalar_fn!(|x| c(-2.0) + x * x);
+/// let function = scalar_fn!(|x| constant(-2.0) + x * x);
 /// let solver: Newton = Newton::default();
 /// let initial_guess = 2.0_f64;
 ///
@@ -124,42 +124,42 @@ impl<D: DerivatorSingleVariable> Newton<D> {
     pub fn solve<F: ScalarFn>(
         &self,
         f: &F,
-        x0: D::Scalar,
+        initial_guess: D::Scalar,
     ) -> Result<RootReport<D::Scalar>, SolveError> {
         let one = D::Scalar::ONE;
         let half = D::Scalar::HALF;
 
-        let mut x = x0;
-        let mut fx = f.eval(x);
-        if !fx.is_finite() {
+        let mut x = initial_guess;
+        let mut residual = f.eval(x);
+        if !residual.is_finite() {
             return Err(SolveError::NonFinite);
         }
 
         for iter in 1..=self.max_iterations {
-            if fx.abs() <= self.ftol {
+            if residual.abs() <= self.ftol {
                 return Ok(RootReport {
                     root: x,
-                    residual: fx,
+                    residual,
                     iterations: iter,
                     termination: RootTermination::ResidualTolerance,
                 });
             }
 
-            let dfx = self.derivator.first_derivative(f, x)?;
-            if !dfx.is_finite() {
+            let derivative = self.derivator.first_derivative(f, x)?;
+            if !derivative.is_finite() {
                 return Err(SolveError::NonFinite);
             }
-            if dfx == D::Scalar::ZERO {
+            if derivative == D::Scalar::ZERO {
                 return Err(SolveError::Linalg(LinalgError::Singular));
             }
 
-            let step = fx / dfx;
+            let step = residual / derivative;
 
             // Try the full Newton step; when backtracking is on, halve alpha until |f|
             // decreases or the per-iteration safeguard runs out.
             let mut alpha = one;
             let mut tries = 0usize;
-            let (x_new, fx_new) = loop {
+            let (x_new, residual_new) = loop {
                 let candidate = x - alpha * step;
                 let trial = f.eval(candidate);
                 if !self.backtracking {
@@ -168,7 +168,7 @@ impl<D: DerivatorSingleVariable> Newton<D> {
                     }
                     break (candidate, trial);
                 }
-                if (trial.is_finite() && trial.abs() < fx.abs()) || tries >= MAX_BACKTRACK {
+                if (trial.is_finite() && trial.abs() < residual.abs()) || tries >= MAX_BACKTRACK {
                     if !trial.is_finite() {
                         return Err(SolveError::NonFinite);
                     }
@@ -180,12 +180,12 @@ impl<D: DerivatorSingleVariable> Newton<D> {
 
             let step_taken = (x_new - x).abs();
             x = x_new;
-            fx = fx_new;
+            residual = residual_new;
 
             if step_taken <= self.xtol * (one + x.abs()) {
                 return Ok(RootReport {
                     root: x,
-                    residual: fx,
+                    residual,
                     iterations: iter,
                     termination: RootTermination::StepTolerance,
                 });

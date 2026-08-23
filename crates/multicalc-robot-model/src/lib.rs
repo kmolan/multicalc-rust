@@ -532,7 +532,8 @@ pub fn load_path(path: &Path) -> Result<RobotModel, ModelError> {
 /// Errors: as [`load_path`], plus
 /// [`UnexpectedRootElement`](ModelError::UnexpectedRootElement) for any other root.
 pub fn load_str(xml: &str) -> Result<RobotModel, ModelError> {
-    let document = roxmltree::Document::parse(xml).map_err(|e| ModelError::Xml(e.to_string()))?;
+    let document =
+        roxmltree::Document::parse(xml).map_err(|err| ModelError::Xml(err.to_string()))?;
     match document.root_element().tag_name().name() {
         "robot" => read_urdf_str(xml),
         "mujoco" => read_mjcf_str(xml),

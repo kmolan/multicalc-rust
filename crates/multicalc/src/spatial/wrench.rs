@@ -10,8 +10,8 @@ use crate::scalar::Numeric;
 ///
 /// Like `Twist`, the type owns its layout: the only value constructor takes the force and torque
 /// parts by name, and the flat converters emit `[f; τ]`. `Add`/`Sub`/`Neg`/[`scale`](Wrench::scale)
-/// act component-wise; the spatial *algebra* (coordinate transforms, the `twist · wrench` power
-/// product) is not defined here.
+/// act component-wise. Change of frame is [`SE3::act_wrench`](crate::spatial::SE3::act_wrench);
+/// power against a motion is [`Twist::dot_wrench`](crate::spatial::Twist::dot_wrench).
 ///
 /// ```
 /// use multicalc::spatial::Wrench;
@@ -72,10 +72,10 @@ impl<T: Numeric> Wrench<T> {
     #[inline]
     #[must_use]
     pub fn from_array(a: [T; 6]) -> Self {
-        let [vx, vy, vz, wx, wy, wz] = a;
+        let [force_x, force_y, force_z, torque_x, torque_y, torque_z] = a;
         Wrench {
-            force: Vector::new([vx, vy, vz]),
-            torque: Vector::new([wx, wy, wz]),
+            force: Vector::new([force_x, force_y, force_z]),
+            torque: Vector::new([torque_x, torque_y, torque_z]),
         }
     }
 
@@ -89,9 +89,9 @@ impl<T: Numeric> Wrench<T> {
     #[inline]
     #[must_use]
     pub fn as_array(self) -> [T; 6] {
-        let [fx, fy, fz] = *self.force.as_array();
-        let [tx, ty, tz] = *self.torque.as_array();
-        [fx, fy, fz, tx, ty, tz]
+        let [force_x, force_y, force_z] = *self.force.as_array();
+        let [torque_x, torque_y, torque_z] = *self.torque.as_array();
+        [force_x, force_y, force_z, torque_x, torque_y, torque_z]
     }
 
     /// A wrench from a flat `[f; τ]` `Vector6D`.
@@ -104,8 +104,8 @@ impl<T: Numeric> Wrench<T> {
     /// ```
     #[inline]
     #[must_use]
-    pub fn from_vector(v: Vector6D<T>) -> Self {
-        Self::from_array(v.into_array())
+    pub fn from_vector(vector: Vector6D<T>) -> Self {
+        Self::from_array(vector.into_array())
     }
 
     /// The wrench as a flat `[f; τ]` `Vector6D`.
@@ -189,8 +189,8 @@ impl<T: Numeric> Neg for Wrench<T> {
 impl<T: Numeric> From<Vector6D<T>> for Wrench<T> {
     /// Reinterprets a flat `[f; τ]` `Vector6D` as a wrench.
     #[inline]
-    fn from(v: Vector6D<T>) -> Self {
-        Self::from_vector(v)
+    fn from(vector: Vector6D<T>) -> Self {
+        Self::from_vector(vector)
     }
 }
 

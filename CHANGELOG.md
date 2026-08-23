@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Brent root finding.** `Brent` combines bracketed convergence with secant and inverse
+  quadratic interpolation steps for scalar equations. @snowyukitty (#323)
+
 - **Jointed robots from MuJoCo model files.** `multicalc-mjcf` reads the whole body tree a model
   file describes — hinge and sliding joints with their axes, turning points and travel, the
   settings a default block supplies to every body below it, files that pull in other files, and
@@ -33,6 +36,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   alongside a `pos`, ends in the same place, and ends on a form this loader has not checked against
   the compiler are all refused by name. @Thiago316316 (#313)
 
+- **All five ways a model file states which way something faces.** `euler`, `axisangle`, `xyaxes`
+  and `zaxis` join `quat` on every element `multicalc-mjcf` reads a turn from — bodies, geoms,
+  inertials, and the `<default>` blocks that supply them. `<compiler angle>` now reaches the two
+  forms written in angles, and `<compiler eulerseq>` says which axes a `euler` turns about and
+  whether each rides along with the turns before it or stands still. Every form is checked against
+  MuJoCo's own compile of the same file, down to the frame it settles on for a `zaxis` pointing
+  straight down. An element stating its facing two ways at once is refused rather than silently
+  read one way. @Thiago316316 (#320)
+
 - **A record of what a model file was loaded without.** `RigidBodyModel::ignored` names the
   top-level sections `multicalc-mjcf` read nothing out of — tendons, actuators, sensors, contact
   pairs and the rest — sorted and without repeats, so a caller can tell a model that loaded whole
@@ -40,6 +52,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refused outright rather than recorded. @Thiago316316 (#305)
 
 ### Changed
+
+- **`ModelError::UnsupportedOrientation` is gone**, replaced by `MultipleOrientations` for an element
+  that states its facing more than one way. Nothing is refused for the form it was written in any
+  more. A new `FullInertiaWithOrientation` refuses an `<inertial>` that states a full tensor beside
+  a turn: a full tensor already stands in the body's own axes, so the turn names no frame, and
+  MuJoCo refuses the pair rather than reading one and dropping the other. @Thiago316316 (#320)
 
 - **`ExponentialMap::integrate_attitude` now returns `Result<SO3<T>, IntegrateError>`** instead of
   `SO3<T>`. This is a breaking change to the signature: callers must handle or unwrap the result.
@@ -54,7 +72,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PolylinePath.** Cache the cumulative arc length for each waypoint in `PolylinePath`. It 
   enhances the performance of `lookahead_point`. @SummerGram (#224)
 
+- **Identifier length lint and public API renames.** Workspace Clippy `min_ident_chars` is now
+  enabled (threshold 2). Downstream code must update these symbols:
+  - `multicalc::c` → `multicalc::constant`
+  - `Svd::u()` / `Svd::v()` → `Svd::left()` / `Svd::right()`
+  - `Matrix::lu()` → `Matrix::lu_decompose()`
+  - `ModelError::Io` → `ModelError::FileRead` (`multicalc-robot-model`) @rtmongold (#328)
+
 ### Fixed
+
+- **Finite-difference step scaling and validation.** Default steps now follow the scalar type's
+  machine epsilon and the chosen stencil, improving `f32` accuracy. Negative and non-finite steps
+  are rejected instead of reversing the stencil or returning NaN.
 
 - **`ExponentialMap::integrate_attitude` input validation.** A non-finite timestep, a
 non-positive timestep, or a non-finite rate from the caller's `angular_rate_at` callback
@@ -66,6 +95,9 @@ existing `IntegrateError::NonFinite` instead. `attitude_step` and
 non-positive input is now documented instead of silent. @naseem173 (#307)
 - Particle filters floor an underflowed zero weight at the scalar's smallest positive value before
   the next update, allowing that particle to recover when later measurements favor it.
+
+- **Iterative Config Total Iterations** Auto-align iteration counts to the composite rules below
+  12k. 
 
 ## [0.10.0] - 2026-08-09
 

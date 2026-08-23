@@ -10,22 +10,22 @@ use multicalc_qa::load::*;
 use multicalc_qa::problems::{ode_exp_decay, ode_harmonic, ode_two_body, ode_van_der_pol_mild};
 use multicalc_qa::schema::Fixture;
 
-fn run_case<const N: usize>(fx: &Fixture, f: &dyn Fn(f64, &Vector<N>) -> Vector<N>) {
-    let problem = fx.inputs["problem"].as_str();
-    let y0 = fx.inputs["y0"].as_vector();
-    let t0 = fx.inputs["t0"].as_scalar();
-    let times = fx.inputs["times"].as_vector();
-    let (rows, cols, states) = fx.expected["states"].as_matrix();
+fn run_case<const N: usize>(fixture: &Fixture, f: &dyn Fn(f64, &Vector<N>) -> Vector<N>) {
+    let problem = fixture.inputs["problem"].as_str();
+    let state_start = fixture.inputs["y0"].as_vector();
+    let time_start = fixture.inputs["t0"].as_scalar();
+    let times = fixture.inputs["times"].as_vector();
+    let (rows, cols, states) = fixture.expected["states"].as_matrix();
     assert_eq!(cols, N, "{problem}: column count");
     assert_eq!(rows, times.len(), "{problem}: row count");
-    let tol = fx.tolerances.f64;
+    let tol = fixture.tolerances.f64;
 
-    let y0v = Vector::<N>::from_fn(|i| y0[i]);
+    let state_start_vec = Vector::<N>::from_fn(|i| state_start[i]);
     let mut out = vec![Vector::<N>::zeros(); times.len()];
     Rk45::<f64>::default()
         .with_rtol(1e-10)
         .with_atol(1e-12)
-        .solve_on_grid(&f, t0, &y0v, &times, &mut out)
+        .solve_on_grid(&f, time_start, &state_start_vec, &times, &mut out)
         .unwrap();
     for (i, y) in out.iter().enumerate() {
         for j in 0..N {
@@ -58,12 +58,12 @@ fn orientation_from(row: &[f64]) -> SO3<f64> {
     )
 }
 
-// How many whole steps of `timestep` it takes to reach `sample_time` from `t0`, refusing a grid
-// that does not divide — otherwise a mismatched grid would quietly stop short of each sample.
-// Counted from `t0` every time rather than from the last sample, so the count never picks up the
-// drift that adding the step over and over would leave behind.
-fn steps_to(case: &str, t0: f64, sample_time: f64, timestep: f64) -> usize {
-    let count = (sample_time - t0) / timestep;
+// How many whole steps of `timestep` it takes to reach `sample_time` from `time_start`, refusing a
+// grid that does not divide — otherwise a mismatched grid would quietly stop short of each sample.
+// Counted from `time_start` every time rather than from the last sample, so the count never picks
+// up the drift that adding the step over and over would leave behind.
+fn steps_to(case: &str, time_start: f64, sample_time: f64, timestep: f64) -> usize {
+    let count = (sample_time - time_start) / timestep;
     assert!(
         (count - count.round()).abs() < 1e-6,
         "{case}: the sample grid does not divide into whole steps of {timestep}"
@@ -71,24 +71,24 @@ fn steps_to(case: &str, t0: f64, sample_time: f64, timestep: f64) -> usize {
     count.round() as usize
 }
 
-fn check_prescribed_rate_attitude(fx: &Fixture, second_order: bool) {
-    let case = fx.case.as_str();
-    let y0 = fx.inputs["y0"].as_vector();
-    let t0 = fx.inputs["t0"].as_scalar();
-    let times = fx.inputs["times"].as_vector();
-    let timestep = fx.inputs["timestep"].as_scalar();
-    let (rows, cols, states) = fx.expected["states"].as_matrix();
+fn check_prescribed_rate_attitude(fixture: &Fixture, second_order: bool) {
+    let case = fixture.case.as_str();
+    let state_start = fixture.inputs["y0"].as_vector();
+    let time_start = fixture.inputs["t0"].as_scalar();
+    let times = fixture.inputs["times"].as_vector();
+    let timestep = fixture.inputs["timestep"].as_scalar();
+    let (rows, cols, states) = fixture.expected["states"].as_matrix();
     assert_eq!(cols, 4, "{case}: column count");
     assert_eq!(rows, times.len(), "{case}: row count");
-    let tol = fx.tolerances.f64;
+    let tol = fixture.tolerances.f64;
 
-    let mut orientation = orientation_from(&y0);
+    let mut orientation = orientation_from(&state_start);
     let mut taken = 0;
     let mut worst = 0.0_f64;
     for (index, &sample_time) in times.iter().enumerate() {
-        let wanted = steps_to(case, t0, sample_time, timestep);
+        let wanted = steps_to(case, time_start, sample_time, timestep);
         while taken < wanted {
-            let time = t0 + taken as f64 * timestep;
+            let time = time_start + taken as f64 * timestep;
             orientation = if second_order {
                 ExponentialMap::attitude_step_with_angular_acceleration(
                     orientation,
@@ -114,16 +114,16 @@ fn check_prescribed_rate_attitude(fx: &Fixture, second_order: bool) {
     println!("{case}: worst angle {worst:e} rad");
 }
 
-fn check_tumbling_free_body(fx: &Fixture) {
-    let case = fx.case.as_str();
-    let y0 = fx.inputs["y0"].as_vector();
-    let t0 = fx.inputs["t0"].as_scalar();
-    let times = fx.inputs["times"].as_vector();
-    let timestep = fx.inputs["timestep"].as_scalar();
-    let (rows, cols, states) = fx.expected["states"].as_matrix();
+fn check_tumbling_free_body(fixture: &Fixture) {
+    let case = fixture.case.as_str();
+    let state_start = fixture.inputs["y0"].as_vector();
+    let time_start = fixture.inputs["t0"].as_scalar();
+    let times = fixture.inputs["times"].as_vector();
+    let timestep = fixture.inputs["timestep"].as_scalar();
+    let (rows, cols, states) = fixture.expected["states"].as_matrix();
     assert_eq!(cols, 13, "{case}: column count");
     assert_eq!(rows, times.len(), "{case}: row count");
-    let tol = fx.tolerances.f64;
+    let tol = fixture.tolerances.f64;
 
     let inertia = SpatialInertia::from_diagonal_inertia(
         0.8,
@@ -137,13 +137,13 @@ fn check_tumbling_free_body(fx: &Fixture) {
         Vector::new([0.02, -0.01, 0.005]),
     );
 
-    let start = Vector::<13>::from_fn(|index| y0[index]);
+    let start = Vector::<13>::from_fn(|index| state_start[index]);
     let mut state: FreeJointState<f64> = free_joint_from_state_vector(&start).unwrap();
     let mut taken = 0;
     let (mut worst_position, mut worst_angle, mut worst_velocity) = (0.0_f64, 0.0_f64, 0.0_f64);
 
     for (index, &sample_time) in times.iter().enumerate() {
-        let wanted = steps_to(case, t0, sample_time, timestep);
+        let wanted = steps_to(case, time_start, sample_time, timestep);
         while taken < wanted {
             state = body.stepped(state, wrench, timestep);
             taken += 1;
@@ -199,17 +199,21 @@ fn check_tumbling_free_body(fx: &Fixture) {
 
 #[test]
 fn ode() {
-    for fx in load_dir("ode") {
+    for fixture in load_dir("ode") {
         // Keyed on the case first: the two attitude cases share one problem key.
-        match fx.case.as_str() {
-            "prescribed_rate_attitude_first_order" => check_prescribed_rate_attitude(&fx, false),
-            "prescribed_rate_attitude_second_order" => check_prescribed_rate_attitude(&fx, true),
-            "tumbling_free_body" => check_tumbling_free_body(&fx),
-            _ => match fx.inputs["problem"].as_str() {
-                "exp_decay" => run_case(&fx, &ode_exp_decay),
-                "harmonic" => run_case(&fx, &ode_harmonic),
-                "two_body" => run_case(&fx, &ode_two_body),
-                "van_der_pol_mild" => run_case(&fx, &ode_van_der_pol_mild),
+        match fixture.case.as_str() {
+            "prescribed_rate_attitude_first_order" => {
+                check_prescribed_rate_attitude(&fixture, false)
+            }
+            "prescribed_rate_attitude_second_order" => {
+                check_prescribed_rate_attitude(&fixture, true)
+            }
+            "tumbling_free_body" => check_tumbling_free_body(&fixture),
+            _ => match fixture.inputs["problem"].as_str() {
+                "exp_decay" => run_case(&fixture, &ode_exp_decay),
+                "harmonic" => run_case(&fixture, &ode_harmonic),
+                "two_body" => run_case(&fixture, &ode_two_body),
+                "van_der_pol_mild" => run_case(&fixture, &ode_van_der_pol_mild),
                 other => panic!("unknown ode problem {other}"),
             },
         }

@@ -17,7 +17,7 @@ use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::numerical_derivative::Jacobian;
 use multicalc::ode::Rk45;
 use multicalc::root_finding::NewtonSystem;
-use multicalc::scalar::{Numeric, VectorFn, c};
+use multicalc::scalar::{Numeric, VectorFn, constant};
 use multicalc::scalar_fn_vec;
 use multicalc::spatial::{FreeJointState, SE3, SO3, SpatialInertia, Twist, Wrench};
 use multicalc_qa::docs::replace_marked_region;
@@ -47,32 +47,32 @@ fn symmetric<const N: usize>() -> Matrix<N, N> {
 
 fn bench_jacobian_large(crit: &mut Criterion) {
     // A coupled 6-in / 6-out map: a 6x6 Jacobian
-    let f = scalar_fn_vec!(|v: &[f64; 6]| [
-        v[0] * v[1] + v[2].sin(),
-        v[1] * v[2] + v[3].cos(),
-        v[2] * v[3] + c(0.1) * v[4].exp(),
-        v[3] * v[4] + v[0] * v[5],
-        v[4] * v[5] + v[1].sin(),
-        v[5] * v[0] + v[2] * v[3],
+    let f = scalar_fn_vec!(|point: &[f64; 6]| [
+        point[0] * point[1] + point[2].sin(),
+        point[1] * point[2] + point[3].cos(),
+        point[2] * point[3] + constant(0.1) * point[4].exp(),
+        point[3] * point[4] + point[0] * point[5],
+        point[4] * point[5] + point[1].sin(),
+        point[5] * point[0] + point[2] * point[3],
     ]);
     let j: Jacobian = Jacobian::default();
-    let p = [0.5, 1.0, 1.5, 0.3, 0.8, 1.2];
+    let point = [0.5, 1.0, 1.5, 0.3, 0.8, 1.2];
     crit.bench_function("jacobian_large", |b| {
-        b.iter(|| j.evaluate(&f, black_box(&p)).unwrap())
+        b.iter(|| j.evaluate(&f, black_box(&point)).unwrap())
     });
 }
 
-fn bench_lu_solve(c: &mut Criterion) {
+fn bench_lu_solve(criterion: &mut Criterion) {
     // Well-conditioned 10x10; decompose + solve A x = b.
     let a = general::<10>();
     let x_true = Vector::<10>::from_fn(|i| 1.0 + i as f64);
     let b_rhs = a * x_true;
-    c.bench_function("lu_solve", |b| {
-        b.iter(|| black_box(a).lu().unwrap().solve(black_box(b_rhs)))
+    criterion.bench_function("lu_solve", |b| {
+        b.iter(|| black_box(a).lu_decompose().unwrap().solve(black_box(b_rhs)))
     });
 }
 
-fn bench_svd_solve(c: &mut Criterion) {
+fn bench_svd_solve(criterion: &mut Criterion) {
     // Overdetermined 30x3 least-squares.
     let sample = |i: usize| ((i as f64 * 0.37).sin(), (i as f64 * 0.53).cos());
     let design = Matrix::<30, 3>::from_fn(|i, col| {
@@ -87,34 +87,34 @@ fn bench_svd_solve(c: &mut Criterion) {
         let (x, y) = sample(i);
         0.5 * x - 1.2 * y + 2.0 + 1e-3 * (i as f64 * 1.7).sin()
     });
-    c.bench_function("svd_solve", |b| {
+    criterion.bench_function("svd_solve", |b| {
         b.iter(|| black_box(design).svd().unwrap().solve(black_box(rhs)))
     });
 }
 
-fn bench_symmetric_eigen(c: &mut Criterion) {
+fn bench_symmetric_eigen(criterion: &mut Criterion) {
     // Eigenvalues and directions of a fixed symmetric 6x6.
-    let m = symmetric::<6>();
-    c.bench_function("symmetric_eigen", |b| {
-        b.iter(|| black_box(m).symmetric_eigendecomposition().unwrap())
+    let matrix = symmetric::<6>();
+    criterion.bench_function("symmetric_eigen", |b| {
+        b.iter(|| black_box(matrix).symmetric_eigendecomposition().unwrap())
     });
 }
 
-fn bench_rk45_solve(c: &mut Criterion) {
+fn bench_rk45_solve(criterion: &mut Criterion) {
     // Harmonic oscillator y'' = -y, adaptive solve to t = 2*pi.
     let f = |_t: f64, y: &Vector2D| Vector::new([y[1], -y[0]]);
-    let y0 = Vector::new([1.0, 0.0]);
+    let state_start = Vector::new([1.0, 0.0]);
     let solver = Rk45::default().with_rtol(1e-9).with_atol(1e-12);
-    c.bench_function("rk45_solve", |b| {
+    criterion.bench_function("rk45_solve", |b| {
         b.iter(|| {
             solver
-                .solve(&f, 0.0, black_box(&y0), core::f64::consts::TAU)
+                .solve(&f, 0.0, black_box(&state_start), core::f64::consts::TAU)
                 .unwrap()
         })
     });
 }
 
-fn bench_rigid_body_step(c: &mut Criterion) {
+fn bench_rigid_body_step(criterion: &mut Criterion) {
     // One 1 ms tick of a small flying machine under gravity and a steady push.
     let inertia = SpatialInertia::from_diagonal_inertia(
         0.8,
@@ -131,7 +131,7 @@ fn bench_rigid_body_step(c: &mut Criterion) {
         Vector::new([0.0, 0.0, 8.0]),
         Vector::new([0.02, -0.01, 0.005]),
     );
-    c.bench_function("rigid_body_step", |b| {
+    criterion.bench_function("rigid_body_step", |b| {
         b.iter(|| body.stepped(black_box(state), black_box(wrench), 0.001))
     });
 }
@@ -163,7 +163,7 @@ fn bench_arm() -> KinematicTree<ARM_FRAMES, ARM_FRAMES, f64> {
     tree
 }
 
-fn bench_inverse_kinematics_solve(c: &mut Criterion) {
+fn bench_inverse_kinematics_solve(criterion: &mut Criterion) {
     let tree = bench_arm();
     let solver = InverseKinematics::<ARM_FRAMES, f64>::new();
 
@@ -184,7 +184,7 @@ fn bench_inverse_kinematics_solve(c: &mut Criterion) {
         .pose(6)
         .unwrap();
 
-    c.bench_function("inverse_kinematics_solve", |b| {
+    criterion.bench_function("inverse_kinematics_solve", |b| {
         b.iter(|| solver.solve(black_box(&tree), 6, black_box(target), black_box(&seed)))
     });
 }
@@ -205,7 +205,7 @@ impl VectorFn<3, 4> for BeaconRanges {
     }
 }
 
-fn bench_particle_filter(c: &mut Criterion) {
+fn bench_particle_filter(criterion: &mut Criterion) {
     use multicalc::estimation::{GaussianLikelihood, ParticleFilter};
 
     // One predict→update cycle of a 1000-particle range-only robot localizer: a 3-DOF pose scored
@@ -225,7 +225,7 @@ fn bench_particle_filter(c: &mut Criterion) {
     // The measurement is the true ranges from the robot's held pose, formed once outside the loop.
     let measurement = Vector::new(ranges.eval(&[5.0, 5.0, 0.0]));
 
-    c.bench_function("particle_filter", |b| {
+    criterion.bench_function("particle_filter", |b| {
         b.iter(|| {
             filter.predict(black_box(&motion)).unwrap();
             filter
@@ -239,7 +239,7 @@ fn bench_particle_filter(c: &mut Criterion) {
     });
 }
 
-fn bench_kalman_filter_step(c: &mut Criterion) {
+fn bench_kalman_filter_step(criterion: &mut Criterion) {
     // One predict + update of a constant-velocity tracker: position measured, velocity inferred.
     use multicalc::estimation::{KalmanFilter, KalmanModel};
     let mut filter = KalmanFilter::<2, 1>::new(
@@ -253,7 +253,7 @@ fn bench_kalman_filter_step(c: &mut Criterion) {
         },
     );
     let measurement = Vector::new([1.0]);
-    c.bench_function("kalman_filter_step", |b| {
+    criterion.bench_function("kalman_filter_step", |b| {
         b.iter(|| {
             filter.predict();
             filter.update(black_box(measurement)).unwrap();
@@ -261,7 +261,7 @@ fn bench_kalman_filter_step(c: &mut Criterion) {
     });
 }
 
-fn bench_extended_kalman_filter_step(c: &mut Criterion) {
+fn bench_extended_kalman_filter_step(criterion: &mut Criterion) {
     // One predict + update of the showcase's 5-state coordinated-turn filter against a
     // position fix: the per-tick cost the 1 kHz loop is built around.
     use multicalc::estimation::ExtendedKalmanFilter;
@@ -281,7 +281,7 @@ fn bench_extended_kalman_filter_step(c: &mut Criterion) {
         Matrix::from_fn(|i, j| if i == j { 0.09 } else { 0.0 }),
     );
     let measurement = Vector::new([0.001, 0.0]);
-    c.bench_function("extended_kalman_filter_step", |b| {
+    criterion.bench_function("extended_kalman_filter_step", |b| {
         b.iter(|| {
             filter.predict(black_box(&motion)).unwrap();
             filter
@@ -291,7 +291,7 @@ fn bench_extended_kalman_filter_step(c: &mut Criterion) {
     });
 }
 
-fn bench_unscented_kalman_filter_step(c: &mut Criterion) {
+fn bench_unscented_kalman_filter_step(criterion: &mut Criterion) {
     // One predict + update of the same 5-state coordinated-turn filter, sampled at a spread of
     // points instead of linearized: the other side of the accuracy-for-evaluations trade.
     // Each iteration starts from a fresh copy of the same belief, which the untimed setup hands
@@ -316,7 +316,7 @@ fn bench_unscented_kalman_filter_step(c: &mut Criterion) {
         Matrix::from_fn(|i, j| if i == j { 0.09 } else { 0.0 }),
     );
     let measurement = Vector::new([0.001, 0.0]);
-    c.bench_function("unscented_kalman_filter_step", |b| {
+    criterion.bench_function("unscented_kalman_filter_step", |b| {
         b.iter_batched(
             || initial,
             |mut filter| {
@@ -349,14 +349,14 @@ fn error_state_kalman_filter() -> ErrorStateKalmanFilter<3, f64> {
     )
 }
 
-fn bench_error_state_kalman_filter_predict(c: &mut Criterion) {
+fn bench_error_state_kalman_filter_predict(criterion: &mut Criterion) {
     // One IMU step of the 15-state error filter: the closed-form transition plus two 15-square
     // products. This is the side that runs at 1 kHz, so it is timed on its own.
     let mut filter = error_state_kalman_filter();
     let gyroscope_reading = Vector::new([0.4, -0.3, 0.9]);
     let accelerometer_reading = Vector::new([0.5, -1.2, 9.4]);
     let timestep = 0.001;
-    c.bench_function("error_state_kalman_filter_predict", |b| {
+    criterion.bench_function("error_state_kalman_filter_predict", |b| {
         b.iter(|| {
             filter
                 .predict(
@@ -369,12 +369,12 @@ fn bench_error_state_kalman_filter_predict(c: &mut Criterion) {
     });
 }
 
-fn bench_polynomial_root_solve(c: &mut Criterion) {
+fn bench_polynomial_root_solve(criterion: &mut Criterion) {
     // The degree-6 polynomial from the fixtures, past where any formula reaches.
     use multicalc::Polynomial;
     let polynomial = Polynomial::<7, f64>::new([84.0, -131.0, -126.5, 104.5, 5.5, -9.5, 1.0]);
     let bound = polynomial.cauchy_root_bound().unwrap();
-    c.bench_function("polynomial_root_solve", |b| {
+    criterion.bench_function("polynomial_root_solve", |b| {
         b.iter(|| {
             polynomial
                 .real_roots_in(black_box(-bound), black_box(bound), 1e-10, 400)
@@ -397,10 +397,10 @@ fn cart_pole_design() -> (Matrix<4, 4>, Matrix<4, 1>, Matrix<4, 4>, Matrix<1, 1>
     (state_transition, input_model, state_cost, input_cost)
 }
 
-fn bench_infinite_horizon_lqr_solve(c: &mut Criterion) {
+fn bench_infinite_horizon_lqr_solve(criterion: &mut Criterion) {
     // Same system as the control bench, timed for the once-per-startup solve rather than the tick.
     let (state_transition, input_model, state_cost, input_cost) = cart_pole_design();
-    c.bench_function("infinite_horizon_lqr_solve", |b| {
+    criterion.bench_function("infinite_horizon_lqr_solve", |b| {
         b.iter(|| {
             black_box(
                 Lqr::new(
@@ -415,7 +415,7 @@ fn bench_infinite_horizon_lqr_solve(c: &mut Criterion) {
     });
 }
 
-fn bench_minimum_snap_plan(c: &mut Criterion) {
+fn bench_minimum_snap_plan(criterion: &mut Criterion) {
     // The seven-segment loop from the motion fixtures, planned from scratch each time.
     use multicalc::motion::{MinimumSnapPlanner, durations_from_average_speed};
     let waypoints = [
@@ -432,7 +432,7 @@ fn bench_minimum_snap_plan(c: &mut Criterion) {
     durations_from_average_speed(&waypoints, 3.0, &mut durations).unwrap();
 
     let planner = MinimumSnapPlanner::<8, 21, 3, f64>::new();
-    c.bench_function("minimum_snap_plan", |b| {
+    criterion.bench_function("minimum_snap_plan", |b| {
         b.iter(|| {
             planner
                 .plan(black_box(&waypoints), black_box(&durations))
@@ -443,10 +443,10 @@ fn bench_minimum_snap_plan(c: &mut Criterion) {
 
 fn bench_newton_system(crit: &mut Criterion) {
     // x^2 + y^2 = 4 and x*y = 1 (circle ∩ hyperbola).
-    let system =
-        scalar_fn_vec!(
-            |v: &[f64; 2]| [c(-4.0) + v[0] * v[0] + v[1] * v[1], c(-1.0) + v[0] * v[1],]
-        );
+    let system = scalar_fn_vec!(|point: &[f64; 2]| [
+        constant(-4.0) + point[0] * point[0] + point[1] * point[1],
+        constant(-1.0) + point[0] * point[1],
+    ]);
     crit.bench_function("newton_system", |b| {
         b.iter(|| {
             NewtonSystem::<AutoDiffMulti>::default()
@@ -457,13 +457,13 @@ fn bench_newton_system(crit: &mut Criterion) {
 }
 
 fn main() {
-    let mut c = Criterion::default().configure_from_args();
+    let mut criterion = Criterion::default().configure_from_args();
 
     for (_, run, _) in BENCHES {
-        run(&mut c);
+        run(&mut criterion);
     }
 
-    c.final_summary();
+    criterion.final_summary();
 
     render_latency_md();
 }
@@ -548,15 +548,15 @@ const END: &str = "<!-- END generated -->";
 #[must_use]
 fn criterion_dir() -> PathBuf {
     match std::env::var_os("CARGO_TARGET_DIR") {
-        Some(t) => PathBuf::from(t).join("criterion"),
+        Some(target_dir) => PathBuf::from(target_dir).join("criterion"),
         None => PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target/criterion"),
     }
 }
 
 /// Read median & mean point estimates (ns) for one bench id from its estimates.json.
 #[must_use]
-fn read_estimate(dir: &std::path::Path, id: &str) -> Option<(f64, f64)> {
-    let path = dir.join(id).join("new").join("estimates.json");
+fn read_estimate(dir: &std::path::Path, bench_id: &str) -> Option<(f64, f64)> {
+    let path = dir.join(bench_id).join("new").join("estimates.json");
     let text = std::fs::read_to_string(path).ok()?;
     let j: serde_json::Value = serde_json::from_str(&text).ok()?;
     let median = j["median"]["point_estimate"].as_f64()?;
@@ -566,13 +566,13 @@ fn read_estimate(dir: &std::path::Path, id: &str) -> Option<(f64, f64)> {
 
 /// Human-readable ns → "123.4 ns" / "12.3 µs" / "1.23 ms".
 #[must_use]
-fn fmt_ns(ns: f64) -> String {
-    if ns < 1_000.0 {
-        format!("{ns:.1} ns")
-    } else if ns < 1_000_000.0 {
-        format!("{:.2} µs", ns / 1_000.0)
+fn fmt_ns(nanos: f64) -> String {
+    if nanos < 1_000.0 {
+        format!("{nanos:.1} ns")
+    } else if nanos < 1_000_000.0 {
+        format!("{:.2} µs", nanos / 1_000.0)
     } else {
-        format!("{:.2} ms", ns / 1_000_000.0)
+        format!("{:.2} ms", nanos / 1_000_000.0)
     }
 }
 
@@ -583,15 +583,15 @@ fn render_latency_md() {
     let mut table = String::from("| Operation | Equation | Median | Mean |\n");
     table.push_str("|-----------|----------|-------:|-----:|\n");
     let mut missing = Vec::new();
-    for (id, _, equation) in BENCHES {
-        let cell = match read_estimate(&dir, id) {
+    for (bench_id, _, equation) in BENCHES {
+        let cell = match read_estimate(&dir, bench_id) {
             Some((median, mean)) => format!("{} | {}", fmt_ns(median), fmt_ns(mean)),
             None => {
-                missing.push(*id);
+                missing.push(*bench_id);
                 "n/a | n/a".to_string()
             }
         };
-        let _ = writeln!(table, "| `{id}` | {equation} | {cell} |");
+        let _ = writeln!(table, "| `{bench_id}` | {equation} | {cell} |");
     }
     assert!(
         missing.is_empty(),

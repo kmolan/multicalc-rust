@@ -96,11 +96,11 @@ impl LatencyRing {
     }
 
     /// Records one sample, evicting the oldest once full.
-    pub fn push(&mut self, v: f64) {
+    pub fn push(&mut self, sample: f64) {
         if self.buf.len() < self.cap {
-            self.buf.push(v);
+            self.buf.push(sample);
         } else {
-            self.buf[self.next] = v;
+            self.buf[self.next] = sample;
             self.next = (self.next + 1) % self.cap;
         }
     }
@@ -114,7 +114,7 @@ impl LatencyRing {
         let mut sorted = self.buf.clone();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let last = sorted.len() - 1;
-        let pick = |q: f64| sorted[(last as f64 * q).round() as usize];
+        let pick = |quantile: f64| sorted[(last as f64 * quantile).round() as usize];
         Some(Percentiles {
             median: pick(0.5),
             p99: pick(0.99),
@@ -126,14 +126,14 @@ impl LatencyRing {
 /// Formats an integer with thousands separators, e.g. `61204` -> `"61,204"` (for hud counts).
 #[must_use]
 pub fn commas(n: u64) -> String {
-    let s = n.to_string();
-    let len = s.len();
+    let digits = n.to_string();
+    let len = digits.len();
     let mut out = String::with_capacity(len + (len - 1) / 3);
-    for (i, ch) in s.chars().enumerate() {
+    for (i, ch_char) in digits.chars().enumerate() {
         if i > 0 && (len - i).is_multiple_of(3) {
             out.push(',');
         }
-        out.push(ch);
+        out.push(ch_char);
     }
     out
 }

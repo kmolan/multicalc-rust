@@ -27,6 +27,7 @@ from generators import (
     quadrature,
     root_finding,
     signal_processing,
+    spatial,
     urdf,
 )
 
@@ -54,6 +55,7 @@ def main():
     root_finding.run(args.out, SEED)
     mjcf.run(args.out, SEED)
     urdf.run(args.out, SEED)
+    spatial.run(args.out, SEED)
     dynamics.run(args.out, SEED)
     kinematics.run(args.out, SEED)
     inverse_kinematics.run(args.out, SEED)

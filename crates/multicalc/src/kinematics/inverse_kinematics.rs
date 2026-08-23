@@ -326,17 +326,20 @@ impl<const MAX_CONFIG: usize, T: Numeric> InverseKinematics<MAX_CONFIG, T> {
                 let Some(joint) = tree.joint(index) else {
                     continue;
                 };
-                let Some(co) = tree.config_offset(index) else {
+                let Some(config_at) = tree.config_offset(index) else {
                     continue;
                 };
-                let Some(vo) = tree.velocity_offset(index) else {
+                let Some(velocity_at) = tree.velocity_offset(index) else {
                     continue;
                 };
 
                 if joint.kind() == JointKind::Floating {
                     let mut place = [T::ZERO; 7];
                     for (slot, value) in place.iter_mut().enumerate() {
-                        *value = configuration.get(co + slot).copied().unwrap_or(T::ZERO);
+                        *value = configuration
+                            .get(config_at + slot)
+                            .copied()
+                            .unwrap_or(T::ZERO);
                     }
                     let Some(current_free) =
                         FreeJointState::from_generalized_vectors(place, [T::ZERO; 6])
@@ -344,10 +347,10 @@ impl<const MAX_CONFIG: usize, T: Numeric> InverseKinematics<MAX_CONFIG, T> {
                         continue;
                     };
                     let d_linear = Vector::<3, T>::from_fn(|row| {
-                        step.get(vo + row).copied().unwrap_or(T::ZERO)
+                        step.get(velocity_at + row).copied().unwrap_or(T::ZERO)
                     });
                     let d_angular = Vector::<3, T>::from_fn(|row| {
-                        step.get(vo + 3 + row).copied().unwrap_or(T::ZERO)
+                        step.get(velocity_at + 3 + row).copied().unwrap_or(T::ZERO)
                     });
 
                     // d_linear is already a world-frame slide (matching MuJoCo's own free-joint
@@ -365,11 +368,13 @@ impl<const MAX_CONFIG: usize, T: Numeric> InverseKinematics<MAX_CONFIG, T> {
                         Twist::zeros(),
                     );
                     for (slot, value) in new_free.generalized_position().iter().enumerate() {
-                        if let Some(dst) = next.get_mut(co + slot) {
+                        if let Some(dst) = next.get_mut(config_at + slot) {
                             *dst = *value;
                         }
                     }
-                } else if let (Some(dst), Some(change)) = (next.get_mut(co), step.get(vo)) {
+                } else if let (Some(dst), Some(change)) =
+                    (next.get_mut(config_at), step.get(velocity_at))
+                {
                     *dst += *change;
                 }
             }
@@ -425,10 +430,10 @@ impl<const MAX_CONFIG: usize, T: Numeric> InverseKinematics<MAX_CONFIG, T> {
             let Some((lower, upper)) = joint.limits() else {
                 continue;
             };
-            let Some(co) = tree.config_offset(index) else {
+            let Some(config_at) = tree.config_offset(index) else {
                 continue;
             };
-            if let Some(slot) = configuration.get_mut(co) {
+            if let Some(slot) = configuration.get_mut(config_at) {
                 *slot = slot.max(lower).min(upper);
             }
         }
@@ -514,26 +519,28 @@ fn secondary_bias<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>(
         if joint.kind() == JointKind::Fixed || joint.kind() == JointKind::Floating {
             continue;
         }
-        let Some(co) = tree.config_offset(index) else {
+        let Some(config_at) = tree.config_offset(index) else {
             continue;
         };
-        let Some(vo) = tree.velocity_offset(index) else {
+        let Some(velocity_at) = tree.velocity_offset(index) else {
             continue;
         };
-        let Some(reading) = configuration.get(co).copied() else {
+        let Some(reading) = configuration.get(config_at).copied() else {
             continue;
         };
 
         let wanted = match objective {
             SecondaryObjective::None => continue,
-            SecondaryObjective::PreferredPosture(reference) => match reference.get(co).copied() {
-                // Unbounded joint: shortest-arc error, not the raw difference.
-                Some(preferred) if joint.kind() == JointKind::Continuous => {
-                    gain * (preferred - reading).wrap_to_pi()
+            SecondaryObjective::PreferredPosture(reference) => {
+                match reference.get(config_at).copied() {
+                    // Unbounded joint: shortest-arc error, not the raw difference.
+                    Some(preferred) if joint.kind() == JointKind::Continuous => {
+                        gain * (preferred - reading).wrap_to_pi()
+                    }
+                    Some(preferred) => gain * (preferred - reading),
+                    None => continue,
                 }
-                Some(preferred) => gain * (preferred - reading),
-                None => continue,
-            },
+            }
             SecondaryObjective::JointLimitMargin => match joint.limits() {
                 Some((lower, upper)) if upper > lower => {
                     let midpoint = (lower + upper) * T::HALF;
@@ -545,7 +552,7 @@ fn secondary_bias<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>(
             },
         };
 
-        if let Some(slot) = bias.get_mut(vo) {
+        if let Some(slot) = bias.get_mut(velocity_at) {
             *slot = wanted;
         }
     }
@@ -569,7 +576,7 @@ fn limited_step<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>(
         if joint.kind() == JointKind::Fixed {
             continue;
         }
-        let Some(vo) = tree.velocity_offset(index) else {
+        let Some(velocity_at) = tree.velocity_offset(index) else {
             continue;
         };
         let width = if joint.kind() == JointKind::Floating {
@@ -578,7 +585,10 @@ fn limited_step<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>(
             1
         };
         for offset in 0..width {
-            if let (Some(dst), Some(src)) = (masked.get_mut(vo + offset), step.get(vo + offset)) {
+            if let (Some(dst), Some(src)) = (
+                masked.get_mut(velocity_at + offset),
+                step.get(velocity_at + offset),
+            ) {
                 *dst = *src;
             }
         }
