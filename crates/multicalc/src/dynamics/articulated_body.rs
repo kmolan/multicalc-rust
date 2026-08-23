@@ -125,9 +125,7 @@ impl<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>
 
         let mut stored = [None; MAX_JOINTS];
         for (index, inertia) in inertias.iter().enumerate() {
-            if let Some(inertia) = inertia
-                && !inertia.is_finite()
-            {
+            if inertia.is_some_and(|inertia| !inertia.is_finite()) {
                 return Err(DynamicsError::NonFinite);
             }
             *stored
