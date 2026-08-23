@@ -4,7 +4,8 @@ Fixed-size, stack-allocated `Matrix` and `Vector`. Dimensions are const generics
 mismatch is a compile error and nothing is heap-allocated. Indexing (`v[i]`, `m[(r, c)]`) is
 the ergonomic path and panics on out-of-range like `Vec`. Use `get` / `get_mut` /
 `try_row` / `try_column` when you want `Option` instead of a panic (panicking `row` /
-`column` were removed).
+`column` were removed). To reshape without copying at all — and without any panicking path —
+take a [borrowed view](#borrowed-views).
 
 - `Matrix::lu_decompose` → `LuDecomposition`: partial-pivoting Doolittle LU; `solve`, `determinant`, `inverse`.
 - `Matrix::cholesky` → `Cholesky`: faster path for symmetric positive-definite matrices.
@@ -15,6 +16,65 @@ the ergonomic path and panics on out-of-range like `Vec`. Use `get` / `get_mut` 
   symmetric matrix; `eigenvalues` (largest first), `eigenvectors`, `determinant`,
   `condition_number`, `is_positive_definite`, and `clamped` for raising a drifted spectrum back
   above zero.
+
+## Borrowed views
+
+`Matrix::view` / `Matrix::view_mut` and `Vector::view` / `Vector::view_mut` hand out a
+`MatrixView` / `VectorView` and their `Mut` counterparts: a borrowed window described by a flat
+slice, an offset, and a stride per axis. Reshaping one is index arithmetic rather than a copy, so
+transposing, taking a block, or pulling out a row, column, or diagonal costs nothing until
+`to_matrix` / `to_vector` materializes the result.
+
+- `transposed` swaps the two strides; `submatrix::<R, C>(top, left)` moves the offset.
+- `row`, `column`, and `diagonal::<N>` hand back a strided `VectorView`, and `segment::<N>(start)`
+  narrows one. `dot` sums across two different strides without materializing either side.
+- `split_rows_at`, `split_cols_at`, and the vector `split_at` cut a view in two. On a `Mut` view
+  the halves can be written through at the same time, which is why those ask for a layout that
+  `slice::split_at_mut` can actually separate; each method's docs say which.
+- The `Mut` views add `get_mut`, `fill`, and `copy_from`. Everything the read-only views do, they
+  do too.
+
+Views have no `Index`. `get` / `get_mut` are the only accessors, and every fallible operation
+returns `Result<_, LinalgError>` carrying `LinalgError::OutOfBounds`, so nothing on a view
+panics. The bound cannot be left to the underlying slice the way an owned `Matrix` leaves it to
+its arrays: a strided view's out-of-range subscript can still compute a flat index that lands on
+a real element of the parent buffer, and returning that entry would be wrong rather than merely
+unchecked.
+
+```rust
+use multicalc::linear_algebra::{Matrix, MatrixViewMut};
+
+let matrix = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
+
+// Transpose, block, row, column, diagonal — none of these move an element.
+let transposed = matrix.view().transposed();
+assert_eq!((transposed.rows(), transposed.cols()), (3, 2));
+assert_eq!(transposed.get(2, 0), Ok(&3.0));
+
+let block = matrix.view().submatrix::<2, 2>(0, 1).unwrap();
+assert_eq!(block.to_matrix().into_array(), [[2.0, 3.0], [5.0, 6.0]]);
+
+// A column is strided: its entries sit one whole row apart in the flat buffer.
+let column = matrix.view().column(1).unwrap();
+assert_eq!(column.stride(), 3);
+assert_eq!(column.dot(matrix.view().column(1).unwrap()), 29.0);
+
+// Transposing into a caller's scratch buffer, with no intermediate stack matrix.
+let mut scratch = [0.0; 6];
+MatrixViewMut::<3, 2>::from_row_major_slice(&mut scratch)
+    .unwrap()
+    .copy_from(matrix.view().transposed());
+assert_eq!(scratch, [1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);
+
+// Two halves of one matrix, writable at the same time.
+let mut target = Matrix::<3, 2>::zeros();
+let (mut top, mut bottom) = target.view_mut().split_rows_at::<1, 2>().unwrap();
+*top.get_mut(0, 0).unwrap() = 1.0;
+bottom.fill(2.0);
+assert_eq!(target.into_array(), [[1.0, 0.0], [2.0, 2.0], [2.0, 2.0]]);
+```
+
+## Decompositions and solves
 
 Direct linear solves via LU and Cholesky:
 
@@ -102,7 +162,8 @@ than a failure. Both are `O(n³)` per pass on a fixed budget, and both belong at
 Errors: factorizations and solves return [`LinalgError`](error-handling.md): `Singular`,
 `NotPositiveDefinite`, `Underdetermined` (a least-squares system with `M < N`), `NotSymmetric` (a
 matrix that does not read the same across the diagonal), `NonFinite`, or `DidNotConverge` (a
-matrix-equation solver that ran out of its budget).
+matrix-equation solver that ran out of its budget). The view operations above return the same
+enum, always as `OutOfBounds`.
 
 Credits: the QR factorization, damped solve, and overflow-safe norm port MINPACK's `qrfac`,
 `qrsolv`, and `enorm` (Moré, Garbow, Hillstrom; public domain, netlib). LU and Cholesky follow

@@ -8,8 +8,11 @@
 //!   `Vector3D<T>` rather than `Vector<3, T>`. Each is the same type as what it stands for, so
 //!   the two spellings mix freely.
 //! - [`MatrixView`] / [`VectorView`] and their `Mut` counterparts — borrowed, strided windows
-//!   onto existing storage. Transpose, submatrix, and row/column extraction are index arithmetic
-//!   on a view, so they cost nothing until [`MatrixView::to_matrix`] copies one out.
+//!   onto existing storage. Transpose, submatrix, row/column/diagonal extraction, and splitting
+//!   are index arithmetic on a view, so they cost nothing until [`MatrixView::to_matrix`] copies
+//!   one out. The views have no `Index`: every fallible operation returns
+//!   `Result<_, LinalgError>` carrying [`LinalgError::OutOfBounds`](crate::error::LinalgError),
+//!   so nothing on a view panics.
 //! - [`solve_discrete_riccati`] — the steady-state cost-to-go an optimal linear feedback law is
 //!   built from.
 //! - [`solve_discrete_lyapunov`] — solves `Aᵀ·P·A − P + Q = 0`, which is how a closed loop is
