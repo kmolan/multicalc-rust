@@ -117,6 +117,26 @@ fn cascade_response_queries_reject_a_frequency_at_or_above_nyquist() {
 }
 
 #[test]
+fn cascade_response_queries_reject_a_frequency_at_or_below_negative_nyquist() {
+    let section = BiquadCoefficients::low_pass(50.0_f64, FLATTEST, 0.001).unwrap();
+    let cascade = BiquadCascade::new([section; 2]);
+    for frequency_hz in [-500.0_f64, -600.0] {
+        assert_eq!(
+            cascade.magnitude_at(frequency_hz),
+            Err(SignalError::FrequencyOutOfRange)
+        );
+        assert_eq!(
+            cascade.phase_at(frequency_hz),
+            Err(SignalError::FrequencyOutOfRange)
+        );
+        assert_eq!(
+            cascade.delay_at(frequency_hz),
+            Err(SignalError::FrequencyOutOfRange)
+        );
+    }
+}
+
+#[test]
 fn cascade_response_queries_reject_a_non_finite_frequency() {
     let section = BiquadCoefficients::low_pass(50.0_f64, FLATTEST, 0.001).unwrap();
     let cascade = BiquadCascade::new([section; 2]);
