@@ -6,20 +6,10 @@ use crate::linear_algebra::Matrix;
 
 /// A borrowed, strided, read-only `ROWS`×`COLS` window onto someone else's storage.
 ///
-/// Reshaping is free: [`transposed`](Self::transposed) and [`submatrix`](Self::submatrix) only
-/// rewrite the offset and strides, so neither touches an element.
-///
-/// Every fallible operation reports [`LinalgError::OutOfBounds`] and nothing else, so a caller
-/// that only needs to know whether a window fits can test with `is_ok`. There is no `Index`
-/// impl: a subscript that misses has to be answerable, and `Index` returns `&T` with nowhere to
-/// put an error, so [`get`](Self::get) is the only way in.
-///
 /// ```
 /// use multicalc::linear_algebra::Matrix;
-///
 /// let matrix = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]);
-/// let corner = matrix.view().submatrix::<2, 2>(1, 1).unwrap();
-///
+/// let corner = matrix.view().try_submatrix::<2, 2>(1, 1).unwrap();
 /// assert_eq!(corner.to_matrix().into_array(), [[5.0, 6.0], [8.0, 9.0]]);
 /// ```
 #[derive(Debug)]
@@ -33,20 +23,13 @@ pub struct MatrixView<'data, const ROWS: usize, const COLS: usize, T = f64> {
 
 /// A borrowed, strided, writable `ROWS`×`COLS` window onto someone else's storage.
 ///
-/// The reshaping methods consume the view, because the exclusive borrow has to move with them.
-/// [`as_view`](Self::as_view) and [`reborrow`](Self::reborrow) hand out shorter-lived views when
-/// the original needs to stay usable.
-///
-/// The surface mirrors [`MatrixView`] method for method, with [`get_mut`](Self::get_mut),
-/// [`fill`](Self::fill), and [`copy_from`](Self::copy_from) added for the writable side.
+/// Reshaping consumes the view, since the exclusive borrow moves with it;
+/// [`as_view`](Self::as_view) and [`reborrow`](Self::reborrow) hand out shorter-lived ones.
 ///
 /// ```
 /// use multicalc::linear_algebra::Matrix;
-///
 /// let mut matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-/// let mut transposed = matrix.view_mut().transposed();
-/// *transposed.get_mut(0, 1).unwrap() = 9.0; // writes through to matrix[(1, 0)]
-///
+/// *matrix.view_mut().transposed().try_get_mut(0, 1).unwrap() = 9.0;
 /// assert_eq!(matrix.into_array(), [[1.0, 2.0], [9.0, 4.0]]);
 /// ```
 #[derive(Debug)]
@@ -58,10 +41,8 @@ pub struct MatrixViewMut<'data, const ROWS: usize, const COLS: usize, T = f64> {
     col_stride: usize,
 }
 
-// `Clone` and `Copy` are written out rather than derived, because a derive would demand
-// `T: Copy`. What is copied is the handle -- the slice reference, offset, and two strides -- so
-// it is `Copy` for the same reason `&[T]` is, whatever `T` turns out to be. The elements are
-// never touched; `to_matrix` is the only thing that copies those.
+// Written out rather than derived: a derive would demand `T: Copy`, but what is copied is the
+// handle, not the elements.
 impl<'data, const ROWS: usize, const COLS: usize, T> Clone for MatrixView<'data, ROWS, COLS, T> {
     #[inline]
     fn clone(&self) -> Self {
@@ -71,9 +52,7 @@ impl<'data, const ROWS: usize, const COLS: usize, T> Clone for MatrixView<'data,
 impl<'data, const ROWS: usize, const COLS: usize, T> Copy for MatrixView<'data, ROWS, COLS, T> {}
 
 impl<'data, const ROWS: usize, const COLS: usize, T> MatrixView<'data, ROWS, COLS, T> {
-    /// Builds a view over `data`, or [`LinalgError::OutOfBounds`] if the shape would reach past
-    /// the end of the slice. Every constructor funnels through here, so an existing view is
-    /// always in range and `get` can never be defeated by a bad stride.
+    /// Every constructor funnels through here, so an existing view is always in range.
     #[inline]
     fn from_parts(
         data: &'data [T],
@@ -94,19 +73,18 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixView<'data, ROWS, COL
         })
     }
 
-    /// Views a row-major slice as a matrix, or [`LinalgError::OutOfBounds`] if it holds fewer
-    /// than `ROWS * COLS` elements. Trailing elements are ignored, which is what makes a scratch
-    /// buffer reusable.
+    /// Views a row-major slice, ignoring any trailing elements, or `OutOfBounds` if it holds
+    /// fewer than `ROWS * COLS`.
     ///
     /// ```
     /// use multicalc::linear_algebra::MatrixView;
     /// let buffer = [1.0, 2.0, 3.0, 4.0, 5.0];
-    /// let view = MatrixView::<2, 2>::from_row_major_slice(&buffer).unwrap();
-    /// assert_eq!(view.get(1, 0), Ok(&3.0));
-    /// assert!(MatrixView::<3, 2>::from_row_major_slice(&buffer).is_err());
+    /// let view = MatrixView::<2, 2>::try_from_row_major_slice(&buffer).unwrap();
+    /// assert_eq!(view.try_get(1, 0), Ok(&3.0));
+    /// assert!(MatrixView::<3, 2>::try_from_row_major_slice(&buffer).is_err());
     /// ```
     #[inline]
-    pub fn from_row_major_slice(slice: &'data [T]) -> Result<Self, LinalgError> {
+    pub fn try_from_row_major_slice(slice: &'data [T]) -> Result<Self, LinalgError> {
         Self::from_parts(slice, 0, COLS, 1)
     }
 
@@ -124,9 +102,8 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixView<'data, ROWS, COL
         COLS
     }
 
-    /// The `(row_stride, column_stride)` pair: how far apart consecutive rows and columns sit in
-    /// the underlying buffer. A freshly taken view of a [`Matrix`] reads `(COLS, 1)`; transposing
-    /// it reads `(1, COLS)`.
+    /// How far apart consecutive rows and columns sit in the buffer: `(COLS, 1)` for a fresh
+    /// view of a [`Matrix`], `(1, COLS)` transposed.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
@@ -140,13 +117,13 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixView<'data, ROWS, COL
         (self.row_stride, self.col_stride)
     }
 
-    /// Whether the elements are laid out contiguously in row-major order, which is the layout
-    /// [`MatrixViewMut::split_rows_at`] needs.
+    /// Whether the rows are unpadded runs, which is what
+    /// [`MatrixViewMut::try_split_rows_at`] needs.
     #[inline]
     #[must_use]
     pub const fn is_row_major(&self) -> bool {
         // With one column or none, `col_stride` addresses nothing and any row stride wide
-        // enough to keep the rows apart is separable; otherwise the rows must be unpadded runs.
+        // enough to keep the rows apart is separable.
         self.row_stride >= COLS && (COLS <= 1 || self.col_stride == 1)
     }
 
@@ -173,32 +150,25 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixView<'data, ROWS, COL
             .checked_add(left.checked_mul(self.col_stride)?)
     }
 
-    /// Returns a reference to entry `(row, column)`, or [`LinalgError::OutOfBounds`] if the
-    /// subscript misses.
-    ///
-    /// This is the only accessor. A strided view cannot leave the bound to the slice the way an
-    /// owned [`Matrix`] leaves it to its arrays: in a 2×2 block taken from a 3×3 matrix (strides
-    /// 3 and 1) the invalid subscript `(2, 0)` works out to flat index 6, a perfectly valid
-    /// element of the 9-element parent buffer. Deferring to the slice bound would hand back the
-    /// wrong entry instead of failing, so the shape is compared here.
+    /// Entry `(row, column)`, or `OutOfBounds`. The shape is checked here rather than left to
+    /// the slice, because a strided view's out-of-range subscript can still land on a real
+    /// element of the parent buffer.
     ///
     /// ```
     /// use multicalc::error::LinalgError;
     /// use multicalc::linear_algebra::Matrix;
-    ///
     /// let matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-    ///
-    /// assert_eq!(matrix.view().get(1, 0), Ok(&3.0));
-    /// assert_eq!(matrix.view().get(2, 0), Err(LinalgError::OutOfBounds));
+    /// assert_eq!(matrix.view().try_get(1, 0), Ok(&3.0));
+    /// assert_eq!(matrix.view().try_get(2, 0), Err(LinalgError::OutOfBounds));
     /// ```
     #[inline]
-    pub fn get(&self, row: usize, column: usize) -> Result<&T, LinalgError> {
+    pub fn try_get(&self, row: usize, column: usize) -> Result<&T, LinalgError> {
         self.index_of(row, column)
             .and_then(|flat| self.data.get(flat))
             .ok_or(LinalgError::OutOfBounds)
     }
 
-    /// The transpose, in constant time: the two strides trade places and nothing is copied.
+    /// The transpose: the two strides trade places.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
@@ -217,33 +187,19 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixView<'data, ROWS, COL
         }
     }
 
-    /// The `BLOCK_ROWS`×`BLOCK_COLS` block whose top-left corner sits at `(top, left)`, or
-    /// [`LinalgError::OutOfBounds`] if that block would run past an edge.
-    ///
-    /// `top` and `left` say *where* the block starts, counted in the current view's rows and
-    /// columns. The two const parameters say *how big* it is. The size is a const parameter
-    /// rather than an argument because it is part of the returned type — a 2×2 block and a 3×3
-    /// block are different types, so the shape has to be known at compile time, while the corner
-    /// is free to be a runtime value.
-    ///
-    /// Only the offset moves, which is what makes this constant time. Stepping down one row means
-    /// moving `row_stride` elements along the buffer and stepping right one column means moving
-    /// `col_stride`, so the corner sits `top * row_stride + left * col_stride` elements past
-    /// wherever the view already started. The strides carry over unchanged, because the block
-    /// looks at the same buffer: its rows are still as far apart as the parent's were.
-    ///
-    /// In a 3×3 row-major matrix (`row_stride` 3, `col_stride` 1) the block at `(1, 1)` starts
-    /// `1 * 3 + 1 * 1 = 4` elements in, which is entry `(1, 1)`.
+    /// The `BLOCK_ROWS`×`BLOCK_COLS` block at `(top, left)`, or `OutOfBounds` if it runs off an
+    /// edge. Only the offset moves; the strides carry over. The size is a const parameter
+    /// because it is part of the returned type, while the corner is not.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let matrix = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
-    /// let block = matrix.view().submatrix::<2, 2>(0, 1).unwrap();
+    /// let block = matrix.view().try_submatrix::<2, 2>(0, 1).unwrap();
     /// assert_eq!(block.to_matrix().into_array(), [[2.0, 3.0], [5.0, 6.0]]);
-    /// assert!(matrix.view().submatrix::<2, 2>(0, 2).is_err());
+    /// assert!(matrix.view().try_submatrix::<2, 2>(0, 2).is_err());
     /// ```
     #[inline]
-    pub fn submatrix<const BLOCK_ROWS: usize, const BLOCK_COLS: usize>(
+    pub fn try_submatrix<const BLOCK_ROWS: usize, const BLOCK_COLS: usize>(
         self,
         top: usize,
         left: usize,
@@ -254,89 +210,66 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixView<'data, ROWS, COL
         MatrixView::from_parts(self.data, offset, self.row_stride, self.col_stride)
     }
 
-    /// Row `row` as a view, or [`LinalgError::OutOfBounds`] if `row >= ROWS`. Unlike
-    /// [`Matrix::try_row`], which copies the entries into an owned vector, this only works out
-    /// where the row starts.
-    ///
-    /// The result has `COLS` components, because a row spans every column. Its stride is the
-    /// view's `col_stride` — the gap between neighbouring entries *within* a row.
+    /// Row `row` at stride `col_stride`, or `OutOfBounds`. Unlike [`Matrix::try_row`], nothing
+    /// is copied.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-    /// assert_eq!(matrix.view().row(1).unwrap().to_vector().into_array(), [3.0, 4.0]);
+    /// assert_eq!(matrix.view().try_row(1).unwrap().to_vector().into_array(), [3.0, 4.0]);
     /// ```
     #[inline]
-    pub fn row(self, row: usize) -> Result<VectorView<'data, COLS, T>, LinalgError> {
+    pub fn try_row(self, row: usize) -> Result<VectorView<'data, COLS, T>, LinalgError> {
         let offset = self
             .block_offset(row, 0, 1, COLS)
             .ok_or(LinalgError::OutOfBounds)?;
         VectorView::from_parts(self.data, offset, self.col_stride)
     }
 
-    /// Column `column` as a view, or [`LinalgError::OutOfBounds`] if `column >= COLS`. Unlike
-    /// [`Matrix::try_column`], which copies, this only works out where the column starts.
-    ///
-    /// The result has `ROWS` components, because a column spans every row. Its stride is the
-    /// view's `row_stride`: consecutive entries of a column are one whole row apart in the
-    /// buffer, and carrying that stride around instead of gathering the entries is what saves
-    /// the copy.
+    /// Column `column` at stride `row_stride`, or `OutOfBounds`. Unlike [`Matrix::try_column`],
+    /// nothing is copied — carrying the stride is what saves it.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-    /// assert_eq!(matrix.view().column(1).unwrap().to_vector().into_array(), [2.0, 4.0]);
+    /// assert_eq!(matrix.view().try_column(1).unwrap().to_vector().into_array(), [2.0, 4.0]);
     /// ```
     #[inline]
-    pub fn column(self, column: usize) -> Result<VectorView<'data, ROWS, T>, LinalgError> {
+    pub fn try_column(self, column: usize) -> Result<VectorView<'data, ROWS, T>, LinalgError> {
         let offset = self
             .block_offset(0, column, ROWS, 1)
             .ok_or(LinalgError::OutOfBounds)?;
         VectorView::from_parts(self.data, offset, self.row_stride)
     }
 
-    /// The main diagonal — entries `(0, 0)`, `(1, 1)`, `(2, 2)` and so on — as a view, without
-    /// gathering them into a vector.
-    ///
-    /// A diagonal stops at whichever edge it reaches first, so it holds `min(ROWS, COLS)`
-    /// entries. Rust cannot yet work that out inside a type, so the length arrives as `LEN` and
-    /// is checked instead: pass the shorter side, or get [`LinalgError::OutOfBounds`] back. For a
-    /// 2×4 view that is `2`.
-    ///
-    /// The stride is `row_stride + col_stride`, because one step along the diagonal moves down a
-    /// row *and* right a column. On a 3×3 row-major matrix that is `3 + 1 = 4`, landing on buffer
-    /// positions 0, 4 and 8 — the diagonal.
+    /// The main diagonal, at stride `row_stride + col_stride`. `LEN` has to be `min(ROWS, COLS)`,
+    /// which the type system cannot yet work out, so it is checked instead.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let matrix = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
-    /// let diagonal = matrix.view().diagonal::<2>().unwrap();
+    /// let diagonal = matrix.view().try_diagonal::<2>().unwrap();
     /// assert_eq!(diagonal.to_vector().into_array(), [1.0, 5.0]);
     /// ```
     #[inline]
-    pub fn diagonal<const LEN: usize>(self) -> Result<VectorView<'data, LEN, T>, LinalgError> {
+    pub fn try_diagonal<const LEN: usize>(self) -> Result<VectorView<'data, LEN, T>, LinalgError> {
         let stride = diagonal_stride(LEN, ROWS, COLS, self.row_stride, self.col_stride)
             .ok_or(LinalgError::OutOfBounds)?;
         VectorView::from_parts(self.data, self.offset, stride)
     }
 
-    /// Splits into the first `TOP` rows and the remaining `BOTTOM`, or
-    /// [`LinalgError::OutOfBounds`] unless `TOP + BOTTOM == ROWS`.
-    ///
-    /// Both halves keep looking at the whole buffer and differ only in offset and shape, so
-    /// unlike [`MatrixViewMut::split_rows_at`] this works on any layout — a read-only split has
-    /// no disjointness to prove.
+    /// The first `TOP` rows and the remaining `BOTTOM`, or `OutOfBounds` unless they sum to
+    /// `ROWS`. Any layout does, since two shared halves may overlap.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
-    /// let (top, bottom) = matrix.view().split_rows_at::<1, 2>().unwrap();
-    ///
+    /// let (top, bottom) = matrix.view().try_split_rows_at::<1, 2>().unwrap();
     /// assert_eq!(top.to_matrix().into_array(), [[1.0, 2.0]]);
     /// assert_eq!(bottom.to_matrix().into_array(), [[3.0, 4.0], [5.0, 6.0]]);
     /// ```
     #[inline]
-    pub fn split_rows_at<const TOP: usize, const BOTTOM: usize>(
+    pub fn try_split_rows_at<const TOP: usize, const BOTTOM: usize>(
         self,
     ) -> Result<
         (
@@ -349,25 +282,23 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixView<'data, ROWS, COL
             return Err(LinalgError::OutOfBounds);
         }
         Ok((
-            self.submatrix::<TOP, COLS>(0, 0)?,
-            self.submatrix::<BOTTOM, COLS>(TOP, 0)?,
+            self.try_submatrix::<TOP, COLS>(0, 0)?,
+            self.try_submatrix::<BOTTOM, COLS>(TOP, 0)?,
         ))
     }
 
-    /// Splits into the first `LEFT` columns and the remaining `RIGHT`, or
-    /// [`LinalgError::OutOfBounds`] unless `LEFT + RIGHT == COLS`. The column counterpart of
-    /// [`split_rows_at`](Self::split_rows_at), and likewise free of any layout requirement.
+    /// The first `LEFT` columns and the remaining `RIGHT`, or `OutOfBounds` unless they sum to
+    /// `COLS`. Any layout does.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let matrix = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
-    /// let (left, right) = matrix.view().split_cols_at::<1, 2>().unwrap();
-    ///
+    /// let (left, right) = matrix.view().try_split_cols_at::<1, 2>().unwrap();
     /// assert_eq!(left.to_matrix().into_array(), [[1.0], [4.0]]);
     /// assert_eq!(right.to_matrix().into_array(), [[2.0, 3.0], [5.0, 6.0]]);
     /// ```
     #[inline]
-    pub fn split_cols_at<const LEFT: usize, const RIGHT: usize>(
+    pub fn try_split_cols_at<const LEFT: usize, const RIGHT: usize>(
         self,
     ) -> Result<
         (
@@ -380,28 +311,23 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixView<'data, ROWS, COL
             return Err(LinalgError::OutOfBounds);
         }
         Ok((
-            self.submatrix::<ROWS, LEFT>(0, 0)?,
-            self.submatrix::<ROWS, RIGHT>(0, LEFT)?,
+            self.try_submatrix::<ROWS, LEFT>(0, 0)?,
+            self.try_submatrix::<ROWS, RIGHT>(0, LEFT)?,
         ))
     }
 }
 
 impl<'data, const ROWS: usize, const COLS: usize, T: Copy> MatrixView<'data, ROWS, COLS, T> {
-    /// Copies the window into an owned matrix. This is the one operation here that moves elements.
+    /// Copies the window out. The only operation here that moves elements.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
-    ///
     /// let matrix = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
     /// let owned = matrix.view().transposed().to_matrix();
-    ///
     /// assert_eq!(owned.into_array(), [[1.0, 4.0], [2.0, 5.0], [3.0, 6.0]]);
     /// ```
-    // `Matrix::from_fn` only ever asks for subscripts below `ROWS` and `COLS`, and every
-    // constructor has already proved that such a subscript lands inside `data` without
-    // overflowing -- that is exactly what `required_len` checks. So the slice index below cannot
-    // miss and needs no error channel, the same reasoning (and the same allow) as
-    // `Matrix::get_unchecked`.
+    // In-bounds by construction: `from_fn` only asks for subscripts below `ROWS` and `COLS`, and
+    // `required_len` already proved those land inside `data`.
     #[inline]
     #[allow(clippy::indexing_slicing)]
     pub fn to_matrix(self) -> Matrix<ROWS, COLS, T> {
@@ -414,17 +340,17 @@ impl<'data, const ROWS: usize, const COLS: usize, T: Copy> MatrixView<'data, ROW
 impl<'data, const ROWS: usize, const COLS: usize, T: PartialEq> PartialEq
     for MatrixView<'data, ROWS, COLS, T>
 {
-    /// Compares element by element, so two views of different layouts over different buffers are
-    /// equal when they present the same entries.
+    /// Element by element, so different layouts over different buffers can be equal.
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        (0..ROWS).all(|row| (0..COLS).all(|column| self.get(row, column) == other.get(row, column)))
+        (0..ROWS).all(|row| {
+            (0..COLS).all(|column| self.try_get(row, column) == other.try_get(row, column))
+        })
     }
 }
 
 impl<'data, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'data, ROWS, COLS, T> {
-    /// Builds a view over `data`, or [`LinalgError::OutOfBounds`] if the shape would reach past
-    /// the end of the slice.
+    /// Every constructor funnels through here, so an existing view is always in range.
     #[inline]
     pub(super) fn from_parts(
         data: &'data mut [T],
@@ -445,18 +371,17 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'data, ROWS, 
         })
     }
 
-    /// Views a row-major slice as a writable matrix, or [`LinalgError::OutOfBounds`] if it holds
-    /// fewer than `ROWS * COLS` elements.
+    /// Views a row-major slice writably. See [`MatrixView::try_from_row_major_slice`].
     ///
     /// ```
     /// use multicalc::linear_algebra::MatrixViewMut;
     /// let mut buffer = [0.0; 6];
-    /// let mut view = MatrixViewMut::<2, 3>::from_row_major_slice(&mut buffer).unwrap();
-    /// *view.get_mut(1, 2).unwrap() = 7.0;
+    /// let mut view = MatrixViewMut::<2, 3>::try_from_row_major_slice(&mut buffer).unwrap();
+    /// *view.try_get_mut(1, 2).unwrap() = 7.0;
     /// assert_eq!(buffer, [0.0, 0.0, 0.0, 0.0, 0.0, 7.0]);
     /// ```
     #[inline]
-    pub fn from_row_major_slice(slice: &'data mut [T]) -> Result<Self, LinalgError> {
+    pub fn try_from_row_major_slice(slice: &'data mut [T]) -> Result<Self, LinalgError> {
         Self::from_parts(slice, 0, COLS, 1)
     }
 
@@ -474,20 +399,17 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'data, ROWS, 
         COLS
     }
 
-    /// The `(row_stride, column_stride)` pair. See [`MatrixView::strides`].
+    /// See [`MatrixView::strides`].
     #[inline]
     #[must_use]
     pub const fn strides(&self) -> (usize, usize) {
         (self.row_stride, self.col_stride)
     }
 
-    /// Whether the elements are laid out contiguously in row-major order. The row splits below
-    /// require this, since they cut the underlying slice in two.
+    /// Whether the rows are unpadded runs, which the row split below needs.
     #[inline]
     #[must_use]
     pub const fn is_row_major(&self) -> bool {
-        // With one column or none, `col_stride` addresses nothing and any row stride wide
-        // enough to keep the rows apart is separable; otherwise the rows must be unpadded runs.
         self.row_stride >= COLS && (COLS <= 1 || self.col_stride == 1)
     }
 
@@ -514,56 +436,45 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'data, ROWS, 
             .checked_add(left.checked_mul(self.col_stride)?)
     }
 
-    /// Returns a reference to entry `(row, column)`, or [`LinalgError::OutOfBounds`] if the
-    /// subscript misses. See [`MatrixView::get`] for why the bound cannot be left to the slice.
+    /// Entry `(row, column)`, or `OutOfBounds`. See [`MatrixView::try_get`].
     ///
     /// ```
     /// use multicalc::error::LinalgError;
     /// use multicalc::linear_algebra::Matrix;
-    ///
     /// let mut matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
     /// let view = matrix.view_mut();
-    ///
-    /// assert_eq!(view.get(1, 0), Ok(&3.0));
-    /// assert_eq!(view.get(2, 0), Err(LinalgError::OutOfBounds));
+    /// assert_eq!(view.try_get(1, 0), Ok(&3.0));
+    /// assert_eq!(view.try_get(2, 0), Err(LinalgError::OutOfBounds));
     /// ```
     #[inline]
-    pub fn get(&self, row: usize, column: usize) -> Result<&T, LinalgError> {
+    pub fn try_get(&self, row: usize, column: usize) -> Result<&T, LinalgError> {
         self.index_of(row, column)
             .and_then(|flat| self.data.get(flat))
             .ok_or(LinalgError::OutOfBounds)
     }
 
-    /// Returns a mutable reference to entry `(row, column)`, or [`LinalgError::OutOfBounds`] if
-    /// the subscript misses.
+    /// Entry `(row, column)`, writably, or `OutOfBounds`.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
-    ///
     /// let mut matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-    /// let mut view = matrix.view_mut();
-    /// *view.get_mut(0, 1).unwrap() = 9.0;
-    ///
+    /// *matrix.view_mut().try_get_mut(0, 1).unwrap() = 9.0;
     /// assert_eq!(matrix.into_array(), [[1.0, 9.0], [3.0, 4.0]]);
     /// ```
     #[inline]
-    pub fn get_mut(&mut self, row: usize, column: usize) -> Result<&mut T, LinalgError> {
+    pub fn try_get_mut(&mut self, row: usize, column: usize) -> Result<&mut T, LinalgError> {
         let flat = self.index_of(row, column).ok_or(LinalgError::OutOfBounds)?;
         self.data.get_mut(flat).ok_or(LinalgError::OutOfBounds)
     }
 
-    /// Borrows this window read-only for as long as `self` is untouched.
+    /// Borrows read-only for as long as `self` is untouched.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
-    ///
     /// let mut matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
     /// let mut view = matrix.view_mut();
-    ///
-    /// // `transposed` would consume `view`; `as_view` leaves it usable.
-    /// assert_eq!(view.as_view().transposed().get(0, 1), Ok(&3.0));
-    /// *view.get_mut(0, 0).unwrap() = 9.0;
-    ///
+    /// assert_eq!(view.as_view().transposed().try_get(0, 1), Ok(&3.0));
+    /// *view.try_get_mut(0, 0).unwrap() = 9.0;
     /// assert_eq!(matrix.into_array(), [[9.0, 2.0], [3.0, 4.0]]);
     /// ```
     #[inline]
@@ -576,15 +487,14 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'data, ROWS, 
         }
     }
 
-    /// Borrows this window writably for a shorter lifetime, so the original stays usable after
-    /// a method that would otherwise consume it.
+    /// Borrows writably for a shorter lifetime, so the original survives a consuming method.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let mut matrix = Matrix::<2, 2>::zeros();
     /// let mut view = matrix.view_mut();
-    /// *view.reborrow().transposed().get_mut(0, 1).unwrap() = 5.0;
-    /// *view.get_mut(0, 0).unwrap() = 1.0;
+    /// *view.reborrow().transposed().try_get_mut(0, 1).unwrap() = 5.0;
+    /// *view.try_get_mut(0, 0).unwrap() = 1.0;
     /// assert_eq!(matrix.into_array(), [[1.0, 0.0], [5.0, 0.0]]);
     /// ```
     #[inline]
@@ -597,13 +507,12 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'data, ROWS, 
         }
     }
 
-    /// The transpose, in constant time. Consumes the view because the exclusive borrow moves into
-    /// the result; use [`reborrow`](Self::reborrow) first to keep the original.
+    /// The transpose. Consumes the view; [`reborrow`](Self::reborrow) first to keep it.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let mut matrix = Matrix::<2, 3>::zeros();
-    /// *matrix.view_mut().transposed().get_mut(2, 1).unwrap() = 9.0;
+    /// *matrix.view_mut().transposed().try_get_mut(2, 1).unwrap() = 9.0;
     /// assert_eq!(matrix[(1, 2)], 9.0);
     /// ```
     #[inline]
@@ -616,22 +525,17 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'data, ROWS, 
         }
     }
 
-    /// The `BLOCK_ROWS`×`BLOCK_COLS` writable block whose top-left corner sits at `(top, left)`,
-    /// or [`LinalgError::OutOfBounds`] if that block would run past an edge. The read-only
-    /// [`MatrixView::submatrix`] explains the coordinates and the stride arithmetic; this is the
-    /// same operation on a writable view.
+    /// The writable block at `(top, left)`. See [`MatrixView::try_submatrix`].
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let identity = Matrix::<2, 2>::identity();
     /// let mut matrix = Matrix::<3, 3>::zeros();
-    ///
-    /// matrix.view_mut().submatrix::<2, 2>(1, 1).unwrap().copy_from(identity.view());
-    ///
+    /// matrix.view_mut().try_submatrix::<2, 2>(1, 1).unwrap().copy_from(identity.view());
     /// assert_eq!(matrix.into_array(), [[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]);
     /// ```
     #[inline]
-    pub fn submatrix<const BLOCK_ROWS: usize, const BLOCK_COLS: usize>(
+    pub fn try_submatrix<const BLOCK_ROWS: usize, const BLOCK_COLS: usize>(
         self,
         top: usize,
         left: usize,
@@ -642,81 +546,70 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'data, ROWS, 
         MatrixViewMut::from_parts(self.data, offset, self.row_stride, self.col_stride)
     }
 
-    /// Row `row` as a writable view of `COLS` components, or [`LinalgError::OutOfBounds`] if
-    /// `row >= ROWS`. See [`MatrixView::row`].
+    /// Row `row`, writably. See [`MatrixView::try_row`].
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
-    ///
     /// let mut matrix = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
-    /// matrix.view_mut().row(1).unwrap().fill(0.0);
-    ///
+    /// matrix.view_mut().try_row(1).unwrap().fill(0.0);
     /// assert_eq!(matrix.into_array(), [[1.0, 2.0, 3.0], [0.0, 0.0, 0.0]]);
     /// ```
     #[inline]
-    pub fn row(self, row: usize) -> Result<VectorViewMut<'data, COLS, T>, LinalgError> {
+    pub fn try_row(self, row: usize) -> Result<VectorViewMut<'data, COLS, T>, LinalgError> {
         let offset = self
             .block_offset(row, 0, 1, COLS)
             .ok_or(LinalgError::OutOfBounds)?;
         VectorViewMut::from_parts(self.data, offset, self.col_stride)
     }
 
-    /// Column `column` as a writable view of `ROWS` components, or [`LinalgError::OutOfBounds`]
-    /// if `column >= COLS`. See [`MatrixView::column`].
+    /// Column `column`, writably. See [`MatrixView::try_column`].
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
-    ///
     /// let mut matrix = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
-    /// matrix.view_mut().column(2).unwrap().fill(0.0);
-    ///
+    /// matrix.view_mut().try_column(2).unwrap().fill(0.0);
     /// assert_eq!(matrix.into_array(), [[1.0, 2.0, 0.0], [4.0, 5.0, 0.0]]);
     /// ```
     #[inline]
-    pub fn column(self, column: usize) -> Result<VectorViewMut<'data, ROWS, T>, LinalgError> {
+    pub fn try_column(self, column: usize) -> Result<VectorViewMut<'data, ROWS, T>, LinalgError> {
         let offset = self
             .block_offset(0, column, ROWS, 1)
             .ok_or(LinalgError::OutOfBounds)?;
         VectorViewMut::from_parts(self.data, offset, self.row_stride)
     }
 
-    /// The main diagonal as a writable view. The read-only [`MatrixView::diagonal`] explains the
-    /// length rule and the stride; this is the same operation on a writable view.
+    /// The main diagonal, writably. See [`MatrixView::try_diagonal`].
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
-    ///
     /// let mut matrix = Matrix::<3, 3>::zeros();
-    /// matrix.view_mut().diagonal::<3>().unwrap().fill(1.0);
-    ///
+    /// matrix.view_mut().try_diagonal::<3>().unwrap().fill(1.0);
     /// assert_eq!(matrix, Matrix::<3, 3>::identity());
     /// ```
     #[inline]
-    pub fn diagonal<const LEN: usize>(self) -> Result<VectorViewMut<'data, LEN, T>, LinalgError> {
+    pub fn try_diagonal<const LEN: usize>(
+        self,
+    ) -> Result<VectorViewMut<'data, LEN, T>, LinalgError> {
         let stride = diagonal_stride(LEN, ROWS, COLS, self.row_stride, self.col_stride)
             .ok_or(LinalgError::OutOfBounds)?;
         VectorViewMut::from_parts(self.data, self.offset, stride)
     }
 
-    /// Splits into the first `TOP` rows and the remaining `BOTTOM`, as two views that can be
-    /// written through at the same time.
-    ///
-    /// Returns [`LinalgError::OutOfBounds`] unless `TOP + BOTTOM == ROWS` and the view
-    /// [is row-major](Self::is_row_major) — a transposed view interleaves its rows in the buffer,
-    /// so no cut of the slice separates them. The read-only
-    /// [`MatrixView::split_rows_at`] has no such requirement, because two shared views are
-    /// allowed to overlap.
+    /// Two halves that can be written through at once. Needs `TOP + BOTTOM == ROWS` and a
+    /// [row-major](Self::is_row_major) view, since a transposed one interleaves its rows and no
+    /// cut of the slice separates them. [`MatrixView::try_split_rows_at`] has no such
+    /// requirement.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let mut matrix = Matrix::<3, 2>::zeros();
-    /// let (mut top, mut bottom) = matrix.view_mut().split_rows_at::<1, 2>().unwrap();
-    /// *top.get_mut(0, 0).unwrap() = 1.0;
-    /// *bottom.get_mut(1, 1).unwrap() = 2.0;
+    /// let (mut top, mut bottom) = matrix.view_mut().try_split_rows_at::<1, 2>().unwrap();
+    /// *top.try_get_mut(0, 0).unwrap() = 1.0;
+    /// *bottom.try_get_mut(1, 1).unwrap() = 2.0;
     /// assert_eq!(matrix.into_array(), [[1.0, 0.0], [0.0, 0.0], [0.0, 2.0]]);
     /// ```
     #[inline]
-    pub fn split_rows_at<const TOP: usize, const BOTTOM: usize>(
+    pub fn try_split_rows_at<const TOP: usize, const BOTTOM: usize>(
         self,
     ) -> Result<
         (
@@ -742,29 +635,21 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'data, ROWS, 
         ))
     }
 
-    /// Splits into the first `LEFT` columns and the remaining `RIGHT`, as two views that can be
-    /// written through at the same time.
-    ///
-    /// This is [`split_rows_at`](Self::split_rows_at) seen through a transpose, so it carries the
-    /// mirrored requirement: `LEFT + RIGHT == COLS` and a *column*-major view, since in
-    /// row-major storage the columns interleave and no cut of the slice separates them. A
-    /// row-major view transposed is column-major, which is where such a view usually comes from.
-    /// The read-only [`MatrixView::split_cols_at`] has no layout requirement.
+    /// The column split, which is the row split seen through a transpose: it needs
+    /// `LEFT + RIGHT == COLS` and a *column*-major view, since row-major storage interleaves its
+    /// columns. `transposed()` on an ordinary view produces one.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let mut matrix = Matrix::<3, 2>::zeros();
-    ///
-    /// // `transposed()` turns the row-major view into the column-major one this needs.
     /// let (mut left, mut right) =
-    ///     matrix.view_mut().transposed().split_cols_at::<1, 2>().unwrap();
-    /// *left.get_mut(0, 0).unwrap() = 1.0;
-    /// *right.get_mut(1, 1).unwrap() = 2.0;
-    ///
+    ///     matrix.view_mut().transposed().try_split_cols_at::<1, 2>().unwrap();
+    /// *left.try_get_mut(0, 0).unwrap() = 1.0;
+    /// *right.try_get_mut(1, 1).unwrap() = 2.0;
     /// assert_eq!(matrix.into_array(), [[1.0, 0.0], [0.0, 0.0], [0.0, 2.0]]);
     /// ```
     #[inline]
-    pub fn split_cols_at<const LEFT: usize, const RIGHT: usize>(
+    pub fn try_split_cols_at<const LEFT: usize, const RIGHT: usize>(
         self,
     ) -> Result<
         (
@@ -773,21 +658,18 @@ impl<'data, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'data, ROWS, 
         ),
         LinalgError,
     > {
-        let (left, right) = self.transposed().split_rows_at::<LEFT, RIGHT>()?;
+        let (left, right) = self.transposed().try_split_rows_at::<LEFT, RIGHT>()?;
         Ok((left.transposed(), right.transposed()))
     }
 }
 
 impl<'data, const ROWS: usize, const COLS: usize, T: Copy> MatrixViewMut<'data, ROWS, COLS, T> {
-    /// Copies the window into an owned matrix.
+    /// Copies the window out.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
-    ///
     /// let mut matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-    /// let view = matrix.view_mut();
-    ///
-    /// assert_eq!(view.to_matrix().into_array(), [[1.0, 2.0], [3.0, 4.0]]);
+    /// assert_eq!(matrix.view_mut().to_matrix().into_array(), [[1.0, 2.0], [3.0, 4.0]]);
     /// ```
     #[inline]
     pub fn to_matrix(&self) -> Matrix<ROWS, COLS, T> {
@@ -798,32 +680,29 @@ impl<'data, const ROWS: usize, const COLS: usize, T: Copy> MatrixViewMut<'data, 
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
-    ///
     /// let mut matrix = Matrix::<2, 2>::zeros();
-    /// matrix.view_mut().submatrix::<1, 2>(1, 0).unwrap().fill(7.0);
-    ///
+    /// matrix.view_mut().try_submatrix::<1, 2>(1, 0).unwrap().fill(7.0);
     /// assert_eq!(matrix.into_array(), [[0.0, 0.0], [7.0, 7.0]]);
     /// ```
     #[inline]
     pub fn fill(&mut self, value: T) {
         for row in 0..ROWS {
             for column in 0..COLS {
-                if let Ok(slot) = self.get_mut(row, column) {
+                if let Ok(slot) = self.try_get_mut(row, column) {
                     *slot = value;
                 }
             }
         }
     }
 
-    /// Copies `source` in element by element. The two may have different layouts — writing a
-    /// transposed view through here is how a transpose lands in a caller's scratch buffer without
-    /// an intermediate stack matrix.
+    /// Copies `source` in element by element; the layouts may differ, which is how a transpose
+    /// lands in a caller's buffer without an intermediate.
     ///
     /// ```
     /// use multicalc::linear_algebra::{Matrix, MatrixViewMut};
     /// let matrix = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
     /// let mut scratch = [0.0; 6];
-    /// let mut destination = MatrixViewMut::<3, 2>::from_row_major_slice(&mut scratch).unwrap();
+    /// let mut destination = MatrixViewMut::<3, 2>::try_from_row_major_slice(&mut scratch).unwrap();
     /// destination.copy_from(matrix.view().transposed());
     /// assert_eq!(scratch, [1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);
     /// ```
@@ -831,9 +710,10 @@ impl<'data, const ROWS: usize, const COLS: usize, T: Copy> MatrixViewMut<'data, 
     pub fn copy_from(&mut self, source: MatrixView<'_, ROWS, COLS, T>) {
         for row in 0..ROWS {
             for column in 0..COLS {
-                if let (Ok(value), Ok(slot)) =
-                    (source.get(row, column).copied(), self.get_mut(row, column))
-                {
+                if let (Ok(value), Ok(slot)) = (
+                    source.try_get(row, column).copied(),
+                    self.try_get_mut(row, column),
+                ) {
                     *slot = value;
                 }
             }
@@ -844,16 +724,14 @@ impl<'data, const ROWS: usize, const COLS: usize, T: Copy> MatrixViewMut<'data, 
 impl<'data, const ROWS: usize, const COLS: usize, T: PartialEq> PartialEq
     for MatrixViewMut<'data, ROWS, COLS, T>
 {
-    /// Compares element by element, matching [`MatrixView`]'s impl.
+    /// Element by element, matching [`MatrixView`].
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.as_view() == other.as_view()
     }
 }
 
-// The stride along the main diagonal, or `None` if `len` is not the shorter side or the strides
-// overflow when added. Shared by the two views, which agree on the rule and differ only in the
-// mutability of the slice they carry.
+// `None` if `len` is not the shorter side, or the strides overflow when added.
 #[inline]
 fn diagonal_stride(
     len: usize,
@@ -868,13 +746,12 @@ fn diagonal_stride(
 }
 
 impl<const ROWS: usize, const COLS: usize, T> Matrix<ROWS, COLS, T> {
-    /// A read-only view of the whole matrix. The entry point for the zero-copy reshaping in
-    /// [`MatrixView`].
+    /// A read-only view of the whole matrix.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-    /// assert_eq!(matrix.view().get(0, 1), Ok(&2.0));
+    /// assert_eq!(matrix.view().try_get(0, 1), Ok(&2.0));
     /// ```
     #[inline]
     pub fn view(&self) -> MatrixView<'_, ROWS, COLS, T> {
@@ -891,7 +768,7 @@ impl<const ROWS: usize, const COLS: usize, T> Matrix<ROWS, COLS, T> {
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let mut matrix = Matrix::<2, 2>::zeros();
-    /// *matrix.view_mut().transposed().get_mut(0, 1).unwrap() = 5.0;
+    /// *matrix.view_mut().transposed().try_get_mut(0, 1).unwrap() = 5.0;
     /// assert_eq!(matrix.into_array(), [[0.0, 0.0], [5.0, 0.0]]);
     /// ```
     #[inline]
@@ -906,62 +783,52 @@ impl<const ROWS: usize, const COLS: usize, T> Matrix<ROWS, COLS, T> {
 }
 
 impl<const ROWS: usize, const COLS: usize, T: Copy> Matrix<ROWS, COLS, T> {
-    /// Copies out the `BLOCK_ROWS`×`BLOCK_COLS` block whose top-left corner is `(top, left)`, or
-    /// [`LinalgError::OutOfBounds`] if that block would run past an edge.
-    ///
-    /// This is [`MatrixView::submatrix`] followed by one copy. Take the view directly when the
-    /// block only needs reading.
+    /// Copies out the block at `(top, left)`, or `OutOfBounds`. This is
+    /// [`MatrixView::try_submatrix`] plus one copy; take the view directly to skip it.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let matrix = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]);
-    /// assert_eq!(
-    ///     matrix.submatrix::<2, 2>(1, 1).unwrap().into_array(),
-    ///     [[5.0, 6.0], [8.0, 9.0]]
-    /// );
-    /// assert!(matrix.submatrix::<2, 2>(2, 0).is_err());
+    /// let block = matrix.try_submatrix::<2, 2>(1, 1).unwrap();
+    /// assert_eq!(block.into_array(), [[5.0, 6.0], [8.0, 9.0]]);
+    /// assert!(matrix.try_submatrix::<2, 2>(2, 0).is_err());
     /// ```
     #[inline]
-    pub fn submatrix<const BLOCK_ROWS: usize, const BLOCK_COLS: usize>(
+    pub fn try_submatrix<const BLOCK_ROWS: usize, const BLOCK_COLS: usize>(
         &self,
         top: usize,
         left: usize,
     ) -> Result<Matrix<BLOCK_ROWS, BLOCK_COLS, T>, LinalgError> {
         Ok(self
             .view()
-            .submatrix::<BLOCK_ROWS, BLOCK_COLS>(top, left)?
+            .try_submatrix::<BLOCK_ROWS, BLOCK_COLS>(top, left)?
             .to_matrix())
     }
 
-    /// Writes `block` in with its top-left corner at `(top, left)`, or returns
-    /// [`LinalgError::OutOfBounds`] — leaving the matrix untouched — if it would run past an edge.
+    /// Writes `block` in at `(top, left)`, or returns `OutOfBounds` and leaves the matrix
+    /// untouched.
     ///
     /// ```
     /// use multicalc::error::LinalgError;
     /// use multicalc::linear_algebra::Matrix;
-    ///
     /// let mut matrix = Matrix::<3, 3>::zeros();
-    /// matrix.set_submatrix(1, 1, Matrix::<2, 2>::identity().view()).unwrap();
+    /// matrix.try_set_submatrix(1, 1, Matrix::<2, 2>::identity().view()).unwrap();
     /// assert_eq!(matrix.into_array()[1], [0.0, 1.0, 0.0]);
-    ///
-    /// // A block that would hang off the edge is reported rather than partly written.
-    /// let mut small = Matrix::<2, 2>::zeros();
     /// let overhanging = Matrix::<2, 2>::identity();
     /// assert_eq!(
-    ///     small.set_submatrix(1, 1, overhanging.view()),
+    ///     matrix.try_set_submatrix(2, 2, overhanging.view()),
     ///     Err(LinalgError::OutOfBounds)
     /// );
-    /// assert_eq!(small, Matrix::<2, 2>::zeros());
     /// ```
     #[inline]
-    pub fn set_submatrix<const BLOCK_ROWS: usize, const BLOCK_COLS: usize>(
+    pub fn try_set_submatrix<const BLOCK_ROWS: usize, const BLOCK_COLS: usize>(
         &mut self,
         top: usize,
         left: usize,
         block: MatrixView<'_, BLOCK_ROWS, BLOCK_COLS, T>,
     ) -> Result<(), LinalgError> {
         self.view_mut()
-            .submatrix::<BLOCK_ROWS, BLOCK_COLS>(top, left)?
+            .try_submatrix::<BLOCK_ROWS, BLOCK_COLS>(top, left)?
             .copy_from(block);
         Ok(())
     }

@@ -19,57 +19,41 @@ take a [borrowed view](#borrowed-views).
 
 ## Borrowed views
 
-`Matrix::view` / `Matrix::view_mut` and `Vector::view` / `Vector::view_mut` hand out a
-`MatrixView` / `VectorView` and their `Mut` counterparts: a borrowed window described by a flat
-slice, an offset, and a stride per axis. Reshaping one is index arithmetic rather than a copy, so
-transposing, taking a block, or pulling out a row, column, or diagonal costs nothing until
-`to_matrix` / `to_vector` materializes the result.
+`Matrix::view` / `view_mut` and `Vector::view` / `view_mut` hand out a `MatrixView` /
+`VectorView`, or their `Mut` counterparts: a flat slice, an offset, and a stride per axis.
+Transposing, blocking, and slicing out a row, column, diagonal, or segment are index arithmetic;
+only `to_matrix` / `to_vector` copies. The `Mut` views mirror the read-only ones and add
+`try_get_mut`, `fill`, and `copy_from`.
 
-- `transposed` swaps the two strides; `submatrix::<R, C>(top, left)` moves the offset.
-- `row`, `column`, and `diagonal::<N>` hand back a strided `VectorView`, and `segment::<N>(start)`
-  narrows one. `dot` sums across two different strides without materializing either side.
-- `split_rows_at`, `split_cols_at`, and the vector `split_at` cut a view in two. On a `Mut` view
-  the halves can be written through at the same time, which is why those ask for a layout that
-  `slice::split_at_mut` can actually separate; each method's docs say which.
-- The `Mut` views add `get_mut`, `fill`, and `copy_from`. Everything the read-only views do, they
-  do too.
-
-Views have no `Index`. `get` / `get_mut` are the only accessors, and every fallible operation
-returns `Result<_, LinalgError>` carrying `LinalgError::OutOfBounds`, so nothing on a view
-panics. The bound cannot be left to the underlying slice the way an owned `Matrix` leaves it to
-its arrays: a strided view's out-of-range subscript can still compute a flat index that lands on
-a real element of the parent buffer, and returning that entry would be wrong rather than merely
-unchecked.
+Views have no `Index`. `try_get` / `try_get_mut` are the accessors and every fallible call
+returns `Result<_, LinalgError>` carrying `OutOfBounds`, so nothing on a view panics. The bound
+cannot be left to the slice: a strided view's out-of-range subscript can still land on a real
+element of the parent buffer.
 
 ```rust
 use multicalc::linear_algebra::{Matrix, MatrixViewMut};
 
 let matrix = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
 
-// Transpose, block, row, column, diagonal — none of these move an element.
-let transposed = matrix.view().transposed();
-assert_eq!((transposed.rows(), transposed.cols()), (3, 2));
-assert_eq!(transposed.get(2, 0), Ok(&3.0));
-
-let block = matrix.view().submatrix::<2, 2>(0, 1).unwrap();
+let block = matrix.view().try_submatrix::<2, 2>(0, 1).unwrap();
 assert_eq!(block.to_matrix().into_array(), [[2.0, 3.0], [5.0, 6.0]]);
 
-// A column is strided: its entries sit one whole row apart in the flat buffer.
-let column = matrix.view().column(1).unwrap();
+// A column is strided, one row apart in the flat buffer.
+let column = matrix.view().try_column(1).unwrap();
 assert_eq!(column.stride(), 3);
-assert_eq!(column.dot(matrix.view().column(1).unwrap()), 29.0);
+assert_eq!(column.dot(matrix.view().try_column(1).unwrap()), 29.0);
 
-// Transposing into a caller's scratch buffer, with no intermediate stack matrix.
+// Transposing into a caller's buffer, with no intermediate matrix.
 let mut scratch = [0.0; 6];
-MatrixViewMut::<3, 2>::from_row_major_slice(&mut scratch)
+MatrixViewMut::<3, 2>::try_from_row_major_slice(&mut scratch)
     .unwrap()
     .copy_from(matrix.view().transposed());
 assert_eq!(scratch, [1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);
 
-// Two halves of one matrix, writable at the same time.
+// Two halves of one matrix, writable at once.
 let mut target = Matrix::<3, 2>::zeros();
-let (mut top, mut bottom) = target.view_mut().split_rows_at::<1, 2>().unwrap();
-*top.get_mut(0, 0).unwrap() = 1.0;
+let (mut top, mut bottom) = target.view_mut().try_split_rows_at::<1, 2>().unwrap();
+*top.try_get_mut(0, 0).unwrap() = 1.0;
 bottom.fill(2.0);
 assert_eq!(target.into_array(), [[1.0, 0.0], [2.0, 2.0], [2.0, 2.0]]);
 ```

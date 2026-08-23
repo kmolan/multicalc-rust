@@ -7,21 +7,13 @@ use crate::scalar::Numeric;
 
 /// A borrowed, strided, read-only window of `N` components.
 ///
-/// A stride other than `1` is what lets
-/// [`MatrixView::column`](crate::linear_algebra::MatrixView::column) avoid a copy: the components
-/// of a column sit `row_stride` apart in the flat buffer.
-///
-/// Every fallible operation reports [`LinalgError::OutOfBounds`] and nothing else. There is no
-/// `Index` impl: a subscript that misses has to be answerable, and `Index` returns `&T` with
-/// nowhere to put an error, so [`get`](Self::get) is the only way in.
+/// The stride is what lets [`MatrixView::try_column`](crate::linear_algebra::MatrixView::try_column)
+/// avoid a copy: a column's components sit `row_stride` apart.
 ///
 /// ```
 /// use multicalc::linear_algebra::Matrix;
-///
 /// let matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-/// let column = matrix.view().column(0).unwrap();
-///
-/// // The two components sit a full row apart in the flat buffer.
+/// let column = matrix.view().try_column(0).unwrap();
 /// assert_eq!(column.stride(), 2);
 /// assert_eq!(column.to_vector().into_array(), [1.0, 3.0]);
 /// ```
@@ -35,15 +27,10 @@ pub struct VectorView<'data, const N: usize, T = f64> {
 
 /// A borrowed, strided, writable window of `N` components.
 ///
-/// The surface mirrors [`VectorView`] method for method, with [`get_mut`](Self::get_mut),
-/// [`fill`](Self::fill), and [`copy_from`](Self::copy_from) added for the writable side.
-///
 /// ```
 /// use multicalc::linear_algebra::Vector;
-///
 /// let mut vector = Vector::new([1.0, 2.0, 3.0]);
-/// *vector.view_mut().get_mut(2).unwrap() = 9.0;
-///
+/// *vector.view_mut().try_get_mut(2).unwrap() = 9.0;
 /// assert_eq!(vector.into_array(), [1.0, 2.0, 9.0]);
 /// ```
 #[derive(Debug)]
@@ -55,7 +42,7 @@ pub struct VectorViewMut<'data, const N: usize, T = f64> {
 }
 
 // Written out rather than derived: a derive would demand `T: Copy`, but what is copied is the
-// handle -- slice reference, offset, stride -- not the components.
+// handle, not the components.
 impl<'data, const N: usize, T> Clone for VectorView<'data, N, T> {
     #[inline]
     fn clone(&self) -> Self {
@@ -65,8 +52,7 @@ impl<'data, const N: usize, T> Clone for VectorView<'data, N, T> {
 impl<'data, const N: usize, T> Copy for VectorView<'data, N, T> {}
 
 impl<'data, const N: usize, T> VectorView<'data, N, T> {
-    /// Builds a view over `data`, or [`LinalgError::OutOfBounds`] if the span would reach past
-    /// the end of the slice.
+    /// Every constructor funnels through here, so an existing view is always in range.
     #[inline]
     pub(super) fn from_parts(
         data: &'data [T],
@@ -84,17 +70,16 @@ impl<'data, const N: usize, T> VectorView<'data, N, T> {
         })
     }
 
-    /// Views the first `N` elements of a slice, or [`LinalgError::OutOfBounds`] if it is shorter
-    /// than that.
+    /// Views the first `N` elements of a slice, or `OutOfBounds` if it is shorter.
     ///
     /// ```
     /// use multicalc::linear_algebra::VectorView;
     /// let buffer = [1.0, 2.0, 3.0];
-    /// assert_eq!(VectorView::<2>::from_slice(&buffer).unwrap().get(1), Ok(&2.0));
-    /// assert!(VectorView::<4>::from_slice(&buffer).is_err());
+    /// assert_eq!(VectorView::<2>::try_from_slice(&buffer).unwrap().try_get(1), Ok(&2.0));
+    /// assert!(VectorView::<4>::try_from_slice(&buffer).is_err());
     /// ```
     #[inline]
-    pub fn from_slice(slice: &'data [T]) -> Result<Self, LinalgError> {
+    pub fn try_from_slice(slice: &'data [T]) -> Result<Self, LinalgError> {
         Self::from_parts(slice, 0, 1)
     }
 
@@ -112,8 +97,7 @@ impl<'data, const N: usize, T> VectorView<'data, N, T> {
         N == 0
     }
 
-    /// How far apart consecutive components sit in the underlying buffer. A column of a row-major
-    /// matrix has the matrix's row stride here.
+    /// How far apart consecutive components sit in the buffer.
     #[inline]
     #[must_use]
     pub const fn stride(&self) -> usize {
@@ -126,40 +110,34 @@ impl<'data, const N: usize, T> VectorView<'data, N, T> {
         self.offset.checked_add(index.checked_mul(self.stride)?)
     }
 
-    /// Returns a reference to component `index`, or [`LinalgError::OutOfBounds`] if
-    /// `index >= N`.
-    ///
-    /// This is the only accessor. A strided view cannot leave the bound to the slice: an
-    /// out-of-range component can still compute a flat index that lands inside the parent
-    /// buffer, so the length is compared here.
+    /// Component `index`, or `OutOfBounds`. The length is checked here rather than left to the
+    /// slice, because a strided view's out-of-range component can still land inside the parent
+    /// buffer.
     ///
     /// ```
     /// use multicalc::error::LinalgError;
     /// use multicalc::linear_algebra::Vector;
-    ///
     /// let vector = Vector::new([1.0, 2.0, 3.0]);
-    ///
-    /// assert_eq!(vector.view().get(2), Ok(&3.0));
-    /// assert_eq!(vector.view().get(3), Err(LinalgError::OutOfBounds));
+    /// assert_eq!(vector.view().try_get(2), Ok(&3.0));
+    /// assert_eq!(vector.view().try_get(3), Err(LinalgError::OutOfBounds));
     /// ```
     #[inline]
-    pub fn get(&self, index: usize) -> Result<&T, LinalgError> {
+    pub fn try_get(&self, index: usize) -> Result<&T, LinalgError> {
         self.index_of(index)
             .and_then(|flat| self.data.get(flat))
             .ok_or(LinalgError::OutOfBounds)
     }
 
-    /// The components `start..start + LEN`, or [`LinalgError::OutOfBounds`] if that range runs
-    /// past the end.
+    /// The components `start..start + LEN`, or `OutOfBounds`.
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
     /// let vector = Vector::new([1.0, 2.0, 3.0, 4.0]);
-    /// let middle = vector.view().segment::<2>(1).unwrap();
+    /// let middle = vector.view().try_segment::<2>(1).unwrap();
     /// assert_eq!(middle.to_vector().into_array(), [2.0, 3.0]);
     /// ```
     #[inline]
-    pub fn segment<const LEN: usize>(
+    pub fn try_segment<const LEN: usize>(
         self,
         start: usize,
     ) -> Result<VectorView<'data, LEN, T>, LinalgError> {
@@ -168,47 +146,41 @@ impl<'data, const N: usize, T> VectorView<'data, N, T> {
         VectorView::from_parts(self.data, offset, self.stride)
     }
 
-    /// Splits into the first `HEAD` components and the remaining `TAIL`, or
-    /// [`LinalgError::OutOfBounds`] unless `HEAD + TAIL == N`.
-    ///
-    /// Both halves keep looking at the whole buffer and differ only in offset and length, so
-    /// unlike [`VectorViewMut::split_at`] this works at any stride — a read-only split has no
-    /// disjointness to prove.
+    /// The first `HEAD` components and the remaining `TAIL`, or `OutOfBounds` unless they sum to
+    /// `N`. Any stride does, since two shared halves may overlap.
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
     /// let vector = Vector::new([1.0, 2.0, 3.0, 4.0]);
-    /// let (head, tail) = vector.view().split_at::<1, 3>().unwrap();
-    ///
+    /// let (head, tail) = vector.view().try_split_at::<1, 3>().unwrap();
     /// assert_eq!(head.to_vector().into_array(), [1.0]);
     /// assert_eq!(tail.to_vector().into_array(), [2.0, 3.0, 4.0]);
     /// ```
     #[inline]
-    pub fn split_at<const HEAD: usize, const TAIL: usize>(
+    pub fn try_split_at<const HEAD: usize, const TAIL: usize>(
         self,
     ) -> Result<(VectorView<'data, HEAD, T>, VectorView<'data, TAIL, T>), LinalgError> {
         if HEAD.checked_add(TAIL) != Some(N) {
             return Err(LinalgError::OutOfBounds);
         }
-        Ok((self.segment::<HEAD>(0)?, self.segment::<TAIL>(HEAD)?))
+        Ok((
+            self.try_segment::<HEAD>(0)?,
+            self.try_segment::<TAIL>(HEAD)?,
+        ))
     }
 }
 
 impl<'data, const N: usize, T: Copy> VectorView<'data, N, T> {
-    /// Copies the window into an owned vector.
+    /// Copies the window out.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
-    ///
     /// let matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-    /// let owned = matrix.view().column(1).unwrap().to_vector();
-    ///
+    /// let owned = matrix.view().try_column(1).unwrap().to_vector();
     /// assert_eq!(owned.into_array(), [2.0, 4.0]);
     /// ```
-    // `Vector::from_fn` only ever asks for components below `N`, and every constructor has
-    // already proved that such a component lands inside `data` without overflowing -- that is
-    // exactly what `required_len` checks. So the slice index below cannot miss and needs no error
-    // channel, the same reasoning (and the same allow) as `Matrix::get_unchecked`.
+    // In-bounds by construction: `from_fn` only asks for components below `N`, and
+    // `required_len` already proved those land inside `data`.
     #[inline]
     #[allow(clippy::indexing_slicing)]
     pub fn to_vector(self) -> Vector<N, T> {
@@ -217,14 +189,13 @@ impl<'data, const N: usize, T: Copy> VectorView<'data, N, T> {
 }
 
 impl<'data, const N: usize, T: Numeric> VectorView<'data, N, T> {
-    /// The dot product with `rhs`, summed left to right, without materializing either side.
+    /// The dot product with `rhs`, summed left to right, materializing neither side.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
-    /// // Column 0 dotted with row 0, neither of them copied.
-    /// let column = matrix.view().column(0).unwrap();
-    /// let row = matrix.view().row(0).unwrap();
+    /// let column = matrix.view().try_column(0).unwrap();
+    /// let row = matrix.view().try_row(0).unwrap();
     /// assert_eq!(column.dot(row), 7.0);
     /// ```
     #[inline]
@@ -232,7 +203,7 @@ impl<'data, const N: usize, T: Numeric> VectorView<'data, N, T> {
     pub fn dot(self, rhs: VectorView<'_, N, T>) -> T {
         let mut sum = T::ZERO;
         for index in 0..N {
-            if let (Ok(left), Ok(right)) = (self.get(index), rhs.get(index)) {
+            if let (Ok(left), Ok(right)) = (self.try_get(index), rhs.try_get(index)) {
                 sum += *left * *right;
             }
         }
@@ -241,17 +212,15 @@ impl<'data, const N: usize, T: Numeric> VectorView<'data, N, T> {
 }
 
 impl<'data, const N: usize, T: PartialEq> PartialEq for VectorView<'data, N, T> {
-    /// Compares component by component, so two views of different strides over different buffers
-    /// are equal when they present the same components.
+    /// Component by component, so different strides over different buffers can be equal.
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        (0..N).all(|index| self.get(index) == other.get(index))
+        (0..N).all(|index| self.try_get(index) == other.try_get(index))
     }
 }
 
 impl<'data, const N: usize, T> VectorViewMut<'data, N, T> {
-    /// Builds a view over `data`, or [`LinalgError::OutOfBounds`] if the span would reach past
-    /// the end of the slice.
+    /// Every constructor funnels through here, so an existing view is always in range.
     #[inline]
     pub(super) fn from_parts(
         data: &'data mut [T],
@@ -269,21 +238,17 @@ impl<'data, const N: usize, T> VectorViewMut<'data, N, T> {
         })
     }
 
-    /// Views the first `N` elements of a slice writably, or [`LinalgError::OutOfBounds`] if it is
-    /// shorter than that.
+    /// Views the first `N` elements of a slice writably, or `OutOfBounds` if it is shorter.
     ///
     /// ```
     /// use multicalc::linear_algebra::VectorViewMut;
-    ///
     /// let mut buffer = [0.0; 4];
-    /// VectorViewMut::<3>::from_slice(&mut buffer).unwrap().fill(1.0);
-    ///
-    /// // The trailing element is untouched, which is what makes a scratch buffer reusable.
+    /// VectorViewMut::<3>::try_from_slice(&mut buffer).unwrap().fill(1.0);
     /// assert_eq!(buffer, [1.0, 1.0, 1.0, 0.0]);
-    /// assert!(VectorViewMut::<5>::from_slice(&mut buffer).is_err());
+    /// assert!(VectorViewMut::<5>::try_from_slice(&mut buffer).is_err());
     /// ```
     #[inline]
-    pub fn from_slice(slice: &'data mut [T]) -> Result<Self, LinalgError> {
+    pub fn try_from_slice(slice: &'data mut [T]) -> Result<Self, LinalgError> {
         Self::from_parts(slice, 0, 1)
     }
 
@@ -301,7 +266,7 @@ impl<'data, const N: usize, T> VectorViewMut<'data, N, T> {
         N == 0
     }
 
-    /// How far apart consecutive components sit in the underlying buffer.
+    /// How far apart consecutive components sit in the buffer.
     #[inline]
     #[must_use]
     pub const fn stride(&self) -> usize {
@@ -314,56 +279,45 @@ impl<'data, const N: usize, T> VectorViewMut<'data, N, T> {
         self.offset.checked_add(index.checked_mul(self.stride)?)
     }
 
-    /// Returns a reference to component `index`, or [`LinalgError::OutOfBounds`] if `index >= N`.
-    /// See [`VectorView::get`].
+    /// Component `index`, or `OutOfBounds`. See [`VectorView::try_get`].
     ///
     /// ```
     /// use multicalc::error::LinalgError;
     /// use multicalc::linear_algebra::Vector;
-    ///
     /// let mut vector = Vector::new([1.0, 2.0, 3.0]);
     /// let view = vector.view_mut();
-    ///
-    /// assert_eq!(view.get(0), Ok(&1.0));
-    /// assert_eq!(view.get(3), Err(LinalgError::OutOfBounds));
+    /// assert_eq!(view.try_get(0), Ok(&1.0));
+    /// assert_eq!(view.try_get(3), Err(LinalgError::OutOfBounds));
     /// ```
     #[inline]
-    pub fn get(&self, index: usize) -> Result<&T, LinalgError> {
+    pub fn try_get(&self, index: usize) -> Result<&T, LinalgError> {
         self.index_of(index)
             .and_then(|flat| self.data.get(flat))
             .ok_or(LinalgError::OutOfBounds)
     }
 
-    /// Returns a mutable reference to component `index`, or [`LinalgError::OutOfBounds`] if
-    /// `index >= N`.
+    /// Component `index`, writably, or `OutOfBounds`.
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    ///
     /// let mut vector = Vector::new([1.0, 2.0, 3.0]);
-    /// *vector.view_mut().get_mut(1).unwrap() = 9.0;
-    ///
+    /// *vector.view_mut().try_get_mut(1).unwrap() = 9.0;
     /// assert_eq!(vector.into_array(), [1.0, 9.0, 3.0]);
     /// ```
     #[inline]
-    pub fn get_mut(&mut self, index: usize) -> Result<&mut T, LinalgError> {
+    pub fn try_get_mut(&mut self, index: usize) -> Result<&mut T, LinalgError> {
         let flat = self.index_of(index).ok_or(LinalgError::OutOfBounds)?;
         self.data.get_mut(flat).ok_or(LinalgError::OutOfBounds)
     }
 
-    /// Borrows this window read-only for as long as `self` is untouched.
+    /// Borrows read-only for as long as `self` is untouched.
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    ///
     /// let mut vector = Vector::new([3.0, 4.0]);
     /// let mut view = vector.view_mut();
-    ///
-    /// // `dot` on the read-only view needs no exclusive borrow; `as_view` gives one without
-    /// // giving up the write access.
     /// assert_eq!(view.as_view().dot(view.as_view()), 25.0);
-    /// *view.get_mut(0).unwrap() = 0.0;
-    ///
+    /// *view.try_get_mut(0).unwrap() = 0.0;
     /// assert_eq!(vector.into_array(), [0.0, 4.0]);
     /// ```
     #[inline]
@@ -375,18 +329,14 @@ impl<'data, const N: usize, T> VectorViewMut<'data, N, T> {
         }
     }
 
-    /// Borrows this window writably for a shorter lifetime.
+    /// Borrows writably for a shorter lifetime, so the original survives a consuming method.
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    ///
     /// let mut vector = Vector::new([1.0, 2.0, 3.0, 4.0]);
     /// let mut view = vector.view_mut();
-    ///
-    /// // `split_at` consumes the view it is called on; the reborrow is what `view` survives.
-    /// let (mut head, _tail) = view.reborrow().split_at::<2, 2>().unwrap();
+    /// let (mut head, _tail) = view.reborrow().try_split_at::<2, 2>().unwrap();
     /// head.fill(0.0);
-    ///
     /// assert_eq!(view.to_vector().into_array(), [0.0, 0.0, 3.0, 4.0]);
     /// ```
     #[inline]
@@ -398,19 +348,16 @@ impl<'data, const N: usize, T> VectorViewMut<'data, N, T> {
         }
     }
 
-    /// The components `start..start + LEN` as a writable view, or [`LinalgError::OutOfBounds`] if
-    /// that range runs past the end. See [`VectorView::segment`].
+    /// The components `start..start + LEN`, writably. See [`VectorView::try_segment`].
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    ///
     /// let mut vector = Vector::new([1.0, 2.0, 3.0, 4.0]);
-    /// vector.view_mut().segment::<2>(1).unwrap().fill(0.0);
-    ///
+    /// vector.view_mut().try_segment::<2>(1).unwrap().fill(0.0);
     /// assert_eq!(vector.into_array(), [1.0, 0.0, 0.0, 4.0]);
     /// ```
     #[inline]
-    pub fn segment<const LEN: usize>(
+    pub fn try_segment<const LEN: usize>(
         self,
         start: usize,
     ) -> Result<VectorViewMut<'data, LEN, T>, LinalgError> {
@@ -419,24 +366,20 @@ impl<'data, const N: usize, T> VectorViewMut<'data, N, T> {
         VectorViewMut::from_parts(self.data, offset, self.stride)
     }
 
-    /// Splits into the first `HEAD` components and the remaining `TAIL`, as two views that can be
-    /// written through at the same time.
-    ///
-    /// Returns [`LinalgError::OutOfBounds`] unless `HEAD + TAIL == N` and the stride is `1` — a
-    /// strided view interleaves its components with something else, so no cut of the slice
-    /// separates them. The read-only [`VectorView::split_at`] has no such requirement, because
-    /// two shared views are allowed to overlap.
+    /// Two halves that can be written through at once. Needs `HEAD + TAIL == N` and stride `1`,
+    /// since a strided view interleaves its components with something else.
+    /// [`VectorView::try_split_at`] has no such requirement.
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
     /// let mut vector = Vector::<4>::zeros();
-    /// let (mut head, mut tail) = vector.view_mut().split_at::<1, 3>().unwrap();
-    /// *head.get_mut(0).unwrap() = 1.0;
-    /// *tail.get_mut(2).unwrap() = 4.0;
+    /// let (mut head, mut tail) = vector.view_mut().try_split_at::<1, 3>().unwrap();
+    /// *head.try_get_mut(0).unwrap() = 1.0;
+    /// *tail.try_get_mut(2).unwrap() = 4.0;
     /// assert_eq!(vector.into_array(), [1.0, 0.0, 0.0, 4.0]);
     /// ```
     #[inline]
-    pub fn split_at<const HEAD: usize, const TAIL: usize>(
+    pub fn try_split_at<const HEAD: usize, const TAIL: usize>(
         self,
     ) -> Result<(VectorViewMut<'data, HEAD, T>, VectorViewMut<'data, TAIL, T>), LinalgError> {
         if HEAD.checked_add(TAIL) != Some(N) || self.stride != 1 {
@@ -458,13 +401,11 @@ impl<'data, const N: usize, T> VectorViewMut<'data, N, T> {
 }
 
 impl<'data, const N: usize, T: Copy> VectorViewMut<'data, N, T> {
-    /// Copies the window into an owned vector.
+    /// Copies the window out.
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    ///
     /// let mut vector = Vector::new([1.0, 2.0, 3.0]);
-    ///
     /// assert_eq!(vector.view_mut().to_vector().into_array(), [1.0, 2.0, 3.0]);
     /// ```
     #[inline]
@@ -476,38 +417,33 @@ impl<'data, const N: usize, T: Copy> VectorViewMut<'data, N, T> {
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    ///
     /// let mut vector = Vector::new([1.0, 2.0, 3.0]);
     /// vector.view_mut().fill(0.0);
-    ///
     /// assert_eq!(vector.into_array(), [0.0, 0.0, 0.0]);
     /// ```
     #[inline]
     pub fn fill(&mut self, value: T) {
         for index in 0..N {
-            if let Ok(slot) = self.get_mut(index) {
+            if let Ok(slot) = self.try_get_mut(index) {
                 *slot = value;
             }
         }
     }
 
-    /// Copies `source` in component by component; the two may have different strides.
+    /// Copies `source` in component by component; the strides may differ.
     ///
     /// ```
     /// use multicalc::linear_algebra::{Matrix, Vector};
-    ///
     /// let matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
     /// let mut vector = Vector::new([0.0, 0.0]);
-    ///
-    /// // The source is strided (a column), the destination is contiguous.
-    /// vector.view_mut().copy_from(matrix.view().column(1).unwrap());
-    ///
+    /// vector.view_mut().copy_from(matrix.view().try_column(1).unwrap());
     /// assert_eq!(vector.into_array(), [2.0, 4.0]);
     /// ```
     #[inline]
     pub fn copy_from(&mut self, source: VectorView<'_, N, T>) {
         for index in 0..N {
-            if let (Ok(value), Ok(slot)) = (source.get(index).copied(), self.get_mut(index)) {
+            if let (Ok(value), Ok(slot)) = (source.try_get(index).copied(), self.try_get_mut(index))
+            {
                 *slot = value;
             }
         }
@@ -515,15 +451,12 @@ impl<'data, const N: usize, T: Copy> VectorViewMut<'data, N, T> {
 }
 
 impl<'data, const N: usize, T: Numeric> VectorViewMut<'data, N, T> {
-    /// The dot product with `rhs`, without materializing either side and without giving up the
-    /// write access. See [`VectorView::dot`].
+    /// The dot product with `rhs`, without giving up the write access. See [`VectorView::dot`].
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
-    ///
     /// let mut vector = Vector::new([3.0, 4.0]);
     /// let unit = Vector::new([1.0, 0.0]);
-    ///
     /// assert_eq!(vector.view_mut().dot(unit.view()), 3.0);
     /// ```
     #[inline]
@@ -534,16 +467,14 @@ impl<'data, const N: usize, T: Numeric> VectorViewMut<'data, N, T> {
 }
 
 impl<'data, const N: usize, T: PartialEq> PartialEq for VectorViewMut<'data, N, T> {
-    /// Compares component by component, matching [`VectorView`]'s impl.
+    /// Component by component, matching [`VectorView`].
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.as_view() == other.as_view()
     }
 }
 
-// Where the components `start..start + len` begin, or `None` if that range runs past the end of a
-// view of `total` components or the arithmetic overflows. Shared by the two vector views, which
-// agree on the rule and differ only in the mutability of the slice they carry.
+// `None` if the range runs past the end of a view of `total` components, or overflows.
 #[inline]
 fn segment_offset(
     offset: usize,
@@ -562,7 +493,7 @@ impl<const N: usize, T> Vector<N, T> {
     /// ```
     /// use multicalc::linear_algebra::Vector;
     /// let vector = Vector::new([1.0, 2.0, 3.0]);
-    /// let tail = vector.view().segment::<2>(1).unwrap();
+    /// let tail = vector.view().try_segment::<2>(1).unwrap();
     /// assert_eq!(tail.to_vector().into_array(), [2.0, 3.0]);
     /// ```
     #[inline]
@@ -579,7 +510,7 @@ impl<const N: usize, T> Vector<N, T> {
     /// ```
     /// use multicalc::linear_algebra::Vector;
     /// let mut vector = Vector::<3>::zeros();
-    /// *vector.view_mut().get_mut(2).unwrap() = 7.0;
+    /// *vector.view_mut().try_get_mut(2).unwrap() = 7.0;
     /// assert_eq!(vector.into_array(), [0.0, 0.0, 7.0]);
     /// ```
     #[inline]
