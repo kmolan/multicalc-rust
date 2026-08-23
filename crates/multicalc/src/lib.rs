@@ -173,7 +173,7 @@ pub use motion::{
 };
 
 /// A single rigid body's motion under the forces on it, and the state an integrator carries.
-pub use dynamics::{RigidBody, RigidBodyAcceleration};
+pub use dynamics::{ArticulatedBody, DynamicsWorkspace, RigidBody, RigidBodyAcceleration};
 
 /// Sharing a wanted push and turn out across a set of rotors, and how quickly a rotor catches up
 /// to what it was asked for.

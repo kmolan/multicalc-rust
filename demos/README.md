@@ -26,6 +26,7 @@ cargo run -p multicalc-demos --example <name>
 | Example | Module(s) | What it shows |
 | --- | --- | --- |
 | `approximation` | `approximation` | Linear and quadratic (Taylor) approximations, `predict`, and goodness-of-fit metrics. |
+| `articulated_dynamics` | `dynamics`, `kinematics` | Inverse and forward dynamics on a two-link pendulum: the gravity torque, the acceleration term read against `H(q)`, what reflected rotor inertia and joint friction each add, a torque turned back into the acceleration that produced it, a free swing holding its energy while a damped one loses it, and the Menagerie Franka's holding torques from its model file. |
 | `attitude_filter` | `estimation`, `ode::ExponentialMap` | `MahonyFilter` and `MadgwickFilter` on identical readings: a starting facing taken off a still body from which way is down and which way is north, then a tumble on a turn-rate sensor carrying an offset neither filter was told about, with both recovering the facing and the offset. |
 | `autodiff_scalars` | `scalar` | Use `Dual` and `HyperDual` directly: evaluate a generic `Numeric` function and read f, f′, f″ from the result fields (no derivator). |
 | `avoidance` | `control::follow_the_gap`, `ode` | Follow-the-Gap steering a simulated lidar scan through a corridor with a pillar: gap selection, RK4-integrated commands, and the walled-in full-stop case. |

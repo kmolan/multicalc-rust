@@ -1,4 +1,4 @@
-use multicalc::error::{KinematicsError, SpatialError};
+use multicalc::error::{DynamicsError, KinematicsError, SpatialError};
 
 use crate::ModelFormat;
 
@@ -164,6 +164,8 @@ pub enum ModelError {
     Inertia(SpatialError),
     /// The joint parameters do not describe a usable tree.
     Kinematics(KinematicsError),
+    /// A model's mass properties do not describe a usable dynamics model.
+    Dynamics(DynamicsError),
 }
 
 impl From<SpatialError> for ModelError {
@@ -175,6 +177,12 @@ impl From<SpatialError> for ModelError {
 impl From<KinematicsError> for ModelError {
     fn from(err: KinematicsError) -> Self {
         ModelError::Kinematics(err)
+    }
+}
+
+impl From<DynamicsError> for ModelError {
+    fn from(err: DynamicsError) -> Self {
+        ModelError::Dynamics(err)
     }
 }
 
@@ -290,6 +298,7 @@ impl core::fmt::Display for ModelError {
             ),
             ModelError::Inertia(err) => write!(f, "{err}"),
             ModelError::Kinematics(err) => write!(f, "{err}"),
+            ModelError::Dynamics(err) => write!(f, "{err}"),
         }
     }
 }
@@ -299,6 +308,7 @@ impl std::error::Error for ModelError {
         match self {
             ModelError::Inertia(err) => Some(err),
             ModelError::Kinematics(err) => Some(err),
+            ModelError::Dynamics(err) => Some(err),
             _ => None,
         }
     }
