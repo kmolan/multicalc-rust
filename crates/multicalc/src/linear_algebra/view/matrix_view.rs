@@ -55,6 +55,16 @@ pub struct MatrixView<'a, const ROWS: usize, const COLS: usize, T = f64> {
 /// The reshaping methods consume the view, because the exclusive borrow has to move with them.
 /// [`as_view`](Self::as_view) and [`reborrow`](Self::reborrow) hand out shorter-lived views when
 /// the original needs to stay usable.
+///
+/// ```
+/// use multicalc::linear_algebra::Matrix;
+///
+/// let mut m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+/// let mut t = m.view_mut().transposed();
+/// t[(0, 1)] = 9.0; // writes through to m[(1, 0)]
+///
+/// assert_eq!(m.into_array(), [[1.0, 2.0], [9.0, 4.0]]);
+/// ```
 #[derive(Debug)]
 #[must_use]
 pub struct MatrixViewMut<'a, const ROWS: usize, const COLS: usize, T = f64> {
@@ -301,6 +311,15 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixView<'a, ROWS, COLS, T> 
 
 impl<const ROWS: usize, const COLS: usize, T: Copy> MatrixView<'_, ROWS, COLS, T> {
     /// Copies the window into an owned matrix. This is the one operation here that moves elements.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    ///
+    /// let m = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
+    /// let owned = m.view().transposed().to_matrix();
+    ///
+    /// assert_eq!(owned.into_array(), [[1.0, 4.0], [2.0, 5.0], [3.0, 6.0]]);
+    /// ```
     #[inline]
     pub fn to_matrix(self) -> Matrix<ROWS, COLS, T> {
         Matrix::from_fn(|row, column| self[(row, column)])
@@ -407,6 +426,16 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, 
     }
 
     /// Returns a reference to entry `(row, col)`, or `None` if out of range.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    ///
+    /// let mut m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    /// let v = m.view_mut();
+    ///
+    /// assert_eq!(v.get(1, 0), Some(&3.0));
+    /// assert_eq!(v.get(2, 0), None);
+    /// ```
     #[inline]
     #[must_use]
     pub fn get(&self, row: usize, col: usize) -> Option<&T> {
@@ -414,6 +443,16 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, 
     }
 
     /// Returns a mutable reference to entry `(row, col)`, or `None` if out of range.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    ///
+    /// let mut m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    /// let mut v = m.view_mut();
+    /// *v.get_mut(0, 1).unwrap() = 9.0;
+    ///
+    /// assert_eq!(m.into_array(), [[1.0, 9.0], [3.0, 4.0]]);
+    /// ```
     #[inline]
     pub fn get_mut(&mut self, row: usize, col: usize) -> Option<&mut T> {
         let index = self.index_of(row, col)?;
@@ -421,6 +460,19 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, 
     }
 
     /// Borrows this window read-only for as long as `self` is untouched.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    ///
+    /// let mut m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    /// let mut v = m.view_mut();
+    ///
+    /// // `transposed` would consume `v`; `as_view` leaves it usable.
+    /// assert_eq!(v.as_view().transposed()[(0, 1)], 3.0);
+    /// v[(0, 0)] = 9.0;
+    ///
+    /// assert_eq!(m.into_array(), [[9.0, 2.0], [3.0, 4.0]]);
+    /// ```
     #[inline]
     pub fn as_view(&self) -> MatrixView<'_, ROWS, COLS, T> {
         MatrixView {
@@ -500,6 +552,15 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, 
 
     /// Row `row` as a writable view of `COLS` components, or `None` if `row >= ROWS`. See
     /// [`MatrixView::row`].
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    ///
+    /// let mut m = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
+    /// m.view_mut().row(1).unwrap().fill(0.0);
+    ///
+    /// assert_eq!(m.into_array(), [[1.0, 2.0, 3.0], [0.0, 0.0, 0.0]]);
+    /// ```
     #[inline]
     pub fn row(self, row: usize) -> Option<VectorViewMut<'a, COLS, T>> {
         (row < ROWS).then_some(())?;
@@ -509,6 +570,15 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, 
 
     /// Column `column` as a writable view of `ROWS` components, or `None` if `column >= COLS`.
     /// See [`MatrixView::column`].
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    ///
+    /// let mut m = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
+    /// m.view_mut().column(2).unwrap().fill(0.0);
+    ///
+    /// assert_eq!(m.into_array(), [[1.0, 2.0, 0.0], [4.0, 5.0, 0.0]]);
+    /// ```
     #[inline]
     pub fn column(self, column: usize) -> Option<VectorViewMut<'a, ROWS, T>> {
         (column < COLS).then_some(())?;
@@ -553,12 +623,30 @@ impl<'a, const ROWS: usize, const COLS: usize, T> MatrixViewMut<'a, ROWS, COLS, 
 
 impl<const ROWS: usize, const COLS: usize, T: Copy> MatrixViewMut<'_, ROWS, COLS, T> {
     /// Copies the window into an owned matrix.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    ///
+    /// let mut m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    /// let v = m.view_mut();
+    ///
+    /// assert_eq!(v.to_matrix().into_array(), [[1.0, 2.0], [3.0, 4.0]]);
+    /// ```
     #[inline]
     pub fn to_matrix(&self) -> Matrix<ROWS, COLS, T> {
         self.as_view().to_matrix()
     }
 
     /// Overwrites every entry with `value`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    ///
+    /// let mut m = Matrix::<2, 2>::zeros();
+    /// m.view_mut().submatrix::<1, 2>(1, 0).unwrap().fill(7.0);
+    ///
+    /// assert_eq!(m.into_array(), [[0.0, 0.0], [7.0, 7.0]]);
+    /// ```
     #[inline]
     pub fn fill(&mut self, value: T) {
         for r in 0..ROWS {

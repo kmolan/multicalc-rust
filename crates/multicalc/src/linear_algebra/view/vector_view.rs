@@ -21,6 +21,17 @@ fn vector_out_of_bounds(index: usize, len: usize) -> ! {
 /// A stride other than `1` is what lets
 /// [`MatrixView::column`](crate::linear_algebra::MatrixView::column) avoid a copy: the components of a
 /// column sit `row_stride` apart in the flat buffer.
+///
+/// ```
+/// use multicalc::linear_algebra::Matrix;
+///
+/// let m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+/// let column = m.view().column(0).unwrap();
+///
+/// // The two components sit a full row apart in the flat buffer.
+/// assert_eq!(column.stride(), 2);
+/// assert_eq!(column.to_vector().into_array(), [1.0, 3.0]);
+/// ```
 #[derive(Debug)]
 #[must_use]
 pub struct VectorView<'a, const N: usize, T = f64> {
@@ -30,6 +41,15 @@ pub struct VectorView<'a, const N: usize, T = f64> {
 }
 
 /// A borrowed, strided, writable window of `N` components.
+///
+/// ```
+/// use multicalc::linear_algebra::Vector;
+///
+/// let mut v = Vector::new([1.0, 2.0, 3.0]);
+/// *v.view_mut().get_mut(2).unwrap() = 9.0;
+///
+/// assert_eq!(v.into_array(), [1.0, 2.0, 9.0]);
+/// ```
 #[derive(Debug)]
 #[must_use]
 pub struct VectorViewMut<'a, const N: usize, T = f64> {
@@ -102,6 +122,15 @@ impl<'a, const N: usize, T> VectorView<'a, N, T> {
     }
 
     /// Returns a reference to component `index`, or `None` if `index >= N`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    ///
+    /// let v = Vector::new([1.0, 2.0, 3.0]);
+    ///
+    /// assert_eq!(v.view().get(2), Some(&3.0));
+    /// assert_eq!(v.view().get(3), None);
+    /// ```
     #[inline]
     #[must_use]
     pub fn get(&self, index: usize) -> Option<&T> {
@@ -125,6 +154,15 @@ impl<'a, const N: usize, T> VectorView<'a, N, T> {
 
 impl<const N: usize, T: Copy> VectorView<'_, N, T> {
     /// Copies the window into an owned vector.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    ///
+    /// let m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    /// let owned = m.view().column(1).unwrap().to_vector();
+    ///
+    /// assert_eq!(owned.into_array(), [2.0, 4.0]);
+    /// ```
     #[inline]
     pub fn to_vector(self) -> Vector<N, T> {
         Vector::from_fn(|index| self[index])
@@ -187,6 +225,17 @@ impl<'a, const N: usize, T> VectorViewMut<'a, N, T> {
     }
 
     /// Views the first `N` elements of a slice writably, or `None` if it is shorter than that.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::VectorViewMut;
+    ///
+    /// let mut buffer = [0.0; 4];
+    /// VectorViewMut::<3>::from_slice(&mut buffer).unwrap().fill(1.0);
+    ///
+    /// // The trailing element is untouched, which is what makes a scratch buffer reusable.
+    /// assert_eq!(buffer, [1.0, 1.0, 1.0, 0.0]);
+    /// assert!(VectorViewMut::<5>::from_slice(&mut buffer).is_none());
+    /// ```
     #[inline]
     pub fn from_slice(slice: &'a mut [T]) -> Option<Self> {
         Self::from_parts(slice, 0, 1)
@@ -220,6 +269,16 @@ impl<'a, const N: usize, T> VectorViewMut<'a, N, T> {
     }
 
     /// Returns a reference to component `index`, or `None` if `index >= N`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    ///
+    /// let mut v = Vector::new([1.0, 2.0, 3.0]);
+    /// let view = v.view_mut();
+    ///
+    /// assert_eq!(view.get(0), Some(&1.0));
+    /// assert_eq!(view.get(3), None);
+    /// ```
     #[inline]
     #[must_use]
     pub fn get(&self, index: usize) -> Option<&T> {
@@ -227,6 +286,15 @@ impl<'a, const N: usize, T> VectorViewMut<'a, N, T> {
     }
 
     /// Returns a mutable reference to component `index`, or `None` if `index >= N`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    ///
+    /// let mut v = Vector::new([1.0, 2.0, 3.0]);
+    /// *v.view_mut().get_mut(1).unwrap() = 9.0;
+    ///
+    /// assert_eq!(v.into_array(), [1.0, 9.0, 3.0]);
+    /// ```
     #[inline]
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
         let at = self.index_of(index)?;
@@ -234,6 +302,19 @@ impl<'a, const N: usize, T> VectorViewMut<'a, N, T> {
     }
 
     /// Borrows this window read-only for as long as `self` is untouched.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    ///
+    /// let mut v = Vector::new([3.0, 4.0]);
+    /// let mut view = v.view_mut();
+    ///
+    /// // `dot` needs a read-only view; `as_view` gives one without giving up the write access.
+    /// assert_eq!(view.as_view().dot(view.as_view()), 25.0);
+    /// *view.get_mut(0).unwrap() = 0.0;
+    ///
+    /// assert_eq!(v.into_array(), [0.0, 4.0]);
+    /// ```
     #[inline]
     pub fn as_view(&self) -> VectorView<'_, N, T> {
         VectorView {
@@ -244,6 +325,19 @@ impl<'a, const N: usize, T> VectorViewMut<'a, N, T> {
     }
 
     /// Borrows this window writably for a shorter lifetime.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    ///
+    /// let mut v = Vector::new([1.0, 2.0, 3.0, 4.0]);
+    /// let mut view = v.view_mut();
+    ///
+    /// // `split_at` consumes the view it is called on; the reborrow is what `view` survives.
+    /// let (mut head, _tail) = view.reborrow().split_at::<2, 2>().unwrap();
+    /// head.fill(0.0);
+    ///
+    /// assert_eq!(view.to_vector().into_array(), [0.0, 0.0, 3.0, 4.0]);
+    /// ```
     #[inline]
     pub fn reborrow(&mut self) -> VectorViewMut<'_, N, T> {
         VectorViewMut {
@@ -284,12 +378,29 @@ impl<'a, const N: usize, T> VectorViewMut<'a, N, T> {
 
 impl<const N: usize, T: Copy> VectorViewMut<'_, N, T> {
     /// Copies the window into an owned vector.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    ///
+    /// let mut v = Vector::new([1.0, 2.0, 3.0]);
+    ///
+    /// assert_eq!(v.view_mut().to_vector().into_array(), [1.0, 2.0, 3.0]);
+    /// ```
     #[inline]
     pub fn to_vector(&self) -> Vector<N, T> {
         self.as_view().to_vector()
     }
 
     /// Overwrites every component with `value`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    ///
+    /// let mut v = Vector::new([1.0, 2.0, 3.0]);
+    /// v.view_mut().fill(0.0);
+    ///
+    /// assert_eq!(v.into_array(), [0.0, 0.0, 0.0]);
+    /// ```
     #[inline]
     pub fn fill(&mut self, value: T) {
         for i in 0..N {
@@ -300,6 +411,18 @@ impl<const N: usize, T: Copy> VectorViewMut<'_, N, T> {
     }
 
     /// Copies `src` in component by component; the two may have different strides.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::{Matrix, Vector};
+    ///
+    /// let m = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
+    /// let mut v = Vector::new([0.0, 0.0]);
+    ///
+    /// // The source is strided (a column), the destination is contiguous.
+    /// v.view_mut().copy_from(m.view().column(1).unwrap());
+    ///
+    /// assert_eq!(v.into_array(), [2.0, 4.0]);
+    /// ```
     #[inline]
     pub fn copy_from(&mut self, src: VectorView<'_, N, T>) {
         for i in 0..N {

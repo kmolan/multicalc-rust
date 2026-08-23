@@ -49,12 +49,33 @@ pub struct Workspace<'a, T> {
 
 impl<'a, T> Workspace<'a, T> {
     /// Wraps a scratch buffer. Nothing is read from it; each `take` simply claims a span.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Workspace;
+    ///
+    /// let mut scratch = [0.0; 8];
+    /// let workspace = Workspace::new(&mut scratch);
+    ///
+    /// // Nothing is claimed until a `take`, and nothing is read from the buffer.
+    /// assert_eq!(workspace.remaining(), 8);
+    /// ```
     #[inline]
     pub fn new(buffer: &'a mut [T]) -> Self {
         Workspace { rest: buffer }
     }
 
     /// How many elements are still unclaimed.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Workspace;
+    ///
+    /// let mut scratch = [0.0; 8];
+    /// let mut workspace = Workspace::new(&mut scratch);
+    ///
+    /// assert_eq!(workspace.remaining(), 8);
+    /// let _claimed = workspace.take_matrix::<2, 3>().unwrap();
+    /// assert_eq!(workspace.remaining(), 2);
+    /// ```
     #[inline]
     #[must_use]
     pub fn remaining(&self) -> usize {
@@ -75,6 +96,19 @@ impl<'a, T> Workspace<'a, T> {
     }
 
     /// Claims a row-major `ROWS`×`COLS` matrix, or returns `None` if too few elements are left.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Workspace;
+    ///
+    /// let mut scratch = [0.0; 6];
+    /// let mut workspace = Workspace::new(&mut scratch);
+    ///
+    /// let mut temporary = workspace.take_matrix::<2, 3>().unwrap();
+    /// temporary.fill(1.0);
+    ///
+    /// // The buffer is spent, so a second claim of the same shape fails.
+    /// assert!(workspace.take_matrix::<2, 3>().is_none());
+    /// ```
     #[inline]
     pub fn take_matrix<const ROWS: usize, const COLS: usize>(
         &mut self,
@@ -85,6 +119,19 @@ impl<'a, T> Workspace<'a, T> {
     }
 
     /// Claims `N` contiguous components, or returns `None` if too few elements are left.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Workspace;
+    ///
+    /// let mut scratch = [0.0; 4];
+    /// let mut workspace = Workspace::new(&mut scratch);
+    ///
+    /// let mut residual = workspace.take_vector::<3>().unwrap();
+    /// residual.fill(2.0);
+    ///
+    /// assert_eq!(residual.to_vector().into_array(), [2.0, 2.0, 2.0]);
+    /// assert_eq!(workspace.remaining(), 1);
+    /// ```
     #[inline]
     pub fn take_vector<const N: usize>(&mut self) -> Option<VectorViewMut<'a, N, T>> {
         let claimed = self.take_slice(N)?;
@@ -92,6 +139,18 @@ impl<'a, T> Workspace<'a, T> {
     }
 
     /// Gives back whatever is still unclaimed, ending the workspace.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Workspace;
+    ///
+    /// let mut scratch = [0.0; 5];
+    /// let mut workspace = Workspace::new(&mut scratch);
+    ///
+    /// let _claimed = workspace.take_vector::<2>().unwrap();
+    /// let rest = workspace.into_remainder();
+    ///
+    /// assert_eq!(rest.len(), 3);
+    /// ```
     #[inline]
     #[must_use]
     pub fn into_remainder(self) -> &'a mut [T] {
