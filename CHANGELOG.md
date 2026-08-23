@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Zero-copy matrix and vector views.** `Matrix::view` / `view_mut` and `Vector::view` /
+  `view_mut` hand out `MatrixView` / `VectorView` and their `Mut` counterparts: a flat slice, an
+  offset, and a stride per axis. Transpose, submatrix, row, column, diagonal, segment, and the
+  splits are index arithmetic; only `to_matrix` / `to_vector` copies. No `Index` impl — fallible
+  calls return `Result<_, LinalgError>` carrying the new `OutOfBounds`, so nothing on a view
+  panics. `Matrix::submatrix` and `set_submatrix` become `try_submatrix` and `try_set_submatrix`,
+  reporting the same error. @Thiago316316 (#62)
+
 - **Brent root finding.** `Brent` combines bracketed convergence with secant and inverse
   quadratic interpolation steps for scalar equations. @snowyukitty (#323)
 

@@ -7,6 +7,10 @@
 //!   [`Matrix6D`] — short names for the sizes that come up most, so a call site writes
 //!   `Vector3D<T>` rather than `Vector<3, T>`. Each is the same type as what it stands for, so
 //!   the two spellings mix freely.
+//! - [`MatrixView`] / [`VectorView`] and their `Mut` counterparts — borrowed, strided windows
+//!   onto existing storage. Transpose, submatrix, row/column/diagonal, and splitting are index
+//!   arithmetic; only [`MatrixView::to_matrix`] copies. No `Index`; fallible calls return
+//!   `Result<_, LinalgError>`, so nothing on a view panics.
 //! - [`solve_discrete_riccati`] — the steady-state cost-to-go an optimal linear feedback law is
 //!   built from.
 //! - [`solve_discrete_lyapunov`] — solves `Aᵀ·P·A − P + Q = 0`, which is how a closed loop is
@@ -25,6 +29,7 @@ mod riccati;
 mod svd;
 mod symmetric_eigendecomposition;
 mod vector;
+mod view;
 
 pub use cholesky::Cholesky;
 pub use lyapunov::solve_discrete_lyapunov;
@@ -33,6 +38,7 @@ pub use riccati::solve_discrete_riccati;
 pub use svd::Svd;
 pub use symmetric_eigendecomposition::SymmetricEigendecomposition;
 pub use vector::Vector;
+pub use view::{MatrixView, MatrixViewMut, VectorView, VectorViewMut};
 
 // Clippy flags `lu`/`qr` in `use` paths, but `#[allow]`/`#[expect]` on those `use` items are
 // reported as useless; a module-level allow is what actually covers the re-exports.

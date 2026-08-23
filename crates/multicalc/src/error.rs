@@ -24,6 +24,9 @@ pub enum LinalgError {
         /// Iterations spent before giving up.
         iters: usize,
     },
+    /// A subscript, corner, or shape reached past the edge of the storage it addressed. Every
+    /// fallible operation on a borrowed view reports this and nothing else.
+    OutOfBounds,
 }
 
 /// Errors from the differentiation modules (finite differences, autodiff, Jacobian, Hessian,
@@ -558,6 +561,9 @@ impl core::fmt::Display for LinalgError {
                 f.write_str("matrix must read the same across the diagonal")
             }
             LinalgError::InvalidTimestep => f.write_str("timestep must be finite and non-negative"),
+            LinalgError::OutOfBounds => {
+                f.write_str("index or shape reached past the edge of the storage")
+            }
             LinalgError::DidNotConverge { iters } => {
                 write!(f, "matrix equation did not settle after {iters} iterations")
             }
