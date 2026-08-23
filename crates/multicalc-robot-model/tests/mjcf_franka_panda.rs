@@ -9,6 +9,7 @@
 use std::path::Path;
 
 use multicalc::kinematics::JointKind;
+use multicalc::linear_algebra::Vector;
 use multicalc_robot_model::{ModelError, RobotModel};
 
 const BODY_NAMES: [&str; 11] = [
@@ -155,4 +156,39 @@ fn the_whole_model_fits_a_tree_of_eleven_but_not_ten() {
             capacity: 10,
         }
     );
+}
+
+#[test]
+fn articulated_body_carries_every_body_inertia() {
+    let model = panda();
+    let body = model
+        .articulated_body::<16, 16>(Vector::new([0.0, 0.0, -9.81]))
+        .unwrap();
+
+    assert_eq!(body.len(), model.body_count());
+    assert_eq!(model.body_count(), BODY_NAMES.len());
+    for (index, name) in BODY_NAMES.into_iter().enumerate() {
+        let stated = model.body(index).unwrap().inertia();
+        match (stated, body.inertia(index)) {
+            (Some(stated), Some(carried)) => {
+                assert_close(carried.mass(), stated.mass(), name);
+                assert!(
+                    (carried.center_of_mass() - stated.center_of_mass()).norm() < 1e-12,
+                    "{name} centre of mass"
+                );
+                let difference = carried.rotational_inertia() - stated.rotational_inertia();
+                for row in 0..3 {
+                    for column in 0..3 {
+                        assert_close(
+                            difference[(row, column)],
+                            0.0,
+                            &format!("{name} rotational inertia ({row}, {column})"),
+                        );
+                    }
+                }
+            }
+            (None, None) => {}
+            _ => panic!("{name} disagrees on whether it has mass"),
+        }
+    }
 }

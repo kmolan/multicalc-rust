@@ -131,8 +131,8 @@ fn gyro_conditioning_chain() {
 
         let cascade = BiquadCascade::new(chain);
         assert_response(
-            |frequency_hz| cascade.magnitude_at(frequency_hz),
-            |frequency_hz| cascade.phase_at(frequency_hz),
+            |frequency_hz| cascade.magnitude_at(frequency_hz).unwrap(),
+            |frequency_hz| cascade.phase_at(frequency_hz).unwrap(),
             &fixture,
         );
 
@@ -178,8 +178,8 @@ fn single_section_jobs() {
         );
 
         assert_response(
-            |frequency_hz| coefficients.magnitude_at(frequency_hz),
-            |frequency_hz| coefficients.phase_at(frequency_hz),
+            |frequency_hz| coefficients.magnitude_at(frequency_hz).unwrap(),
+            |frequency_hz| coefficients.phase_at(frequency_hz).unwrap(),
             &fixture,
         );
 

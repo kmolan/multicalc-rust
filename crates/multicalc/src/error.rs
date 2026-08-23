@@ -254,6 +254,17 @@ pub enum DynamicsError {
     NonFinite,
     /// A rotational inertia was not positive definite.
     NonPositiveInertia,
+    /// The inertia list and the model's joint count are different lengths.
+    InertiaCountMismatch,
+    /// The model's first joint is floating; these recursions are fixed-base only.
+    FloatingBaseUnsupported,
+    /// The solved poses came from a model with a different joint count.
+    StateShapeMismatch,
+    /// A joint's articulated-body inertia was not strictly positive, so the model has a degree of
+    /// freedom with no inertia behind it.
+    NonPositiveArticulatedInertia,
+    /// A kinematics step inside the recursion failed.
+    Kinematics(KinematicsError),
     /// The rotational inertia could not be inverted.
     Linalg(LinalgError),
 }
@@ -453,6 +464,11 @@ impl From<LinalgError> for ControlError {
 impl From<LinalgError> for DynamicsError {
     fn from(err: LinalgError) -> Self {
         DynamicsError::Linalg(err)
+    }
+}
+impl From<KinematicsError> for DynamicsError {
+    fn from(err: KinematicsError) -> Self {
+        DynamicsError::Kinematics(err)
     }
 }
 impl From<LinalgError> for PlantError {
@@ -783,6 +799,19 @@ impl core::fmt::Display for DynamicsError {
             DynamicsError::NonPositiveInertia => {
                 f.write_str("rotational inertia is not positive definite")
             }
+            DynamicsError::InertiaCountMismatch => {
+                f.write_str("the inertia list and the model's joint count are different lengths")
+            }
+            DynamicsError::FloatingBaseUnsupported => {
+                f.write_str("these recursions are fixed-base only, and the model's root floats")
+            }
+            DynamicsError::StateShapeMismatch => {
+                f.write_str("solved poses came from a model with a different joint count")
+            }
+            DynamicsError::NonPositiveArticulatedInertia => {
+                f.write_str("a degree of freedom has no inertia behind it")
+            }
+            DynamicsError::Kinematics(err) => write!(f, "{err}"),
             DynamicsError::Linalg(err) => {
                 write!(f, "rotational inertia could not be inverted: {err}")
             }
@@ -949,6 +978,7 @@ impl core::error::Error for DynamicsError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
             DynamicsError::Linalg(err) => Some(err),
+            DynamicsError::Kinematics(err) => Some(err),
             _ => None,
         }
     }
