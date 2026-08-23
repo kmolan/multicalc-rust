@@ -200,6 +200,56 @@ fn response_queries_reject_a_frequency_at_or_above_nyquist() {
 }
 
 #[test]
+fn response_queries_reject_a_frequency_at_or_below_negative_nyquist() {
+    let coefficients = BiquadCoefficients::low_pass(50.0_f64, FLATTEST, 0.001).unwrap();
+    for frequency_hz in [-500.0_f64, -500.5, -600.0] {
+        assert_eq!(
+            coefficients.magnitude_at(frequency_hz),
+            Err(SignalError::FrequencyOutOfRange)
+        );
+        assert_eq!(
+            coefficients.magnitude_in_decibels_at(frequency_hz),
+            Err(SignalError::FrequencyOutOfRange)
+        );
+        assert_eq!(
+            coefficients.phase_at(frequency_hz),
+            Err(SignalError::FrequencyOutOfRange)
+        );
+        assert_eq!(
+            coefficients.delay_at(frequency_hz),
+            Err(SignalError::FrequencyOutOfRange)
+        );
+    }
+}
+
+// A negative frequency is a real filter's mirror image of its positive counterpart: the same
+// magnitude and delay, and the negated phase.
+#[test]
+fn response_queries_mirror_a_negative_frequency() {
+    let coefficients = BiquadCoefficients::low_pass(50.0_f64, FLATTEST, 0.001).unwrap();
+    for frequency_hz in [10.0_f64, 50.0, 400.0] {
+        assert!(
+            (coefficients.magnitude_at(-frequency_hz).unwrap()
+                - coefficients.magnitude_at(frequency_hz).unwrap())
+            .abs()
+                < 1e-12
+        );
+        assert!(
+            (coefficients.phase_at(-frequency_hz).unwrap()
+                + coefficients.phase_at(frequency_hz).unwrap())
+            .abs()
+                < 1e-12
+        );
+        assert!(
+            (coefficients.delay_at(-frequency_hz).unwrap()
+                - coefficients.delay_at(frequency_hz).unwrap())
+            .abs()
+                < 1e-12
+        );
+    }
+}
+
+#[test]
 fn response_queries_reject_a_non_finite_frequency() {
     let coefficients = BiquadCoefficients::low_pass(50.0_f64, FLATTEST, 0.001).unwrap();
     for frequency_hz in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
