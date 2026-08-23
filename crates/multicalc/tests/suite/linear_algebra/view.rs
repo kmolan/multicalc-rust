@@ -1,5 +1,5 @@
 use multicalc::linear_algebra::{
-    Matrix, MatrixView, MatrixViewMut, Vector, VectorView, VectorViewMut, Workspace,
+    Matrix, MatrixView, MatrixViewMut, Vector, VectorView, VectorViewMut,
 };
 use proptest::prelude::*;
 
@@ -426,69 +426,6 @@ fn vector_split_at_rejects_a_bad_partition_or_a_strided_view() {
     assert!(column.split_at::<1, 2>().is_none());
 }
 
-// ----- carving a caller's workspace -----
-
-#[test]
-fn workspace_hands_out_disjoint_pieces_that_are_live_at_once() {
-    let mut scratch = [0.0; 16];
-    let mut workspace = Workspace::new(&mut scratch);
-
-    let mut left = workspace.take_matrix::<2, 3>().unwrap();
-    let mut right = workspace.take_matrix::<3, 2>().unwrap();
-    let mut residual = workspace.take_vector::<4>().unwrap();
-    assert_eq!(workspace.remaining(), 0);
-
-    left.copy_from(counted::<2, 3>().view());
-    right.copy_from(left.as_view().transposed());
-    residual.fill(1.0);
-
-    assert_eq!(right.to_matrix(), counted::<2, 3>().transpose());
-    assert_eq!(left.to_matrix(), counted::<2, 3>());
-    assert_eq!(residual.to_vector(), Vector::new([1.0; 4]));
-}
-
-#[test]
-fn workspace_claims_do_not_overlap_in_the_buffer() {
-    let mut scratch = [0.0; 6];
-    {
-        let mut workspace = Workspace::new(&mut scratch);
-        let mut first = workspace.take_vector::<2>().unwrap();
-        let mut second = workspace.take_vector::<4>().unwrap();
-
-        first.fill(1.0);
-        second.fill(2.0);
-    }
-
-    assert_eq!(scratch, [1.0, 1.0, 2.0, 2.0, 2.0, 2.0]);
-}
-
-#[test]
-fn workspace_refuses_a_claim_it_cannot_cover() {
-    let mut scratch = [0.0; 4];
-    let mut workspace = Workspace::new(&mut scratch);
-
-    assert!(workspace.take_matrix::<3, 3>().is_none());
-    // A refused claim consumes nothing.
-    assert_eq!(workspace.remaining(), 4);
-
-    assert!(workspace.take_matrix::<2, 2>().is_some());
-    assert_eq!(workspace.remaining(), 0);
-    assert!(workspace.take_vector::<1>().is_none());
-}
-
-#[test]
-fn workspace_gives_back_what_it_did_not_claim() {
-    let mut scratch = [0.0; 5];
-    let mut workspace = Workspace::new(&mut scratch);
-
-    workspace.take_vector::<2>().unwrap().fill(9.0);
-    let remainder = workspace.into_remainder();
-
-    assert_eq!(remainder.len(), 3);
-    remainder[0] = 8.0;
-    assert_eq!(scratch, [9.0, 9.0, 8.0, 0.0, 0.0]);
-}
-
 // ----- empty shapes -----
 
 #[test]
@@ -580,10 +517,9 @@ fn views_work_over_f32() {
     );
 
     let mut scratch = [0.0f32; 6];
-    let mut workspace = Workspace::new(&mut scratch);
-    let mut claimed = workspace.take_matrix::<3, 2>().unwrap();
-    claimed.copy_from(m.view().transposed());
-    assert_eq!(claimed.to_matrix(), m.transpose());
+    let mut written = MatrixViewMut::<3, 2, f32>::from_row_major_slice(&mut scratch).unwrap();
+    written.copy_from(m.view().transposed());
+    assert_eq!(written.to_matrix(), m.transpose());
 }
 
 #[test]
@@ -742,19 +678,5 @@ proptest! {
     #[test]
     fn split_rows_covers_every_entry_2x5(m in matrix_strategy::<2, 5, _>(prop::num::f64::NORMAL)) {
         check_split_rows_covers_every_entry::<2, 5, 1>(m)?;
-    }
-
-    #[test]
-    fn workspace_claims_never_overlap(fill in prop::array::uniform4(prop::num::f64::NORMAL)) {
-        let mut scratch = [0.0; 8];
-        {
-            let mut workspace = Workspace::new(&mut scratch);
-            let mut block = workspace.take_matrix::<2, 2>().unwrap();
-            let mut tail = workspace.take_vector::<4>().unwrap();
-
-            block.copy_from(Matrix::new([[fill[0], fill[1]], [fill[2], fill[3]]]).view());
-            tail.copy_from(Vector::new(fill).view());
-        }
-        prop_assert_eq!(scratch, [fill[0], fill[1], fill[2], fill[3], fill[0], fill[1], fill[2], fill[3]]);
     }
 }

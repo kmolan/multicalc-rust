@@ -7,17 +7,12 @@
 //! - [`MatrixView::submatrix`] shifts the offset and narrows the shape.
 //! - [`MatrixView::row`] / [`MatrixView::column`] hand back a strided [`VectorView`].
 //!
-//! [`Workspace`] carves one caller-supplied scratch buffer into disjoint [`MatrixViewMut`] and
-//! [`VectorViewMut`] pieces, so an algorithm can take its temporaries from the caller rather than
-//! from a stack array it sized itself.
-//!
 //! All of it is safe code. The flat slice comes from `slice::as_flattened`, and the disjointness
 //! of a split is `slice::split_at_mut`'s guarantee rather than a hand-checked invariant.
 //!
 //! The submodules split along the types: `matrix_view` holds the two matrix views and the
-//! [`Matrix`] methods that hand them out, `vector_view` does the same for [`Vector`], and
-//! `workspace` holds the buffer carving that spans both. `required_len` below is the one
-//! bounds rule all of them share.
+//! [`Matrix`] methods that hand them out, and `vector_view` does the same for [`Vector`].
+//! `required_len` below is the one bounds rule both of them share.
 //!
 //! ```
 //! use multicalc::linear_algebra::Matrix;
@@ -32,11 +27,9 @@
 
 mod matrix_view;
 mod vector_view;
-mod workspace;
 
 pub use matrix_view::{MatrixView, MatrixViewMut};
 pub use vector_view::{VectorView, VectorViewMut};
-pub use workspace::Workspace;
 
 /// The smallest slice length that can hold a `rows`×`cols` view with this offset and these
 /// strides, or `None` if the arithmetic overflows. An empty shape needs only `offset` elements,

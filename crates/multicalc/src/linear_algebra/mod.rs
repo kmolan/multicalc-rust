@@ -10,8 +10,6 @@
 //! - [`MatrixView`] / [`VectorView`] and their `Mut` counterparts — borrowed, strided windows
 //!   onto existing storage. Transpose, submatrix, and row/column extraction are index arithmetic
 //!   on a view, so they cost nothing until [`MatrixView::to_matrix`] copies one out.
-//! - [`Workspace`] — carves one caller-supplied scratch buffer into disjoint mutable views, so an
-//!   algorithm takes its temporaries from the caller rather than sizing a stack array itself.
 //! - [`solve_discrete_riccati`] — the steady-state cost-to-go an optimal linear feedback law is
 //!   built from.
 //! - [`solve_discrete_lyapunov`] — solves `Aᵀ·P·A − P + Q = 0`, which is how a closed loop is
@@ -39,7 +37,7 @@ pub use riccati::solve_discrete_riccati;
 pub use svd::Svd;
 pub use symmetric_eigendecomposition::SymmetricEigendecomposition;
 pub use vector::Vector;
-pub use view::{MatrixView, MatrixViewMut, VectorView, VectorViewMut, Workspace};
+pub use view::{MatrixView, MatrixViewMut, VectorView, VectorViewMut};
 
 // Vector type aliases for ease of life
 pub type Vector2D<T = f64> = Vector<2, T>;
