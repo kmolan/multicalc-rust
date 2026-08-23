@@ -62,6 +62,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`ExponentialMap::integrate_attitude` now returns `Result<SO3<T>, IntegrateError>`** instead of
   `SO3<T>`. This is a breaking change to the signature: callers must handle or unwrap the result.
   @naseem173 (#307)
+- **`BiquadCoefficients::magnitude_at`, `magnitude_in_decibels_at`, `phase_at`, and `delay_at`, and
+  the same four on `BiquadCascade`, now return `Result<T, SignalError>`** instead of `T`. This is a
+  breaking change to the signature: callers must handle or unwrap the result. @naseem173
 - `RigidBodyModel` is now `RobotModel`, holding every body a file describes rather than one. A
   single free body is read as a model of one body: `model.body_named("x2")` in place of the
   accessors that used to sit on the model itself.
@@ -95,6 +98,12 @@ existing `IntegrateError::NonFinite` instead. `attitude_step` and
 non-positive input is now documented instead of silent. @naseem173 (#307)
 - Particle filters floor an underflowed zero weight at the scalar's smallest positive value before
   the next update, allowing that particle to recover when later measurements favor it.
+
+- **Biquad response queries no longer alias past Nyquist.** `magnitude_at`, `phase_at`, and the
+  other response queries on `BiquadCoefficients` and `BiquadCascade` used to accept any frequency,
+  including one at or past half the sampling rate, and silently return the aliased reading. They
+  now return `SignalError::FrequencyOutOfRange` there and `SignalError::NonFinite` for a
+  non-finite frequency, the same way the design constructors already refuse those. @naseem173
 
 - **Iterative Config Total Iterations** Auto-align iteration counts to the composite rules below
   12k. 
