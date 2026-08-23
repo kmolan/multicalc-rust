@@ -183,9 +183,13 @@ impl<T: Numeric> BiquadCoefficients<T> {
     /// How much of a steady oscillation at this frequency comes through, as a multiple of what
     /// went in. One means untouched, and a low-pass is down to about seven tenths at its cutoff.
     ///
+    /// A negative frequency reports the same magnitude as its positive counterpart — a real
+    /// filter's response is mirrored around zero, so there is nothing new to measure there.
+    ///
     /// Returns [`SignalError::NonFinite`] if `frequency_hz` is not finite, or
-    /// [`SignalError::FrequencyOutOfRange`] if it reaches half the sampling rate — past there the
-    /// reading has aliased and no longer describes that frequency.
+    /// [`SignalError::FrequencyOutOfRange`] if its magnitude reaches half the sampling rate — past
+    /// there, on either side of zero, the reading has aliased and no longer describes that
+    /// frequency.
     ///
     /// ```
     /// use multicalc::signal_processing::BiquadCoefficients;
@@ -197,6 +201,12 @@ impl<T: Numeric> BiquadCoefficients<T> {
     ///
     /// // Well above it, almost nothing does.
     /// assert!(low_pass.magnitude_at(400.0).unwrap() < 0.05);
+    ///
+    /// // A negative frequency mirrors its positive counterpart.
+    /// assert!(
+    ///     (low_pass.magnitude_at(-50.0).unwrap() - low_pass.magnitude_at(50.0).unwrap()).abs()
+    ///         < 1e-12
+    /// );
     /// ```
     pub fn magnitude_at(&self, frequency_hz: T) -> Result<T, SignalError> {
         Self::check_frequency(frequency_hz, self.timestep)?;
@@ -225,6 +235,9 @@ impl<T: Numeric> BiquadCoefficients<T> {
     /// rounding in a near-zero response happens to give — it carries no information despite looking
     /// like a number.
     ///
+    /// A negative frequency reports the negative of its positive counterpart's phase, the mirror
+    /// image [`magnitude_at`](Self::magnitude_at) has around zero.
+    ///
     /// Returns the same errors as [`magnitude_at`](Self::magnitude_at).
     pub fn phase_at(&self, frequency_hz: T) -> Result<T, SignalError> {
         Self::check_frequency(frequency_hz, self.timestep)?;
@@ -240,6 +253,9 @@ impl<T: Numeric> BiquadCoefficients<T> {
     ///
     /// This is the number that eats a control loop's stability margin, so it is worth checking at
     /// the frequency the loop crosses over. A frequency of zero reports zero.
+    ///
+    /// A negative frequency reports the same delay as its positive counterpart: the phase flips
+    /// sign there, but so does the frequency dividing it, and the two cancel.
     ///
     /// Returns the same errors as [`magnitude_at`](Self::magnitude_at); zero is always accepted
     /// regardless.
@@ -301,14 +317,16 @@ impl<T: Numeric> BiquadCoefficients<T> {
         )
     }
 
-    /// Checks a frequency passed to a response query: rejects one that is not finite, and one at
-    /// or above the Nyquist frequency `timestep` implies, the same way [`Self::check_design`]
-    /// already does for a design's own cutoff or centre.
+    /// Checks a frequency passed to a response query: rejects one that is not finite, and one
+    /// whose magnitude reaches the Nyquist frequency `timestep` implies. A negative frequency
+    /// mirrors its positive counterpart (see [`magnitude_at`](Self::magnitude_at)), so the limit
+    /// is on its absolute value, the same way [`Self::check_design`] already limits a design's own
+    /// cutoff or centre on the positive side.
     fn check_frequency(frequency_hz: T, timestep: T) -> Result<(), SignalError> {
         if !frequency_hz.is_finite() {
             return Err(SignalError::NonFinite);
         }
-        if frequency_hz * timestep >= T::HALF {
+        if frequency_hz.abs() * timestep >= T::HALF {
             return Err(SignalError::FrequencyOutOfRange);
         }
         Ok(())
