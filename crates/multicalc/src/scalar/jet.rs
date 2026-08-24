@@ -33,6 +33,7 @@ impl<T: Numeric, const N: usize> Jet<T, N> {
     #[inline]
     #[must_use]
     pub const fn constant(value: T) -> Self {
+        const { assert!(N >= 1, \"Jet::constant requires N >= 1\"); }
         let mut coeffs = [T::ZERO; N];
         coeffs[0] = value;
         Jet { coeffs }
@@ -61,6 +62,7 @@ impl<T: Numeric, const N: usize> Jet<T, N> {
     #[inline]
     #[must_use]
     pub fn coefficient(&self, k: usize) -> T {
+        assert!(k < N, \"coefficient index {k} out of bounds for Jet of order {}\", N.saturating_sub(1));
         self.coeffs[k]
     }
 
