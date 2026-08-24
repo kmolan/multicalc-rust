@@ -35,12 +35,18 @@ locally anyway, the setup lives in [ci/README.md](ci/README.md) (optional).
 
 - **No panics on library paths** — fallible ops return typed per-module errors (`LinalgError`,
   `DiffError`, `IntegrateError`, `SolveError`), never `unwrap`. Clippy enforces this.
+- **Fallible functions take a `try_` prefix** — `try_row`, `try_from_slice` — `Option` or
+  `Result` alike.
+- **A `Mut` type mirrors its read-only twin**, plus what writing adds; document any gap.
 - **Stay generic over the scalar** — inside generic code, never call an `f64`-only
   function (it silently drops the autodiff payload). Use the `Numeric` trait surface.
+- **Descriptive names** — variables and other names need to be as clear as possible: `matrix`,
+  not `m`.
 - **Tests**: f64 assertions may use golden values; f32 correctness is asserted via
   mathematical identities (e.g. reconstruction, round-trips), not goldens.
-- **Docs**: public APIs get a doc example; behavior notes (NaN policy, iteration
-  budgets) live on the item.
+- **Docs**: public APIs get a doc example — one or two sentences, then the example. Don't name a
+  method that doesn't exist. Behavior notes (NaN policy, iteration budgets) live on the item, and
+  new API earns a line on its [tutorial page](crates/multicalc/tutorials/), compiled as a doctest.
 
 ## Where does a check go?
 
