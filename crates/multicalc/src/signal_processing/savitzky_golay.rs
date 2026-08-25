@@ -48,6 +48,46 @@ use crate::scalar::Numeric;
 ///     Err(SignalError::PolynomialOrderTooHigh)
 /// );
 /// ```
+///
+/// The weights are a fitted curve rather than a plain average, so they carry both signs — for a
+/// five-sample, three-term fit they are `[-3, 12, 17, 12, -3] / 35`. A non-finite sample is
+/// therefore worse here than in a moving average, and the three readouts need not agree with each
+/// other. `filter_checked` keeps it out of the window altogether.
+///
+/// ```
+/// use multicalc::signal_processing::SavitzkyGolay;
+///
+/// // An infinity meeting one of the negative outer taps comes back the other way up.
+/// let mut flipped = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+/// for step in 0..5 {
+///     let _ = flipped.filter(if step == 0 { f64::INFINITY } else { 1.0 });
+/// }
+/// assert!(flipped.value().is_infinite());
+/// assert!(flipped.value() < 0.0);
+///
+/// // The middle first-derivative weight is exactly zero, and `0 * inf` is a NaN, so one
+/// // infinity ruins the slope while the value is still merely infinite.
+/// let mut middle = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+/// for step in 0..5 {
+///     let _ = middle.filter(if step == 2 { f64::INFINITY } else { 1.0 });
+/// }
+/// assert!(middle.value().is_infinite());
+/// assert!(middle.first_derivative().is_nan());
+///
+/// // As the first sample it fills the whole window, and the mixed signs cancel into a NaN.
+/// let mut fresh = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+/// assert!(fresh.filter(f64::INFINITY).is_nan());
+///
+/// // Checked, none of that can happen: the window is left exactly as it was.
+/// let mut running = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+/// let _ = running.filter(1.0);
+/// let running_snapshot = running;
+///
+/// for signal in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+///     assert!(running.filter_checked(signal).is_err());
+/// }
+/// assert_eq!(running, running_snapshot);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SavitzkyGolay<const WINDOW: usize, const POLYNOMIAL_TERMS: usize, T: Numeric = f64> {
     /// The last WINDOW samples, oldest to newest by position modulo the write index.
@@ -94,6 +134,19 @@ impl<const WINDOW: usize, const POLYNOMIAL_TERMS: usize, T: Numeric>
     }
 
     /// Feeds one sample and returns the smoothed value of the window it now sits in.
+    ///
+    /// A non-finite sample spoils the value, the slope and the bend alike, until the window has
+    /// moved past it — as many samples as the window is long — or until [`reset`](Self::reset).
+    ///
+    /// The weights come from a fitted curve rather than a plain average, so they carry both signs:
+    /// for a five-sample, three-term fit they are `[-3, 12, 17, 12, -3] / 35`. That makes an
+    /// infinity worse here than in a moving average. It can come back with its sign flipped, from
+    /// an outer tap. It can become a NaN outright, because the middle first-derivative weight is
+    /// exactly zero and `0 * inf` is a NaN. And as the first sample it fills the whole window, so
+    /// the mixed signs cancel into a NaN on their own. The three readouts need not even agree —
+    /// the value can be infinite while the slope is already a NaN.
+    ///
+    /// `filter_checked` refuses every non-finite sample for those reasons.
     #[inline]
     #[must_use]
     pub fn filter(&mut self, input: T) -> T {
@@ -106,6 +159,17 @@ impl<const WINDOW: usize, const POLYNOMIAL_TERMS: usize, T: Numeric>
             self.initialized = true;
         }
         self.value()
+    }
+
+    /// Alternative to `filter` but with input checked.
+    /// Returns `SignalError::NonFinite` in case of non-finite input.
+    #[inline]
+    pub fn filter_checked(&mut self, input: T) -> Result<T, SignalError> {
+        if input.is_finite() {
+            Ok(self.filter(input))
+        } else {
+            Err(SignalError::NonFinite)
+        }
     }
 
     /// Clears the window so the next sample seeds it again. The weights are left alone: they depend

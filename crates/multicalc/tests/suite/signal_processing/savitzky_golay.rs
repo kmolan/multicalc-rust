@@ -157,3 +157,99 @@ fn constructors_reject_unusable_arguments() {
         Err(SignalError::NonFinite)
     );
 }
+
+// ---- handling non-finite signal ---------------------------------------------
+#[test]
+fn a_non_finite_sample_spoils_every_readout_for_one_window() {
+    let mut running = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+
+    for _ in 0..5 {
+        let _ = running.filter(1.0);
+    }
+    assert!(running.value().is_finite());
+
+    assert!(running.filter(f64::NAN).is_nan());
+    for call in 1..5 {
+        assert!(
+            !running.filter(1.0).is_finite(),
+            "value on call {call} after the bad sample"
+        );
+        assert!(!running.first_derivative().is_finite());
+        assert!(!running.second_derivative().is_finite());
+    }
+
+    // The fifth sample pushes it out of the window and all three readouts come back
+    assert!(running.filter(1.0).is_finite());
+    assert!(running.first_derivative().is_finite());
+    assert!(running.second_derivative().is_finite());
+}
+
+#[test]
+fn an_outer_infinity_comes_back_with_its_sign_flipped() {
+    // The fitted weights are [-3, 12, 17, 12, -3] / 35, so the outer taps are negative
+    let mut running = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+    for step in 0..5 {
+        let _ = running.filter(if step == 0 { f64::INFINITY } else { 1.0 });
+    }
+
+    assert!(running.value().is_infinite());
+    assert!(running.value() < 0.0);
+}
+
+#[test]
+fn one_infinity_is_enough_to_make_the_slope_a_nan() {
+    // The middle first-derivative weight is exactly zero, and `0 * inf` is a NaN
+    let mut running = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+    for step in 0..5 {
+        let _ = running.filter(if step == 2 { f64::INFINITY } else { 1.0 });
+    }
+
+    // The readouts disagree: the value is merely infinite, the slope is already lost
+    assert!(running.value().is_infinite());
+    assert!(running.first_derivative().is_nan());
+}
+
+#[test]
+fn an_infinite_first_sample_cancels_into_a_nan() {
+    // The first sample fills every slot, and the mixed-sign weights then cancel
+    let mut running = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+
+    assert!(running.filter(f64::INFINITY).is_nan());
+    assert!(running.first_derivative().is_nan());
+    assert!(running.second_derivative().is_nan());
+}
+
+#[test]
+fn filter_checked_protects_every_readout() {
+    let mut running = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+
+    let _ = running.filter(1.0);
+    let running_snapshot = running;
+
+    for signal in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let output = running.filter_checked(signal);
+
+        assert_eq!(output, Err(SignalError::NonFinite));
+        assert_eq!(running, running_snapshot);
+    }
+
+    assert!(running.filter_checked(1.0).is_ok());
+    assert!(running.value().is_finite());
+}
+
+#[test]
+fn filter_checked_protects_an_unseeded_fit() {
+    // A rejected sample must not fill the window either
+    let mut running = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+    let running_snapshot = running;
+
+    assert_eq!(
+        running.filter_checked(f64::INFINITY),
+        Err(SignalError::NonFinite)
+    );
+    assert_eq!(running, running_snapshot);
+
+    // The next good sample still fills the whole window
+    assert!(running.filter_checked(2.0).is_ok());
+    assert!(running.value().is_finite());
+}

@@ -148,3 +148,93 @@ fn multi_channel_matches_separate_filters_f64() {
 fn multi_channel_matches_separate_filters_f32() {
     assert_multi_channel_matches_separate_filters(1e-4_f32);
 }
+
+// ---- handling non-finite signal ---------------------------------------------
+#[test]
+fn non_finite_input_spoils_cascade() {
+    // A non-finite input spoils every section of the cascade till its reset
+    let section = BiquadCoefficients::low_pass(50.0_f64, FLATTEST, 0.001).unwrap();
+    let mut running = BiquadCascade::new([section; 2]);
+
+    let _ = running.filter(1.0);
+    assert!(running.value().is_finite());
+
+    let output = running.filter(f64::NAN);
+    assert!(output.is_nan());
+
+    let output = running.filter(f64::INFINITY);
+    assert!(output.is_nan());
+
+    let mut output = running.filter(f64::NEG_INFINITY);
+    assert!(output.is_nan());
+
+    for i in 0..1000 {
+        output = running.filter(i as f64);
+    }
+    assert!(output.is_nan());
+
+    running.reset();
+    let output = running.filter(1.0);
+    assert!(output.is_finite());
+}
+
+#[test]
+fn filter_checked_protects_cascade() {
+    let section = BiquadCoefficients::low_pass(50.0_f64, FLATTEST, 0.001).unwrap();
+    let mut running = BiquadCascade::new([section; 2]);
+
+    let _ = running.filter(1.0);
+    let running_snapshot = running;
+    assert!(running.value().is_finite());
+
+    let output = running.filter_checked(f64::NAN);
+
+    assert_eq!(output, Err(SignalError::NonFinite));
+    assert_eq!(running, running_snapshot);
+}
+
+#[test]
+fn non_finite_input_spoils_only_its_own_channel() {
+    // A non-finite component spoils the channel it lands on till its reset, and leaves the rest
+    let shape = BiquadCoefficients::low_pass(50.0_f64, FLATTEST, 0.001).unwrap();
+    let mut running = MultiChannelBiquad::new(shape);
+
+    let _ = running.filter(Vector::new([1.0, -2.0, 0.5]));
+    assert!(running.value().is_finite());
+
+    let mut output = running.filter(Vector::new([f64::NAN, -2.0, 0.5]));
+    assert!(output[0].is_nan());
+    assert!(output[1].is_finite());
+    assert!(output[2].is_finite());
+
+    for i in 0..1000 {
+        output = running.filter(Vector::new([i as f64, -2.0, 0.5]));
+    }
+    assert!(output[0].is_nan());
+    assert!(output[1].is_finite());
+    assert!(output[2].is_finite());
+
+    running.reset();
+    let output = running.filter(Vector::new([1.0, -2.0, 0.5]));
+    assert!(output.is_finite());
+}
+
+#[test]
+fn filter_checked_protects_every_channel() {
+    let shape = BiquadCoefficients::low_pass(50.0_f64, FLATTEST, 0.001).unwrap();
+    let mut running = MultiChannelBiquad::new(shape);
+
+    let _ = running.filter(Vector::new([1.0, -2.0, 0.5]));
+    let running_snapshot = running;
+    assert!(running.value().is_finite());
+
+    // A bad component in any position refuses the whole reading
+    for channel in 0..3 {
+        let mut reading = Vector::new([1.0, -2.0, 0.5]);
+        reading[channel] = f64::NAN;
+        let output = running.filter_checked(reading);
+
+        assert_eq!(output, Err(SignalError::NonFinite));
+        assert_eq!(running, running_snapshot);
+    }
+}

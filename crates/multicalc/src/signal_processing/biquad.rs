@@ -414,6 +414,39 @@ impl<T: Numeric> BiquadCoefficients<T> {
 /// let mut fresh = Biquad::new(moved);
 /// assert!((fresh.filter(1.0) - 1.0).abs() > 0.05);
 /// ```
+///
+/// The `Biquad` filter has another checked entry point for cases where input could be non-finite.
+/// The checked entry point prevents a non-finite input to spoil the filter state.
+///
+/// ```
+/// use multicalc::signal_processing::{Biquad, BiquadCoefficients};
+///
+/// let mut running = Biquad::new(BiquadCoefficients::notch(180.0_f64, 4.0, 0.001).unwrap());
+/// let test_inputs = [f64::NAN, f64::INFINITY, f64::NEG_INFINITY];
+///
+/// let _ = running.filter(1.0);
+/// let running_snapshot = running;
+///
+/// for signal in test_inputs {
+///     let output = running.filter_checked(signal);
+///     assert!(output.is_err())
+/// }
+///
+/// // The filter is not spoiled
+/// assert_eq!(running, running_snapshot);
+///
+/// let output = running.filter_checked(0.1_f64);
+/// assert!(output.is_ok());
+/// assert!(output.unwrap().is_finite());
+///
+/// // NaN spoils the filter ..
+/// let _ = running.filter(f64::NAN);
+/// assert!(running.filter(1.0).is_nan());
+///
+/// //.. till reset
+/// running.reset();
+/// assert!(running.filter(1.0).is_finite());
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Biquad<T: Numeric = f64> {
     coefficients: BiquadCoefficients<T>,
@@ -437,6 +470,8 @@ impl<T: Numeric> Biquad<T> {
     }
 
     /// Feeds one sample and returns the filtered output.
+    /// Non-finite input spoils the filter till it is reset,
+    /// and should be handled by `filter_checked` instead.
     #[inline]
     #[must_use]
     pub fn filter(&mut self, input: T) -> T {
@@ -449,6 +484,18 @@ impl<T: Numeric> Biquad<T> {
         self.second_state = feed_forward[2] * input - feedback[1] * output;
         self.last_output = output;
         output
+    }
+
+    /// Alternative to `filter` with checked input.
+    /// Non-finite input cannot spoils the filter.
+    /// Return `SignalError::NonFinite` in case of non-finite input.
+    #[inline]
+    pub fn filter_checked(&mut self, input: T) -> Result<T, SignalError> {
+        if input.is_finite() {
+            Ok(self.filter(input))
+        } else {
+            Err(SignalError::NonFinite)
+        }
     }
 
     /// Replaces the weights and keeps the memory of recent samples.

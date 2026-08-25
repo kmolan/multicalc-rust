@@ -244,3 +244,188 @@ fn slew_rate_limiter_rejects_unusable_rates_and_timesteps() {
         Err(SignalError::NonFinite)
     );
 }
+
+// ---- handling non-finite signal ---------------------------------------------
+#[test]
+fn non_finite_input_spoils_limiter() {
+    // A NaN target spoils the limiter till its reset
+    let mut running = SlewRateLimiter::new(1.0_f64, 2.0, 0.1).unwrap();
+
+    let _ = running.filter(0.0);
+    assert!(running.value().is_finite());
+
+    let mut output = running.filter(f64::NAN);
+    assert!(output.is_nan());
+
+    for i in 0..1000 {
+        output = running.filter(i as f64);
+    }
+    assert!(output.is_nan());
+
+    running.reset();
+    let output = running.filter(1.0);
+    assert!(output.is_finite());
+}
+
+#[test]
+fn infinite_target_is_clamped_once_seeded() {
+    // The rate clamp turns an infinite target into one ordinary step, so it does no harm
+    let mut running = SlewRateLimiter::new(1.0_f64, 2.0, 0.1).unwrap();
+
+    let _ = running.filter(0.0);
+
+    assert!((running.filter(f64::INFINITY) - 0.1).abs() < 1e-12);
+    assert!((running.filter(f64::NEG_INFINITY) + 0.1).abs() < 1e-12);
+    assert!(running.value().is_finite());
+}
+
+#[test]
+fn infinite_first_target_sticks() {
+    // The first call takes its target as the starting point without clamping it
+    let mut running = SlewRateLimiter::new(1.0_f64, 2.0, 0.1).unwrap();
+
+    assert!(running.filter(f64::INFINITY).is_infinite());
+    assert!(running.filter(1.0).is_infinite());
+
+    running.reset();
+    assert!(running.filter(1.0).is_finite());
+}
+
+#[test]
+fn filter_checked_refuses_a_nan_target() {
+    // A NaN target would latch, so it is refused whatever the state, leaving the limiter alone
+    let mut running = SlewRateLimiter::new(1.0_f64, 2.0, 0.1).unwrap();
+
+    let fresh_snapshot = running;
+    assert_eq!(
+        running.filter_checked(f64::NAN),
+        Err(SignalError::NonFinite)
+    );
+    assert_eq!(running, fresh_snapshot);
+
+    let _ = running.filter(0.0);
+    let seeded_snapshot = running;
+    assert_eq!(
+        running.filter_checked(f64::NAN),
+        Err(SignalError::NonFinite)
+    );
+    assert_eq!(running, seeded_snapshot);
+}
+
+#[test]
+fn filter_checked_refuses_an_infinite_first_target() {
+    // Uninitialized, an infinite target would become the starting point, so it is refused
+    let mut running = SlewRateLimiter::new(1.0_f64, 2.0, 0.1).unwrap();
+    let running_snapshot = running;
+
+    for signal in [f64::INFINITY, f64::NEG_INFINITY] {
+        let output = running.filter_checked(signal);
+
+        assert_eq!(output, Err(SignalError::NonFinite));
+        assert_eq!(running, running_snapshot);
+    }
+}
+
+#[test]
+fn filter_checked_accepts_an_infinite_target_once_seeded_with_finite() {
+    // The rate clamp bounds an infinite target, so there is nothing to protect against
+    let mut running = SlewRateLimiter::new(1.0_f64, 2.0, 0.1).unwrap();
+
+    let _ = running.filter(0.0);
+
+    for signal in [f64::INFINITY, f64::NEG_INFINITY] {
+        let output = running.filter_checked(signal);
+
+        assert!(output.is_ok());
+        assert!(running.value().is_finite());
+    }
+}
+
+#[test]
+fn filter_checked_spoils_state_with_infinite_seed() {
+    // A previous `filter` call could rig the state with inifite state.
+    // Subsequence `filter_checked` call makes it worst by turn it into NaN.
+    let mut running = SlewRateLimiter::new(1.0_f64, 2.0, 0.1).unwrap();
+
+    let _ = running.filter(f64::INFINITY);
+    assert!(running.filter_checked(f64::INFINITY).unwrap().is_nan());
+}
+
+#[test]
+fn deadband_passes_a_non_finite_value_straight_through() {
+    // The band holds no state, so a bad value costs exactly one sample
+    let plain = Deadband::plain(0.1_f64).unwrap();
+    let recentered = Deadband::recentered(0.1_f64).unwrap();
+
+    assert!(plain.apply(f64::NAN).is_nan());
+    assert!(recentered.apply(f64::NAN).is_nan());
+    assert!(plain.apply(f64::INFINITY).is_infinite());
+    assert!(recentered.apply(f64::INFINITY).is_infinite());
+
+    // Nothing is carried over, so the next value behaves normally
+    assert_eq!(plain.apply(0.05), 0.0);
+    assert_eq!(recentered.apply(0.05), 0.0);
+}
+
+#[test]
+fn apply_checked_reports_a_non_finite_value() {
+    let plain = Deadband::plain(0.1_f64).unwrap();
+    let recentered = Deadband::recentered(0.1_f64).unwrap();
+
+    for signal in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert_eq!(plain.apply_checked(signal), Err(SignalError::NonFinite));
+        assert_eq!(
+            recentered.apply_checked(signal),
+            Err(SignalError::NonFinite)
+        );
+    }
+
+    assert_eq!(plain.apply_checked(0.5), Ok(0.5));
+}
+
+#[test]
+fn a_nan_leaves_the_switch_holding_its_answer() {
+    // The answer cannot be corrupted; a NaN is simply ignored, which is the thing to watch for
+    let mut switch = Hysteresis::new(0.4_f64, 0.6).unwrap();
+
+    assert!(switch.update(0.7));
+    for _ in 0..1000 {
+        assert!(switch.update(f64::NAN));
+    }
+    assert!(switch.is_high());
+
+    // It holds a "no" just as stubbornly
+    assert!(!switch.update(0.3));
+    for _ in 0..1000 {
+        assert!(!switch.update(f64::NAN));
+    }
+    assert!(!switch.is_high());
+}
+
+#[test]
+fn infinities_switch_the_hysteresis_normally() {
+    // Neither threshold can be passed by an infinity without the answer following it
+    let mut switch = Hysteresis::new(0.4_f64, 0.6).unwrap();
+
+    assert!(switch.update(f64::INFINITY));
+    assert!(!switch.update(f64::NEG_INFINITY));
+}
+
+#[test]
+fn update_checked_reports_a_non_finite_reading() {
+    let mut switch = Hysteresis::new(0.4_f64, 0.6).unwrap();
+
+    assert!(switch.update(0.7));
+    let switch_snapshot = switch;
+
+    // `update_checked` not accepting NaN input
+    assert_eq!(switch.update_checked(f64::NAN), Err(SignalError::NonFinite));
+    assert_eq!(switch, switch_snapshot);
+
+    // Infinity values still got through
+    for signal in [f64::INFINITY, f64::NEG_INFINITY] {
+        assert!(switch.update_checked(signal).is_ok());
+    }
+
+    assert_eq!(switch.update_checked(0.3), Ok(false));
+}

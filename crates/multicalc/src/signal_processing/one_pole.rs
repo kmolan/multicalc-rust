@@ -28,6 +28,46 @@ use crate::scalar::Numeric;
 /// }
 /// assert!((smoother.value() - steady_input).abs() < 1e-9);
 /// ```
+///
+/// The `OnePoleLowPass` filter has another checked entry point for cases where input could be
+/// non-finite. The checked entry point prevents a non-finite input from spoiling the filter state.
+///
+/// ```
+/// use multicalc::signal_processing::OnePoleLowPass;
+///
+/// let mut running = OnePoleLowPass::new(0.5_f64).unwrap();
+/// let test_inputs = [f64::NAN, f64::INFINITY, f64::NEG_INFINITY];
+///
+/// let _ = running.filter(1.0);
+/// let running_snapshot = running;
+///
+/// for signal in test_inputs {
+///     let output = running.filter_checked(signal);
+///     assert!(output.is_err())
+/// }
+///
+/// // The filter is not spoiled
+/// assert_eq!(running, running_snapshot);
+///
+/// let output = running.filter_checked(0.1_f64);
+/// assert!(output.is_ok());
+/// assert!(output.unwrap().is_finite());
+///
+/// // NaN spoils the filter ..
+/// let _ = running.filter(f64::NAN);
+/// let output = running.filter(1.0);
+/// assert!(output.is_nan());
+///
+/// //.. till reset
+/// running.reset();
+/// let output = running.filter(1.0);
+/// assert!(output.is_finite());
+///
+/// // The first sample seeds the state directly, so it spoils an untouched filter just as well
+/// let mut fresh = OnePoleLowPass::new(0.5_f64).unwrap();
+/// let _ = fresh.filter(f64::NAN);
+/// assert!(fresh.filter(1.0).is_nan());
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct OnePoleLowPass<T: Numeric = f64> {
     smoothing: T,
@@ -76,6 +116,8 @@ impl<T: Numeric> OnePoleLowPass<T> {
     }
 
     /// Feeds one sample and returns the updated output.
+    /// Non-finite input spoils the filter till it is reset,
+    /// and should be handled by `filter_checked` instead.
     #[inline]
     #[must_use]
     pub fn filter(&mut self, input: T) -> T {
@@ -86,6 +128,17 @@ impl<T: Numeric> OnePoleLowPass<T> {
             self.initialized = true;
         }
         self.state
+    }
+
+    /// Alternative to `filter` but with checked input.
+    /// Returns `SignalError::NonFinite` in case of non-finite input.
+    #[inline]
+    pub fn filter_checked(&mut self, input: T) -> Result<T, SignalError> {
+        if input.is_finite() {
+            Ok(self.filter(input))
+        } else {
+            Err(SignalError::NonFinite)
+        }
     }
 
     /// Clears the state so the next sample seeds the filter again.
