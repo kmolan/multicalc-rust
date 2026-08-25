@@ -138,6 +138,10 @@ name = "articulated_dynamics"
 path = "examples/basics/articulated_dynamics.rs"
 
 [[example]]
+name = "torque_control"
+path = "examples/basics/torque_control.rs"
+
+[[example]]
 name = "rigid_body_dynamics"
 path = "examples/basics/rigid_body_dynamics.rs"
 

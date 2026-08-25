@@ -40,7 +40,7 @@ const GEOM_EVERY: i64 = 16; // spatial cadence (~60 Hz) — mandatory (2000 pts/
 const HUD_EVERY: i64 = 1000;
 const WARMUP_TICKS: i64 = 500; // cold-start ticks excluded from timing stats
 
-// Sequential ramps (§2), linear-sRGB lerp between endpoints.
+// Sequential ramps  linear-sRGB lerp between endpoints.
 const BLUE_LO: [u8; 3] = [0x86, 0xb6, 0xef]; // terrain height low
 const BLUE_HI: [u8; 3] = [0x10, 0x42, 0x81]; // terrain height high
 const AMBER_LO: [u8; 3] = [0xff, 0xd9, 0xa0]; // |∇f| low
