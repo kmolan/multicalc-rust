@@ -2,11 +2,17 @@
 
 Feedback controllers and steering laws: a PID with anti-windup and a filtered derivative, an
 optimal linear feedback law with a check that the loop it closes settles, attitude control for a
-rigid body, the piece that joins those last two together, the pure-pursuit path-following law, and
-Follow-the-Gap reactive avoidance. The
+rigid body, the piece that joins those last two together, four model-based torque laws for a
+jointed model — computed torque, joint impedance, joint PD, and Cartesian impedance at a tool — the
+pure-pursuit path-following law, and Follow-the-Gap reactive avoidance. The
 derivative filter itself lives in [Signal processing](signal-processing.md). Fixed-size,
 no allocation, no panics, and generic over the `Numeric` scalar, so the same code runs at `f32` on a
 microcontroller.
+
+The four model-based laws are the only ones here that take a
+[`dynamics::ArticulatedBody`](rigid-body-dynamics.md) — any fixed-base jointed model, not just an
+arm — and the model is passed per call rather than held, so a caller who does not need them does not
+pay for it.
 
 Angles are radians in the robot body frame, measured from the forward (+x) axis and positive
 counter-clockwise. Every controller is configured once, with the configuration validated up front,
@@ -24,6 +30,27 @@ and every call after that is total.
   what state error and input effort cost; it solves for the best trade-off once and hands back a
   gain. `control` and `control_tracking` are then matrix-vector products. `certify_stability`
   checks the loop actually settles — a design-time check, not a per-tick one.
+- `ComputedTorqueController`: model-based joint tracking. The PD term is driven through the
+  joint-space inertia, so the tracking error obeys `ë + kd⊙ė + kp⊙e = 0` when the model is exact.
+  One recursive-Newton-Euler pass per tick — `inverse_dynamics` evaluated at the reference
+  acceleration is the whole law. Coulomb friction is fed forward at the desired rate so it cannot
+  flip sign on measurement noise about zero; viscous damping stays at the measured rate, where it is
+  linear and cancels the model exactly. `from_natural_frequency` sets the gains from a closed-loop
+  bandwidth and damping ratio.
+- `JointImpedanceController`: a spring-damper in joint space on top of full bias compensation. The
+  model keeps its natural inertia, which is what makes it compliant rather than stiff. Zero stiffness
+  on an axis means free along it, so gains are non-negative rather than positive.
+- `JointPdController`: joint-space PD, optionally with gravity cancelled. What to reach for when the
+  model is not trusted, and the torque-side view of the position-controlled hardware
+  [`PositionServo`](plant.md) models. A discrete high-gain PD has a sample-rate-bounded stability
+  limit — the gains belong to the loop rate.
+- `CartesianImpedanceController`: a six-axis spring-damper at a tool frame, mapped to joint torque by
+  the Jacobian transpose. It never solves inverse kinematics and never inverts `J`, so it costs one
+  matrix product rather than an iteration, and near a singularity it loses the ability to push in
+  some direction rather than producing large joint motions. `JacobianFrame::Body` makes the
+  stiffness axes tool-fixed; `JacobianFrame::World` makes them base-fixed. An optional null-space
+  posture term holds a comfortable configuration without disturbing the tool, at the cost of a
+  damped pseudo-inverse per tick.
 - `GeometricAttitudeController`: attitude control for a rigid body, worked on rotations rather than
   on angles, so there is no orientation it breaks down at and no wrap-around to handle. It cancels
   the body's own gyroscopic torque and follows the target's turn rate, so it tracks a moving target.
@@ -148,6 +175,55 @@ let settled = attitude_controller.torque(
 );
 assert!(settled.norm() < 1e-14);
 ```
+
+## Model-based torque control
+
+The four take the model, the measured state and a reference, and hand back one torque per joint. The
+model is any [`ArticulatedBody`](rigid-body-dynamics.md) — a manipulator, a leg, a gantry. Computed
+torque is the tracking law of the four: `inverse_dynamics` evaluated at the reference acceleration
+`q̈_d + kd⊙ė + kp⊙e`, which cancels the model's inertia and leaves the error obeying
+`ë + kd⊙ė + kp⊙e = 0`. Driving a one-link pendulum to a setpoint, closing the loop with the crate's
+own forward dynamics:
+
+```rust
+use multicalc::control::{ComputedTorqueController, JointReference};
+use multicalc::dynamics::ArticulatedBody;
+use multicalc::kinematics::{Joint, JointParent, KinematicTree};
+use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::spatial::{SE3, SpatialInertia};
+
+// One hinge about y, a 2 kg link balancing half a metre out along x.
+let hinge = Joint::revolute(Vector::new([0.0, 1.0, 0.0]), SE3::<f64>::identity());
+let tree = KinematicTree::<1, 1, f64>::try_from_joints(&[hinge], &[JointParent::World])?;
+let link = SpatialInertia::new(
+    2.0,
+    Vector::new([0.5, 0.0, 0.0]),
+    Matrix::from_diagonal([0.01, 0.01, 0.01]),
+)?;
+let body = ArticulatedBody::new(tree, &[Some(link)], Vector::new([0.0, 0.0, -9.81]))?;
+
+// The gains are a closed-loop bandwidth and a damping ratio: kp = w^2, kd = 2*zeta*w.
+let controller = ComputedTorqueController::<1, f64>::from_natural_frequency(10.0, 1.0)?;
+let reference = JointReference::at_rest(Vector::new([0.6]));
+
+let timestep = 0.001;
+let mut position = Vector::zeros();
+let mut velocity = Vector::zeros();
+for _ in 0..2000 {
+    let torque = controller.torque_at(&body, &position, &velocity, &reference)?;
+    let acceleration = body.forward_dynamics_at(&position, &velocity, &torque)?;
+    velocity = velocity + acceleration.scale(timestep);
+    position = position + velocity.scale(timestep);
+}
+assert!((position[0] - 0.6).abs() < 1e-6);
+# Ok::<(), multicalc::CalcError>(())
+```
+
+Swapping `ComputedTorqueController` for `JointImpedanceController` at the same setpoint gives a very
+different machine: the gains describe a spring-damper the mechanism hangs on rather than an error
+decay rate, and it keeps its own inertia, so a push moves it by `external / stiffness` and it stays
+there. That is the property that makes it safe to work beside, and the reason it is a separate type
+rather than a flag.
 
 Both the Riccati solve behind `Lqr::new` and the certificate behind `certify_stability` cost
 `O(n³)` per pass over a budget of passes. They belong at startup or on the bench, never inside the

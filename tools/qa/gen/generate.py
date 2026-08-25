@@ -11,6 +11,8 @@ import argparse
 import numpy as np
 
 from generators import (
+    articulated_control,
+    articulated_dynamics,
     calculus,
     control,
     discretization,
@@ -57,6 +59,8 @@ def main():
     urdf.run(args.out, SEED)
     spatial.run(args.out, SEED)
     dynamics.run(args.out, SEED)
+    articulated_dynamics.run(args.out, SEED)
+    articulated_control.run(args.out, SEED)
     kinematics.run(args.out, SEED)
     inverse_kinematics.run(args.out, SEED)
     signal_processing.run(args.out, SEED)

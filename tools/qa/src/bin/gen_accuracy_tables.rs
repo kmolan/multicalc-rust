@@ -155,13 +155,18 @@ const DOCS: &[Doc] = &[
             name: "control",
             // One flying machine end to end — design its position loop, prove that loop
             // settles, hold the attitude it asks for — plus a cart balancing a pole, which is
-            // the harder design of the two. The other control fixtures are checked by the QA
-            // suite without adding a row here.
+            // the harder design of the two, and the four model-based arm laws. The other
+            // control fixtures are checked by the QA suite without adding a row here.
             cases: &[
                 "riccati_quadrotor_hover",
                 "lyapunov_closed_loop_quadrotor_hover",
                 "riccati_cart_pole",
                 "geometric_attitude_general",
+                "computed_torque_double_pendulum",
+                "computed_torque_franka_panda",
+                "joint_impedance_franka_panda",
+                "joint_pd_franka_panda",
+                "cartesian_impedance_franka_panda",
             ],
         }],
     },
@@ -243,6 +248,8 @@ const DOCS: &[Doc] = &[
             cases: &[
                 "free_body_spinning_no_torque",
                 "free_body_tilted_with_wrench",
+                "articulated_double_pendulum",
+                "articulated_franka_panda",
             ],
         }],
     },

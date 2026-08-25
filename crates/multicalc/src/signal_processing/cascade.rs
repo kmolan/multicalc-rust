@@ -18,7 +18,7 @@ use crate::signal_processing::{Biquad, BiquadCoefficients};
 ///
 /// // Two sections cut far deeper than one: a single section leaves 0.003 of a 400 Hz
 /// // oscillation, two leave under a hundredth of that.
-/// assert!(cascade.magnitude_at(400.0) < 0.001);
+/// assert!(cascade.magnitude_at(400.0).unwrap() < 0.001);
 ///
 /// // A steady input still comes through untouched.
 /// for _ in 0..500 {
@@ -137,10 +137,12 @@ impl<const SECTIONS: usize, T: Numeric> BiquadCascade<SECTIONS, T> {
 
     /// How much of a steady oscillation at this frequency comes through the whole chain, as a
     /// multiple of what went in.
-    #[must_use]
-    pub fn magnitude_at(&self, frequency_hz: T) -> T {
-        self.sections.iter().fold(T::ONE, |carried, section| {
-            carried * section.coefficients().magnitude_at(frequency_hz)
+    ///
+    /// Returns the same errors as
+    /// [`BiquadCoefficients::magnitude_at`](crate::signal_processing::BiquadCoefficients::magnitude_at).
+    pub fn magnitude_at(&self, frequency_hz: T) -> Result<T, SignalError> {
+        self.sections.iter().try_fold(T::ONE, |carried, section| {
+            Ok(carried * section.coefficients().magnitude_at(frequency_hz)?)
         })
     }
 
@@ -148,30 +150,34 @@ impl<const SECTIONS: usize, T: Numeric> BiquadCascade<SECTIONS, T> {
     /// and negative means reduced.
     ///
     /// A frequency any one section removes completely reports negative infinity.
-    #[must_use]
-    pub fn magnitude_in_decibels_at(&self, frequency_hz: T) -> T {
-        T::from_f64(20.0 / core::f64::consts::LN_10) * self.magnitude_at(frequency_hz).log()
+    ///
+    /// Returns the same errors as [`magnitude_at`](Self::magnitude_at).
+    pub fn magnitude_in_decibels_at(&self, frequency_hz: T) -> Result<T, SignalError> {
+        Ok(T::from_f64(20.0 / core::f64::consts::LN_10) * self.magnitude_at(frequency_hz)?.log())
     }
 
     /// How far a steady oscillation at this frequency is shifted along by the whole chain, in
     /// radians. Negative means the output trails the input.
-    #[must_use]
-    pub fn phase_at(&self, frequency_hz: T) -> T {
+    ///
+    /// Returns the same errors as [`magnitude_at`](Self::magnitude_at).
+    pub fn phase_at(&self, frequency_hz: T) -> Result<T, SignalError> {
         // Adding the sections' phases keeps the total right even when it runs past half a turn,
         // because each section's figure already sits on the turn it belongs to.
-        self.sections.iter().fold(T::ZERO, |carried, section| {
-            carried + section.coefficients().phase_at(frequency_hz)
+        self.sections.iter().try_fold(T::ZERO, |carried, section| {
+            Ok(carried + section.coefficients().phase_at(frequency_hz)?)
         })
     }
 
     /// How far behind the input a steady oscillation at this frequency comes out of the whole
     /// chain, in seconds. A frequency of zero reports zero.
-    #[must_use]
-    pub fn delay_at(&self, frequency_hz: T) -> T {
+    ///
+    /// Returns the same errors as [`magnitude_at`](Self::magnitude_at); zero is always accepted
+    /// regardless.
+    pub fn delay_at(&self, frequency_hz: T) -> Result<T, SignalError> {
         if frequency_hz == T::ZERO {
-            return T::ZERO;
+            return Ok(T::ZERO);
         }
-        -self.phase_at(frequency_hz) / (T::TWO * T::PI * frequency_hz)
+        Ok(-self.phase_at(frequency_hz)? / (T::TWO * T::PI * frequency_hz))
     }
 
     /// Whether every section settles rather than growing without bound.
@@ -334,13 +340,13 @@ impl<const CHANNELS: usize, T: Numeric> MultiChannelBiquad<CHANNELS, T> {
 /// let sections = harmonic_notch_coefficients::<3, f64>(80.0, 4.0, 0.001).unwrap();
 /// let cascade = BiquadCascade::new(sections);
 ///
-/// assert!(cascade.magnitude_at(80.0) < 0.05);
-/// assert!(cascade.magnitude_at(160.0) < 0.05);
-/// assert!(cascade.magnitude_at(240.0) < 0.05);
+/// assert!(cascade.magnitude_at(80.0).unwrap() < 0.05);
+/// assert!(cascade.magnitude_at(160.0).unwrap() < 0.05);
+/// assert!(cascade.magnitude_at(240.0).unwrap() < 0.05);
 ///
 /// // Frequencies away from the notches come through.
-/// assert!(cascade.magnitude_at(20.0) > 0.9);
-/// assert!(cascade.magnitude_at(120.0) > 0.7);
+/// assert!(cascade.magnitude_at(20.0).unwrap() > 0.9);
+/// assert!(cascade.magnitude_at(120.0).unwrap() > 0.7);
 ///
 /// // Three sections on 180 Hz would need a notch at 540 Hz, past half of a 1 kHz sampling rate.
 /// assert_eq!(

@@ -1,3 +1,4 @@
+pub mod articulated;
 pub mod docs;
 pub mod load;
 pub mod problems;

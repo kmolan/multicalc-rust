@@ -22,6 +22,7 @@ pub mod urdf;
 
 use std::path::Path;
 
+use multicalc::dynamics::ArticulatedBody;
 use multicalc::kinematics::{Joint, JointKind, JointParent, KinematicTree};
 use multicalc::linear_algebra::Vector3D;
 use multicalc::spatial::{SE3, SpatialInertia};
@@ -179,6 +180,73 @@ assert_eq!(model.ignored(), ["actuator".to_owned()]);
     ) -> Result<KinematicTree<MAX_JOINTS, MAX_CONFIG, f64>, ModelError> {
         let slots = self.path_to(tip)?;
         self.build_tree(&slots)
+    }
+
+    /// The whole model as an articulated body, one slot per body, with `gravity` in world axes.
+    ///
+    /// The same slot layout as [`kinematic_tree`](RobotModel::kinematic_tree): a jointless body
+    /// takes a slot as a weld, so slot index equals body index, and each slot carries that body's
+    /// stated mass properties. A body the file gives no `<inertial>` carries none.
+    ///
+    /// Errors: as [`kinematic_tree`](RobotModel::kinematic_tree), plus
+    /// [`Dynamics`](ModelError::Dynamics) where the mass properties do not describe a usable model.
+    ///
+    #[cfg_attr(
+        feature = "mjcf",
+        doc = r##"
+```
+use multicalc::linear_algebra::Vector;
+
+let xml = r#"<mujoco>
+               <worldbody>
+                 <body>
+                   <joint type="hinge" axis="0 1 0"/>
+                   <inertial pos="0.5 0 0" mass="2" diaginertia="0.01 0.01 0.01"/>
+                 </body>
+               </worldbody>
+             </mujoco>"#;
+
+let earth_gravity = Vector::new([0.0, 0.0, -9.81]);
+let model = multicalc_robot_model::mjcf::load_str(xml)?;
+let body = model.articulated_body::<1, 1>(earth_gravity)?;
+assert_eq!(body.len(), 1);
+# Ok::<(), multicalc_robot_model::ModelError>(())
+```
+"##
+    )]
+    pub fn articulated_body<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
+        &self,
+        gravity: Vector3D<f64>,
+    ) -> Result<ArticulatedBody<MAX_JOINTS, MAX_CONFIG, f64>, ModelError> {
+        let slots: Vec<usize> = (0..self.bodies.len()).collect();
+        self.build_articulated_body(&slots, gravity)
+    }
+
+    /// The root-to-tip chain for a named body as an articulated body, and nothing else.
+    ///
+    /// Errors: as [`articulated_body`](RobotModel::articulated_body), plus
+    /// [`UnknownBody`](ModelError::UnknownBody) where the model has no body by that name.
+    pub fn articulated_body_to<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
+        &self,
+        tip: &str,
+        gravity: Vector3D<f64>,
+    ) -> Result<ArticulatedBody<MAX_JOINTS, MAX_CONFIG, f64>, ModelError> {
+        let slots = self.path_to(tip)?;
+        self.build_articulated_body(&slots, gravity)
+    }
+
+    /// Builds the tree over these slots, then pairs it with each slot's stated mass properties.
+    fn build_articulated_body<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
+        &self,
+        slots: &[usize],
+        gravity: Vector3D<f64>,
+    ) -> Result<ArticulatedBody<MAX_JOINTS, MAX_CONFIG, f64>, ModelError> {
+        let tree = self.build_tree::<MAX_JOINTS, MAX_CONFIG>(slots)?;
+        let inertias: Vec<Option<SpatialInertia<f64>>> = slots
+            .iter()
+            .map(|&index| self.bodies[index].inertia)
+            .collect();
+        ArticulatedBody::new(tree, &inertias, gravity).map_err(ModelError::Dynamics)
     }
 
     /// Body indices from the root to the named body, root first.

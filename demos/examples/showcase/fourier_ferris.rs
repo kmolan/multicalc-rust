@@ -38,7 +38,7 @@ const GEOM_EVERY: i64 = 16; // spatial cadence (~60 Hz)
 const HUD_EVERY: i64 = 1000; // text / coeff-error cadence (1 Hz)
 const WARMUP_TICKS: i64 = 500; // cold-start ticks excluded from timing stats
 
-// Palette (§2).
+// Palette
 const HERO: Rgba = [0x39, 0x87, 0xe5, 0xff]; // trace, tip
 const SILHOUETTE: Rgba = [0xc9, 0x85, 0x00, 80]; // target outline
 const CIRCLES: Rgba = [0x90, 0x85, 0xe9, 120]; // epicycle circles

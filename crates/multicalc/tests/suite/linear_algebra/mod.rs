@@ -10,3 +10,4 @@ mod riccati;
 mod svd;
 mod symmetric_eigendecomposition;
 mod vector;
+mod view;

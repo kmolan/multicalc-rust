@@ -8,14 +8,17 @@ use std::path::PathBuf;
 
 use criterion::{BatchSize, Criterion};
 
-use multicalc::control::Lqr;
-use multicalc::dynamics::RigidBody;
+use multicalc::control::{
+    CartesianImpedanceController, CartesianReference, ComputedTorqueController, JointReference, Lqr,
+};
+use multicalc::dynamics::{ArticulatedBody, DynamicsWorkspace, RigidBody};
 use multicalc::estimation::{ErrorStateKalmanFilter, ImuNoise, NominalState};
 use multicalc::kinematics::{InverseKinematics, Joint, JointParent, KinematicTree};
 use multicalc::linear_algebra::{Matrix, Matrix4D, Vector, Vector2D};
 use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::numerical_derivative::Jacobian;
 use multicalc::ode::Rk45;
+use multicalc::plant::PositionServo;
 use multicalc::root_finding::NewtonSystem;
 use multicalc::scalar::{Numeric, VectorFn, constant};
 use multicalc::scalar_fn_vec;
@@ -161,6 +164,286 @@ fn bench_arm() -> KinematicTree<ARM_FRAMES, ARM_FRAMES, f64> {
     tree.push(Joint::fixed(link), JointParent::Joint(5))
         .unwrap();
     tree
+}
+
+/// The benchmark arm with mass: a 1 kg link 0.15 m out per slot, with rotor inertia and joint
+/// friction as a real arm states them.
+fn bench_articulated_arm() -> ArticulatedBody<ARM_FRAMES, ARM_FRAMES, f64> {
+    let mut tree = KinematicTree::<ARM_FRAMES, ARM_FRAMES, f64>::new();
+    let plain = bench_arm();
+    for index in 0..plain.len() {
+        let joint = plain
+            .joint(index)
+            .unwrap()
+            .with_armature(0.1)
+            .with_damping(1.0)
+            .with_friction_loss(0.2);
+        tree.push(joint, plain.parent(index).unwrap()).unwrap();
+    }
+
+    let link = SpatialInertia::new(
+        1.0,
+        Vector::new([0.15, 0.0, 0.0]),
+        Matrix::from_diagonal([0.01, 0.01, 0.01]),
+    )
+    .unwrap();
+    let inertias = [Some(link); ARM_FRAMES];
+    ArticulatedBody::new(tree, &inertias, Vector::new([0.0, 0.0, -9.81])).unwrap()
+}
+
+/// The two-link pendulum the goldens use, as an `ArticulatedBody`.
+fn bench_double_pendulum() -> ArticulatedBody<2, 2, f64> {
+    let axis = Vector::new([0.0, 1.0, 0.0]);
+    let link = SE3::from_parts(SO3::identity(), Vector::new([1.0, 0.0, 0.0]));
+    let mut tree = KinematicTree::<2, 2, f64>::new();
+    tree.push(
+        Joint::revolute(axis, SE3::identity())
+            .with_armature(0.05)
+            .with_damping(0.7)
+            .with_friction_loss(0.2),
+        JointParent::World,
+    )
+    .unwrap();
+    tree.push(
+        Joint::revolute(axis, link)
+            .with_armature(0.03)
+            .with_damping(0.4)
+            .with_friction_loss(0.1),
+        JointParent::Joint(0),
+    )
+    .unwrap();
+
+    let inertia = SpatialInertia::new(
+        1.5,
+        Vector::new([0.5, 0.0, 0.0]),
+        Matrix::from_diagonal([0.02, 0.02, 0.02]),
+    )
+    .unwrap();
+    ArticulatedBody::new(
+        tree,
+        &[Some(inertia), Some(inertia)],
+        Vector::new([0.0, 0.0, -9.81]),
+    )
+    .unwrap()
+}
+
+fn bench_inverse_dynamics_double_pendulum(criterion: &mut Criterion) {
+    // Forward kinematics runs once outside the timed closure, so the number is the recursion's
+    // cost rather than a forward sweep measured twice.
+    let body = bench_double_pendulum();
+    let configuration = Vector::new([0.4, -0.9]);
+    let state = body.tree().forward_kinematics(&configuration).unwrap();
+    let velocity = Vector::new([1.1, -0.7]);
+    let acceleration = Vector::new([0.6, 1.3]);
+    criterion.bench_function("inverse_dynamics_double_pendulum", |b| {
+        b.iter(|| {
+            body.inverse_dynamics(
+                black_box(&state),
+                black_box(&velocity),
+                black_box(&acceleration),
+            )
+            .unwrap()
+        })
+    });
+}
+
+fn bench_inverse_dynamics_arm(criterion: &mut Criterion) {
+    let body = bench_articulated_arm();
+    let configuration = Vector::new([0.2, -0.4, 0.5, 0.3, -0.2, 0.6, 0.0]);
+    let state = body.tree().forward_kinematics(&configuration).unwrap();
+    let velocity = Vector::new([0.5, -0.3, 0.4, 0.2, -0.6, 0.1, 0.0]);
+    let acceleration = Vector::new([0.9, 0.4, -0.7, 0.3, 0.2, -0.5, 0.0]);
+    criterion.bench_function("inverse_dynamics_arm", |b| {
+        b.iter(|| {
+            body.inverse_dynamics(
+                black_box(&state),
+                black_box(&velocity),
+                black_box(&acceleration),
+            )
+            .unwrap()
+        })
+    });
+}
+
+fn bench_joint_space_inertia_double_pendulum(criterion: &mut Criterion) {
+    let body = bench_double_pendulum();
+    let state = body
+        .tree()
+        .forward_kinematics(&Vector::new([0.4, -0.9]))
+        .unwrap();
+    criterion.bench_function("joint_space_inertia_double_pendulum", |b| {
+        b.iter(|| body.joint_space_inertia(black_box(&state)).unwrap())
+    });
+}
+
+fn bench_joint_space_inertia_arm(criterion: &mut Criterion) {
+    let body = bench_articulated_arm();
+    let state = body
+        .tree()
+        .forward_kinematics(&Vector::new([0.2, -0.4, 0.5, 0.3, -0.2, 0.6, 0.0]))
+        .unwrap();
+    criterion.bench_function("joint_space_inertia_arm", |b| {
+        b.iter(|| body.joint_space_inertia(black_box(&state)).unwrap())
+    });
+}
+
+fn bench_forward_dynamics_arm(criterion: &mut Criterion) {
+    let body = bench_articulated_arm();
+    let state = body
+        .tree()
+        .forward_kinematics(&Vector::new([0.2, -0.4, 0.5, 0.3, -0.2, 0.6, 0.0]))
+        .unwrap();
+    let velocity = Vector::new([0.5, -0.3, 0.4, 0.2, -0.6, 0.1, 0.0]);
+    let torque = Vector::new([2.0, -1.4, 0.8, 0.5, -0.9, 0.3, 0.0]);
+    criterion.bench_function("forward_dynamics_arm", |b| {
+        b.iter(|| {
+            body.forward_dynamics(black_box(&state), black_box(&velocity), black_box(&torque))
+                .unwrap()
+        })
+    });
+}
+
+fn bench_forward_dynamics_arm_with_workspace(criterion: &mut Criterion) {
+    // The pair with `forward_dynamics_arm` is what says whether the caller-owned workspace earns
+    // its keep: same work, the model-sized frame kept off the stack.
+    let body = bench_articulated_arm();
+    let state = body
+        .tree()
+        .forward_kinematics(&Vector::new([0.2, -0.4, 0.5, 0.3, -0.2, 0.6, 0.0]))
+        .unwrap();
+    let velocity = Vector::new([0.5, -0.3, 0.4, 0.2, -0.6, 0.1, 0.0]);
+    let torque = Vector::new([2.0, -1.4, 0.8, 0.5, -0.9, 0.3, 0.0]);
+    let mut workspace = DynamicsWorkspace::<ARM_FRAMES, ARM_FRAMES, f64>::new();
+    criterion.bench_function("forward_dynamics_arm_with_workspace", |b| {
+        b.iter(|| {
+            body.forward_dynamics_with_workspace(
+                black_box(&state),
+                black_box(&velocity),
+                black_box(&torque),
+                &mut workspace,
+            )
+            .unwrap()
+        })
+    });
+}
+
+/// The seven-joint arm's configuration, rate and reference, shared by the control rows.
+fn bench_arm_state() -> (Vector<ARM_FRAMES, f64>, Vector<ARM_FRAMES, f64>) {
+    (
+        Vector::new([0.2, -0.4, 0.5, 0.3, -0.2, 0.6, 0.0]),
+        Vector::new([0.5, -0.3, 0.4, 0.2, -0.6, 0.1, 0.0]),
+    )
+}
+
+fn bench_computed_torque_arm(criterion: &mut Criterion) {
+    // Forward kinematics is solved once outside the closure, so the row is the law's own cost
+    // rather than a forward sweep measured twice.
+    let body = bench_articulated_arm();
+    let (configuration, velocity) = bench_arm_state();
+    let state = body.tree().forward_kinematics(&configuration).unwrap();
+    let controller =
+        ComputedTorqueController::<ARM_FRAMES, f64>::from_natural_frequency(20.0, 1.0).unwrap();
+    let reference = JointReference::new(
+        Vector::new([0.1, -0.5, 0.6, 0.2, -0.3, 0.5, 0.0]),
+        Vector::new([0.2, -0.1, 0.3, 0.4, -0.2, 0.05, 0.0]),
+        Vector::new([0.9, 0.4, -0.7, 0.3, 0.2, -0.5, 0.0]),
+    );
+    criterion.bench_function("computed_torque_arm", |b| {
+        b.iter(|| {
+            controller
+                .torque(
+                    black_box(&body),
+                    black_box(&state),
+                    black_box(&configuration),
+                    black_box(&velocity),
+                    black_box(&reference),
+                )
+                .unwrap()
+        })
+    });
+}
+
+/// The Cartesian law and the tool reference both control rows are timed on.
+fn bench_cartesian_impedance_setup() -> (
+    ArticulatedBody<ARM_FRAMES, ARM_FRAMES, f64>,
+    CartesianImpedanceController<ARM_FRAMES, f64>,
+    CartesianReference<f64>,
+) {
+    let body = bench_articulated_arm();
+    let (configuration, _) = bench_arm_state();
+    let state = body.tree().forward_kinematics(&configuration).unwrap();
+    let here = state.pose(6).unwrap();
+    let controller = CartesianImpedanceController::new(
+        Vector::new([800.0, 800.0, 800.0, 40.0, 40.0, 40.0]),
+        Vector::new([56.0, 56.0, 56.0, 12.6, 12.6, 12.6]),
+        6,
+    )
+    .unwrap();
+    let reference = CartesianReference::at_rest(SE3::from_parts(
+        here.rotation(),
+        here.translation() + Vector::new([0.005, -0.005, 0.005]),
+    ));
+    (body, controller, reference)
+}
+
+fn bench_cartesian_impedance_arm(criterion: &mut Criterion) {
+    // Without the posture term, so the number is the `Jᵀ` law itself.
+    let (body, controller, reference) = bench_cartesian_impedance_setup();
+    let (configuration, velocity) = bench_arm_state();
+    let state = body.tree().forward_kinematics(&configuration).unwrap();
+    criterion.bench_function("cartesian_impedance_arm", |b| {
+        b.iter(|| {
+            controller
+                .torque(
+                    black_box(&body),
+                    black_box(&state),
+                    black_box(&configuration),
+                    black_box(&velocity),
+                    black_box(&reference),
+                )
+                .unwrap()
+        })
+    });
+}
+
+fn bench_cartesian_impedance_arm_with_posture(criterion: &mut Criterion) {
+    // The pair with `cartesian_impedance_arm` is what a caller has to budget for: the posture term
+    // costs a damped pseudo-inverse, a factorization of a 6xn matrix rather than a matrix product.
+    let (body, controller, reference) = bench_cartesian_impedance_setup();
+    let (configuration, velocity) = bench_arm_state();
+    let state = body.tree().forward_kinematics(&configuration).unwrap();
+    let controller = controller
+        .with_null_space_posture(
+            Vector::new([0.0, -0.3, 0.4, 0.2, -0.1, 0.5, 0.0]),
+            25.0,
+            5.0,
+            Vector::new([1.0; ARM_FRAMES]),
+            1e-3,
+        )
+        .unwrap();
+    criterion.bench_function("cartesian_impedance_arm_with_posture", |b| {
+        b.iter(|| {
+            controller
+                .torque(
+                    black_box(&body),
+                    black_box(&state),
+                    black_box(&configuration),
+                    black_box(&velocity),
+                    black_box(&reference),
+                )
+                .unwrap()
+        })
+    });
+}
+
+fn bench_position_servo_step(criterion: &mut Criterion) {
+    // One tick of the position-controlled half of a split step: a 2x2 product per joint, with the
+    // discretization worked out when the model was built.
+    let mut joints = PositionServo::<ARM_FRAMES, f64>::uniform(50.0, 1.0, 0.001).unwrap();
+    let commanded = Vector::new([0.2, -0.4, 0.5, 0.3, -0.2, 0.6, 0.0]);
+    criterion.bench_function("position_servo_step", |b| {
+        b.iter(|| joints.stepped(black_box(commanded)))
+    });
 }
 
 fn bench_inverse_kinematics_solve(criterion: &mut Criterion) {
@@ -494,9 +777,59 @@ const BENCHES: &[(&str, BenchFn, &str)] = &[
         "one 1 ms tick of a free body: gravity + steady push, orientation on the manifold",
     ),
     (
+        "inverse_dynamics_double_pendulum",
+        bench_inverse_dynamics_double_pendulum,
+        "2-joint arm, recursive Newton-Euler: (q, q̇, q̈) -> τ",
+    ),
+    (
+        "inverse_dynamics_arm",
+        bench_inverse_dynamics_arm,
+        "7-joint arm, recursive Newton-Euler: (q, q̇, q̈) -> τ",
+    ),
+    (
+        "joint_space_inertia_double_pendulum",
+        bench_joint_space_inertia_double_pendulum,
+        "2-joint arm, composite-rigid-body: q -> H(q)",
+    ),
+    (
+        "joint_space_inertia_arm",
+        bench_joint_space_inertia_arm,
+        "7-joint arm, composite-rigid-body: q -> H(q)",
+    ),
+    (
+        "forward_dynamics_arm",
+        bench_forward_dynamics_arm,
+        "7-joint arm, articulated-body: (q, q̇, τ) -> q̈, workspace on the stack",
+    ),
+    (
+        "forward_dynamics_arm_with_workspace",
+        bench_forward_dynamics_arm_with_workspace,
+        "7-joint arm, articulated-body: (q, q̇, τ) -> q̈, caller-owned workspace",
+    ),
+    (
         "inverse_kinematics_solve",
         bench_inverse_kinematics_solve,
         "7-joint arm, warm-started SE(3) pose solve with joint limits",
+    ),
+    (
+        "computed_torque_arm",
+        bench_computed_torque_arm,
+        "7-joint arm, computed torque: (q, q̇, reference) -> τ, one RNEA pass",
+    ),
+    (
+        "cartesian_impedance_arm",
+        bench_cartesian_impedance_arm,
+        "7-joint arm, Cartesian impedance: Jᵀ·(k⊙e + d⊙ė) + bias",
+    ),
+    (
+        "cartesian_impedance_arm_with_posture",
+        bench_cartesian_impedance_arm_with_posture,
+        "the same, plus a null-space posture term (damped pseudo-inverse)",
+    ),
+    (
+        "position_servo_step",
+        bench_position_servo_step,
+        "7 joints, one exactly-discretized servo tick",
     ),
     ("newton_system", bench_newton_system, "x²+y² = 4, x·y = 1"),
     (

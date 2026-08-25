@@ -157,11 +157,14 @@ pub use polynomial::{
     MultivariatePolynomial, MultivariateTerm, PiecewisePolynomial, Polynomial, RealRoots,
 };
 
-/// Feedback control: PID, optimal linear state feedback, attitude control on rotations, the
-/// pure-pursuit path-following law, and Follow-the-Gap reactive avoidance.
+/// Feedback control: PID, optimal linear state feedback, attitude control on rotations, model-based
+/// torque control for a jointed arm, the pure-pursuit path-following law, and Follow-the-Gap
+/// reactive avoidance.
 pub use control::{
-    Curvature, FollowTheGap, FollowTheGapOutput, GeometricAttitudeController, Lqr, Pid,
-    ThrustCommand, pure_pursuit_curvature, thrust_command_from_acceleration,
+    CartesianImpedanceController, CartesianReference, ComputedTorqueController, Curvature,
+    FollowTheGap, FollowTheGapOutput, GeometricAttitudeController, JointImpedanceController,
+    JointPdController, JointReference, Lqr, Pid, ThrustCommand, pure_pursuit_curvature,
+    thrust_command_from_acceleration,
 };
 
 /// Waypoint paths, planned trajectories, point-to-point motion profiles, and their arc-length,
@@ -173,11 +176,10 @@ pub use motion::{
 };
 
 /// A single rigid body's motion under the forces on it, and the state an integrator carries.
-pub use dynamics::{RigidBody, RigidBodyAcceleration};
+pub use dynamics::{ArticulatedBody, DynamicsWorkspace, RigidBody, RigidBodyAcceleration};
 
-/// Sharing a wanted push and turn out across a set of rotors, and how quickly a rotor catches up
-/// to what it was asked for.
-pub use plant::{MultirotorMixer, RotorCommands, RotorLag, RotorSpin};
+/// Rotor mixing and its inverse, first-order rotor lag, and a position-controlled joint's servo.
+pub use plant::{MultirotorMixer, PositionServo, RotorCommands, RotorLag, RotorSpin};
 
 /// Per-module-family error enums and the umbrella they convert into.
 pub use error::{

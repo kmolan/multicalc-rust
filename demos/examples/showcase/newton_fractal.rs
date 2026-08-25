@@ -32,7 +32,7 @@ const DOMAIN: f64 = 2.0; // half-width: the grid covers [-2, 2]^2
 const DTAU: f64 = 0.02; // root-orbit advance per completed frame
 const WARMUP_FRAMES: i64 = 3; // cold-start frames excluded from the throughput median
 
-// Basin colors: the validated mutually-CVD-safe trio (§2). RGB for the image, RGBA for the roots.
+// Basin colors: the validated mutually-CVD-safe trio RGB for the image, RGBA for the roots.
 const BASIN_RGB: [[u8; 3]; 3] = [[0x39, 0x87, 0xe5], [0xc9, 0x85, 0x00], [0xe6, 0x67, 0x67]];
 const BASIN_RGBA: [Rgba; 3] = [
     [0x39, 0x87, 0xe5, 0xff],

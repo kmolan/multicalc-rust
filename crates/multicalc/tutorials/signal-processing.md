@@ -51,8 +51,8 @@ let timestep = 0.001_f64; // a 1 kHz loop
 
 // A low-pass is about 3 dB down at its own cutoff, and lags by a few milliseconds below it.
 let low_pass = BiquadCoefficients::low_pass(50.0, 0.70710678, timestep).unwrap();
-assert!((low_pass.magnitude_in_decibels_at(50.0) + 3.0).abs() < 0.5);
-assert!(low_pass.delay_at(5.0) < 0.01);
+assert!((low_pass.magnitude_in_decibels_at(50.0).unwrap() + 3.0).abs() < 0.5);
+assert!(low_pass.delay_at(5.0).unwrap() < 0.01);
 
 // A notch removes one frequency: 2000 samples of a 180 Hz oscillation come out flat.
 let mut notch = Biquad::new(BiquadCoefficients::notch(180.0, 4.0, timestep).unwrap());
@@ -70,7 +70,7 @@ notch.set_coefficients(BiquadCoefficients::notch(210.0, 4.0, timestep).unwrap())
 let harmonics = harmonic_notch_coefficients::<3, f64>(80.0, 4.0, timestep).unwrap();
 let motor_notch = BiquadCascade::new(harmonics);
 for frequency_hz in [80.0, 160.0, 240.0] {
-    assert!(motor_notch.magnitude_at(frequency_hz) < 0.05);
+    assert!(motor_notch.magnitude_at(frequency_hz).unwrap() < 0.05);
 }
 
 // Three axes through one filter, each keeping its own memory.
@@ -198,7 +198,9 @@ reaching `RunningMedian` shifts its answer to a plausible finite number that is 
 NaN reaching `Hysteresis` leaves the switch holding its last answer — a dead sensor then looks
 exactly like a signal parked inside the gap, indefinitely.
 
-Errors: every constructor returns [`SignalError`](error-handling.md). Full demo:
+Errors: every constructor, the four response queries (`magnitude_at`,
+`magnitude_in_decibels_at`, `phase_at`, `delay_at`), and the checked entry points above all return
+[`SignalError`](error-handling.md). Full demo:
 [signal_filters.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/signal_filters.rs).
 
 

@@ -24,6 +24,9 @@ pub enum LinalgError {
         /// Iterations spent before giving up.
         iters: usize,
     },
+    /// A subscript, corner, or shape reached past the edge of the storage it addressed. Every
+    /// fallible operation on a borrowed view reports this and nothing else.
+    OutOfBounds,
 }
 
 /// Errors from the differentiation modules (finite differences, autodiff, Jacobian, Hessian,
@@ -241,6 +244,12 @@ pub enum ControlError {
     Linalg(LinalgError),
     /// A filter setup error.
     Signal(SignalError),
+    /// A stiffness, damping or posture gain was negative.
+    NegativeGain,
+    /// A dynamics step inside a controller failed.
+    Dynamics(DynamicsError),
+    /// A kinematics step inside a controller failed.
+    Kinematics(KinematicsError),
 }
 
 /// Errors from the dynamics module (how a rigid body moves under the forces on it).
@@ -251,6 +260,17 @@ pub enum DynamicsError {
     NonFinite,
     /// A rotational inertia was not positive definite.
     NonPositiveInertia,
+    /// The inertia list and the model's joint count are different lengths.
+    InertiaCountMismatch,
+    /// The model's first joint is floating; these recursions are fixed-base only.
+    FloatingBaseUnsupported,
+    /// The solved poses came from a model with a different joint count.
+    StateShapeMismatch,
+    /// A joint's articulated-body inertia was not strictly positive, so the model has a degree of
+    /// freedom with no inertia behind it.
+    NonPositiveArticulatedInertia,
+    /// A kinematics step inside the recursion failed.
+    Kinematics(KinematicsError),
     /// The rotational inertia could not be inverted.
     Linalg(LinalgError),
 }
@@ -273,6 +293,10 @@ pub enum PlantError {
     NonPositiveTimeConstant,
     /// A tick length was zero or negative.
     NonPositiveTimestep,
+    /// A servo natural frequency was zero or negative.
+    NonPositiveNaturalFrequency,
+    /// A servo damping ratio was negative.
+    NegativeDampingRatio,
     /// The rotor layout could not be turned into a set of per-rotor commands.
     Linalg(LinalgError),
 }
@@ -447,9 +471,24 @@ impl From<LinalgError> for ControlError {
         ControlError::Linalg(err)
     }
 }
+impl From<DynamicsError> for ControlError {
+    fn from(err: DynamicsError) -> Self {
+        ControlError::Dynamics(err)
+    }
+}
+impl From<KinematicsError> for ControlError {
+    fn from(err: KinematicsError) -> Self {
+        ControlError::Kinematics(err)
+    }
+}
 impl From<LinalgError> for DynamicsError {
     fn from(err: LinalgError) -> Self {
         DynamicsError::Linalg(err)
+    }
+}
+impl From<KinematicsError> for DynamicsError {
+    fn from(err: KinematicsError) -> Self {
+        DynamicsError::Kinematics(err)
     }
 }
 impl From<LinalgError> for PlantError {
@@ -542,6 +581,9 @@ impl core::fmt::Display for LinalgError {
                 f.write_str("matrix must read the same across the diagonal")
             }
             LinalgError::InvalidTimestep => f.write_str("timestep must be finite and non-negative"),
+            LinalgError::OutOfBounds => {
+                f.write_str("index or shape reached past the edge of the storage")
+            }
             LinalgError::DidNotConverge { iters } => {
                 write!(f, "matrix equation did not settle after {iters} iterations")
             }
@@ -764,8 +806,11 @@ impl core::fmt::Display for ControlError {
             ControlError::UndefinedHeadingDirection => {
                 "the push is straight along the wanted heading, so the heading cannot be set"
             }
+            ControlError::NegativeGain => "stiffness, damping and posture gains must not be negative",
             ControlError::Linalg(err) => return write!(f, "{err}"),
             ControlError::Signal(err) => return write!(f, "{err}"),
+            ControlError::Dynamics(err) => return write!(f, "{err}"),
+            ControlError::Kinematics(err) => return write!(f, "{err}"),
         })
     }
 }
@@ -777,6 +822,19 @@ impl core::fmt::Display for DynamicsError {
             DynamicsError::NonPositiveInertia => {
                 f.write_str("rotational inertia is not positive definite")
             }
+            DynamicsError::InertiaCountMismatch => {
+                f.write_str("the inertia list and the model's joint count are different lengths")
+            }
+            DynamicsError::FloatingBaseUnsupported => {
+                f.write_str("these recursions are fixed-base only, and the model's root floats")
+            }
+            DynamicsError::StateShapeMismatch => {
+                f.write_str("solved poses came from a model with a different joint count")
+            }
+            DynamicsError::NonPositiveArticulatedInertia => {
+                f.write_str("a degree of freedom has no inertia behind it")
+            }
+            DynamicsError::Kinematics(err) => write!(f, "{err}"),
             DynamicsError::Linalg(err) => {
                 write!(f, "rotational inertia could not be inverted: {err}")
             }
@@ -802,6 +860,12 @@ impl core::fmt::Display for PlantError {
                 f.write_str("rotor lag time must be strictly positive")
             }
             PlantError::NonPositiveTimestep => f.write_str("tick length must be strictly positive"),
+            PlantError::NonPositiveNaturalFrequency => {
+                f.write_str("servo natural frequency must be strictly positive")
+            }
+            PlantError::NegativeDampingRatio => {
+                f.write_str("servo damping ratio must not be negative")
+            }
             PlantError::Linalg(err) => write!(f, "rotor layout could not be inverted: {err}"),
         }
     }
@@ -943,6 +1007,7 @@ impl core::error::Error for DynamicsError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
             DynamicsError::Linalg(err) => Some(err),
+            DynamicsError::Kinematics(err) => Some(err),
             _ => None,
         }
     }

@@ -207,6 +207,9 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Matrix<ROWS, COLS, T> {
 
     /// The transpose, with rows and columns swapped.
     ///
+    /// This copies. [`Matrix::view`] then [`transposed`](crate::linear_algebra::MatrixView::transposed)
+    /// is the same reshaping with no copy, for when the result only needs reading.
+    ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let matrix = Matrix::new([[1.0, 2.0, 3.0]]);
@@ -214,7 +217,7 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Matrix<ROWS, COLS, T> {
     /// ```
     #[inline]
     pub fn transpose(self) -> Matrix<COLS, ROWS, T> {
-        Matrix::from_fn(|row, column| self[(column, row)])
+        self.view().transposed().to_matrix()
     }
 
     /// The Frobenius norm, sometimes called the Euclidean norm:
