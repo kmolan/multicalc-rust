@@ -49,7 +49,7 @@ def _quaternion_to_matrix(q):
     )
 
 
-def _assert_zero_reference(model):
+def assert_zero_reference(model):
     """Refuses a model whose joints rest anywhere but zero.
 
     The crate applies MJCF `ref` as `Joint::zero_offset`; Pinocchio's own handling of `ref` is not
@@ -61,7 +61,7 @@ def _assert_zero_reference(model):
         assert reference == 0.0, f"joint {name!r} rests at {reference}, not zero"
 
 
-def _model_inputs(model):
+def model_inputs(model):
     """One fixture slot per body, in the order MuJoCo compiled them.
 
     Returns the fixture's model entries and the joint each body carries.
@@ -140,7 +140,7 @@ def _model_inputs(model):
     return inputs, joint_of_body
 
 
-def _pinocchio_models(path):
+def pinocchio_models(path):
     """Two copies of the model, one keeping the file's armature and one with it zeroed.
 
     The pair is what the armature cross-check in `_expected` compares.
@@ -153,7 +153,7 @@ def _pinocchio_models(path):
     return with_armature, without_armature
 
 
-def _slot_to_velocity_index(mujoco_model, pinocchio_model):
+def slot_to_velocity_index(mujoco_model, pinocchio_model):
     """Each MuJoCo body slot mapped to Pinocchio's velocity index, by joint name.
 
     Never by position: the two libraries order their joints independently.
@@ -172,7 +172,7 @@ def _slot_to_velocity_index(mujoco_model, pinocchio_model):
     return mapping
 
 
-def _to_pinocchio(row, slot_to_velocity, size):
+def to_pinocchio(row, slot_to_velocity, size):
     """A slot-ordered row reordered into Pinocchio's own layout."""
     out = np.zeros(size)
     for slot, index in slot_to_velocity.items():
@@ -180,7 +180,7 @@ def _to_pinocchio(row, slot_to_velocity, size):
     return out
 
 
-def _to_slots(values, slot_to_velocity, slot_count):
+def to_slots(values, slot_to_velocity, slot_count):
     """A Pinocchio-ordered vector reordered back into slot order, welds left at zero."""
     out = np.zeros(slot_count)
     for slot, index in slot_to_velocity.items():
@@ -251,12 +251,12 @@ def _mujoco_second_opinion(
 
 def _expected(mujoco_model, path, joint_of_body, positions, velocities, accelerations):
     """Pinocchio's solve of every sampled state, reordered into slot order."""
-    with_armature, without_armature = _pinocchio_models(path)
+    with_armature, without_armature = pinocchio_models(path)
     data = with_armature.createData()
     plain_data = without_armature.createData()
     quiet = _quiet_model(path)
     quiet_data = mujoco.MjData(quiet)
-    slot_to_velocity = _slot_to_velocity_index(mujoco_model, with_armature)
+    slot_to_velocity = slot_to_velocity_index(mujoco_model, with_armature)
     slot_count = mujoco_model.nbody - 1
     size = with_armature.nv
 
@@ -270,9 +270,9 @@ def _expected(mujoco_model, path, joint_of_body, positions, velocities, accelera
     forward_accelerations = []
 
     for state in range(len(positions)):
-        position = _to_pinocchio(positions[state], slot_to_velocity, size)
-        velocity = _to_pinocchio(velocities[state], slot_to_velocity, size)
-        acceleration = _to_pinocchio(accelerations[state], slot_to_velocity, size)
+        position = to_pinocchio(positions[state], slot_to_velocity, size)
+        velocity = to_pinocchio(velocities[state], slot_to_velocity, size)
+        acceleration = to_pinocchio(accelerations[state], slot_to_velocity, size)
 
         rigid = pin.rnea(without_armature, plain_data, position, velocity, acceleration).copy()
         with_rotor = pin.rnea(with_armature, data, position, velocity, acceleration).copy()
@@ -295,9 +295,9 @@ def _expected(mujoco_model, path, joint_of_body, positions, velocities, accelera
         recovered = pin.aba(with_armature, data, position, velocity, with_rotor).copy()
         np.testing.assert_allclose(recovered, acceleration, rtol=1e-10, atol=1e-10)
 
-        rigid_body_torques.append(_to_slots(with_rotor, slot_to_velocity, slot_count))
-        torques.append(_to_slots(total, slot_to_velocity, slot_count))
-        forward_accelerations.append(_to_slots(recovered, slot_to_velocity, slot_count))
+        rigid_body_torques.append(to_slots(with_rotor, slot_to_velocity, slot_count))
+        torques.append(to_slots(total, slot_to_velocity, slot_count))
+        forward_accelerations.append(to_slots(recovered, slot_to_velocity, slot_count))
 
         by_slot = np.zeros((slot_count, slot_count))
         for row_slot, row_index in slot_to_velocity.items():
@@ -328,8 +328,8 @@ def _expected(mujoco_model, path, joint_of_body, positions, velocities, accelera
 
 
 def _write(out, case, meta, model, path, label, extra=None):
-    _assert_zero_reference(model)
-    inputs, joint_of_body = _model_inputs(model)
+    assert_zero_reference(model)
+    inputs, joint_of_body = model_inputs(model)
 
     rng = np.random.default_rng(meta["seed"])
     position_range = (-np.pi, np.pi)
@@ -378,16 +378,23 @@ DOUBLE_PENDULUM_XML = """<mujoco>
 """
 
 
-def _double_pendulum(out, meta, directory):
-    """Two hinges about y on unit links, every joint-dynamics field stated in the file."""
-    path = os.path.join(directory, "articulated_double_pendulum.xml")
+def double_pendulum_model(directory, name="articulated_double_pendulum"):
+    """Two hinges about y on unit links, every joint-dynamics field stated in the file.
+
+    Returns the compiled model and the path both libraries load.
+    """
+    path = os.path.join(directory, name + ".xml")
     with open(path, "w", encoding="ascii", newline="\n") as f:
         f.write(DOUBLE_PENDULUM_XML)
-    model = mujoco.MjModel.from_xml_path(path)
+    return mujoco.MjModel.from_xml_path(path), path
+
+
+def _double_pendulum(out, meta, directory):
+    model, path = double_pendulum_model(directory)
     _write(out, "articulated_double_pendulum", meta, model, path, "double pendulum")
 
 
-def _franka_panda(out, meta, directory):
+def franka_model(directory, name="articulated_franka_panda"):
     """The vendored Menagerie Franka, with the elements neither library represents removed.
 
     `<tendon>` and `<equality>` are deleted: neither multicalc nor Pinocchio carries a tendon, and
@@ -420,11 +427,14 @@ def _franka_panda(out, meta, directory):
 
     # Pinocchio reads a file, so the edited model is written back out and both libraries load the
     # same bytes.
-    path = os.path.join(directory, "articulated_franka_panda.xml")
+    path = os.path.join(directory, name + ".xml")
     with open(path, "w", encoding="ascii", newline="\n") as f:
         f.write(spec.to_xml())
-    model = mujoco.MjModel.from_xml_path(path)
+    return mujoco.MjModel.from_xml_path(path), path
 
+
+def _franka_panda(out, meta, directory):
+    model, path = franka_model(directory)
     _write(
         out, "articulated_franka_panda", meta, model, path, "Franka Panda",
         extra={"model_file": schema.string(FRANKA)},

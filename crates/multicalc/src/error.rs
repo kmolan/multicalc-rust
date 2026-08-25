@@ -244,6 +244,12 @@ pub enum ControlError {
     Linalg(LinalgError),
     /// A filter setup error.
     Signal(SignalError),
+    /// A stiffness, damping or posture gain was negative.
+    NegativeGain,
+    /// A dynamics step inside a controller failed.
+    Dynamics(DynamicsError),
+    /// A kinematics step inside a controller failed.
+    Kinematics(KinematicsError),
 }
 
 /// Errors from the dynamics module (how a rigid body moves under the forces on it).
@@ -287,6 +293,10 @@ pub enum PlantError {
     NonPositiveTimeConstant,
     /// A tick length was zero or negative.
     NonPositiveTimestep,
+    /// A servo natural frequency was zero or negative.
+    NonPositiveNaturalFrequency,
+    /// A servo damping ratio was negative.
+    NegativeDampingRatio,
     /// The rotor layout could not be turned into a set of per-rotor commands.
     Linalg(LinalgError),
 }
@@ -459,6 +469,16 @@ impl From<SignalError> for ControlError {
 impl From<LinalgError> for ControlError {
     fn from(err: LinalgError) -> Self {
         ControlError::Linalg(err)
+    }
+}
+impl From<DynamicsError> for ControlError {
+    fn from(err: DynamicsError) -> Self {
+        ControlError::Dynamics(err)
+    }
+}
+impl From<KinematicsError> for ControlError {
+    fn from(err: KinematicsError) -> Self {
+        ControlError::Kinematics(err)
     }
 }
 impl From<LinalgError> for DynamicsError {
@@ -786,8 +806,11 @@ impl core::fmt::Display for ControlError {
             ControlError::UndefinedHeadingDirection => {
                 "the push is straight along the wanted heading, so the heading cannot be set"
             }
+            ControlError::NegativeGain => "stiffness, damping and posture gains must not be negative",
             ControlError::Linalg(err) => return write!(f, "{err}"),
             ControlError::Signal(err) => return write!(f, "{err}"),
+            ControlError::Dynamics(err) => return write!(f, "{err}"),
+            ControlError::Kinematics(err) => return write!(f, "{err}"),
         })
     }
 }
@@ -837,6 +860,12 @@ impl core::fmt::Display for PlantError {
                 f.write_str("rotor lag time must be strictly positive")
             }
             PlantError::NonPositiveTimestep => f.write_str("tick length must be strictly positive"),
+            PlantError::NonPositiveNaturalFrequency => {
+                f.write_str("servo natural frequency must be strictly positive")
+            }
+            PlantError::NegativeDampingRatio => {
+                f.write_str("servo damping ratio must not be negative")
+            }
             PlantError::Linalg(err) => write!(f, "rotor layout could not be inverted: {err}"),
         }
     }

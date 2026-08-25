@@ -6,6 +6,14 @@ What sits between a command and the force a body actually feels.
   way too, saying what push and turn a set of rotor thrusts adds up to.
 - `RotorLag`: how quickly a rotor catches up to the thrust it was asked for, since it cannot change
   what it is giving the moment it is asked.
+- `PositionServo`: a joint that takes a commanded position rather than a torque, and how its own
+  servo answers. Per joint the closed loop is second order, `q̈ = ω²·(q_cmd − q) − 2ζω·q̇`, and its
+  exact zero-order-hold pair is worked out once, when the model is built — so a tick is one 2×2
+  product per joint and no tick length makes it blow up. It is the stiff linear half of an
+  operator-split step: Lie–Trotter is `stepped` over `Δt` then the body over `Δt`, first order;
+  Strang is `stepped_over(cmd, Δt/2)`, the body over `Δt`, then `stepped_over(cmd, Δt/2)`, second
+  order. The unconditional-stability claim covers this linear sub-step alone. Its torque-side
+  counterpart is [`JointPdController`](control.md).
 
 Each rotor pushes along the body's z axis; where it sits decides how much it tips the body, and
 which way it turns decides how much it twists it about z. The mixer holds that relation and the way
@@ -130,12 +138,64 @@ assert!((felt.force()[2] - weight).abs() < 1e-12);
 # Ok::<(), multicalc::CalcError>(())
 ```
 
+## A joint that takes a position, not a torque
+
+Not every actuator takes a torque. A position-controlled joint — most industrial arms, and any
+hobby servo — takes a commanded angle and runs its own loop inside, and what the outside world gets
+to see is how that loop answers. `PositionServo` holds that loop, one second-order system per joint,
+and advances it exactly rather than stepping toward it. Because the discretization is exact, the
+tick length is free: a tick fifty natural periods long lands in the same place as a thousand short
+ones, where an explicit integrator would have diverged long before.
+
+That matters because this is normally the stiff half of a split step. The arm's own nonlinear
+dynamics go through [`ode`](ode-integrators.md)'s RK4 or RK45, whose stable tick length is set by the fastest
+thing in the model — and the servo is usually that fastest thing. Splitting it out and solving it
+exactly takes it off the integrator's plate. Lie–Trotter is `stepped` over `Δt` then the body over
+`Δt`, first order in `Δt`; Strang is `stepped_over(cmd, Δt/2)`, the body over `Δt`, then
+`stepped_over(cmd, Δt/2)`, second order. The unconditional-stability claim covers this linear
+sub-step alone — the body keeps whatever stability its own integrator has.
+
+```rust
+use multicalc::linear_algebra::Vector;
+use multicalc::plant::PositionServo;
+
+// Two joints whose servos run at 50 rad/s, critically damped, driven every millisecond.
+let natural_frequency = 50.0_f64;
+let tick = 0.001;
+let mut joints = PositionServo::<2, f64>::uniform(natural_frequency, 1.0, tick)?;
+let commanded = Vector::new([0.4, -0.2]);
+
+// Critically damped from rest: q(t) = q_cmd*(1 - (1 + w*t)*exp(-w*t)).
+let ticks = 20;
+for _ in 0..ticks {
+    let _ = joints.stepped(commanded);
+}
+let elapsed = tick * ticks as f64;
+let settled = 1.0 - (1.0 + natural_frequency * elapsed) * (-natural_frequency * elapsed).exp();
+assert!((joints.positions()[0] - 0.4 * settled).abs() < 1e-12);
+
+// Held there, they arrive exactly.
+for _ in 0..5000 {
+    let _ = joints.stepped(commanded);
+}
+assert!((joints.positions()[1] + 0.2).abs() < 1e-12);
+# Ok::<(), multicalc::CalcError>(())
+```
+
+The same hardware seen from the torque side is
+[`JointPdController`](control.md): the same closed loop, driven by a torque the caller works out
+rather than by a position the joint works out for itself.
+
 Errors: `MultirotorMixer::new` and `quadrotor_x` return [`PlantError`](error-handling.md):
 `NonFinite`, `NonPositiveArmLength`, `NonPositiveTorqueRatio`, `InvalidThrustLimits`,
 `RotorLayoutNotIndependent`, or `Linalg`. `RotorLag::new` returns
 [`PlantError`](error-handling.md): `NonFinite`, `NonPositiveTimeConstant`, or
-`NonPositiveTimestep`. Everything on the per-tick path — `rotor_thrusts`, `wrench`,
-`RotorLag::stepped`, `stepped_over`, and `rate` — is infallible.
+`NonPositiveTimestep`. `PositionServo::new` and `uniform` return `NonFinite`,
+`NonPositiveNaturalFrequency`, `NegativeDampingRatio`, `NonPositiveTimestep`, or `Linalg`, and
+`PositionServo::stepped_over` returns `NonFinite`, `NonPositiveTimestep`, or `Linalg` because it
+works the discretization out afresh. Everything else on the per-tick path — `rotor_thrusts`,
+`wrench`, `RotorLag::stepped`, `stepped_over`, `rate`, and `PositionServo::stepped` — is
+infallible.
 
 What the wrench then does to the body is in [Rigid-body dynamics](rigid-body-dynamics.md). Full
 demo:
