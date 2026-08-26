@@ -49,9 +49,9 @@ fn every_menagerie_model_draws_its_shapes() {
 
 #[test]
 fn the_moveit_panda_draws_frames_alone() {
-    // Eleven `<visual>` `package://` `.dae` meshes, which resolve to nothing without a package
-    // path and which Rerun could not load anyway, and eleven `<collision>` `.stl` meshes in group
-    // 3, outside the default filter.
+    // Eleven `<visual>` `package://` meshes, which resolve to nothing without a package path, and
+    // eleven `<collision>` meshes in group 3, outside the default filter. Nothing here turns on the
+    // mesh format: the files are simply not vendored.
     let report = record(
         "moveit_panda",
         &model("moveit_resources_panda/panda.urdf"),

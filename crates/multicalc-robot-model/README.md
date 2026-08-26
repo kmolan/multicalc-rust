@@ -92,9 +92,10 @@ The same geometry sits on the model type, so a caller can draw it any other way:
 `BodyDescription::visual_geometry` gives the shapes in body axes, and `RobotModel::mesh_path`
 resolves a mesh reference against the model's directory and a package map.
 
-Meshes are logged as file references and never parsed here. Rerun loads `.obj`, `.stl`, `.glb` and
-`.gltf`; a `.dae` mesh, or one whose path does not resolve, is skipped with a warning while its body
-still draws its frame.
+Meshes are logged as file references and never parsed here. Rerun decodes `.obj`, `.stl`, `.glb`,
+`.gltf` and `.dae`, the last as triangles and diffuse colours only, without textures. A mesh whose
+path does not resolve is skipped with a warning while its body still draws its frame; one the viewer
+cannot decode fails there rather than here, so it is not reported.
 
 ## Generating Rust source
 

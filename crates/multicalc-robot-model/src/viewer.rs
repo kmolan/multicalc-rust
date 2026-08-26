@@ -74,7 +74,9 @@ impl ViewerReport {
         self.shapes
     }
 
-    /// Mesh files that did not resolve or that Rerun cannot load, in the order met.
+    /// Mesh files whose path did not resolve or that could not be read, in the order met.
+    ///
+    /// A file the viewer cannot decode is not listed: decoding happens there, not here.
     #[inline]
     #[must_use]
     pub fn skipped_meshes(&self) -> &[String] {
@@ -195,8 +197,8 @@ fn log_shapes(
             }
             GeometryShape::Mesh { file, scale } => {
                 let path = child(body, &format!("mesh_{meshes}"));
-                // Fails for a missing file and for a media type Rerun does not know, `.dae`
-                // among them.
+                // Fails only for a file that cannot be read. The media type is guessed from the
+                // extension and settled by the viewer, so a format it cannot decode fails there.
                 let asset = model
                     .mesh_path(file, &options.package_paths)
                     .and_then(|resolved| rerun::Asset3D::from_file_path(&resolved).ok());
