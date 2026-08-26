@@ -7,19 +7,19 @@ use multicalc::linear_algebra::{Matrix, Matrix3D, Vector, Vector3D};
 use multicalc::spatial::{SE3, SO3, SpatialInertia};
 use roxmltree::{Document, Node};
 
-use crate::JointDescription;
-use crate::ModelError;
+use crate::mjcf::asset::AssetTable;
 use crate::mjcf::compiler::{CompilerSettings, InertiaFromGeom};
 use crate::mjcf::defaults::DefaultTable;
-use crate::mjcf::geometry::{GeomMass, read_geom};
+use crate::mjcf::geometry::{GeomMass, read_geom, read_visual_geom};
 use crate::mjcf::joint::read_joint;
 use crate::mjcf::orientation::Orientation;
 use crate::xml::{
     bad_attribute, element, elements, ignored_sections, parse_scalar, parse_vector3, parse_vector6,
 };
+use crate::{JointDescription, ModelError, VisualGeometry};
 
 /// Top-level elements this reader consumes. Every other one is listed in `ignored`.
-const READ_SECTIONS: [&str; 3] = ["compiler", "default", "worldbody"];
+const READ_SECTIONS: [&str; 4] = ["asset", "compiler", "default", "worldbody"];
 
 /// One parsed file: bodies in document order, plus what was skipped.
 pub(crate) struct ParsedModel {
@@ -34,10 +34,10 @@ pub(crate) struct ParsedBody {
     pub name: String,
     pub parent: Option<usize>,
     pub pose: SE3<f64>,
-    /// MJCF always states or derives inertia, so this reader never leaves it empty. The model
-    /// type permits `None` because URDF needs it.
+    /// Never empty here: MJCF always states or derives inertia. `Option` is for URDF's sake.
     pub inertia: Option<SpatialInertia<f64>>,
     pub joint: Option<JointDescription>,
+    pub visual_geometry: Vec<VisualGeometry>,
 }
 
 /// Parses the body tree, rejecting anything outside the supported subset by name.
@@ -46,6 +46,7 @@ pub(crate) fn read(document: &Document) -> Result<ParsedModel, ModelError> {
     let name = root.attribute("model").unwrap_or("model").to_owned();
     let settings = CompilerSettings::read(root)?;
     let table = DefaultTable::build(root)?;
+    let assets = AssetTable::build(root, &table, &settings)?;
     let worldbody = element(root, "worldbody").ok_or(ModelError::MissingWorldbody)?;
 
     let mut bodies = Vec::new();
@@ -57,6 +58,7 @@ pub(crate) fn read(document: &Document) -> Result<ParsedModel, ModelError> {
             None,
             &table,
             &settings,
+            &assets,
             &mut bodies,
             &mut floating_base,
         )?;
@@ -74,10 +76,9 @@ pub(crate) fn read(document: &Document) -> Result<ParsedModel, ModelError> {
     })
 }
 
-/// The `<body>` children of `<worldbody>`, seeing through a nested `<worldbody>` spliced in by an
-/// `<include>`. Splicing reinserts the included file's `<mujoco>` contents verbatim, so an
-/// included body list arrives wrapped in its own `<worldbody>`. Nested `<body>` elements are never
-/// wrapped this way, so recursion below the top level is a plain child scan.
+/// The `<body>` children of `<worldbody>`, seeing through a nested `<worldbody>` an `<include>`
+/// spliced in: splicing reinserts the included `<mujoco>` verbatim, so its body list arrives
+/// wrapped. Nested `<body>` elements are never wrapped, so deeper recursion is a plain child scan.
 fn top_level_bodies<'doc, 'input>(worldbody: Node<'doc, 'input>) -> Vec<Node<'doc, 'input>> {
     let mut found = Vec::new();
     for child in worldbody.children().filter(Node::is_element) {
@@ -93,12 +94,17 @@ fn top_level_bodies<'doc, 'input>(worldbody: Node<'doc, 'input>) -> Vec<Node<'do
 /// Parses one body, emits it, then recurses into its `<body>` children.
 ///
 /// `inherited_class` is the nearest enclosing `childclass`, carried down until overridden.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the recursion threads the class chain, both lookup tables, and the output"
+)]
 fn walk_body(
     node: Node,
     parent: Option<usize>,
     inherited_class: Option<&str>,
     table: &DefaultTable,
     settings: &CompilerSettings,
+    assets: &AssetTable,
     bodies: &mut Vec<ParsedBody>,
     floating_base: &mut bool,
 ) -> Result<(), ModelError> {
@@ -152,6 +158,13 @@ fn walk_body(
         },
     };
 
+    let mut visual_geometry = Vec::new();
+    for geom in elements(node, "geom") {
+        if let Some(shape) = read_visual_geom(geom, table, class_chain, assets, settings, &name)? {
+            visual_geometry.push(shape);
+        }
+    }
+
     let index = bodies.len();
     bodies.push(ParsedBody {
         name,
@@ -159,6 +172,7 @@ fn walk_body(
         pose,
         inertia,
         joint,
+        visual_geometry,
     });
 
     for child in elements(node, "body") {
@@ -168,6 +182,7 @@ fn walk_body(
             class_chain,
             table,
             settings,
+            assets,
             bodies,
             floating_base,
         )?;
@@ -199,14 +214,12 @@ fn stated_inertia(
 
     let tensor = match (diagonal, full) {
         (Some(principal), None) => {
-            // Principal moments are given in a frame turned from the body's own; turn the tensor
-            // back into body axes.
+            // Principal moments stand in a turned frame: `R I Rᵀ` puts them in body axes.
             let rotation = orientation.resolve(node, settings)?.to_rotation_matrix();
             rotation * Matrix::from_diagonal(principal) * rotation.transpose()
         }
-        // A full tensor already stands in the body's own axes, so a turn stated beside it is a
-        // second answer about the same frame. MuJoCo refuses that pair rather than reading one and
-        // dropping the other, and so does this.
+        // A full tensor already stands in body axes, so a turn beside it names no frame. MuJoCo
+        // refuses the pair rather than dropping one, and so does this.
         (None, Some([ixx, iyy, izz, ixy, ixz, iyz])) => {
             if orientation.is_stated() {
                 return Err(ModelError::FullInertiaWithOrientation {
@@ -243,8 +256,7 @@ fn synthesized_inertia(
         }
     }
 
-    // No mass-bearing geom means nothing to integrate. Rejecting here is what stops a massless
-    // MJCF body from loading.
+    // Nothing to integrate. This is what stops a massless MJCF body from loading.
     let total_mass: f64 = shapes.iter().map(|shape| shape.mass).sum();
     if total_mass == 0.0 {
         return Err(ModelError::NoInertiaSource {

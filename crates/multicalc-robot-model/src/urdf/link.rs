@@ -1,23 +1,30 @@
 //! `<link>` parsing: name and spatial inertia.
 //!
-//! `<inertial>` is optional and never derived from geometry. A link without one is massless —
-//! the usual encoding for tool and sensor frames.
+//! `<inertial>` is optional and never derived from geometry. A link without one is massless, the
+//! usual encoding for tool and sensor frames.
+
+use std::collections::HashMap;
 
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::spatial::{Quaternion, SE3, SO3, SpatialInertia};
 use roxmltree::Node;
 
-use crate::ModelError;
+use crate::urdf::visual::read_shapes;
 use crate::xml::{bad_attribute, element, elements, parse_scalar, parse_vector3};
+use crate::{ModelError, VisualGeometry};
 
 /// A `<link>` as stated, before tree resolution.
 pub(crate) struct ParsedLink {
     pub name: String,
     pub inertia: Option<SpatialInertia<f64>>,
+    pub visual_geometry: Vec<VisualGeometry>,
 }
 
 /// Every `<link>` child of `<robot>`, in document order.
-pub(crate) fn read_links(root: Node) -> Result<Vec<ParsedLink>, ModelError> {
+pub(crate) fn read_links(
+    root: Node,
+    materials: &HashMap<String, [f64; 4]>,
+) -> Result<Vec<ParsedLink>, ModelError> {
     let mut links = Vec::new();
     for node in elements(root, "link") {
         let name = node.attribute("name").unwrap_or("link").to_owned();
@@ -25,7 +32,11 @@ pub(crate) fn read_links(root: Node) -> Result<Vec<ParsedLink>, ModelError> {
             Some(inertial) => Some(read_inertial(inertial)?),
             None => None,
         };
-        links.push(ParsedLink { name, inertia });
+        links.push(ParsedLink {
+            name,
+            inertia,
+            visual_geometry: read_shapes(node, materials)?,
+        });
     }
     Ok(links)
 }

@@ -1,8 +1,8 @@
 //! `<default>` class inheritance.
 //!
 //! Blocks nest, each inheriting its parent's settings; a geom selects one by `class`, a body sets
-//! one for its subtree by `childclass`. Only `<geom>` and `<joint>` settings are read — nothing
-//! else in a block can affect mass properties.
+//! one for its subtree by `childclass`. Only `<geom>`, `<joint>` and `<mesh>` settings are read:
+//! nothing else in a block affects mass properties or how a body is drawn.
 
 use std::collections::HashMap;
 
@@ -10,7 +10,9 @@ use roxmltree::Node;
 
 use crate::ModelError;
 use crate::mjcf::orientation::Orientation;
-use crate::xml::{elements, fixed, parse_list, parse_scalar, parse_vector2, parse_vector3};
+use crate::xml::{
+    elements, fixed, parse_list, parse_scalar, parse_vector2, parse_vector3, parse_vector4,
+};
 
 /// Geom settings from one default class. `None` means unset at this level.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -22,6 +24,10 @@ pub(crate) struct GeomDefaults {
     pub orientation: Orientation,
     pub mass: Option<f64>,
     pub density: Option<f64>,
+    pub mesh: Option<String>,
+    pub material: Option<String>,
+    pub rgba: Option<[f64; 4]>,
+    pub group: Option<f64>,
 }
 
 impl GeomDefaults {
@@ -35,6 +41,10 @@ impl GeomDefaults {
             orientation: Orientation::read(node)?,
             mass: parse_scalar(node, "mass")?,
             density: parse_scalar(node, "density")?,
+            mesh: node.attribute("mesh").map(str::to_owned),
+            material: node.attribute("material").map(str::to_owned),
+            rgba: parse_vector4(node, "rgba")?,
+            group: parse_scalar(node, "group")?,
         })
     }
 
@@ -49,6 +59,33 @@ impl GeomDefaults {
             orientation: self.orientation.overridden_by(other.orientation),
             mass: other.mass.or(self.mass),
             density: other.density.or(self.density),
+            mesh: other.mesh.clone().or_else(|| self.mesh.clone()),
+            material: other.material.clone().or_else(|| self.material.clone()),
+            rgba: other.rgba.or(self.rgba),
+            group: other.group.or(self.group),
+        }
+    }
+}
+
+/// Mesh settings from one default class. `None` means unset at this level.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub(crate) struct MeshDefaults {
+    pub scale: Option<[f64; 3]>,
+}
+
+impl MeshDefaults {
+    /// Settings on one `<mesh>` element.
+    pub(crate) fn read(node: Node) -> Result<Self, ModelError> {
+        Ok(MeshDefaults {
+            scale: parse_vector3(node, "scale")?,
+        })
+    }
+
+    /// These settings with everything `other` states applied over the top.
+    #[must_use]
+    pub(crate) fn overridden_by(&self, other: &MeshDefaults) -> MeshDefaults {
+        MeshDefaults {
+            scale: other.scale.or(self.scale),
         }
     }
 }
@@ -106,11 +143,12 @@ impl JointDefaults {
     }
 }
 
-/// One default class: its geom and joint settings.
+/// One default class: its geom, joint and mesh settings.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct ClassDefaults {
     pub geom: GeomDefaults,
     pub joint: JointDefaults,
+    pub mesh: MeshDefaults,
 }
 
 /// Every named class, pre-flattened so lookup needs no traversal.
@@ -151,6 +189,9 @@ impl DefaultTable {
         }
         for joint in elements(node, "joint") {
             settings.joint = settings.joint.overridden_by(&JointDefaults::read(joint)?);
+        }
+        for mesh in elements(node, "mesh") {
+            settings.mesh = settings.mesh.overridden_by(&MeshDefaults::read(mesh)?);
         }
 
         match node.attribute("class") {

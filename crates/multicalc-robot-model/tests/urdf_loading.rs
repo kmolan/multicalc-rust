@@ -1,5 +1,4 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-#![cfg(feature = "urdf")]
 
 //! The URDF reader against the hand-written models in `tests/models/`, one construct each. Every
 //! `bad_` model is rejected by name.
@@ -9,7 +8,9 @@ use std::path::{Path, PathBuf};
 use multicalc::kinematics::JointKind;
 use multicalc::linear_algebra::Vector;
 use multicalc::spatial::Quaternion;
-use multicalc_robot_model::{ModelError, ModelFormat, RobotModel, RustSourceOptions};
+use multicalc_robot_model::{
+    GeometryShape, ModelError, ModelFormat, RobotModel, RustSourceOptions,
+};
 
 /// Path to a hand-written model.
 fn model_path(name: &str) -> PathBuf {
@@ -254,22 +255,46 @@ fn floating_joint_is_refused() {
 fn passed_over_sections_are_listed() {
     assert_eq!(
         model("passed_over_sections.urdf").ignored(),
-        [
-            "gazebo".to_owned(),
-            "material".to_owned(),
-            "transmission".to_owned()
-        ]
+        ["gazebo".to_owned(), "transmission".to_owned()]
     );
 }
 
 #[test]
-fn visual_and_collision_are_skipped() {
-    // Both sit inside `<link>`, not at the top level, so they are skipped without being listed,
-    // and no mesh file is resolved.
+fn visual_and_collision_are_read() {
+    // Link children, so neither is listed in ignored(), and the filenames are kept as written.
     let shapes = model("visual_and_collision.urdf");
     assert!(shapes.ignored().is_empty());
     assert_eq!(shapes.body_count(), 2);
     assert_eq!(shapes.body(0).unwrap().inertia().unwrap().mass(), 2.0);
+
+    let base = shapes.body(0).unwrap().visual_geometry();
+    assert_eq!(base.len(), 2);
+    assert_eq!(
+        base[0].shape(),
+        &GeometryShape::Mesh {
+            file: "package://nowhere/meshes/base.stl".to_owned(),
+            scale: Vector::new([1.0, 1.0, 1.0]),
+        }
+    );
+    assert_eq!(base[0].group(), 0);
+    assert_eq!(base[0].color(), [0.5, 0.5, 0.5, 1.0]);
+    assert_eq!(base[0].pose().translation().into_array(), [0.0, 0.0, 0.1]);
+    assert_eq!(
+        base[1].shape(),
+        &GeometryShape::Cylinder {
+            radius: 0.1,
+            half_length: 0.1
+        }
+    );
+    assert_eq!(base[1].group(), 3);
+
+    let arm = shapes.body(1).unwrap().visual_geometry();
+    assert_eq!(
+        arm[1].shape(),
+        &GeometryShape::Box {
+            half_extents: Vector::new([0.05, 0.05, 0.2])
+        }
+    );
 }
 
 #[test]
@@ -405,7 +430,6 @@ fn load_str_dispatches_on_root_element() {
     ));
 }
 
-#[cfg(feature = "mjcf")]
 #[test]
 fn load_str_reads_a_mujoco_document_too() {
     let xml = r#"<mujoco>

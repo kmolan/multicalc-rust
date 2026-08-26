@@ -33,8 +33,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # "1.85" is the MSRV and must match Cargo.toml `rust-version`
-        rust: [stable, "1.85"]
+        # "1.92" is the MSRV and must match Cargo.toml `rust-version`
+        rust: [stable, "1.92"]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -46,12 +46,8 @@ jobs:
         run: cargo test -p multicalc --features alloc
       - name: Test (model ingestion)
         run: cargo test -p multicalc-robot-model
-      - name: Test model reader, one format at a time
-        run: |
-          cargo test -p multicalc-robot-model --no-default-features --features mjcf
-          cargo test -p multicalc-robot-model --no-default-features --features urdf
-      - name: Check model reader with no reader compiled in
-        run: cargo check -p multicalc-robot-model --no-default-features
+      - name: Build the model viewer
+        run: cargo build -p multicalc-robot-model --bin model_viewer
       # All features on: the README and tutorial examples are compiled here too, and some of
       # them use the alloc-only types.
       - name: Doctests

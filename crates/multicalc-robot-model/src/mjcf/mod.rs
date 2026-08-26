@@ -1,5 +1,6 @@
 //! MJCF reader.
 
+mod asset;
 mod body;
 mod compiler;
 mod defaults;
@@ -15,7 +16,9 @@ use crate::{BodyDescription, ModelError, ModelFormat, RobotModel};
 /// Reads an MJCF file, resolving its `<include>` elements.
 pub fn load_path(path: &Path) -> Result<RobotModel, ModelError> {
     let xml = document::assemble(path)?;
-    load_str(&xml)
+    let mut model = load_str(&xml)?;
+    model.base_directory = path.parent().map(Path::to_path_buf);
+    Ok(model)
 }
 
 /// Parses MJCF from a string.
@@ -41,6 +44,7 @@ pub fn load_str(xml: &str) -> Result<RobotModel, ModelError> {
             pose: body.pose,
             inertia: body.inertia,
             joint: body.joint,
+            visual_geometry: body.visual_geometry,
         })
         .collect();
     Ok(RobotModel {
@@ -49,5 +53,6 @@ pub fn load_str(xml: &str) -> Result<RobotModel, ModelError> {
         bodies,
         floating_base: parsed.floating_base,
         ignored: parsed.ignored,
+        base_directory: None,
     })
 }

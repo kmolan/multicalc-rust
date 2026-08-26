@@ -6,6 +6,7 @@
 mod joint;
 mod link;
 mod tree;
+mod visual;
 
 use std::path::Path;
 
@@ -13,12 +14,14 @@ use crate::xml::ignored_sections;
 use crate::{ModelError, ModelFormat, RobotModel};
 
 /// Top-level elements this reader consumes.
-const READ_SECTIONS: [&str; 2] = ["link", "joint"];
+const READ_SECTIONS: [&str; 3] = ["link", "joint", "material"];
 
 /// Reads a URDF file.
 pub fn load_path(path: &Path) -> Result<RobotModel, ModelError> {
     let xml = std::fs::read_to_string(path).map_err(|err| ModelError::FileRead(err.to_string()))?;
-    load_str(&xml)
+    let mut model = load_str(&xml)?;
+    model.base_directory = path.parent().map(Path::to_path_buf);
+    Ok(model)
 }
 
 /// Parses URDF from a string.
@@ -34,7 +37,11 @@ pub fn load_str(xml: &str) -> Result<RobotModel, ModelError> {
         });
     }
 
-    let bodies = tree::build(&link::read_links(root)?, &joint::read_joints(root)?)?;
+    let materials = visual::read_materials(root)?;
+    let bodies = tree::build(
+        &link::read_links(root, &materials)?,
+        &joint::read_joints(root)?,
+    )?;
     if bodies.is_empty() {
         return Err(ModelError::NoBodies);
     }
@@ -46,5 +53,6 @@ pub fn load_str(xml: &str) -> Result<RobotModel, ModelError> {
         // Floating base is a load-time choice by the caller, not a file property. See tree.rs.
         floating_base: false,
         ignored: ignored_sections(root, &READ_SECTIONS),
+        base_directory: None,
     })
 }

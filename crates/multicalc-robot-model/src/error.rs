@@ -1,7 +1,5 @@
 use multicalc::error::{DynamicsError, KinematicsError, SpatialError};
 
-use crate::ModelFormat;
-
 /// Everything that can stop a model from loading, in either format.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
@@ -155,11 +153,6 @@ pub enum ModelError {
         /// The root element found.
         found: String,
     },
-    /// The file's format has no reader compiled into this build.
-    FormatNotEnabled {
-        /// The file's format.
-        format: ModelFormat,
-    },
     /// The stated mass properties do not describe a usable body.
     Inertia(SpatialError),
     /// The joint parameters do not describe a usable tree.
@@ -291,10 +284,6 @@ impl core::fmt::Display for ModelError {
             ModelError::UnexpectedRootElement { found } => write!(
                 f,
                 "the document starts with {found}, and only mujoco or robot are read"
-            ),
-            ModelError::FormatNotEnabled { format } => write!(
-                f,
-                "the file is {format} and this build was compiled without that reader"
             ),
             ModelError::Inertia(err) => write!(f, "{err}"),
             ModelError::Kinematics(err) => write!(f, "{err}"),

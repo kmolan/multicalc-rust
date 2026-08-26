@@ -2,8 +2,7 @@
 name = "multicalc-demos"
 version.workspace = true
 edition.workspace = true
-# Rerun requires Rust 1.92, above the workspace 1.85 floor, so this crate sets its own.
-rust-version = "1.92"
+rust-version.workspace = true
 license.workspace = true
 publish = false
 autoexamples = false

@@ -1,8 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-#![cfg(feature = "mjcf")]
 
-//! Loading behaviour, driven by small hand-written models: what is read, what is worked out from
-//! the shapes, and what is refused by name.
+//! Loading behaviour, driven by small hand-written models: what is read, what is integrated from
+//! the geoms, and what is refused by name.
 
 use std::f64::consts::{FRAC_PI_2, FRAC_PI_4};
 
@@ -26,7 +25,7 @@ fn refuse(inner: &str) -> ModelError {
     load_str(&model(inner)).unwrap_err()
 }
 
-/// The three numbers down the diagonal of how the first body resists being spun.
+/// The first body's principal moments, in body axes.
 #[must_use]
 fn diagonal(loaded: &RobotModel) -> [f64; 3] {
     let inertia = loaded
@@ -38,7 +37,7 @@ fn diagonal(loaded: &RobotModel) -> [f64; 3] {
     [inertia[(0, 0)], inertia[(1, 1)], inertia[(2, 2)]]
 }
 
-/// The parts of the file the loader did not read, as plain text for comparing against.
+/// The sections the loader did not read, as plain text.
 #[must_use]
 fn ignored(loaded: &RobotModel) -> Vec<&str> {
     loaded.ignored().iter().map(String::as_str).collect()
@@ -51,8 +50,7 @@ fn assert_close(actual: f64, expected: f64, label: &str) {
     );
 }
 
-/// Against a number MuJoCo itself produced. The two do not add their terms in the same order, so
-/// the last bits can differ and the comparison is made relative to the size of the number.
+/// Against a MuJoCo golden. Term order differs, so the comparison is relative.
 fn assert_golden(actual: f64, expected: f64, label: &str) {
     let tolerance = 1e-12 * expected.abs().max(1.0);
     assert!(
@@ -76,8 +74,8 @@ fn reads_mass_properties_a_file_states() {
 
 #[test]
 fn turns_stated_inertia_into_the_body_axes() {
-    // The three numbers run along the axes of a frame given by `quat`. A quarter turn about z
-    // swaps which of the body's own axes the first two describe.
+    // The principal moments stand in the frame `quat` gives, so a quarter turn about z swaps the
+    // first two.
     let model = load(
         r#"<body><freejoint/><inertial mass="2" diaginertia="1 2 3" quat="0.7071067811865476 0 0 0.7071067811865476"/></body>"#,
     );
@@ -135,8 +133,7 @@ fn refuses_a_shape_carrying_mass_it_cannot_measure() {
 
 #[test]
 fn skips_a_shape_that_carries_no_mass_before_looking_at_its_form() {
-    // The height field would be refused if it carried mass, so this also shows the order of the
-    // checks.
+    // A mass-bearing hfield would be refused, so this also pins the order of the checks.
     let model = load(
         r#"<body><freejoint/><geom type="hfield" hfield="terrain" mass="0"/><geom type="box" size="1 1 1" mass="6"/></body>"#,
     );
@@ -167,8 +164,8 @@ fn refuses_a_class_the_file_never_defines() {
 
 #[test]
 fn refuses_an_include_from_text() {
-    // `load_str` has no file to resolve an `<include>` against, so it is refused rather than
-    // partly read. `load_path` follows the same include successfully; that is `includes.rs`.
+    // `load_str` has no base directory to resolve an `<include>` against, so it refuses rather
+    // than reading part of the model. `load_path` follows the same include; see `includes.rs`.
     assert_eq!(
         load_str(r#"<mujoco><worldbody><include file="other.xml"/></worldbody></mujoco>"#)
             .unwrap_err(),
@@ -193,8 +190,7 @@ fn refuses_stated_mass_properties_that_do_not_describe_a_body() {
 
 #[test]
 fn measures_a_box() {
-    // A box resists being spun about each axis by a third of its mass times the squares of the
-    // two half-widths across from that axis.
+    // `I_kk = m·(h_i² + h_j²)/3` over the two half-widths across from `k`.
     let model = load(r#"<body><freejoint/><geom type="box" size="1 2 3" mass="6"/></body>"#);
 
     assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 6.0);
@@ -203,8 +199,7 @@ fn measures_a_box() {
 
 #[test]
 fn measures_a_sphere() {
-    // A sphere reaches the same distance every way, so it is as hard to spin about one axis as
-    // another: two fifths of its mass times the square of its radius.
+    // `I = 2mr²/5` about every axis.
     let model = load(r#"<body><freejoint/><geom type="sphere" size="2" mass="10"/></body>"#);
 
     assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 10.0);
@@ -213,8 +208,8 @@ fn measures_a_sphere() {
 
 #[test]
 fn reads_a_shape_that_names_no_form_as_a_sphere() {
-    // A shape that says nothing about its form or its mass is a sphere of the standard density,
-    // which is what MuJoCo assumes. Its mass is that density times the room it takes up.
+    // MuJoCo's defaults for a geom stating neither type nor mass: a sphere at density 1000, so
+    // `m = 1000 · 4πr³/3`.
     let model = load(r#"<body><freejoint/><geom size="1"/></body>"#);
 
     let expected_mass = 1000.0 * 4.0 / 3.0 * std::f64::consts::PI;
@@ -228,7 +223,7 @@ fn reads_a_shape_that_names_no_form_as_a_sphere() {
 
 #[test]
 fn measures_an_ellipsoid() {
-    // The same pattern, with a fifth of the mass rather than a third.
+    // As the box, with `a_i²/5` per semi-axis rather than `h_i²/3`.
     let model = load(r#"<body><freejoint/><geom type="ellipsoid" size="1 2 3" mass="5"/></body>"#);
 
     assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 5.0);
@@ -237,10 +232,7 @@ fn measures_an_ellipsoid() {
 
 #[test]
 fn measures_a_cylinder() {
-    // A cylinder does not spread its mass alike along its axis and across it, so unlike the shapes
-    // above it takes a different fraction on different axes: a quarter of the square of the radius
-    // either way across, a third of the square of the half-length along. About its own axis that
-    // is m·r²/2, and across it m·(3r² + 4h²)/12.
+    // `g = [r²/4, r²/4, h²/3]`, so `I_zz = m·r²/2` and `I_xx = I_yy = m·(3r² + 4h²)/12`.
     let model = load(r#"<body><freejoint/><geom type="cylinder" size="1 3" mass="12"/></body>"#);
 
     assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 12.0);
@@ -249,10 +241,9 @@ fn measures_a_cylinder() {
 
 #[test]
 fn measures_a_capsule() {
-    // A capsule is a barrel of half-length 1 with a hemisphere of radius 1 on each end, so of its
-    // 10 kg the barrel carries 6 and the caps 4. About the axis that is 6·r²/2 + 4·(2r²/5) = 4.6;
-    // across it the caps also have to be carried a half-length out from the middle, giving
-    // 6·(r²/4 + h²/3) + 4·(2r²/5 + h² + 3rh/4) = 12.1.
+    // Barrel `h = 1`, caps `r = 1`, so the 10 kg splits 6 and 4 by volume share.
+    // Axially `6·r²/2 + 4·(2r²/5) = 4.6`; across, with the caps' parallel-axis shift,
+    // `6·(r²/4 + h²/3) + 4·(2r²/5 + h² + 3rh/4) = 12.1`.
     let model = load(r#"<body><freejoint/><geom type="capsule" size="1 1" mass="10"/></body>"#);
 
     assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 10.0);
@@ -262,10 +253,8 @@ fn measures_a_capsule() {
     assert_golden(third, 4.6, "third");
 }
 
-/// Every number below is `mujoco.MjModel.from_xml_string` compiling the same geom, read out of
-/// `body_mass` and `body_inertia` (MuJoCo 3.11.0). They are the point of the exercise: the closed
-/// forms are only worth having if they agree with what the simulator these files are written for
-/// works the same shape out to be.
+/// Goldens from `mujoco.MjModel.from_xml_string` on the same geom, read out of `body_mass` and
+/// `body_inertia` (MuJoCo 3.11.0). The closed forms above are only worth having if they agree.
 #[test]
 fn measures_capsules_and_cylinders_as_mujoco_compiles_them() {
     let cases: [(&str, f64, [f64; 3]); 4] = [
@@ -278,8 +267,8 @@ fn measures_capsules_and_cylinders_as_mujoco_compiles_them() {
                 0.019_529_411_764_705_885,
             ],
         ),
-        // A shape stating no mass is the standard density times the room it takes up, so these
-        // also pin the volumes: 2πr²h for the barrel, and 4πr³/3 for the two caps together.
+        // Mass is density times volume, so these also pin `2πr²h` for the barrel and `4πr³/3`
+        // for the caps.
         (
             r#"<geom type="cylinder" size="0.5 2"/>"#,
             3_141.592_653_589_793,
@@ -298,9 +287,8 @@ fn measures_capsules_and_cylinders_as_mujoco_compiles_them() {
                 445.058_959_258_554_07,
             ],
         ),
-        // Almost all cap and hardly any barrel, which is a ball of radius 2 give or take a
-        // nanometre. That the answer arrives at the sphere's own 16 is what says the caps are
-        // being carried out to where they sit by the right amount.
+        // All cap and no barrel to a nanometre: a ball of radius 2. Landing on the sphere's own
+        // 16 is what pins the caps' parallel-axis shift.
         (
             r#"<geom type="capsule" size="2 1e-9" mass="10"/>"#,
             10.0,
@@ -323,8 +311,8 @@ fn measures_capsules_and_cylinders_as_mujoco_compiles_them() {
 
 #[test]
 fn reads_a_shape_that_states_where_its_axis_starts_and_stops() {
-    // A capsule 0.6 long about the z axis, written by its ends rather than as a half-length of 0.3
-    // with a facing to go with it. Nothing about it is turned, so it is the plain measurement.
+    // A capsule 0.6 long about z, stated by its ends rather than as `size` plus a turn. Untangled
+    // by any rotation, so the extents come out as for any other geom.
     let model = load(
         r#"<body><freejoint/><geom type="capsule" size="0.1" fromto="0 0 -0.3 0 0 0.3" mass="4"/></body>"#,
     );
@@ -344,10 +332,9 @@ fn reads_a_shape_that_states_where_its_axis_starts_and_stops() {
     }
 }
 
-/// The ends carry a facing as well as a length, and a shape lying across two axes at once is where
-/// that has to be right: it is no longer hard to spin about the body's own axes, and the corner
-/// terms are what say so. Both goldens are MuJoCo's compile of the same geom, its `body_inertia`
-/// turned back into the body's axes through `body_iquat`.
+/// A `fromto` carries a facing as well as a length. A shape lying across two axes is where that
+/// shows: the tensor is no longer diagonal in body axes, and the off-diagonal terms say so. Both
+/// goldens are MuJoCo's `body_inertia`, turned back into body axes through `body_iquat`.
 #[test]
 fn turns_a_shape_onto_the_line_between_its_ends() {
     let model = load(
@@ -356,7 +343,7 @@ fn turns_a_shape_onto_the_line_between_its_ends() {
 
     let body = model.body(0).unwrap();
     assert_golden(body.inertia().unwrap().mass(), 4.0, "mass");
-    // Halfway along the line between the two ends.
+    // The midpoint of the two ends.
     for (place, want) in body
         .inertia()
         .unwrap()
@@ -383,8 +370,8 @@ fn turns_a_shape_onto_the_line_between_its_ends() {
 
 #[test]
 fn measures_a_cylinder_stated_by_its_ends() {
-    // Its axis runs along none of the body's, and both ends sit away from the origin, so this
-    // leans on the length, the placement and the facing all at once.
+    // Axis along none of the body's, both ends off the origin: length, placement and facing at
+    // once.
     let model = load(
         r#"<body><freejoint/><geom type="cylinder" size="0.05" fromto="1 1 1 2 3 5" mass="7"/></body>"#,
     );
@@ -421,9 +408,8 @@ fn measures_a_cylinder_stated_by_its_ends() {
 
 #[test]
 fn takes_the_ends_of_an_axis_down_a_default_block() {
-    // MuJoCo lets `fromto` be inherited like any other geom setting, so a model can state a link's
-    // ends in a class and name the class on the shape. Read off the element alone it would be
-    // missed, and the shape would look like a capsule with no length at all.
+    // `fromto` inherits like any other geom setting. Read off the element alone it would be
+    // missed, leaving a capsule with no length.
     let model = load_str(
         r#"<mujoco>
              <default>
@@ -448,7 +434,7 @@ fn takes_the_ends_of_an_axis_down_a_default_block() {
 
 #[test]
 fn refuses_ends_that_say_nothing_the_loader_can_use() {
-    // Both ends in one place pin down no direction, and no length either.
+    // Coincident ends pin down neither direction nor length.
     assert_eq!(
         refuse(
             r#"<body><freejoint/><geom type="capsule" size="0.1" fromto="1 2 3 1 2 3" mass="4"/></body>"#
@@ -460,7 +446,7 @@ fn refuses_ends_that_say_nothing_the_loader_can_use() {
         }
     );
 
-    // Ends and a position are two answers to where the shape sits, and they need not agree.
+    // Two answers to where the shape sits, which need not agree.
     assert_eq!(
         refuse(
             r#"<body name="arm"><freejoint/><geom type="capsule" size="0.1" fromto="0 0 0 0 0 1" pos="9 9 9" mass="4"/></body>"#
@@ -470,8 +456,8 @@ fn refuses_ends_that_say_nothing_the_loader_can_use() {
         }
     );
 
-    // MuJoCo reads ends on boxes and ellipsoids too, by a rule this loader has not checked against
-    // the compiler, so they are refused by name rather than guessed at.
+    // MuJoCo reads `fromto` on boxes and ellipsoids too, by a rule this loader has not pinned down
+    // against the compiler, so it refuses by name rather than guessing.
     assert_eq!(
         refuse(
             r#"<body name="link"><freejoint/><geom type="box" size="0.1 0.2" fromto="0 0 0 0 0 1" mass="4"/></body>"#
@@ -485,9 +471,8 @@ fn refuses_ends_that_say_nothing_the_loader_can_use() {
 
 #[test]
 fn refuses_a_capsule_or_cylinder_that_is_not_sized_by_a_radius_and_a_half_length() {
-    // Both take exactly two numbers. One is what a geom written with `fromto` leaves behind, and
-    // three is a box's size on the wrong shape; neither can be measured, and guessing at either
-    // would put a wrong mass into the model.
+    // Both take exactly two numbers: one is what a `fromto` geom leaves behind, three is a box's
+    // size on the wrong shape. Guessing at either would put a wrong mass into the model.
     for size in ["0.1", "0.1 0.2 0.3", ""] {
         for form in ["capsule", "cylinder"] {
             assert_eq!(
@@ -507,9 +492,8 @@ fn refuses_a_capsule_or_cylinder_that_is_not_sized_by_a_radius_and_a_half_length
 
 #[test]
 fn combines_the_shapes_a_body_is_built_from() {
-    // Two unit boxes a metre either side of the origin. They balance at the origin, each keeps its
-    // own 2/3 about every axis, and moving the reference point a metre along x adds the mass times
-    // one to the two axes across from that move but nothing to x itself.
+    // Two unit boxes a metre either side of the origin: COM at the origin, 2/3 each about every
+    // axis, and a parallel-axis shift of `m·1²` on the two axes across from x.
     let model = load(
         r#"<body><freejoint/><geom type="box" size="1 1 1" pos="-1 0 0" mass="1"/><geom type="box" size="1 1 1" pos="1 0 0" mass="1"/></body>"#,
     );
@@ -534,8 +518,8 @@ fn combines_the_shapes_a_body_is_built_from() {
 
 #[test]
 fn inherits_settings_through_nested_default_blocks() {
-    // The shape names only the inner class and its own mass, so its form and size have to come
-    // down the block chain, and the mass it states has to beat the zero the outer block sets.
+    // The geom names only the inner class and its own mass, so type and size come down the chain
+    // while the stated mass beats the outer block's zero.
     let model = load_str(
         r#"<mujoco>
              <default>
@@ -562,8 +546,8 @@ fn inherits_settings_through_nested_default_blocks() {
 
 #[test]
 fn records_the_parts_of_a_file_it_does_not_read() {
-    // Neither section changes a mass, so both are passed over — but the model that comes back says
-    // so rather than leaving the caller to guess how much of the file was used.
+    // Neither section affects mass, so both are passed over and listed rather than dropped
+    // silently.
     let model = load_str(
         r#"<mujoco>
              <worldbody>
@@ -671,8 +655,7 @@ fn reads_joint_data_a_class_supplies() {
 
 #[test]
 fn a_child_class_reaches_every_body_below_it() {
-    // `childclass` is stated once, on the outermost body, and the joint that reads it sits two
-    // levels further down.
+    // `childclass` is stated on the outermost body; the joint reading it sits two levels down.
     let model = load_str(
         r#"<mujoco>
              <compiler angle="radian"/>
@@ -797,7 +780,7 @@ fn refuses_a_free_joint_below_the_top() {
     );
 }
 
-/// The turn the first body of a model makes, as the four numbers MJCF would have written for it.
+/// The first body's turn, as the quaternion MJCF would have written.
 #[must_use]
 fn turn(loaded: &RobotModel) -> [f64; 4] {
     loaded
@@ -809,9 +792,8 @@ fn turn(loaded: &RobotModel) -> [f64; 4] {
         .as_array()
 }
 
-/// That two quaternions name one turn. A quaternion and its negative describe the same turn, so the
-/// two are brought to the same sign before their numbers are compared. Every number here is at most
-/// one, so the same tolerance serves whether the expectation was worked out or came from MuJoCo.
+/// That two quaternions name one turn. `q` and `-q` are the same turn, so signs are matched first.
+/// Every component is at most one, so one absolute tolerance serves.
 fn assert_same_turn(actual: [f64; 4], expected: [f64; 4], label: &str) {
     let facing_the_same_way: f64 = actual
         .iter()
@@ -828,10 +810,9 @@ fn assert_same_turn(actual: [f64; 4], expected: [f64; 4], label: &str) {
     }
 }
 
-/// A quarter turn about y, written every way MJCF allows. It carries the element's z axis onto the
-/// parent's x, which is the one turn `zaxis` can state as well as the other four: a `zaxis` says
-/// nothing about the turn left over about the axis it names, so only a turn that spends none of it
-/// can be written all five ways.
+/// A quarter turn about y, written all five ways. It carries the element's z onto the parent's x,
+/// which is the one turn `zaxis` can also state: `zaxis` leaves the turn about its own axis free,
+/// so only a turn spending none of it has all five spellings.
 const A_QUARTER_TURN_ABOUT_Y: [&str; 5] = [
     r#"quat="0.7071067811865476 0 0.7071067811865476 0""#,
     r#"euler="0 90 0""#,
@@ -854,16 +835,14 @@ fn reads_one_turn_written_five_ways_the_same() {
 
 #[test]
 fn turns_a_geom_the_same_way_however_it_is_written() {
-    // A long thin capsule laid along the element's own z. Turning it onto x has to move the tensor
-    // with it, so the three numbers down the diagonal come out in a different order than they went
-    // in — which is what a turn dropped on the floor would fail to do.
+    // A long thin capsule along the element's own z. Turning it onto x carries the tensor with it,
+    // so the principal moments come back permuted, which a dropped turn would not do.
     let mut previous: Option<[f64; 3]> = None;
     for form in A_QUARTER_TURN_ABOUT_Y {
         let loaded = load(&format!(
             r#"<body><geom type="capsule" size="0.05 0.5" {form}/></body>"#
         ));
-        // Laid along z the barrel is easiest to spin about z, so the small number sits third.
-        // Turned onto x it has to sit first, and a turn dropped on the floor would leave it third.
+        // Along z the small moment sits third; turned onto x it must sit first.
         let measured = diagonal(&loaded);
         assert!(
             measured[0] * 10.0 < measured[2],
@@ -895,8 +874,8 @@ fn reads_angles_in_the_units_the_compiler_names() {
         "the same euler in degrees and in radians",
     );
 
-    // The same for `axisangle`, and `zaxis` alongside it to show which attributes the setting does
-    // not reach: it states a direction, not an angle, so it reads the same under either.
+    // `axisangle` again, with `zaxis` alongside to show the setting's reach: `zaxis` states a
+    // direction, not an angle, so it reads the same either way.
     let degrees = r#"<mujoco><worldbody>
           <body axisangle="0 1 0 90" pos="0 0 0"><inertial mass="1" diaginertia="1 1 1"/></body>
         </worldbody></mujoco>"#;
@@ -919,11 +898,10 @@ fn reads_angles_in_the_units_the_compiler_names() {
 
 #[test]
 fn turns_a_euler_about_the_axes_the_compiler_names_in_the_order_it_names_them() {
-    // Against the four numbers MuJoCo itself produced for these files. The case of the letters is
-    // the whole of the difference between the first two: a lower-case axis is carried along by the
-    // turns already made, an upper-case one stands still in the frame the body is placed in, so the
-    // same three angles about the same three letters come out as two different turns. A sequence
-    // may also name one axis twice, which no fixed roll-pitch-yaw reading would allow.
+    // MuJoCo goldens. Letter case is the whole difference between the first two: lower case rides
+    // the turns already made, upper case stands still in the parent frame, so the same angles about
+    // the same axes give two different turns. A sequence may also name one axis twice, which no
+    // fixed roll-pitch-yaw reading allows.
     for (sequence, expected) in [
         (
             "xyz",
@@ -968,11 +946,9 @@ fn turns_a_euler_about_the_axes_the_compiler_names_in_the_order_it_names_them() 
 
 #[test]
 fn spends_no_turn_beyond_the_one_a_zaxis_asks_for() {
-    // Against MuJoCo's own numbers again. A `zaxis` says where one axis points and leaves the turn
-    // about it free, and the second case is where that freedom bites: a z axis turned right over
-    // leaves every axis square to it as good as any other, and MuJoCo settles on x. Landing on a
-    // different one would put the z axis in the right place and everything hanging off the body
-    // half a turn away from it.
+    // MuJoCo goldens. `zaxis` leaves the turn about its own axis free, and the second case is
+    // where that bites: a flipped z leaves every square axis as good as any other and MuJoCo takes
+    // x. Another choice places z correctly and everything below the body a half turn off.
     for (stated, expected) in [
         (
             "1 2 3",
@@ -995,8 +971,8 @@ fn spends_no_turn_beyond_the_one_a_zaxis_asks_for() {
 
 #[test]
 fn squares_the_second_axis_of_an_xyaxes_against_the_first() {
-    // The two axes MuJoCo was given here are neither unit nor square to one another, so all it kept
-    // of the second is the part standing off the first. Against MuJoCo's own numbers.
+    // Neither axis is unit, nor are they square to each other, so only the part of the second
+    // square to the first survives. MuJoCo goldens.
     let loaded =
         load(r#"<body xyaxes="1 1 0 -1 1 1"><inertial mass="1" diaginertia="1 1 1"/></body>"#);
     assert_same_turn(
@@ -1013,10 +989,9 @@ fn squares_the_second_axis_of_an_xyaxes_against_the_first() {
 
 #[test]
 fn lets_a_default_block_state_a_turn_any_of_the_five_ways() {
-    // MuJoCo holds the plain quaternion apart from the other four, so a block and the shape it
-    // reaches can fill one slot each — and there the one that is not the plain quaternion wins,
-    // even though the shape stated its own. The numbers are MuJoCo's, for a box turned a quarter
-    // about z, read back in the body's axes: the first two of the three swap over.
+    // `quat` sits in its own slot, so a block and the geom it reaches can fill one each, and the
+    // form that is not `quat` wins even though the geom stated its own. MuJoCo goldens for a box
+    // turned a quarter about z, read back in body axes: the first two moments swap.
     let turned = [
         0.369_999_999_999_999_94,
         0.050_000_000_000_000_01,
@@ -1047,8 +1022,7 @@ fn lets_a_default_block_state_a_turn_any_of_the_five_ways() {
             &format!("from the shape, axis {place}"),
         );
     }
-    // And the same box left alone, so the swap above is the turn doing something rather than the
-    // three numbers having been alike all along.
+    // The same box untouched, so the swap above is the turn and not three equal moments.
     let untouched = [turned[1], turned[0], turned[2]];
     for (place, measured) in diagonal(&not_turned).into_iter().enumerate() {
         assert_golden(
@@ -1097,7 +1071,7 @@ fn refuses_a_direction_that_points_nowhere() {
         r#"axisangle="0 0 0 90""#,
         r#"zaxis="0 0 0""#,
         r#"xyaxes="0 0 0 0 1 0""#,
-        // A second axis lying along the first leaves nothing of it standing square to it.
+        // A second axis along the first leaves nothing square to it.
         r#"xyaxes="1 0 0 2 0 0""#,
     ] {
         let loaded = refuse(&format!(

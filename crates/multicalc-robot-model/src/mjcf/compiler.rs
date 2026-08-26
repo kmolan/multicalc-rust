@@ -19,6 +19,8 @@ pub(crate) struct CompilerSettings {
     pub inertia_from_geom: InertiaFromGeom,
     /// The three turns a `euler` attribute makes, in the order it makes them.
     pub euler_sequence: [EulerStep; 3],
+    /// Directory mesh files are named relative to: `meshdir`, or `assetdir` where it is unset.
+    pub mesh_directory: String,
 }
 
 /// One turn in a `euler` sequence.
@@ -26,9 +28,8 @@ pub(crate) struct CompilerSettings {
 pub(crate) struct EulerStep {
     /// Which coordinate axis the turn is about: 0 for x, 1 for y, 2 for z.
     axis: usize,
-    /// Whether the axis rides along with the turns already made, rather than standing still in the
-    /// frame the element is placed in. The letter's case is what says so: `x` rides along, `X`
-    /// stands still.
+    /// Whether the axis rides the turns already made rather than standing still in the parent
+    /// frame. The letter's case says which: `x` rides along, `X` stands still.
     carried_along: bool,
 }
 
@@ -67,6 +68,7 @@ impl CompilerSettings {
                 auto_limits: true,
                 inertia_from_geom: InertiaFromGeom::Auto,
                 euler_sequence: assumed_euler_sequence(),
+                mesh_directory: String::new(),
             });
         };
 
@@ -94,11 +96,18 @@ impl CompilerSettings {
                 .unwrap_or(ASSUMED_EULER_SEQUENCE),
         )?;
 
+        let mesh_directory = compiler
+            .attribute("meshdir")
+            .or(compiler.attribute("assetdir"))
+            .unwrap_or("")
+            .to_owned();
+
         Ok(CompilerSettings {
             angle_in_degrees,
             auto_limits,
             inertia_from_geom,
             euler_sequence,
+            mesh_directory,
         })
     }
 
@@ -123,7 +132,7 @@ fn assumed_euler_sequence() -> [EulerStep; 3] {
 
 /// The three turns an `eulerseq` names, one per letter: which axis each is about, and whether the
 /// turns before it carried that axis along. Anything but three letters from `xyzXYZ` names no
-/// sequence — repeats are allowed, and a mixture of cases is too.
+/// sequence. Repeats and mixed cases are both allowed.
 fn euler_sequence(node: Node, text: &str) -> Result<[EulerStep; 3], ModelError> {
     let letters: Vec<char> = text.chars().collect();
     let [first, second, third] =

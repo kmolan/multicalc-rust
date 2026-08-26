@@ -121,7 +121,7 @@ impl RobotModel {
     /// checked in and compiled into a program that never reads the file.
     ///
     /// Errors: as [`kinematic_tree_to`](RobotModel::kinematic_tree_to), since the model is built
-    /// once here to check it is sound before anything is written — including
+    /// once here to check it is sound before anything is written, including
     /// [`MimicJointInTree`](ModelError::MimicJointInTree) where a joint being written out follows
     /// another.
     pub fn to_rust_source(&self, options: &RustSourceOptions) -> Result<String, ModelError> {

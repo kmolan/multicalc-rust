@@ -1,16 +1,9 @@
-//! The five ways a file can say which way an element faces, and the one turn they all come to.
+//! The five orientation forms MJCF allows, resolved to one quaternion.
 //!
-//! A turn is three numbers' worth of freedom however it is written, so `quat`, `euler`,
-//! `axisangle`, `xyaxes` and `zaxis` are five spellings of one thing rather than five things. Each
-//! is the natural one for a different source — a quaternion for whatever another program wrote,
-//! angles for whoever typed the file, an axis and a turn about it for a part mounted on a bolt, two
-//! axes for a face taken off a CAD model, one axis for a shape with only one direction worth naming
-//! — and each is read here into the quaternion the rest of the loader works in.
-//!
-//! MuJoCo holds the plain quaternion in one slot and the other four in a second, and refuses an
-//! element that fills both at once. Only a default block can leave both filled, the block supplying
-//! one and the element the other, and there the one that is not the plain quaternion wins. That is
-//! why the two are carried separately rather than as one choice of five.
+//! `quat`, `euler`, `axisangle`, `xyaxes` and `zaxis` state the same three degrees of freedom.
+//! MuJoCo holds `quat` in one slot and the other four in a second, and refuses an element filling
+//! both. Only a default block can leave both filled, the block supplying one and the element the
+//! other, and there the form that is not `quat` wins, so the two are carried separately.
 
 use std::f64::consts::PI;
 
@@ -22,29 +15,25 @@ use crate::ModelError;
 use crate::mjcf::compiler::CompilerSettings;
 use crate::xml::{bad_attribute, parse_vector3, parse_vector4, parse_vector6};
 
-/// How far off the line a `zaxis` has to point before the two directions still name an axis to turn
-/// about. Below this MuJoCo stops asking them and answers with a settled frame, and a model read
-/// here has to land where MuJoCo puts it.
+/// `sin θ` below which `z × target` no longer names an axis. MuJoCo settles the frame there, and a
+/// model read here has to land where MuJoCo puts it.
 const ZAXIS_DEGENERATE: f64 = 1e-7;
 
-/// A turn written any way other than as a plain quaternion. The numbers are held as the file wrote
-/// them: what they mean waits on the `<compiler>`, which says what units the angles are in and
-/// which axes a `euler` turns about.
+/// A turn stated as anything but a plain quaternion. Numbers are held as written: what they mean
+/// waits on `<compiler>`, which gives the angle units and the euler sequence.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum Alternative {
-    /// `axisangle`: a turn of the fourth number about the direction the first three point.
+    /// `axisangle`: `[x, y, z, angle]`.
     AxisAngle([f64; 4]),
-    /// `euler`: three turns about coordinate axes, in the order `<compiler eulerseq>` gives.
+    /// `euler`: three turns about coordinate axes, in `<compiler eulerseq>` order.
     Euler([f64; 3]),
-    /// `xyaxes`: where the element's own x and y axes point, in its parent's axes.
+    /// `xyaxes`: the element's own x and y axes, in parent axes.
     XyAxes([f64; 6]),
-    /// `zaxis`: where the element's own z axis points. One axis leaves the turn about it free, and
-    /// MuJoCo settles that by spending none of it.
+    /// `zaxis`: the element's own z axis. The turn about it is free, and MuJoCo spends none of it.
     ZAxis([f64; 3]),
 }
 
-/// Which way an element faces, as written. Empty means the element said nothing, and so faces the
-/// same way the one it hangs off does.
+/// Which way an element faces, as written. Empty means it faces as its parent does.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub(crate) struct Orientation {
     quat: Option<[f64; 4]>,
@@ -54,8 +43,8 @@ pub(crate) struct Orientation {
 impl Orientation {
     /// Reads whichever of the five forms an element carries.
     ///
-    /// Two of them on one element are two answers to a single question, and MuJoCo refuses the pair
-    /// rather than choosing between them.
+    /// Two forms on one element are two answers to one question:
+    /// [`MultipleOrientations`](ModelError::MultipleOrientations), as MuJoCo does.
     pub(crate) fn read(node: Node) -> Result<Self, ModelError> {
         let quat = parse_vector4(node, "quat")?;
         let alternatives = [
@@ -79,9 +68,8 @@ impl Orientation {
         })
     }
 
-    /// A copy of this with everything `other` states written over the top. The two slots fill
-    /// separately, so a block's `euler` outlives an element's own `quat` — and then beats it, which
-    /// is the only way the two ever come to sit together.
+    /// This with everything `other` states over the top. The two slots fill separately, so a block's
+    /// `euler` survives an element's own `quat` and then beats it.
     #[must_use]
     pub(crate) fn overridden_by(self, other: Self) -> Self {
         Orientation {
@@ -90,14 +78,14 @@ impl Orientation {
         }
     }
 
-    /// Whether the element said anything at all about which way it faces.
+    /// Whether the element stated any form.
     #[must_use]
     pub(crate) fn is_stated(self) -> bool {
         self.quat.is_some() || self.alternative.is_some()
     }
 
-    /// The turn this describes. `node` is only where an error points when the numbers describe no
-    /// turn, which for one a default block supplied is the element that inherited it.
+    /// The turn this states. `node` only locates an error, which for a form a default block supplied
+    /// is the element that inherited it.
     pub(crate) fn resolve(
         self,
         node: Node,
@@ -105,8 +93,7 @@ impl Orientation {
     ) -> Result<Quaternion<f64>, ModelError> {
         match self.alternative {
             Some(alternative) => alternative.resolve(node, compiler),
-            // MJCF writes the scalar part first, which is also how the crate stores it, so the four
-            // numbers carry straight over.
+            // MJCF writes the scalar part first, as the crate stores it.
             None => match self.quat {
                 Some([w, x, y, z]) => Quaternion::new(w, x, y, z)
                     .try_normalized()
@@ -118,7 +105,7 @@ impl Orientation {
 }
 
 impl Alternative {
-    /// The turn this form describes, once the compiler settings have said what its numbers mean.
+    /// The turn this form states, with `<compiler>` supplying angle units and euler order.
     fn resolve(
         self,
         node: Node,
@@ -133,10 +120,9 @@ impl Alternative {
                 ))
             }
 
-            // Each angle turns about one coordinate axis, and the letter naming that axis also said
-            // which frame it belongs to. A lower-case one is an axis the turns before it have
-            // already carried along, so it joins on the right; an upper-case one stands still in
-            // the parent's frame, so it joins on the left.
+            // The letter's case names the frame its axis stands in. Lower case rides the turns
+            // already made, so it composes on the right; upper case stands still in the parent
+            // frame, so it composes on the left.
             Alternative::Euler(angles) => {
                 let mut turn = Quaternion::identity();
                 for (angle, step) in angles.into_iter().zip(compiler.euler_sequence) {
@@ -151,10 +137,8 @@ impl Alternative {
                 Ok(turn)
             }
 
-            // Two axes are three numbers more than a turn needs, so the second is taken only for
-            // the part of it standing square to the first, and the third axis follows from the two.
-            // Naming the same line twice leaves nothing of the second to take, which is the one way
-            // this fails beyond a direction that points nowhere.
+            // Gram-Schmidt: y keeps only the part of the second vector square to x, and z = x × y.
+            // Two axes on one line leave nothing of y, the one failure beyond a zero direction.
             Alternative::XyAxes(stated) => {
                 let x = direction(node, "xyaxes", [stated[0], stated[1], stated[2]])?;
                 let toward_y = Vector::new([stated[3], stated[4], stated[5]]);
@@ -163,32 +147,27 @@ impl Alternative {
                     .ok_or_else(|| unreadable(node, "xyaxes"))?;
                 let z = x.cross(y);
 
-                // The three axes are where the element's own axes point, so they are the columns of
-                // the turn that carries a direction from the element's frame into its parent's.
+                // The stated axes are the element's own, so they are the columns of the
+                // element-to-parent rotation.
                 let axes =
                     Matrix::from([[x[0], y[0], z[0]], [x[1], y[1], z[1]], [x[2], y[2], z[2]]]);
                 Quaternion::try_from_rotation_matrix(axes).ok_or_else(|| unreadable(node, "xyaxes"))
             }
 
-            // One axis is three numbers short, and what is missing is the turn about that axis.
-            // MuJoCo spends none of it: the turn is about the line square to both directions,
-            // through the angle between them, and nothing else moves.
+            // One axis leaves the turn about it free. MuJoCo spends none of it: turn about
+            // `z × target`, through the angle between them.
             Alternative::ZAxis(stated) => {
                 let target = direction(node, "zaxis", stated)?;
                 let along = Vector::new([0.0, 0.0, 1.0]);
                 let square_to_both = along.cross(target);
                 let sine = square_to_both.norm();
 
-                // Near enough to the line and the cross product has stopped naming a direction.
-                // Pointing the same way there is no turn to make; pointing the other way every axis
-                // square to the line serves equally well and MuJoCo always takes x. Which one it
-                // takes is not idle: the z axis lands the same either way, but everything hanging
-                // off the element rides the leftover turn about it.
-                //
-                // This is why `Quaternion::from_two_vectors` is not reached for here. It answers
-                // the same question everywhere but at the far end of the line, where it takes the
-                // principal axis the direction leans on least — y, for a z axis turned right over —
-                // and a model written that way would load a half turn away from where MuJoCo has it.
+                // `z × target` names no direction here. Aligned, there is no turn; anti-aligned,
+                // every square axis serves and MuJoCo always takes x. The choice is not idle: z
+                // lands the same either way, but everything below the element rides the leftover
+                // turn about it. `Quaternion::from_two_vectors` takes the principal axis the
+                // direction leans on least, y for a flipped z, so a model written that way would
+                // load a half turn from where MuJoCo has it.
                 if sine < ZAXIS_DEGENERATE {
                     return Ok(if target[2] > 0.0 {
                         Quaternion::identity()
@@ -197,10 +176,8 @@ impl Alternative {
                     });
                 }
 
-                // The angle comes from both the sine and the cosine rather than the cosine alone:
-                // an `acos` of a cosine near one is the arc read off a curve that has gone flat, and
-                // loses half its digits there, which for a `zaxis` a whisker off straight up is the
-                // common case rather than the corner one.
+                // `atan2(sine, cosine)`, not `acos(cosine)`: a `zaxis` a whisker off straight up is
+                // the common case, and `acos` loses half its digits there.
                 Ok(Quaternion::from_axis_angle(
                     square_to_both.scale(1.0 / sine),
                     sine.atan2(target[2]),
@@ -210,8 +187,7 @@ impl Alternative {
     }
 }
 
-/// A direction the file gave, as a unit vector. Three numbers that come to nothing point nowhere,
-/// and no turn can be read out of them.
+/// A stated direction as a unit vector. Three numbers summing to nothing point nowhere.
 fn direction(
     node: Node,
     attribute: &'static str,
@@ -222,7 +198,7 @@ fn direction(
         .ok_or_else(|| unreadable(node, attribute))
 }
 
-/// The error for an orientation attribute whose numbers describe no turn.
+/// Error for an orientation attribute whose numbers describe no turn.
 #[must_use]
 fn unreadable(node: Node, attribute: &'static str) -> ModelError {
     bad_attribute(
