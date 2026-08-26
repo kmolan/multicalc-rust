@@ -1,7 +1,6 @@
 # multicalc-robot-model
 
-Reads MuJoCo MJCF and URDF model files into [`multicalc`](https://crates.io/crates/multicalc)'s
-robot types, plus a bundled `model_viewer` binary to easily view model files.
+Reads MuJoCo MJCF and URDF model files into [`multicalc`](https://crates.io/crates/multicalc)'s robot types, plus a bundled `model_viewer` binary to easily view model files.
 
 ![model_viewer drawing a Skydio X2, a TurtleBot3 Burger, a Franka Emika Panda, a Unitree Go2, a
 Shadow Hand and a Unitree H1](res/demo.jpg)
@@ -64,7 +63,7 @@ assert_eq!(model.kinematic_tree_to::<10, 10>("panda_hand")?.len(), 10);
 ## Viewing a model
 
 ```sh
-cargo run --bin model_viewer -- go1.xml
+cargo run --features viewer --bin model_viewer -- go1.xml
 ```
 
 Draws every body at the pose the file states, each joint at its own reference value. Needs a

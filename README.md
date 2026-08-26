@@ -183,7 +183,8 @@ live Rerun showcases), and [`tools/embedded-smoke`](tools/embedded-smoke) runs `
 four bare-metal targets (three Cortex-M targets + `riscv32imc`) under QEMU every PR.
 [`crates/multicalc-robot-model`](crates/multicalc-robot-model) reads MuJoCo MJCF and URDF model
 files into multicalc's robot types, and ships a `model_viewer` binary that draws any of them in a
-Rerun viewer. See [README](crates/multicalc-robot-model/README.md) for more details.
+Rerun viewer. See
+[README](crates/multicalc-robot-model/README.md) for more details.
 
 ## Contributing
 

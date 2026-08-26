@@ -8,6 +8,9 @@
 //!
 //! Unsupported constructs are rejected by name rather than dropped, so a model never loads with
 //! wrong mass properties. Unconsumed top-level elements are listed in [`RobotModel::ignored`].
+//!
+//! The `viewer` feature adds the Rerun front end — the `viewer` module and the `model_viewer`
+//! binary. Off by default; loading models pulls no Rerun.
 
 mod codegen;
 mod error;
@@ -16,6 +19,7 @@ mod xml;
 
 pub mod mjcf;
 pub mod urdf;
+#[cfg(feature = "viewer")]
 pub mod viewer;
 
 use std::path::{Path, PathBuf};

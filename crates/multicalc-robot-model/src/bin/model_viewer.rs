@@ -1,7 +1,7 @@
 //! Draws an MJCF or URDF model in a Rerun viewer.
 //!
 //! Bodies are drawn at the pose the file states, which is each joint's own reference value.
-//! Run: cargo run -p multicalc-robot-model --bin model_viewer -- <model-file>
+//! Run: cargo run -p multicalc-robot-model --features viewer --bin model_viewer -- <model-file>
 
 use std::collections::HashSet;
 use std::path::PathBuf;

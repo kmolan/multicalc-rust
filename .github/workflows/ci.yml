@@ -44,10 +44,9 @@ jobs:
         run: cargo test -p multicalc
       - name: Test (alloc feature)
         run: cargo test -p multicalc --features alloc
+      # Default features, so the Rerun-backed `viewer` stays out of the tree.
       - name: Test (model ingestion)
         run: cargo test -p multicalc-robot-model
-      - name: Build the model viewer
-        run: cargo build -p multicalc-robot-model --bin model_viewer
       # All features on: the README and tutorial examples are compiled here too, and some of
       # them use the alloc-only types.
       - name: Doctests
@@ -88,6 +87,8 @@ jobs:
         run: cargo clippy -p multicalc --all-targets --features alloc -- -D warnings
       - name: Clippy (model ingestion)
         run: cargo clippy -p multicalc-robot-model --all-targets -- -D warnings
+      - name: No Rerun without the viewer feature
+        run: "! cargo tree -p multicalc-robot-model -i rerun"
       - name: No nightly features
         run: |
           if grep -rnE '#!\[feature\(|generic_const_exprs' crates/*/src; then

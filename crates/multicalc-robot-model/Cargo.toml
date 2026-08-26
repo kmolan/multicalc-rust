@@ -8,17 +8,27 @@ description = "Loads MuJoCo MJCF and URDF robot models into multicalc types"
 repository.workspace = true
 license.workspace = true
 publish = false
-# The viewer binary is declared explicitly below, so it is the only one.
 autobins = false
+
+[features]
+default = []
+# Off by default, so loading models doesn't pull Rerun's ~350-crate tree.
+viewer = ["dep:rerun"]
 
 [dependencies]
 multicalc = { path = "../multicalc" }
 roxmltree = "0.21"
-rerun = { version = "=0.33.1", default-features = false, features = ["sdk"] }
+rerun = { version = "=0.33.1", default-features = false, features = ["sdk"], optional = true }
 
 [[bin]]
 name = "model_viewer"
 path = "src/bin/model_viewer.rs"
+required-features = ["viewer"]
+
+[[test]]
+name = "viewer"
+path = "tests/viewer.rs"
+required-features = ["viewer"]
 
 [lints]
 workspace = true
