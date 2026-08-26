@@ -1,5 +1,4 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-#![cfg(all(feature = "mjcf", feature = "urdf"))]
 
 //! MoveIt Panda URDF against Menagerie Panda MJCF: the same arm from two independent
 //! descriptions, not conversions of each other. Measured agreement:

@@ -2,7 +2,7 @@
 name = "embedded-smoke"
 version = "0.0.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.92"
 publish = false
 
 # thumbv7em / riscv32 runs the full set (default). thumbv6m runs the reduced

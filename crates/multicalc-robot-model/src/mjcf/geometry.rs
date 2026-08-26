@@ -1,21 +1,23 @@
-//! Geom mass and rotational inertia.
+//! Geom mass, rotational inertia, and drawable shape.
 //!
 //! Settings resolve through the default-class chain first; integration happens afterwards.
 
 use std::f64::consts::PI;
 
 use multicalc::linear_algebra::{Matrix, Matrix3D, Vector, Vector3D};
-use multicalc::spatial::Quaternion;
+use multicalc::spatial::{Quaternion, SE3, SO3};
 use roxmltree::Node;
 
-use crate::ModelError;
+use crate::mjcf::asset::AssetTable;
 use crate::mjcf::compiler::CompilerSettings;
 use crate::mjcf::defaults::{DefaultTable, GeomDefaults};
 use crate::xml::bad_attribute;
+use crate::{GeometryShape, ModelError, VisualGeometry};
 
 /// MuJoCo's defaults for an unspecified geom. Size has no default.
 const ASSUMED_TYPE: &str = "sphere";
 const ASSUMED_DENSITY: f64 = 1000.0;
+const ASSUMED_RGBA: [f64; 4] = [0.5, 0.5, 0.5, 1.0];
 
 /// Geom types this reader can integrate.
 enum Shape {
@@ -26,21 +28,18 @@ enum Shape {
     Capsule,
 }
 
-/// A `fromto` pair resolved to half-length, centre and orientation. These stand in for the size's
-/// half-length and for `pos`/`quat`, so integration then proceeds as for any other geom.
+/// A `fromto` resolved to half-length, centre and turn, standing in for `size`, `pos` and `quat`.
 struct Axis {
     half_length: f64,
     center: [f64; 3],
     turn: Quaternion<f64>,
 }
 
-/// One geom's contribution to its body.
+/// One geom's contribution to its body, in body axes.
 pub(crate) struct GeomMass {
-    /// The geom's mass.
     pub mass: f64,
-    /// The geom's centre, in body axes.
+    /// About the geom's own centre.
     pub center: Vector3D,
-    /// The geom's rotational inertia about its own centre, in body axes.
     pub inertia: Matrix3D,
 }
 
@@ -54,8 +53,7 @@ pub(crate) fn read_geom(
 ) -> Result<Option<GeomMass>, ModelError> {
     let settings = effective(node, table, class_chain)?;
 
-    // A geom stated massless is dropped before its type is checked, so a model may use a geom
-    // type this reader cannot integrate as long as it carries no mass.
+    // Dropped before the type is checked, so an unintegrable type is allowed while massless.
     if settings.mass == Some(0.0) {
         return Ok(None);
     }
@@ -79,17 +77,14 @@ pub(crate) fn read_geom(
         }
     };
 
-    // `fromto` gives the axis endpoints instead of a length and orientation, which is how models
-    // laid out around joint positions are usually written.
+    // `fromto` gives the axis endpoints in place of a length and orientation.
     let axis = axis(node, &settings, &shape, body)?;
     let [first, second, third] = extents(node, &settings, &shape, axis.as_ref())?;
 
-    // Every type here follows the same pattern: the diagonal inertia is the mass times the sum of
-    // the two transverse second moments. So a type contributes only its volume and its three
-    // squared radii of gyration, and each is reduced to those four numbers once.
+    // `I_kk = m · (g_i + g_j)` for the two axes across from `k`, so each type reduces to its
+    // volume and its three squared radii of gyration `g`.
     let (volume, spread) = match shape {
-        // A ball stretched by a different amount along each axis, so every axis spreads its reach
-        // the same way: a fifth of the square of it.
+        // `g_i = a_i² / 5` per semi-axis.
         Shape::Sphere | Shape::Ellipsoid => (
             4.0 / 3.0 * PI * first * second * third,
             [
@@ -98,8 +93,7 @@ pub(crate) fn read_geom(
                 third * third / 5.0,
             ],
         ),
-        // A cube stretched the same way, which spreads its mass further out than a ball does: a
-        // third of the square of each half-width rather than a fifth.
+        // `g_i = h_i² / 3` per half-width.
         Shape::Box => (
             8.0 * first * second * third,
             [
@@ -108,9 +102,7 @@ pub(crate) fn read_geom(
                 third * third / 3.0,
             ],
         ),
-        // A disc across and a bar along, which do not spread alike — this is where one fraction
-        // for the whole shape stops being enough. Either way across is a quarter of the square of
-        // the radius; along the axis it is a third of the square of the half-length.
+        // `g = [r²/4, r²/4, l²/3]`: a disc across, a bar along.
         Shape::Cylinder => (
             2.0 * PI * first * first * third,
             [
@@ -136,9 +128,8 @@ pub(crate) fn read_geom(
         mass * (spread[0] + spread[1]),
     ];
 
-    // Those three numbers are along the shape's own axes, so turn them into the body's. Stated
-    // ends carry their own facing, and MuJoCo lets that beat any of the five forms written
-    // alongside them rather than refusing the pair, so the same is done here.
+    // The principal moments stand in the shape's own axes: `R I Rᵀ` puts them in the body's.
+    // A `fromto` carries its own facing, and MuJoCo lets that beat any form written alongside it.
     let turn = match &axis {
         Some(axis) => axis.turn,
         None => settings.orientation.resolve(node, compiler)?,
@@ -158,8 +149,94 @@ pub(crate) fn read_geom(
     }))
 }
 
-/// A shape's settings, with the shape's own winning over the class it names, that over the class
-/// its body names, and that over the unnamed block.
+/// One geom as a drawable shape, or `None` for a type or mesh reference this cannot draw.
+///
+/// Unlike [`read_geom`] it rejects nothing by type: an undrawable shape carries no mass.
+pub(crate) fn read_visual_geom(
+    node: Node,
+    table: &DefaultTable,
+    class_chain: Option<&str>,
+    assets: &AssetTable,
+    compiler: &CompilerSettings,
+    body: &str,
+) -> Result<Option<VisualGeometry>, ModelError> {
+    let settings = effective(node, table, class_chain)?;
+    let group = settings.group.unwrap_or(0.0).max(0.0) as u32;
+
+    // Off the resolved chain, never off `node`: `unitree_go1` states its material only in
+    // `<default class="visual">`, and its trunk geom names none.
+    let color = match settings.rgba {
+        Some(stated) => stated,
+        None => settings
+            .material
+            .as_deref()
+            .and_then(|name| assets.material(name))
+            .unwrap_or(ASSUMED_RGBA),
+    };
+
+    let shape = match settings.geom_type.as_deref().unwrap_or(ASSUMED_TYPE) {
+        "sphere" => Shape::Sphere,
+        "ellipsoid" => Shape::Ellipsoid,
+        "box" => Shape::Box,
+        "cylinder" => Shape::Cylinder,
+        "capsule" => Shape::Capsule,
+        "mesh" => {
+            let Some(asset) = settings.mesh.as_deref().and_then(|name| assets.mesh(name)) else {
+                return Ok(None);
+            };
+            let shape = GeometryShape::Mesh {
+                file: asset.file.clone(),
+                scale: Vector::new(asset.scale),
+            };
+            let turn = settings.orientation.resolve(node, compiler)?;
+            let pose = SE3::from_parts(
+                SO3::from_quaternion(turn),
+                Vector::new(settings.pos.unwrap_or([0.0; 3])),
+            );
+            return Ok(Some(VisualGeometry::new(shape, pose, color, group)));
+        }
+        _ => return Ok(None),
+    };
+
+    // Guarded, so `axis` never rejects a `fromto` it cannot measure: an integration limit is not a
+    // reason to leave the geom undrawn.
+    let axis = match shape {
+        Shape::Cylinder | Shape::Capsule => axis(node, &settings, &shape, body)?,
+        _ => None,
+    };
+    let [first, second, third] = extents(node, &settings, &shape, axis.as_ref())?;
+
+    let (center, turn) = match &axis {
+        Some(axis) => (axis.center, axis.turn),
+        None => (
+            settings.pos.unwrap_or([0.0; 3]),
+            settings.orientation.resolve(node, compiler)?,
+        ),
+    };
+    let pose = SE3::from_parts(SO3::from_quaternion(turn), Vector::new(center));
+
+    let shape = match shape {
+        Shape::Sphere => GeometryShape::Sphere { radius: first },
+        Shape::Ellipsoid => GeometryShape::Ellipsoid {
+            semi_axes: Vector::new([first, second, third]),
+        },
+        Shape::Box => GeometryShape::Box {
+            half_extents: Vector::new([first, second, third]),
+        },
+        Shape::Cylinder => GeometryShape::Cylinder {
+            radius: first,
+            half_length: third,
+        },
+        Shape::Capsule => GeometryShape::Capsule {
+            radius: first,
+            half_length: third,
+        },
+    };
+    Ok(Some(VisualGeometry::new(shape, pose, color, group)))
+}
+
+/// A geom's settings: its own beat the class it names, that beats its body's `childclass`, that
+/// beats the unnamed block.
 fn effective(
     node: Node,
     table: &DefaultTable,
@@ -175,31 +252,24 @@ fn effective(
     Ok(settings.overridden_by(&GeomDefaults::read(node)?))
 }
 
-/// A capsule is a cylinder with a hemisphere capping each end, so it is measured as the two bodies
-/// it is built from and then blended: each part spreads its own mass its own way, and counts for
-/// the share of the whole it carries.
+/// A capsule's volume and squared radii of gyration: barrel and caps, weighted by volume share.
 ///
-/// The caps are the reason a capsule needs more than a cylinder does. Their mass does not sit on
-/// the plane through the middle but a half-length off it, and moving mass away from a plane adds
-/// the square of how far it moved — that is the parallel-axis shift, and it is what the two terms
-/// beyond the cap's own spread account for.
+/// The caps sit a half-length off the mid-plane, so their axial term carries the parallel-axis
+/// shift `l² + ¾ r l` on top of their own spread.
 fn capsule(radius: f64, half_length: f64) -> (f64, [f64; 3]) {
     let barrel = 2.0 * PI * radius * radius * half_length;
     let caps = 4.0 / 3.0 * PI * radius * radius * radius;
     let volume = barrel + caps;
 
-    // A shape that takes up no room has no mass to share out between its parts, and a mass stated
-    // for one has nowhere to sit, so there is nothing left that resists being spun.
+    // No volume, no shares to weight by.
     if volume == 0.0 {
         return (0.0, [0.0; 3]);
     }
     let (barrel_share, caps_share) = (barrel / volume, caps / volume);
 
-    // A hemisphere spreads its mass across an axis exactly as the whole ball it is half of does,
-    // so the caps count a fifth of the square of the radius either way across.
+    // A hemisphere spreads across an axis as the whole ball does: `r² / 5`.
     let across = radius * radius / 5.0;
-    // Along the axis they carry that same fifth, about where each cap balances — three eighths of
-    // the radius out from its flat face — plus the square of how far that point is from the middle.
+    // Axially, that same fifth about each cap's own centroid, plus the parallel-axis shift.
     let along = half_length * half_length + 0.75 * radius * half_length + across;
 
     (
@@ -212,13 +282,10 @@ fn capsule(radius: f64, half_length: f64) -> (f64, [f64; 3]) {
     )
 }
 
-/// Reads the two ends of a shape's axis, when it gives them.
+/// A `fromto`'s half-length, centre and facing: half the span, the midpoint, the line through them.
 ///
-/// A `fromto` says where a shape starts and where it stops, and everything the measurement needs
-/// follows from that: the shape is half as long as the two ends are apart, sits at their middle,
-/// and faces along the line between them. MuJoCo allows this on boxes and ellipsoids too, but
-/// reads their remaining size numbers in a way this loader has not pinned down against the
-/// compiler, so only the two round forms are taken and the rest are refused by name.
+/// MuJoCo allows `fromto` on boxes and ellipsoids too, reading their remaining size numbers in a way
+/// this loader has not pinned down against the compiler, so only the round forms are taken.
 fn axis(
     node: Node,
     settings: &GeomDefaults,
@@ -237,8 +304,8 @@ fn axis(
                 .unwrap_or_else(|| ASSUMED_TYPE.to_owned()),
         });
     }
-    // The two ends already say where the shape sits, so a `pos` alongside them is a second answer
-    // to the same question. MuJoCo refuses that pair outright, and so does this.
+    // The ends already place the shape, so a `pos` beside them is a second answer. MuJoCo refuses
+    // the pair.
     if settings.pos.is_some() {
         return Err(ModelError::ConflictingPlacement {
             body: body.to_owned(),
@@ -249,7 +316,7 @@ fn axis(
     let end = Vector::new([ends[3], ends[4], ends[5]]);
     let along = end - start;
 
-    // Two ends in the same place pin down no direction, so there is no shape to measure.
+    // Coincident ends pin down no direction.
     let length = along.norm();
     if length == 0.0 {
         return Err(bad_attribute(
@@ -262,16 +329,13 @@ fn axis(
     Ok(Some(Axis {
         half_length: length / 2.0,
         center: (start + end).scale(0.5).into_array(),
-        // Which end is which does not matter: both forms this is read for look the same either
-        // way along their axis, so a turn onto the line is as good as a turn onto the direction.
+        // Both round forms are symmetric about their axis, so end order does not matter.
         turn: Quaternion::from_two_vectors(Vector::new([0.0, 0.0, 1.0]), along),
     }))
 }
 
-/// How far a shape reaches along each of its own axes: the semi-axes of an ellipsoid, or the
-/// half-widths of a box. A sphere states only its radius, and reaches that far every way. A
-/// cylinder and a capsule state a radius and the half-length of the barrel between their ends,
-/// and are round about the third axis, so the radius stands for the first two.
+/// Reach along each of the shape's own axes: ellipsoid semi-axes, box half-widths, a sphere's
+/// radius three times over, `[r, r, half_length]` for the round forms.
 fn extents(
     node: Node,
     settings: &GeomDefaults,
@@ -280,8 +344,7 @@ fn extents(
 ) -> Result<[f64; 3], ModelError> {
     let size = settings.size.as_deref().unwrap_or_default();
     let reach = match (shape, size, axis) {
-        // A shape whose ends are stated has already been measured along its axis, and MuJoCo
-        // discards whatever the size says about that, so only the radius is read from it here.
+        // A `fromto` already gives the half-length, and MuJoCo discards what `size` says about it.
         (Shape::Cylinder | Shape::Capsule, [radius, ..], Some(axis)) => {
             Some([*radius, *radius, axis.half_length])
         }

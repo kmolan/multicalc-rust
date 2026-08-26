@@ -1,5 +1,4 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-#![cfg(feature = "urdf")]
 
 //! The vendored MoveIt Panda, as published: a mimic gripper joint and a wholly massless model, at
 //! full size.
@@ -8,7 +7,7 @@ use std::path::Path;
 
 use multicalc::kinematics::JointKind;
 use multicalc::linear_algebra::Vector;
-use multicalc_robot_model::{ModelError, ModelFormat, RobotModel};
+use multicalc_robot_model::{GeometryShape, ModelError, ModelFormat, RobotModel};
 
 fn panda() -> RobotModel {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -160,4 +159,40 @@ fn panda_safety_controller_is_not_read() {
 fn panda_has_no_ignored_sections() {
     // Only `<link>` and `<joint>` at the top level; meshes and soft limits sit inside those.
     assert!(panda().ignored().is_empty());
+}
+
+#[test]
+fn panda_link0_states_a_visual_and_a_collision_mesh() {
+    let model = panda();
+    assert_eq!(model.body(0).unwrap().name(), "panda_link0");
+
+    // A `package://` .dae visual and a `package://` .stl collision, neither resolvable without a
+    // package path and neither vendored.
+    let base = model.body(0).unwrap().visual_geometry();
+    assert_eq!(base.len(), 2);
+    assert_eq!(base[0].group(), 0);
+    assert_eq!(base[1].group(), 3);
+
+    let GeometryShape::Mesh { file, .. } = base[0].shape() else {
+        panic!("link0's visual is a mesh");
+    };
+    assert_eq!(
+        file,
+        "package://moveit_resources_panda_description/meshes/visual/link0.dae"
+    );
+    assert!(model.mesh_path(file, &[]).is_none());
+
+    let mapped = model
+        .mesh_path(
+            file,
+            &[(
+                "moveit_resources_panda_description".to_owned(),
+                std::path::PathBuf::from("/tmp/panda"),
+            )],
+        )
+        .unwrap();
+    assert_eq!(
+        mapped,
+        std::path::PathBuf::from("/tmp/panda/meshes/visual/link0.dae")
+    );
 }

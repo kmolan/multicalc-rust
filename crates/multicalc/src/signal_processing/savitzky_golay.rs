@@ -75,7 +75,7 @@ impl<const WINDOW: usize, const POLYNOMIAL_TERMS: usize, T: Numeric>
     /// Returns [`SignalError::WindowEvenLength`] if the window length is even, since there would be
     /// no middle sample to read at. The other error paths are [`Self::latest`]'s.
     pub fn centered(timestep: T) -> Result<Self, SignalError> {
-        if WINDOW % 2 == 0 {
+        if WINDOW.is_multiple_of(2) {
             return Err(SignalError::WindowEvenLength);
         }
         Self::build(timestep, (WINDOW - 1) / 2)

@@ -563,7 +563,7 @@ fn energy_is_held_along_a_free_swing() {
         10_000,
         |_, state| {
             step_count += 1;
-            if step_count % 1_000 == 0 {
+            if step_count.is_multiple_of(1_000) {
                 let drift = (total_energy(&body, state) - reference).abs() / reference.abs();
                 worst_drift = worst_drift.max(drift);
             }

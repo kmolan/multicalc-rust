@@ -12,9 +12,7 @@ use crate::urdf::joint::ParsedJoint;
 use crate::urdf::link::ParsedLink;
 use crate::{BodyDescription, ModelError};
 
-/// Resolves the tree, depth-first from the root link.
-///
-/// One body per link, in visit order, so every parent precedes its children.
+/// Resolves the tree, depth-first from the root link: one body per link, in visit order.
 pub(crate) fn build(
     links: &[ParsedLink],
     joints: &[ParsedJoint],
@@ -93,10 +91,10 @@ pub(crate) fn build(
         });
     }
 
-    // A URDF joint belongs to its child link, and the root link is never a child, so a floating
-    // joint can never land on body 0 — which is where `KinematicTree` requires it. Fixed versus
-    // floating base is a load-time choice by the caller (cf. Pinocchio's root-joint argument, or
-    // RBDL's `floating_base` flag), so a floating joint stated in the file is rejected.
+    // A URDF joint belongs to its child link and the root is never a child, so a floating joint
+    // can never land on body 0, where `KinematicTree` requires it. Fixed versus floating base is
+    // the caller's choice at load time (cf. Pinocchio's root-joint argument), so one stated in the
+    // file is rejected.
     for body in &bodies {
         if body
             .joint
@@ -114,8 +112,7 @@ pub(crate) fn build(
 
 /// Emits one body, then recurses into its children.
 ///
-/// `incoming` is the link's parent joint, which supplies its pose and joint; the root has none and
-/// sits at identity.
+/// `incoming` is the link's parent joint, supplying pose and joint. The root has none, at identity.
 #[expect(
     clippy::too_many_arguments,
     reason = "the recursion threads both source lists, the resolved topology, and the output"
@@ -142,6 +139,7 @@ fn walk(
         pose: joint.map_or_else(SE3::identity, |joint| joint.origin),
         inertia: link.inertia,
         joint: joint.and_then(|joint| joint.description.clone()),
+        visual_geometry: link.visual_geometry.clone(),
     });
 
     for &joint_index in &children[link_index] {

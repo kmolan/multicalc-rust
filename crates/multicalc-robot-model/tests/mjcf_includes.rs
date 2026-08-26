@@ -1,5 +1,4 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-#![cfg(feature = "mjcf")]
 
 //! `<include>` resolution: only `load_path` follows it, relative to the including file's own
 //! directory, and a chain of includes that never bottoms out is refused rather than hung on.
