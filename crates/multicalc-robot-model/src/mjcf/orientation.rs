@@ -1,9 +1,9 @@
 //! The five orientation forms MJCF allows, resolved to one quaternion.
 //!
 //! `quat`, `euler`, `axisangle`, `xyaxes` and `zaxis` state the same three degrees of freedom.
-//! MuJoCo holds `quat` in one slot and the other four in a second, and refuses an element filling
-//! both. Only a default block can leave both filled, the block supplying one and the element the
-//! other, and there the form that is not `quat` wins, so the two are carried separately.
+//! MuJoCo holds `quat` in one slot and the other four in a second, refusing an element that fills
+//! both. Only a default block and the element it reaches can fill one each, and there the form that
+//! is not `quat` wins, so the two are carried separately.
 
 use std::f64::consts::PI;
 
@@ -15,12 +15,12 @@ use crate::ModelError;
 use crate::mjcf::compiler::CompilerSettings;
 use crate::xml::{bad_attribute, parse_vector3, parse_vector4, parse_vector6};
 
-/// `sin θ` below which `z × target` no longer names an axis. MuJoCo settles the frame there, and a
-/// model read here has to land where MuJoCo puts it.
+/// `sin θ` below which `z × target` no longer names an axis. MuJoCo settles the frame there, and
+/// this has to land where MuJoCo does.
 const ZAXIS_DEGENERATE: f64 = 1e-7;
 
-/// A turn stated as anything but a plain quaternion. Numbers are held as written: what they mean
-/// waits on `<compiler>`, which gives the angle units and the euler sequence.
+/// A turn stated as anything but a plain quaternion. Held as written: `<compiler>` gives the angle
+/// units and the euler sequence.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum Alternative {
     /// `axisangle`: `[x, y, z, angle]`.
@@ -41,10 +41,8 @@ pub(crate) struct Orientation {
 }
 
 impl Orientation {
-    /// Reads whichever of the five forms an element carries.
-    ///
-    /// Two forms on one element are two answers to one question:
-    /// [`MultipleOrientations`](ModelError::MultipleOrientations), as MuJoCo does.
+    /// Reads whichever of the five forms an element carries. Two of them is
+    /// [`MultipleOrientations`](ModelError::MultipleOrientations), as MuJoCo has it.
     pub(crate) fn read(node: Node) -> Result<Self, ModelError> {
         let quat = parse_vector4(node, "quat")?;
         let alternatives = [
@@ -68,7 +66,7 @@ impl Orientation {
         })
     }
 
-    /// This with everything `other` states over the top. The two slots fill separately, so a block's
+    /// This with everything `other` states over the top. The slots fill separately, so a block's
     /// `euler` survives an element's own `quat` and then beats it.
     #[must_use]
     pub(crate) fn overridden_by(self, other: Self) -> Self {
@@ -84,8 +82,7 @@ impl Orientation {
         self.quat.is_some() || self.alternative.is_some()
     }
 
-    /// The turn this states. `node` only locates an error, which for a form a default block supplied
-    /// is the element that inherited it.
+    /// The turn this states. `node` only locates an error: for an inherited form, the inheritor.
     pub(crate) fn resolve(
         self,
         node: Node,

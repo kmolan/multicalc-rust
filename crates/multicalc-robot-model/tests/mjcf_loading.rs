@@ -332,9 +332,8 @@ fn reads_a_shape_that_states_where_its_axis_starts_and_stops() {
     }
 }
 
-/// A `fromto` carries a facing as well as a length. A shape lying across two axes is where that
-/// shows: the tensor is no longer diagonal in body axes, and the off-diagonal terms say so. Both
-/// goldens are MuJoCo's `body_inertia`, turned back into body axes through `body_iquat`.
+/// A `fromto` carries a facing as well as a length, so a shape lying across two axes leaves the
+/// tensor non-diagonal in body axes. Goldens are MuJoCo's `body_inertia` through `body_iquat`.
 #[test]
 fn turns_a_shape_onto_the_line_between_its_ends() {
     let model = load(
@@ -810,9 +809,8 @@ fn assert_same_turn(actual: [f64; 4], expected: [f64; 4], label: &str) {
     }
 }
 
-/// A quarter turn about y, written all five ways. It carries the element's z onto the parent's x,
-/// which is the one turn `zaxis` can also state: `zaxis` leaves the turn about its own axis free,
-/// so only a turn spending none of it has all five spellings.
+/// A quarter turn about y, written all five ways: it carries z onto the parent's x, and `zaxis`
+/// leaves the turn about its own axis free, so only such a turn has all five spellings.
 const A_QUARTER_TURN_ABOUT_Y: [&str; 5] = [
     r#"quat="0.7071067811865476 0 0.7071067811865476 0""#,
     r#"euler="0 90 0""#,
@@ -898,9 +896,8 @@ fn reads_angles_in_the_units_the_compiler_names() {
 
 #[test]
 fn turns_a_euler_about_the_axes_the_compiler_names_in_the_order_it_names_them() {
-    // MuJoCo goldens. Letter case is the whole difference between the first two: lower case rides
-    // the turns already made, upper case stands still in the parent frame, so the same angles about
-    // the same axes give two different turns. A sequence may also name one axis twice, which no
+    // MuJoCo goldens. Letter case separates the first two: lower rides the turns already made,
+    // upper stands still in the parent frame. A sequence may also name one axis twice, which no
     // fixed roll-pitch-yaw reading allows.
     for (sequence, expected) in [
         (
@@ -946,9 +943,9 @@ fn turns_a_euler_about_the_axes_the_compiler_names_in_the_order_it_names_them() 
 
 #[test]
 fn spends_no_turn_beyond_the_one_a_zaxis_asks_for() {
-    // MuJoCo goldens. `zaxis` leaves the turn about its own axis free, and the second case is
-    // where that bites: a flipped z leaves every square axis as good as any other and MuJoCo takes
-    // x. Another choice places z correctly and everything below the body a half turn off.
+    // MuJoCo goldens. The second case is where the free turn about `zaxis` bites: a flipped z
+    // leaves every square axis equally good and MuJoCo takes x. Another choice places z correctly
+    // and everything below the body a half turn off.
     for (stated, expected) in [
         (
             "1 2 3",
@@ -989,9 +986,9 @@ fn squares_the_second_axis_of_an_xyaxes_against_the_first() {
 
 #[test]
 fn lets_a_default_block_state_a_turn_any_of_the_five_ways() {
-    // `quat` sits in its own slot, so a block and the geom it reaches can fill one each, and the
-    // form that is not `quat` wins even though the geom stated its own. MuJoCo goldens for a box
-    // turned a quarter about z, read back in body axes: the first two moments swap.
+    // `quat` has its own slot, so a block and the geom it reaches fill one each and the form that
+    // is not `quat` wins. MuJoCo goldens for a box turned a quarter about z: the first two moments
+    // swap.
     let turned = [
         0.369_999_999_999_999_94,
         0.050_000_000_000_000_01,

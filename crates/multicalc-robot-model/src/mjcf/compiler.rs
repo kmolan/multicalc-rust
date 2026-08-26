@@ -6,7 +6,7 @@ use roxmltree::Node;
 use crate::ModelError;
 use crate::xml::{bad_attribute, element};
 
-/// The order MJCF turns a `euler` about when the file names none.
+/// MJCF's `eulerseq` default.
 const ASSUMED_EULER_SEQUENCE: &str = "xyz";
 
 /// File-wide settings governing how the rest of the document parses.
@@ -28,8 +28,8 @@ pub(crate) struct CompilerSettings {
 pub(crate) struct EulerStep {
     /// Which coordinate axis the turn is about: 0 for x, 1 for y, 2 for z.
     axis: usize,
-    /// Whether the axis rides the turns already made rather than standing still in the parent
-    /// frame. The letter's case says which: `x` rides along, `X` stands still.
+    /// Whether the axis rides the turns already made. The letter's case says which: `x` rides,
+    /// `X` stands still in the parent frame.
     carried_along: bool,
 }
 
@@ -121,7 +121,7 @@ impl CompilerSettings {
     }
 }
 
-/// The order a file that names none turns a `euler` about.
+/// The sequence for a file naming none.
 #[must_use]
 fn assumed_euler_sequence() -> [EulerStep; 3] {
     [0, 1, 2].map(|axis| EulerStep {

@@ -15,7 +15,7 @@ Usage: model_viewer <model-file> [options]
   --record <file.rrd>            write a recording instead of opening a viewer
   --geoms visual|collision|all   geom groups to draw (default: visual)
   --package-path <name>=<dir>    resolve package://<name>/... ; repeatable
-  --frame-axes <metres>          frame gnomon length, 0 for none (default: 0.05)
+  --frame-axes <metres>          frame axis length, 0 for none (default: 0.05)
   -h, --help                     this text";
 
 /// The application id both modes record under.

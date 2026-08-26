@@ -28,21 +28,18 @@ enum Shape {
     Capsule,
 }
 
-/// A `fromto` pair resolved to half-length, centre and orientation, standing in for the size's
-/// half-length and for `pos`/`quat`.
+/// A `fromto` resolved to half-length, centre and turn, standing in for `size`, `pos` and `quat`.
 struct Axis {
     half_length: f64,
     center: [f64; 3],
     turn: Quaternion<f64>,
 }
 
-/// One geom's contribution to its body.
+/// One geom's contribution to its body, in body axes.
 pub(crate) struct GeomMass {
-    /// The geom's mass.
     pub mass: f64,
-    /// The geom's centre, in body axes.
+    /// About the geom's own centre.
     pub center: Vector3D,
-    /// The geom's rotational inertia about its own centre, in body axes.
     pub inertia: Matrix3D,
 }
 
@@ -154,8 +151,7 @@ pub(crate) fn read_geom(
 
 /// One geom as a drawable shape, or `None` for a type or mesh reference this cannot draw.
 ///
-/// Unlike [`read_geom`] this rejects nothing by type: an undrawable shape carries no mass, so it is
-/// dropped.
+/// Unlike [`read_geom`] it rejects nothing by type: an undrawable shape carries no mass.
 pub(crate) fn read_visual_geom(
     node: Node,
     table: &DefaultTable,
@@ -202,8 +198,8 @@ pub(crate) fn read_visual_geom(
         _ => return Ok(None),
     };
 
-    // Guarded, so `axis` never rejects a `fromto` on a form it cannot measure: that is an
-    // integration limit, not a reason to leave the geom undrawn.
+    // Guarded, so `axis` never rejects a `fromto` it cannot measure: an integration limit is not a
+    // reason to leave the geom undrawn.
     let axis = match shape {
         Shape::Cylinder | Shape::Capsule => axis(node, &settings, &shape, body)?,
         _ => None,
@@ -239,8 +235,8 @@ pub(crate) fn read_visual_geom(
     Ok(Some(VisualGeometry::new(shape, pose, color, group)))
 }
 
-/// A shape's settings, with the shape's own winning over the class it names, that over the class
-/// its body names, and that over the unnamed block.
+/// A geom's settings: its own beat the class it names, that beats its body's `childclass`, that
+/// beats the unnamed block.
 fn effective(
     node: Node,
     table: &DefaultTable,
@@ -256,8 +252,7 @@ fn effective(
     Ok(settings.overridden_by(&GeomDefaults::read(node)?))
 }
 
-/// A capsule's volume and squared radii of gyration: the barrel's and the caps', each weighted by
-/// its volume share.
+/// A capsule's volume and squared radii of gyration: barrel and caps, weighted by volume share.
 ///
 /// The caps sit a half-length off the mid-plane, so their axial term carries the parallel-axis
 /// shift `l² + ¾ r l` on top of their own spread.
@@ -266,7 +261,7 @@ fn capsule(radius: f64, half_length: f64) -> (f64, [f64; 3]) {
     let caps = 4.0 / 3.0 * PI * radius * radius * radius;
     let volume = barrel + caps;
 
-    // No volume, no shares to weight by, and nothing to resist being spun.
+    // No volume, no shares to weight by.
     if volume == 0.0 {
         return (0.0, [0.0; 3]);
     }
@@ -287,11 +282,10 @@ fn capsule(radius: f64, half_length: f64) -> (f64, [f64; 3]) {
     )
 }
 
-/// A `fromto`'s half-length, centre and facing: half the distance between the ends, their midpoint,
-/// and the line through them.
+/// A `fromto`'s half-length, centre and facing: half the span, the midpoint, the line through them.
 ///
-/// MuJoCo allows `fromto` on boxes and ellipsoids too, but reads their remaining size numbers in a
-/// way this loader has not pinned down against the compiler, so only the round forms are taken.
+/// MuJoCo allows `fromto` on boxes and ellipsoids too, reading their remaining size numbers in a way
+/// this loader has not pinned down against the compiler, so only the round forms are taken.
 fn axis(
     node: Node,
     settings: &GeomDefaults,
@@ -311,7 +305,7 @@ fn axis(
         });
     }
     // The ends already place the shape, so a `pos` beside them is a second answer. MuJoCo refuses
-    // the pair, and so does this.
+    // the pair.
     if settings.pos.is_some() {
         return Err(ModelError::ConflictingPlacement {
             body: body.to_owned(),
@@ -340,8 +334,8 @@ fn axis(
     }))
 }
 
-/// How far a shape reaches along each of its own axes: ellipsoid semi-axes, box half-widths, a
-/// sphere's radius three times over, or `[r, r, half_length]` for the two round forms.
+/// Reach along each of the shape's own axes: ellipsoid semi-axes, box half-widths, a sphere's
+/// radius three times over, `[r, r, half_length]` for the round forms.
 fn extents(
     node: Node,
     settings: &GeomDefaults,

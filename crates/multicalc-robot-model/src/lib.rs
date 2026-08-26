@@ -1,12 +1,10 @@
 //! Robot model file readers for multicalc.
 //!
 //! MJCF and URDF both parse into one [`RobotModel`]: a topologically ordered body list carrying
-//! name, parent index, parent-relative transform, spatial inertia where stated, and joint.
-//!
-//! Bodies also carry the shapes the file draws them with, for viewing only.
-//!
-//! Converts on demand to a [`KinematicTree`](multicalc::kinematics::KinematicTree), whole or as
-//! the root-to-tip chain for a named body.
+//! name, parent index, parent-relative transform, spatial inertia where stated, joint, and the
+//! shapes the file draws the body with. Converts on demand to a
+//! [`KinematicTree`](multicalc::kinematics::KinematicTree), whole or as the root-to-tip chain for
+//! a named body.
 //!
 //! Unsupported constructs are rejected by name rather than dropped, so a model never loads with
 //! wrong mass properties. Unconsumed top-level elements are listed in [`RobotModel::ignored`].
@@ -123,8 +121,7 @@ impl RobotModel {
 
     /// Top-level elements the reader consumed nothing from, sorted and deduplicated.
     ///
-    /// Only elements that cannot affect mass properties reach here; anything that could is
-    /// rejected by name.
+    /// Only what cannot affect mass properties reaches here; anything that could is rejected.
     ///
     /// ```
     /// let xml = r#"<mujoco>
@@ -145,8 +142,7 @@ impl RobotModel {
         &self.ignored
     }
 
-    /// Directory the model file sat in. `None` for a model parsed from text, which has nothing to
-    /// resolve a mesh path against.
+    /// Directory the model file sat in. `None` for a model parsed from text.
     #[inline]
     #[must_use]
     pub fn base_directory(&self) -> Option<&Path> {
@@ -167,11 +163,8 @@ impl RobotModel {
     /// A jointless body takes a slot as a weld, so slot index equals body index. Joint dynamics
     /// carry through as stated.
     ///
-    /// Errors: [`TreeCapacityExceeded`](ModelError::TreeCapacityExceeded) where the model has more
-    /// bodies than `MAX_JOINTS`, [`Kinematics`](ModelError::Kinematics) where a joint's own
-    /// numbers do not describe a usable joint, and
-    /// [`MimicJointInTree`](ModelError::MimicJointInTree) where any joint in the model follows
-    /// another.
+    /// Errors: [`TreeCapacityExceeded`](ModelError::TreeCapacityExceeded) beyond `MAX_JOINTS`
+    /// bodies, [`Kinematics`](ModelError::Kinematics), [`MimicJointInTree`](ModelError::MimicJointInTree).
     pub fn kinematic_tree<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
     ) -> Result<KinematicTree<MAX_JOINTS, MAX_CONFIG, f64>, ModelError> {
@@ -185,9 +178,7 @@ impl RobotModel {
     /// also carries a gripper.
     ///
     /// Errors: as [`kinematic_tree`](RobotModel::kinematic_tree), plus
-    /// [`UnknownBody`](ModelError::UnknownBody) where the model has no body by that name, and
-    /// [`MimicJointInTree`](ModelError::MimicJointInTree) where a joint on the chain follows
-    /// another.
+    /// [`UnknownBody`](ModelError::UnknownBody).
     pub fn kinematic_tree_to<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
         tip: &str,
@@ -199,10 +190,10 @@ impl RobotModel {
     /// The whole model as an articulated body, one slot per body, with `gravity` in world axes.
     ///
     /// [`kinematic_tree`](RobotModel::kinematic_tree)'s slot layout, each slot carrying that
-    /// body's stated mass properties. A body the file gives no `<inertial>` carries none.
+    /// body's stated mass properties, or none where the file states none.
     ///
     /// Errors: as [`kinematic_tree`](RobotModel::kinematic_tree), plus
-    /// [`Dynamics`](ModelError::Dynamics) where the mass properties do not describe a usable model.
+    /// [`Dynamics`](ModelError::Dynamics).
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
@@ -233,7 +224,7 @@ impl RobotModel {
     /// The root-to-tip chain for a named body as an articulated body, and nothing else.
     ///
     /// Errors: as [`articulated_body`](RobotModel::articulated_body), plus
-    /// [`UnknownBody`](ModelError::UnknownBody) where the model has no body by that name.
+    /// [`UnknownBody`](ModelError::UnknownBody).
     pub fn articulated_body_to<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
         tip: &str,
@@ -259,7 +250,7 @@ impl RobotModel {
 
     /// Body indices from the root to the named body, root first.
     ///
-    /// Errors: [`UnknownBody`](ModelError::UnknownBody) where the model has no body by that name.
+    /// Errors: [`UnknownBody`](ModelError::UnknownBody).
     pub fn path_to(&self, tip: &str) -> Result<Vec<usize>, ModelError> {
         let mut index = self
             .bodies
@@ -281,9 +272,7 @@ impl RobotModel {
     /// Builds a tree over the given body indices, in slot order.
     ///
     /// A slot's parent is `World` where the body's parent is absent from `slots`, otherwise the
-    /// slot the parent landed in: the body's own index for
-    /// [`kinematic_tree`](RobotModel::kinematic_tree), and `k - 1` for
-    /// [`kinematic_tree_to`](RobotModel::kinematic_tree_to)'s slot `k`.
+    /// slot the parent landed in.
     fn build_tree<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
         slots: &[usize],
@@ -300,9 +289,7 @@ impl RobotModel {
         KinematicTree::try_from_joints(&joints, &parents).map_err(ModelError::Kinematics)
     }
 
-    /// Rejects the first mimic joint among these slots.
-    ///
-    /// Checking only the requested slots lets a chain that excludes the mimic joint still build.
+    /// Rejects the first mimic joint among these slots, so a chain that excludes one still builds.
     pub(crate) fn reject_mimic_joints(&self, slots: &[usize]) -> Result<(), ModelError> {
         for &index in slots {
             let body = &self.bodies[index];
@@ -413,10 +400,9 @@ impl BodyDescription {
         self.pose
     }
 
-    /// Mass, COM and rotational inertia, or `None` where the file states none.
+    /// Mass, COM and rotational inertia, `None` where the file states none.
     ///
-    /// A massless body still takes a tree slot and its transform is read normally. URDF uses these
-    /// for tool and sensor frames.
+    /// A massless body still takes a tree slot: URDF's encoding for tool and sensor frames.
     #[inline]
     #[must_use]
     pub fn inertia(&self) -> Option<SpatialInertia<f64>> {

@@ -45,7 +45,7 @@ impl ViewerOptions {
         self
     }
 
-    /// Frame gnomon length, in metres. 0 draws no frames.
+    /// Frame axis length, in metres. 0 draws no frames.
     #[must_use]
     pub fn with_frame_axis_length(mut self, metres: f64) -> Self {
         self.frame_axis_length = metres;
@@ -76,7 +76,7 @@ impl ViewerReport {
 
     /// Mesh files whose path did not resolve or that could not be read, in the order met.
     ///
-    /// A file the viewer cannot decode is not listed: decoding happens there, not here.
+    /// A file the viewer cannot decode is not listed: it decodes there, not here.
     #[inline]
     #[must_use]
     pub fn skipped_meshes(&self) -> &[String] {
@@ -96,7 +96,7 @@ impl fmt::Display for ViewerError {
 
 impl std::error::Error for ViewerError {}
 
-/// Logs the whole model as a static scene: one entity per body, nested on the body tree.
+/// Logs the model as a static scene: one entity per body, nested on the body tree.
 pub fn log_model(
     stream: &rerun::RecordingStream,
     model: &RobotModel,
@@ -273,9 +273,8 @@ fn log_shapes(
     Ok(())
 }
 
-/// Where a shape sits, how it is turned, and what colour it is drawn in.
-///
-/// A primitive takes a `Color` and a mesh an `AlbedoFactor`, so the bytes are kept alongside.
+/// Where a shape sits, how it is turned, and its colour. A primitive takes a `Color` and a mesh an
+/// `AlbedoFactor`, so the bytes are kept alongside.
 #[derive(Debug, Clone, Copy)]
 struct Placement {
     center: [f32; 3],

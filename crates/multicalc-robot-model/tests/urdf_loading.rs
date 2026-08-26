@@ -386,10 +386,28 @@ fn an_axis_pointing_nowhere_is_refused() {
 }
 
 #[test]
-fn a_link_stating_no_mass_at_all_is_refused() {
-    // An absent `<inertial>` means massless; `mass="0"` states something a body cannot have.
+fn a_link_stating_zero_mass_is_a_frame() {
+    // As an omitted `<inertial>` is. The tensor beside the zero is not read, and the link keeps
+    // its slot and its geometry.
+    let frames = model("zero_mass_frame.urdf");
+    assert_eq!(frames.body_count(), 2);
+    assert_eq!(frames.body(0).unwrap().inertia().unwrap().mass(), 2.0);
+
+    let sensor = frames.body(1).unwrap();
+    assert_eq!(sensor.name(), "imu");
+    assert!(sensor.inertia().is_none());
+    assert_eq!(
+        sensor.visual_geometry()[0].shape(),
+        &GeometryShape::Box {
+            half_extents: Vector::new([0.01, 0.01, 0.01])
+        }
+    );
+}
+
+#[test]
+fn a_link_stating_negative_mass_is_refused() {
     assert!(matches!(
-        refusal("bad_zero_mass.urdf"),
+        refusal("bad_negative_mass.urdf"),
         ModelError::Inertia(multicalc::error::SpatialError::NonPositiveMass)
     ));
 }
