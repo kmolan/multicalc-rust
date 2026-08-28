@@ -1,24 +1,17 @@
 //! Forward-pass inference for a multi-layer perceptron, over borrowed parameters.
 //!
-//! A learned policy is a stack of dense layers. Each takes the vector below it, forms one weighted
-//! sum per output — `weights · input + biases` — and passes every sum through a scalar
-//! [`Activation`]. One layer's output is the next layer's input, and the last layer's output is the
-//! answer the policy was trained to give: joint torques, rotor commands, a steering angle.
+//! A learned policy is a stack of dense layers. Each forms one weighted sum per output —
+//! `weights · input + biases` — and passes every sum through a scalar [`Activation`]. One layer's
+//! output is the next layer's input, and the last one's is the action the policy was trained to
+//! produce. Only inference lives here; training belongs on a machine with room for it.
 //!
-//! Only the forward pass lives here. Training happens elsewhere, on a machine with room for it;
-//! what reaches the robot is a block of numbers to be read in order.
+//! The parameters are borrowed rather than owned, because a policy is large next to the board
+//! running it: two 64-wide hidden layers over a 22-component observation is some 23 KB as `f32`,
+//! against a small Cortex-M's 64 KB of RAM. A [`Layer`] holds a [`MatrixView`] of its weights and
+//! a [`VectorView`] of its biases, so nothing is copied and only the activations are written.
 //!
-//! That block is why the parameters are borrowed rather than owned. Two hidden layers 64 units wide
-//! over a 22-component observation come to roughly 5,900 numbers — about 23 KB as `f32`, against
-//! the 64 KB of RAM a small Cortex-M has in total. A [`Layer`] holds a
-//! [`MatrixView`](crate::linear_algebra::MatrixView) of its weights and a
-//! [`VectorView`](crate::linear_algebra::VectorView) of its biases, so those coefficients are read
-//! where they were stored and never copied onto the stack. Only the activations are written, and
-//! there are `OUTPUT` of those per layer rather than `OUTPUT`×`INPUT`.
-//!
-//! Widths are const parameters, so a network's shape is settled when it compiles: feeding a layer
-//! that produces three values into one that expects four is a build error, not a runtime one.
-//! Nothing is allocated and nothing panics, so this runs under `no_std`.
+//! Widths are const parameters, so a mismatched chain is a build error. Nothing allocates and
+//! nothing panics, so this runs under `no_std`.
 //!
 //! ```
 //! use multicalc::linear_algebra::Vector;
