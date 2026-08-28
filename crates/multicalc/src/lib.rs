@@ -198,6 +198,7 @@ pub mod gaussian_tables;
 pub mod kinematics;
 pub mod linear_algebra;
 pub mod mapping;
+pub mod mlp_inference;
 pub mod motion;
 pub mod numerical_derivative;
 pub mod numerical_integration;
