@@ -248,7 +248,7 @@ impl<const WINDOW: usize, T: Numeric> RunningMedian<WINDOW, T> {
         if WINDOW == 0 {
             return Err(SignalError::WindowTooShort);
         }
-        if WINDOW % 2 == 0 {
+        if WINDOW.is_multiple_of(2) {
             return Err(SignalError::WindowEvenLength);
         }
         Ok(Self {

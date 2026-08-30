@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<!-- <visual> and <collision> with package:// meshes. Both are skipped as link children, so
-     neither is listed in ignored() and no mesh is resolved. -->
+<!-- <visual> and <collision> with package:// meshes. Both are link children, so neither is listed
+     in ignored(), and the filenames are kept as written. -->
 <robot name="visual_and_collision">
   <link name="base_link">
     <inertial><mass value="2"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>

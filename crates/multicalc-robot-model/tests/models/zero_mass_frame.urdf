@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<!-- mass="0" is a frame, as an omitted <inertial> is. The tensor beside it is not read, and the
+     link still draws its geometry. -->
+<robot name="zero_mass_frame">
+  <link name="base_link">
+    <inertial>
+      <mass value="2"/>
+      <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+    </inertial>
+  </link>
+
+  <joint name="sensor_mount" type="fixed">
+    <parent link="base_link"/><child link="imu"/>
+    <origin xyz="0 0 0.2"/>
+  </joint>
+
+  <link name="imu">
+    <inertial>
+      <mass value="0"/>
+      <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+    </inertial>
+    <visual><geometry><box size="0.02 0.02 0.02"/></geometry></visual>
+  </link>
+</robot>

@@ -1,26 +1,28 @@
 //! Robot model file readers for multicalc.
 //!
 //! MJCF and URDF both parse into one [`RobotModel`]: a topologically ordered body list carrying
-//! name, parent index, parent-relative transform, spatial inertia where stated, and joint.
-//!
-//! Converts on demand to a [`KinematicTree`](multicalc::kinematics::KinematicTree), whole or as
-//! the root-to-tip chain for a named body.
+//! name, parent index, parent-relative transform, spatial inertia where stated, joint, and the
+//! shapes the file draws the body with. Converts on demand to a
+//! [`KinematicTree`](multicalc::kinematics::KinematicTree), whole or as the root-to-tip chain for
+//! a named body.
 //!
 //! Unsupported constructs are rejected by name rather than dropped, so a model never loads with
 //! wrong mass properties. Unconsumed top-level elements are listed in [`RobotModel::ignored`].
+//!
+//! The `viewer` feature adds the Rerun front end — the `viewer` module and the `model_viewer`
+//! binary. Off by default; loading models pulls no Rerun.
 
 mod codegen;
 mod error;
-// With neither reader compiled in, the crate is the model types plus the codegen.
-#[cfg(any(feature = "mjcf", feature = "urdf"))]
+mod geometry;
 mod xml;
 
-#[cfg(feature = "mjcf")]
 pub mod mjcf;
-#[cfg(feature = "urdf")]
 pub mod urdf;
+#[cfg(feature = "viewer")]
+pub mod viewer;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use multicalc::dynamics::ArticulatedBody;
 use multicalc::kinematics::{Joint, JointKind, JointParent, KinematicTree};
@@ -29,6 +31,7 @@ use multicalc::spatial::{SE3, SpatialInertia};
 
 pub use codegen::{GeneratedScalar, RustSourceOptions};
 pub use error::ModelError;
+pub use geometry::{GeometryShape, VisualGeometry};
 
 /// The format a model was parsed from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,6 +60,7 @@ pub struct RobotModel {
     bodies: Vec<BodyDescription>,
     floating_base: bool,
     ignored: Vec<String>,
+    base_directory: Option<PathBuf>,
 }
 
 impl RobotModel {
@@ -121,43 +125,50 @@ impl RobotModel {
 
     /// Top-level elements the reader consumed nothing from, sorted and deduplicated.
     ///
-    /// Only elements that cannot affect mass properties reach here; anything that could is
-    /// rejected outright.
+    /// Only what cannot affect mass properties reaches here; anything that could is rejected.
     ///
-    #[cfg_attr(
-        feature = "mjcf",
-        doc = r##"
-```
-let xml = r#"<mujoco>
-               <worldbody>
-                 <body><freejoint/><inertial mass="1" diaginertia="1 1 1"/></body>
-               </worldbody>
-               <actuator><motor name="thrust" gear="0 0 1 0 0 0"/></actuator>
-             </mujoco>"#;
-
-let model = multicalc_robot_model::mjcf::load_str(xml)?;
-assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 1.0);
-assert_eq!(model.ignored(), ["actuator".to_owned()]);
-# Ok::<(), multicalc_robot_model::ModelError>(())
-```
-"##
-    )]
+    /// ```
+    /// let xml = r#"<mujoco>
+    ///                <worldbody>
+    ///                  <body><freejoint/><inertial mass="1" diaginertia="1 1 1"/></body>
+    ///                </worldbody>
+    ///                <actuator><motor name="thrust" gear="0 0 1 0 0 0"/></actuator>
+    ///              </mujoco>"#;
+    ///
+    /// let model = multicalc_robot_model::mjcf::load_str(xml)?;
+    /// assert_eq!(model.body(0).unwrap().inertia().unwrap().mass(), 1.0);
+    /// assert_eq!(model.ignored(), ["actuator".to_owned()]);
+    /// # Ok::<(), multicalc_robot_model::ModelError>(())
+    /// ```
     #[inline]
     #[must_use]
     pub fn ignored(&self) -> &[String] {
         &self.ignored
     }
 
+    /// Directory the model file sat in. `None` for a model parsed from text.
+    #[inline]
+    #[must_use]
+    pub fn base_directory(&self) -> Option<&Path> {
+        self.base_directory.as_deref()
+    }
+
+    /// Absolute path to a mesh file, or `None` where it cannot be resolved.
+    ///
+    /// `package://<name>/<rest>` looks `<name>` up in `packages`; `file://` and absolute paths are
+    /// taken as they are; anything else resolves against [`RobotModel::base_directory`].
+    #[must_use]
+    pub fn mesh_path(&self, file: &str, packages: &[(String, PathBuf)]) -> Option<PathBuf> {
+        geometry::resolve_mesh_path(file, self.base_directory(), packages)
+    }
+
     /// The whole model as a kinematic tree, one slot per body.
     ///
-    /// A jointless body takes a slot as a weld, so slot index equals body index. Joint dynamics —
-    /// damping, friction loss and the rest — carry through as stated.
+    /// A jointless body takes a slot as a weld, so slot index equals body index. Joint dynamics
+    /// carry through as stated.
     ///
-    /// Errors: [`TreeCapacityExceeded`](ModelError::TreeCapacityExceeded) where the model has more
-    /// bodies than `MAX_JOINTS`, [`Kinematics`](ModelError::Kinematics) where a joint's own
-    /// numbers do not describe a usable joint, and
-    /// [`MimicJointInTree`](ModelError::MimicJointInTree) where any joint in the model follows
-    /// another.
+    /// Errors: [`TreeCapacityExceeded`](ModelError::TreeCapacityExceeded) beyond `MAX_JOINTS`
+    /// bodies, [`Kinematics`](ModelError::Kinematics), [`MimicJointInTree`](ModelError::MimicJointInTree).
     pub fn kinematic_tree<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
     ) -> Result<KinematicTree<MAX_JOINTS, MAX_CONFIG, f64>, ModelError> {
@@ -167,13 +178,11 @@ assert_eq!(model.ignored(), ["actuator".to_owned()]);
 
     /// The root-to-tip chain for a named body, and nothing else.
     ///
-    /// Slot `k` is the `k`-th body along the chain, so an arm can be extracted from a model that
+    /// Slot `k` is the `k`-th body along the chain, so an arm can be taken out of a model that
     /// also carries a gripper.
     ///
     /// Errors: as [`kinematic_tree`](RobotModel::kinematic_tree), plus
-    /// [`UnknownBody`](ModelError::UnknownBody) where the model has no body by that name, and
-    /// [`MimicJointInTree`](ModelError::MimicJointInTree) where a joint on the chain follows
-    /// another.
+    /// [`UnknownBody`](ModelError::UnknownBody).
     pub fn kinematic_tree_to<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
         tip: &str,
@@ -184,36 +193,30 @@ assert_eq!(model.ignored(), ["actuator".to_owned()]);
 
     /// The whole model as an articulated body, one slot per body, with `gravity` in world axes.
     ///
-    /// The same slot layout as [`kinematic_tree`](RobotModel::kinematic_tree): a jointless body
-    /// takes a slot as a weld, so slot index equals body index, and each slot carries that body's
-    /// stated mass properties. A body the file gives no `<inertial>` carries none.
+    /// [`kinematic_tree`](RobotModel::kinematic_tree)'s slot layout, each slot carrying that
+    /// body's stated mass properties, or none where the file states none.
     ///
     /// Errors: as [`kinematic_tree`](RobotModel::kinematic_tree), plus
-    /// [`Dynamics`](ModelError::Dynamics) where the mass properties do not describe a usable model.
+    /// [`Dynamics`](ModelError::Dynamics).
     ///
-    #[cfg_attr(
-        feature = "mjcf",
-        doc = r##"
-```
-use multicalc::linear_algebra::Vector;
-
-let xml = r#"<mujoco>
-               <worldbody>
-                 <body>
-                   <joint type="hinge" axis="0 1 0"/>
-                   <inertial pos="0.5 0 0" mass="2" diaginertia="0.01 0.01 0.01"/>
-                 </body>
-               </worldbody>
-             </mujoco>"#;
-
-let earth_gravity = Vector::new([0.0, 0.0, -9.81]);
-let model = multicalc_robot_model::mjcf::load_str(xml)?;
-let body = model.articulated_body::<1, 1>(earth_gravity)?;
-assert_eq!(body.len(), 1);
-# Ok::<(), multicalc_robot_model::ModelError>(())
-```
-"##
-    )]
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    ///
+    /// let xml = r#"<mujoco>
+    ///                <worldbody>
+    ///                  <body>
+    ///                    <joint type="hinge" axis="0 1 0"/>
+    ///                    <inertial pos="0.5 0 0" mass="2" diaginertia="0.01 0.01 0.01"/>
+    ///                  </body>
+    ///                </worldbody>
+    ///              </mujoco>"#;
+    ///
+    /// let earth_gravity = Vector::new([0.0, 0.0, -9.81]);
+    /// let model = multicalc_robot_model::mjcf::load_str(xml)?;
+    /// let body = model.articulated_body::<1, 1>(earth_gravity)?;
+    /// assert_eq!(body.len(), 1);
+    /// # Ok::<(), multicalc_robot_model::ModelError>(())
+    /// ```
     pub fn articulated_body<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
         gravity: Vector3D<f64>,
@@ -225,7 +228,7 @@ assert_eq!(body.len(), 1);
     /// The root-to-tip chain for a named body as an articulated body, and nothing else.
     ///
     /// Errors: as [`articulated_body`](RobotModel::articulated_body), plus
-    /// [`UnknownBody`](ModelError::UnknownBody) where the model has no body by that name.
+    /// [`UnknownBody`](ModelError::UnknownBody).
     pub fn articulated_body_to<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
         tip: &str,
@@ -251,7 +254,7 @@ assert_eq!(body.len(), 1);
 
     /// Body indices from the root to the named body, root first.
     ///
-    /// Errors: [`UnknownBody`](ModelError::UnknownBody) where the model has no body by that name.
+    /// Errors: [`UnknownBody`](ModelError::UnknownBody).
     pub fn path_to(&self, tip: &str) -> Result<Vec<usize>, ModelError> {
         let mut index = self
             .bodies
@@ -273,10 +276,7 @@ assert_eq!(body.len(), 1);
     /// Builds a tree over the given body indices, in slot order.
     ///
     /// A slot's parent is `World` where the body's parent is absent from `slots`, otherwise the
-    /// slot the parent landed in — the body's own index for
-    /// [`kinematic_tree`](RobotModel::kinematic_tree), and `k - 1` for
-    /// [`kinematic_tree_to`](RobotModel::kinematic_tree_to)'s slot `k`, since a chain's parent is
-    /// always the previous entry.
+    /// slot the parent landed in.
     fn build_tree<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
         &self,
         slots: &[usize],
@@ -293,20 +293,17 @@ assert_eq!(body.len(), 1);
         KinematicTree::try_from_joints(&joints, &parents).map_err(ModelError::Kinematics)
     }
 
-    /// Rejects the first mimic joint among these slots.
-    ///
-    /// A `KinematicTree` has no constraint concept, so a coupled joint cannot be represented.
-    /// Checking only the requested slots lets a chain that excludes the mimic joint still build.
+    /// Rejects the first mimic joint among these slots, so a chain that excludes one still builds.
     pub(crate) fn reject_mimic_joints(&self, slots: &[usize]) -> Result<(), ModelError> {
         for &index in slots {
             let body = &self.bodies[index];
-            if let Some(description) = &body.joint {
-                if let Some(mimic) = &description.mimic {
-                    return Err(ModelError::MimicJointInTree {
-                        joint: description.name.clone(),
-                        follows: mimic.joint.clone(),
-                    });
-                }
+            if let Some(description) = &body.joint
+                && let Some(mimic) = &description.mimic
+            {
+                return Err(ModelError::MimicJointInTree {
+                    joint: description.name.clone(),
+                    follows: mimic.joint.clone(),
+                });
             }
         }
         Ok(())
@@ -353,10 +350,9 @@ fn build_joint(body: &BodyDescription) -> Joint<f64> {
             Joint::continuous(description.axis, body.pose).with_anchor(description.anchor)
         }
         JointKind::Prismatic => Joint::prismatic(description.axis, body.pose),
-        // MuJoCo does not compose a free-jointed body's own pos/quat onto its qpos at runtime —
-        // qpos is the world pose directly, and pos/quat only ever seed qpos0's default. Passing
-        // body.pose here would place an identity reading away from the origin, which does not
-        // match MuJoCo's own solve of the same file.
+        // A free joint's qpos is the world pose directly; pos/quat only seed qpos0's default and
+        // are never composed onto it. Passing body.pose would put an identity reading off the
+        // origin, where MuJoCo's own solve does not.
         JointKind::Floating => return Joint::floating(SE3::identity()),
         JointKind::Fixed => {
             unreachable!(
@@ -383,6 +379,7 @@ pub struct BodyDescription {
     pose: SE3<f64>,
     inertia: Option<SpatialInertia<f64>>,
     joint: Option<JointDescription>,
+    visual_geometry: Vec<VisualGeometry>,
 }
 
 impl BodyDescription {
@@ -407,10 +404,9 @@ impl BodyDescription {
         self.pose
     }
 
-    /// Mass, COM and rotational inertia, or `None` where the file states none.
+    /// Mass, COM and rotational inertia, `None` where the file states none.
     ///
-    /// A massless body is still a body: it takes a tree slot and its transform is read normally.
-    /// URDF uses these for tool and sensor frames.
+    /// A massless body still takes a tree slot: URDF's encoding for tool and sensor frames.
     #[inline]
     #[must_use]
     pub fn inertia(&self) -> Option<SpatialInertia<f64>> {
@@ -423,12 +419,18 @@ impl BodyDescription {
     pub fn joint(&self) -> Option<&JointDescription> {
         self.joint.as_ref()
     }
+
+    /// Shapes the file draws this body with, in document order. Empty where it states none.
+    #[inline]
+    #[must_use]
+    pub fn visual_geometry(&self) -> &[VisualGeometry] {
+        &self.visual_geometry
+    }
 }
 
 /// A joint coupled to another by `child = multiplier * driver + offset`.
 ///
-/// A `KinematicTree` carries no constraints, so a model with one parses in full but cannot be
-/// converted whole.
+/// A `KinematicTree` carries no constraints, so a model with one parses but cannot convert whole.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MimicDescription {
     joint: String,
@@ -560,7 +562,6 @@ impl JointDescription {
     }
 
     /// A 6-DoF joint. No other field applies, so each is left at its inert default.
-    #[cfg(any(feature = "mjcf", feature = "urdf"))]
     pub(crate) fn floating(name: String) -> Self {
         JointDescription {
             name,
@@ -581,17 +582,16 @@ impl JointDescription {
 
 /// Reads a model file, dispatching on extension: `.urdf` reads URDF, anything else MJCF.
 ///
-/// Errors: whatever the chosen reader rejects, plus
-/// [`FormatNotEnabled`](ModelError::FormatNotEnabled) if that reader is not compiled in.
+/// Errors: whatever the chosen reader rejects.
 pub fn load_path(path: &Path) -> Result<RobotModel, ModelError> {
     let is_urdf = path
         .extension()
         .and_then(|extension| extension.to_str())
         .is_some_and(|extension| extension.eq_ignore_ascii_case("urdf"));
     if is_urdf {
-        read_urdf_path(path)
+        urdf::load_path(path)
     } else {
-        read_mjcf_path(path)
+        mjcf::load_path(path)
     }
 }
 
@@ -603,58 +603,10 @@ pub fn load_str(xml: &str) -> Result<RobotModel, ModelError> {
     let document =
         roxmltree::Document::parse(xml).map_err(|err| ModelError::Xml(err.to_string()))?;
     match document.root_element().tag_name().name() {
-        "robot" => read_urdf_str(xml),
-        "mujoco" => read_mjcf_str(xml),
+        "robot" => urdf::load_str(xml),
+        "mujoco" => mjcf::load_str(xml),
         found => Err(ModelError::UnexpectedRootElement {
             found: found.to_owned(),
         }),
     }
-}
-
-#[cfg(feature = "mjcf")]
-fn read_mjcf_path(path: &Path) -> Result<RobotModel, ModelError> {
-    mjcf::load_path(path)
-}
-
-#[cfg(not(feature = "mjcf"))]
-fn read_mjcf_path(_path: &Path) -> Result<RobotModel, ModelError> {
-    Err(ModelError::FormatNotEnabled {
-        format: ModelFormat::Mjcf,
-    })
-}
-
-#[cfg(feature = "mjcf")]
-fn read_mjcf_str(xml: &str) -> Result<RobotModel, ModelError> {
-    mjcf::load_str(xml)
-}
-
-#[cfg(not(feature = "mjcf"))]
-fn read_mjcf_str(_xml: &str) -> Result<RobotModel, ModelError> {
-    Err(ModelError::FormatNotEnabled {
-        format: ModelFormat::Mjcf,
-    })
-}
-
-#[cfg(feature = "urdf")]
-fn read_urdf_path(path: &Path) -> Result<RobotModel, ModelError> {
-    urdf::load_path(path)
-}
-
-#[cfg(not(feature = "urdf"))]
-fn read_urdf_path(_path: &Path) -> Result<RobotModel, ModelError> {
-    Err(ModelError::FormatNotEnabled {
-        format: ModelFormat::Urdf,
-    })
-}
-
-#[cfg(feature = "urdf")]
-fn read_urdf_str(xml: &str) -> Result<RobotModel, ModelError> {
-    urdf::load_str(xml)
-}
-
-#[cfg(not(feature = "urdf"))]
-fn read_urdf_str(_xml: &str) -> Result<RobotModel, ModelError> {
-    Err(ModelError::FormatNotEnabled {
-        format: ModelFormat::Urdf,
-    })
 }

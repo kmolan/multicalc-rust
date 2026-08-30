@@ -29,10 +29,10 @@ impl<T: Numeric> ProfileLimits<T> {
         if !positive(speed) || !positive(acceleration) {
             return Err(MotionError::LimitNotPositive);
         }
-        if let Some(jerk_limit) = jerk {
-            if !positive(jerk_limit) {
-                return Err(MotionError::LimitNotPositive);
-            }
+        if let Some(jerk_limit) = jerk
+            && !positive(jerk_limit)
+        {
+            return Err(MotionError::LimitNotPositive);
         }
         Ok(Self {
             speed,

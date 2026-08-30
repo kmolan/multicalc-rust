@@ -440,11 +440,11 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
             length = 1;
         }
         // Its derivative comes next, unless it is a flat line with nothing to differentiate.
-        if degree >= 1 {
-            if let Some(slot) = chain.get_mut(1) {
-                *slot = self.derivative();
-                length = 2;
-            }
+        if degree >= 1
+            && let Some(slot) = chain.get_mut(1)
+        {
+            *slot = self.derivative();
+            length = 2;
         }
 
         while length < COEFFICIENT_COUNT {

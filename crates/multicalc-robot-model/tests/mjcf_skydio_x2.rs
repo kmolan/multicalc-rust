@@ -1,5 +1,4 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-#![cfg(feature = "mjcf")]
 
 //! Loads the vendored Skydio X2 and checks it against numbers worked out by hand from the file.
 //!
@@ -10,7 +9,8 @@
 
 use std::path::Path;
 
-use multicalc_robot_model::RobotModel;
+use multicalc::linear_algebra::Vector;
+use multicalc_robot_model::{GeometryShape, RobotModel};
 
 /// Mass, in kilograms: four 0.25 kg rotors and a 0.325 kg hull.
 const MASS: f64 = 1.325;
@@ -103,4 +103,42 @@ fn works_out_how_hard_the_body_is_to_spin() {
             );
         }
     }
+}
+
+#[test]
+fn the_airframe_draws_a_scaled_mesh_and_nine_primitives() {
+    let model = skydio_x2();
+    let shapes = model.body(0).unwrap().visual_geometry();
+    assert_eq!(shapes.len(), 10);
+
+    // `<compiler assetdir="assets">` stands in for meshdir, and the scale comes from
+    // `<default class="x2"><mesh scale="0.01 0.01 0.01"/>`, not from the geom.
+    assert_eq!(
+        shapes[0].shape(),
+        &GeometryShape::Mesh {
+            file: "assets/X2_lowpoly.obj".to_owned(),
+            scale: Vector::new([0.01, 0.01, 0.01]),
+        }
+    );
+    assert_eq!(shapes[0].group(), 2);
+    // `<material name="phong3SG">` states a texture and no rgba, so it is left white.
+    assert_eq!(shapes[0].color(), [1.0, 1.0, 1.0, 1.0]);
+
+    // Four collision boxes, then four rotor ellipsoids from `<default class="rotor">`.
+    assert_eq!(
+        shapes[1].shape(),
+        &GeometryShape::Box {
+            half_extents: Vector::new([0.06, 0.027, 0.02])
+        }
+    );
+    assert_eq!(
+        shapes[5].shape(),
+        &GeometryShape::Ellipsoid {
+            semi_axes: Vector::new([0.13, 0.13, 0.01])
+        }
+    );
+    assert_eq!(shapes[5].group(), 3);
+
+    // The last is `material="invisible"`, rgba="0 0 0 0".
+    assert_eq!(shapes[9].color(), [0.0, 0.0, 0.0, 0.0]);
 }

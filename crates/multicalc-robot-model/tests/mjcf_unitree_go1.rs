@@ -1,24 +1,22 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-#![cfg(feature = "mjcf")]
 
-//! Loads the vendored Unitree Go1 and checks the structure the parse must produce: a floating base
-//! (the trunk, on a free joint) carrying twelve hinge joints across four branching legs, with the
-//! per-joint dynamics settings a two-level default class supplies. Numbers here are hand-checked
-//! against the model file directly, with no external oracle involved — that comparison is
+//! The vendored Unitree Go1: a floating trunk carrying twelve hinges across four legs, with the
+//! joint dynamics a two-level default class supplies. Numbers are hand-checked against the file,
+//! with no external oracle; that comparison is
 //! `tools/qa/tests/{kinematics,inverse_kinematics,mjcf}.rs`.
 
 use std::path::Path;
 
 use multicalc::kinematics::JointKind;
-use multicalc_robot_model::RobotModel;
+use multicalc::linear_algebra::Vector;
+use multicalc_robot_model::{GeometryShape, RobotModel};
 
 const BODY_NAMES: [&str; 13] = [
     "trunk", "FR_hip", "FR_thigh", "FR_calf", "FL_hip", "FL_thigh", "FL_calf", "RR_hip",
     "RR_thigh", "RR_calf", "RL_hip", "RL_thigh", "RL_calf",
 ];
 
-/// Every body's parent, by index — the trunk at the root and four independent three-body legs
-/// hanging off it.
+/// Every body's parent, by index: the trunk at the root, four three-body legs hanging off it.
 const PARENTS: [Option<usize>; 13] = [
     None,
     Some(0),
@@ -80,27 +78,25 @@ fn the_twelve_leg_joints_are_revolute_with_class_supplied_dynamics() {
     for index in 1..13 {
         let joint = model.body(index).unwrap().joint().unwrap();
         assert_eq!(joint.kind(), JointKind::Revolute, "body {index}");
-        // Every leg joint states `frictionloss` only once, in the `go1` class every joint
-        // inherits — a reader that took it from the element alone would find nothing here.
+        // Stated once, in the `go1` class every joint inherits. Read off the element alone it
+        // would come back zero.
         assert_close(joint.friction_loss(), 0.2, "body {index} friction_loss");
         assert_close(joint.armature(), 0.01, "body {index} armature");
     }
 
-    // FR_hip_joint: the `abduction` class, nested one level under `go1`, overrides the axis,
-    // damping, and range every abduction joint on the robot shares.
+    // `abduction`, nested one level under `go1`, overrides axis, damping and range.
     let hip = model.body(1).unwrap().joint().unwrap();
     assert_eq!(hip.axis().into_array(), [1.0, 0.0, 0.0]);
     assert_close(hip.damping(), 1.0, "FR_hip_joint damping");
     assert_eq!(hip.limits(), Some((-0.863, 0.863)));
 
-    // FR_thigh_joint: the `hip` class overrides only the range, so the axis and damping fall
-    // through to the `go1` class underneath it.
+    // `hip` overrides only the range, so axis and damping fall through to `go1`.
     let thigh = model.body(2).unwrap().joint().unwrap();
     assert_eq!(thigh.axis().into_array(), [0.0, 1.0, 0.0]);
     assert_close(thigh.damping(), 2.0, "FR_thigh_joint damping");
     assert_eq!(thigh.limits(), Some((-0.686, 4.501)));
 
-    // FR_calf_joint: the `knee` class, same inheritance shape as `hip`.
+    // `knee`, the same inheritance shape as `hip`.
     let calf = model.body(3).unwrap().joint().unwrap();
     assert_eq!(calf.axis().into_array(), [0.0, 1.0, 0.0]);
     assert_close(calf.damping(), 2.0, "FR_calf_joint damping");
@@ -120,7 +116,7 @@ fn records_what_it_did_not_read() {
     let model = go1();
     let ignored: Vec<&str> = model.ignored().iter().map(String::as_str).collect();
 
-    for section in ["actuator", "asset", "keyframe", "option"] {
+    for section in ["actuator", "keyframe", "option"] {
         assert!(ignored.contains(&section), "missing {section}: {ignored:?}");
     }
 }
@@ -129,15 +125,60 @@ fn records_what_it_did_not_read() {
 fn the_whole_model_builds_a_tree_whose_floating_base_widens_the_configuration() {
     let model = go1();
 
-    // One joint slot per body, but the floating base takes seven configuration numbers where
-    // every other joint takes one: 12 hinges + 7 = 19.
+    // One slot per body, but the floating base reads seven configuration values to a hinge's one:
+    // 12 + 7 = 19.
     let tree = model.kinematic_tree::<13, 19>().unwrap();
     assert_eq!(tree.len(), 13);
     assert_eq!(tree.joint(0).unwrap().kind(), JointKind::Floating);
     assert_eq!(tree.config_len(), 19);
     assert_eq!(tree.velocity_len(), 18);
 
-    // A capacity sized for the joint count alone, with no room for the floating base's extra
-    // six slots, is refused.
+    // A capacity sized for the joint count alone, with no room for the base's extra six.
     assert!(model.kinematic_tree::<13, 13>().is_err());
+}
+
+#[test]
+fn the_trunk_draws_a_mesh_and_eight_collision_primitives() {
+    let model = go1();
+    let shapes = model.body(0).unwrap().visual_geometry();
+    assert_eq!(shapes.len(), 9);
+
+    assert_eq!(
+        shapes[0].shape(),
+        &GeometryShape::Mesh {
+            file: "assets/trunk.stl".to_owned(),
+            scale: Vector::new([1.0, 1.0, 1.0]),
+        }
+    );
+    assert_eq!(shapes[0].group(), 2);
+    assert_eq!(shapes[0].color(), [0.2, 0.2, 0.2, 1.0]); // `<material name="dark"/>`
+
+    assert_eq!(
+        shapes[1].shape(),
+        &GeometryShape::Box {
+            half_extents: Vector::new([0.125, 0.04, 0.057])
+        }
+    );
+    // `quat="1 0 1 0"` is a quarter turn about y, normalized.
+    assert_eq!(
+        shapes[2].shape(),
+        &GeometryShape::Cylinder {
+            radius: 0.058,
+            half_length: 0.125
+        }
+    );
+    let turn = shapes[2].pose().rotation().quaternion().as_array();
+    let root_half = std::f64::consts::FRAC_1_SQRT_2;
+    for (component, expected) in turn.iter().zip([root_half, 0.0, root_half, 0.0]) {
+        assert!((component - expected).abs() < 1e-12, "{turn:?}");
+    }
+
+    // `<default class="collision"><geom type="capsule"/>`: the last four state only a size.
+    assert_eq!(
+        shapes[5].shape(),
+        &GeometryShape::Capsule {
+            radius: 0.009,
+            half_length: 0.035
+        }
+    );
 }

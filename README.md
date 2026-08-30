@@ -182,7 +182,9 @@ root is a Cargo workspace. Runnable demos live in the dev-only [`demos/`](demos)
 live Rerun showcases), and [`tools/embedded-smoke`](tools/embedded-smoke) runs `multicalc` on the
 four bare-metal targets (three Cortex-M targets + `riscv32imc`) under QEMU every PR.
 [`crates/multicalc-robot-model`](crates/multicalc-robot-model) reads MuJoCo MJCF and URDF model
-files into multicalc's robot types. See [README](crates/multicalc-robot-model/README.md) for more details.
+files into multicalc's robot types, and ships a `model_viewer` binary that draws any of them in a
+Rerun viewer. See
+[README](crates/multicalc-robot-model/README.md) for more details.
 
 ## Contributing
 

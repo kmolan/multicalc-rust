@@ -176,7 +176,7 @@ the feature never pulls in `std`.
 
 ## MSRV and edition
 
-Edition 2024, minimum supported Rust version **1.85**.
+Edition 2024, minimum supported Rust version **1.92**.
 
 ## Contributing
 

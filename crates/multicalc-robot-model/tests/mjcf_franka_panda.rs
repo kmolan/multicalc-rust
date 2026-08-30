@@ -1,16 +1,14 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-#![cfg(feature = "mjcf")]
 
-//! Loads the vendored Franka Emika Panda and checks the structure the parse must produce: the
-//! body tree, which joints carry which settings, and where a default class supplies data no body
-//! states for itself. Numbers here are hand-checked against the model file directly, with no
-//! external oracle involved — that comparison is `tools/qa/tests/mjcf.rs`.
+//! The vendored Franka Emika Panda: body tree, per-joint settings, and where a default class
+//! supplies what no body states. Numbers are hand-checked against the file, with no external
+//! oracle; that comparison is `tools/qa/tests/mjcf.rs`.
 
 use std::path::Path;
 
 use multicalc::kinematics::JointKind;
 use multicalc::linear_algebra::Vector;
-use multicalc_robot_model::{ModelError, RobotModel};
+use multicalc_robot_model::{GeometryShape, ModelError, RobotModel};
 
 const BODY_NAMES: [&str; 11] = [
     "link0",
@@ -53,7 +51,7 @@ fn reads_the_whole_arm() {
         assert_eq!(model.body(index).unwrap().name(), name, "body {index}");
     }
 
-    // link0 and hand are welds: the base does not move, and the hand is a frame carried by link7.
+    // link0 and hand are welds: a fixed base, and a frame carried by link7.
     assert!(model.body(0).unwrap().joint().is_none());
     assert!(model.body(8).unwrap().joint().is_none());
 }
@@ -65,8 +63,8 @@ fn the_seven_arm_joints_are_revolute_with_a_class_supplied_armature_and_damping(
     for index in 1..=7 {
         let joint = model.body(index).unwrap().joint().unwrap();
         assert_eq!(joint.kind(), JointKind::Revolute, "body {index}");
-        // The Franka states these once, in a default class every link inherits — a reader that
-        // took them from the element alone would find nothing and record zero for both.
+        // Stated once, in a default class every link inherits. Read off the element alone both
+        // would come back zero.
         assert_close(joint.armature(), 0.1, "armature");
         assert_close(joint.damping(), 1.0, "damping");
     }
@@ -119,11 +117,11 @@ fn records_what_it_did_not_read() {
     let model = panda();
     let ignored: Vec<&str> = model.ignored().iter().map(String::as_str).collect();
 
-    // The dropped coupling between the two fingers is what makes `tendon` and `equality` worth
-    // seeing here: a caller who only checked `movable_joint_count` would not otherwise know they
-    // move independently rather than mirrored.
+    // `tendon` and `equality` carry the dropped coupling between the fingers: without them listed,
+    // `movable_joint_count` alone would not say the fingers move independently rather than
+    // mirrored.
     for section in [
-        "tendon", "equality", "actuator", "asset", "keyframe", "contact", "option",
+        "tendon", "equality", "actuator", "keyframe", "contact", "option",
     ] {
         assert!(ignored.contains(&section), "missing {section}: {ignored:?}");
     }
@@ -140,7 +138,7 @@ fn the_chain_down_to_the_hand_excludes_the_fingers() {
     let arm = model.kinematic_tree_to::<9, 9>("hand").unwrap();
     assert_eq!(arm.len(), 9);
     assert_eq!(arm.joint(8).unwrap().kind(), JointKind::Fixed);
-    // The data survived the conversion into a `KinematicTree`, not just the parse.
+    // The settings survive conversion, not just the parse.
     assert_close(arm.joint(1).unwrap().armature(), 0.1, "slot 1 armature");
 }
 
@@ -191,4 +189,62 @@ fn articulated_body_carries_every_body_inertia() {
             _ => panic!("{name} disagrees on whether it has mass"),
         }
     }
+}
+
+#[test]
+fn link0_draws_its_visual_and_collision_meshes() {
+    let model = panda();
+    let shapes = model.body(0).unwrap().visual_geometry();
+    assert_eq!(shapes.len(), 12);
+
+    // `<default class="visual">` supplies type and group; the geom names mesh and material.
+    assert_eq!(
+        shapes[0].shape(),
+        &GeometryShape::Mesh {
+            file: "assets/link0_0.obj".to_owned(),
+            scale: Vector::new([1.0, 1.0, 1.0]),
+        }
+    );
+    assert_eq!(shapes[0].group(), 2);
+    // `<material name="off_white" rgba="0.901961 0.921569 0.929412 1"/>`
+    let color = shapes[0].color();
+    for (component, expected) in color.iter().zip([0.901961, 0.921569, 0.929412, 1.0]) {
+        assert!((component - expected).abs() < 1e-12, "{color:?}");
+    }
+
+    // The collision mesh is the twelfth, in group 3.
+    assert_eq!(shapes[11].group(), 3);
+    assert_eq!(
+        shapes[11].shape(),
+        &GeometryShape::Mesh {
+            file: "assets/link0.stl".to_owned(),
+            scale: Vector::new([1.0, 1.0, 1.0]),
+        }
+    );
+}
+
+#[test]
+fn mesh_paths_resolve_against_the_model_directory() {
+    let model = panda();
+    let GeometryShape::Mesh { file, .. } = model.body(0).unwrap().visual_geometry()[0].shape()
+    else {
+        panic!("link0's first geom is a mesh");
+    };
+    let path = model.mesh_path(file, &[]).unwrap();
+    assert!(path.is_file(), "{path:?}");
+}
+
+#[test]
+fn geometry_ingestion_left_the_inertias_alone() {
+    let model = panda();
+
+    // link0 carries twelve geoms and link1 two, and inertia is read in the same walk that collects
+    // them, so this pins the two paths as independent.
+    let link0 = model.body_named("link0").unwrap();
+    assert_close(link0.inertia().unwrap().mass(), 0.629769, "link0 mass");
+    assert_eq!(link0.visual_geometry().len(), 12);
+
+    let link1 = model.body_named("link1").unwrap();
+    assert_close(link1.inertia().unwrap().mass(), 4.970684, "link1 mass");
+    assert_eq!(link1.visual_geometry().len(), 2);
 }

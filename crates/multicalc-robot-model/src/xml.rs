@@ -53,7 +53,6 @@ pub(crate) fn parse_scalar(node: Node, attribute: &str) -> Result<Option<f64>, M
 }
 
 /// A 2-vector attribute.
-#[cfg(feature = "mjcf")]
 pub(crate) fn parse_vector2(node: Node, attribute: &str) -> Result<Option<[f64; 2]>, ModelError> {
     fixed::<2>(node, attribute)
 }
@@ -64,13 +63,11 @@ pub(crate) fn parse_vector3(node: Node, attribute: &str) -> Result<Option<[f64; 
 }
 
 /// A 4-vector attribute.
-#[cfg(feature = "mjcf")]
 pub(crate) fn parse_vector4(node: Node, attribute: &str) -> Result<Option<[f64; 4]>, ModelError> {
     fixed::<4>(node, attribute)
 }
 
 /// A 6-vector attribute.
-#[cfg(feature = "mjcf")]
 pub(crate) fn parse_vector6(node: Node, attribute: &str) -> Result<Option<[f64; 6]>, ModelError> {
     fixed::<6>(node, attribute)
 }
