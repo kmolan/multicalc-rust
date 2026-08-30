@@ -13,8 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   perceptron — `activation(weights · input + biases)` — over a `MatrixView` of weights and a
   `VectorView` of biases, so a policy exported as one flat buffer is read where it sits instead of
   being copied onto the stack. `Activation` picks the scalar nonlinearity: `Relu`, `Tanh`, or
-  `Identity`. Layer widths are const parameters, so a mismatched chain fails to compile.
-  @Thiago316316 (#83)
+  `Identity`. `ParameterCursor` walks a flat export one layer at a time, so the offsets follow from
+  the shapes the caller declares rather than being written out by hand, and a layer that runs off
+  the end leaves the read position where it was. Layer widths are const parameters, so a mismatched
+  chain fails to compile. @Thiago316316 (#83)
 - **Path planning.** A new `planning` module: `GridPlanner` runs Dijkstra, A\*, weighted A\* and
   any-angle Theta\* over any `OccupancyMap`, and `Rrt`, `RrtStar` and `Prm` sample a continuous
   `StateSpace` with the validity check injected as a closure. What a search charges for entering a

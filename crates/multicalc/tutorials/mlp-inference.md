@@ -5,6 +5,8 @@ Running a learned policy on the robot, over parameters that are never copied.
 - `Layer`: one dense layer — `activation(weights · input + biases)` — holding borrowed views of its
   weights and biases rather than owning them.
 - `Activation`: the scalar function applied to each output, `Relu`, `Tanh`, or `Identity`.
+- `ParameterCursor`: a read position in the exported buffer, handing out one layer's parameters at
+  a time.
 
 A multi-layer perceptron is a stack of dense layers. Each takes the vector below it, forms one
 weighted sum per output, and passes every sum through an activation. Row `i` of the weight matrix is
@@ -39,7 +41,7 @@ robot. Nothing is allocated and nothing panics, so this runs under `no_std`.
 
 ```rust
 use multicalc::linear_algebra::Vector;
-use multicalc::mlp_inference::{Activation, Layer};
+use multicalc::mlp_inference::{Activation, ParameterCursor};
 
 // A trained policy arrives as one flat block. This is a 2 -> 3 -> 1 network: each layer's weights
 // row-major, then its biases, in the order the layers run.
@@ -50,13 +52,13 @@ let parameters = [
     0.5,                            // 1 output bias
 ];
 
-// Walking the block hands each layer its own run of it. Nothing is copied out.
-let (hidden_weights, rest) = parameters.split_at(6);
-let (hidden_biases, rest) = rest.split_at(3);
-let (output_weights, output_biases) = rest.split_at(3);
+// The cursor walks the block, handing each layer its own run of it. Nothing is copied out.
+let mut cursor = ParameterCursor::new(&parameters);
+let hidden = cursor.try_take_layer::<3, 2>(Activation::Relu)?;
+let output = cursor.try_take_layer::<1, 3>(Activation::Identity)?;
 
-let hidden = Layer::<3, 2>::try_from_slices(hidden_weights, hidden_biases, Activation::Relu)?;
-let output = Layer::<1, 3>::try_from_slices(output_weights, output_biases, Activation::Identity)?;
+// Numbers left over would mean the shapes just declared disagree with the export.
+assert!(cursor.is_empty());
 
 // One control step: an observation in, an action out.
 let observation = Vector::new([2.0, 1.0]);
@@ -70,8 +72,10 @@ assert_eq!(output.forward(activations.view()).into_array(), [4.0]);
 
 ## Reading a layer's parameters yourself
 
-`try_from_slices` reads a run of the buffer row-major and is the shortest path from a flat export.
-When the parameters are already viewed — a block of a larger matrix, or a transposed export —
+The cursor covers the ordinary export, where the layers follow one another through a single block.
+When a layer's parameters sit somewhere else, the two constructors underneath it are still there.
+`try_from_slices` reads a weight run and a bias run row-major, which is what the cursor calls. When
+the parameters are already viewed — a block of a larger matrix, or a transposed export —
 `Layer::new` takes the views directly, and every reshaping the views offer is available first:
 
 ```rust

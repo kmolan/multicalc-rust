@@ -1,5 +1,6 @@
+use multicalc::error::LinalgError;
 use multicalc::linear_algebra::Vector;
-use multicalc::mlp_inference::{Activation, Layer};
+use multicalc::mlp_inference::{Activation, Layer, ParameterCursor};
 
 #[test]
 fn relu_clamps_a_negative_sum_and_leaves_a_positive_one() {
@@ -79,4 +80,81 @@ fn a_slice_too_short_for_the_declared_shape_is_rejected() {
     let weights = [1.0, 2.0, 3.0];
     let biases = [0.0, 0.0];
     assert!(Layer::<2, 2>::try_from_slices(&weights, &biases, Activation::Relu).is_err());
+}
+
+// ----- walking a parameter buffer -----
+
+#[test]
+fn a_cursor_hands_out_successive_runs_of_the_buffer() {
+    let parameters = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
+    let mut cursor = ParameterCursor::new(&parameters);
+
+    let weights = cursor.try_take_matrix::<2, 3>().unwrap();
+    assert_eq!(
+        weights.to_matrix().into_array(),
+        [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+    );
+    assert_eq!(cursor.remaining(), 2);
+
+    let biases = cursor.try_take_vector::<2>().unwrap();
+    assert_eq!(biases.to_vector().into_array(), [7.0, 8.0]);
+    assert!(cursor.is_empty());
+}
+
+#[test]
+fn a_cursor_loads_a_two_layer_network_from_one_block() {
+    // The same 2 -> 3 -> 1 network the layer tests build by hand, laid out as one export would
+    // write it: each layer's weights row-major, then its biases.
+    let parameters = [
+        0.5, -0.5, 1.0, 0.0, -1.0, 2.0, // 3x2 hidden weights
+        0.0, 1.0, -1.0, // 3 hidden biases
+        1.0, 1.0, 1.0, // 1x3 output weights
+        0.5, // 1 output bias
+    ];
+    let mut cursor = ParameterCursor::new(&parameters);
+    let hidden = cursor.try_take_layer::<3, 2>(Activation::Relu).unwrap();
+    let output = cursor.try_take_layer::<1, 3>(Activation::Identity).unwrap();
+
+    assert!(cursor.is_empty());
+
+    let activations = hidden.forward(Vector::new([2.0, 1.0]).view());
+    assert_eq!(activations.into_array(), [0.5, 3.0, 0.0]);
+    assert_eq!(output.forward(activations.view()).into_array(), [4.0]);
+}
+
+#[test]
+fn a_cursor_reports_the_layer_that_runs_off_the_end() {
+    // Enough for the first layer's weights and biases, and nothing after them.
+    let parameters = [1.0; 6];
+    let mut cursor = ParameterCursor::new(&parameters);
+
+    assert!(cursor.try_take_layer::<2, 2>(Activation::Relu).is_ok());
+    assert_eq!(
+        cursor.try_take_layer::<2, 2>(Activation::Relu).unwrap_err(),
+        LinalgError::OutOfBounds
+    );
+}
+
+#[test]
+fn a_layer_whose_biases_run_off_the_end_leaves_the_position_alone() {
+    // Room for a 2x2 weight block but only one of the two biases after it.
+    let parameters = [1.0; 5];
+    let mut cursor = ParameterCursor::new(&parameters);
+
+    assert!(cursor.try_take_layer::<2, 2>(Activation::Relu).is_err());
+
+    // A partial read would have left the cursor four values in, hiding the real shape.
+    assert_eq!(cursor.remaining(), 5);
+}
+
+#[test]
+fn a_buffer_longer_than_the_network_leaves_a_remainder() {
+    let parameters = [1.0; 7];
+    let mut cursor = ParameterCursor::new(&parameters);
+
+    let _ = cursor.try_take_layer::<2, 2>(Activation::Relu).unwrap();
+
+    // Every read succeeded, so only the leftover says the declared shape was wrong.
+    assert!(!cursor.is_empty());
+    assert_eq!(cursor.remaining(), 1);
 }
