@@ -12,7 +12,6 @@ use multicalc::estimation::{
 };
 use multicalc::kinematics::{BodyTwist, Unicycle, WheelRotations};
 use multicalc::linear_algebra::{Matrix, Vector, Vector3D};
-use multicalc::mapping::OccupancyMap;
 use multicalc::ode::Rk4;
 use multicalc::scalar::{Numeric, VectorFn};
 use rand::SeedableRng;
@@ -328,8 +327,7 @@ impl LapWorld {
         }
 
         let position = [self.pose[0], self.pose[1]];
-        let clearance =
-            nearest_wall_distance(&self.track.grid, position, LIDAR_RANGE) - FOOTPRINT_RADIUS;
+        let clearance = nearest_wall_distance(&self.track, position) - FOOTPRINT_RADIUS;
         let contact = clearance <= 0.0;
         if contact {
             self.metrics.contacts += 1;
@@ -472,8 +470,7 @@ impl LapWorld {
             ),
         };
         let position = [self.pose[0], self.pose[1]];
-        let clearance =
-            nearest_wall_distance(&self.track.grid, position, LIDAR_RANGE) - FOOTPRINT_RADIUS;
+        let clearance = nearest_wall_distance(&self.track, position) - FOOTPRINT_RADIUS;
         let contact = clearance <= 0.0;
 
         let bearing = (position[1] - self.track.island_center[1])
@@ -593,22 +590,15 @@ fn free_side_sign(scan: &[f64; BEAMS]) -> f64 {
     if left >= right { 1.0 } else { -1.0 }
 }
 
-/// The distance from `point` to the nearest wall, by casting a ring of rays and taking the shortest.
+/// The distance from `point` to the nearest wall, read from the track's distance field.
 ///
-/// A ray that starts inside a wall reads zero, so a point that has driven into an obstacle reports
-/// zero rather than a small positive distance. The ring can miss a wall that falls between two rays,
-/// so it uses enough rays that the gap is well under a centimetre at the footprint.
+/// One interpolated lookup, where a ring of 64 rays used to approximate the same number: the field
+/// is the exact Euclidean distance, so it cannot miss a wall that falls between two rays. A point
+/// in the outer half-cell rim has no four cells to blend, and reads zero — treated as contact,
+/// which is the conservative answer and unreachable on this track anyway.
 #[must_use]
-fn nearest_wall_distance<M: OccupancyMap>(grid: &M, point: [f64; 2], maximum_range: f64) -> f64 {
-    const RAYS: usize = 64;
-    let mut nearest = maximum_range;
-    for index in 0..RAYS {
-        let angle = std::f64::consts::TAU * index as f64 / RAYS as f64;
-        if let Some(distance) = grid.cast_ray(point, angle, maximum_range) {
-            nearest = nearest.min(distance);
-        }
-    }
-    nearest
+fn nearest_wall_distance(track: &LapTrack2D, point: [f64; 2]) -> f64 {
+    track.distance_field.distance_at(point).unwrap_or(0.0)
 }
 
 #[cfg(test)]
