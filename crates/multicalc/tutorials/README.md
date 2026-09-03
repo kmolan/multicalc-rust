@@ -37,6 +37,7 @@ Every fallible call returns a `Result`, and the error is the module family's own
 - [Control](control.md)
 - [Motion](motion.md)
 - [Mapping](mapping.md)
+- [Planning](planning.md)
 - [Estimation](estimation.md)
 - [Random](random.md)
 - [Error handling](error-handling.md)

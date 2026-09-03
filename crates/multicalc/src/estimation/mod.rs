@@ -27,6 +27,9 @@ mod unscented_kalman_filter;
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+mod likelihood_field;
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 mod monte_carlo_localizer;
 
 #[cfg(feature = "alloc")]
@@ -43,6 +46,9 @@ pub use mahony_filter::MahonyFilter;
 pub use models::{ConstantTurnAndSpeed, DirectMeasurement, residual_with_wrapped_angles};
 pub use unscented_kalman_filter::UnscentedKalmanFilter;
 
+#[cfg(feature = "alloc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+pub use likelihood_field::LikelihoodFieldModel;
 #[cfg(feature = "alloc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
 pub use monte_carlo_localizer::{BeamModel, InitialParticleCloud, MonteCarloLocalizer};

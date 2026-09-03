@@ -22,7 +22,7 @@ use multicalc::estimation::{
     ConstantTurnAndSpeed, ExtendedKalmanFilter, KalmanFilter, KalmanModel,
 };
 use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Vector, Vector2D};
-use multicalc::mapping::{MutableOccupancyMap, OccupancyMap};
+use multicalc::mapping::{MutableOccupancyMap, OccupancyGrid, OccupancyMap, ScanGeometry};
 use multicalc::numerical_derivative::DerivatorSingleVariable;
 use multicalc::numerical_derivative::Jacobian;
 use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
@@ -35,7 +35,7 @@ use multicalc::polynomial::{
 use multicalc::root_finding::Newton;
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc::scalar_fn;
-use multicalc::spatial::SE2;
+use multicalc::spatial::{SE2, SO2};
 use multicalc::vector_field::{curl_3d, divergence_3d};
 use multicalc_testkit::problems::{Jac23, Rosenbrock, VField3d, Wien};
 
@@ -387,53 +387,15 @@ pub fn pure_pursuit_identity() -> f64 {
     black_box(left.value())
 }
 
-/// A map of `COLUMNS` by `ROWS` cells held in a plain array: what a board with no heap uses.
-struct FixedMap<const COLUMNS: usize, const ROWS: usize> {
-    cells: [[bool; COLUMNS]; ROWS],
-}
-
-impl<const COLUMNS: usize, const ROWS: usize> OccupancyMap for FixedMap<COLUMNS, ROWS> {
-    fn columns(&self) -> usize {
-        COLUMNS
-    }
-    fn rows(&self) -> usize {
-        ROWS
-    }
-    fn resolution(&self) -> f64 {
-        0.25
-    }
-    fn origin(&self) -> [f64; 2] {
-        [0.0, 0.0]
-    }
-    fn is_occupied(&self, row: usize, column: usize) -> bool {
-        self.cells
-            .get(row)
-            .and_then(|row| row.get(column))
-            .copied()
-            .unwrap_or(false)
-    }
-}
-
-impl<const COLUMNS: usize, const ROWS: usize> MutableOccupancyMap for FixedMap<COLUMNS, ROWS> {
-    fn set_cell(&mut self, row: usize, column: usize, occupied: bool) {
-        if let Some(cell) = self.cells.get_mut(row).and_then(|row| row.get_mut(column)) {
-            *cell = occupied;
-        }
-    }
-    fn clear(&mut self) {
-        self.cells = [[false; COLUMNS]; ROWS];
-    }
-}
-
 /// Identity: a wall drawn at x = 1.25 on a 16x16 map of 0.25 m cells is met at exactly 0.75 m by a
-/// beam fired along the row from x = 0.5, and a beam fired the other way meets nothing. Covers the
-/// rasterizing and the cell walk together, over a map held in a plain array. Returns the distance.
-/// Full set only.
+/// beam fired along the row from x = 0.5, and a beam fired the other way meets nothing. A scan cast
+/// across the same map reads the same range on its middle beam. Covers the bit-packed storage, the
+/// rasterizing and the cell walk together. Returns the distance. Full set only.
+///
+/// The map is a bit per cell, so 16x16 is 64 bytes against the 256 a `[[bool; 16]; 16]` needs.
 #[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
 pub fn occupancy_ray_cast_identity() -> f64 {
-    let mut map: FixedMap<16, 16> = FixedMap {
-        cells: [[false; 16]; 16],
-    };
+    let mut map: OccupancyGrid<16, 16, 1> = OccupancyGrid::try_new(0.25, [0.0, 0.0]).expect("grid");
 
     // A wall up the map, drawn from world points rather than marked cell by cell.
     let wall_x = 1.25;
@@ -466,6 +428,22 @@ pub fn occupancy_ray_cast_identity() -> f64 {
         .is_none(),
         "occupancy_ray_cast_behind"
     );
+
+    // A three-beam scan facing along the row: the middle beam reads what the single cast did.
+    let scan: ScanGeometry<3> = ScanGeometry::try_new(0.2, maximum_range).expect("scan");
+    let pose = SE2::from_parts(
+        SO2::from_angle(along_the_row),
+        Vector2D::new(sensor_position),
+    );
+    let ranges = map.cast_scan(black_box(pose), &scan);
+    assert_close!(
+        "occupancy_cast_scan",
+        black_box(ranges[1]),
+        expected,
+        1e-12,
+        0.0
+    );
+
     black_box(distance)
 }
 

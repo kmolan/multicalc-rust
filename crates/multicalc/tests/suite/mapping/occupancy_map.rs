@@ -1,7 +1,9 @@
 //! The map traits themselves: what any map answers, and the ray casting and rasterizing every map
 //! inherits. Run against a plain fixed-size map so they hold without a heap.
 
-use multicalc::mapping::{MutableOccupancyMap, OccupancyMap};
+use multicalc::Numeric;
+use multicalc::mapping::{CellState, MutableOccupancyMap, OccupancyMap, ScanGeometry};
+use multicalc::{SE2, SO2, Vector2D};
 
 /// A map of `COLUMNS` by `ROWS` cells, laid out row by row.
 struct TestMap<const COLUMNS: usize, const ROWS: usize> {
@@ -289,4 +291,162 @@ fn ray_casting_holds_at_f32() {
         distance.is_some_and(|met| (met - expected).abs() < 1e-4),
         "{distance:?}, expected {expected}"
     );
+}
+
+// ---- scan casting ----
+
+/// A 20 by 20 map of quarter-metre cells with a wall running up column 12.
+fn walled_map() -> TestMap<20, 20> {
+    let mut map = TestMap::<20, 20>::new(0.25, [0.0, 0.0]);
+    for row in 0..20 {
+        map.set_cell(row, 12, true);
+    }
+    map
+}
+
+#[test]
+fn cast_scan_matches_per_beam_cast_ray_f64() {
+    let map = walled_map();
+    let scan: ScanGeometry<32> = ScanGeometry::try_new(core::f64::consts::PI, 6.0).unwrap();
+
+    for (x, y, heading) in [(1.0, 1.0, 0.0), (2.0, 3.5, 0.9), (0.5, 4.0, -2.1)] {
+        let pose = SE2::from_parts(SO2::from_angle(heading), Vector2D::new([x, y]));
+        let by_helper = map.cast_scan(pose, &scan);
+        let by_hand: [f64; 32] = core::array::from_fn(|beam| {
+            scan.beam_angle(beam)
+                .and_then(|offset| map.cast_ray([x, y], heading + offset, scan.maximum_range()))
+                .unwrap_or(scan.maximum_range())
+        });
+        // The pose carries a rotation, not an angle, so the heading comes back through `atan2`
+        // and the two agree to rounding rather than bit for bit.
+        for (helper, hand) in by_helper.iter().zip(by_hand) {
+            assert!((helper - hand).abs() < 1e-12, "{helper} against {hand}");
+        }
+    }
+}
+
+#[test]
+fn cast_scan_matches_per_beam_cast_ray_f32() {
+    /// The same walled shape at single precision.
+    struct WalledMap;
+
+    impl OccupancyMap<f32> for WalledMap {
+        fn columns(&self) -> usize {
+            20
+        }
+        fn rows(&self) -> usize {
+            20
+        }
+        fn resolution(&self) -> f32 {
+            0.25
+        }
+        fn origin(&self) -> [f32; 2] {
+            [0.0, 0.0]
+        }
+        fn is_occupied(&self, _row: usize, column: usize) -> bool {
+            column == 12
+        }
+    }
+
+    let map = WalledMap;
+    let scan: ScanGeometry<32, f32> = ScanGeometry::try_new(core::f32::consts::PI, 6.0).unwrap();
+    let position = [1.0_f32, 1.5];
+    let heading = 0.4_f32;
+    let pose = SE2::from_parts(SO2::from_angle(heading), Vector2D::new(position));
+
+    for (beam, range) in map.cast_scan(pose, &scan).iter().enumerate() {
+        let offset = scan.beam_angle(beam).unwrap();
+        let expected = map
+            .cast_ray(position, heading + offset, scan.maximum_range())
+            .unwrap_or(scan.maximum_range());
+        assert!((range - expected).abs() < 1e-4);
+    }
+}
+
+#[test]
+fn cast_scan_reports_maximum_range_when_clear_f64() {
+    let map = TestMap::<20, 20>::new(0.25, [0.0, 0.0]);
+    let scan: ScanGeometry<16> = ScanGeometry::try_new(core::f64::consts::PI, 6.0).unwrap();
+    let pose = SE2::from_parts(SO2::from_angle(0.3), Vector2D::new([2.5, 2.5]));
+
+    for range in map.cast_scan(pose, &scan) {
+        assert_eq!(range, scan.maximum_range());
+    }
+}
+
+#[test]
+fn scan_endpoints_lie_on_their_bearings_f64() {
+    let map = walled_map();
+    let scan: ScanGeometry<16> = ScanGeometry::try_new(core::f64::consts::PI, 6.0).unwrap();
+    let heading = 0.7;
+    let position = [1.0, 2.0];
+    let pose = SE2::from_parts(SO2::from_angle(heading), Vector2D::new(position));
+
+    let ranges = map.cast_scan(pose, &scan);
+    let endpoints = map.scan_endpoints(pose, &scan);
+
+    for (beam, endpoint) in endpoints.iter().enumerate() {
+        let separation = [endpoint[0] - position[0], endpoint[1] - position[1]];
+        let distance = separation[0].hypot(separation[1]);
+        assert!((distance - ranges[beam]).abs() < 1e-12);
+
+        let bearing = separation[1].atan2(separation[0]);
+        let expected = (heading + scan.beam_angle(beam).unwrap()).wrap_to_pi();
+        assert!((bearing.wrap_to_pi() - expected).abs() < 1e-12);
+    }
+}
+
+#[test]
+fn beams_yields_num_beams_angles_f64() {
+    let scan: ScanGeometry<9> = ScanGeometry::try_new(core::f64::consts::FRAC_PI_2, 4.0).unwrap();
+
+    let angles: Vec<f64> = scan.beams().collect();
+    assert_eq!(angles.len(), 9);
+    for (index, angle) in angles.iter().enumerate() {
+        assert_eq!(Some(*angle), scan.beam_angle(index));
+    }
+}
+
+// ---- cell state ----
+
+#[test]
+fn default_cell_state_follows_is_occupied_f64() {
+    /// A map answering only the five required questions, so this is the standing proof that the
+    /// trait's additions stayed provided rather than required.
+    struct BareMap;
+
+    impl OccupancyMap for BareMap {
+        fn columns(&self) -> usize {
+            4
+        }
+        fn rows(&self) -> usize {
+            4
+        }
+        fn resolution(&self) -> f64 {
+            0.5
+        }
+        fn origin(&self) -> [f64; 2] {
+            [0.0, 0.0]
+        }
+        fn is_occupied(&self, row: usize, column: usize) -> bool {
+            row < 4 && row == column
+        }
+    }
+
+    let map = BareMap;
+    for row in 0..4 {
+        for column in 0..4 {
+            let expected = if row == column {
+                CellState::Occupied
+            } else {
+                CellState::Free
+            };
+            assert_eq!(map.cell_state(row, column), expected);
+        }
+    }
+
+    // Off the grid reads free here, as `is_occupied` does. Only a belief map says `Unknown`.
+    assert_eq!(map.cell_state(4, 0), CellState::Free);
+    assert_eq!(map.cell_state(0, 4), CellState::Free);
+    assert_eq!(map.cell_state(usize::MAX, usize::MAX), CellState::Free);
 }

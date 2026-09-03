@@ -160,7 +160,8 @@ pub enum EstimationError {
     /// Every particle weight underflowed to zero — the measurement is incompatible with the whole
     /// cloud.
     WeightsDegenerate,
-    /// A filter tuning value did not describe a usable spread of sigma points.
+    /// A filter tuning value lay outside the range it must: a sigma-point spread that does not
+    /// describe a usable set, or a measurement model's deviation or mixture weight.
     InvalidTuning,
     /// A measurement model was asked to read a state component that does not exist.
     StateIndexOutOfRange,
@@ -321,6 +322,18 @@ pub enum MappingError {
     NonPositiveRange,
     /// A closest-visible range was negative, or reached the range the scan can see to.
     InvalidRangeLimits,
+    /// A words-per-row capacity below `COLUMNS.div_ceil(32)`.
+    WordsPerRowTooSmall,
+    /// A map's rows or columns did not match the field being built from it.
+    GridShapeMismatch,
+    /// A transform workspace shorter than the grid's longest span plus one.
+    WorkspaceTooSmall,
+    /// A belief grid's updates, clamps or thresholds were not ordered as required.
+    InvalidBeliefSettings,
+    /// An inscribed radius above the inflation radius.
+    RadiiNotOrdered,
+    /// A cost scaling factor that was zero or negative.
+    NonPositiveScaling,
 }
 
 /// Errors from the motion module (waypoint paths and their geometric queries).
@@ -349,6 +362,50 @@ pub enum MotionError {
     Linalg(LinalgError),
     /// A polynomial the trajectory is built from could not be formed.
     Polynomial(PolynomialError),
+}
+
+/// Errors from the planning module (grid search and sampling-based path planners).
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
+pub enum PlanningError {
+    /// A coordinate, cost, tolerance, radius or tuning value was infinite or NaN.
+    NonFinite,
+    /// A step size, connection radius, goal tolerance or clearance was zero or negative.
+    NonPositiveParameter,
+    /// A goal-sampling probability outside zero to one.
+    InvalidGoalBias,
+    /// A weighted-A* heuristic weight below one.
+    HeuristicWeightBelowOne,
+    /// A Manhattan heuristic paired with eight-connected movement.
+    InadmissibleHeuristic,
+    /// A state space whose lower bound sat above its upper bound.
+    BoundsReversed,
+    /// A map with no cells, or more than can be indexed.
+    MapTooLarge,
+    /// More cells, nodes or edges than the workspace holds.
+    WorkspaceTooSmall,
+    /// The start lay outside the map or the state space.
+    StartOutOfBounds,
+    /// The goal lay outside the map or the state space.
+    GoalOutOfBounds,
+    /// The start is blocked, so no plan can leave it.
+    StartNotFree,
+    /// The goal is blocked, so no plan can reach it.
+    GoalNotFree,
+    /// Everything reachable was searched and the goal is not among it.
+    NoPathFound,
+    /// The iteration budget ran out before a path was found.
+    DidNotConverge {
+        /// Expansions or samples spent.
+        iterations: usize,
+    },
+    /// The path found needs more waypoints than the output holds.
+    PathCapacityExceeded {
+        /// How many waypoints it would take.
+        needed: usize,
+    },
+    /// The path could not be assembled into a waypoint path.
+    Motion(MotionError),
 }
 
 /// Errors from polynomial construction, evaluation, and root finding.
@@ -417,6 +474,8 @@ pub enum CalcError {
     Mapping(MappingError),
     /// A motion error.
     Motion(MotionError),
+    /// A planning error.
+    Planning(PlanningError),
     /// A polynomial error.
     Polynomial(PolynomialError),
 }
@@ -559,6 +618,16 @@ impl From<MappingError> for CalcError {
 impl From<MotionError> for CalcError {
     fn from(err: MotionError) -> Self {
         CalcError::Motion(err)
+    }
+}
+impl From<MotionError> for PlanningError {
+    fn from(err: MotionError) -> Self {
+        PlanningError::Motion(err)
+    }
+}
+impl From<PlanningError> for CalcError {
+    fn from(err: PlanningError) -> Self {
+        CalcError::Planning(err)
     }
 }
 impl From<PolynomialError> for CalcError {
@@ -890,6 +959,24 @@ impl core::fmt::Display for MappingError {
             MappingError::InvalidRangeLimits => f.write_str(
                 "closest visible range must be non-negative and below the sensing range",
             ),
+            MappingError::WordsPerRowTooSmall => {
+                f.write_str("words-per-row capacity below the columns it must hold")
+            }
+            MappingError::GridShapeMismatch => {
+                f.write_str("map shape does not match the field built from it")
+            }
+            MappingError::WorkspaceTooSmall => {
+                f.write_str("workspace shorter than the grid's longest span plus one")
+            }
+            MappingError::InvalidBeliefSettings => {
+                f.write_str("belief updates, clamps and thresholds are not ordered as required")
+            }
+            MappingError::RadiiNotOrdered => {
+                f.write_str("inscribed radius must not exceed the inflation radius")
+            }
+            MappingError::NonPositiveScaling => {
+                f.write_str("cost scaling factor must be strictly positive")
+            }
         }
     }
 }
@@ -984,6 +1071,7 @@ impl core::fmt::Display for CalcError {
             CalcError::Plant(err) => write!(f, "{err}"),
             CalcError::Mapping(err) => write!(f, "{err}"),
             CalcError::Motion(err) => write!(f, "{err}"),
+            CalcError::Planning(err) => write!(f, "{err}"),
             CalcError::Polynomial(err) => write!(f, "{err}"),
         }
     }
@@ -1022,11 +1110,63 @@ impl core::error::Error for PlantError {
     }
 }
 
+impl core::fmt::Display for PlanningError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            PlanningError::NonFinite => f.write_str("planning value contained a non-finite value"),
+            PlanningError::NonPositiveParameter => {
+                f.write_str("step size, radius, tolerance or clearance must be strictly positive")
+            }
+            PlanningError::InvalidGoalBias => {
+                f.write_str("goal-sampling probability must lie in [0, 1]")
+            }
+            PlanningError::HeuristicWeightBelowOne => {
+                f.write_str("heuristic weight must be at least one")
+            }
+            PlanningError::InadmissibleHeuristic => {
+                f.write_str("Manhattan heuristic is inadmissible with eight-connected movement")
+            }
+            PlanningError::BoundsReversed => {
+                f.write_str("state space lower bound sat above its upper bound")
+            }
+            PlanningError::MapTooLarge => {
+                f.write_str("map has no cells, or more than can be indexed")
+            }
+            PlanningError::WorkspaceTooSmall => {
+                f.write_str("workspace holds fewer cells, nodes or edges than the search needs")
+            }
+            PlanningError::StartOutOfBounds => f.write_str("start lay outside the search space"),
+            PlanningError::GoalOutOfBounds => f.write_str("goal lay outside the search space"),
+            PlanningError::StartNotFree => f.write_str("start is blocked"),
+            PlanningError::GoalNotFree => f.write_str("goal is blocked"),
+            PlanningError::NoPathFound => f.write_str("no path exists to the goal"),
+            PlanningError::DidNotConverge { iterations } => {
+                write!(f, "search gave up after {iterations} expansions")
+            }
+            PlanningError::PathCapacityExceeded { needed } => {
+                write!(f, "path needs {needed} waypoints")
+            }
+            PlanningError::Motion(err) => {
+                write!(f, "planned path could not be assembled: {err}")
+            }
+        }
+    }
+}
+
 impl core::error::Error for MotionError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
             MotionError::Linalg(err) => Some(err),
             MotionError::Polynomial(err) => Some(err),
+            _ => None,
+        }
+    }
+}
+
+impl core::error::Error for PlanningError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            PlanningError::Motion(err) => Some(err),
             _ => None,
         }
     }
@@ -1095,6 +1235,7 @@ impl core::error::Error for CalcError {
             CalcError::Plant(err) => Some(err),
             CalcError::Mapping(err) => Some(err),
             CalcError::Motion(err) => Some(err),
+            CalcError::Planning(err) => Some(err),
             CalcError::Polynomial(err) => Some(err),
         }
     }

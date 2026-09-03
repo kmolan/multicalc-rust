@@ -2,15 +2,30 @@
 //! wheel-slip patch and the start pose.
 
 use multicalc::error::MappingError;
-use multicalc::mapping::{DynamicOccupancyGrid, MutableOccupancyMap};
+use multicalc::mapping::{
+    DistanceField, DistanceTransformWorkspace, DynamicOccupancyGrid, MutableOccupancyMap,
+};
 
 use crate::sim::geometry::{box_outline, rotate_points, rounded_rectangle};
+
+/// The track grid's shape, fixed by the outer extent and the cell size below.
+pub const TRACK_ROWS: usize = 88;
+/// The track grid's width in cells.
+pub const TRACK_COLUMNS: usize = 128;
+/// The longest span of the track grid, plus the one extra slot the envelope needs.
+const TRACK_SPAN: usize = TRACK_COLUMNS + 1;
 
 /// A closed 2D lap track drawn into an occupancy grid, with the extra facts the run driver needs.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LapTrack2D {
     /// The walls: the map the localizer matches against and the surface the lidar sees.
     pub grid: DynamicOccupancyGrid,
+    /// Every cell's exact distance to the nearest wall, built once from `grid`.
+    ///
+    /// Boxed because it is 90 KB: one `f64` a cell. It replaces a fan of ray casts, which
+    /// approximated the same number at 64 times the cost and could miss a wall falling between two
+    /// rays.
+    pub distance_field: Box<DistanceField<TRACK_ROWS, TRACK_COLUMNS>>,
     /// Where the robot truly starts, as [x, y, heading].
     pub start_pose: [f64; 3],
     /// A rough first guess for the localizer: position near the truth, heading unknown.
@@ -79,8 +94,20 @@ pub fn lap_track_2d() -> Result<LapTrack2D, MappingError> {
     // corridor; it is a false opening the reactive planner can be tempted into.
     stamp_alcove(&mut grid, [[-0.2, 1.7], [0.0, 2.3]]);
 
+    // The distance field is built once, here, because the walls never move. Its shape is asserted
+    // against the grid the cells were drawn into, so a change to the extent above fails loudly.
+    assert_eq!(
+        (rows, columns),
+        (TRACK_ROWS, TRACK_COLUMNS),
+        "track grid shape moved; update TRACK_ROWS and TRACK_COLUMNS"
+    );
+    let mut transform: Box<DistanceTransformWorkspace<TRACK_SPAN>> =
+        Box::new(DistanceTransformWorkspace::new());
+    let distance_field = Box::new(DistanceField::try_build(&grid, transform.as_mut())?);
+
     Ok(LapTrack2D {
         grid,
+        distance_field,
         start_pose: [1.0, 0.45, 0.0],
         localization_hint: [1.0, 0.45, 0.0],
         slip_zone: [[2.0, 0.0], [2.6, 0.9]],
