@@ -27,6 +27,20 @@ use crate::scalar::Numeric;
 /// assert!((recentered.apply(0.5) - 0.4).abs() < 1e-12);
 /// assert!((recentered.apply(-0.5) + 0.4).abs() < 1e-12);
 /// ```
+///
+/// There is no state here, so a non-finite value falls straight through and is gone by the next
+/// call. [`apply_checked`](Self::apply_checked) reports it rather than passing it on.
+///
+/// ```
+/// use multicalc::signal_processing::Deadband;
+///
+/// let plain = Deadband::plain(0.1_f64).unwrap();
+///
+/// assert!(plain.apply(f64::NAN).is_nan());
+/// assert_eq!(plain.apply(0.05), 0.0); // nothing carried over
+///
+/// assert!(plain.apply_checked(f64::NAN).is_err());
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Deadband<T: Numeric = f64> {
     /// How far from zero a value has to be before it counts.
@@ -53,6 +67,9 @@ impl<T: Numeric> Deadband<T> {
     }
 
     /// Applies the band to one value.
+    ///
+    /// There is no state to spoil: a non-finite value falls straight through to the output. See
+    /// [`apply_checked`](Self::apply_checked).
     #[inline]
     #[must_use]
     pub fn apply(&self, input: T) -> T {
@@ -62,6 +79,19 @@ impl<T: Numeric> Deadband<T> {
             input - self.threshold.copysign(input)
         } else {
             input
+        }
+    }
+
+    /// [`apply`](Self::apply) with the value checked.
+    ///
+    /// Returns [`SignalError::NonFinite`] for a non-finite value. There is no state to protect
+    /// here: this catches the bad reading rather than letting it through to the rest of the chain.
+    #[inline]
+    pub fn apply_checked(&self, input: T) -> Result<T, SignalError> {
+        if input.is_finite() {
+            Ok(self.apply(input))
+        } else {
+            Err(SignalError::NonFinite)
         }
     }
 
@@ -111,6 +141,25 @@ impl<T: Numeric> Deadband<T> {
 ///     Err(SignalError::ThresholdsOutOfOrder)
 /// );
 /// ```
+///
+/// A yes-or-no answer cannot be corrupted the way a numeric state can. The risk is the opposite
+/// one: a NaN loses both comparisons and the switch silently holds, which looks exactly like a
+/// steady signal parked inside the gap. [`update_checked`](Self::update_checked) tells the two
+/// apart. Infinities are ordinary extreme values and switch it normally.
+///
+/// ```
+/// use multicalc::signal_processing::Hysteresis;
+///
+/// let mut switch = Hysteresis::new(0.4_f64, 0.6).unwrap();
+/// assert!(switch.update(0.7));
+///
+/// // A NaN changes nothing at all — the answer is held, not corrupted.
+/// assert!(switch.update(f64::NAN));
+/// assert!(switch.update_checked(f64::NAN).is_err());
+/// assert!(switch.is_high());
+///
+/// assert!(!switch.update(f64::NEG_INFINITY));
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Hysteresis<T: Numeric = f64> {
     /// Fall below this and the answer becomes no.
@@ -141,6 +190,9 @@ impl<T: Numeric> Hysteresis<T> {
     }
 
     /// Feeds one value and returns the answer it leaves behind.
+    ///
+    /// A NaN loses both comparisons, so the switch silently holds — indistinguishable from a signal
+    /// parked inside the gap. See [`update_checked`](Self::update_checked).
     #[inline]
     #[must_use]
     pub fn update(&mut self, input: T) -> bool {
@@ -150,6 +202,19 @@ impl<T: Numeric> Hysteresis<T> {
             self.is_high = false;
         }
         self.is_high
+    }
+
+    /// [`update`](Self::update) with the value checked.
+    ///
+    /// Returns [`SignalError::NonFinite`] for a NaN, leaving the answer untouched. The answer
+    /// cannot be corrupted, so this is about visibility rather than protection.
+    #[inline]
+    pub fn update_checked(&mut self, input: T) -> Result<bool, SignalError> {
+        if !input.is_nan() {
+            Ok(self.update(input))
+        } else {
+            Err(SignalError::NonFinite)
+        }
     }
 
     /// Sets the answer back to no.
@@ -196,6 +261,32 @@ impl<T: Numeric> Hysteresis<T> {
 ///     SlewRateLimiter::new(0.0_f64, 1.0, 0.1),
 ///     Err(SignalError::NonPositiveRate)
 /// );
+/// ```
+///
+/// A NaN target latches until [`reset`](Self::reset). An infinite target is harmless once the
+/// limiter is seeded, because the rate clamp turns it into one ordinary step — only an infinite
+/// *first* target sticks, since the first call takes its target as the starting point unclamped.
+/// [`filter_checked`](Self::filter_checked) refuses exactly those two cases.
+///
+/// ```
+/// use multicalc::signal_processing::SlewRateLimiter;
+///
+/// // Unseeded, an infinite target becomes the starting point and nothing brings it back.
+/// let mut fresh = SlewRateLimiter::new(1.0_f64, 2.0, 0.1).unwrap();
+/// assert!(fresh.filter(f64::INFINITY).is_infinite());
+/// assert!(fresh.filter(1.0).is_infinite());
+///
+/// let mut running = SlewRateLimiter::new(1.0_f64, 2.0, 0.1).unwrap();
+/// assert!(running.filter_checked(f64::INFINITY).is_err());
+///
+/// // Seeded, the rate clamp bounds it, so the same target is accepted.
+/// let _ = running.filter(0.0);
+/// assert!((running.filter_checked(f64::INFINITY).unwrap() - 0.1).abs() < 1e-12);
+///
+/// // A NaN is refused whatever the state.
+/// let untouched = running;
+/// assert!(running.filter_checked(f64::NAN).is_err());
+/// assert_eq!(running, untouched);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SlewRateLimiter<T: Numeric = f64> {
@@ -244,6 +335,10 @@ impl<T: Numeric> SlewRateLimiter<T> {
     }
 
     /// Moves one step toward the target and returns where the output now sits.
+    ///
+    /// A NaN target latches until [`reset`](Self::reset), as does an infinite *first* target. Once
+    /// seeded, the rate clamp makes an infinite target harmless. See
+    /// [`filter_checked`](Self::filter_checked).
     #[inline]
     #[must_use]
     pub fn filter(&mut self, target: T) -> T {
@@ -266,6 +361,20 @@ impl<T: Numeric> SlewRateLimiter<T> {
             step
         };
         self.state
+    }
+
+    /// [`filter`](Self::filter) with the target checked.
+    ///
+    /// Returns [`SignalError::NonFinite`] for a NaN target, or for an infinite one while the
+    /// limiter is unseeded. It cannot undo damage a previous [`filter`](Self::filter) call has
+    /// already done, so pick one entry point and stay with it.
+    #[inline]
+    pub fn filter_checked(&mut self, target: T) -> Result<T, SignalError> {
+        if target.is_nan() || (target.is_infinite() && !self.initialized) {
+            Err(SignalError::NonFinite)
+        } else {
+            Ok(self.filter(target))
+        }
     }
 
     /// Clears the output so the next call jumps straight to its target again.

@@ -125,3 +125,37 @@ fn reset_clears_state() {
     // The next sample seeds the filter again, so it passes straight through.
     assert_eq!(filter.filter(7.0), 7.0);
 }
+
+// ---- handling non-finite signal ---------------------------------------------
+#[test]
+fn non_finite_input_spoils_filter_till_reset() {
+    let mut running = OnePoleLowPass::new(0.5_f64).unwrap();
+    let _ = running.filter(1.0);
+
+    assert!(running.filter(f64::NAN).is_nan());
+    assert!(running.filter(1.0).is_nan());
+
+    running.reset();
+    assert!(running.filter(1.0).is_finite());
+}
+
+#[test]
+fn non_finite_first_sample_spoils_filter() {
+    // The first sample seeds the state directly, so it spoils an untouched filter too
+    let mut running = OnePoleLowPass::new(0.5_f64).unwrap();
+
+    assert!(running.filter(f64::NAN).is_nan());
+    assert!(running.filter(1.0).is_nan());
+}
+
+#[test]
+fn filter_checked_protects_filter() {
+    let mut running = OnePoleLowPass::new(0.5_f64).unwrap();
+    let _ = running.filter(1.0);
+    let untouched = running;
+
+    for signal in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert_eq!(running.filter_checked(signal), Err(SignalError::NonFinite));
+        assert_eq!(running, untouched);
+    }
+}

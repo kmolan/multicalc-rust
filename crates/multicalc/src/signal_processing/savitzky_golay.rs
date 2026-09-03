@@ -48,6 +48,36 @@ use crate::scalar::Numeric;
 ///     Err(SignalError::PolynomialOrderTooHigh)
 /// );
 /// ```
+///
+/// The weights are a fitted curve rather than a plain average, so they carry both signs — for a
+/// five-sample, three-term fit they are `[-3, 12, 17, 12, -3] / 35`. A non-finite sample is
+/// therefore worse here than in a moving average, and the three readouts need not agree with each
+/// other. [`filter_checked`](Self::filter_checked) keeps it out of the window altogether.
+///
+/// ```
+/// use multicalc::signal_processing::SavitzkyGolay;
+///
+/// // The middle first-derivative weight is exactly zero, and `0 * inf` is a NaN, so one infinity
+/// // ruins the slope while the value is still merely infinite.
+/// let mut middle = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+/// for step in 0..5 {
+///     let _ = middle.filter(if step == 2 { f64::INFINITY } else { 1.0 });
+/// }
+/// assert!(middle.value().is_infinite());
+/// assert!(middle.first_derivative().is_nan());
+///
+/// // As the first sample it fills the whole window, and the mixed signs cancel into a NaN.
+/// let mut fresh = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+/// assert!(fresh.filter(f64::INFINITY).is_nan());
+///
+/// // Checked, the window is left exactly as it was.
+/// let mut running = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+/// let _ = running.filter(1.0);
+/// let untouched = running;
+///
+/// assert!(running.filter_checked(f64::INFINITY).is_err());
+/// assert_eq!(running, untouched);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SavitzkyGolay<const WINDOW: usize, const POLYNOMIAL_TERMS: usize, T: Numeric = f64> {
     /// The last WINDOW samples, oldest to newest by position modulo the write index.
@@ -94,6 +124,10 @@ impl<const WINDOW: usize, const POLYNOMIAL_TERMS: usize, T: Numeric>
     }
 
     /// Feeds one sample and returns the smoothed value of the window it now sits in.
+    ///
+    /// A non-finite sample spoils the value, the slope and the bend alike until the window has
+    /// moved past it. The signed weights can flip an infinity or turn it into a NaN, and the three
+    /// readouts need not agree. See [`filter_checked`](Self::filter_checked).
     #[inline]
     #[must_use]
     pub fn filter(&mut self, input: T) -> T {
@@ -106,6 +140,18 @@ impl<const WINDOW: usize, const POLYNOMIAL_TERMS: usize, T: Numeric>
             self.initialized = true;
         }
         self.value()
+    }
+
+    /// [`filter`](Self::filter) with the sample checked.
+    ///
+    /// Returns [`SignalError::NonFinite`] for a non-finite sample, leaving the window untouched.
+    #[inline]
+    pub fn filter_checked(&mut self, input: T) -> Result<T, SignalError> {
+        if input.is_finite() {
+            Ok(self.filter(input))
+        } else {
+            Err(SignalError::NonFinite)
+        }
     }
 
     /// Clears the window so the next sample seeds it again. The weights are left alone: they depend
