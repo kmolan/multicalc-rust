@@ -7,7 +7,21 @@ use alloc::{vec, vec::Vec};
 
 #[cfg(feature = "alloc")]
 use crate::error::MappingError;
+use crate::mapping::grid_geometry::GridGeometry;
+use crate::mapping::scan_geometry::ScanGeometry;
 use crate::scalar::{Numeric, Primal};
+use crate::spatial::SE2;
+
+/// Whether a cell is free, blocked, or not yet observed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CellState {
+    /// Observed and passable.
+    Free,
+    /// Observed and blocked.
+    Occupied,
+    /// Not yet observed. A planner must not route through it.
+    Unknown,
+}
 
 /// A map made of square cells, each free or blocked, that a beam can be cast across.
 ///
@@ -34,6 +48,17 @@ pub trait OccupancyMap<T: Numeric + Primal = f64> {
     /// Whether the cell is blocked. A cell outside the map reads as free.
     #[must_use]
     fn is_occupied(&self, row: usize, column: usize) -> bool;
+
+    /// The grid's placement and index arithmetic.
+    #[must_use]
+    fn geometry(&self) -> GridGeometry<T> {
+        GridGeometry::from_parts(
+            self.rows(),
+            self.columns(),
+            self.resolution(),
+            self.origin(),
+        )
+    }
 
     /// The cell holding `point`, as `(row, column)`, or `None` when the point lies outside the map.
     ///
@@ -76,18 +101,7 @@ pub trait OccupancyMap<T: Numeric + Primal = f64> {
     /// assert_eq!(patch.cell_of(below), None);
     /// ```
     fn cell_of(&self, point: [T; 2]) -> Option<(usize, usize)> {
-        let origin = self.origin();
-        let column = ((point[0] - origin[0]) / self.resolution())
-            .floor()
-            .to_f64();
-        let row = ((point[1] - origin[1]) / self.resolution())
-            .floor()
-            .to_f64();
-        if column < 0.0 || row < 0.0 {
-            return None;
-        }
-        let (row, column) = (row as usize, column as usize);
-        (column < self.columns() && row < self.rows()).then_some((row, column))
+        self.geometry().cell_of(point)
     }
 
     /// How far a beam fired from `start_position` travels before it meets a blocked cell, or
@@ -149,89 +163,76 @@ pub trait OccupancyMap<T: Numeric + Primal = f64> {
     /// assert!(room.cast_ray(standing_at, along_the_row, short_range).is_none());
     /// ```
     fn cast_ray(&self, start_position: [T; 2], bearing: T, maximum_range: T) -> Option<T> {
-        if self.columns() == 0 || self.rows() == 0 {
-            return None;
-        }
-        let direction = [bearing.cos(), bearing.sin()];
+        self.geometry()
+            .walk(start_position, bearing, maximum_range)
+            .find(|step| self.is_occupied(step.row, step.column))
+            .map(|step| step.entry_distance)
+    }
 
-        // Where the beam meets the map. A beam starting inside enters at zero.
-        let entry = entry_distance(self, start_position, direction)?;
-        if entry > maximum_range {
-            return None;
-        }
-        let point = [
-            start_position[0] + entry * direction[0],
-            start_position[1] + entry * direction[1],
-        ];
-
-        // The cell the beam is in as it enters. Rounding at an edge can push the index just
-        // outside, so it is forced back on.
-        let lowest_corner = self.origin();
-        let resolution = self.resolution();
-        let mut column = clamp_index((point[0] - lowest_corner[0]) / resolution, self.columns());
-        let mut row = clamp_index((point[1] - lowest_corner[1]) / resolution, self.rows());
-
-        // Which way each index moves, and how far along the beam one whole cell is. A beam running
-        // parallel to an axis never crosses that axis's edges, so its stride is infinite and the
-        // direction it would have stepped never comes up.
-        let step_column = axis_step(direction[0]);
-        let step_row = axis_step(direction[1]);
-        let stride_column = if direction[0] == T::ZERO {
-            T::INFINITY
+    /// Whether the cell is free, blocked, or not yet observed.
+    ///
+    /// The default answers from [`is_occupied`](Self::is_occupied) and never reports
+    /// [`Unknown`](CellState::Unknown); a belief map overrides it.
+    #[must_use]
+    fn cell_state(&self, row: usize, column: usize) -> CellState {
+        if self.is_occupied(row, column) {
+            CellState::Occupied
         } else {
-            resolution / direction[0].abs()
-        };
-        let stride_row = if direction[1] == T::ZERO {
-            T::INFINITY
-        } else {
-            resolution / direction[1].abs()
-        };
-
-        // How far along the beam the next edge on each axis is.
-        let mut next_column = boundary_distance(
-            start_position[0],
-            direction[0],
-            column,
-            step_column,
-            lowest_corner[0],
-            resolution,
-        );
-        let mut next_row = boundary_distance(
-            start_position[1],
-            direction[1],
-            row,
-            step_row,
-            lowest_corner[1],
-            resolution,
-        );
-
-        // How far along the beam the current cell was entered.
-        let mut entered = entry;
-        loop {
-            if entered > maximum_range {
-                return None;
-            }
-            if column < 0 || row < 0 {
-                return None;
-            }
-            let (column_index, row_index) = (column as usize, row as usize);
-            if column_index >= self.columns() || row_index >= self.rows() {
-                return None;
-            }
-            if self.is_occupied(row_index, column_index) {
-                return Some(entered);
-            }
-            // Cross whichever edge comes first.
-            if next_column < next_row {
-                column += step_column;
-                entered = next_column;
-                next_column += stride_column;
-            } else {
-                row += step_row;
-                entered = next_row;
-                next_row += stride_row;
-            }
+            CellState::Free
         }
+    }
+
+    /// The range each beam of `scan` reads from `pose`, its maximum range where it meets nothing.
+    ///
+    /// ```
+    /// use multicalc::mapping::{MutableOccupancyMap, OccupancyGrid, OccupancyMap, ScanGeometry};
+    /// use multicalc::{SE2, SO2, Vector2D};
+    ///
+    /// // A 4 m square room at 10 cm cells, with a wall two metres east of the middle.
+    /// let mut room: OccupancyGrid<40, 40, 2> = OccupancyGrid::try_new(0.1, [0.0, 0.0])?;
+    /// let wall = [[3.0, 0.5], [3.0, 3.5]];
+    /// room.occupy_polyline(&wall, false);
+    ///
+    /// // A three-beam scan facing east from the middle: the centre beam meets the wall.
+    /// let scan: ScanGeometry<3> = ScanGeometry::try_new(core::f64::consts::FRAC_PI_2, 4.0)?;
+    /// let facing_east = SE2::from_parts(SO2::from_angle(0.0), Vector2D::new([2.0, 2.0]));
+    /// let ranges = room.cast_scan(facing_east, &scan);
+    /// assert!((ranges[1] - 1.0).abs() <= 0.1);
+    /// # Ok::<(), multicalc::CalcError>(())
+    /// ```
+    #[must_use]
+    fn cast_scan<const NUM_BEAMS: usize>(
+        &self,
+        pose: SE2<T>,
+        scan: &ScanGeometry<NUM_BEAMS, T>,
+    ) -> [T; NUM_BEAMS] {
+        let position = pose.translation().into_array();
+        let heading = pose.rotation().log();
+        core::array::from_fn(|beam| {
+            scan.beam_angle(beam)
+                .and_then(|offset| self.cast_ray(position, heading + offset, scan.maximum_range()))
+                .unwrap_or(scan.maximum_range())
+        })
+    }
+
+    /// Where each beam of `scan` ends, in world coordinates.
+    #[must_use]
+    fn scan_endpoints<const NUM_BEAMS: usize>(
+        &self,
+        pose: SE2<T>,
+        scan: &ScanGeometry<NUM_BEAMS, T>,
+    ) -> [[T; 2]; NUM_BEAMS] {
+        let position = pose.translation().into_array();
+        let heading = pose.rotation().log();
+        let ranges = self.cast_scan(pose, scan);
+        core::array::from_fn(|beam| {
+            let bearing = heading + scan.beam_angle(beam).unwrap_or(T::ZERO);
+            let range = ranges.get(beam).copied().unwrap_or(scan.maximum_range());
+            [
+                position[0] + range * bearing.cos(),
+                position[1] + range * bearing.sin(),
+            ]
+        })
     }
 }
 
@@ -572,91 +573,5 @@ impl<T: Numeric + Primal> MutableOccupancyMap<T> for DynamicOccupancyGrid<T> {
 
     fn clear(&mut self) {
         self.cells.iter_mut().for_each(|cell| *cell = false);
-    }
-}
-
-/// How far along the beam `start_position + distance · direction` the map is entered, or `None` if
-/// it never is. A beam already inside returns zero.
-fn entry_distance<T: Numeric + Primal, M: OccupancyMap<T> + ?Sized>(
-    map: &M,
-    start_position: [T; 2],
-    direction: [T; 2],
-) -> Option<T> {
-    let lowest_corner = map.origin();
-    let highest_corner = [
-        lowest_corner[0] + T::from_usize(map.columns()) * map.resolution(),
-        lowest_corner[1] + T::from_usize(map.rows()) * map.resolution(),
-    ];
-    let mut near = T::NEG_INFINITY;
-    let mut far = T::INFINITY;
-    for (start, step, low, high) in [
-        (
-            start_position[0],
-            direction[0],
-            lowest_corner[0],
-            highest_corner[0],
-        ),
-        (
-            start_position[1],
-            direction[1],
-            lowest_corner[1],
-            highest_corner[1],
-        ),
-    ] {
-        if step == T::ZERO {
-            // Running parallel to this pair of edges: only a beam already between them can enter.
-            if start < low || start > high {
-                return None;
-            }
-        } else {
-            let inverse = T::ONE / step;
-            let mut first = (low - start) * inverse;
-            let mut second = (high - start) * inverse;
-            if first > second {
-                core::mem::swap(&mut first, &mut second);
-            }
-            near = near.max(first);
-            far = far.min(second);
-        }
-    }
-    if near > far || far < T::ZERO {
-        return None;
-    }
-    Some(near.max(T::ZERO))
-}
-
-/// Which way an index moves as the beam advances along one axis. A component of zero never steps,
-/// because the stride along that axis is infinite, so either answer serves.
-fn axis_step<T: Numeric>(component: T) -> isize {
-    if component > T::ZERO { 1 } else { -1 }
-}
-
-/// How far along the beam the far edge of the current cell on one axis is.
-fn boundary_distance<T: Numeric>(
-    start_axis: T,
-    direction_axis: T,
-    index: isize,
-    step: isize,
-    lowest_corner_axis: T,
-    resolution: T,
-) -> T {
-    if direction_axis == T::ZERO {
-        return T::INFINITY;
-    }
-    let next_index = if step > 0 { index + 1 } else { index };
-    let boundary = lowest_corner_axis + T::from_f64(next_index as f64) * resolution;
-    (boundary - start_axis) / direction_axis
-}
-
-/// Floors a coordinate to a cell index, held inside `[0, length)` so rounding at an edge cannot
-/// land outside the map.
-fn clamp_index<T: Numeric + Primal>(value: T, length: usize) -> isize {
-    let floored = value.floor().to_f64();
-    if floored < 0.0 {
-        0
-    } else if floored as usize >= length {
-        length as isize - 1
-    } else {
-        floored as isize
     }
 }

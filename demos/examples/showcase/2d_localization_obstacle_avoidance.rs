@@ -16,10 +16,13 @@ use std::collections::VecDeque;
 use std::f64::consts::{PI, TAU};
 
 use multicalc::linear_algebra::Matrix;
-use multicalc::mapping::OccupancyMap;
+use multicalc::mapping::{CellState, LogOddsGrid, OccupancyMap, ScanGeometry};
+use multicalc::{SE2, SO2, Vector2D};
 use multicalc_demos::loop_util::{LatencyRing, Pacer, commas};
 use multicalc_demos::sim::circle_outline;
-use multicalc_demos::sim::localization_obstacle_avoidance_2d::{LapWorld, Phase};
+use multicalc_demos::sim::localization_obstacle_avoidance_2d::{
+    BEAMS, LapWorld, Phase, TRACK_COLUMNS, TRACK_ROWS,
+};
 use multicalc_demos::{RerunSink, Rgba, VizError, VizSink};
 
 const HERO: Rgba = [0x39, 0x87, 0xe5, 0xff]; // the fused estimate, its ellipse and trail
@@ -27,6 +30,8 @@ const TRUTH: Rgba = [0xc9, 0x85, 0x00, 0xff]; // the true robot body and heading
 const ACCENT: Rgba = [0x90, 0x85, 0xe9, 0xff]; // the localization cloud and GPS fixes
 const CHROME: Rgba = [0x89, 0x87, 0x81, 0xff]; // the map walls
 const RAY: Rgba = [0x89, 0x87, 0x81, 70]; // lidar rays, faint
+const BELIEF_FREE: Rgba = [0xe8, 0xe6, 0xe1, 0x50]; // space the robot has seen through
+const BELIEF_BLOCKED: Rgba = [0x2b, 0x2a, 0x28, 0xff]; // wall the robot has found for itself
 
 // The legend sits off to the right of the course (which spans x 0..6, y 0..4), level with it and
 // centred on its height, so it never covers anything the demo is showing. Label text is drawn at a
@@ -106,6 +111,32 @@ fn wall_points<M: OccupancyMap>(grid: &M) -> Vec<[f64; 2]> {
     points
 }
 
+/// The cells the robot has decided about for itself, split into the free ones and the blocked ones.
+///
+/// Everything else is still unknown, and is simply not drawn — so the map fills in as the robot
+/// drives rather than being there from the start.
+#[must_use]
+fn belief_points(
+    belief: &LogOddsGrid<TRACK_ROWS, TRACK_COLUMNS>,
+) -> (Vec<[f64; 2]>, Vec<[f64; 2]>) {
+    let geometry = belief.geometry();
+    let mut free = Vec::new();
+    let mut blocked = Vec::new();
+    for row in 0..TRACK_ROWS {
+        for column in 0..TRACK_COLUMNS {
+            let Some(centre) = geometry.center_of(row, column) else {
+                continue;
+            };
+            match belief.cell_state(row, column) {
+                CellState::Free => free.push(centre),
+                CellState::Occupied => blocked.push(centre),
+                CellState::Unknown => {}
+            }
+        }
+    }
+    (free, blocked)
+}
+
 /// The two wheels of the robot: each one's rim, and the tread marks that show it rolling.
 ///
 /// Seen from straight above, a rolling wheel looks perfectly still — nothing about its outline
@@ -176,6 +207,16 @@ fn main() -> Result<(), VizError> {
     let mut sink = RerunSink::live("multicalc-demos/2d-localization-obstacle-avoidance")?;
     let mut world = LapWorld::new(20260722).expect("the pinned configuration is valid");
 
+    // A map the robot builds for itself, alongside the prior map it localizes against. Every scan
+    // is folded in by addition in log-odds, so unknown space resolves into free and blocked as the
+    // robot drives — which is the point of showing it.
+    let mut belief: Box<LogOddsGrid<TRACK_ROWS, TRACK_COLUMNS>> = Box::new(
+        LogOddsGrid::try_new(world.track().grid.resolution(), world.track().grid.origin())
+            .expect("the track's own placement is valid"),
+    );
+    let belief_scan: ScanGeometry<BEAMS> =
+        ScanGeometry::try_new(FIELD_OF_VIEW, LIDAR_RANGE).expect("the lidar's own arc is valid");
+
     // Statics at tick 0 so they forward-fill across the run.
     sink.set_sequence("tick", 0);
     sink.points2d_styled(
@@ -186,11 +227,12 @@ fn main() -> Result<(), VizError> {
     )?;
 
     // A colour key for the scene, so a viewer can read every element without guessing.
-    let legend: [(&str, Rgba); 5] = [
+    let legend: [(&str, Rgba); 6] = [
         ("true robot · heading · lidar hits", TRUTH),
         ("fused estimate · 2σ ellipse · trail", HERO),
         ("particle cloud · GPS fix", ACCENT),
-        ("map walls", CHROME),
+        ("map walls (prior)", CHROME),
+        ("map built from scans", BELIEF_BLOCKED),
         ("lidar rays", RAY),
     ];
     let legend_points: Vec<[f64; 2]> = (0..legend.len())
@@ -231,6 +273,13 @@ fn main() -> Result<(), VizError> {
 
         let pose = record.pose.into_array();
         let position = [pose[0], pose[1]];
+
+        // Fold this tick's scan into the map the robot is building. Every tick, not just the ones
+        // that get drawn: what the map holds is the whole run, not a sample of it.
+        if record.phase == Phase::Driving {
+            let placed = SE2::from_parts(SO2::from_angle(pose[2]), Vector2D::new(position));
+            belief.integrate_scan(placed, &belief_scan, &record.scan);
+        }
 
         // Spatial geometry every GEOM_EVERY ticks.
         if n % GEOM_EVERY == 0 {
@@ -318,6 +367,16 @@ fn main() -> Result<(), VizError> {
                     }
                     sink.line_strips2d("world/lidar/rays", &rays, &[RAY], &[0.003])?;
                     sink.points2d_styled("world/lidar/hits", &hits, &[TRUTH], &[0.02])?;
+
+                    // The map the robot is building, from the same scan it just steered on.
+                    let (free, blocked) = belief_points(&belief);
+                    sink.points2d_styled("world/belief/free", &free, &[BELIEF_FREE], &[0.05])?;
+                    sink.points2d_styled(
+                        "world/belief/blocked",
+                        &blocked,
+                        &[BELIEF_BLOCKED],
+                        &[0.05],
+                    )?;
                 }
             }
         }

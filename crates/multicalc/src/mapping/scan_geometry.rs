@@ -210,6 +210,11 @@ impl<const NUM_BEAMS: usize, T: Numeric> ScanGeometry<NUM_BEAMS, T> {
     pub fn beam_angle(&self, index: usize) -> Option<T> {
         (index < NUM_BEAMS).then(|| beam_angle_across(self.field_of_view, NUM_BEAMS, index))
     }
+
+    /// Each beam's angle from straight ahead, in order.
+    pub fn beams(&self) -> impl Iterator<Item = T> + '_ {
+        (0..NUM_BEAMS).filter_map(|index| self.beam_angle(index))
+    }
 }
 
 /// Turning a direction back into a beam needs a whole number, which only a plain scalar can give,
