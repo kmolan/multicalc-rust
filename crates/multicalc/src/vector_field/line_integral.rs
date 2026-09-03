@@ -26,6 +26,8 @@ fn get_partial<T: Numeric, const N: usize>(
 ) -> Result<T, IntegrateError> {
     if total_iterations == 0 {
         return Err(IntegrateError::IterationsZero);
+    } else if idx >= N {
+        return Err(IntegrateError::IndexOutOfRange);
     }
     // rejects NaN, equal, and reversed limits (partial_cmp is None for NaN)
     if !matches!(
@@ -136,6 +138,7 @@ pub fn line_integral_2d_custom<T: Numeric>(
 /// [`IntegrateError::IterationsZero`] if `total_iterations` is zero, or
 /// [`IntegrateError::LimitsIllDefined`] if the lower limit is not strictly less than the
 /// upper limit.
+/// [`IntegrateError::IndexOutOfRange`] if `idx` is greater than or equal to 2.
 pub fn line_integral_partial_2d<T: Numeric>(
     vector_field: &[&dyn Fn(&[T; 2]) -> T; 2],
     transformations: &[&dyn Fn(T) -> T; 2],
@@ -211,6 +214,7 @@ pub fn line_integral_3d_custom<T: Numeric>(
 /// [`IntegrateError::IterationsZero`] if `total_iterations` is zero, or
 /// [`IntegrateError::LimitsIllDefined`] if the lower limit is not strictly less than the
 /// upper limit.
+/// [`IntegrateError::IndexOutOfRange`] if `idx` is greater than or equal to 3.
 pub fn line_integral_partial_3d<T: Numeric>(
     vector_field: &[&dyn Fn(&[T; 3]) -> T; 3],
     transformations: &[&dyn Fn(T) -> T; 3],
