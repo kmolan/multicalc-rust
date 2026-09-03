@@ -5,3 +5,5 @@ __pycache__/
 *.pyc
 smoke-*.txt
 tools/qa/gen/.venv/
+.venv/
+.pytest_cache/

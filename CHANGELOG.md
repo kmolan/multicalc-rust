@@ -82,6 +82,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pairs and the rest — sorted and without repeats, so a caller can tell a model that loaded whole
   from one that loaded minus the half that mattered. Anything that could change a mass is still
   refused outright rather than recorded. @Thiago316316 (#305)
+- **Host-only Python bindings.** `multicalc-py` is a workspace crate (`publish = false`) with a
+  thin PyO3/maturin surface over a slice of crate-root `multicalc` (`f64` only, sizes fixed in
+  the type name). Import `multicalc_py`. Not published to crates.io or PyPI. @rtmongold (#330)
 
 ### Changed
 

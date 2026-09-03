@@ -73,6 +73,24 @@ jobs:
           cargo run -p multicalc-qa --bin gen_accuracy_tables
           git diff --exit-code benchmarks/*.md
 
+  python-bindings:
+    name: python bindings (host-only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Develop + smoke test
+        working-directory: crates/multicalc-py
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -U pip maturin pytest
+          maturin develop
+          python -m pytest tests/ -v
+
   lint:
     name: fmt + clippy
     runs-on: ubuntu-latest
@@ -89,6 +107,8 @@ jobs:
         run: cargo clippy -p multicalc-robot-model --all-targets -- -D warnings
       - name: No Rerun without the viewer feature
         run: "! cargo tree -p multicalc-robot-model -i rerun"
+      - name: Clippy (python bindings)
+        run: cargo clippy -p multicalc-py --all-targets -- -D warnings
       - name: No nightly features
         run: |
           if grep -rnE '#!\[feature\(|generic_const_exprs' crates/*/src; then
@@ -158,7 +178,7 @@ jobs:
   ci-success:
     name: CI success
     if: always()
-    needs: [matrix, test, qa, lint, docs, no_std, package]
+    needs: [matrix, test, qa, python-bindings, lint, docs, no_std, package]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any dependency failed or was cancelled

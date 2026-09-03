@@ -1,0 +1,27 @@
+[package]
+name = "multicalc-py"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Python bindings for multicalc (host-only)"
+repository.workspace = true
+publish = false
+
+[lib]
+name = "multicalc_py"
+crate-type = ["cdylib"]
+
+[dependencies]
+multicalc = { path = "../multicalc", features = ["alloc"] }
+pyo3 = { version = "0.27", features = ["extension-module"] }
+
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+type_complexity = "allow"
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+min_ident_chars = "warn"
