@@ -2,8 +2,9 @@
 
 use crate::error::EstimationError;
 use crate::estimation::ParticleFilter;
+use crate::estimation::likelihood_field::LikelihoodFieldModel;
 use crate::linear_algebra::{Matrix, Vector};
-use crate::mapping::{OccupancyMap, ScanGeometry};
+use crate::mapping::{DistanceField, OccupancyMap, ScanGeometry};
 use crate::random::RandomScalar;
 use crate::scalar::{Numeric, Primal, VectorFn};
 
@@ -180,6 +181,63 @@ impl<const NUM_BEAMS: usize, T: RandomScalar + Primal> MonteCarloLocalizer<NUM_B
                     map.cast_ray([guess[0], guess[1]], guess[2] + offset, maximum_range);
                 let believed = geometry.range_is_valid(measured);
                 score += beam_score(from_the_map, measured, believed, beam_model);
+            }
+            score
+        })
+    }
+
+    /// Reweights the cloud against a distance field instead of casting a ray per beam per particle.
+    ///
+    /// One interpolated lookup replaces one DDA walk per beam per particle, and the score is
+    /// smoother in the pose than [`update`](Self::update)'s, whose likelihood is jagged because it
+    /// depends on map resolution. An endpoint falling outside the field contributes the model's
+    /// pure-noise term alone.
+    ///
+    /// The field ignores occlusion, so a pose can score highly by seeing through a wall; keep
+    /// [`update`](Self::update) where that matters.
+    ///
+    /// Returns [`EstimationError::InvalidTuning`] for a non-finite or non-positive
+    /// `measurement_deviation`, or a `random_measurement_weight` outside zero to one, and
+    /// [`EstimationError::WeightsDegenerate`] if no guess can explain the scan at all.
+    pub fn update_against_field<const NUM_ROWS: usize, const NUM_COLUMNS: usize>(
+        &mut self,
+        field: &DistanceField<NUM_ROWS, NUM_COLUMNS, T>,
+        scan: &ScanGeometry<NUM_BEAMS, T>,
+        ranges: &[T; NUM_BEAMS],
+        model: LikelihoodFieldModel<T>,
+    ) -> Result<(), EstimationError> {
+        let deviation = model.measurement_deviation;
+        let random_weight = model.random_measurement_weight;
+        if !deviation.is_finite() || deviation <= T::ZERO {
+            return Err(EstimationError::InvalidTuning);
+        }
+        if !random_weight.is_finite() || random_weight < T::ZERO || random_weight > T::ONE {
+            return Err(EstimationError::InvalidTuning);
+        }
+
+        let maximum_range = scan.maximum_range();
+        let noise_floor = random_weight / maximum_range;
+        let twice_variance = T::TWO * deviation * deviation;
+
+        self.filter.update_with_log_weights(|guess| {
+            let mut score = T::ZERO;
+            for (beam, &measured) in ranges.iter().enumerate() {
+                let Some(offset) = scan.beam_angle(beam) else {
+                    continue;
+                };
+                if !scan.range_is_valid(measured) {
+                    continue;
+                }
+                let bearing = guess[2] + offset;
+                let endpoint = [
+                    guess[0] + measured * bearing.cos(),
+                    guess[1] + measured * bearing.sin(),
+                ];
+                // An endpoint off the field is infinitely far from any obstacle, which leaves the
+                // noise term alone.
+                let distance = field.distance_at(endpoint).unwrap_or(T::INFINITY);
+                let hit = (-(distance * distance) / twice_variance).exp();
+                score += ((T::ONE - random_weight) * hit + noise_floor).log();
             }
             score
         })

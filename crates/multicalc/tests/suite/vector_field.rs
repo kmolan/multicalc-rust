@@ -7,6 +7,7 @@ use multicalc::scalar_fn_vec;
 use multicalc::vector_field::{
     curl_2d, curl_3d, divergence_2d, divergence_3d, flux_integral_2d_custom,
     flux_integral_3d_custom, line_integral_2d_custom, line_integral_3d_custom,
+    line_integral_partial_2d, line_integral_partial_3d,
 };
 
 use multicalc::error::IntegrateError;
@@ -267,6 +268,134 @@ fn line_integral_accepts_a_negative_lower_limit() {
 
     let expected = -3.0;
     assert!(f64::abs(circulation - expected) < 1e-9);
+}
+
+#[test]
+fn line_integral_partial_2d_rejects_invalid_index() {
+    use std::f64::consts::TAU;
+
+    //vector field is (y, -x).
+    let field_x = |point: &[f64; 2]| point[1]; // P(x, y) = y
+    let field_y = |point: &[f64; 2]| -point[0]; // Q(x, y) = -x
+
+    let vector_field: [&dyn Fn(&[f64; 2]) -> f64; 2] = [&field_x, &field_y];
+
+    // r(t) = (cos(t), sin(t))
+    let x_of_t = |t: f64| t.cos(); // x(t) = cos(t)
+    let y_of_t = |t: f64| t.sin(); // y(t) = sin(t)
+
+    let transformations: [&dyn Fn(f64) -> f64; 2] = [&x_of_t, &y_of_t];
+
+    let integration_limit = [0.0, TAU];
+    let total_iterations = 10_000;
+    let idx = 2;
+
+    let result = line_integral_partial_2d(
+        &vector_field,
+        &transformations,
+        &integration_limit,
+        total_iterations,
+        idx,
+    );
+    assert!(result.unwrap_err() == IntegrateError::IndexOutOfRange);
+}
+
+#[test]
+fn line_integral_partial_2d_accepts_valid_index() {
+    use std::f64::consts::{PI, TAU};
+
+    //vector field is (y, -x).
+    let field_x = |point: &[f64; 2]| point[1]; // P(x, y) = y
+    let field_y = |point: &[f64; 2]| -point[0]; // Q(x, y) = -x
+
+    let vector_field: [&dyn Fn(&[f64; 2]) -> f64; 2] = [&field_x, &field_y];
+
+    // r(t) = (cos(t), sin(t))
+    let x_of_t = |t: f64| t.cos(); // x(t) = cos(t)
+    let y_of_t = |t: f64| t.sin(); // y(t) = sin(t)
+
+    let transformations: [&dyn Fn(f64) -> f64; 2] = [&x_of_t, &y_of_t];
+
+    let integration_limit = [0.0, TAU];
+    let total_iterations = 10_000;
+    let idx = 1;
+
+    let result = line_integral_partial_2d(
+        &vector_field,
+        &transformations,
+        &integration_limit,
+        total_iterations,
+        idx,
+    );
+
+    let expected = -PI;
+    assert!(f64::abs(result.unwrap() - expected) < 1e-6); // -PI - (-PI) == -PI + PI == 0
+}
+
+#[test]
+fn line_integral_partial_3d_accepts_valid_index() {
+    use std::f64::consts::TAU;
+
+    //vector field is (y, -x, 2z).
+    let field_x = |point: &[f64; 3]| point[1]; // P(x, y) = y
+    let field_y = |point: &[f64; 3]| -point[0]; // Q(x, y) = -x
+    let field_z = |point: &[f64; 3]| 2.0 * point[0]; // R(x, y) = 2z
+
+    let vector_field: [&dyn Fn(&[f64; 3]) -> f64; 3] = [&field_x, &field_y, &field_z];
+
+    // r(t) = (cos(t), sin(t), 0.0)
+    let x_of_t = |t: f64| t.cos(); // x(t) = cos(t)
+    let y_of_t = |t: f64| t.sin(); // y(t) = sin(t)
+    let z_of_t = |_: f64| 0.0; // z(t) = 0.0
+
+    let transformations: [&dyn Fn(f64) -> f64; 3] = [&x_of_t, &y_of_t, &z_of_t];
+
+    let integration_limit = [0.0, TAU];
+    let total_iterations = 10_000;
+    let idx = 2;
+
+    let result = line_integral_partial_3d(
+        &vector_field,
+        &transformations,
+        &integration_limit,
+        total_iterations,
+        idx,
+    );
+
+    let expected = 0.0;
+    assert!(f64::abs(result.unwrap() - expected) < 1e-9);
+}
+
+#[test]
+fn line_integral_partial_3d_rejects_invalid_index() {
+    use std::f64::consts::TAU;
+
+    //vector field is (y, -x, 2z).
+    let field_x = |point: &[f64; 3]| point[1]; // P(x, y) = y
+    let field_y = |point: &[f64; 3]| -point[0]; // Q(x, y) = -x
+    let field_z = |point: &[f64; 3]| 2.0 * point[0]; // R(x, y) = 2z
+
+    let vector_field: [&dyn Fn(&[f64; 3]) -> f64; 3] = [&field_x, &field_y, &field_z];
+
+    // r(t) = (cos(t), sin(t), 0.0)
+    let x_of_t = |t: f64| t.cos(); // x(t) = cos(t)
+    let y_of_t = |t: f64| t.sin(); // y(t) = sin(t)
+    let z_of_t = |_: f64| 0.0; // z(t) = 0.0
+
+    let transformations: [&dyn Fn(f64) -> f64; 3] = [&x_of_t, &y_of_t, &z_of_t];
+
+    let integration_limit = [0.0, TAU];
+    let total_iterations = 10_000;
+    let idx = 3;
+
+    let result = line_integral_partial_3d(
+        &vector_field,
+        &transformations,
+        &integration_limit,
+        total_iterations,
+        idx,
+    );
+    assert!(result.unwrap_err() == IntegrateError::IndexOutOfRange);
 }
 
 #[test]

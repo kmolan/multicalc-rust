@@ -28,6 +28,27 @@ use crate::scalar::Numeric;
 /// }
 /// assert!((smoother.value() - steady_input).abs() < 1e-9);
 /// ```
+///
+/// A non-finite sample latches until [`reset`](Self::reset), including as the first sample, which
+/// seeds the state directly. [`filter_checked`](Self::filter_checked) refuses it and leaves the
+/// filter untouched.
+///
+/// ```
+/// use multicalc::signal_processing::OnePoleLowPass;
+///
+/// let mut running = OnePoleLowPass::new(0.5_f64).unwrap();
+/// let _ = running.filter(1.0);
+/// let untouched = running;
+///
+/// assert!(running.filter_checked(f64::NAN).is_err());
+/// assert_eq!(running, untouched);
+///
+/// // Unchecked, one bad sample latches until reset.
+/// let _ = running.filter(f64::NAN);
+/// assert!(running.filter(1.0).is_nan());
+/// running.reset();
+/// assert!(running.filter(1.0).is_finite());
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct OnePoleLowPass<T: Numeric = f64> {
     smoothing: T,
@@ -76,6 +97,9 @@ impl<T: Numeric> OnePoleLowPass<T> {
     }
 
     /// Feeds one sample and returns the updated output.
+    ///
+    /// A non-finite sample latches until [`reset`](Self::reset); see
+    /// [`filter_checked`](Self::filter_checked).
     #[inline]
     #[must_use]
     pub fn filter(&mut self, input: T) -> T {
@@ -86,6 +110,18 @@ impl<T: Numeric> OnePoleLowPass<T> {
             self.initialized = true;
         }
         self.state
+    }
+
+    /// [`filter`](Self::filter) with the sample checked.
+    ///
+    /// Returns [`SignalError::NonFinite`] for a non-finite sample, leaving the filter untouched.
+    #[inline]
+    pub fn filter_checked(&mut self, input: T) -> Result<T, SignalError> {
+        if input.is_finite() {
+            Ok(self.filter(input))
+        } else {
+            Err(SignalError::NonFinite)
+        }
     }
 
     /// Clears the state so the next sample seeds the filter again.

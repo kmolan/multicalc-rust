@@ -15,6 +15,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   being copied onto the stack. `Activation` picks the scalar nonlinearity: `Relu`, `Tanh`, or
   `Identity`. Layer widths are const parameters, so a mismatched chain fails to compile.
   @Thiago316316 (#83)
+- **Path planning.** A new `planning` module: `GridPlanner` runs Dijkstra, A\*, weighted A\* and
+  any-angle Theta\* over any `OccupancyMap`, and `Rrt`, `RrtStar` and `Prm` sample a continuous
+  `StateSpace` with the validity check injected as a closure. What a search charges for entering a
+  cell is a `TraversalCost`: `UniformCost` over a plain map, `CostmapCost` over an inflation
+  costmap. An unknown cell is impassable by default, so a planner will not route confidently
+  through space no sensor has seen. Every search runs in a caller-owned fixed-capacity workspace,
+  so nothing allocates and the planners work in the default `no_std` build; the plan comes back as
+  a `PolylinePath` ready for `MinimumSnapPlanner` and `pure_pursuit_curvature`. Errors are the new
+  `PlanningError`. (#340)
+
+- **Mapping a robot can build and plan against.** `OccupancyGrid` is a bit-packed occupancy grid
+  sized at compile time — one bit a cell, so a 128×128 map is 2 KB against `DynamicOccupancyGrid`'s
+  16 KB, and it needs no heap. `LogOddsGrid` is the map a robot builds for itself, folding each
+  range scan in by addition in log-odds and clamping so a cell recovers once a transient obstacle
+  leaves. `CellState` distinguishes free from blocked from not-yet-observed, as a *provided* trait
+  method, so every existing map compiles and behaves unchanged. `DistanceField` is the exact
+  Euclidean distance transform by Felzenszwalb–Huttenlocher — two separable lower-envelope passes,
+  O(cells), with a bilinear query that is exactly differentiable by swapping the scalar — and
+  `CostGrid` inflates it into a costmap. `OccupancyMap` gains `geometry`, `cast_scan` and
+  `scan_endpoints`, and the beam traversal is now a `RayWalk` iterator on the shared
+  `GridGeometry`. `estimation` gains `LikelihoodFieldModel` and
+  `MonteCarloLocalizer::update_against_field`, which scores a scan with one field lookup a beam in
+  place of a ray cast a beam a particle. (#340)
 
 - **Zero-copy matrix and vector views.** `Matrix::view` / `view_mut` and `Vector::view` /
   `view_mut` hand out `MatrixView` / `VectorView` and their `Mut` counterparts: a flat slice, an
@@ -65,6 +88,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pairs and the rest — sorted and without repeats, so a caller can tell a model that loaded whole
   from one that loaded minus the half that mattered. Anything that could change a mass is still
   refused outright rather than recorded. @Thiago316316 (#305)
+- **Host-only Python bindings.** `multicalc-py` is a workspace crate (`publish = false`) with a
+  thin PyO3/maturin surface over a slice of crate-root `multicalc` (`f64` only, sizes fixed in
+  the type name). Import `multicalc_py`. Not published to crates.io or PyPI. @rtmongold (#330)
 
 ### Changed
 

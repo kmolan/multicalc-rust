@@ -5,7 +5,13 @@ no allocation, no panics, and generic over the `Numeric` scalar, so the same cod
 microcontroller.
 
 Frequencies are in hertz and timesteps in seconds. Every filter is configured once, with the
-configuration checked up front, and every call after that is total.
+configuration checked up front, and every call after that is infallible — it never panics, never
+allocates, and never returns an error.
+
+Infallible is not the same as meaningful: the per-sample calls do not look at the sample they are
+handed, so a NaN or an infinity goes straight in. Every filter also has a checked entry point that
+refuses one before it can do any harm — see [Non-finite samples](#non-finite-samples) below, and the
+module documentation for a table of the exact cost per filter.
 
 - `BiquadCoefficients`: the shape of a second-order filter, designed as a `low_pass`, `high_pass`,
   `band_pass`, or `notch` from a frequency, a sharpness, and the seconds between samples. It also
@@ -137,9 +143,55 @@ the margin the loop has before it starts oscillating — so it is worth reading 
 loop works around, not just at the cutoff. A sharper filter or a lower cutoff buys a cleaner signal
 with more delay, and there is no setting that avoids the trade.
 
-Errors: every constructor, and the four response queries (`magnitude_at`,
-`magnitude_in_decibels_at`, `phase_at`, `delay_at`), return [`SignalError`](error-handling.md). Full
-demo:
+## Non-finite samples
+
+A sensor that drops out, a divide by zero upstream, a GPS with no fix: a NaN reaching a filter is a
+question of when, not whether. The unchecked call is for samples that have already been validated —
+it costs no branch, which is what a 1 kHz loop wants. The checked call is for everything else.
+
+```rust
+use multicalc::error::SignalError;
+use multicalc::{Biquad, BiquadCoefficients, RunningMedian};
+
+let shape = BiquadCoefficients::low_pass(50.0, 0.70710678, 0.001_f64).unwrap();
+
+// Unchecked, one bad sample ruins the filter for good: it enters the feedback path, and every
+// later output is a NaN no matter how clean the input becomes.
+let mut spoiled = Biquad::new(shape);
+let _ = spoiled.filter(1.0);
+let _ = spoiled.filter(f64::NAN);
+assert!(spoiled.filter(1.0).is_nan());
+
+// Checked, the sample is refused and the filter is left exactly where it was.
+let mut guarded = Biquad::new(shape);
+let _ = guarded.filter(1.0);
+let before = guarded.value();
+
+assert_eq!(guarded.filter_checked(f64::NAN), Err(SignalError::NonFinite));
+assert_eq!(guarded.value(), before);
+
+// `RunningMedian` refuses only a NaN: an infinity is an ordinary wild reading to a median, so it
+// is let through and dropped by the sort.
+let mut median = RunningMedian::<5, f64>::new().unwrap();
+for reading in [1.0, 1.1, 0.9, f64::INFINITY, 1.05] {
+    let _ = median.filter_checked(reading);
+}
+assert_eq!(median.value(), 1.05);
+assert_eq!(median.filter_checked(f64::NAN), Err(SignalError::NonFinite));
+```
+
+Pick one entry point per filter and stay with it: a checked call promises that *this* sample will
+not spoil the filter, not that the output is finite, so a filter already ruined through the
+unchecked call keeps returning NaN from checked calls too. `reset` is what brings it back.
+
+Two failures are silent, and no check downstream will catch them: a NaN reaching `RunningMedian`
+shifts its answer to a plausible finite number that is simply wrong, and a NaN reaching `Hysteresis`
+leaves the switch holding its last answer, so a dead sensor looks exactly like a signal parked
+inside the gap.
+
+Errors: every constructor, the four response queries (`magnitude_at`,
+`magnitude_in_decibels_at`, `phase_at`, `delay_at`), and the checked entry points above all return
+[`SignalError`](error-handling.md). Full demo:
 [signal_filters.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/signal_filters.rs).
 
 

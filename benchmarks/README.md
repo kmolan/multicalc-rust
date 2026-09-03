@@ -27,6 +27,7 @@ within, and which library it is checked against. The tables are generated from t
 | spatial | [`spatial.md`](spatial.md) | Reading a motion or a force from another frame, the two spatial cross products, and what a body's mass distribution does to a motion — its momentum, what it takes to hold that motion, and its energy — against Pinocchio's own spatial algebra. |
 | polynomial | [`polynomial.md`](polynomial.md) | Evaluation, derivatives, areas, products, composition, interpolation, fitting, exact real roots, and polynomials in several variables, against numpy. |
 | motion | [`motion.md`](motion.md) | Minimum-snap trajectory coefficients and sampled states, against an independent constrained solve in numpy. |
+| mapping | [`mapping.md`](mapping.md) | Exact Euclidean distance transform, costmap inflation, and the likelihood-field measurement model, against scipy and closed-form numpy. |
 
 Regenerate with `cargo run -p multicalc-qa --bin gen_accuracy_tables`; CI fails if a regenerated
 table differs from the committed doc. Runnable, self-checking demos live in [`demos/`](../demos).

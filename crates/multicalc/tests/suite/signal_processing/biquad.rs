@@ -390,3 +390,28 @@ fn designs_reject_a_non_finite_frequency() {
         Err(SignalError::NonFinite)
     );
 }
+
+// ---- handling non-finite signal ---------------------------------------------
+#[test]
+fn non_finite_input_spoils_filter_till_reset() {
+    let mut running = Biquad::new(BiquadCoefficients::notch(180.0_f64, 4.0, 0.001).unwrap());
+    let _ = running.filter(1.0);
+
+    assert!(running.filter(f64::NAN).is_nan());
+    assert!(running.filter(1.0).is_nan());
+
+    running.reset();
+    assert!(running.filter(1.0).is_finite());
+}
+
+#[test]
+fn filter_checked_protects_filter() {
+    let mut running = Biquad::new(BiquadCoefficients::notch(180.0_f64, 4.0, 0.001).unwrap());
+    let _ = running.filter(1.0);
+    let untouched = running;
+
+    for signal in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert_eq!(running.filter_checked(signal), Err(SignalError::NonFinite));
+        assert_eq!(running, untouched);
+    }
+}

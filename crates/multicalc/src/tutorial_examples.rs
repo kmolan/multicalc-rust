@@ -49,6 +49,8 @@ pub struct Motion;
 pub struct Mapping;
 #[doc = include_str!("../tutorials/mlp-inference.md")]
 pub struct MlpInference;
+#[doc = include_str!("../tutorials/planning.md")]
+pub struct Planning;
 #[doc = include_str!("../tutorials/estimation.md")]
 pub struct Estimation;
 #[doc = include_str!("../tutorials/random.md")]

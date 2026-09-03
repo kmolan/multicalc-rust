@@ -24,6 +24,33 @@ use crate::scalar::Numeric;
 /// // The next one replaces a quarter of the window: [5, 1, 1, 1] averages to 2.
 /// assert_eq!(average.filter(5.0), 2.0);
 /// ```
+///
+/// There is no feedback here, so a non-finite sample is flushed out rather than latched: it spoils
+/// the output for exactly as many samples as the window is long. Two infinities of opposite sign in
+/// one window are worse than either alone — the sum cancels them into a NaN.
+/// [`filter_checked`](Self::filter_checked) keeps them out of the window altogether.
+///
+/// ```
+/// use multicalc::signal_processing::MovingAverage;
+///
+/// let mut running = MovingAverage::<4, f64>::new().unwrap();
+/// let _ = running.filter(1.0);
+/// let untouched = running;
+///
+/// assert!(running.filter_checked(f64::NAN).is_err());
+/// assert_eq!(running, untouched);
+///
+/// // Unchecked, a NaN spoils the average until the window has moved past it.
+/// assert!(running.filter(f64::NAN).is_nan());
+/// for _ in 0..3 {
+///     assert!(running.filter(1.0).is_nan());
+/// }
+/// assert!((running.filter(1.0) - 1.0).abs() < 1e-12);
+///
+/// // Opposite infinities in one window cancel into a NaN.
+/// assert!(running.filter(f64::INFINITY).is_infinite());
+/// assert!(running.filter(f64::NEG_INFINITY).is_nan());
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MovingAverage<const WINDOW: usize, T: Numeric = f64> {
     /// The last WINDOW samples, oldest to newest by position modulo the write index.
@@ -50,6 +77,9 @@ impl<const WINDOW: usize, T: Numeric> MovingAverage<WINDOW, T> {
     }
 
     /// Feeds one sample and returns the average of the window it now sits in.
+    ///
+    /// A non-finite sample spoils the average until the window has moved past it, `WINDOW` samples
+    /// later. See [`filter_checked`](Self::filter_checked).
     #[inline]
     #[must_use]
     pub fn filter(&mut self, input: T) -> T {
@@ -60,6 +90,18 @@ impl<const WINDOW: usize, T: Numeric> MovingAverage<WINDOW, T> {
             input,
         );
         self.value()
+    }
+
+    /// [`filter`](Self::filter) with the sample checked.
+    ///
+    /// Returns [`SignalError::NonFinite`] for a non-finite sample, leaving the window untouched.
+    #[inline]
+    pub fn filter_checked(&mut self, input: T) -> Result<T, SignalError> {
+        if input.is_finite() {
+            Ok(self.filter(input))
+        } else {
+            Err(SignalError::NonFinite)
+        }
     }
 
     /// Clears the window so the next sample seeds it again.
@@ -117,6 +159,41 @@ impl<const WINDOW: usize, T: Numeric> MovingAverage<WINDOW, T> {
 ///     Err(SignalError::WindowEvenLength)
 /// );
 /// ```
+///
+/// A NaN is a different matter, and this is the one filter whose failure is silent. The sort
+/// compares with `>`, false in both directions against a NaN, so the NaN becomes a wall elements
+/// cannot move past and the middle slot stops holding the middle value. What comes out is an
+/// ordinary finite number that is simply **wrong**. [`filter_checked`](Self::filter_checked)
+/// refuses a NaN for that reason, and admits infinities, which sort correctly.
+///
+/// ```
+/// use multicalc::signal_processing::RunningMedian;
+///
+/// // A wild but finite reading is rejected, as it should be.
+/// let mut control = RunningMedian::<5, f64>::new().unwrap();
+/// for reading in [3.0, 50.0, 1.0, 2.0, 5.0] {
+///     let _ = control.filter(reading);
+/// }
+/// assert_eq!(control.value(), 3.0);
+///
+/// // Swap that reading for a NaN and the answer moves, with nothing to show for it.
+/// let mut spoiled = RunningMedian::<5, f64>::new().unwrap();
+/// for reading in [3.0, f64::NAN, 1.0, 2.0, 5.0] {
+///     let _ = spoiled.filter(reading);
+/// }
+/// assert_eq!(spoiled.value(), 2.0);
+///
+/// let mut running = RunningMedian::<5, f64>::new().unwrap();
+/// let _ = running.filter(1.0);
+/// let untouched = running;
+///
+/// assert!(running.filter_checked(f64::NAN).is_err());
+/// assert_eq!(running, untouched);
+///
+/// // An infinity is let through and dropped by the sort.
+/// assert!(running.filter_checked(f64::INFINITY).is_ok());
+/// assert_eq!(running.value(), 1.0);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RunningMedian<const WINDOW: usize, T: Numeric = f64> {
     /// The last WINDOW samples, oldest to newest by position modulo the write index.
@@ -147,6 +224,9 @@ impl<const WINDOW: usize, T: Numeric> RunningMedian<WINDOW, T> {
     }
 
     /// Feeds one sample and returns the middle value of the window it now sits in.
+    ///
+    /// A NaN silently moves the answer to a wrong finite number until the window has moved past it.
+    /// Infinities sort correctly. See [`filter_checked`](Self::filter_checked).
     #[inline]
     #[must_use]
     pub fn filter(&mut self, input: T) -> T {
@@ -157,6 +237,19 @@ impl<const WINDOW: usize, T: Numeric> RunningMedian<WINDOW, T> {
             input,
         );
         self.value()
+    }
+
+    /// [`filter`](Self::filter) with the sample checked.
+    ///
+    /// Returns [`SignalError::NonFinite`] for a NaN, leaving the window untouched. An infinity is
+    /// admitted: the sort handles it, so the answer can be `Ok` wrapping one.
+    #[inline]
+    pub fn filter_checked(&mut self, input: T) -> Result<T, SignalError> {
+        if !input.is_nan() {
+            Ok(self.filter(input))
+        } else {
+            Err(SignalError::NonFinite)
+        }
     }
 
     /// Clears the window so the next sample seeds it again.

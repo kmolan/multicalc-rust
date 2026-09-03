@@ -454,6 +454,26 @@ impl<T: Numeric> BiquadCoefficients<T> {
 /// let mut fresh = Biquad::new(moved);
 /// assert!((fresh.filter(1.0) - 1.0).abs() > 0.05);
 /// ```
+///
+/// A non-finite sample enters the feedback path and latches until [`reset`](Self::reset).
+/// [`filter_checked`](Self::filter_checked) refuses it and leaves the filter untouched.
+///
+/// ```
+/// use multicalc::signal_processing::{Biquad, BiquadCoefficients};
+///
+/// let mut running = Biquad::new(BiquadCoefficients::notch(180.0_f64, 4.0, 0.001).unwrap());
+/// let _ = running.filter(1.0);
+/// let untouched = running;
+///
+/// assert!(running.filter_checked(f64::NAN).is_err());
+/// assert_eq!(running, untouched);
+///
+/// // Unchecked, one bad sample latches until reset.
+/// let _ = running.filter(f64::NAN);
+/// assert!(running.filter(1.0).is_nan());
+/// running.reset();
+/// assert!(running.filter(1.0).is_finite());
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Biquad<T: Numeric = f64> {
     coefficients: BiquadCoefficients<T>,
@@ -477,6 +497,9 @@ impl<T: Numeric> Biquad<T> {
     }
 
     /// Feeds one sample and returns the filtered output.
+    ///
+    /// A non-finite sample latches until [`reset`](Self::reset); see
+    /// [`filter_checked`](Self::filter_checked).
     #[inline]
     #[must_use]
     pub fn filter(&mut self, input: T) -> T {
@@ -489,6 +512,18 @@ impl<T: Numeric> Biquad<T> {
         self.second_state = feed_forward[2] * input - feedback[1] * output;
         self.last_output = output;
         output
+    }
+
+    /// [`filter`](Self::filter) with the sample checked.
+    ///
+    /// Returns [`SignalError::NonFinite`] for a non-finite sample, leaving the filter untouched.
+    #[inline]
+    pub fn filter_checked(&mut self, input: T) -> Result<T, SignalError> {
+        if input.is_finite() {
+            Ok(self.filter(input))
+        } else {
+            Err(SignalError::NonFinite)
+        }
     }
 
     /// Replaces the weights and keeps the memory of recent samples.

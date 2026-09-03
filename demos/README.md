@@ -161,6 +161,7 @@ cargo run -p multicalc-demos --example <name>
 | `minimum_snap_trajectory` | `motion` | `MinimumSnapPlanner` planned off the loop, evaluated inside it. |
 | `mjcf_model_ingestion` | `spatial`, `multicalc-robot-model` | MJCF load: a free body's mass, COM and rotational inertia, then a robot's body tree, joint travel and settings. |
 | `motion_profiles` | `motion` | Trapezoidal vs jerk-limited seven-phase, against their velocity, acceleration and jerk ceilings; three joints synchronized. |
+| `path_planning` | `planning`, `mapping`, `motion`, `control` | A\* against Dijkstra and any-angle Theta\* across a maze, a costmap that pushes the route off the walls, a seeded RRT that reproduces itself exactly, and the plan fed on to a smoother, a profile and a path follower. |
 | `ode` | `ode` | RK4 and adaptive RK45 on the harmonic oscillator, an acrobot, a quadrotor and an N-body; error and invariant drift. |
 | `optimization_solvers` | `optimization` | Gauss-Newton on the linear residual `y = a + b·t`; when GN suffices vs LM. |
 | `polynomials` | `polynomial` | Evaluation with derivatives in one pass, real roots, fit from data, multivariate symbolic partials. |

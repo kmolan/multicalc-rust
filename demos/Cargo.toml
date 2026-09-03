@@ -121,6 +121,10 @@ name = "motion_profiles"
 path = "examples/basics/motion_profiles.rs"
 
 [[example]]
+name = "path_planning"
+path = "examples/basics/path_planning.rs"
+
+[[example]]
 name = "ode"
 path = "examples/basics/ode.rs"
 

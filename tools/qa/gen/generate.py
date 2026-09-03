@@ -21,6 +21,7 @@ from generators import (
     inverse_kinematics,
     kinematics,
     linalg,
+    mapping,
     mjcf,
     motion,
     ode,
@@ -67,6 +68,7 @@ def main():
     polynomial.run(args.out, SEED)
     motion.run(args.out, SEED)
     control.run(args.out, SEED)
+    mapping.run(args.out, SEED)
 
 
 if __name__ == "__main__":

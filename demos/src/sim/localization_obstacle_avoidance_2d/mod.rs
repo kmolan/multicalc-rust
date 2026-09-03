@@ -17,4 +17,4 @@ pub mod lap_track_2d;
 pub use lap_driver_2d::{
     BEAMS, GPS_NIS_LOWER_BOUND, GPS_NIS_UPPER_BOUND, LapMetrics, LapWorld, Phase, TickRecord,
 };
-pub use lap_track_2d::{LapTrack2D, lap_track_2d};
+pub use lap_track_2d::{LapTrack2D, TRACK_COLUMNS, TRACK_ROWS, lap_track_2d};

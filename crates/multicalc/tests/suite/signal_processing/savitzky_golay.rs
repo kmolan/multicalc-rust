@@ -157,3 +157,73 @@ fn constructors_reject_unusable_arguments() {
         Err(SignalError::NonFinite)
     );
 }
+
+// ---- handling non-finite signal ---------------------------------------------
+#[test]
+fn a_non_finite_sample_spoils_every_readout_for_one_window() {
+    let mut running = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+    for _ in 0..5 {
+        let _ = running.filter(1.0);
+    }
+
+    assert!(running.filter(f64::NAN).is_nan());
+    for call in 1..5 {
+        assert!(!running.filter(1.0).is_finite(), "call {call}");
+        assert!(!running.first_derivative().is_finite());
+        assert!(!running.second_derivative().is_finite());
+    }
+
+    // The fifth sample pushes it out of the window and all three readouts come back
+    assert!(running.filter(1.0).is_finite());
+    assert!(running.first_derivative().is_finite());
+    assert!(running.second_derivative().is_finite());
+}
+
+#[test]
+fn the_signed_weights_flip_an_infinity_or_turn_it_into_a_nan() {
+    // The fitted weights are [-3, 12, 17, 12, -3] / 35, so an outer tap flips the sign
+    let mut outer = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+    for step in 0..5 {
+        let _ = outer.filter(if step == 0 { f64::INFINITY } else { 1.0 });
+    }
+    assert!(outer.value().is_infinite());
+    assert!(outer.value() < 0.0);
+
+    // The middle first-derivative weight is exactly zero, and `0 * inf` is a NaN, so the readouts
+    // disagree: the value is merely infinite while the slope is already lost
+    let mut middle = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+    for step in 0..5 {
+        let _ = middle.filter(if step == 2 { f64::INFINITY } else { 1.0 });
+    }
+    assert!(middle.value().is_infinite());
+    assert!(middle.first_derivative().is_nan());
+
+    // As the first sample it fills every slot, and the mixed signs then cancel
+    let mut fresh = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+    assert!(fresh.filter(f64::INFINITY).is_nan());
+}
+
+#[test]
+fn filter_checked_protects_the_window_seeded_or_not() {
+    let mut unseeded = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+    let fresh = unseeded;
+
+    // A rejected sample must not fill the window either
+    assert_eq!(
+        unseeded.filter_checked(f64::INFINITY),
+        Err(SignalError::NonFinite)
+    );
+    assert_eq!(unseeded, fresh);
+
+    let mut running = SavitzkyGolay::<5, 3, f64>::centered(1.0_f64).unwrap();
+    let _ = running.filter(1.0);
+    let untouched = running;
+
+    for signal in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert_eq!(running.filter_checked(signal), Err(SignalError::NonFinite));
+        assert_eq!(running, untouched);
+    }
+
+    assert!(running.filter_checked(1.0).is_ok());
+    assert!(running.value().is_finite());
+}

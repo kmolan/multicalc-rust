@@ -311,6 +311,22 @@ const DOCS: &[Doc] = &[
             ],
         }],
     },
+    Doc {
+        file: "mapping.md",
+        modules: &[Module {
+            name: "mapping",
+            cases: &[
+                "distance_transform_single_obstacle_9x9",
+                "distance_transform_straight_wall_16x16",
+                "distance_transform_two_obstacles_16x16",
+                "distance_transform_random_32x32",
+                "distance_transform_random_64x64",
+                "costmap_straight_wall_16x16",
+                "costmap_random_32x32",
+                "likelihood_field_wall_16x16",
+            ],
+        }],
+    },
 ];
 
 /// A single float, in trimmed scientific notation: `4e0`, `1.5e-15`, `0`.

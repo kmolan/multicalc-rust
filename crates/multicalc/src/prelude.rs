@@ -24,5 +24,6 @@ pub use crate::numerical_derivative::{
 pub use crate::numerical_integration::{
     IntegratorMultiVariable, IntegratorSingleVariable, integral,
 };
+pub use crate::planning::{StateSpace, StateValidity, TraversalCost};
 pub use crate::random::RandomSource;
 pub use crate::scalar::{Numeric, Primal, ScalarFn, ScalarFnN, VectorFn};

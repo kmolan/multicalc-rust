@@ -202,3 +202,62 @@ fn multi_channel_matches_separate_filters_f64() {
 fn multi_channel_matches_separate_filters_f32() {
     assert_multi_channel_matches_separate_filters(1e-4_f32);
 }
+
+// ---- handling non-finite signal ---------------------------------------------
+#[test]
+fn non_finite_input_spoils_every_section_till_reset() {
+    let section = BiquadCoefficients::low_pass(50.0_f64, FLATTEST, 0.001).unwrap();
+    let mut running = BiquadCascade::new([section; 2]);
+    let _ = running.filter(1.0);
+
+    assert!(running.filter(f64::NAN).is_nan());
+    assert!(running.filter(1.0).is_nan());
+
+    running.reset();
+    assert!(running.filter(1.0).is_finite());
+}
+
+#[test]
+fn filter_checked_protects_cascade() {
+    let section = BiquadCoefficients::low_pass(50.0_f64, FLATTEST, 0.001).unwrap();
+    let mut running = BiquadCascade::new([section; 2]);
+    let _ = running.filter(1.0);
+    let untouched = running;
+
+    for signal in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert_eq!(running.filter_checked(signal), Err(SignalError::NonFinite));
+        assert_eq!(running, untouched);
+    }
+}
+
+#[test]
+fn non_finite_input_spoils_only_its_own_channel() {
+    let shape = BiquadCoefficients::low_pass(50.0_f64, FLATTEST, 0.001).unwrap();
+    let mut running = MultiChannelBiquad::new(shape);
+    let _ = running.filter(Vector::new([1.0, -2.0, 0.5]));
+
+    let _ = running.filter(Vector::new([f64::NAN, -2.0, 0.5]));
+    let output = running.filter(Vector::new([1.0, -2.0, 0.5]));
+    assert!(output[0].is_nan());
+    assert!(output[1].is_finite());
+    assert!(output[2].is_finite());
+
+    running.reset();
+    assert!(running.filter(Vector::new([1.0, -2.0, 0.5])).is_finite());
+}
+
+#[test]
+fn filter_checked_refuses_a_reading_with_any_bad_component() {
+    let shape = BiquadCoefficients::low_pass(50.0_f64, FLATTEST, 0.001).unwrap();
+    let mut running = MultiChannelBiquad::new(shape);
+    let _ = running.filter(Vector::new([1.0, -2.0, 0.5]));
+    let untouched = running;
+
+    for channel in 0..3 {
+        let mut reading = Vector::new([1.0, -2.0, 0.5]);
+        reading[channel] = f64::NAN;
+
+        assert_eq!(running.filter_checked(reading), Err(SignalError::NonFinite));
+        assert_eq!(running, untouched);
+    }
+}

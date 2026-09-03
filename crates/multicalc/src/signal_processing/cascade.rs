@@ -26,6 +26,27 @@ use crate::signal_processing::{Biquad, BiquadCoefficients};
 /// }
 /// assert!((cascade.value() - 5.0).abs() < 1e-9);
 /// ```
+///
+/// A non-finite sample latches in every section at once, until [`reset`](Self::reset).
+/// [`filter_checked`](Self::filter_checked) refuses it before any section sees it.
+///
+/// ```
+/// use multicalc::signal_processing::{BiquadCascade, BiquadCoefficients};
+///
+/// let section = BiquadCoefficients::low_pass(50.0_f64, 0.70710678, 0.001).unwrap();
+/// let mut running = BiquadCascade::new([section; 2]);
+/// let _ = running.filter(1.0);
+/// let untouched = running;
+///
+/// assert!(running.filter_checked(f64::NAN).is_err());
+/// assert_eq!(running, untouched);
+///
+/// // Unchecked, one bad sample latches until reset.
+/// let _ = running.filter(f64::NAN);
+/// assert!(running.filter(1.0).is_nan());
+/// running.reset();
+/// assert!(running.filter(1.0).is_finite());
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BiquadCascade<const SECTIONS: usize, T: Numeric = f64> {
     sections: [Biquad<T>; SECTIONS],
@@ -41,6 +62,9 @@ impl<const SECTIONS: usize, T: Numeric> BiquadCascade<SECTIONS, T> {
     }
 
     /// Feeds one sample through every section in order and returns what comes out the far end.
+    ///
+    /// A non-finite sample latches in every section until [`reset`](Self::reset); see
+    /// [`filter_checked`](Self::filter_checked).
     #[inline]
     #[must_use]
     pub fn filter(&mut self, input: T) -> T {
@@ -49,6 +73,18 @@ impl<const SECTIONS: usize, T: Numeric> BiquadCascade<SECTIONS, T> {
             value = section.filter(value);
         }
         value
+    }
+
+    /// [`filter`](Self::filter) with the sample checked.
+    ///
+    /// Returns [`SignalError::NonFinite`] for a non-finite sample, leaving every section untouched.
+    #[inline]
+    pub fn filter_checked(&mut self, input: T) -> Result<T, SignalError> {
+        if input.is_finite() {
+            Ok(self.filter(input))
+        } else {
+            Err(SignalError::NonFinite)
+        }
     }
 
     /// Replaces one section's weights, keeping that section's memory of recent samples.
@@ -166,6 +202,29 @@ impl<const SECTIONS: usize, T: Numeric> BiquadCascade<SECTIONS, T> {
 ///     assert!((settled[channel] - reading[channel]).abs() < 1e-6);
 /// }
 /// ```
+///
+/// The channels are independent, so a non-finite component latches in the channel it lands on and
+/// leaves the rest alone. [`filter_checked`](Self::filter_checked) refuses the whole reading if any
+/// component is non-finite, so no channel is advanced on a sample that would spoil another.
+///
+/// ```
+/// use multicalc::linear_algebra::Vector;
+/// use multicalc::signal_processing::{BiquadCoefficients, MultiChannelBiquad};
+///
+/// let shape = BiquadCoefficients::low_pass(50.0_f64, 0.70710678, 0.001).unwrap();
+/// let mut running = MultiChannelBiquad::new(shape);
+/// let _ = running.filter(Vector::new([1.0, -2.0, 0.5]));
+/// let untouched = running;
+///
+/// assert!(running.filter_checked(Vector::new([f64::NAN, -2.0, 0.5])).is_err());
+/// assert_eq!(running, untouched);
+///
+/// // Unchecked, only the channel it lands on is spoiled.
+/// let _ = running.filter(Vector::new([f64::NAN, -2.0, 0.5]));
+/// let output = running.filter(Vector::new([1.0, -2.0, 0.5]));
+/// assert!(output[0].is_nan());
+/// assert!(output[1].is_finite());
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MultiChannelBiquad<const CHANNELS: usize, T: Numeric = f64> {
     channels: [Biquad<T>; CHANNELS],
@@ -181,9 +240,28 @@ impl<const CHANNELS: usize, T: Numeric> MultiChannelBiquad<CHANNELS, T> {
     }
 
     /// Feeds one sample per channel and returns the filtered output of each.
+    ///
+    /// A non-finite component latches in the channel it lands on until [`reset`](Self::reset); see
+    /// [`filter_checked`](Self::filter_checked).
     #[inline]
     pub fn filter(&mut self, input: Vector<CHANNELS, T>) -> Vector<CHANNELS, T> {
         Vector::from_fn(|channel| self.channels[channel].filter(input[channel]))
+    }
+
+    /// [`filter`](Self::filter) with the reading checked.
+    ///
+    /// Returns [`SignalError::NonFinite`] if any component is non-finite, in which case no channel
+    /// is advanced.
+    #[inline]
+    pub fn filter_checked(
+        &mut self,
+        input: Vector<CHANNELS, T>,
+    ) -> Result<Vector<CHANNELS, T>, SignalError> {
+        if input.is_finite() {
+            Ok(self.filter(input))
+        } else {
+            Err(SignalError::NonFinite)
+        }
     }
 
     /// Replaces the shape on every channel, keeping every channel's memory of recent samples.

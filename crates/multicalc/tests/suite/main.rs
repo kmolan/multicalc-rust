@@ -14,6 +14,7 @@ mod numerical_derivative;
 mod numerical_integration;
 mod ode;
 mod optimization;
+mod planning;
 mod plant;
 mod polynomial;
 mod random;
