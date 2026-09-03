@@ -14,8 +14,8 @@ const CELLS_PER_WORD: usize = 32;
 ///
 /// `WORDS_PER_ROW` must be at least `COLUMNS.div_ceil(32)`, which
 /// [`WORDS_NEEDED`](Self::WORDS_NEEDED) states and [`try_new`](Self::try_new) checks. It appears in
-/// every user's type signature, so it is a parameter rather than a computed dimension: stable Rust
-/// has no `generic_const_exprs`.
+/// every user's type signature, because stable Rust cannot compute a dimension from another const
+/// parameter.
 ///
 /// Memory is `ROWS · WORDS_PER_ROW · 4` bytes, so a 128 by 128 map is 2 KB against
 /// [`DynamicOccupancyGrid`](crate::mapping::DynamicOccupancyGrid)'s 16 KB, and it needs no heap.
