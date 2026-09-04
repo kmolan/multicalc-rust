@@ -343,7 +343,8 @@ pub trait MutableOccupancyMap<T: Numeric + Primal = f64>: OccupancyMap<T> {
     ///
     /// The rim is walked in steps small enough that consecutive points land in the same cell or the
     /// next one, so it closes on itself with no gap. A radius smaller than a cell marks one cell or
-    /// a handful.
+    /// a handful. A non-finite radius leaves the map unchanged. Sampling work grows in proportion
+    /// to the circumference measured in cells.
     ///
     /// ```
     /// # use multicalc::mapping::{MutableOccupancyMap, OccupancyMap};
@@ -386,14 +387,22 @@ pub trait MutableOccupancyMap<T: Numeric + Primal = f64>: OccupancyMap<T> {
     /// }
     /// ```
     fn occupy_circle(&mut self, center: [T; 2], radius: T) {
-        let step = (T::from_f64(0.4) * self.resolution() / radius).max(T::from_f64(1e-3));
-        let mut angle = T::ZERO;
-        while angle < T::TWO_PI {
+        if !radius.is_finite() {
+            return;
+        }
+        let radius_in_cells = radius.abs() / self.resolution();
+        // Keep a zero-radius circle drawable and the angular step well-defined.
+        let samples = (T::TWO_PI * radius_in_cells / T::from_f64(0.4))
+            .ceil()
+            .max(T::ONE)
+            .to_f64() as usize;
+        let angular_step = T::TWO_PI / T::from_usize(samples);
+        for sample in 0..samples {
+            let angle = T::from_usize(sample) * angular_step;
             self.occupy_point([
                 center[0] + radius * angle.cos(),
                 center[1] + radius * angle.sin(),
             ]);
-            angle += step;
         }
     }
 }
