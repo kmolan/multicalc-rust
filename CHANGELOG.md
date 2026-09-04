@@ -119,6 +119,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Large-circle occupancy rims.** `occupy_circle` now derives its sample count from a maximum
+  arc length relative to grid resolution, replacing its fixed minimum angular step so large rims
+  remain closed to ray casts. Non-finite radii now leave the map unchanged. (#296)
+
 - **Finite-difference step scaling and validation.** Default steps now follow the scalar type's
   machine epsilon and the chosen stencil, improving `f32` accuracy. Negative and non-finite steps
   are rejected instead of reversing the stencil or returning NaN.
