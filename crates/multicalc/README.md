@@ -37,6 +37,8 @@
 - [Motion](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/motion.md): `PolylinePath` for waypoint paths with arc-length, closest-point, and lookahead queries, `MinimumSnapPlanner` for the smoothest trajectory through them, and `MotionProfilePlanner` for jerk-limited point-to-point moves with multi-axis synchronization.
 - [Mapping](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/mapping.md): bit-packed `OccupancyGrid` and heap `DynamicOccupancyGrid`, `LogOddsGrid` integrating scans in log-odds, `ScanGeometry` with whole-scan casting, exact Euclidean `DistanceField` with its gradient, and `CostGrid` inflation.
 - [Planning](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/planning.md): `GridPlanner` for Dijkstra, A\*, weighted A\* and any-angle Theta\*, priced by `UniformCost` or `CostmapCost`; `Rrt`, `RrtStar` and `Prm` over a `StateSpace`. Caller-owned workspaces, no allocation.
+- [MLP inference](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/mlp-inference.md): `Layer` and `Activation` run a trained MLP policy forward over borrowed `MatrixView`/`VectorView` parameters, in a const no-copy no-alloc environment.
+
 ### Core math
 
 - [Automatic differentiation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/scalars-and-automatic-differentiation.md): Exact autodiff of any order (total and partial), plus Jacobian and Hessian matrices.

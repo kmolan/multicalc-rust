@@ -8,6 +8,7 @@ mod gaussian_tables;
 mod kinematics;
 mod linear_algebra;
 mod mapping;
+mod mlp_inference;
 mod motion;
 mod numerical_derivative;
 mod numerical_integration;
