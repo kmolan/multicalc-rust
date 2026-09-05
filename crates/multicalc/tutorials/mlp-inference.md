@@ -60,11 +60,11 @@ let output = Layer::<1, 3>::try_from_slices(output_weights, output_biases, Activ
 
 // One control step: an observation in, an action out.
 let observation = Vector::new([2.0, 1.0]);
-let activations = hidden.forward(observation.view())?;
+let activations = hidden.forward(observation.view());
 
 // The third hidden unit sums to -1.0, so the rectifier switches it off.
 assert_eq!(activations.into_array(), [0.5, 3.0, 0.0]);
-assert_eq!(output.forward(activations.view())?.into_array(), [4.0]);
+assert_eq!(output.forward(activations.view()).into_array(), [4.0]);
 # Ok::<(), multicalc::CalcError>(())
 ```
 
@@ -89,7 +89,7 @@ let layer = Layer::new(
 );
 
 let input = Vector::new([2.0, -3.0]);
-assert_eq!(layer.forward(input.view())?, input);
+assert_eq!(layer.forward(input.view()), input);
 # Ok::<(), multicalc::CalcError>(())
 ```
 

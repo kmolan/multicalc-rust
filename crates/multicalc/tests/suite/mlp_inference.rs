@@ -22,14 +22,11 @@ fn two_layers_chain_hidden_output_into_the_next_input() {
             .unwrap();
 
     let input = Vector::new([2.0, 1.0]);
-    let activations = hidden.forward(input.view()).unwrap();
+    let activations = hidden.forward(input.view());
 
     // The third unit's sum is -1.0, so ReLU switches it off.
     assert_eq!(activations.into_array(), [0.5, 3.0, 0.0]);
-    assert_eq!(
-        output.forward(activations.view()).unwrap().into_array(),
-        [4.0]
-    );
+    assert_eq!(output.forward(activations.view()).into_array(), [4.0]);
 }
 
 #[test]
@@ -38,7 +35,7 @@ fn zero_weights_leave_only_the_biases() {
     let biases = [1.0, -2.0, 3.0];
     let layer = Layer::<3, 2>::try_from_slices(&weights, &biases, Activation::Identity).unwrap();
 
-    let output = layer.forward(Vector::new([7.0, -9.0]).view()).unwrap();
+    let output = layer.forward(Vector::new([7.0, -9.0]).view());
 
     assert_eq!(output.into_array(), biases);
 }
@@ -51,7 +48,7 @@ fn identity_weights_and_zero_biases_pass_the_input_through() {
 
     let input = Vector::new([2.5, -4.0]);
 
-    assert_eq!(layer.forward(input.view()).unwrap(), input);
+    assert_eq!(layer.forward(input.view()), input);
 }
 
 #[test]
@@ -61,9 +58,7 @@ fn a_row_reads_the_whole_input_rather_than_summing_its_own_weights() {
     let biases = [0.0, 0.0];
     let layer = Layer::<2, 3>::try_from_slices(&weights, &biases, Activation::Identity).unwrap();
 
-    let output = layer
-        .forward(Vector::new([10.0, 20.0, 30.0]).view())
-        .unwrap();
+    let output = layer.forward(Vector::new([10.0, 20.0, 30.0]).view());
 
     assert_eq!(output.into_array(), [140.0, 320.0]);
 }
@@ -74,7 +69,7 @@ fn relu_never_returns_a_negative_activation() {
     let biases = [-5.0, -5.0];
     let layer = Layer::<2, 2>::try_from_slices(&weights, &biases, Activation::Relu).unwrap();
 
-    let output = layer.forward(Vector::new([3.0, 4.0]).view()).unwrap();
+    let output = layer.forward(Vector::new([3.0, 4.0]).view());
 
     assert!(output.as_slice().iter().all(|value| *value >= 0.0));
 }
