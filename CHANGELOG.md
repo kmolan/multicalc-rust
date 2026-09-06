@@ -88,6 +88,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`RotorLag::stepped_over` now returns `Result<Vector<_, _>, PlantError>`** instead of a vector.
+  Fresh non-positive or non-finite timesteps are refused before they can make the thrust state
+  diverge or become non-finite.
+
 - **`ModelError::UnsupportedOrientation` is gone**, replaced by `MultipleOrientations` for an element
   that states its facing more than one way. Nothing is refused for the form it was written in any
   more. A new `FullInertiaWithOrientation` refuses an `<inertial>` that states a full tensor beside

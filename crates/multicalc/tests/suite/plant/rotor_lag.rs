@@ -99,7 +99,7 @@ fn the_variable_tick_step_agrees_with_the_fixed_one() {
     let mut fixed = rotors();
     let mut variable = rotors();
     let by_the_fixed_tick = fixed.stepped(all_four(COMMAND));
-    let by_a_stated_tick = variable.stepped_over(all_four(COMMAND), TICK);
+    let by_a_stated_tick = variable.stepped_over(all_four(COMMAND), TICK).unwrap();
     for rotor in 0..4 {
         assert!((by_the_fixed_tick[rotor] - by_a_stated_tick[rotor]).abs() < 1e-15);
     }
@@ -107,10 +107,50 @@ fn the_variable_tick_step_agrees_with_the_fixed_one() {
     // Splitting one tick into two halves lands in the same place too.
     let mut in_halves = rotors();
     let half_tick = TICK / 2.0;
-    let _ = in_halves.stepped_over(all_four(COMMAND), half_tick);
-    let after_both_halves = in_halves.stepped_over(all_four(COMMAND), half_tick);
+    let _ = in_halves
+        .stepped_over(all_four(COMMAND), half_tick)
+        .unwrap();
+    let after_both_halves = in_halves
+        .stepped_over(all_four(COMMAND), half_tick)
+        .unwrap();
     for rotor in 0..4 {
         assert!((after_both_halves[rotor] - by_the_fixed_tick[rotor]).abs() < 1e-14);
+    }
+}
+
+#[test]
+fn differing_positive_ticks_match_the_same_total_fixed_time() {
+    let mut fixed = rotors();
+    for _ in 0..4 {
+        let _ = fixed.stepped(all_four(COMMAND));
+    }
+
+    let mut variable = rotors();
+    for timestep in [0.00025, 0.00125, 0.0005, 0.002] {
+        let _ = variable.stepped_over(all_four(COMMAND), timestep).unwrap();
+    }
+
+    for rotor in 0..4 {
+        assert!((variable.thrusts()[rotor] - fixed.thrusts()[rotor]).abs() < 1e-14);
+    }
+}
+
+#[test]
+fn variable_tick_refuses_invalid_timesteps_without_changing_thrusts() {
+    for timestep in [-TICK, 0.0, f64::INFINITY, f64::NAN] {
+        let mut rotors = rotors().with_thrusts(all_four(1.0));
+        let before = rotors.thrusts();
+        let expected = if timestep.is_finite() {
+            PlantError::NonPositiveTimestep
+        } else {
+            PlantError::NonFinite
+        };
+
+        assert_eq!(
+            rotors.stepped_over(all_four(COMMAND), timestep),
+            Err(expected)
+        );
+        assert_eq!(rotors.thrusts(), before);
     }
 }
 

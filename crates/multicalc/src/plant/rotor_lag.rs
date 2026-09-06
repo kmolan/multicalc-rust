@@ -133,13 +133,22 @@ impl<const ROTOR_COUNT: usize, T: Numeric> RotorLag<ROTOR_COUNT, T> {
     /// closes, so it costs more than [`RotorLag::stepped`]; prefer that one on a loop running at a
     /// fixed rate.
     ///
-    /// A tick length or command that is not finite comes back as thrusts that are not finite,
-    /// rather than being rejected.
+    /// Returns [`PlantError::NonFinite`] if `timestep` is not finite, or
+    /// [`PlantError::NonPositiveTimestep`] if it is zero or negative. An invalid timestep leaves
+    /// the current thrusts untouched. A command that is not finite still comes back as thrusts
+    /// that are not finite, matching [`RotorLag::stepped`].
     pub fn stepped_over(
         &mut self,
         commanded: Vector<ROTOR_COUNT, T>,
         timestep: T,
-    ) -> Vector<ROTOR_COUNT, T> {
+    ) -> Result<Vector<ROTOR_COUNT, T>, PlantError> {
+        if !timestep.is_finite() {
+            return Err(PlantError::NonFinite);
+        }
+        if timestep <= T::ZERO {
+            return Err(PlantError::NonPositiveTimestep);
+        }
+
         let ticks_of_lag = -timestep / self.time_constant;
         let carried_over = ticks_of_lag.exp();
         let caught_up = -ticks_of_lag.expm1();
@@ -147,7 +156,7 @@ impl<const ROTOR_COUNT: usize, T: Numeric> RotorLag<ROTOR_COUNT, T> {
         let before = self.thrusts;
         self.thrusts =
             Vector::from_fn(|rotor| carried_over * before[rotor] + caught_up * commanded[rotor]);
-        self.thrusts
+        Ok(self.thrusts)
     }
 
     /// How fast each rotor's thrust is changing right now, given what it is being asked for.

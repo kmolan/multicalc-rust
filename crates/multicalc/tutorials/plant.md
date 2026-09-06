@@ -190,12 +190,13 @@ Errors: `MultirotorMixer::new` and `quadrotor_x` return [`PlantError`](error-han
 `NonFinite`, `NonPositiveArmLength`, `NonPositiveTorqueRatio`, `InvalidThrustLimits`,
 `RotorLayoutNotIndependent`, or `Linalg`. `RotorLag::new` returns
 [`PlantError`](error-handling.md): `NonFinite`, `NonPositiveTimeConstant`, or
-`NonPositiveTimestep`. `PositionServo::new` and `uniform` return `NonFinite`,
-`NonPositiveNaturalFrequency`, `NegativeDampingRatio`, `NonPositiveTimestep`, or `Linalg`, and
+`NonPositiveTimestep`; its variable-tick `stepped_over` also returns `NonFinite` or
+`NonPositiveTimestep` for an invalid fresh tick. `PositionServo::new` and `uniform` return
+`NonFinite`, `NonPositiveNaturalFrequency`, `NegativeDampingRatio`, `NonPositiveTimestep`, or
+`Linalg`, and
 `PositionServo::stepped_over` returns `NonFinite`, `NonPositiveTimestep`, or `Linalg` because it
 works the discretization out afresh. Everything else on the per-tick path — `rotor_thrusts`,
-`wrench`, `RotorLag::stepped`, `stepped_over`, `rate`, and `PositionServo::stepped` — is
-infallible.
+`wrench`, `RotorLag::stepped`, `rate`, and `PositionServo::stepped` — is infallible.
 
 What the wrench then does to the body is in [Rigid-body dynamics](rigid-body-dynamics.md). Full
 demo:
