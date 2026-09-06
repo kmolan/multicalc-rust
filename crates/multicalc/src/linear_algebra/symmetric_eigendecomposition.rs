@@ -24,7 +24,7 @@ pub struct SymmetricEigendecomposition<const N: usize, T = f64> {
 }
 
 impl<const N: usize, T: Numeric> Matrix<N, N, T> {
-    /// Decomposes `self` as `V·diag(λ)·Vᵀ` by Jacobi rotations.
+    /// Decomposes `self` as `V·diag(λ)·Vᵀ` by Jacobi rotations using a maximum of 60 sweeps.
     ///
     /// The eigenvalues come back largest first, each column of `V` is the direction belonging to
     /// the eigenvalue in the same position, and the columns are orthonormal. Returns
@@ -53,7 +53,43 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// }
     /// ```
     pub fn symmetric_eigendecomposition(
+        self
+    ) -> Result<SymmetricEigendecomposition<N, T>, LinalgError> {
+        self.symmetric_eigendecomposition_with_budget(60)
+    }
+
+    /// Decomposes `self` as `V·diag(λ)·Vᵀ` by Jacobi rotations.
+    ///
+    /// The eigenvalues come back largest first, each column of `V` is the direction belonging to
+    /// the eigenvalue in the same position, and the columns are orthonormal. Returns
+    /// [`LinalgError::NotSymmetric`] if the matrix does not read the same across the diagonal
+    /// (allowing for rounding), or [`LinalgError::NonFinite`] if any entry is not finite.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// 
+    /// let a = Matrix::<3, 3>::new([[4.0, 3.0, 2.0], 
+    ///                             [3.0, 4.0, 3.0], 
+    ///                             [2.0, 3.0, 4.0]]);
+    /// // The correct eigenvalues are 5+sqrt(19), 5-sqrt(19) and 2
+    /// let correct_eigvalds = [5.0 + 19.0_f64.sqrt(), 2.0, 5.0 - 19.0_f64.sqrt()];
+    ///
+    /// let decomposition = a.symmetric_eigendecomposition_with_budget(3).unwrap();
+    /// let values = decomposition.eigenvalues();
+    /// assert!((values[0] - correct_eigvalds[0]).abs() < 1e-12);
+    /// assert!((values[1] - correct_eigvalds[1]).abs() < 1e-12);
+    /// assert!((values[2] - correct_eigvalds[2]).abs() < 1e-12);
+    ///
+    /// // Limiting the number of allowed sweeps to 2 leads to less accurate results:
+    /// let worse_decomposition = a.symmetric_eigendecomposition_with_budget(2).unwrap();
+    /// let worse_values = worse_decomposition.eigenvalues();
+    /// assert!((worse_values[0] - correct_eigvalds[0]).abs() > 1e-9);
+    /// assert!((worse_values[1] - correct_eigvalds[1]).abs() > 1e-9);
+    /// assert!((worse_values[2] - correct_eigvalds[2]).abs() > 1e-9);
+    /// ```
+    pub fn symmetric_eigendecomposition_with_budget(
         self,
+        max_sweeps: usize
     ) -> Result<SymmetricEigendecomposition<N, T>, LinalgError> {
         if !self.is_finite() {
             return Err(LinalgError::NonFinite);
@@ -81,7 +117,6 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
         let mut eigenvectors = Matrix::<N, N, T>::identity();
 
         // Rotate each off-diagonal pair away in turn, until a whole sweep leaves nothing to do.
-        let max_sweeps = 60;
         for _ in 0..max_sweeps {
             let mut off_max = T::ZERO;
             for col_p in 0..N {
