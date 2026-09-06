@@ -175,7 +175,8 @@ pub enum SignalError {
     NonFinite,
     /// The sampling timestep was not strictly positive.
     NonPositiveTimestep,
-    /// A smoothing coefficient was outside the closed interval [0, 1].
+    /// A smoothing coefficient was outside the closed interval [0, 1], or feedback weights did
+    /// not form a stable filter.
     CoefficientOutOfRange,
     /// A filter frequency was not strictly positive, or reached half the sampling rate.
     FrequencyOutOfRange,

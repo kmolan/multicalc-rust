@@ -59,8 +59,9 @@ impl<T: Numeric> BiquadCoefficients<T> {
     /// Builds a filter shape from weights that are already divided through by the leading output
     /// weight, together with the seconds between samples.
     ///
-    /// Returns [`SignalError::NonFinite`] if any weight or `timestep` is not finite, or
-    /// [`SignalError::NonPositiveTimestep`] if `timestep` is not strictly positive.
+    /// Returns [`SignalError::NonFinite`] if any weight or `timestep` is not finite,
+    /// [`SignalError::NonPositiveTimestep`] if `timestep` is not strictly positive, or
+    /// [`SignalError::CoefficientOutOfRange`] if the feedback weights do not form a stable filter.
     pub fn new(feed_forward: [T; 3], feedback: [T; 2], timestep: T) -> Result<Self, SignalError> {
         for weight in feed_forward.into_iter().chain(feedback) {
             if !weight.is_finite() {
@@ -73,11 +74,15 @@ impl<T: Numeric> BiquadCoefficients<T> {
         if timestep <= T::ZERO {
             return Err(SignalError::NonPositiveTimestep);
         }
-        Ok(Self {
+        let coefficients = Self {
             feed_forward,
             feedback,
             timestep,
-        })
+        };
+        if !coefficients.is_stable() {
+            return Err(SignalError::CoefficientOutOfRange);
+        }
+        Ok(coefficients)
     }
 
     /// Builds a low-pass, which keeps content below the cutoff and fades out what is above it.
@@ -278,17 +283,16 @@ impl<T: Numeric> BiquadCoefficients<T> {
 
     /// Whether the filter settles rather than growing without bound.
     ///
-    /// Anything from one of the four design functions is always stable; this is for weights handed
-    /// in directly.
+    /// Anything accepted by [`Self::new`] or returned by one of the four design functions is
+    /// stable.
     ///
     /// ```
     /// use multicalc::signal_processing::BiquadCoefficients;
     ///
     /// assert!(BiquadCoefficients::low_pass(50.0_f64, 0.70710678, 0.001).unwrap().is_stable());
     ///
-    /// // Feeding back more than the whole of the previous output makes it grow every step.
-    /// let runaway = BiquadCoefficients::new([1.0_f64, 0.0, 0.0], [0.0, 1.5], 0.001).unwrap();
-    /// assert!(!runaway.is_stable());
+    /// // Feeding back more than the whole of the previous output is rejected up front.
+    /// assert!(BiquadCoefficients::new([1.0_f64, 0.0, 0.0], [0.0, 1.5], 0.001).is_err());
     /// ```
     #[must_use]
     pub fn is_stable(&self) -> bool {
@@ -536,8 +540,8 @@ impl<T: Numeric> Biquad<T> {
     /// with a settling period.
     ///
     /// A high-pass or band-pass settles to zero whatever the value is, since neither passes a
-    /// steady input. Weights whose output side sums to zero would divide by zero here; none of the
-    /// four designs produces them.
+    /// steady input. Stable coefficients guarantee that the output-side sum used as the divisor is
+    /// nonzero.
     pub fn settle_to(&mut self, value: T) {
         let feed_forward = self.coefficients.feed_forward();
         let feedback = self.coefficients.feedback();

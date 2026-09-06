@@ -119,6 +119,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Stable direct biquad coefficients.** `BiquadCoefficients::new` now rejects feedback weights
+  with poles on or outside the unit circle, preventing `Biquad::settle_to` from dividing by zero
+  or seeding non-finite state.
+
 - **Large-circle occupancy rims.** `occupy_circle` now derives its sample count from a maximum
   arc length relative to grid resolution, replacing its fixed minimum angular step so large rims
   remain closed to ray casts. Non-finite radii now leave the map unchanged. (#296)

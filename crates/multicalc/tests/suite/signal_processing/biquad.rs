@@ -159,6 +159,18 @@ fn settling_removes_the_transient_f32() {
     assert_settling_removes_the_transient(1e-4_f32);
 }
 
+#[test]
+fn settling_a_designed_notch_stays_finite() {
+    let value = 3.0_f64;
+    let mut filter = Biquad::new(BiquadCoefficients::notch(180.0, 4.0, 0.001).unwrap());
+
+    filter.settle_to(value);
+    let output = filter.filter(value);
+
+    assert!(output.is_finite());
+    assert!((output - value).abs() < 1e-12);
+}
+
 // ---- the response queries ---------------------------------------------------
 
 // Ties the reported response to the filter that actually runs.
@@ -287,23 +299,31 @@ fn stability_follows_the_feedback_weights() {
             .unwrap()
             .is_stable()
     );
-    // More than the whole of the previous output fed back.
-    assert!(
-        !BiquadCoefficients::new([1.0_f64, 0.0, 0.0], [0.0, 1.5], 0.001)
-            .unwrap()
-            .is_stable()
-    );
     // Heavy feedback that still settles, which is where a sharp filter sits.
     assert!(
         BiquadCoefficients::new([1.0_f64, 0.0, 0.0], [-1.98, 0.99], 0.001)
             .unwrap()
             .is_stable()
     );
-    // Just past that, the weights hold a ringing that never dies away.
-    assert!(
-        !BiquadCoefficients::new([1.0_f64, 0.0, 0.0], [-1.99, 0.99], 0.001)
-            .unwrap()
-            .is_stable()
+}
+
+#[test]
+fn direct_coefficients_reject_unstable_feedback() {
+    // This pair makes the steady-state divisor in `Biquad::settle_to` exactly zero.
+    assert_eq!(
+        BiquadCoefficients::new([1.0_f64, 0.0, 0.0], [-1.0, 0.0], 0.001),
+        Err(SignalError::CoefficientOutOfRange)
+    );
+
+    // Reject the wider class as well: any poles on or outside the unit circle can grow without
+    // bound, even when their steady-state divisor happens to be nonzero.
+    assert_eq!(
+        BiquadCoefficients::new([1.0_f64, 0.0, 0.0], [0.0, 1.5], 0.001),
+        Err(SignalError::CoefficientOutOfRange)
+    );
+    assert_eq!(
+        BiquadCoefficients::new([1.0_f64, 0.0, 0.0], [-1.99, 0.99], 0.001),
+        Err(SignalError::CoefficientOutOfRange)
     );
 }
 
