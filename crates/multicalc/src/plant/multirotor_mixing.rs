@@ -125,6 +125,8 @@ impl<const ROTOR_COUNT: usize, T: Numeric> MultirotorMixer<ROTOR_COUNT, T> {
     /// [`PlantError::Linalg`] if the layout cannot be inverted, or
     /// [`PlantError::RotorLayoutNotIndependent`] if the rotors cannot produce every wanted push
     /// and turn — which is what happens with fewer than four rotors, or with rotors all in a line.
+    /// The independence check accounts for the scalar precision and the allocation's numerical
+    /// scale, so equivalent layouts receive the same answer at `f32` and `f64`.
     pub fn new(
         positions: [Vector3D<T>; ROTOR_COUNT],
         spins: [RotorSpin; ROTOR_COUNT],
@@ -161,11 +163,14 @@ impl<const ROTOR_COUNT: usize, T: Numeric> MultirotorMixer<ROTOR_COUNT, T> {
         let distribution = allocation.pseudo_inverse()?;
 
         // Going out to the rotors and back has to land where it started; when it does not, some
-        // wanted push or turn is one the rotors simply cannot produce. The bar is loose enough
-        // that single precision passes and tight enough that a missing direction, which is off by
-        // about one, always fails.
+        // wanted push or turn is one the rotors simply cannot produce. Matrix multiplication error
+        // grows with the scalar epsilon, the inner dimension, and the norms of both factors. Cap
+        // the resulting forward-error bound below the order-one error of a missing direction.
         let round_trip = allocation * distribution;
-        let bar = T::from_f64(1e-4);
+        let operation_count = T::from_usize(ROTOR_COUNT.max(4));
+        let condition_scale = allocation.frobenius_norm() * distribution.frobenius_norm();
+        let bar =
+            (T::EPSILON * operation_count * condition_scale.max(T::ONE)).min(T::from_f64(0.25));
         for row in 0..4 {
             for col in 0..4 {
                 let wanted = if row == col { T::ONE } else { T::ZERO };

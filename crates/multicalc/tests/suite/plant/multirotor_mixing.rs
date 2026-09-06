@@ -252,6 +252,54 @@ fn single_precision_round_trips_too() {
     assert!(produced.torque().norm() < 1e-4);
 }
 
+fn assert_scaled_layout_is_accepted<T: Numeric>() {
+    let mixer = MultirotorMixer::<4, T>::quadrotor_x(
+        T::from_f64(15_000.0),
+        T::from_f64(1_600.0),
+        T::from_f64(MINIMUM_THRUST),
+        T::from_f64(MAXIMUM_THRUST),
+    );
+    assert!(mixer.is_ok());
+}
+
+#[test]
+fn scaled_layout_is_accepted_at_both_precisions() {
+    assert_scaled_layout_is_accepted::<f32>();
+    assert_scaled_layout_is_accepted::<f64>();
+}
+
+fn assert_rank_deficient_layout_is_refused<T: Numeric>() {
+    let positions = [
+        Vector::new([T::from_f64(0.1), T::ZERO, T::ZERO]),
+        Vector::new([T::from_f64(0.2), T::ZERO, T::ZERO]),
+        Vector::new([T::from_f64(-0.1), T::ZERO, T::ZERO]),
+        Vector::new([T::from_f64(-0.2), T::ZERO, T::ZERO]),
+    ];
+    let spins = [
+        RotorSpin::Clockwise,
+        RotorSpin::CounterClockwise,
+        RotorSpin::Clockwise,
+        RotorSpin::CounterClockwise,
+    ];
+
+    assert_eq!(
+        MultirotorMixer::<4, T>::new(
+            positions,
+            spins,
+            T::from_f64(TORQUE_PER_THRUST),
+            T::from_f64(MINIMUM_THRUST),
+            T::from_f64(MAXIMUM_THRUST),
+        ),
+        Err(PlantError::RotorLayoutNotIndependent)
+    );
+}
+
+#[test]
+fn rank_deficient_layout_is_refused_at_both_precisions() {
+    assert_rank_deficient_layout_is_refused::<f32>();
+    assert_rank_deficient_layout_is_refused::<f64>();
+}
+
 #[test]
 fn a_mixer_drives_a_body() {
     let mass = 0.8;

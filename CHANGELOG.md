@@ -119,6 +119,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Scale-aware multirotor rank validation.** The allocation round-trip tolerance now follows the
+  scalar epsilon and matrix condition scale, so large valid layouts receive the same answer at
+  `f32` and `f64` while rank-deficient layouts remain rejected.
+
 - **Large-circle occupancy rims.** `occupy_circle` now derives its sample count from a maximum
   arc length relative to grid resolution, replacing its fixed minimum angular step so large rims
   remain closed to ray casts. Non-finite radii now leave the map unchanged. (#296)
