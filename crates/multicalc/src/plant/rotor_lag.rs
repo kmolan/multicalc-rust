@@ -127,6 +127,33 @@ impl<const ROTOR_COUNT: usize, T: Numeric> RotorLag<ROTOR_COUNT, T> {
         self.thrusts
     }
 
+    /// The same step, over a tick of some other length — rejecting a timestep that is not finite
+    /// or not strictly positive.
+    ///
+    /// [`RotorLag::stepped_over`]'s "checking is the caller's job, once, upstream" reasoning holds
+    /// for a fixed-rate loop, whose tick length was already validated in [`RotorLag::new`]. It does
+    /// not hold here: this step's whole point is a tick length the constructor never saw, such as
+    /// one computed from a pair of timestamps that a variable-rate loop can get the wrong way
+    /// round. A negative tick from that composes into runaway growth instead of a small backward
+    /// step, since `(-timestep / time_constant).exp()` then exceeds one.
+    ///
+    /// Returns [`PlantError::NonFinite`] if `timestep` is not finite, or
+    /// [`PlantError::NonPositiveTimestep`] if it is zero or negative. `self` is left unchanged on
+    /// either error. The command is not checked, same as [`RotorLag::stepped_over`].
+    pub fn try_stepped_over(
+        &mut self,
+        commanded: Vector<ROTOR_COUNT, T>,
+        timestep: T,
+    ) -> Result<Vector<ROTOR_COUNT, T>, PlantError> {
+        if !timestep.is_finite() {
+            return Err(PlantError::NonFinite);
+        }
+        if timestep <= T::ZERO {
+            return Err(PlantError::NonPositiveTimestep);
+        }
+        Ok(self.stepped_over(commanded, timestep))
+    }
+
     /// The same step, over a tick of some other length.
     ///
     /// For a loop whose ticks are not all the same length. This works out afresh what one tick
@@ -134,7 +161,8 @@ impl<const ROTOR_COUNT: usize, T: Numeric> RotorLag<ROTOR_COUNT, T> {
     /// fixed rate.
     ///
     /// A tick length or command that is not finite comes back as thrusts that are not finite,
-    /// rather than being rejected.
+    /// rather than being rejected. Prefer [`RotorLag::try_stepped_over`] when the tick length has
+    /// not already been validated.
     pub fn stepped_over(
         &mut self,
         commanded: Vector<ROTOR_COUNT, T>,
