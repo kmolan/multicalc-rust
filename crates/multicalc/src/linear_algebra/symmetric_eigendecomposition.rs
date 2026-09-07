@@ -53,7 +53,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// }
     /// ```
     pub fn symmetric_eigendecomposition(
-        self
+        self,
     ) -> Result<SymmetricEigendecomposition<N, T>, LinalgError> {
         self.symmetric_eigendecomposition_with_budget(60)
     }
@@ -67,9 +67,9 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
-    /// 
-    /// let a = Matrix::<3, 3>::new([[4.0, 3.0, 2.0], 
-    ///                             [3.0, 4.0, 3.0], 
+    ///
+    /// let a = Matrix::<3, 3>::new([[4.0, 3.0, 2.0],
+    ///                             [3.0, 4.0, 3.0],
     ///                             [2.0, 3.0, 4.0]]);
     /// // The correct eigenvalues are 5+sqrt(19), 5-sqrt(19) and 2
     /// let correct_eigvalds = [5.0 + 19.0_f64.sqrt(), 2.0, 5.0 - 19.0_f64.sqrt()];
@@ -89,7 +89,7 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// ```
     pub fn symmetric_eigendecomposition_with_budget(
         self,
-        max_sweeps: usize
+        max_sweeps: usize,
     ) -> Result<SymmetricEigendecomposition<N, T>, LinalgError> {
         if !self.is_finite() {
             return Err(LinalgError::NonFinite);

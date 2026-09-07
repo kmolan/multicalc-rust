@@ -21,7 +21,7 @@ const MAXIMUM_PASSES: usize = 64;
 /// repeated application of `A` shrinks every direction, so
 /// [`LinalgError::DidNotConverge`](crate::error::LinalgError::DidNotConverge) is the verdict that
 /// it does not, not a numerical failure. Costs `O(n³)` per pass with a budget of 64 passes, so run
-/// it once at design time rather than inside a control loop. If you want to specify the maximum 
+/// it once at design time rather than inside a control loop. If you want to specify the maximum
 /// number of passes, use `solve_discrete_lyapunov_with_budget` instead.
 ///
 /// Returns [`LinalgError::NonFinite`](crate::error::LinalgError::NonFinite) if any entry is not
@@ -57,7 +57,7 @@ pub fn solve_discrete_lyapunov<const N: usize, T: Numeric>(
 /// This is the standard way to certify that a closed loop settles: a solution exists only when
 /// repeated application of `A` shrinks every direction, so
 /// [`LinalgError::DidNotConverge`](crate::error::LinalgError::DidNotConverge) is the verdict that
-/// it does not, not a numerical failure. Costs `O(n³)` per pass with a budget of `max_passes` passes, 
+/// it does not, not a numerical failure. Costs `O(n³)` per pass with a budget of `max_passes` passes,
 /// so run it once at design time rather than inside a control loop.
 ///
 /// Returns [`LinalgError::NonFinite`](crate::error::LinalgError::NonFinite) if any entry is not
@@ -85,7 +85,7 @@ pub fn solve_discrete_lyapunov<const N: usize, T: Numeric>(
 pub fn solve_discrete_lyapunov_with_budget<const N: usize, T: Numeric>(
     a: Matrix<N, N, T>,
     state_cost: Matrix<N, N, T>,
-    max_passes: usize
+    max_passes: usize,
 ) -> Result<Matrix<N, N, T>, LinalgError> {
     if !a.is_finite() || !state_cost.is_finite() {
         return Err(LinalgError::NonFinite);
@@ -125,7 +125,5 @@ pub fn solve_discrete_lyapunov_with_budget<const N: usize, T: Numeric>(
         power = power * power;
     }
 
-    Err(LinalgError::DidNotConverge {
-        iters: max_passes,
-    })
+    Err(LinalgError::DidNotConverge { iters: max_passes })
 }

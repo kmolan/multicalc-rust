@@ -99,7 +99,7 @@ pub fn solve_discrete_riccati_with_budget<const N: usize, const M: usize, T: Num
     b: Matrix<N, M, T>,
     state_cost: Matrix<N, N, T>,
     input_cost: Matrix<M, M, T>,
-    max_passes: usize
+    max_passes: usize,
 ) -> Result<Matrix<N, N, T>, LinalgError> {
     if !a.is_finite() || !b.is_finite() || !state_cost.is_finite() || !input_cost.is_finite() {
         return Err(LinalgError::NonFinite);
