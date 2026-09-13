@@ -1,7 +1,7 @@
 //! Rotor lag tests: settling on a steady command, matching the closed form tick by tick, the
 //! point where two thirds of the gap is closed, a tick far longer than the lag time, the
-//! variable-tick step agreeing with the fixed one, rotors not talking to each other, and the
-//! values that are refused.
+//! variable-tick step agreeing with the fixed one, rotors not talking to each other, the checked
+//! variable-tick step refusing a bad timestep, and the values that are refused.
 
 use multicalc::error::PlantError;
 use multicalc::linear_algebra::Vector;
@@ -112,6 +112,71 @@ fn the_variable_tick_step_agrees_with_the_fixed_one() {
     for rotor in 0..4 {
         assert!((after_both_halves[rotor] - by_the_fixed_tick[rotor]).abs() < 1e-14);
     }
+}
+
+#[test]
+fn the_checked_variable_tick_step_matches_the_fixed_one_at_the_total_time() {
+    // Three differing positive ticks, taken with the checked step, land in the same place as one
+    // fixed-rate model whose tick is the total elapsed time.
+    let ticks = [0.0006, 0.0011, 0.0003];
+    let total: f64 = ticks.iter().sum();
+
+    let mut variable = rotors();
+    let mut landed = all_four(0.0);
+    for &tick in &ticks {
+        landed = variable.try_stepped_over(all_four(COMMAND), tick).unwrap();
+    }
+
+    let mut fixed = RotorLag::<4, f64>::new(LAG_TIME, total).unwrap();
+    let want = fixed.stepped(all_four(COMMAND));
+
+    for rotor in 0..4 {
+        assert!((landed[rotor] - want[rotor]).abs() < 1e-12);
+    }
+}
+
+#[test]
+fn the_checked_step_rejects_a_non_positive_timestep() {
+    let mut rotors = rotors();
+    assert_eq!(
+        rotors.try_stepped_over(all_four(COMMAND), 0.0).err(),
+        Some(PlantError::NonPositiveTimestep)
+    );
+    assert_eq!(
+        rotors.try_stepped_over(all_four(COMMAND), -TICK).err(),
+        Some(PlantError::NonPositiveTimestep)
+    );
+}
+
+#[test]
+fn the_checked_step_rejects_a_non_finite_timestep() {
+    let mut rotors = rotors();
+    assert_eq!(
+        rotors.try_stepped_over(all_four(COMMAND), f64::NAN).err(),
+        Some(PlantError::NonFinite)
+    );
+    assert_eq!(
+        rotors
+            .try_stepped_over(all_four(COMMAND), f64::INFINITY)
+            .err(),
+        Some(PlantError::NonFinite)
+    );
+}
+
+#[test]
+fn the_checked_step_leaves_the_rotors_untouched_on_rejection() {
+    let mut rotors = rotors();
+    let _ = rotors.stepped(all_four(COMMAND));
+    let before = rotors.thrusts();
+
+    assert!(rotors.try_stepped_over(all_four(COMMAND), -TICK).is_err());
+    assert!(
+        rotors
+            .try_stepped_over(all_four(COMMAND), f64::NAN)
+            .is_err()
+    );
+
+    assert_eq!(rotors.thrusts(), before);
 }
 
 #[test]

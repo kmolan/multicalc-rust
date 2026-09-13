@@ -232,6 +232,44 @@ fn a_circle_marks_its_rim_and_not_its_middle() {
 }
 
 #[test]
+fn a_large_circle_blocks_beams_through_its_east_rim() {
+    let resolution = 1.0;
+    let radius = 2_000.0;
+    let centre = [0.5, 0.5];
+    // Keep the test map small by placing a window near the circle's eastern rim in world
+    // coordinates. Rasterization and ray casting still exercise the large-circle geometry
+    // without allocating a map large enough to contain the whole circle.
+    let mut map: TestMap<10, 32> = TestMap::new(resolution, [1_996.0, -2.0]);
+
+    map.occupy_circle(centre, radius);
+
+    const BEARING_DIVISIONS: usize = 8_192;
+    for beam in 0..16 {
+        // Offset from angle zero, which is also the circle rasterizer's first sample, so these
+        // rays probe the gaps between sampled rim points rather than that convenient sample.
+        let bearing = core::f64::consts::TAU * (beam as f64 + 0.5) / BEARING_DIVISIONS as f64;
+        let distance = map.cast_ray(centre, bearing, radius + 2.0);
+        assert!(
+            distance.is_some_and(|met| (met - radius).abs() <= 2.0 * map.resolution()),
+            "beam {beam} read {distance:?} instead of about {radius}"
+        );
+    }
+}
+
+#[test]
+fn a_non_finite_circle_radius_leaves_the_map_unchanged() {
+    let mut map: TestMap<40, 40> = TestMap::new(0.1, [0.0, 0.0]);
+    for radius in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        map.occupy_circle([2.0, 2.0], radius);
+    }
+    for row in 0..40 {
+        for column in 0..40 {
+            assert!(!map.is_occupied(row, column));
+        }
+    }
+}
+
+#[test]
 fn clearing_frees_every_cell() {
     let mut map: TestMap<40, 40> = TestMap::new(0.1, [0.0, 0.0]);
     map.occupy_circle([2.0, 2.0], 1.0);

@@ -1109,6 +1109,20 @@ mod jet {
         assert!(f64::abs(jet.value() - dual.value) < TOL);
         assert!(f64::abs(jet.coeffs[1] - dual.deriv) < TOL);
     }
+
+    #[test]
+    #[should_panic(expected = "coefficient index 4 out of bounds for Jet of order 3")]
+    fn coefficient_out_of_bounds_panics() {
+        let jet = Jet::<f64, 4>::constant(1.0);
+        let _ = jet.coefficient(4);
+    }
+
+    #[test]
+    #[should_panic(expected = "derivative index 4 out of bounds for Jet of order 3")]
+    fn derivative_out_of_bounds_panics() {
+        let jet = Jet::<f64, 4>::constant(1.0);
+        let _ = jet.derivative(4);
+    }
 }
 
 mod function {
