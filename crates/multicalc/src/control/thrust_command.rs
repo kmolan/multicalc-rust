@@ -127,6 +127,13 @@ pub fn thrust_command_from_acceleration<T: Numeric>(
 /// [`thrust_command_from_acceleration`] would give it, with [`ThrustCommand::tilt_bound`]
 /// reporting `false`.
 ///
+/// A commanded descent that is already faster than free-fall cannot be produced at any tilt under
+/// a quarter turn, so the vertical part cannot be left untouched the way it is above: instead the
+/// push is leaned over to sit right at `max_tilt` while its *magnitude* is left as it was, which
+/// still climbs (or falls) as much as the cap allows rather than as much as gravity alone would
+/// give it. With no sideways push to take a direction from (a commanded descent straight down),
+/// it leans toward `desired_heading` instead of leaving the direction undefined.
+///
 /// Returns [`ControlError::NonFinite`] if any argument, including `max_tilt`, is not finite,
 /// [`ControlError::InvalidTiltLimit`] if `max_tilt` is not strictly positive or reaches a quarter
 /// turn (π/2) or beyond, [`ControlError::UndefinedThrustDirection`] if the wanted acceleration
@@ -189,15 +196,36 @@ pub fn thrust_command_from_acceleration_with_tilt_limit<T: Numeric>(
     let vertical = push[2];
     let horizontal = Vector::new([push[0], push[1], T::ZERO]).norm();
 
-    // Only a push that still points somewhat upward has a tilt worth capping this way: leaning the
-    // body over trades vertical thrust for horizontal, so past level there is no vertical part left
-    // to hold the cap against.
     let mut tilt_bound = false;
     let push = if vertical > T::ZERO && horizontal.atan2(vertical) > max_tilt {
+        // Still points somewhat upward: hold the vertical part fixed, so the commanded climb or
+        // descent rate survives, and shrink the sideways part down to the cap.
         tilt_bound = true;
         let horizontal_limit = vertical * max_tilt.tan();
         let scale = horizontal_limit / horizontal;
         Vector::new([push[0] * scale, push[1] * scale, vertical])
+    } else if vertical < T::ZERO {
+        // The requested descent alone is already faster than free-fall, so no tilt within the cap
+        // (necessarily under a quarter turn) can produce it: holding the vertical part fixed the
+        // way the branch above does is not an option here, since that would need a lean of more
+        // than max_tilt no matter how far the sideways part is shrunk. The best this can do is
+        // hold the *magnitude* of the push fixed and lean it over to sit right at the cap, which
+        // still gives as much climb as the cap allows rather than none. With no sideways part to
+        // take a direction from, lean toward the desired heading instead of leaving it undefined.
+        tilt_bound = true;
+        let magnitude = push.norm();
+        let capped_horizontal = magnitude * max_tilt.sin();
+        let capped_vertical = magnitude * max_tilt.cos();
+        if horizontal > T::ZERO {
+            let scale = capped_horizontal / horizontal;
+            Vector::new([push[0] * scale, push[1] * scale, capped_vertical])
+        } else {
+            Vector::new([
+                desired_heading.cos() * capped_horizontal,
+                desired_heading.sin() * capped_horizontal,
+                capped_vertical,
+            ])
+        }
     } else {
         push
     };
