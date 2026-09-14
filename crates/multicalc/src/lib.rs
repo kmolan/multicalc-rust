@@ -67,7 +67,10 @@ pub use linear_algebra::{Matrix, Vector};
 pub use linear_algebra::{Matrix2D, Matrix3D, Matrix4D, Matrix6D, Vector2D, Vector3D, Vector6D};
 
 /// Solvers for the two matrix equations behind optimal linear feedback.
-pub use linear_algebra::{solve_discrete_lyapunov, solve_discrete_riccati};
+pub use linear_algebra::{
+    solve_discrete_lyapunov, solve_discrete_lyapunov_with_budget, solve_discrete_riccati,
+    solve_discrete_riccati_with_budget,
+};
 
 /// Zero-order-hold, Van Loan, and white-noise discretization of continuous-time linear systems.
 pub use discretization::{q_discrete_white_noise, van_loan, zoh};
