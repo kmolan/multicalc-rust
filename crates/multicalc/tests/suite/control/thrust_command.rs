@@ -227,6 +227,51 @@ fn tilt_limit_still_reports_undefined_directions() {
 }
 
 #[test]
+fn descent_faster_than_free_fall_is_still_capped() {
+    // A lateral request paired with a descent so steep the push already points below level
+    // (vertical = az + gravity < 0). Capping still has to engage here: previously the vertical >
+    // 0 guard skipped it entirely, silently handing back a command tilted way past max_tilt while
+    // claiming tilt_bound() == false.
+    let max_tilt = 0.5;
+    for descent in [12.0, 60.0] {
+        let command = thrust_command_from_acceleration_with_tilt_limit(
+            Vector::new([50.0, 0.0, -descent]),
+            0.0,
+            GRAVITY,
+            max_tilt,
+        )
+        .unwrap();
+
+        assert!(command.tilt_bound());
+        let up_axis = command.attitude().act(Vector::new([0.0, 0.0, 1.0]));
+        assert!((up_axis[2].acos() - max_tilt).abs() < 1e-9);
+        // The lateral direction is preserved, not flipped to the far side.
+        assert!(up_axis[0] > 0.0);
+    }
+}
+
+#[test]
+fn straight_down_descent_leans_toward_the_heading() {
+    // No lateral push at all to take a direction from (horizontal == 0), just a straight-down
+    // command steeper than free-fall. There is nothing to preserve the direction of, so the cap
+    // leans toward desired_heading instead of leaving it undefined or dividing by zero.
+    let max_tilt = 0.5;
+    let heading = 0.9;
+    let command = thrust_command_from_acceleration_with_tilt_limit(
+        Vector::new([0.0, 0.0, -60.0]),
+        heading,
+        GRAVITY,
+        max_tilt,
+    )
+    .unwrap();
+
+    assert!(command.tilt_bound());
+    let up_axis = command.attitude().act(Vector::new([0.0, 0.0, 1.0]));
+    assert!((up_axis[2].acos() - max_tilt).abs() < 1e-9);
+    assert!((up_axis[0] * heading.sin() - up_axis[1] * heading.cos()).abs() < 1e-9);
+}
+
+#[test]
 fn rejects_invalid_tilt_limit() {
     let level = Vector::new([0.0, 0.0, 0.0]);
     let quarter_turn = core::f64::consts::FRAC_PI_2;
