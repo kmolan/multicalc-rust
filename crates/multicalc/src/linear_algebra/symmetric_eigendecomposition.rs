@@ -24,12 +24,15 @@ pub struct SymmetricEigendecomposition<const N: usize, T = f64> {
 }
 
 impl<const N: usize, T: Numeric> Matrix<N, N, T> {
-    /// Decomposes `self` as `V·diag(λ)·Vᵀ` by Jacobi rotations.
+    /// Decomposes `self` as `V·diag(λ)·Vᵀ` by Jacobi rotations using a maximum of 60 sweeps.
     ///
     /// The eigenvalues come back largest first, each column of `V` is the direction belonging to
     /// the eigenvalue in the same position, and the columns are orthonormal. Returns
     /// [`LinalgError::NotSymmetric`] if the matrix does not read the same across the diagonal
-    /// (allowing for rounding), or [`LinalgError::NonFinite`] if any entry is not finite.
+    /// (allowing for rounding), or [`LinalgError::NonFinite`] if any entry is not finite. If it
+    /// doesn't converge, [`LinalgError::DidNotConverge`] is being returned. This, however,
+    /// is very unlikely. Usually, 60 sweeps are more than enough. Use
+    /// `symmetric_eigendecomposition_with_budget` to override the maximum number of sweeps.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
@@ -54,6 +57,42 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// ```
     pub fn symmetric_eigendecomposition(
         self,
+    ) -> Result<SymmetricEigendecomposition<N, T>, LinalgError> {
+        self.symmetric_eigendecomposition_with_budget(60)
+    }
+
+    /// Decomposes `self` as `V·diag(λ)·Vᵀ` by Jacobi rotations.
+    ///
+    /// The eigenvalues come back largest first, each column of `V` is the direction belonging to
+    /// the eigenvalue in the same position, and the columns are orthonormal. Returns
+    /// [`LinalgError::NotSymmetric`] if the matrix does not read the same across the diagonal
+    /// (allowing for rounding), or [`LinalgError::NonFinite`] if any entry is not finite. If it
+    /// doesn't converge, [`LinalgError::DidNotConverge`] is being returned. You can usually fix
+    /// this by increasing `max_sweeps`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// use multicalc::error::LinalgError;
+    ///
+    /// let a = Matrix::<3, 3>::new([[4.0, 3.0, 2.0],
+    ///                             [3.0, 4.0, 3.0],
+    ///                             [2.0, 3.0, 4.0]]);
+    /// // The correct eigenvalues are 5+sqrt(19), 5-sqrt(19) and 2
+    /// let correct_eigvalds = [5.0 + 19.0_f64.sqrt(), 2.0, 5.0 - 19.0_f64.sqrt()];
+    ///
+    /// let decomposition = a.symmetric_eigendecomposition_with_budget(5).unwrap();
+    /// let values = decomposition.eigenvalues();
+    /// assert!((values[0] - correct_eigvalds[0]).abs() < 1e-12);
+    /// assert!((values[1] - correct_eigvalds[1]).abs() < 1e-12);
+    /// assert!((values[2] - correct_eigvalds[2]).abs() < 1e-12);
+    ///
+    /// // 4 sweeps aren't enough to make it converge:
+    /// assert!(a.symmetric_eigendecomposition_with_budget(4).unwrap_err() ==
+    ///     LinalgError::DidNotConverge { iters: 4 });
+    /// ```
+    pub fn symmetric_eigendecomposition_with_budget(
+        self,
+        max_sweeps: usize,
     ) -> Result<SymmetricEigendecomposition<N, T>, LinalgError> {
         if !self.is_finite() {
             return Err(LinalgError::NonFinite);
@@ -80,8 +119,9 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
         let mut working = self;
         let mut eigenvectors = Matrix::<N, N, T>::identity();
 
+        let mut converged = false;
+
         // Rotate each off-diagonal pair away in turn, until a whole sweep leaves nothing to do.
-        let max_sweeps = 60;
         for _ in 0..max_sweeps {
             let mut off_max = T::ZERO;
             for col_p in 0..N {
@@ -130,8 +170,13 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
                 }
             }
             if off_max <= threshold {
+                converged = true;
                 break;
             }
+        }
+
+        if !converged {
+            return Err(LinalgError::DidNotConverge { iters: max_sweeps });
         }
 
         // What is left on the diagonal are the eigenvalues.

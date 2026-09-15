@@ -25,7 +25,8 @@ const MAXIMUM_PASSES: usize = 64;
 /// and the solver reports that it did not settle.
 ///
 /// Costs `O(n³)` per pass with a budget of 64 passes, so run it once at design time rather than
-/// inside a control loop.
+/// inside a control loop. If you want to specify the budget, use `solve_discrete_riccati_with_budget`
+/// instead.
 ///
 /// Returns [`LinalgError::NonFinite`](crate::error::LinalgError::NonFinite) if any entry is not
 /// finite, [`LinalgError::NotSymmetric`](crate::error::LinalgError::NotSymmetric) if `state_cost` or `input_cost`
@@ -55,6 +56,51 @@ pub fn solve_discrete_riccati<const N: usize, const M: usize, T: Numeric>(
     state_cost: Matrix<N, N, T>,
     input_cost: Matrix<M, M, T>,
 ) -> Result<Matrix<N, N, T>, LinalgError> {
+    solve_discrete_riccati_with_budget(a, b, state_cost, input_cost, MAXIMUM_PASSES)
+}
+
+/// Finds the steady-state `P` of `P = Aᵀ·P·A − Aᵀ·P·B·(R + Bᵀ·P·B)⁻¹·Bᵀ·P·A + Q`.
+///
+/// `A` and `B` describe how the state moves and how the input pushes it; `Q` and `R` say how much
+/// state error and input effort each cost. The answer is what an optimal linear feedback law is
+/// built from. The caller has to supply a system whose unstable directions can be reached by the
+/// input and whose costly directions are visible in `Q`; without that there is no steady answer
+/// and the solver reports that it did not settle.
+///
+/// Costs `O(n³)` per pass with a budget of `max_passes` passes, so run it once at design time rather than
+/// inside a control loop.
+///
+/// Returns [`LinalgError::NonFinite`](crate::error::LinalgError::NonFinite) if any entry is not
+/// finite, [`LinalgError::NotSymmetric`](crate::error::LinalgError::NotSymmetric) if `state_cost` or `input_cost`
+/// does not read the same across the diagonal,
+/// [`LinalgError::NotPositiveDefinite`](crate::error::LinalgError::NotPositiveDefinite) if `input_cost` has
+/// no Cholesky factor, [`LinalgError::Singular`](crate::error::LinalgError::Singular) if an
+/// intermediate cannot be inverted, or
+/// [`LinalgError::DidNotConverge`](crate::error::LinalgError::DidNotConverge) if the passes run out
+/// or the answer fails the check against the equation.
+///
+/// ```
+/// use multicalc::linear_algebra::{Matrix, solve_discrete_riccati_with_budget};
+///
+/// // One state that holds its value, one input that adds to it, unit costs. The equation
+/// // reduces to p = p - p²/(1 + p) + 1, whose positive root is the golden ratio.
+/// let a = Matrix::<1, 1>::new([[1.0]]);
+/// let b = Matrix::<1, 1>::new([[1.0]]);
+/// let state_cost = Matrix::<1, 1>::new([[1.0]]);
+/// let input_cost = Matrix::<1, 1>::new([[1.0]]);
+/// let cost_to_go = solve_discrete_riccati_with_budget(a, b, state_cost, input_cost, 40).unwrap();
+/// let golden_ratio = (1.0 + 5.0_f64.sqrt()) / 2.0;
+/// assert!((cost_to_go[(0, 0)] - golden_ratio).abs() < 1e-10);
+/// // However, a much smaller budget isn't enough:
+/// solve_discrete_riccati_with_budget(a, b, state_cost, input_cost, 3).unwrap_err();
+/// ```
+pub fn solve_discrete_riccati_with_budget<const N: usize, const M: usize, T: Numeric>(
+    a: Matrix<N, N, T>,
+    b: Matrix<N, M, T>,
+    state_cost: Matrix<N, N, T>,
+    input_cost: Matrix<M, M, T>,
+    max_passes: usize,
+) -> Result<Matrix<N, N, T>, LinalgError> {
     if !a.is_finite() || !b.is_finite() || !state_cost.is_finite() || !input_cost.is_finite() {
         return Err(LinalgError::NonFinite);
     }
@@ -70,8 +116,8 @@ pub fn solve_discrete_riccati<const N: usize, const M: usize, T: Numeric>(
 
     let mut state = a;
     let mut cost = state_cost;
-    let mut passes_taken = MAXIMUM_PASSES;
-    for pass in 0..MAXIMUM_PASSES {
+    let mut passes_taken = max_passes;
+    for pass in 0..max_passes {
         let coupling = (Matrix::<N, N, T>::identity() + reach * cost).inverse()?;
         let folded = coupling * state;
         let cost_increment = state.transpose() * cost * folded;

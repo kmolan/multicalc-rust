@@ -21,7 +21,8 @@ const MAXIMUM_PASSES: usize = 64;
 /// repeated application of `A` shrinks every direction, so
 /// [`LinalgError::DidNotConverge`](crate::error::LinalgError::DidNotConverge) is the verdict that
 /// it does not, not a numerical failure. Costs `O(n³)` per pass with a budget of 64 passes, so run
-/// it once at design time rather than inside a control loop.
+/// it once at design time rather than inside a control loop. If you want to specify the maximum
+/// number of passes, use `solve_discrete_lyapunov_with_budget` instead.
 ///
 /// Returns [`LinalgError::NonFinite`](crate::error::LinalgError::NonFinite) if any entry is not
 /// finite, [`LinalgError::NotSymmetric`](crate::error::LinalgError::NotSymmetric) if `state_cost` does not
@@ -47,6 +48,45 @@ pub fn solve_discrete_lyapunov<const N: usize, T: Numeric>(
     a: Matrix<N, N, T>,
     state_cost: Matrix<N, N, T>,
 ) -> Result<Matrix<N, N, T>, LinalgError> {
+    solve_discrete_lyapunov_with_budget(a, state_cost, MAXIMUM_PASSES)
+}
+
+/// Finds the `P` that satisfies `Aᵀ·P·A − P + Q = 0`, given a `Q` that reads the same across the
+/// diagonal.
+///
+/// This is the standard way to certify that a closed loop settles: a solution exists only when
+/// repeated application of `A` shrinks every direction, so
+/// [`LinalgError::DidNotConverge`](crate::error::LinalgError::DidNotConverge) is the verdict that
+/// it does not, not a numerical failure. Costs `O(n³)` per pass with a budget of `max_passes` passes,
+/// so run it once at design time rather than inside a control loop.
+///
+/// Returns [`LinalgError::NonFinite`](crate::error::LinalgError::NonFinite) if any entry is not
+/// finite, [`LinalgError::NotSymmetric`](crate::error::LinalgError::NotSymmetric) if `state_cost` does not
+/// read the same across the diagonal, or
+/// [`LinalgError::DidNotConverge`](crate::error::LinalgError::DidNotConverge) if the total has not
+/// settled within the budget.
+///
+/// ```
+/// use multicalc::linear_algebra::{Matrix, solve_discrete_lyapunov_with_budget};
+///
+/// // A single state that keeps half of itself each step, with Q = 1. The series is
+/// // 1 + 1/4 + 1/16 + ... = 4/3.
+/// let a = Matrix::<1, 1>::new([[0.5]]);
+/// let state_cost = Matrix::<1, 1>::new([[1.0]]);
+/// let cost_to_go = solve_discrete_lyapunov_with_budget(a, state_cost, 30).unwrap();
+/// assert!((cost_to_go[(0, 0)] - 4.0 / 3.0).abs() < 1e-12);
+/// // However, with a much smaller budget this does not work:
+/// solve_discrete_lyapunov_with_budget(a, state_cost, 3).unwrap_err();
+///
+/// // A state that grows has no answer.
+/// let unstable = Matrix::<1, 1>::new([[1.5]]);
+/// assert!(solve_discrete_lyapunov_with_budget(unstable, state_cost, 30).is_err());
+/// ```
+pub fn solve_discrete_lyapunov_with_budget<const N: usize, T: Numeric>(
+    a: Matrix<N, N, T>,
+    state_cost: Matrix<N, N, T>,
+    max_passes: usize,
+) -> Result<Matrix<N, N, T>, LinalgError> {
     if !a.is_finite() || !state_cost.is_finite() {
         return Err(LinalgError::NonFinite);
     }
@@ -57,7 +97,7 @@ pub fn solve_discrete_lyapunov<const N: usize, T: Numeric>(
 
     let mut total = state_cost;
     let mut power = a;
-    for pass in 0..MAXIMUM_PASSES {
+    for pass in 0..max_passes {
         let increment = power.transpose() * total * power;
         let mut next = total + increment;
         // The exact answer reads the same across the diagonal; forcing it back keeps rounding
@@ -85,7 +125,5 @@ pub fn solve_discrete_lyapunov<const N: usize, T: Numeric>(
         power = power * power;
     }
 
-    Err(LinalgError::DidNotConverge {
-        iters: MAXIMUM_PASSES,
-    })
+    Err(LinalgError::DidNotConverge { iters: max_passes })
 }
