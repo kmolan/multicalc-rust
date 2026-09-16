@@ -125,6 +125,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`RunningMedian` rejects a NaN at the window boundary.** Its insertion sort compared with `>`,
+  false in both directions against a NaN, so one NaN in the window left it unsorted and the middle
+  slot answered with an arbitrary finite value — the one filter meant to discard a wild lidar
+  return was defeated by exactly that. A NaN now never enters the window: the median holds at the
+  samples already accepted, `filter_checked` reports the rejection, and infinities are unchanged,
+  since the sort handles them. @maskjelly (#284)
+
 - **Large-circle occupancy rims.** `occupy_circle` now derives its sample count from a maximum
   arc length relative to grid resolution, replacing its fixed minimum angular step so large rims
   remain closed to ray casts. Non-finite radii now leave the map unchanged. (#296)

@@ -160,11 +160,11 @@ impl<const WINDOW: usize, T: Numeric> MovingAverage<WINDOW, T> {
 /// );
 /// ```
 ///
-/// A NaN is a different matter, and this is the one filter whose failure is silent. The sort
-/// compares with `>`, false in both directions against a NaN, so the NaN becomes a wall elements
-/// cannot move past and the middle slot stops holding the middle value. What comes out is an
-/// ordinary finite number that is simply **wrong**. [`filter_checked`](Self::filter_checked)
-/// refuses a NaN for that reason, and admits infinities, which sort correctly.
+/// A non-finite sample is dealt with at the window boundary. A NaN is rejected, because the sort
+/// cannot place one: it never enters the window, and the answer holds at the median of the samples
+/// already in it. An infinity is an ordinary extreme reading that enters and sorts.
+/// [`filter_checked`](Self::filter_checked) reports a rejected NaN rather than leaving it silent.
+/// A window that has only ever been handed NaNs has never been seeded, so its answer stays zero.
 ///
 /// ```
 /// use multicalc::signal_processing::RunningMedian;
@@ -176,23 +176,25 @@ impl<const WINDOW: usize, T: Numeric> MovingAverage<WINDOW, T> {
 /// }
 /// assert_eq!(control.value(), 3.0);
 ///
-/// // Swap that reading for a NaN and the answer moves, with nothing to show for it.
-/// let mut spoiled = RunningMedian::<5, f64>::new().unwrap();
-/// for reading in [3.0, f64::NAN, 1.0, 2.0, 5.0] {
-///     let _ = spoiled.filter(reading);
-/// }
-/// assert_eq!(spoiled.value(), 2.0);
-///
+/// // Swap that reading for a NaN and the answer does not move: the NaN is dropped at the
+/// // boundary instead of reaching the middle slot.
 /// let mut running = RunningMedian::<5, f64>::new().unwrap();
-/// let _ = running.filter(1.0);
-/// let untouched = running;
+/// for reading in [3.0, f64::NAN, 1.0, 2.0, 5.0] {
+///     let _ = running.filter(reading);
+/// }
+/// assert_eq!(running.value(), control.value());
 ///
+/// // A rejected sample leaves the window untouched, so it is not in there to flush out.
+/// let untouched = running;
 /// assert!(running.filter_checked(f64::NAN).is_err());
 /// assert_eq!(running, untouched);
 ///
-/// // An infinity is let through and dropped by the sort.
-/// assert!(running.filter_checked(f64::INFINITY).is_ok());
-/// assert_eq!(running.value(), 1.0);
+/// // An infinity is let through and sorted like any other extreme reading.
+/// assert_eq!(running.filter(f64::INFINITY), 3.0);
+///
+/// // Nothing but NaNs cannot seed the window.
+/// let mut fresh = RunningMedian::<5, f64>::new().unwrap();
+/// assert_eq!(fresh.filter(f64::NAN), 0.0);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RunningMedian<const WINDOW: usize, T: Numeric = f64> {
@@ -225,23 +227,28 @@ impl<const WINDOW: usize, T: Numeric> RunningMedian<WINDOW, T> {
 
     /// Feeds one sample and returns the middle value of the window it now sits in.
     ///
-    /// A NaN silently moves the answer to a wrong finite number until the window has moved past it.
-    /// Infinities sort correctly. See [`filter_checked`](Self::filter_checked).
+    /// A NaN is rejected at the boundary: it does not enter the window and the answer holds at the
+    /// median of the samples already in it. An infinity sorts like any other reading. See
+    /// [`filter_checked`](Self::filter_checked).
     #[inline]
     #[must_use]
     pub fn filter(&mut self, input: T) -> T {
-        push(
-            &mut self.samples,
-            &mut self.next,
-            &mut self.initialized,
-            input,
-        );
+        if !input.is_nan() {
+            push(
+                &mut self.samples,
+                &mut self.next,
+                &mut self.initialized,
+                input,
+            );
+        }
         self.value()
     }
 
     /// [`filter`](Self::filter) with the sample checked.
     ///
-    /// Returns [`SignalError::NonFinite`] for a NaN, leaving the window untouched. An infinity is
+    /// Returns [`SignalError::NonFinite`] for a NaN, leaving the window untouched — the same
+    /// window the unchecked call leaves, since that call rejects a NaN too. The window cannot be
+    /// corrupted by one, so this is about visibility rather than protection. An infinity is
     /// admitted: the sort handles it, so the answer can be `Ok` wrapping one.
     #[inline]
     pub fn filter_checked(&mut self, input: T) -> Result<T, SignalError> {
@@ -267,6 +274,7 @@ impl<const WINDOW: usize, T: Numeric> RunningMedian<WINDOW, T> {
         let mut sorted = self.samples;
         // Sorted by hand: the standard sort needs a total order, which floating-point numbers do
         // not have, and asking for one back would mean unwrapping a comparison that can fail.
+        // `filter` keeps NaNs out of the window, so `>` orders everything left in it.
         for placed in 1..WINDOW {
             let moving = sorted[placed];
             let mut slot = placed;
