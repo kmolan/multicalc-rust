@@ -267,6 +267,9 @@ pub enum DynamicsError {
     FloatingBaseUnsupported,
     /// The solved poses came from a model with a different joint count.
     StateShapeMismatch,
+    /// The four orientation numbers in a state did not normalize to a unit quaternion, so no
+    /// attitude exists to take a derivative at.
+    DegenerateOrientation,
     /// A joint's articulated-body inertia was not strictly positive, so the model has a degree of
     /// freedom with no inertia behind it.
     NonPositiveArticulatedInertia,
@@ -899,6 +902,9 @@ impl core::fmt::Display for DynamicsError {
             }
             DynamicsError::StateShapeMismatch => {
                 f.write_str("solved poses came from a model with a different joint count")
+            }
+            DynamicsError::DegenerateOrientation => {
+                f.write_str("the state's orientation numbers do not normalize to a unit quaternion")
             }
             DynamicsError::NonPositiveArticulatedInertia => {
                 f.write_str("a degree of freedom has no inertia behind it")

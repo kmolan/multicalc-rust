@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A checked rigid-body state derivative.** `RigidBody::try_state_derivative` reports
+  `DynamicsError::DegenerateOrientation` when a state's four orientation numbers normalize to
+  nothing, a case the infallible `state_derivative` answers with an all-zero derivative that an
+  integrator reads as a body at rest — quietly freezing the run instead of stopping it.
+  @maskjelly (#286)
 - **`no_std` MLP inference for learned policies.** `Layer` runs one dense layer of a multi-layer
   perceptron — `activation(weights · input + biases)` — over a `MatrixView` of weights and a
   `VectorView` of biases, so a policy exported as one flat buffer is read where it sits instead of
