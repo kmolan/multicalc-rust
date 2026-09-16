@@ -24,6 +24,13 @@ use crate::scalar::Numeric;
 /// this feeds [`MultirotorMixer::wrench`](crate::plant::MultirotorMixer::wrench), with nothing
 /// needed in between.
 ///
+/// Thrust limits are optional and a model starts without any, so it follows its command exactly as
+/// it always has. [`RotorLag::try_with_thrust_limits`] gives the lag the same limits the mixer was
+/// built with, and every step then holds the rotors inside them — a command that never went
+/// through the mixer cannot leave the lag giving a thrust the rotor could not physically produce.
+/// [`RotorLag::with_thrusts`] holds an already-spinning rotor inside them too, while
+/// [`RotorLag::reset`] returns to the disarmed all-zero state, limits or not.
+///
 /// ```
 /// use multicalc::linear_algebra::Vector;
 /// use multicalc::plant::RotorLag;
@@ -64,6 +71,8 @@ pub struct RotorLag<const ROTOR_COUNT: usize, T: Numeric = f64> {
     timestep: T,
     carried_over: T,
     caught_up: T,
+    minimum_thrust: T,
+    maximum_thrust: T,
     thrusts: Vector<ROTOR_COUNT, T>,
 }
 
@@ -98,32 +107,86 @@ impl<const ROTOR_COUNT: usize, T: Numeric> RotorLag<ROTOR_COUNT, T> {
             timestep,
             carried_over: ticks_of_lag.exp(),
             caught_up: -ticks_of_lag.expm1(),
+            minimum_thrust: T::NEG_INFINITY,
+            maximum_thrust: T::INFINITY,
             thrusts: Vector::zeros(),
         })
     }
 
     /// Starts the rotors at thrusts they are already giving, rather than at nothing.
     ///
-    /// For a machine that is already flying by the time the model is built.
+    /// For a machine that is already flying by the time the model is built. A rotor cannot be
+    /// already giving a thrust it could not produce, so the thrusts are held inside the model's
+    /// limits when it already has any.
     #[inline]
     #[must_use]
     pub fn with_thrusts(mut self, thrusts: Vector<ROTOR_COUNT, T>) -> Self {
-        self.thrusts = thrusts;
+        self.thrusts = self.held_inside_limits(thrusts);
         self
+    }
+
+    /// Holds the rotors inside the thrusts a real rotor could give.
+    ///
+    /// The mixer already holds its own answer inside its limits, so this is for a caller that
+    /// steps the lag directly: given the same limits here, a command that never went through the
+    /// mixer cannot leave the lag giving a thrust the rotor could not produce. Both
+    /// [`RotorLag::stepped`] and [`RotorLag::stepped_over`] hold the state inside the limits from
+    /// then on, and [`RotorLag::with_thrusts`] holds it on the way in.
+    ///
+    /// # Errors
+    /// Returns [`PlantError::NonFinite`] if either limit is not finite, or
+    /// [`PlantError::InvalidThrustLimits`] if `maximum_thrust` is at or below `minimum_thrust`.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::plant::RotorLag;
+    /// # fn main() -> Result<(), multicalc::error::PlantError> {
+    /// // Four rotors that take 20 ms to catch up, giving between nothing and 5 N.
+    /// let mut rotors = RotorLag::<4, f64>::new(0.02, 0.001)?.try_with_thrust_limits(0.0, 5.0)?;
+    ///
+    /// // Asked for far more than they have, they settle on the most they can give.
+    /// let beyond_reach = 30.0;
+    /// for _ in 0..2000 {
+    ///     let _ = rotors.stepped(Vector::new([beyond_reach; 4]));
+    /// }
+    /// assert_eq!(rotors.thrusts()[0], 5.0);
+    ///
+    /// // Limits the wrong way round are refused.
+    /// assert!(RotorLag::<4, f64>::new(0.02, 0.001)?
+    ///     .try_with_thrust_limits(5.0, 0.0)
+    ///     .is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn try_with_thrust_limits(
+        mut self,
+        minimum_thrust: T,
+        maximum_thrust: T,
+    ) -> Result<Self, PlantError> {
+        if !minimum_thrust.is_finite() || !maximum_thrust.is_finite() {
+            return Err(PlantError::NonFinite);
+        }
+        if maximum_thrust <= minimum_thrust {
+            return Err(PlantError::InvalidThrustLimits);
+        }
+        self.minimum_thrust = minimum_thrust;
+        self.maximum_thrust = maximum_thrust;
+        Ok(self)
     }
 
     /// Moves every rotor one tick closer to what it was asked for, and says where they landed.
     ///
     /// The tick is the one the model was built with. Nothing expensive happens here — the two
-    /// numbers this needs were worked out once, when the model was built.
+    /// numbers this needs were worked out once, when the model was built. What each rotor lands on
+    /// is held inside the model's thrust limits, if it has any.
     ///
     /// A command that is not finite comes back not finite rather than being rejected — this runs
     /// every tick, so checking is the caller's job, once, upstream.
     pub fn stepped(&mut self, commanded: Vector<ROTOR_COUNT, T>) -> Vector<ROTOR_COUNT, T> {
         let before = self.thrusts;
-        self.thrusts = Vector::from_fn(|rotor| {
+        self.thrusts = self.held_inside_limits(Vector::from_fn(|rotor| {
             self.carried_over * before[rotor] + self.caught_up * commanded[rotor]
-        });
+        }));
         self.thrusts
     }
 
@@ -158,7 +221,8 @@ impl<const ROTOR_COUNT: usize, T: Numeric> RotorLag<ROTOR_COUNT, T> {
     ///
     /// For a loop whose ticks are not all the same length. This works out afresh what one tick
     /// closes, so it costs more than [`RotorLag::stepped`]; prefer that one on a loop running at a
-    /// fixed rate.
+    /// fixed rate. What each rotor lands on is held inside the model's thrust limits, if it has
+    /// any, exactly as in [`RotorLag::stepped`].
     ///
     /// A tick length or command that is not finite comes back as thrusts that are not finite,
     /// rather than being rejected. Prefer [`RotorLag::try_stepped_over`] when the tick length has
@@ -173,15 +237,17 @@ impl<const ROTOR_COUNT: usize, T: Numeric> RotorLag<ROTOR_COUNT, T> {
         let caught_up = -ticks_of_lag.expm1();
 
         let before = self.thrusts;
-        self.thrusts =
-            Vector::from_fn(|rotor| carried_over * before[rotor] + caught_up * commanded[rotor]);
+        self.thrusts = self.held_inside_limits(Vector::from_fn(|rotor| {
+            carried_over * before[rotor] + caught_up * commanded[rotor]
+        }));
         self.thrusts
     }
 
     /// How fast each rotor's thrust is changing right now, given what it is being asked for.
     ///
     /// For a caller that would rather carry the rotor thrusts in its own state and hand the whole
-    /// thing to an integrator than step the rotors on their own.
+    /// thing to an integrator than step the rotors on their own. This is a rate rather than the
+    /// state itself, so it is not held inside the model's thrust limits.
     pub fn rate(&self, commanded: Vector<ROTOR_COUNT, T>) -> Vector<ROTOR_COUNT, T> {
         Vector::from_fn(|rotor| (commanded[rotor] - self.thrusts[rotor]) / self.time_constant)
     }
@@ -190,6 +256,20 @@ impl<const ROTOR_COUNT: usize, T: Numeric> RotorLag<ROTOR_COUNT, T> {
     #[inline]
     pub fn thrusts(&self) -> Vector<ROTOR_COUNT, T> {
         self.thrusts
+    }
+
+    /// The least one rotor can give, or negative infinity when the model is unbounded.
+    #[inline]
+    #[must_use]
+    pub fn minimum_thrust(&self) -> T {
+        self.minimum_thrust
+    }
+
+    /// The most one rotor can give, or infinity when the model is unbounded.
+    #[inline]
+    #[must_use]
+    pub fn maximum_thrust(&self) -> T {
+        self.maximum_thrust
     }
 
     /// How long a rotor takes to close a little under two thirds of the gap to what it was asked
@@ -208,8 +288,29 @@ impl<const ROTOR_COUNT: usize, T: Numeric> RotorLag<ROTOR_COUNT, T> {
     }
 
     /// Puts every rotor back to giving nothing.
+    ///
+    /// The all-zero state is the disarmed one, so it is not held inside any thrust limits: a model
+    /// with a minimum above zero still comes back to nothing here, and climbs back inside the
+    /// limits on its next step. [`RotorLag::new`] starts in that same disarmed state.
     #[inline]
     pub fn reset(&mut self) {
         self.thrusts = Vector::zeros();
+    }
+
+    /// Holds each rotor inside the limits, leaving a value that is not a number alone — the
+    /// floating-point `min`/`max` would take the other operand instead, changing what an unchecked
+    /// non-finite command comes back as.
+    #[inline]
+    fn held_inside_limits(&self, thrusts: Vector<ROTOR_COUNT, T>) -> Vector<ROTOR_COUNT, T> {
+        Vector::from_fn(|rotor| {
+            let thrust = thrusts[rotor];
+            if thrust < self.minimum_thrust {
+                self.minimum_thrust
+            } else if thrust > self.maximum_thrust {
+                self.maximum_thrust
+            } else {
+                thrust
+            }
+        })
     }
 }

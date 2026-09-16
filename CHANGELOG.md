@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Rotor lag thrust limits.** `RotorLag::try_with_thrust_limits` gives the lag the same thrust
+  limits the mixer was built with, and `stepped`, `stepped_over` and `with_thrusts` hold the state
+  inside them, so a command stepped straight into the lag can no longer leave it giving a thrust
+  the rotor could not physically produce — the mixer's clamp is no longer undone one stage
+  downstream. @maskjelly (#292)
 - **`no_std` MLP inference for learned policies.** `Layer` runs one dense layer of a multi-layer
   perceptron — `activation(weights · input + biases)` — over a `MatrixView` of weights and a
   `VectorView` of biases, so a policy exported as one flat buffer is read where it sits instead of
