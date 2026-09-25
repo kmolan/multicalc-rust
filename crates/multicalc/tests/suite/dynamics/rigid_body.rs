@@ -4,6 +4,7 @@
 
 use core::f64::consts::FRAC_PI_2;
 
+use multicalc::SpatialError;
 use multicalc::dynamics::{RigidBody, free_joint_from_state_vector, state_vector_from_free_joint};
 use multicalc::error::DynamicsError;
 use multicalc::linear_algebra::{Matrix, Vector, Vector3D};
@@ -201,14 +202,10 @@ fn a_state_with_no_direction_has_no_derivative() {
 
 #[test]
 fn a_body_with_a_flat_inertia_is_refused() {
-    // Symmetric with a positive diagonal, so `SpatialInertia` accepts it, but it is not positive
-    // definite so there is no way to invert it into an acceleration.
+    // `SpatialInertia` expects the rotational inertia tensor to be positive definite, which is not the case.
     let flat = Matrix::new([[1.0, 2.0, 0.0], [2.0, 1.0, 0.0], [0.0, 0.0, 1.0]]);
-    let inertia = SpatialInertia::new(1.0, zeros(), flat).unwrap();
-    assert_eq!(
-        RigidBody::new(inertia, Vector::new(earth_gravity())),
-        Err(DynamicsError::NonPositiveInertia)
-    );
+    let inertia_err = SpatialInertia::new(1.0, zeros(), flat).unwrap_err();
+    assert_eq!(inertia_err, SpatialError::NonPositiveDefiniteInertia);
 
     let sound =
         SpatialInertia::from_diagonal_inertia(1.0, zeros(), Vector::new([1.0, 1.0, 1.0])).unwrap();

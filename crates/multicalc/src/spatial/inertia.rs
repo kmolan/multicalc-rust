@@ -54,7 +54,8 @@ impl<T: Numeric> SpatialInertia<T> {
     /// point.
     ///
     /// The inertia has to read the same across the diagonal and carry a positive diagonal, and the
-    /// mass has to be positive.
+    /// mass has to be positive. It has to be positive definite, and the eigenvalues must fulfill the
+    /// triangle inequality (a + b >= c).
     ///
     /// ```
     /// use multicalc::linear_algebra::{Matrix, Vector};
@@ -90,6 +91,18 @@ impl<T: Numeric> SpatialInertia<T> {
         for index in 0..3 {
             if rotational_inertia[(index, index)] <= T::ZERO {
                 return Err(SpatialError::NonPositiveInertia);
+            }
+        }
+        if rotational_inertia.cholesky().is_err() {
+            return Err(SpatialError::NonPositiveDefiniteInertia);
+        }
+        match rotational_inertia.symmetric_eigendecomposition() {
+            Err(error) => return Err(SpatialError::EigendecompositionFailed(error)),
+            Ok(inertia_eigendecomp) => {
+                let values = inertia_eigendecomp.eigenvalues();
+                if values[0] > values[1] + values[2] {
+                    return Err(SpatialError::InvalidInertia);
+                }
             }
         }
         Ok(SpatialInertia {

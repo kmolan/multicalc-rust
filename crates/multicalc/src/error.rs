@@ -145,6 +145,12 @@ pub enum SpatialError {
     NotSymmetric,
     /// A rotational inertia had a diagonal entry that was zero or negative.
     NonPositiveInertia,
+    /// A rotational inertia was not positive definite.
+    NonPositiveDefiniteInertia,
+    /// Eigendecomposition is done to check that the eigenvalues fulfill the triangle inequality.
+    EigendecompositionFailed(LinalgError),
+    /// The eigenvalues of the rotational inertia tensor violate the triangle inequality.
+    InvalidInertia,
 }
 
 /// Errors from the estimation module (Kalman filtering).
@@ -779,6 +785,15 @@ impl core::fmt::Display for SpatialError {
             }
             SpatialError::NonPositiveInertia => {
                 "rotational inertia diagonal entries must be strictly positive"
+            }
+            SpatialError::NonPositiveDefiniteInertia => {
+                "rotational inertia must be positive definite"
+            }
+            SpatialError::InvalidInertia => {
+                "eigenvalues of rotational inertia tensor must fulfil triangle inequality"
+            }
+            SpatialError::EigendecompositionFailed(err) => {
+                return write!(f, "eigendecomposition failed: {err}");
             }
         })
     }
