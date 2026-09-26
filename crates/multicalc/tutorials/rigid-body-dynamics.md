@@ -99,6 +99,35 @@ assert!(after[2].abs() < 1e-9);
 # Ok::<(), multicalc::CalcError>(())
 ```
 
+`RigidBody::state_derivative` never fails. A state whose four orientation numbers normalize to
+nothing names no direction, so the whole derivative comes back as zeros — an integrator reads that
+as a body at rest and holds it in place rather than stopping. `RigidBody::try_state_derivative` is
+the checked twin, reporting `DynamicsError::DegenerateOrientation` instead.
+
+```rust
+use multicalc::dynamics::RigidBody;
+use multicalc::error::DynamicsError;
+use multicalc::linear_algebra::Vector;
+use multicalc::spatial::{SpatialInertia, Wrench};
+
+let inertia = SpatialInertia::from_diagonal_inertia(
+    0.8_f64,
+    Vector::new([0.0, 0.0, 0.0]),
+    Vector::new([0.005, 0.007, 0.009]),
+)?;
+let body = RigidBody::new(inertia, Vector::new([0.0, 0.0, -9.81]))?;
+
+// A state whose four orientation numbers are all zero names no direction.
+let no_direction = Vector::new([
+    1.0, -2.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.1, -0.2, 0.3, -0.4, 0.5,
+]);
+assert_eq!(
+    body.try_state_derivative(&no_direction, Wrench::zeros()),
+    Err(DynamicsError::DegenerateOrientation),
+);
+# Ok::<(), multicalc::CalcError>(())
+```
+
 ```rust
 use multicalc::dynamics::RigidBody;
 use multicalc::linear_algebra::Vector;
@@ -309,8 +338,9 @@ let holding = panda.gravity_torque_at(&Vector::zeros())?;
 
 Errors: `SpatialInertia::new` returns [`SpatialError`](error-handling.md): `NonPositiveMass`,
 `NonFinite`, `NotSymmetric`, or `NonPositiveInertia`. `RigidBody::new` returns
-[`DynamicsError`](error-handling.md): `NonFinite`, `NonPositiveInertia`, or `Linalg`. Everything on
-the per-tick path — `accelerations`, `state_derivative`, and `stepped` — is infallible.
+[`DynamicsError`](error-handling.md): `NonFinite`, `NonPositiveInertia`, or `Linalg`, and
+`RigidBody::try_state_derivative` adds `DegenerateOrientation`. Everything else on the per-tick
+path — `accelerations`, `state_derivative`, and `stepped` — is infallible.
 
 `SpatialInertia` and `FreeJointState` are what a model file loads into. The separate
 `multicalc-robot-model` crate reads a rigid body out of a MuJoCo MJCF or a URDF file — for MJCF,

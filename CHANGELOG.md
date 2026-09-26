@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A checked rigid-body state derivative.** `RigidBody::try_state_derivative` reports
+  `DynamicsError::DegenerateOrientation` when a state's four orientation numbers normalize to
+  nothing, a case the infallible `state_derivative` answers with an all-zero derivative that an
+  integrator reads as a body at rest — quietly freezing the run instead of stopping it.
+  @maskjelly (#286)
 - **Rotor lag thrust limits.** `RotorLag::try_with_thrust_limits` gives the lag the same thrust
   limits the mixer was built with, and `stepped`, `stepped_over` and `with_thrusts` hold the state
   inside them, so a command stepped straight into the lag can no longer leave it giving a thrust
