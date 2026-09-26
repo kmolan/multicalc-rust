@@ -241,6 +241,8 @@ pub enum ControlError {
     UndefinedThrustDirection,
     /// The push would be straight along the wanted heading, so the heading cannot be set.
     UndefinedHeadingDirection,
+    /// A maximum tilt was not strictly positive, or reached a quarter turn (π/2) or beyond.
+    InvalidTiltLimit,
     /// A matrix step inside a controller's setup failed.
     Linalg(LinalgError),
     /// A filter setup error.
@@ -877,6 +879,9 @@ impl core::fmt::Display for ControlError {
             }
             ControlError::UndefinedHeadingDirection => {
                 "the push is straight along the wanted heading, so the heading cannot be set"
+            }
+            ControlError::InvalidTiltLimit => {
+                "maximum tilt must be strictly positive and less than a quarter turn (π/2)"
             }
             ControlError::NegativeGain => "stiffness, damping and posture gains must not be negative",
             ControlError::Linalg(err) => return write!(f, "{err}"),

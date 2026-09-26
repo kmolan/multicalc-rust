@@ -170,7 +170,7 @@ pub use control::{
     CartesianImpedanceController, CartesianReference, ComputedTorqueController, Curvature,
     FollowTheGap, FollowTheGapOutput, GeometricAttitudeController, JointImpedanceController,
     JointPdController, JointReference, Lqr, Pid, ThrustCommand, pure_pursuit_curvature,
-    thrust_command_from_acceleration,
+    thrust_command_from_acceleration, thrust_command_from_acceleration_with_tilt_limit,
 };
 
 /// Waypoint paths, planned trajectories, point-to-point motion profiles, and their arc-length,

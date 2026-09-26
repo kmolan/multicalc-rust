@@ -5,6 +5,8 @@
 //! - [`GeometricAttitudeController`] — attitude control on rotations, for a rigid body.
 //! - [`thrust_command_from_acceleration`] — the attitude and thrust realizing a desired
 //!   acceleration; what joins a position loop to an attitude loop.
+//! - [`thrust_command_from_acceleration_with_tilt_limit`] — the same, with the tilt capped so a
+//!   large lateral request cannot tip the body past where its thrust still holds it up.
 //! - [`OnePoleLowPass`] — the filter on the PID's derivative term, re-exported from
 //!   [`signal_processing`](crate::signal_processing).
 //! - [`pure_pursuit_curvature`] — the pure-pursuit path-following law (takes a lookahead point).
@@ -47,4 +49,7 @@ pub use lqr::Lqr;
 pub use motion_reference::{CartesianReference, JointReference};
 pub use pid::Pid;
 pub use pure_pursuit::{Curvature, pure_pursuit_curvature};
-pub use thrust_command::{ThrustCommand, thrust_command_from_acceleration};
+pub use thrust_command::{
+    ThrustCommand, thrust_command_from_acceleration,
+    thrust_command_from_acceleration_with_tilt_limit,
+};
