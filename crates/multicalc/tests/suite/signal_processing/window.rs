@@ -175,30 +175,78 @@ fn filter_checked_protects_the_average_seeded_or_not() {
 }
 
 // ---- the median and non-finite samples --------------------------------------
-#[test]
-fn a_nan_moves_the_median_without_showing_it() {
-    // The sort cannot move elements past a NaN, so the middle slot stops holding the middle value
-    let mut control = RunningMedian::<5, f64>::new().unwrap();
+
+// A NaN standing where a wild reading stood must not move the answer off the median of the finite
+// readings, and must not enter the window at all.
+fn assert_median_ignores_one_nan<T: Numeric>() {
+    let mut control = RunningMedian::<5, T>::new().unwrap();
+    let mut wanted = T::ZERO;
     for reading in [3.0, 50.0, 1.0, 2.0, 5.0] {
-        let _ = control.filter(reading);
+        wanted = control.filter(T::from_f64(reading));
     }
-    assert_eq!(control.value(), 3.0);
+    assert_eq!(wanted, T::from_f64(3.0));
 
-    let mut spoiled = RunningMedian::<5, f64>::new().unwrap();
+    let mut median = RunningMedian::<5, T>::new().unwrap();
     for reading in [3.0, f64::NAN, 1.0, 2.0, 5.0] {
-        let _ = spoiled.filter(reading);
+        let _ = median.filter(T::from_f64(reading));
+    }
+    assert_eq!(median.value(), wanted);
+}
+
+#[test]
+fn median_ignores_one_nan_f64() {
+    assert_median_ignores_one_nan::<f64>();
+}
+
+#[test]
+fn median_ignores_one_nan_f32() {
+    assert_median_ignores_one_nan::<f32>();
+}
+
+#[test]
+fn a_rejected_nan_leaves_the_window_where_it_was() {
+    let mut running = RunningMedian::<5, f64>::new().unwrap();
+    for reading in [1.0, 3.0, 2.0, 5.0, 4.0] {
+        let _ = running.filter(reading);
+    }
+    let settled = running;
+    assert_eq!(running.value(), 3.0);
+
+    // Skipped at the boundary: the window does not advance, so there is nothing to flush out
+    for _ in 0..3 {
+        assert_eq!(running.filter(f64::NAN), 3.0);
+        assert_eq!(running, settled);
     }
 
-    // The answer moved, and it is a perfectly ordinary finite number
-    assert_eq!(spoiled.value(), 2.0);
-    assert_ne!(spoiled.value(), control.value());
+    // ±Infinity is not rejected the same way: it is an extreme value the sort places, so it
+    // enters the window and takes a slot like any other wild reading
+    assert_eq!(running.filter(f64::INFINITY), 4.0);
+    assert_ne!(running, settled);
+    assert_eq!(running.filter(f64::NEG_INFINITY), 4.0);
+}
 
-    // Like the average, the damage is bounded by the window rather than latched
-    for reading in [7.0, 8.0, 9.0, 10.0, 11.0] {
-        let _ = spoiled.filter(reading);
-        let _ = control.filter(reading);
+#[test]
+fn a_window_of_only_nans_has_not_been_seeded() {
+    // Nothing but NaNs cannot seed the window, so the answer is the zero the window starts with
+    let mut median = RunningMedian::<5, f64>::new().unwrap();
+    for _ in 0..10 {
+        assert_eq!(median.filter(f64::NAN), 0.0);
     }
-    assert_eq!(spoiled.value(), control.value());
+    assert_eq!(median.value(), 0.0);
+
+    // It is not spoiled either: the first finite sample seeds the whole window as usual
+    assert_eq!(median.filter(2.0), 2.0);
+}
+
+#[test]
+fn a_window_of_only_infinities_answers_infinite() {
+    // Infinities are admitted, so a window made of nothing else has an infinite middle — the
+    // truth about the data rather than corruption
+    let mut median = RunningMedian::<5, f64>::new().unwrap();
+    for _ in 0..5 {
+        let _ = median.filter(f64::INFINITY);
+    }
+    assert_eq!(median.value(), f64::INFINITY);
 }
 
 #[test]
