@@ -1,16 +1,22 @@
 //! Rotor lag tests: settling on a steady command, matching the closed form tick by tick, the
 //! point where two thirds of the gap is closed, a tick far longer than the lag time, the
 //! variable-tick step agreeing with the fixed one, rotors not talking to each other, the checked
-//! variable-tick step refusing a bad timestep, and the values that are refused.
+//! variable-tick step refusing a bad timestep, the values that are refused, the thrust limits
+//! holding a command above or below them, and the lag and the mixer agreeing on the wrench once
+//! a limited command settles.
 
 use multicalc::error::PlantError;
 use multicalc::linear_algebra::Vector;
-use multicalc::plant::RotorLag;
+use multicalc::plant::{MultirotorMixer, RotorLag};
 use multicalc::scalar::Dual;
 
 const LAG_TIME: f64 = 0.02;
 const TICK: f64 = 0.001;
 const COMMAND: f64 = 5.0;
+const MINIMUM_THRUST: f64 = 0.0;
+const MAXIMUM_THRUST: f64 = 5.0;
+const ARM_LENGTH: f64 = 0.15;
+const TORQUE_PER_THRUST: f64 = 0.016;
 
 /// The four rotors every test below shares.
 fn rotors() -> RotorLag<4, f64> {
@@ -323,4 +329,237 @@ fn the_derivative_of_one_tick_with_respect_to_the_command_is_exact() {
     let share_a_tick_closes = 1.0 - (-TICK / LAG_TIME).exp();
     assert!((landed[0].deriv - share_a_tick_closes).abs() < 1e-12);
     assert!((landed[0].value - closed_form(COMMAND, TICK)).abs() < 1e-12);
+}
+
+#[test]
+fn a_new_model_is_unbounded() {
+    let rotors = rotors();
+
+    assert_eq!(rotors.minimum_thrust(), f64::NEG_INFINITY);
+    assert_eq!(rotors.maximum_thrust(), f64::INFINITY);
+}
+
+#[test]
+fn a_command_above_the_maximum_settles_on_the_maximum() {
+    let mut rotors = rotors()
+        .try_with_thrust_limits(MINIMUM_THRUST, MAXIMUM_THRUST)
+        .unwrap();
+
+    let beyond_reach = 4.0 * COMMAND;
+    let long_enough_to_settle = 2000;
+    for _ in 0..long_enough_to_settle {
+        let landed = rotors.stepped(all_four(beyond_reach));
+        for rotor in 0..4 {
+            assert!(
+                landed[rotor] <= MAXIMUM_THRUST,
+                "a rotor must never give more than its maximum"
+            );
+        }
+    }
+
+    for rotor in 0..4 {
+        assert_eq!(rotors.thrusts()[rotor], MAXIMUM_THRUST);
+    }
+
+    // The rate is a derivative rather than the state, so it is not held inside the limits.
+    let rate = rotors.rate(all_four(beyond_reach));
+    let gap_to_the_command = (beyond_reach - MAXIMUM_THRUST) / LAG_TIME;
+    assert!((rate[0] - gap_to_the_command).abs() < 1e-12);
+}
+
+#[test]
+fn a_command_below_the_minimum_settles_on_the_minimum() {
+    let minimum_thrust = 1.0;
+    let mut rotors = rotors()
+        .try_with_thrust_limits(minimum_thrust, MAXIMUM_THRUST)
+        .unwrap();
+
+    let below_reach = -COMMAND;
+    let long_enough_to_settle = 2000;
+    for _ in 0..long_enough_to_settle {
+        let landed = rotors.stepped(all_four(below_reach));
+        for rotor in 0..4 {
+            assert!(
+                landed[rotor] >= minimum_thrust,
+                "a rotor must never give less than its minimum"
+            );
+        }
+    }
+
+    for rotor in 0..4 {
+        assert_eq!(rotors.thrusts()[rotor], minimum_thrust);
+    }
+}
+
+#[test]
+fn the_variable_tick_step_is_held_inside_the_limits_too() {
+    let minimum_thrust = 1.0;
+    let mut rotors = rotors()
+        .try_with_thrust_limits(minimum_thrust, MAXIMUM_THRUST)
+        .unwrap();
+
+    let long_enough_to_settle = 2000;
+    for _ in 0..long_enough_to_settle {
+        let landed = rotors.stepped_over(all_four(4.0 * COMMAND), TICK);
+        for rotor in 0..4 {
+            assert!(landed[rotor] <= MAXIMUM_THRUST);
+        }
+    }
+    assert_eq!(rotors.thrusts()[0], MAXIMUM_THRUST);
+
+    for _ in 0..long_enough_to_settle {
+        let landed = rotors.stepped_over(all_four(-COMMAND), TICK);
+        for rotor in 0..4 {
+            assert!(landed[rotor] >= minimum_thrust);
+        }
+    }
+    assert_eq!(rotors.thrusts()[0], minimum_thrust);
+}
+
+#[test]
+fn limits_that_are_refused() {
+    assert_eq!(
+        rotors().try_with_thrust_limits(f64::NAN, MAXIMUM_THRUST),
+        Err(PlantError::NonFinite)
+    );
+    assert_eq!(
+        rotors().try_with_thrust_limits(MINIMUM_THRUST, f64::INFINITY),
+        Err(PlantError::NonFinite)
+    );
+
+    let no_room_at_all = 5.0;
+    assert_eq!(
+        rotors().try_with_thrust_limits(no_room_at_all, no_room_at_all),
+        Err(PlantError::InvalidThrustLimits)
+    );
+    assert_eq!(
+        rotors().try_with_thrust_limits(MAXIMUM_THRUST, MINIMUM_THRUST),
+        Err(PlantError::InvalidThrustLimits)
+    );
+}
+
+#[test]
+fn limits_far_outside_the_command_leave_the_lag_untouched() {
+    let far_below = -100.0;
+    let far_above = 100.0;
+    let mut bounded = rotors()
+        .try_with_thrust_limits(far_below, far_above)
+        .unwrap();
+    let mut unbounded = rotors();
+
+    let checkpoints = [1, 20, 100, 400];
+    let mut ticks_taken = 0;
+    for checkpoint in checkpoints {
+        while ticks_taken < checkpoint {
+            let _ = bounded.stepped(all_four(COMMAND));
+            let _ = unbounded.stepped(all_four(COMMAND));
+            ticks_taken += 1;
+        }
+        let elapsed = ticks_taken as f64 * TICK;
+        assert!((bounded.thrusts()[0] - closed_form(COMMAND, elapsed)).abs() < 1e-12);
+        assert_eq!(bounded.thrusts(), unbounded.thrusts());
+    }
+
+    let long_enough_to_settle = 2000;
+    for _ in 0..long_enough_to_settle {
+        let _ = bounded.stepped(all_four(COMMAND));
+    }
+    for rotor in 0..4 {
+        assert!((bounded.thrusts()[rotor] - COMMAND).abs() < 1e-12);
+    }
+}
+
+#[test]
+fn thrusts_a_rotor_could_not_be_giving_are_held_inside_the_limits() {
+    let minimum_thrust = 1.0;
+    let already_spinning = Vector::new([4.0 * COMMAND, -COMMAND, 3.0, COMMAND]);
+    let mut rotors = rotors()
+        .try_with_thrust_limits(minimum_thrust, MAXIMUM_THRUST)
+        .unwrap()
+        .with_thrusts(already_spinning);
+
+    assert_eq!(
+        rotors.thrusts(),
+        Vector::new([MAXIMUM_THRUST, minimum_thrust, 3.0, COMMAND])
+    );
+
+    // They stay inside on every later step, even spooling down toward nothing.
+    for _ in 0..ticks_in_one_lag_time() {
+        let landed = rotors.stepped(all_four(0.0));
+        for rotor in 0..4 {
+            assert!(landed[rotor] >= minimum_thrust && landed[rotor] <= MAXIMUM_THRUST);
+        }
+    }
+}
+
+#[test]
+fn resetting_comes_back_to_zeros_even_under_a_minimum_above_zero() {
+    let minimum_thrust = 1.0;
+    let mut rotors = rotors()
+        .try_with_thrust_limits(minimum_thrust, MAXIMUM_THRUST)
+        .unwrap();
+
+    let enough_to_move = 50;
+    for _ in 0..enough_to_move {
+        let _ = rotors.stepped(all_four(COMMAND));
+    }
+    assert!(rotors.thrusts()[0] > 0.0);
+
+    rotors.reset();
+    for rotor in 0..4 {
+        assert_eq!(rotors.thrusts()[rotor], 0.0);
+    }
+
+    // The next step climbs back inside the limits.
+    let after_a_tick = rotors.stepped(all_four(0.0));
+    for rotor in 0..4 {
+        assert!(after_a_tick[rotor] >= minimum_thrust);
+    }
+}
+
+#[test]
+fn a_limited_lag_and_the_mixer_agree_on_the_wrench() {
+    let mixer = MultirotorMixer::<4, f64>::quadrotor_x(
+        ARM_LENGTH,
+        TORQUE_PER_THRUST,
+        MINIMUM_THRUST,
+        MAXIMUM_THRUST,
+    )
+    .unwrap();
+
+    // Asked for far more push than the rotors have, so the mixer clamps every one of them.
+    let beyond_reach = 30.0;
+    let no_turn = Vector::new([0.0, 0.0, 0.0]);
+    let commands = mixer.rotor_thrusts(beyond_reach, no_turn);
+    assert!(commands.saturated());
+
+    // Fed the mixer's clamped thrusts, the lag settles on them and both ways of asking what the
+    // body feels give the same push and turn.
+    let mut fed_the_clamped_thrusts = rotors()
+        .try_with_thrust_limits(mixer.minimum_thrust(), mixer.maximum_thrust())
+        .unwrap();
+    let long_enough_to_settle = 2000;
+    for _ in 0..long_enough_to_settle {
+        let _ = fed_the_clamped_thrusts.stepped(commands.thrusts());
+    }
+    let from_the_lag = mixer.wrench(fed_the_clamped_thrusts.thrusts());
+    let from_the_commands = mixer.wrench(commands.thrusts());
+    for axis in 0..3 {
+        assert!((from_the_lag.force()[axis] - from_the_commands.force()[axis]).abs() < 1e-12);
+        assert!((from_the_lag.torque()[axis] - from_the_commands.torque()[axis]).abs() < 1e-12);
+    }
+
+    // Fed the raw command the mixer would have clamped, the lag lands exactly on the limits
+    // instead of running past them, so the wrench is the mixer's clamped one exactly.
+    let mut fed_the_raw_command = rotors()
+        .try_with_thrust_limits(mixer.minimum_thrust(), mixer.maximum_thrust())
+        .unwrap();
+    for _ in 0..long_enough_to_settle {
+        let _ = fed_the_raw_command.stepped(all_four(beyond_reach));
+    }
+    assert_eq!(fed_the_raw_command.thrusts(), commands.thrusts());
+    assert_eq!(
+        mixer.wrench(fed_the_raw_command.thrusts()),
+        from_the_commands
+    );
 }
