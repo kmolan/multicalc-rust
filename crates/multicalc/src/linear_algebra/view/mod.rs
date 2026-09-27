@@ -1,8 +1,8 @@
 //! Zero-copy borrowed views over [`Matrix`] and [`Vector`] storage.
 //!
 //! A view is a flat slice, an offset, and a stride per axis, so transposing, blocking, and
-//! slicing out a row, column, or diagonal are index arithmetic. Only `to_matrix` / `to_vector`
-//! copies.
+//! slicing out a row, column, or diagonal are index arithmetic. `to_matrix` / `to_vector` and
+//! `try_mul` are the only calls that write anything new.
 //!
 //! The writable views mirror the read-only ones and add `try_get_mut`, `fill`, and `copy_from`.
 //! The splits are the one place they differ: two `&mut` halves must be provably disjoint, so
@@ -10,7 +10,8 @@
 //!
 //! No `Index`: it returns `&T`, leaving nowhere to report a miss. Fallible calls return
 //! `Result<_, LinalgError>`, always
-//! [`OutOfBounds`](crate::error::LinalgError::OutOfBounds). All of it is safe code.
+//! [`OutOfBounds`](crate::error::LinalgError::OutOfBounds), `try_mul` included, whose shapes
+//! are const parameters that leave it nothing to report. All of it is safe code.
 //!
 //! ```
 //! use multicalc::linear_algebra::Matrix;

@@ -2,7 +2,8 @@
 
 use super::{VectorView, VectorViewMut, required_len};
 use crate::error::LinalgError;
-use crate::linear_algebra::Matrix;
+use crate::linear_algebra::{Matrix, Vector};
+use crate::scalar::Numeric;
 
 /// A borrowed, strided, read-only `ROWS`×`COLS` window onto someone else's storage.
 ///
@@ -334,6 +335,33 @@ impl<'data, const ROWS: usize, const COLS: usize, T: Copy> MatrixView<'data, ROW
         Matrix::from_fn(|row, column| {
             self.data[self.offset + row * self.row_stride + column * self.col_stride]
         })
+    }
+}
+
+impl<'data, const ROWS: usize, const COLS: usize, T: Numeric> MatrixView<'data, ROWS, COLS, T> {
+    /// `self · input`, one dot product per row. The borrowed counterpart of [`Matrix`]'s own
+    /// `Mul<Vector>`: neither operand is copied first, so the coefficients are read where they
+    /// lie, and only the `ROWS` results are written.
+    ///
+    /// `OutOfBounds` cannot actually be returned — the shapes are const parameters settled at
+    /// the call site, so there is no subscript left to miss — but the signature stays fallible
+    /// so that the whole view surface reads the same way.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::{Matrix, Vector};
+    /// let matrix = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
+    /// let input = Vector::new([10.0, 20.0, 30.0]);
+    /// let product = matrix.view().try_mul(input.view()).unwrap();
+    /// assert_eq!(product.into_array(), [140.0, 320.0]);
+    /// ```
+    #[inline]
+    pub fn try_mul(self, input: VectorView<'_, COLS, T>) -> Result<Vector<ROWS, T>, LinalgError> {
+        let mut result = Vector::<ROWS, T>::zeros();
+        for row in 0..ROWS {
+            let slot = result.get_mut(row).ok_or(LinalgError::OutOfBounds)?;
+            *slot = self.try_row(row)?.dot(input);
+        }
+        Ok(result)
     }
 }
 
