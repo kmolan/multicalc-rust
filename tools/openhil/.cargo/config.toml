@@ -1,0 +1,20 @@
+# Cargo reads this file from the current directory upwards, not from `--manifest-path`, so
+# every build runs from `tools/openhil`.
+#
+# No rustflags here. Cargo joins a parent directory's array onto this one's, and the
+# repository root gives this target cortex-m-rt's `-Tlink.x` for embedded-smoke.
+# `build-tabs.sh` sets RUSTFLAGS, which replaces every configured `target.*.rustflags`.
+
+# Soft-float ABI: the kernel's Cortex-M port does not save FPU state across a context
+# switch.
+[build]
+target = "thumbv7em-none-eabi"
+
+# libtock-rs apps link at fixed addresses. These are the OpenHIL Nucleo-F411RE kernel's: app
+# flash from 0x08040000 (TBF header included) and app RAM from 0x20004000, above the
+# kernel's.
+[env]
+LIBTOCK_LINKER_FLASH = "0x08040000"
+LIBTOCK_LINKER_FLASH_LENGTH = "255K"
+LIBTOCK_LINKER_RAM = "0x20004000"
+LIBTOCK_LINKER_RAM_LENGTH = "112K"

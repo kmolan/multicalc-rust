@@ -1,0 +1,35 @@
+# How this repository wants its runs done. What a board *is* lives in boards/*.toml.
+#
+# Nothing here may describe what the app computes — no expected values, no tolerances, no
+# check names, no cycle budgets. The app path names a TAB, which is a path and not knowledge
+# of what the app does.
+
+# Schema version. Only 1 is accepted.
+version = 1
+
+[run]
+# Which board definition to use, from boards/*.toml.
+board = "nucleo-f411re"
+# The TAB to install. A path; the harness never builds it.
+app = "target/tab/multicalc-openhil-pass.tab"
+# Deadline from the kernel's boot line to its line for the app's exit, overriding the
+# board's run_timeout.
+timeout = "60s"
+# Attempts before the board is called unrecoverable. An attempt the kernel saw end is the
+# app's answer and is never retried.
+attempts = 2
+
+[recovery]
+# Tried in order between attempts. reinstall is the attempt itself: every attempt writes
+# the app rather than trusting what is in flash. reset runs the board's [transport.recovery].
+steps = ["reinstall", "reset"]
+# Physical power control. Only false is accepted.
+power_cycle = false
+
+[report]
+# JUnit XML, for a workflow that renders test results.
+junit = "openhil-results.xml"
+# Everything the board printed, verbatim.
+log = "openhil.log"
+# Write the markdown summary to $GITHUB_STEP_SUMMARY when it is set.
+step_summary = true
