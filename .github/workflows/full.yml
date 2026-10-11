@@ -43,6 +43,10 @@ jobs:
     with:
       full: true
 
+  openhil:
+    name: OpenHIL app
+    uses: ./.github/workflows/openhil.yml
+
   test:
     name: test (${{ matrix.rust }})
     runs-on: ubuntu-latest

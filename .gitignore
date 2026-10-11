@@ -1,4 +1,6 @@
 Cargo.lock
+# The Tock app's figures are judged against budgets, so its dependency versions are fixed.
+!tools/openhil/Cargo.lock
 target/
 .claude/
 __pycache__/

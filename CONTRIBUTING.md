@@ -62,6 +62,7 @@ the layer that matches and not duplicating another's.
 | `demos/examples/showcase/` | live Rerun demos; measured numbers only | panic on edge cases (errors render as demo states); hardcode a perf claim |
 | `tools/qa` | cross-implementation goldens (numpy/mpmath/MINPACK); `.md` accuracy tables generated from the fixtures | duplicate self-consistency tests; hand-edit the generated tables |
 | `tools/embedded-smoke` | on-target FP-path + stack/text budgets; goldens only via generated `fixtures.rs` | hand-write golden values |
+| `tools/openhil` | on-silicon answers and time budgets on a Nucleo-F411RE, as a Tock app; goldens from embedded-smoke's generated `fixtures.rs` | hand-write golden values; move a budget without a board figure |
 
 Shared problem definitions and tolerance helpers live in `tools/testkit`, so a problem is
 declared once and reused across `tests/suite/`, the QA crate, and embedded-smoke.

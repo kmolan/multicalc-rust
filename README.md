@@ -183,6 +183,8 @@ The published library crate lives in [`crates/multicalc`](crates/multicalc); the
 root is a Cargo workspace. Runnable demos live in the dev-only [`demos/`](demos) crate (basics and
 live Rerun showcases), and [`tools/embedded-smoke`](tools/embedded-smoke) runs `multicalc` on the
 four bare-metal targets (three Cortex-M targets + `riscv32imc`) under QEMU every PR.
+[`tools/openhil`](tools/openhil) is the same math as a Tock app, built every PR and run on a
+physical Nucleo-F411RE on demand.
 [`crates/multicalc-robot-model`](crates/multicalc-robot-model) reads MuJoCo MJCF and URDF model
 files into multicalc's robot types, and ships a `model_viewer` binary that draws any of them in a
 Rerun viewer. See

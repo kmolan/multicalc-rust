@@ -1,0 +1,57 @@
+name: OpenHIL app
+
+# Reusable: called by CI on pull requests and by Full CI on main.
+#
+# Lints tools/openhil and builds its TABs: multicalc as a Tock app for a Nucleo-F411RE. A
+# board run names the artifact a Full CI run uploads; nothing here reaches a board.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  tabs:
+    name: OpenHIL TABs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Cargo reads .cargo/config.toml and rust-toolchain.toml from the current directory
+    # upwards, not from --manifest-path.
+    defaults:
+      run:
+        working-directory: tools/openhil
+    steps:
+      - uses: actions/checkout@v4
+      # rust-toolchain.toml names the pinned toolchain, its components and the target.
+      - name: Toolchain
+        run: rustup toolchain install
+      - name: elf2tab
+        run: cargo install elf2tab --version 0.13.0 --locked
+      - name: Formatting
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --release -- -D warnings
+      - name: Clippy (fail and slow builds)
+        run: cargo clippy --release --features fail,slow -- -D warnings
+      # multicalc-openhil-pass.tab, -fail.tab and -slow.tab.
+      - name: Build the TABs
+        run: ./build-tabs.sh
+      # openhil.toml says how runs of these TABs are done, so it travels with them.
+      - name: Stage the TABs and the run configuration
+        run: |
+          mkdir -p payload
+          cp target/tab/*.tab openhil.toml payload/
+          ls -l payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: multicalc-openhil
+          path: tools/openhil/payload/
+          if-no-files-found: error
+          retention-days: 30
