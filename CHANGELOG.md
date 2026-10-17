@@ -26,7 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Identity`. `ParameterCursor` walks a flat export one layer at a time, so the offsets follow from
   the shapes the caller declares rather than being written out by hand, and a layer that runs off
   the end leaves the read position where it was. Layer widths are const parameters, so a mismatched
-  chain fails to compile. @Thiago316316 (#83)
+  chain fails to compile. Checked end to end against numpy goldens — a sampled 22→64→64→4 policy
+  with its hidden activations stored, plus an activation table pinning each nonlinearity at zero,
+  at an ordinary value and where `Tanh` saturates — at both precisions on the host.
+ @Thiago316316 (#83)
 - **Path planning.** A new `planning` module: `GridPlanner` runs Dijkstra, A\*, weighted A\* and
   any-angle Theta\* over any `OccupancyMap`, and `Rrt`, `RrtStar` and `Prm` sample a continuous
   `StateSpace` with the validity check injected as a closure. What a search charges for entering a
