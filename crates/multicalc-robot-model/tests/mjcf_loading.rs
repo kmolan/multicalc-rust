@@ -723,9 +723,9 @@ fn a_sliding_joint_keeps_its_range_in_metres() {
 
 #[test]
 fn reads_a_full_inertia_tensor() {
-    let model = load(r#"<body><inertial mass="2" fullinertia="1 2 3 0.1 0.2 0.3"/></body>"#);
+    let model = load(r#"<body><inertial mass="2" fullinertia="1 1.5 2 0.1 0.05 0.2"/></body>"#);
 
-    let expected = [[1.0, 0.1, 0.2], [0.1, 2.0, 0.3], [0.2, 0.3, 3.0]];
+    let expected = [[1.0, 0.1, 0.05], [0.1, 1.5, 0.2], [0.05, 0.2, 2.0]];
     let inertia = model
         .body(0)
         .unwrap()

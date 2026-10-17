@@ -361,3 +361,29 @@ fn inertia_algebra_works_in_single_precision() {
         assert!((got[component] - want[component]).abs() < 1e-5);
     }
 }
+
+#[test]
+fn positive_indefinite_rotational_inertia_rejected() {
+    let err = SpatialInertia::new(
+        1.0,
+        Vector::zeros(),
+        Matrix::new([[1., 2., 0.], [2., 1., 0.], [0., 0., 3.]]),
+    )
+    .unwrap_err();
+    assert_eq!(err, SpatialError::NonPositiveDefiniteInertia);
+}
+
+#[test]
+pub fn spatial_inertia_checks_triangle_inequality() {
+    let expected_err = SpatialError::InvalidInertia;
+    let err1 =
+        SpatialInertia::new(1.0, Vector::zeros(), Matrix::from_diagonal([1., 2., 4.])).unwrap_err();
+    assert_eq!(expected_err, err1);
+    let err2 = SpatialInertia::new(
+        1.0,
+        Vector::zeros(),
+        Matrix::new([[2., 1., 0.], [1., 2., 0.], [0., 0., 5.]]),
+    )
+    .unwrap_err();
+    assert_eq!(expected_err, err2);
+}
