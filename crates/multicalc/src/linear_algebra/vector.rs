@@ -88,19 +88,19 @@ impl<const N: usize, T> Vector<N, T> {
     #[inline]
     #[track_caller]
     #[must_use]
-    pub(crate) fn get_unchecked(&self, i: usize) -> &T {
+    pub(crate) fn get_unchecked(&self, index: usize) -> &T {
         #[allow(clippy::indexing_slicing)]
-        &self.data[i]
+        &self.data[index]
     }
 
     #[inline]
     #[track_caller]
-    pub(crate) fn get_unchecked_mut(&mut self, i: usize) -> &mut T {
+    pub(crate) fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
         #[allow(clippy::indexing_slicing)]
-        &mut self.data[i]
+        &mut self.data[index]
     }
 
-    /// Returns a reference to component `i`, or `None` if `i >= N`.
+    /// Returns a reference to component `index`, or `None` if `index >= N`.
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
@@ -110,11 +110,11 @@ impl<const N: usize, T> Vector<N, T> {
     /// ```
     #[inline]
     #[must_use]
-    pub fn get(&self, i: usize) -> Option<&T> {
-        self.data.get(i)
+    pub fn get(&self, index: usize) -> Option<&T> {
+        self.data.get(index)
     }
 
-    /// Returns a mutable reference to component `i`, or `None` if `i >= N`.
+    /// Returns a mutable reference to component `index`, or `None` if `index >= N`.
     ///
     /// ```
     /// use multicalc::linear_algebra::Vector;
@@ -125,8 +125,8 @@ impl<const N: usize, T> Vector<N, T> {
     /// assert_eq!(vector.get(1), Some(&9.0));
     /// ```
     #[inline]
-    pub fn get_mut(&mut self, i: usize) -> Option<&mut T> {
-        self.data.get_mut(i)
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        self.data.get_mut(index)
     }
 
     /// Consumes the vector, returning its components.

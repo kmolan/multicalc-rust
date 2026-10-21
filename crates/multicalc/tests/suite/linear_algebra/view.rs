@@ -15,6 +15,14 @@ where
         .prop_map(Matrix::new)
 }
 
+// A strategy for producing vectors in property-based tests.
+fn vector_strategy<const N: usize, S>(num_strategy: S) -> impl Strategy<Value = Vector<N>>
+where
+    S: Strategy<Value = f64>,
+{
+    prop::array::uniform::<_, N>(num_strategy).prop_map(Vector::new)
+}
+
 fn counted<const ROWS: usize, const COLS: usize>() -> Matrix<ROWS, COLS> {
     Matrix::from_fn(|row, column| (row * COLS + column) as f64)
 }
@@ -731,7 +739,68 @@ fn views_pass_non_finite_entries_through_untouched() {
     assert!(matrix.view().try_column(0).unwrap().to_vector()[0].is_nan());
 }
 
+// ----- matrix-vector product -----
+
+#[test]
+fn the_product_agrees_with_the_owned_operator() {
+    let matrix = counted::<3, 4>();
+    let input = Vector::new([1.0, -2.0, 0.5, 4.0]);
+
+    assert_eq!(matrix.view().try_mul(input.view()), Ok(matrix * input));
+}
+
+#[test]
+fn the_product_reads_a_transposed_view_without_reshaping_the_buffer() {
+    let matrix = counted::<2, 3>();
+    let input = Vector::new([1.0, -1.0]);
+
+    // A transpose is a stride swap, not storage, so this walks the buffer by column.
+    assert_eq!(
+        matrix.view().transposed().try_mul(input.view()),
+        Ok(matrix.transpose() * input)
+    );
+}
+
+#[test]
+fn the_product_reads_a_submatrix_at_its_own_offset_and_stride() {
+    let matrix = counted::<3, 4>();
+    let block = matrix.view().try_submatrix::<2, 2>(1, 2).unwrap();
+    let ones = Vector::new([1.0, 1.0]);
+
+    // Rows 1 and 2, columns 2 and 3 of a 0..11 counting matrix, so [[6, 7], [10, 11]].
+    assert_eq!(
+        block.try_mul(ones.view()).unwrap().into_array(),
+        [13.0, 21.0]
+    );
+}
+
+#[test]
+fn the_product_of_a_zero_row_is_zero_whatever_the_input() {
+    let matrix = Matrix::<2, 3>::new([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]]);
+    let input = Vector::new([3.0, -7.0, 11.0]);
+
+    assert_eq!(
+        matrix.view().try_mul(input.view()).unwrap().into_array(),
+        [0.0, 7.0]
+    );
+}
+
 // ----- properties -----
+
+fn check_view_product_matches_owned<const ROWS: usize, const COLS: usize>(
+    matrix: Matrix<ROWS, COLS>,
+    input: Vector<COLS>,
+    transposed_input: Vector<ROWS>,
+) -> Result<(), TestCaseError> {
+    // The view accumulates its rows in the order the owned operator does, so the two agree bit
+    // for bit rather than merely closely.
+    prop_assert_eq!(matrix.view().try_mul(input.view()), Ok(matrix * input));
+    prop_assert_eq!(
+        matrix.view().transposed().try_mul(transposed_input.view()),
+        Ok(matrix.transpose() * transposed_input)
+    );
+    Ok(())
+}
 
 fn check_transposed_view_matches_owned<const ROWS: usize, const COLS: usize>(
     matrix: Matrix<ROWS, COLS>,
@@ -890,5 +959,26 @@ proptest! {
     #[test]
     fn split_cols_covers_every_entry_2x5(matrix in matrix_strategy::<2, 5, _>(prop::num::f64::NORMAL)) {
         check_split_cols_covers_every_entry::<2, 5, 4>(matrix)?;
+    }
+
+    // Bounded rather than `NORMAL`: these two multiply and sum, and a product of two values near
+    // the top of the range overflows to an infinity that a later subtraction turns into a NaN,
+    // which no equality can compare.
+    #[test]
+    fn view_product_matches_owned_3x4(
+        matrix in matrix_strategy::<3, 4, _>(-1e3..1e3f64),
+        input in vector_strategy::<4, _>(-1e3..1e3f64),
+        transposed_input in vector_strategy::<3, _>(-1e3..1e3f64),
+    ) {
+        check_view_product_matches_owned(matrix, input, transposed_input)?;
+    }
+
+    #[test]
+    fn view_product_matches_owned_5x2(
+        matrix in matrix_strategy::<5, 2, _>(-1e3..1e3f64),
+        input in vector_strategy::<2, _>(-1e3..1e3f64),
+        transposed_input in vector_strategy::<5, _>(-1e3..1e3f64),
+    ) {
+        check_view_product_matches_owned(matrix, input, transposed_input)?;
     }
 }
