@@ -313,6 +313,25 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
         self.innovation_covariance
     }
 
+    /// The Gaussian log-likelihood of the measurement from the last update.
+    ///
+    /// Returns `NotPositiveDefinite` if the innovation covariance cannot
+    /// be factorized, including before the first update.
+    pub fn log_likelihood(&self) -> Result<T, EstimationError> {
+        let cholesky = self
+            .innovation_covariance
+            .cholesky()
+            .map_err(|_| EstimationError::NotPositiveDefinite)?;
+
+        let weighted = cholesky.solve(self.innovation);
+        let nis = self.innovation.dot(weighted);
+        let log_det = cholesky.log_determinant();
+        let measurement_dim = T::from_f64(MEASUREMENT_DIMENSION as f64);
+        let log_normalization = measurement_dim * T::TWO_PI.log();
+
+        Ok((T::ZERO - (nis + log_det + log_normalization)) / T::TWO)
+    }
+
     /// `yᵀ·S⁻¹·y` for the last update — the innovation weighted by its own covariance.
     ///
     /// Returns [`NotPositiveDefinite`](EstimationError::NotPositiveDefinite) if the innovation
