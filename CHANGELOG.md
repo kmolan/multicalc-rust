@@ -176,6 +176,9 @@ non-positive input is now documented instead of silent. @naseem173 (#307)
 - **Iterative Config Total Iterations** Auto-align iteration counts to the composite rules below
   12k. 
 
+- Root counting and isolation return no roots for a nonzero constant polynomial with unused
+  higher-order coefficient slots, instead of underflowing the Sturm-chain index and panicking.
+
 ## [0.10.0] - 2026-08-09
 
 A feature release adding signal processing, polynomials and minimum-snap trajectories, LQR and

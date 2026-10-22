@@ -447,7 +447,7 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
             length = 2;
         }
 
-        while length < COEFFICIENT_COUNT {
+        while length >= 2 && length < COEFFICIENT_COUNT {
             // Each new entry is what is left over from dividing the two before it, with the sign
             // turned around.
             let previous = chain.get(length - 2).copied().unwrap_or_default();
