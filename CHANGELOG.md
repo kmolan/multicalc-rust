@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Heap-backed evaluation on Hessian.** `Hessian::evaluate_on_heap` eturns the Hessian 
+  as a `Vec<Vec<_>>` when the alloc feature is enabled, reducing stack usage for large results.
+  @Thiago316316 (#83)
 - **A checked rigid-body state derivative.** `RigidBody::try_state_derivative` reports
   `DynamicsError::DegenerateOrientation` when a state's four orientation numbers normalize to
   nothing, a case the infallible `state_derivative` answers with an all-zero derivative that an
@@ -141,6 +144,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`Hessian` NaN sentinel.** `Hessian::evaluate` now computes each upper-triangle entry once and 
+  mirrors it across the diagonal, rather than using NaN to mark uncomputed entries.
 - **`RunningMedian` rejects a NaN at the window boundary.** Its insertion sort compared with `>`,
   false in both directions against a NaN, so one NaN in the window left it unsorted and the middle
   slot answered with an arbitrary finite value — the one filter meant to discard a wild lidar

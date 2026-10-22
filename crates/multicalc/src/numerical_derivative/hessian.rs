@@ -4,6 +4,9 @@ use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
 
+#[cfg(feature = "alloc")]
+use alloc::{vec, vec::Vec};
+
 /// Computes the Hessian matrix of a scalar multi-variable function. The differentiation backend
 /// defaults to autodiff ([`AutoDiffMulti`]); pass a finite-difference derivator explicitly to use
 /// that instead.
@@ -74,20 +77,58 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
         vector_of_points: &[D::Scalar; NUM_VARS],
     ) -> Result<Matrix<NUM_VARS, NUM_VARS, D::Scalar>, DiffError> {
         let mut result: Matrix<NUM_VARS, NUM_VARS, D::Scalar> =
-            Matrix::from_fn(|_, _| <D::Scalar as Numeric>::NAN);
+            Matrix::from_fn(|_, _| <D::Scalar as Numeric>::ZERO);
 
         for row_index in 0..NUM_VARS {
-            for col_index in 0..NUM_VARS {
-                if result[(row_index, col_index)].is_nan() {
-                    let value = self.derivator.second_partial_derivative(
-                        function,
-                        &[row_index, col_index],
-                        vector_of_points,
-                    )?;
-                    result[(row_index, col_index)] = value;
-                    // a Hessian is symmetric, so mirror instead of recomputing
-                    result[(col_index, row_index)] = value;
-                }
+            for col_index in row_index..NUM_VARS {
+                let value = self.derivator.second_partial_derivative(
+                    function,
+                    &[row_index, col_index],
+                    vector_of_points,
+                )?;
+                result[(row_index, col_index)] = value;
+                // a Hessian is symmetric, so mirror instead of recomputing
+                result[(col_index, row_index)] = value;
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Same as [`Hessian::evaluate`] but returns a heap-allocated `Vec<Vec<_>>`, which avoids a
+    /// stack overflow on large inputs. Requires the `alloc` feature (off by default).
+    ///
+    /// The result is the symmetric matrix of second partial derivatives, so entry `(i, j)`
+    /// is `d²(function)/d(variable i) d(variable j)`. Only the upper triangle and diagonal
+    /// are evaluated; the rest is mirrored, relying on the symmetry of the Hessian.
+    ///
+    ///# Arguments
+    /// * `function` - the scalar function to differentiate.
+    /// * `vector_of_points` - the point at which the derivatives are taken.
+    ///
+    /// # Errors
+    /// [`DiffError::StepSizeZero`] if the derivator's step size is zero.
+    #[cfg(feature = "alloc")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn evaluate_on_heap<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
+        &self,
+        function: &F,
+        vector_of_points: &[D::Scalar; NUM_VARS],
+    ) -> Result<Vec<Vec<D::Scalar>>, DiffError> {
+        let mut result: Vec<Vec<D::Scalar>> = vec![vec![D::Scalar::ZERO; NUM_VARS]; NUM_VARS];
+
+        // the explicit indices are needed for the mirror write `result[col_index][row_index]`.
+        #[allow(clippy::needless_range_loop)]
+        for row_index in 0..NUM_VARS {
+            for col_index in row_index..NUM_VARS {
+                let value = self.derivator.second_partial_derivative(
+                    function,
+                    &[row_index, col_index],
+                    vector_of_points,
+                )?;
+                result[row_index][col_index] = value;
+                // a Hessian is symmetric, so mirror instead of recomputing
+                result[col_index][row_index] = value;
             }
         }
 
