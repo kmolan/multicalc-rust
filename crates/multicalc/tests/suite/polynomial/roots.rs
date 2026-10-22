@@ -252,6 +252,41 @@ fn count_real_roots_counts_distinct_roots() {
 }
 
 #[test]
+fn sturm_roots_survive_coefficient_scaling_f32() {
+    let expected = [
+        -6.0_f32, -5.0, -4.0, -3.0, -2.0, -1.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0,
+    ];
+    let polynomial = Polynomial::<13, f32>::from_roots(&expected).unwrap();
+    for scale in [1.0_f32, 1e-32, 3e32, -3e32] {
+        let scaled = polynomial.scale(scale);
+        assert!(scaled.is_finite());
+        assert_eq!(scaled.count_real_roots(-7.0, 7.0).unwrap(), expected.len());
+        let recovered = scaled.real_roots_in(-7.0, 7.0, 1e-3, 1000).unwrap();
+        assert_eq!(recovered.len(), expected.len());
+        // Constructing from roots and recovering them is a round-trip identity, independent of
+        // the polynomial's nonzero scalar multiplier.
+        for (found, original) in recovered.as_slice().iter().zip(expected) {
+            assert!((found - original).abs() < 1e-3);
+        }
+    }
+}
+
+#[test]
+fn sturm_roots_survive_coefficient_scaling_f64() {
+    let expected = [
+        -6.0, -5.0, -4.0, -3.0, -2.0, -1.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0,
+    ];
+    let polynomial = Polynomial::<13>::from_roots(&expected).unwrap();
+    for scale in [1.0, 1e-300, 1.5e302, -1.5e302] {
+        let scaled = polynomial.scale(scale);
+        assert!(scaled.is_finite());
+        assert_eq!(scaled.count_real_roots(-7.0, 7.0).unwrap(), expected.len());
+        let recovered = scaled.real_roots_in(-7.0, 7.0, 1e-9, 1000).unwrap();
+        assert_close(recovered.as_slice(), &expected, 1e-9);
+    }
+}
+
+#[test]
 fn real_roots_in_matches_the_closed_form_quartic() {
     let poly: Polynomial<5> = Polynomial::new(QUARTIC_FOUR_ROOTS);
     let bound = poly.cauchy_root_bound().unwrap();

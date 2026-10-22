@@ -362,6 +362,31 @@ fn add_range<T: Numeric>(pending: &mut [(T, T)], length: &mut usize, range: (T, 
     }
 }
 
+/// A positive rescaling preserves every sign used by Sturm's theorem while keeping the next
+/// division and the derivative away from the scalar's overflow and underflow limits.
+fn normalized_chain_entry<const COEFFICIENT_COUNT: usize, T: Numeric>(
+    polynomial: Polynomial<COEFFICIENT_COUNT, T>,
+) -> Result<Polynomial<COEFFICIENT_COUNT, T>, PolynomialError> {
+    if !polynomial.is_finite() {
+        return Err(PolynomialError::NonFinite);
+    }
+    let scale = polynomial
+        .coefficients()
+        .iter()
+        .fold(T::ZERO, |largest, coefficient| {
+            largest.max(coefficient.abs())
+        });
+    if scale == T::ZERO {
+        return Ok(polynomial);
+    }
+    // Divide directly: the reciprocal of a small, finite scale can itself overflow.
+    Ok(Polynomial::new(
+        polynomial
+            .coefficients()
+            .map(|coefficient| coefficient / scale),
+    ))
+}
+
 /// How many times the chain's values change sign at `point`, skipping any that land exactly on zero.
 fn sign_changes<const COEFFICIENT_COUNT: usize, T: Numeric>(
     chain: &[Polynomial<COEFFICIENT_COUNT, T>; COEFFICIENT_COUNT],
@@ -420,7 +445,8 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
     ///
     /// It starts with the polynomial and its derivative, and each one after that is what is left of
     /// the pair before it, negated. Every entry has a lower degree than the one before, so the
-    /// chain always finishes within `COEFFICIENT_COUNT` entries.
+    /// chain always finishes within `COEFFICIENT_COUNT` entries. Each entry is divided by its
+    /// largest coefficient magnitude, a positive factor that leaves the sign changes untouched.
     fn root_counting_chain(
         &self,
     ) -> Result<([Polynomial<COEFFICIENT_COUNT, T>; COEFFICIENT_COUNT], usize), PolynomialError>
@@ -435,15 +461,16 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
         let mut chain = [Polynomial::<COEFFICIENT_COUNT, T>::zeros(); COEFFICIENT_COUNT];
         let mut length = 0;
         // The polynomial itself starts the chain.
+        let first = normalized_chain_entry(*self)?;
         if let Some(slot) = chain.get_mut(0) {
-            *slot = *self;
+            *slot = first;
             length = 1;
         }
         // Its derivative comes next, unless it is a flat line with nothing to differentiate.
         if degree >= 1
             && let Some(slot) = chain.get_mut(1)
         {
-            *slot = self.derivative();
+            *slot = normalized_chain_entry(first.derivative())?;
             length = 2;
         }
 
@@ -460,7 +487,7 @@ impl<const COEFFICIENT_COUNT: usize, T: Numeric> Polynomial<COEFFICIENT_COUNT, T
                 break;
             }
             if let Some(slot) = chain.get_mut(length) {
-                *slot = -next;
+                *slot = normalized_chain_entry(-next)?;
             }
             length += 1;
         }

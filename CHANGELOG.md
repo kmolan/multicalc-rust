@@ -141,6 +141,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Sturm-chain scaling.** Root counting and isolation normalize each chain entry by a positive
+  coefficient norm, preserving signs while preventing a finite, rescaled polynomial from silently
+  losing its real roots when the derivative or remainder arithmetic overflows. (#295)
+
 - **`RunningMedian` rejects a NaN at the window boundary.** Its insertion sort compared with `>`,
   false in both directions against a NaN, so one NaN in the window left it unsorted and the middle
   slot answered with an arbitrary finite value — the one filter meant to discard a wild lidar

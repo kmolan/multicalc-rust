@@ -44,7 +44,7 @@ text_bytes = 166492
 stack_bytes_f64 = 3311
 
 [embedded-smoke.thumbv7em-none-eabihf]
-text_bytes = 181860
+text_bytes = 201812
 stack_bytes_f64 = 3631
 
 [embedded-smoke.thumbv6m-none-eabi]
