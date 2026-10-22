@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Heap-backed evaluation on Hessian.** `Hessian::evaluate_on_heap` eturns the Hessian 
   as a `Vec<Vec<_>>` when the alloc feature is enabled, reducing stack usage for large results.
+  @Thiago316316 (#83)
 - **A checked rigid-body state derivative.** `RigidBody::try_state_derivative` reports
   `DynamicsError::DegenerateOrientation` when a state's four orientation numbers normalize to
   nothing, a case the infallible `state_derivative` answers with an all-zero derivative that an
