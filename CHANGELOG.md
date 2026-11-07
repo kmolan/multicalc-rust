@@ -110,6 +110,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Add `set_covariance` and model getters to the `Kalman` filters**, adding a setter for the 
+  covariance value, getters for the accessors that had missing, only in the `Kalman` and new setter 
+  that chanage the complete filter model . @Thiago316316 (#320)
 - **`ModelError::UnsupportedOrientation` is gone**, replaced by `MultipleOrientations` for an element
   that states its facing more than one way. Nothing is refused for the form it was written in any
   more. A new `FullInertiaWithOrientation` refuses an `<inertial>` that states a full tensor beside

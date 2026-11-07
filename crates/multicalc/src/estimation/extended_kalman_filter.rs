@@ -214,6 +214,10 @@ where
         self.state = state;
     }
 
+    pub fn set_covariance(&mut self, covariance: Matrix<STATE_DIMENSION, STATE_DIMENSION, T>) {
+        self.covariance = covariance;
+    }
+
     /// Replaces the process noise, which a changing timestep also changes.
     pub fn set_process_noise(
         &mut self,
@@ -400,6 +404,16 @@ where
     /// The innovation covariance `S` from the last [`update`](Self::update). Zero before the first.
     pub fn innovation_covariance(&self) -> Matrix<MEASUREMENT_DIMENSION, MEASUREMENT_DIMENSION, T> {
         self.innovation_covariance
+    }
+
+    /// The process noise covariance `Q` used by the last [`predict`](Self::predict).
+    pub fn process_noise(&self) -> Matrix<STATE_DIMENSION, STATE_DIMENSION, T> {
+        self.process_noise
+    }
+
+    /// The measurement noise covariance `R` used by the last [`update`](Self::update).
+    pub fn measurement_noise(&self) -> Matrix<MEASUREMENT_DIMENSION, MEASUREMENT_DIMENSION, T> {
+        self.measurement_noise
     }
 
     /// `yᵀ·S⁻¹·y` for the last update — the innovation weighted by its own covariance.

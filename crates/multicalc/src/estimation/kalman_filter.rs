@@ -192,6 +192,10 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
         self.state_transition = state_transition;
     }
 
+    pub fn set_covariance(&mut self, covariance: Matrix<STATE_DIMENSION, STATE_DIMENSION, T>) {
+        self.covariance = covariance;
+    }
+
     /// Replaces the process noise, which a changing timestep also changes.
     pub fn set_process_noise(
         &mut self,
@@ -214,6 +218,14 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
         measurement_noise: Matrix<MEASUREMENT_DIMENSION, MEASUREMENT_DIMENSION, T>,
     ) {
         self.measurement_noise = measurement_noise;
+    }
+
+    /// Replaces the complete filter model.
+    pub fn set_model(&mut self, model: KalmanModel<STATE_DIMENSION, MEASUREMENT_DIMENSION, T>) {
+        self.state_transition = model.state_transition;
+        self.measurement_model = model.measurement_model;
+        self.process_noise = model.process_noise;
+        self.measurement_noise = model.measurement_noise;
     }
 
     // ----- Predict -----
@@ -311,6 +323,26 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
     /// The innovation covariance `S` from the last [`update`](Self::update). Zero before the first.
     pub fn innovation_covariance(&self) -> Matrix<MEASUREMENT_DIMENSION, MEASUREMENT_DIMENSION, T> {
         self.innovation_covariance
+    }
+
+    /// The state transition matrix `F` used by the last [`predict`](Self::predict).
+    pub fn state_transition(&self) -> Matrix<STATE_DIMENSION, STATE_DIMENSION, T> {
+        self.state_transition
+    }
+
+    /// The measurement model matrix `H` used by the last [`update`](Self::update).
+    pub fn measurement_model(&self) -> Matrix<MEASUREMENT_DIMENSION, STATE_DIMENSION, T> {
+        self.measurement_model
+    }
+
+    /// The process noise covariance `Q` used by the last [`predict`](Self::predict).
+    pub fn process_noise(&self) -> Matrix<STATE_DIMENSION, STATE_DIMENSION, T> {
+        self.process_noise
+    }
+
+    /// The measurement noise covariance `R` used by the last [`update`](Self::update).
+    pub fn measurement_noise(&self) -> Matrix<MEASUREMENT_DIMENSION, MEASUREMENT_DIMENSION, T> {
+        self.measurement_noise
     }
 
     /// `yᵀ·S⁻¹·y` for the last update — the innovation weighted by its own covariance.
