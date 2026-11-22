@@ -59,8 +59,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   offset, and a stride per axis. Transpose, submatrix, row, column, diagonal, segment, and the
   splits are index arithmetic; only `to_matrix` / `to_vector` copies. No `Index` impl — fallible
   calls return `Result<_, LinalgError>` carrying the new `OutOfBounds`, so nothing on a view
-  panics. `Matrix::submatrix` and `set_submatrix` become `try_submatrix` and `try_set_submatrix`,
-  reporting the same error. @Thiago316316 (#62)
+  panics. `MatrixView::try_mul` takes a `VectorView` into an owned `Vector`, reading both
+  operands where they lie. `Matrix::submatrix` and `set_submatrix` become `try_submatrix` and
+  `try_set_submatrix`, reporting the same error. @Thiago316316 (#62)
 
 - **Brent root finding.** `Brent` combines bracketed convergence with secant and inverse
   quadratic interpolation steps for scalar equations. @snowyukitty (#323)
@@ -145,6 +146,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Sturm-chain scaling.** Root counting and isolation normalize each chain entry by a positive
+  coefficient norm, preserving signs while preventing a finite, rescaled polynomial from silently
+  losing its real roots when the derivative or remainder arithmetic overflows. (#295)
+
 - **`RunningMedian` rejects a NaN at the window boundary.** Its insertion sort compared with `>`,
   false in both directions against a NaN, so one NaN in the window left it unsorted and the middle
   slot answered with an arbitrary finite value — the one filter meant to discard a wild lidar
@@ -179,6 +184,9 @@ non-positive input is now documented instead of silent. @naseem173 (#307)
 
 - **Iterative Config Total Iterations** Auto-align iteration counts to the composite rules below
   12k. 
+
+- Root counting and isolation return no roots for a nonzero constant polynomial with unused
+  higher-order coefficient slots, instead of underflowing the Sturm-chain index and panicking.
 
 ## [0.10.0] - 2026-08-09
 
