@@ -1,0 +1,34 @@
+name: Board
+
+# Manual only. Builds the TAB with hilshare.yml, then runs it on the three HILShare boards
+# through the service. The job needs no secret.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tab:
+    name: HILShare app
+    uses: ./.github/workflows/hilshare.yml
+
+  board:
+    name: board
+    needs: tab
+    runs-on: ubuntu-latest
+    # The boards run at one time: 60 minutes in the queue and 12 for a job on the board.
+    timeout-minutes: 80
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: multicalc-hilshare
+          path: tab
+      - name: Run on the boards
+        uses: hilshare/action@v1
+        with:
+          app: tab/multicalc-hilshare.tab
+          board: nucleo-f411re, raspberry-pi-pico-2, xiao-esp32c3

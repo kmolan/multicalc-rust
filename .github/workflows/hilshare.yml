@@ -1,0 +1,52 @@
+name: HILShare app
+
+# Reusable: CI calls it on each pull request, Full CI on main, and Board before its board run.
+#
+# Lints tools/hilshare and builds its TAB: multicalc as a Tock app for the three HILShare
+# boards. Nothing here reaches a board.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  tab:
+    name: HILShare TAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Cargo reads .cargo/config.toml and rust-toolchain.toml from the current directory
+    # upwards, not from --manifest-path.
+    defaults:
+      run:
+        working-directory: tools/hilshare
+    steps:
+      - uses: actions/checkout@v4
+      # rust-toolchain.toml names the pinned toolchain, its components and the two targets.
+      - name: Toolchain
+        run: rustup toolchain install
+      - name: elf2tab
+        run: cargo install elf2tab --version 0.13.0 --locked
+      - name: Formatting
+        run: cargo fmt --check
+      # build.rs refuses a build with no HILSHARE_BOARD.
+      - name: Clippy (Arm)
+        run: HILSHARE_BOARD=nucleo-f411re cargo clippy --release -- -D warnings
+      - name: Clippy (RISC-V)
+        run: HILSHARE_BOARD=xiao-esp32c3 cargo clippy --release --target riscv32imc-unknown-none-elf -- -D warnings
+      # multicalc-hilshare.tab, with the ELF of each board.
+      - name: Build the TAB
+        run: ./build-tab.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: multicalc-hilshare
+          path: tools/hilshare/target/tab/
+          if-no-files-found: error
+          retention-days: 30
