@@ -1,0 +1,98 @@
+{
+  "case": "activations",
+  "expected": {
+    "identity": {
+      "data": [
+        "0xc020000000000000",
+        "0xc000000000000000",
+        "0xbfe0000000000000",
+        "0x0000000000000000",
+        "0x3fe0000000000000",
+        "0x4000000000000000",
+        "0x4020000000000000"
+      ],
+      "kind": "vector"
+    },
+    "relu": {
+      "data": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fe0000000000000",
+        "0x4000000000000000",
+        "0x4020000000000000"
+      ],
+      "kind": "vector"
+    },
+    "tanh": {
+      "data": [
+        "0xbfefffff872a91f8",
+        "0xbfeed9505e1bc3d4",
+        "0xbfdd9353d7568af3",
+        "0x0000000000000000",
+        "0x3fdd9353d7568af3",
+        "0x3feed9505e1bc3d4",
+        "0x3fefffff872a91f8"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "kind": {
+      "kind": "str",
+      "v": "activations"
+    },
+    "observation": {
+      "data": [
+        "0x4000000000000000"
+      ],
+      "kind": "vector"
+    },
+    "parameters": {
+      "data": [
+        "0xc000000000000000",
+        "0xbfe0000000000000",
+        "0xbfc0000000000000",
+        "0x0000000000000000",
+        "0x3fc0000000000000",
+        "0x3fe0000000000000",
+        "0x4000000000000000",
+        "0xc010000000000000",
+        "0xbff0000000000000",
+        "0xbfd0000000000000",
+        "0x0000000000000000",
+        "0x3fd0000000000000",
+        "0x3ff0000000000000",
+        "0x4010000000000000"
+      ],
+      "kind": "vector"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "y = activation(w\u00b7x + b), sums \u22128, \u22122, \u22120.5, 0, 0.5, 2, 8",
+    "generator": "mlp",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "operations": [
+      "Activation table, relu / tanh / identity"
+    ],
+    "reference": "numpy 2.1.3",
+    "sampling": "He-scaled normal weights, biases uniform in [-0.1, 0.1]; observations are a quadrotor state with a uniformly random rotation",
+    "seed": 20260706
+  },
+  "module": "mlp",
+  "schema_version": 2,
+  "tolerances": {
+    "f32": {
+      "abs": 1e-05,
+      "rel": 1e-05
+    },
+    "f64": {
+      "abs": 1e-11,
+      "rel": 1e-10
+    }
+  }
+}

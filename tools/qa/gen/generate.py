@@ -23,6 +23,7 @@ from generators import (
     linalg,
     mapping,
     mjcf,
+    mlp,
     motion,
     ode,
     optimization,
@@ -69,6 +70,7 @@ def main():
     motion.run(args.out, SEED)
     control.run(args.out, SEED)
     mapping.run(args.out, SEED)
+    mlp.run(args.out, SEED)
 
 
 if __name__ == "__main__":
