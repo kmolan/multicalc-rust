@@ -31,29 +31,71 @@ pub struct CheckOutcome {
     pub value: f64,
 }
 
-/// The budget of a check before its measurement: no time limit on any board.
-const UNMEASURED: Budget = Budget {
-    nucleo_f411re: u32::MAX,
-    raspberry_pi_pico_2: u32::MAX,
-    xiao_esp32c3: u32::MAX,
-};
-
 /// Each check with its time budgets in microseconds, in run order. The two counter checks run
 /// first: the other figures are only worth reading when they pass.
 ///
 /// The budget of a counter check limits its warm figure. Each later budget limits the warm
 /// figure less the round trip that `cycle_counter_overhead` measured in the same run.
 ///
-/// Each budget is 1.1 × the figure of its board, rounded up. `README.md` has the figures and
-/// how to measure them again.
+/// Each budget is 1.1 × the figure of its board, rounded up, and 1.5 × on the Raspberry Pi
+/// Pico 2. `README.md` has the figures and how to measure them again.
 pub const CHECKS: [(fn() -> CheckOutcome, Budget); 7] = [
-    (cycle_counter_sanity, UNMEASURED),
-    (cycle_counter_overhead, UNMEASURED),
-    (vector_dot, UNMEASURED),
-    (svd_singular_values, UNMEASURED),
-    (autodiff_derivative, UNMEASURED),
-    (pid_step, UNMEASURED),
-    (error_path_returns_err, UNMEASURED),
+    (
+        cycle_counter_sanity,
+        Budget {
+            nucleo_f411re: 347,
+            raspberry_pi_pico_2: 323,
+            xiao_esp32c3: 284,
+        },
+    ),
+    (
+        cycle_counter_overhead,
+        Budget {
+            nucleo_f411re: 17,
+            raspberry_pi_pico_2: 20,
+            xiao_esp32c3: 9,
+        },
+    ),
+    (
+        vector_dot,
+        Budget {
+            nucleo_f411re: 13,
+            raspberry_pi_pico_2: 33,
+            xiao_esp32c3: 8,
+        },
+    ),
+    (
+        svd_singular_values,
+        Budget {
+            nucleo_f411re: 1192,
+            raspberry_pi_pico_2: 1068,
+            xiao_esp32c3: 774,
+        },
+    ),
+    (
+        autodiff_derivative,
+        Budget {
+            nucleo_f411re: 7,
+            raspberry_pi_pico_2: 20,
+            xiao_esp32c3: 4,
+        },
+    ),
+    (
+        pid_step,
+        Budget {
+            nucleo_f411re: 3088,
+            raspberry_pi_pico_2: 2403,
+            xiao_esp32c3: 1774,
+        },
+    ),
+    (
+        error_path_returns_err,
+        Budget {
+            nucleo_f411re: 27,
+            raspberry_pi_pico_2: 48,
+            xiao_esp32c3: 15,
+        },
+    ),
 ];
 
 /// `cycle_counter_overhead`'s place in [`CHECKS`].

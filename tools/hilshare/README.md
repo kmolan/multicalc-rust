@@ -65,20 +65,23 @@ CI does not run the app on a board. A maintainer starts the `Board` workflow by 
 ## Budgets
 
 A budget is `ceil(1.1 × us)` of the figure measured on its board, in `CHECKS` in
-`src/checks.rs`. The figures repeat from run to run of one build, so the 10% is margin for the
-code layout, not for noise.
+`src/checks.rs`. On the Nucleo-F411RE and the XIAO ESP32-C3, the figures repeat from run to run of
+one build, so the 10% is margin for the code layout, not for noise.
+
+On the Raspberry Pi Pico 2, a budget is `ceil(1.5 × us)` of the highest figure of six runs. The
+figures of the short checks change by up to 26% from run to run of one build.
 
 Measured on toolchain `1.92` and HILShare kernel `0.2.0`, `us` and then `budget_us` on each board:
 
 | Check | Nucleo-F411RE | Raspberry Pi Pico 2 | XIAO ESP32-C3 |
 |---|---|---|---|
-| `cycle_counter_sanity` | — | — | — |
-| `cycle_counter_overhead` | — | — | — |
-| `vector_dot` | — | — | — |
-| `svd_singular_values` | — | — | — |
-| `autodiff_derivative` | — | — | — |
-| `pid_step` | — | — | — |
-| `error_path_returns_err` | — | — | — |
+| `cycle_counter_sanity` | 315.30 / 347 | 214.94 / 323 | 257.67 / 284 |
+| `cycle_counter_overhead` | 15.26 / 17 | 13.28 / 20 | 7.67 / 9 |
+| `vector_dot` | 11.32 / 13 | 21.78 / 33 | 6.64 / 8 |
+| `svd_singular_values` | 1082.85 / 1192 | 711.46 / 1068 | 703.06 / 774 |
+| `autodiff_derivative` | 5.79 / 7 | 12.75 / 20 | 3.45 / 4 |
+| `pid_step` | 2807.06 / 3088 | 1601.90 / 2403 | 1612.31 / 1774 |
+| `error_path_returns_err` | 23.92 / 27 | 31.77 / 48 | 13.40 / 15 |
 
 Measure each budget again when one of these changes:
 
@@ -90,9 +93,9 @@ Measure each budget again when one of these changes:
 Measure the budget of one check again when a change to multicalc moves the figure of that check
 above its budget. The `Board` run is then red. Make the regression smaller, or raise that one
 number with a line of reason and the figure of the board beside it, as `ci/README.md` does for a
-size budget. Do not make the 1.1 larger.
+size budget. Do not make the 1.1 or the 1.5 larger.
 
-To measure: build the TAB with each budget at `u32::MAX`, run it three times on each board, and
-read `us` from each `HILSHARE_CHECK` line. Set each budget to `ceil(1.1 × us)` of the highest
-figure, update the table above, and rebuild. A run of the new TAB on each board must then give
-`HILSHARE_RESULT=PASS`.
+To measure: build the TAB with each budget at `u32::MAX`, run it three times on each board and six
+times on the Raspberry Pi Pico 2, and read `us` from each `HILSHARE_CHECK` line. Set each budget
+from the highest figure, update the table above, and rebuild. A run of the new TAB on each board
+must then give `HILSHARE_RESULT=PASS`.
