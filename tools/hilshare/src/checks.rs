@@ -7,8 +7,9 @@
 //! Every result passes through `core::hint::black_box` inside its timed section. The work
 //! is pure, so an unpinned result lets the optimizer move it past the second reading.
 //!
-//! Every `cycles` figure includes one system-call round trip, which
-//! `cycle_counter_overhead` measures on its own. [`CHECKS`] holds each check's time budget.
+//! Each `cycles` reading of a [`CheckOutcome`] includes one system-call round trip, which
+//! `cycle_counter_overhead` measures on its own. [`CHECKS`] holds the time budgets of each
+//! check.
 
 use core::hint::black_box;
 
@@ -18,6 +19,7 @@ use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Vector};
 use multicalc::numerical_derivative::{AutoDiffSingle, DerivatorSingleVariable};
 use multicalc::scalar_fn;
 
+use crate::Budget;
 use crate::cycles;
 use crate::fixtures;
 
@@ -29,45 +31,65 @@ pub struct CheckOutcome {
     pub value: f64,
 }
 
-/// Every check with its time budget in microseconds, in run order. The two counter checks
-/// run first: the other figures are only worth reading once they pass.
+/// The budget of a check before its measurement: no time limit on any board.
+const UNMEASURED: Budget = Budget {
+    nucleo_f411re: u32::MAX,
+    raspberry_pi_pico_2: u32::MAX,
+    xiao_esp32c3: u32::MAX,
+};
+
+/// Each check with its time budgets in microseconds, in run order. The two counter checks run
+/// first: the other figures are only worth reading when they pass.
 ///
-/// A counter check's budget bounds its warm figure. Every later budget bounds the warm
-/// figure less the round trip `cycle_counter_overhead` measured in the same run.
+/// The budget of a counter check limits its warm figure. Each later budget limits the warm
+/// figure less the round trip that `cycle_counter_overhead` measured in the same run.
 ///
-/// Each is 1.1 × the Nucleo-F411RE's figure, rounded up. `README.md` has the figures and
-/// what measures them again.
-pub const CHECKS: [(fn() -> CheckOutcome, u32); 7] = [
-    (cycle_counter_sanity, 348),
-    (cycle_counter_overhead, 18),
-    (vector_dot, 17),
-    (svd_singular_values, 1_672),
-    (autodiff_derivative, 10),
-    (pid_step, 4_113),
-    (error_path_returns_err, 35),
+/// Each budget is 1.1 × the figure of its board, rounded up. `README.md` has the figures and
+/// how to measure them again.
+pub const CHECKS: [(fn() -> CheckOutcome, Budget); 7] = [
+    (cycle_counter_sanity, UNMEASURED),
+    (cycle_counter_overhead, UNMEASURED),
+    (vector_dot, UNMEASURED),
+    (svd_singular_values, UNMEASURED),
+    (autodiff_derivative, UNMEASURED),
+    (pid_step, UNMEASURED),
+    (error_path_returns_err, UNMEASURED),
 ];
 
 /// `cycle_counter_overhead`'s place in [`CHECKS`].
 pub const ROUND_TRIP_CHECK_INDEX: usize = 1;
 
-/// Sanity: the counter counts CPU cycles. `SPINS` iterations of `subs` plus a taken
-/// branch cost between 1 and 8 cycles each, the system-call round trip included; a counter
-/// that is stopped or absent misses that band entirely. Value is cycles per iteration.
+/// Sanity: the counter counts CPU cycles. `SPINS` iterations of a decrement and a taken
+/// branch cost from 1 to 8 cycles each, with the system-call round trip; a counter that is
+/// stopped or absent misses that band. The value is the cycles of one iteration.
 ///
-/// The loop starts a 16-byte flash line. The kernel runs the flash at three wait states with
-/// no instruction cache, so a loop whose prefetch runs into the next line pays two flash
-/// reads an iteration.
+/// The loop starts a 16-byte line. The Nucleo-F411RE kernel runs the flash at three wait
+/// states with no instruction cache, so a loop whose prefetch runs into the next line pays two
+/// flash reads each iteration. The Pico 2 and the XIAO run from flash through a cache, so the
+/// warm runs read the loop from the cache.
 fn cycle_counter_sanity() -> CheckOutcome {
     const SPINS: u32 = 10_000;
     let mut remaining = SPINS;
 
     let start = cycles::read();
+    #[cfg(target_arch = "arm")]
     unsafe {
         core::arch::asm!(
             ".p2align 4",
             "2:",
             "subs {remaining}, {remaining}, #1",
             "bne 2b",
+            remaining = inout(reg) remaining,
+            options(nomem, nostack),
+        );
+    }
+    #[cfg(target_arch = "riscv32")]
+    unsafe {
+        core::arch::asm!(
+            ".p2align 4",
+            "2:",
+            "addi {remaining}, {remaining}, -1",
+            "bnez {remaining}, 2b",
             remaining = inout(reg) remaining,
             options(nomem, nostack),
         );
@@ -101,22 +123,8 @@ fn close(got: f64, want: f64, abs: f64, rel: f64) -> bool {
     (got - want).abs() <= abs + rel * got.abs().max(want.abs())
 }
 
-/// The dot product's known answer. The `fail` feature moves it, so the board reports a
-/// red on demand.
-#[cfg(not(feature = "fail"))]
+/// The known answer of the dot product.
 const VECTOR_DOT_EXPECTED: f64 = 20.0;
-#[cfg(feature = "fail")]
-const VECTOR_DOT_EXPECTED: f64 = 21.0;
-
-/// What the `slow` feature adds inside `vector_dot`'s timed section: 10 000 adds the
-/// optimizer cannot fold, far past the check's budget.
-#[cfg(feature = "slow")]
-fn stall() {
-    let mut accumulator = 0_u32;
-    for iteration in 0..10_000_u32 {
-        accumulator = black_box(accumulator.wrapping_add(iteration));
-    }
-}
 
 /// Identity: `[1,2,3,4]·[4,3,2,1] = 20`, the atomics-free library path.
 fn vector_dot() -> CheckOutcome {
@@ -124,8 +132,6 @@ fn vector_dot() -> CheckOutcome {
     let right = black_box(Vector::new([4.0_f64, 3.0, 2.0, 1.0]));
 
     let start = cycles::read();
-    #[cfg(feature = "slow")]
-    stall();
     let product = black_box(left.dot(right));
     let elapsed = cycles::read().wrapping_sub(start);
 

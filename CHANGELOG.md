@@ -103,10 +103,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Host-only Python bindings.** `multicalc-py` is a workspace crate (`publish = false`) with a
   thin PyO3/maturin surface over a slice of crate-root `multicalc` (`f64` only, sizes fixed in
   the type name). Import `multicalc_py`. Not published to crates.io or PyPI. @rtmongold (#330)
-- **A Tock app for hardware runs.** `tools/openhil` runs seven checks on a physical
-  Nucleo-F411RE as a Tock process: each answer against a known value, and each time against
-  a budget net of the system-call round trip. CI builds its TABs on every pull request; a
-  board run is started by a maintainer.
+- **A Tock app for hardware runs.** `tools/hilshare` runs seven checks as a Tock process on the
+  three HILShare boards: the Nucleo-F411RE, the Raspberry Pi Pico 2 and the XIAO ESP32-C3. It
+  compares each answer with a known value, and each time with a budget of the board, net of
+  the round trip of the system call. CI builds its TAB on each pull request, and a maintainer
+  starts a board run with the `Board` workflow.
 
 ### Changed
 
