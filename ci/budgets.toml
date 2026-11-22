@@ -30,6 +30,10 @@
 # inverse-kinematics check that already sets the peak. The thumbv6m canary builds
 # --no-default-features and does not compile the Franka check, so its numbers are unchanged.
 #
+# Re-baselined the thumbv7em-none-eabihf .text after the Rust 1.99 toolchain. At the same commit,
+# the .text grew from 195308 to 201028 bytes with no source change. The other three targets stay
+# inside their tolerance, so their budgets do not change.
+#
 # Run the gate for one (binary, target):
 #   cargo run -p <binary> --release --target <triple> | tee smoke-<binary>-<triple>.txt
 #   bash ci/check_budgets.sh <binary> <triple> smoke-<binary>-<triple>.txt
@@ -44,7 +48,7 @@ text_bytes = 166492
 stack_bytes_f64 = 3311
 
 [embedded-smoke.thumbv7em-none-eabihf]
-text_bytes = 181860
+text_bytes = 200776
 stack_bytes_f64 = 3631
 
 [embedded-smoke.thumbv6m-none-eabi]
