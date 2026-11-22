@@ -322,3 +322,27 @@ fn real_roots_in_rejects_bad_arguments() {
         4
     );
 }
+
+#[test]
+fn padded_constant_polynomials_have_no_roots() {
+    for constant in [1.0, -1.0] {
+        let polynomial = Polynomial::<3>::new([constant, 0.0, 0.0]);
+        assert_eq!(polynomial.count_real_roots(-2.0, 2.0).unwrap(), 0);
+        assert!(
+            polynomial
+                .real_roots_in(-2.0, 2.0, 1e-9, 100)
+                .unwrap()
+                .is_empty()
+        );
+    }
+    for constant in [1.0_f32, -1.0] {
+        let polynomial = Polynomial::<3, f32>::new([constant, 0.0, 0.0]);
+        assert_eq!(polynomial.count_real_roots(-2.0, 2.0).unwrap(), 0);
+        assert!(
+            polynomial
+                .real_roots_in(-2.0, 2.0, 1e-3, 100)
+                .unwrap()
+                .is_empty()
+        );
+    }
+}
