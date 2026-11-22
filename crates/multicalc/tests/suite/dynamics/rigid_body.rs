@@ -200,6 +200,88 @@ fn a_state_with_no_direction_has_no_derivative() {
 }
 
 #[test]
+fn the_checked_derivative_reports_a_degenerate_orientation() {
+    let body = balanced_body::<f64>(0.8, [0.005, 0.007, 0.009], earth_gravity());
+    let no_direction = Vector::new([
+        1.0, -2.0, 3.0, // where it is
+        0.0, 0.0, 0.0, 0.0, // which way it faces, naming no direction at all
+        0.5, 0.1, -0.2, // how fast it is moving
+        0.3, -0.4, 0.5, // how fast it is turning
+    ]);
+
+    assert_eq!(
+        body.try_state_derivative(&no_direction, Wrench::zeros()),
+        Err(DynamicsError::DegenerateOrientation)
+    );
+
+    // Not only exact zeros: 1e-320 is a subnormal whose squared norm underflows to nothing, so
+    // these four numbers normalize to no direction just the same.
+    let underflowing = Vector::new([
+        1.0, -2.0, 3.0, 1e-320, 0.0, 0.0, 0.0, 0.5, 0.1, -0.2, 0.3, -0.4, 0.5,
+    ]);
+    assert_eq!(
+        body.try_state_derivative(&underflowing, Wrench::zeros()),
+        Err(DynamicsError::DegenerateOrientation)
+    );
+}
+
+#[test]
+fn the_infallible_derivative_returns_zeros_for_a_numerically_degenerate_orientation() {
+    let body = balanced_body::<f64>(0.8, [0.005, 0.007, 0.009], earth_gravity());
+    let underflowing = Vector::new([
+        1.0, -2.0, 3.0, 1e-320, 0.0, 0.0, 0.0, 0.5, 0.1, -0.2, 0.3, -0.4, 0.5,
+    ]);
+
+    // The documented papering over: no direction in, all zeros out.
+    assert!(body.state_derivative(&underflowing, Wrench::zeros()).norm() < 1e-15);
+}
+
+#[test]
+fn the_checked_derivative_agrees_with_the_infallible_one_on_valid_states() {
+    let body = balanced_body::<f64>(0.8, [0.005, 0.007, 0.009], earth_gravity());
+
+    // The valid states the rest of this file runs, plus one whose four orientation numbers have
+    // drifted off unit length, which both variants scale back before reading.
+    let mut drifted = state_vector_from_free_joint(FreeJointState::new(
+        SE3::identity(),
+        Twist::new(zeros(), Vector::new([7.0, 3.0, 5.0])),
+    ));
+    for index in 3..=6 {
+        drifted[index] *= 1.1;
+    }
+    let states = [
+        state_vector_from_free_joint(FreeJointState::new(SE3::identity(), Twist::zeros())),
+        state_vector_from_free_joint(FreeJointState::new(
+            SE3::from_parts(
+                SO3::exp(Vector::new([0.3, -0.2, 0.7])),
+                Vector::new([1.0, -2.0, 3.0]),
+            ),
+            Twist::new(Vector::new([0.5, 0.1, -0.2]), Vector::new([0.3, -0.4, 0.5])),
+        )),
+        state_vector_from_free_joint(FreeJointState::new(
+            SE3::identity(),
+            Twist::new(zeros(), Vector::new([7.0, 3.0, 5.0])),
+        )),
+        state_vector_from_free_joint(FreeJointState::new(
+            SE3::identity(),
+            Twist::new(zeros(), Vector::new([2.0, -1.0, 3.0])),
+        )),
+        drifted,
+    ];
+
+    for (state_index, state) in states.iter().enumerate() {
+        let checked = body.try_state_derivative(state, steady_push()).unwrap();
+        let infallible = body.state_derivative(state, steady_push());
+        for component in 0..13 {
+            assert_eq!(
+                checked[component], infallible[component],
+                "state {state_index}, component {component}"
+            );
+        }
+    }
+}
+
+#[test]
 fn a_body_with_a_flat_inertia_is_refused() {
     // Symmetric with a positive diagonal, so `SpatialInertia` accepts it, but it is not positive
     // definite so there is no way to invert it into an acceleration.

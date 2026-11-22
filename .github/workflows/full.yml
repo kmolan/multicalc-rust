@@ -43,6 +43,10 @@ jobs:
     with:
       full: true
 
+  hilshare:
+    name: HILShare app
+    uses: ./.github/workflows/hilshare.yml
+
   test:
     name: test (${{ matrix.rust }})
     runs-on: ubuntu-latest

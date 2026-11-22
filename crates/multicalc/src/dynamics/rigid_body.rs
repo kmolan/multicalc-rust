@@ -251,6 +251,80 @@ impl<T: Numeric> RigidBody<T> {
         )
     }
 
+    /// How the thirteen numbers change with time, reporting a state that names no direction.
+    ///
+    /// The same arithmetic as [`RigidBody::state_derivative`], which is infallible and answers a
+    /// degenerate orientation with an all-zero derivative. Here the reason comes back instead of
+    /// being papered over, for a caller that would rather stop than let an integrator quietly hold
+    /// a frozen body in place.
+    ///
+    /// # Errors
+    ///
+    /// [`DynamicsError::DegenerateOrientation`] when the four orientation numbers at
+    /// `state[3..=6]` do not normalize to a unit quaternion — exactly the case
+    /// [`RigidBody::state_derivative`] turns into zeros.
+    ///
+    /// ```
+    /// use multicalc::dynamics::{RigidBody, state_vector_from_free_joint};
+    /// use multicalc::error::DynamicsError;
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::spatial::{FreeJointState, SE3, SpatialInertia, Twist, Wrench};
+    ///
+    /// let mass = 1.0_f64;
+    /// let balance_point = Vector::new([0.0, 0.0, 0.0]);
+    /// let resistance_to_spinning = Vector::new([0.01, 0.01, 0.02]);
+    ///
+    /// let inertia =
+    ///     SpatialInertia::from_diagonal_inertia(mass, balance_point, resistance_to_spinning)
+    ///         .unwrap();
+    /// let body = RigidBody::new(inertia, Vector::new([0.0, 0.0, -9.81])).unwrap();
+    ///
+    /// // A sound state differentiates, and agrees with the infallible one.
+    /// let at_rest = FreeJointState::new(SE3::identity(), Twist::zeros());
+    /// let state = state_vector_from_free_joint(at_rest);
+    /// let differentiated = body.try_state_derivative(&state, Wrench::zeros()).unwrap();
+    /// assert_eq!(differentiated, body.state_derivative(&state, Wrench::zeros()));
+    ///
+    /// // With the four orientation numbers zeroed out there is no attitude to differentiate,
+    /// // and the checked variant says so rather than answering with zeros.
+    /// let no_direction = Vector::new([
+    ///     1.0, -2.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.1, -0.2, 0.3, -0.4, 0.5,
+    /// ]);
+    /// assert_eq!(
+    ///     body.try_state_derivative(&no_direction, Wrench::zeros()),
+    ///     Err(DynamicsError::DegenerateOrientation),
+    /// );
+    /// ```
+    pub fn try_state_derivative(
+        self,
+        state: &Vector<STATE_DIMENSION, T>,
+        applied_wrench: Wrench<T>,
+    ) -> Result<Vector<STATE_DIMENSION, T>, DynamicsError> {
+        let stored = Quaternion::new(state[3], state[4], state[5], state[6]);
+        let Some(unit) = stored.try_normalized() else {
+            return Err(DynamicsError::DegenerateOrientation);
+        };
+        let angular_rate = Vector::new([state[10], state[11], state[12]]);
+        let acceleration =
+            self.accelerations(SO3::from_quaternion(unit), angular_rate, applied_wrench);
+
+        let (w, x, y, z) = (stored.w(), stored.x(), stored.y(), stored.z());
+        let [rate_x, rate_y, rate_z] = *angular_rate.as_array();
+        let facing = [
+            T::HALF * (-x * rate_x - y * rate_y - z * rate_z),
+            T::HALF * (w * rate_x + y * rate_z - z * rate_y),
+            T::HALF * (w * rate_y + z * rate_x - x * rate_z),
+            T::HALF * (w * rate_z + x * rate_y - y * rate_x),
+        ];
+        let linear = acceleration.linear();
+        let angular = acceleration.angular();
+
+        Ok(Vector::new([
+            state[7], state[8], state[9], facing[0], facing[1], facing[2], facing[3], linear[0],
+            linear[1], linear[2], angular[0], angular[1], angular[2],
+        ]))
+    }
+
     /// How the thirteen numbers change with time, ready to hand to an integrator.
     ///
     /// index  0  1  2   3   4   5   6   7  8  9   10 11 12
@@ -262,9 +336,11 @@ impl<T: Numeric> RigidBody<T> {
     ///
     /// The four orientation numbers drift away from unit length as an integrator steps, so they
     /// are scaled back to unit length before they are read as a direction. The four numbers
-    /// themselves are left to drift and the caller scales them when it wants to. A state whose
-    /// four orientation numbers are all zero names no direction, and the whole derivative comes
-    /// back as zeros rather than a guess.
+    /// themselves are left to drift and the caller scales them when it wants to. This never
+    /// fails: a state whose four orientation numbers normalize to nothing names no direction, and
+    /// the whole derivative comes back as zeros rather than a guess, so an integrator handed one
+    /// steps that body in place rather than stopping. [`RigidBody::try_state_derivative`] reports
+    /// that state instead, for a caller that would rather stop.
     ///
     /// ```
     /// use multicalc::dynamics::{RigidBody, state_vector_from_free_joint};
@@ -287,6 +363,9 @@ impl<T: Numeric> RigidBody<T> {
     /// let at_rest = FreeJointState::new(SE3::identity(), Twist::zeros());
     /// let start = state_vector_from_free_joint(at_rest);
     /// let nothing_applied = Wrench::zeros();
+    /// // The hot-loop call: a state whose orientation has normalized to nothing comes back as an
+    /// // all-zero rate, so the loop below would step such a body in place rather than stop.
+    /// // `try_state_derivative` is the checked twin that reports it instead.
     /// let rate = |_time: f64, state: &Vector<13, f64>| {
     ///     body.state_derivative(state, nothing_applied)
     /// };
@@ -303,35 +382,20 @@ impl<T: Numeric> RigidBody<T> {
     /// let expected_speed = gravity_strength * fall_time;
     /// assert!((after[2] + expected_fall).abs() < 1e-9);
     /// assert!((after[9] + expected_speed).abs() < 1e-9);
+    ///
+    /// // The frozen case, pinned: no direction in, all zeros out.
+    /// let no_direction = Vector::zeros();
+    /// assert!(body.state_derivative(&no_direction, nothing_applied).norm() < 1e-15);
     /// ```
     pub fn state_derivative(
         self,
         state: &Vector<STATE_DIMENSION, T>,
         applied_wrench: Wrench<T>,
     ) -> Vector<STATE_DIMENSION, T> {
-        let stored = Quaternion::new(state[3], state[4], state[5], state[6]);
-        let Some(unit) = stored.try_normalized() else {
-            return Vector::zeros();
-        };
-        let angular_rate = Vector::new([state[10], state[11], state[12]]);
-        let acceleration =
-            self.accelerations(SO3::from_quaternion(unit), angular_rate, applied_wrench);
-
-        let (w, x, y, z) = (stored.w(), stored.x(), stored.y(), stored.z());
-        let [rate_x, rate_y, rate_z] = *angular_rate.as_array();
-        let facing = [
-            T::HALF * (-x * rate_x - y * rate_y - z * rate_z),
-            T::HALF * (w * rate_x + y * rate_z - z * rate_y),
-            T::HALF * (w * rate_y + z * rate_x - x * rate_z),
-            T::HALF * (w * rate_z + x * rate_y - y * rate_x),
-        ];
-        let linear = acceleration.linear();
-        let angular = acceleration.angular();
-
-        Vector::new([
-            state[7], state[8], state[9], facing[0], facing[1], facing[2], facing[3], linear[0],
-            linear[1], linear[2], angular[0], angular[1], angular[2],
-        ])
+        match self.try_state_derivative(state, applied_wrench) {
+            Ok(derivative) => derivative,
+            Err(_) => Vector::zeros(),
+        }
     }
 }
 

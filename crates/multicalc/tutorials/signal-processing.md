@@ -9,9 +9,10 @@ configuration checked up front, and every call after that is infallible — it n
 allocates, and never returns an error.
 
 Infallible is not the same as meaningful: the per-sample calls do not look at the sample they are
-handed, so a NaN or an infinity goes straight in. Every filter also has a checked entry point that
-refuses one before it can do any harm — see [Non-finite samples](#non-finite-samples) below, and the
-module documentation for a table of the exact cost per filter.
+handed, so a NaN or an infinity goes straight in — except on `RunningMedian`, which rejects a NaN
+before it reaches the window. Every filter also has a checked entry point that refuses one before it
+can do any harm — see [Non-finite samples](#non-finite-samples) below, and the module documentation
+for a table of the exact cost per filter.
 
 - `BiquadCoefficients`: the shape of a second-order filter, designed as a `low_pass`, `high_pass`,
   `band_pass`, or `notch` from a frequency, a sharpness, and the seconds between samples. It also
@@ -29,7 +30,8 @@ module documentation for a table of the exact cost per filter.
 - `OnePoleLowPass`: the simplest low-pass, by smoothing weight (`new`) or by cutoff frequency
   (`from_cutoff`). This is the filter `Pid::with_derivative_filter` puts on the derivative term.
 - `MovingAverage`: the average of the last few samples, added up fresh each time so it cannot drift.
-- `RunningMedian`: their middle value instead, which drops a single bad reading outright.
+- `RunningMedian`: their middle value instead, which drops a single bad reading outright and rejects
+  a NaN before it reaches the window.
 - `SavitzkyGolay`: a small curve fitted across the window, reporting the smoothed value together
   with the slope and the bend — one noisy position reading gives a rate and an acceleration.
 - `Deadband`: treats values near zero as zero, in a plain form and one that leaves the band
@@ -147,7 +149,9 @@ with more delay, and there is no setting that avoids the trade.
 
 A sensor that drops out, a divide by zero upstream, a GPS with no fix: a NaN reaching a filter is a
 question of when, not whether. The unchecked call is for samples that have already been validated —
-it costs no branch, which is what a 1 kHz loop wants. The checked call is for everything else.
+it costs no branch, which is what a 1 kHz loop wants. The checked call is for everything else. The
+one exception is `RunningMedian`, which rejects a NaN before it reaches the window in both calls:
+its unchecked call pays the one branch, and only its checked call reports the dropout.
 
 ```rust
 use multicalc::error::SignalError;
@@ -170,24 +174,36 @@ let before = guarded.value();
 assert_eq!(guarded.filter_checked(f64::NAN), Err(SignalError::NonFinite));
 assert_eq!(guarded.value(), before);
 
-// `RunningMedian` refuses only a NaN: an infinity is an ordinary wild reading to a median, so it
-// is let through and dropped by the sort.
+// `RunningMedian` rejects only a NaN: an infinity is an ordinary wild reading to a median, so it
+// is let through and dropped by the sort, while a NaN is refused at the window boundary by both
+// entry points — the checked one just says so.
 let mut median = RunningMedian::<5, f64>::new().unwrap();
 for reading in [1.0, 1.1, 0.9, f64::INFINITY, 1.05] {
     let _ = median.filter_checked(reading);
 }
 assert_eq!(median.value(), 1.05);
 assert_eq!(median.filter_checked(f64::NAN), Err(SignalError::NonFinite));
+
+// Unchecked, the same NaN is still refused, so the answer holds where it was instead of shifting
+// to a plausible finite number that is simply wrong.
+let mut unchecked = RunningMedian::<5, f64>::new().unwrap();
+for reading in [1.0, 1.1, 0.9, 50.0, 1.05] {
+    let _ = unchecked.filter(reading);
+}
+let held = unchecked.value();
+assert_eq!(held, 1.05);
+assert_eq!(unchecked.filter(f64::NAN), held);
+assert_eq!(unchecked.value(), held);
 ```
 
 Pick one entry point per filter and stay with it: a checked call promises that *this* sample will
 not spoil the filter, not that the output is finite, so a filter already ruined through the
 unchecked call keeps returning NaN from checked calls too. `reset` is what brings it back.
 
-Two failures are silent, and no check downstream will catch them: a NaN reaching `RunningMedian`
-shifts its answer to a plausible finite number that is simply wrong, and a NaN reaching `Hysteresis`
-leaves the switch holding its last answer, so a dead sensor looks exactly like a signal parked
-inside the gap.
+One failure stays silent, and no check downstream will catch it: a NaN reaching `Hysteresis` leaves
+the switch holding its last answer, so a dead sensor looks exactly like a signal parked inside the
+gap. `RunningMedian` holds too, but at a value built only from the readings it accepted — never a
+number the data does not support — and `filter_checked` reports each rejected NaN.
 
 Errors: every constructor, the four response queries (`magnitude_at`,
 `magnitude_in_decibels_at`, `phase_at`, `delay_at`), and the checked entry points above all return

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A checked rigid-body state derivative.** `RigidBody::try_state_derivative` reports
+  `DynamicsError::DegenerateOrientation` when a state's four orientation numbers normalize to
+  nothing, a case the infallible `state_derivative` answers with an all-zero derivative that an
+  integrator reads as a body at rest — quietly freezing the run instead of stopping it.
+  @maskjelly (#286)
+- **Rotor lag thrust limits.** `RotorLag::try_with_thrust_limits` gives the lag the same thrust
+  limits the mixer was built with, and `stepped`, `stepped_over` and `with_thrusts` hold the state
+  inside them, so a command stepped straight into the lag can no longer leave it giving a thrust
+  the rotor could not physically produce — the mixer's clamp is no longer undone one stage
+  downstream. @maskjelly (#292)
 - **`no_std` MLP inference for learned policies.** `Layer` runs one dense layer of a multi-layer
   perceptron — `activation(weights · input + biases)` — over a `MatrixView` of weights and a
   `VectorView` of biases, so a policy exported as one flat buffer is read where it sits instead of
@@ -94,6 +104,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Host-only Python bindings.** `multicalc-py` is a workspace crate (`publish = false`) with a
   thin PyO3/maturin surface over a slice of crate-root `multicalc` (`f64` only, sizes fixed in
   the type name). Import `multicalc_py`. Not published to crates.io or PyPI. @rtmongold (#330)
+- **A Tock app for hardware runs.** `tools/hilshare` runs seven checks as a Tock process on the
+  three HILShare boards: the Nucleo-F411RE, the Raspberry Pi Pico 2 and the XIAO ESP32-C3. It
+  compares each answer with a known value, and each time with a budget of the board, net of
+  the round trip of the system call. CI builds its TAB on each pull request, and a maintainer
+  starts a board run with the `Board` workflow.
 
 ### Changed
 
@@ -127,6 +142,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ModelError::Io` → `ModelError::FileRead` (`multicalc-robot-model`) @rtmongold (#328)
 
 ### Fixed
+
+- **`RunningMedian` rejects a NaN at the window boundary.** Its insertion sort compared with `>`,
+  false in both directions against a NaN, so one NaN in the window left it unsorted and the middle
+  slot answered with an arbitrary finite value — the one filter meant to discard a wild lidar
+  return was defeated by exactly that. A NaN now never enters the window: the median holds at the
+  samples already accepted, `filter_checked` reports the rejection, and infinities are unchanged,
+  since the sort handles them. @maskjelly (#284)
 
 - **Large-circle occupancy rims.** `occupy_circle` now derives its sample count from a maximum
   arc length relative to grid resolution, replacing its fixed minimum angular step so large rims
