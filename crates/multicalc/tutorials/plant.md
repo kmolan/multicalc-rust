@@ -85,7 +85,9 @@ tick, which is what a loop running at a fixed rate does anyway.
 
 It sits between the two mixer calls with nothing else in between: `rotor_thrusts` says what was
 asked for, `RotorLag::stepped` says what is actually being given a tick later, and `wrench` turns
-that into the push and turn the body feels.
+that into the push and turn the body feels. `try_with_thrust_limits` carries the same limits the
+mixer was built with onto the lag, so a command stepped straight into the lag is held where the
+mixer would have held it — the whole chain is limited end to end, not only in the middle.
 
 ```rust
 use multicalc::linear_algebra::Vector;
@@ -106,7 +108,9 @@ let mixer = MultirotorMixer::<4, f64>::quadrotor_x(
 // They take 20 ms to catch up, driven by a loop running every millisecond.
 let lag_time = 0.02;
 let tick = 0.001;
-let mut rotors = RotorLag::<4, f64>::new(lag_time, tick)?;
+let mut rotors = RotorLag::<4, f64>::new(lag_time, tick)?
+    .try_with_thrust_limits(minimum_thrust, maximum_thrust)?;
+assert_eq!(rotors.maximum_thrust(), maximum_thrust);
 
 // A 0.8 kg machine asked to carry its own weight, from a standstill.
 let mass = 0.8;
@@ -190,7 +194,8 @@ Errors: `MultirotorMixer::new` and `quadrotor_x` return [`PlantError`](error-han
 `NonFinite`, `NonPositiveArmLength`, `NonPositiveTorqueRatio`, `InvalidThrustLimits`,
 `RotorLayoutNotIndependent`, or `Linalg`. `RotorLag::new` returns
 [`PlantError`](error-handling.md): `NonFinite`, `NonPositiveTimeConstant`, or
-`NonPositiveTimestep`. `PositionServo::new` and `uniform` return `NonFinite`,
+`NonPositiveTimestep`, and `RotorLag::try_with_thrust_limits` returns `NonFinite` or
+`InvalidThrustLimits`. `PositionServo::new` and `uniform` return `NonFinite`,
 `NonPositiveNaturalFrequency`, `NegativeDampingRatio`, `NonPositiveTimestep`, or `Linalg`, and
 `PositionServo::stepped_over` returns `NonFinite`, `NonPositiveTimestep`, or `Linalg` because it
 works the discretization out afresh. Everything else on the per-tick path — `rotor_thrusts`,
