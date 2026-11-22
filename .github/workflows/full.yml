@@ -43,9 +43,9 @@ jobs:
     with:
       full: true
 
-  openhil:
-    name: OpenHIL app
-    uses: ./.github/workflows/openhil.yml
+  hilshare:
+    name: HILShare app
+    uses: ./.github/workflows/hilshare.yml
 
   test:
     name: test (${{ matrix.rust }})

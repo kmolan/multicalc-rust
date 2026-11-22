@@ -257,8 +257,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "multicalc-openhil"
-version = "0.3.0"
+name = "multicalc-hilshare"
+version = "0.4.0"
 dependencies = [
  "libtock",
  "libtock_build_scripts",
