@@ -1,0 +1,129 @@
+{
+  "case": "riccati_cart_pole",
+  "expected": {
+    "K": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0xc020eab3e0dfb8ff",
+        "0xc020eed144dcbcc2",
+        "0xc04bd8bacc9b269b",
+        "0xc027b063f45862cb"
+      ],
+      "rows": 1
+    },
+    "P": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x407f4799e703031d",
+        "0x406b8f0ebc520008",
+        "0x4084de15ae5b955e",
+        "0x4060ecde71cf57cf",
+        "0x406b8f0ebc520008",
+        "0x40644806e6371a95",
+        "0x408071ac27e4a986",
+        "0x405a72b4db111cae",
+        "0x4084de15ae5b955e",
+        "0x408071ac27e4a986",
+        "0x40a161ada22b57b2",
+        "0x407a486068ba5fde",
+        "0x4060ecde71cf57cf",
+        "0x405a72b4db111cae",
+        "0x407a486068ba5fde",
+        "0x4055ba1efb4dbef5"
+      ],
+      "rows": 4
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff0000000000000",
+        "0x3f947ae147ae147c",
+        "0x3f29bc1df40574cb",
+        "0x3eb5f43e1aca0436",
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x3f941eab29b163eb",
+        "0x3f29bc1df40574ca",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff011b15497c3c0",
+        "0x3f94826d3d0749ed",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fdbaa2b5953e960",
+        "0x3ff011b15497c3c0"
+      ],
+      "rows": 4
+    },
+    "B": {
+      "cols": 1,
+      "kind": "matrix",
+      "row_major": [
+        "0x3f2a3672879ba840",
+        "0x3f947a31a5bd3e2b",
+        "0xbf3a3bb731a2eb6c",
+        "0xbfa4826d3d0749eb"
+      ],
+      "rows": 4
+    },
+    "Q": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x4024000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x4024000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000"
+      ],
+      "rows": 4
+    },
+    "R": {
+      "cols": 1,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fb999999999999a"
+      ],
+      "rows": 1
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "P = A\u1d40PA \u2212 A\u1d40PB(R + B\u1d40PB)\u207b\u00b9B\u1d40PA + Q",
+    "generator": "control",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "operations": [
+      "Riccati solve, cart and pole"
+    ],
+    "reference": "SciPy 1.14.1",
+    "sampling": "fixed textbook systems plus entries uniform in [-1, 1] from a generator-local stream; stable matrices rescaled to a largest growth factor of 0.9; SPD costs are M\u00b7M\u1d40 + I",
+    "seed": 20260706
+  },
+  "module": "control",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-09,
+      "rel": 1e-09
+    }
+  }
+}

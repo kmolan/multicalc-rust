@@ -24,13 +24,16 @@ pub struct Jet<T: Numeric, const N: usize> {
 impl<T: Numeric, const N: usize> Jet<T, N> {
     /// A jet with explicit coefficients.
     #[inline]
+    #[must_use]
     pub fn new(coeffs: [T; N]) -> Self {
         Jet { coeffs }
     }
 
     /// A constant: value in `coeffs[0]`, all derivatives zero.
     #[inline]
+    #[must_use]
     pub const fn constant(value: T) -> Self {
+        const { assert!(N >= 1, "Jet::constant requires N >= 1") };
         let mut coeffs = [T::ZERO; N];
         coeffs[0] = value;
         Jet { coeffs }
@@ -39,6 +42,7 @@ impl<T: Numeric, const N: usize> Jet<T, N> {
     /// The independent variable, seeded to read every derivative of a single-variable function
     /// (`coeffs[0] = x`, `coeffs[1] = 1`). Requires `N >= 2`.
     #[inline]
+    #[must_use]
     pub fn variable(value: T) -> Self {
         const { assert!(N >= 2, "Jet::variable needs at least 2 coefficients") };
         let mut coeffs = [T::ZERO; N];
@@ -49,19 +53,32 @@ impl<T: Numeric, const N: usize> Jet<T, N> {
 
     /// The value `f(x)` (= `coeffs[0]`).
     #[inline]
+    #[must_use]
     pub fn value(&self) -> T {
         self.coeffs[0]
     }
 
     /// The `k`-th Taylor coefficient `f⁽ᵏ⁾(x) / k!`.
     #[inline]
+    #[must_use]
     pub fn coefficient(&self, k: usize) -> T {
+        assert!(
+            k < N,
+            "coefficient index {k} out of bounds for Jet of order {}",
+            N.saturating_sub(1)
+        );
         self.coeffs[k]
     }
 
     /// The `k`-th derivative `f⁽ᵏ⁾(x)` (= `k! · coeffs[k]`).
     #[inline]
+    #[must_use]
     pub fn derivative(&self, k: usize) -> T {
+        assert!(
+            k < N,
+            "derivative index {k} out of bounds for Jet of order {}",
+            N.saturating_sub(1)
+        );
         let mut factorial = T::ONE;
         for i in 2..=k {
             factorial *= T::from_usize(i);
@@ -113,16 +130,16 @@ impl<T: Numeric, const N: usize> Div for Jet<T, N> {
     /// `inf`/`NaN`, as with plain floats.
     #[inline]
     fn div(self, rhs: Self) -> Self {
-        let b0 = rhs.coeffs[0];
-        let mut c = [T::ZERO; N];
+        let b_zero = rhs.coeffs[0];
+        let mut quot = [T::ZERO; N];
         for k in 0..N {
             let mut acc = self.coeffs[k];
-            for (i, &ci) in c.iter().enumerate().take(k) {
-                acc -= ci * rhs.coeffs[k - i];
+            for (i, &coeff) in quot.iter().enumerate().take(k) {
+                acc -= coeff * rhs.coeffs[k - i];
             }
-            c[k] = acc / b0;
+            quot[k] = acc / b_zero;
         }
-        Jet { coeffs: c }
+        Jet { coeffs: quot }
     }
 }
 
@@ -184,25 +201,26 @@ impl<T: Numeric, const N: usize> PartialOrd for Jet<T, N> {
 impl<T: Numeric, const N: usize> Jet<T, N> {
     /// `sin` and `cos` of the jet, computed together (each recurrence needs the other).
     #[inline]
+    #[must_use]
     fn sin_cos(self) -> (Self, Self) {
-        let v = &self.coeffs;
-        let mut s = [T::ZERO; N];
-        let mut c = [T::ZERO; N];
-        s[0] = v[0].sin();
-        c[0] = v[0].cos();
+        let coeffs = &self.coeffs;
+        let mut sin_coeffs = [T::ZERO; N];
+        let mut cos_coeffs = [T::ZERO; N];
+        sin_coeffs[0] = coeffs[0].sin();
+        cos_coeffs[0] = coeffs[0].cos();
         for k in 1..N {
-            let mut sk = T::ZERO;
-            let mut ck = T::ZERO;
+            let mut sin_acc = T::ZERO;
+            let mut cos_acc = T::ZERO;
             for i in 1..=k {
-                let weighted = T::from_usize(i) * v[i];
-                sk += weighted * c[k - i];
-                ck += weighted * s[k - i];
+                let weighted = T::from_usize(i) * coeffs[i];
+                sin_acc += weighted * cos_coeffs[k - i];
+                cos_acc += weighted * sin_coeffs[k - i];
             }
             let kth = T::from_usize(k);
-            s[k] = sk / kth;
-            c[k] = -(ck / kth);
+            sin_coeffs[k] = sin_acc / kth;
+            cos_coeffs[k] = -(cos_acc / kth);
         }
-        (Jet { coeffs: s }, Jet { coeffs: c })
+        (Jet { coeffs: sin_coeffs }, Jet { coeffs: cos_coeffs })
     }
 }
 
@@ -210,9 +228,13 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     const ZERO: Self = Self::constant(T::ZERO);
     const ONE: Self = Self::constant(T::ONE);
     const TWO: Self = Self::constant(T::TWO);
+    const THREE: Self = Self::constant(T::THREE);
     const HALF: Self = Self::constant(T::HALF);
+    const TEN: Self = Self::constant(T::TEN);
     const HUNDRED: Self = Self::constant(T::HUNDRED);
+    const ONE_HUNDRED_EIGHTY: Self = Self::constant(T::ONE_HUNDRED_EIGHTY);
     const PI: Self = Self::constant(T::PI);
+    const TWO_PI: Self = Self::constant(T::TWO_PI);
     const EPSILON: Self = Self::constant(T::EPSILON);
     const EPSILON_X4: Self = Self::constant(T::EPSILON_X4);
     const EPSILON_X30: Self = Self::constant(T::EPSILON_X30);
@@ -221,6 +243,8 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     const NEG_INFINITY: Self = Self::constant(T::NEG_INFINITY);
     const MAX: Self = Self::constant(T::MAX);
     const MIN_POSITIVE: Self = Self::constant(T::MIN_POSITIVE);
+
+    type Constant = T;
 
     #[inline]
     fn from_f64(value: f64) -> Self {
@@ -252,17 +276,57 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     /// `uₖ = (vₖ − Σ_{i=1..k-1} uᵢ·u₍ₖ₋ᵢ₎) / (2u₀)`. Unbounded at `value == 0`.
     #[inline]
     fn sqrt(self) -> Self {
-        let v = &self.coeffs;
-        let mut u = [T::ZERO; N];
-        u[0] = v[0].sqrt();
+        let coeffs = &self.coeffs;
+        let mut out = [T::ZERO; N];
+        out[0] = coeffs[0].sqrt();
         for k in 1..N {
             let mut acc = T::ZERO;
             for i in 1..k {
-                acc += u[i] * u[k - i];
+                acc += out[i] * out[k - i];
             }
-            u[k] = (v[k] - acc) / (T::TWO * u[0]);
+            out[k] = (coeffs[k] - acc) / (T::TWO * out[0]);
         }
-        Jet { coeffs: u }
+        Jet { coeffs: out }
+    }
+
+    /// Cube root via Cauchy-product recurrence.
+    ///
+    /// We want `u = v^(1/3)`, i.e. `u·u·u = v` (Cauchy product). Writing `w = u·u`
+    /// (the Cauchy square, built up incrementally alongside `u`), the coefficient of
+    /// `u_k` in `(u·u·u)_k` is `3·u₀²` (it appears once from `i=k, j=l=0` and twice
+    /// more from `w`'s own `u₀·u_k` term), so:
+    ///
+    /// `uₖ = (vₖ − u₀·Σ_{m=1}^{k-1} uₘ·u₍ₖ₋ₘ₎ − Σ_{i=1}^{k-1} uᵢ·w₍ₖ₋ᵢ₎) / (3u₀²)`
+    ///
+    /// Unbounded at `value == 0`.
+    #[inline]
+    fn cbrt(self) -> Self {
+        let coeffs = &self.coeffs;
+        let mut out = [T::ZERO; N];
+        let mut w = [T::ZERO; N]; // w[j] = (u·u)[j] = Σ_{m=0..=j} out[m]·out[j-m]
+
+        out[0] = coeffs[0].cbrt();
+        w[0] = out[0] * out[0];
+        let three_u0_sq = w[0] + T::TWO * w[0];
+
+        for k in 1..N {
+            // p = Σ_{m=1}^{k-1} out[m]·out[k-m]  (the part of w[k] not involving out[0] or out[k])
+            let mut power_sum = T::ZERO;
+            for term in 1..k {
+                power_sum += out[term] * out[k - term];
+            }
+
+            // acc = everything in (u·u·u)[k] except the 3·u0²·u_k term
+            let mut acc = out[0] * power_sum;
+            for i in 1..k {
+                acc += out[i] * w[k - i];
+            }
+
+            out[k] = (coeffs[k] - acc) / three_u0_sq;
+            w[k] = power_sum + T::TWO * out[0] * out[k]; // complete w[k] now that out[k] is known
+        }
+
+        Jet { coeffs: out }
     }
 
     #[inline]
@@ -284,33 +348,78 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     /// `uₖ = (1/k) Σ_{i=1..k} i·vᵢ·u₍ₖ₋ᵢ₎`.
     #[inline]
     fn exp(self) -> Self {
-        let v = &self.coeffs;
-        let mut u = [T::ZERO; N];
-        u[0] = v[0].exp();
+        let coeffs = &self.coeffs;
+        let mut out = [T::ZERO; N];
+        out[0] = coeffs[0].exp();
         for k in 1..N {
             let mut acc = T::ZERO;
             for i in 1..=k {
-                acc += T::from_usize(i) * v[i] * u[k - i];
+                acc += T::from_usize(i) * coeffs[i] * out[k - i];
             }
-            u[k] = acc / T::from_usize(k);
+            out[k] = acc / T::from_usize(k);
         }
-        Jet { coeffs: u }
+        Jet { coeffs: out }
+    }
+
+    #[inline]
+    fn expm1(self) -> Self {
+        let em1 = self.coeffs[0].expm1();
+        let Self { mut coeffs } = self.exp();
+        coeffs[0] = em1;
+        Self { coeffs }
     }
 
     /// `uₖ = (1/v₀)( vₖ − (1/k) Σ_{j=1..k-1} j·uⱼ·v₍ₖ₋ⱼ₎ )`. Defined for `value > 0`.
     #[inline]
-    fn ln(self) -> Self {
-        let v = &self.coeffs;
-        let mut u = [T::ZERO; N];
-        u[0] = v[0].ln();
+    fn log(self) -> Self {
+        let coeffs = &self.coeffs;
+        let mut out = [T::ZERO; N];
+        out[0] = coeffs[0].log();
         for k in 1..N {
             let mut acc = T::ZERO;
             for j in 1..k {
-                acc += T::from_usize(j) * u[j] * v[k - j];
+                acc += T::from_usize(j) * out[j] * coeffs[k - j];
             }
-            u[k] = (v[k] - acc / T::from_usize(k)) / v[0];
+            out[k] = (coeffs[k] - acc / T::from_usize(k)) / coeffs[0];
         }
-        Jet { coeffs: u }
+        Jet { coeffs: out }
+    }
+
+    /// `uₖ = (1/(1 + v₀))( vₖ − (1/k) Σ_{j=1..k-1} j·uⱼ·v₍ₖ₋ⱼ₎ )`. Defined for `value > 0`.
+    #[inline]
+    fn ln_1p(self) -> Self {
+        let coeffs = &self.coeffs;
+        let one_plus_v0 = coeffs[0] + T::ONE;
+        let mut out = [T::ZERO; N];
+        out[0] = coeffs[0].ln_1p();
+        for k in 1..N {
+            let mut acc = T::ZERO;
+            for j in 1..k {
+                acc += T::from_usize(j) * out[j] * coeffs[k - j];
+            }
+            out[k] = (coeffs[k] - acc / T::from_usize(k)) / one_plus_v0;
+        }
+        Jet { coeffs: out }
+    }
+
+    #[inline]
+    fn log2(self) -> Self {
+        let ln2 = T::TWO.log();
+        let Self { mut coeffs } = self.log();
+        for x in coeffs.iter_mut() {
+            *x /= ln2;
+        }
+        Self { coeffs }
+    }
+
+    #[inline]
+    fn log10(self) -> Self {
+        let ln10 = T::TEN.log();
+        let Self { mut coeffs } = self.log();
+        for x in coeffs.iter_mut() {
+            *x /= ln10;
+        }
+        Self { coeffs }
     }
 
     /// Four-quadrant arctangent. `u = atan2(y, x)` satisfies `(x²+y²)·u′ = x·y′ − y·x′`,
@@ -322,32 +431,32 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
         let x = other.coeffs;
         // w = x² + y², via the existing jet operators.
         let w = (other * other + self * self).coeffs;
-        let mut u = [T::ZERO; N];
-        u[0] = y[0].atan2(x[0]);
+        let mut out = [T::ZERO; N];
+        out[0] = y[0].atan2(x[0]);
         for k in 1..N {
             let mut acc = T::ZERO;
             for i in 0..k {
-                let m = T::from_usize(k - i);
-                acc += m * (x[i] * y[k - i] - y[i] * x[k - i]);
+                let weight = T::from_usize(k - i);
+                acc += weight * (x[i] * y[k - i] - y[i] * x[k - i]);
             }
             for i in 1..k {
-                acc -= w[i] * T::from_usize(k - i) * u[k - i];
+                acc -= w[i] * T::from_usize(k - i) * out[k - i];
             }
-            u[k] = acc / (T::from_usize(k) * w[0]);
+            out[k] = acc / (T::from_usize(k) * w[0]);
         }
-        Jet { coeffs: u }
+        Jet { coeffs: out }
     }
 
     /// Magnitude of `self` with the sign of `sign`. Away from a sign flip the whole series is
     /// scaled by `s = ±1`; the value coefficient is set by `copysign` so signed zero is exact.
     #[inline]
     fn copysign(self, sign: Self) -> Self {
-        let s = if (self.coeffs[0] < T::ZERO) == (sign.coeffs[0] < T::ZERO) {
+        let sign_scale = if (self.coeffs[0] < T::ZERO) == (sign.coeffs[0] < T::ZERO) {
             T::ONE
         } else {
             -T::ONE
         };
-        let mut coeffs = core::array::from_fn(|k| s * self.coeffs[k]);
+        let mut coeffs = core::array::from_fn(|k| sign_scale * self.coeffs[k]);
         coeffs[0] = self.coeffs[0].copysign(sign.coeffs[0]);
         Jet { coeffs }
     }
@@ -356,6 +465,40 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     #[inline]
     fn floor(self) -> Self {
         Jet::constant(self.coeffs[0].floor())
+    }
+
+    /// Largest integer `>= self`; all higher coefficients (the derivatives) are zero.
+    #[inline]
+    fn ceil(self) -> Self {
+        Jet::constant(self.coeffs[0].ceil())
+    }
+
+    /// Nearest integer, ties away from zero; all higher coefficients (the derivatives) are zero.
+    #[inline]
+    fn round(self) -> Self {
+        Jet::constant(self.coeffs[0].round())
+    }
+
+    /// Rounds towards zero, effectively removing the decimal part.
+    /// A step function, so the derivative is zero.
+    #[inline]
+    fn trunc(self) -> Self {
+        Jet::constant(self.coeffs[0].trunc())
+    }
+
+    /// Restrict a value to the interval `[min, max]`. Inside this range
+    /// it is the identity function, so nothing changes. Outside this range
+    /// it is a constant function (equal to either `min` or `max`), so the derivative
+    /// is equal to zero.
+    #[inline]
+    fn clamp(self, min: Self::Constant, max: Self::Constant) -> Self {
+        if self.coeffs[0] < min {
+            Jet::constant(min)
+        } else if max < self.coeffs[0] {
+            Jet::constant(max)
+        } else {
+            self
+        }
     }
 
     /// Reflects the value only; the higher coefficients are not inspected.
@@ -369,5 +512,11 @@ impl<T: Numeric, const N: usize> Numeric for Jet<T, N> {
     #[inline]
     fn is_finite(self) -> bool {
         self.coeffs[0].is_finite()
+    }
+
+    /// Reflects the value only; an infinite value can still carry finite coefficients.
+    #[inline]
+    fn is_infinite(self) -> bool {
+        self.coeffs[0].is_infinite()
     }
 }

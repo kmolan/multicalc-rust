@@ -1,0 +1,171 @@
+{
+  "case": "riccati_mixed_5x2",
+  "expected": {
+    "K": {
+      "cols": 5,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fb622e61402b3ad",
+        "0x3fcf3a83f2430402",
+        "0xbfb06f987742e563",
+        "0xbfb8f1f1def5363a",
+        "0xbfc1f00edefbc8d4",
+        "0x3fc92908ec626a10",
+        "0x3fb9d65cc6665298",
+        "0x3fcc5630b954a87c",
+        "0xbfab626b943e2802",
+        "0xbfd6e8c13a17eaf8"
+      ],
+      "rows": 2
+    },
+    "P": {
+      "cols": 5,
+      "kind": "matrix",
+      "row_major": [
+        "0x40011865ee0c8f0d",
+        "0xbfc0669ab15c8483",
+        "0x3fca9b2ea8ae0a89",
+        "0x3fd914f0c1ed98b0",
+        "0xbfd50a0769a5c801",
+        "0xbfc0669ab15c8483",
+        "0x40026e34091cbbe6",
+        "0x3fee14b32c6a5436",
+        "0xbfe444cece6b8c69",
+        "0x3fa187018db012ba",
+        "0x3fca9b2ea8ae0a89",
+        "0x3fee14b32c6a5436",
+        "0x400ccda22ac91397",
+        "0xbfd1a1ac9a01f35a",
+        "0x3fea568e59288082",
+        "0x3fd914f0c1ed98b0",
+        "0xbfe444cece6b8c69",
+        "0xbfd1a1ac9a01f35a",
+        "0x4008d2f233146e55",
+        "0x3fccf86f85df34f0",
+        "0xbfd50a0769a5c801",
+        "0x3fa187018db012ba",
+        "0x3fea568e59288082",
+        "0x3fccf86f85df34f0",
+        "0x40119742b4aeeaec"
+      ],
+      "rows": 5
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 5,
+      "kind": "matrix",
+      "row_major": [
+        "0x3f903e0e225a8380",
+        "0x3f9bd2eb68d1db80",
+        "0xbfbd22cb6131c24c",
+        "0x3f5cb8e1a8db1e00",
+        "0x3fd202adee3f0f60",
+        "0xbfa32dc6ea35ea80",
+        "0x3fd46d38a6b66838",
+        "0xbfd31d8c6115d451",
+        "0xbfd2c75279cd4214",
+        "0xbfb5462503743288",
+        "0xbfd484b458199d70",
+        "0xbfc37c3dda2b4c98",
+        "0xbf85bc92ad0a5040",
+        "0x3fdf838f0e272fd6",
+        "0x3fe22586f7da80c3",
+        "0x3fcb32bc038b80e0",
+        "0x3fe18d87ead7a417",
+        "0x3fe0413500796a8d",
+        "0xbfbdddfc9b4a8828",
+        "0xbfd307a006577665",
+        "0xbfaa719ae9135400",
+        "0xbfca4267c1ab3cf2",
+        "0x3fc12ab40cd32ab8",
+        "0xbfd6b3966208bd06",
+        "0x3fd9dd542979aae2"
+      ],
+      "rows": 5
+    },
+    "B": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fefdaf80fb93072",
+        "0xbfcbe1a0a96ba448",
+        "0x3fee5e9717605302",
+        "0xbfe92c46ea1f6e34",
+        "0xbfe9920deaacd70e",
+        "0xbfebf4c633b0e8ce",
+        "0x3fe29cc3f64f6bba",
+        "0x3fe72bbce9c53e96",
+        "0xbfcfe0b5fadc87d8",
+        "0xbfd9a44889756060"
+      ],
+      "rows": 5
+    },
+    "Q": {
+      "cols": 5,
+      "kind": "matrix",
+      "row_major": [
+        "0x40007d92b830c4cc",
+        "0xbfc479379e52bb4a",
+        "0x3fc2282e116496e6",
+        "0x3fe229930257839f",
+        "0xbfcca7b486ea6696",
+        "0xbfc479379e52bb4a",
+        "0x3ffcb4e430038bb7",
+        "0x3fe45944b2103637",
+        "0xbfe7194d1fe82920",
+        "0x3fcb82b49adda848",
+        "0x3fc2282e116496e6",
+        "0x3fe45944b2103637",
+        "0x400615f58593a482",
+        "0xbfa9c5f3d5a7ada7",
+        "0x3fdb0e03d5579e56",
+        "0x3fe229930257839f",
+        "0xbfe7194d1fe82920",
+        "0xbfa9c5f3d5a7ada7",
+        "0x4000dab869a27c76",
+        "0x3fcd1e6342c4bf3f",
+        "0xbfcca7b486ea6696",
+        "0x3fcb82b49adda848",
+        "0x3fdb0e03d5579e56",
+        "0x3fcd1e6342c4bf3f",
+        "0x400c8e1b72193703"
+      ],
+      "rows": 5
+    },
+    "R": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000"
+      ],
+      "rows": 2
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "P = A\u1d40PA \u2212 A\u1d40PB(R + B\u1d40PB)\u207b\u00b9B\u1d40PA + Q",
+    "generator": "control",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "operations": [
+      "Riccati solve, mixed 5\u00d72 system"
+    ],
+    "reference": "SciPy 1.14.1",
+    "sampling": "fixed textbook systems plus entries uniform in [-1, 1] from a generator-local stream; stable matrices rescaled to a largest growth factor of 0.9; SPD costs are M\u00b7M\u1d40 + I",
+    "seed": 20260706
+  },
+  "module": "control",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-09,
+      "rel": 1e-09
+    }
+  }
+}

@@ -7,15 +7,16 @@
 //! registry; the golden is the exact integral. Finite-domain polynomial cases
 //! also run an f32 pass against the f32 tolerance.
 
-use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
-use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
-use multicalc::numerical_integration::iterative_integration::IterativeSingle;
-use multicalc::numerical_integration::mode::{GaussianQuadratureMethod, IterativeMethod};
+use multicalc::numerical_integration::GaussianSingle;
+use multicalc::numerical_integration::IntegratorSingleVariable;
+use multicalc::numerical_integration::IterativeSingle;
+use multicalc::numerical_integration::{GaussianQuadratureMethod, IterativeMethod};
 use multicalc_qa::load::*;
-use multicalc_qa::problems::{integrand_f32, integrand_f64};
+use multicalc_qa::problems::integrand;
 
-fn iterative_method(s: &str) -> IterativeMethod {
-    match s {
+#[must_use]
+fn iterative_method(name: &str) -> IterativeMethod {
+    match name {
         "Booles" => IterativeMethod::Booles,
         "Simpsons" => IterativeMethod::Simpsons,
         "Trapezoidal" => IterativeMethod::Trapezoidal,
@@ -23,8 +24,9 @@ fn iterative_method(s: &str) -> IterativeMethod {
     }
 }
 
-fn gaussian_method(s: &str) -> GaussianQuadratureMethod {
-    match s {
+#[must_use]
+fn gaussian_method(name: &str) -> GaussianQuadratureMethod {
+    match name {
         "GaussLegendre" => GaussianQuadratureMethod::GaussLegendre,
         "GaussHermite" => GaussianQuadratureMethod::GaussHermite,
         "GaussLaguerre" => GaussianQuadratureMethod::GaussLaguerre,
@@ -34,53 +36,57 @@ fn gaussian_method(s: &str) -> GaussianQuadratureMethod {
 
 #[test]
 fn quadrature() {
-    for fx in load_dir("fixtures/v1/quadrature") {
-        let integrand = fx.inputs["integrand"].as_str();
-        let family = fx.inputs["family"].as_str();
-        let method = fx.inputs["method"].as_str();
-        let param = fx.inputs["param"].as_int();
-        let lv = fx.inputs["limits"].as_vector();
-        let limits = [lv[0], lv[1]];
+    for fixture in load_dir("quadrature") {
+        let integrand_key = fixture.inputs["integrand"].as_str();
+        let family = fixture.inputs["family"].as_str();
+        let method = fixture.inputs["method"].as_str();
+        let param = fixture.inputs["param"].as_int();
+        let limits_vec = fixture.inputs["limits"].as_vector();
+        let limits = [limits_vec[0], limits_vec[1]];
 
-        let f = integrand_f64(integrand);
+        let f = integrand::<f64>(integrand_key);
         let value = match family {
             "iterative" => {
                 IterativeSingle::<f64>::from_parameters(param as u64, iterative_method(method))
-                    .get_single(&f, &limits)
+                    .single_integral(&f, &limits)
                     .unwrap()
             }
             "gaussian" => {
                 GaussianSingle::<f64>::from_parameters(param as usize, gaussian_method(method))
-                    .get_single(&f, &limits)
+                    .single_integral(&f, &limits)
                     .unwrap()
             }
             other => panic!("unknown family {other}"),
         };
-        let t = fx.tolerances.get("f64", "host");
-        assert_scalar(value, &fx.expected["integral"], t, integrand);
+        let tolerance = fixture.tolerances.f64;
+        assert_scalar(
+            value,
+            &fixture.expected["integral"],
+            tolerance,
+            integrand_key,
+        );
 
         // f32 pass for the finite-domain polynomial cases (those carry an f32 tolerance).
-        if fx.tolerances.table.contains_key("f32/host") {
-            let f32_fn = integrand_f32(integrand);
+        if let Some(tolerance32) = fixture.tolerances.f32 {
+            let f32_fn = integrand::<f32>(integrand_key);
             let limits32 = [limits[0] as f32, limits[1] as f32];
             let value32 = match family {
                 "iterative" => {
                     IterativeSingle::<f32>::from_parameters(param as u64, iterative_method(method))
-                        .get_single(&f32_fn, &limits32)
+                        .single_integral(&f32_fn, &limits32)
                         .unwrap()
                 }
                 "gaussian" => {
                     GaussianSingle::<f32>::from_parameters(param as usize, gaussian_method(method))
-                        .get_single(&f32_fn, &limits32)
+                        .single_integral(&f32_fn, &limits32)
                         .unwrap()
                 }
                 other => panic!("unknown family {other}"),
             };
-            let t32 = fx.tolerances.get("f32", "host");
-            let want = fx.expected["integral"].as_scalar();
+            let want = fixture.expected["integral"].as_scalar();
             assert!(
-                close(value32 as f64, want, t32),
-                "{integrand} f32: got {value32}, want {want}, tol {t32:?}"
+                close(value32 as f64, want, tolerance32),
+                "{integrand_key} f32: got {value32}, want {want}, tol {tolerance32:?}"
             );
         }
     }

@@ -1,0 +1,44 @@
+{
+  "case": "vfield_line_circle",
+  "expected": {
+    "line_integral": {
+      "kind": "scalar",
+      "v": "0xc01921fb54442d18"
+    }
+  },
+  "inputs": {
+    "limits": {
+      "data": [
+        "0x0000000000000000",
+        "0x401921fb54442d18"
+      ],
+      "kind": "vector"
+    },
+    "op": {
+      "kind": "str",
+      "v": "line_integral"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "[y, -x]",
+    "generator": "calculus",
+    "libraries": {
+      "mpmath": "1.3.0"
+    },
+    "operations": [
+      "Line integral on the unit circle"
+    ],
+    "reference": "closed-form analytic (mpmath 1.3.0)",
+    "sampling": "closed-form analytic; mpmath high-precision derivatives",
+    "seed": 20260706
+  },
+  "module": "calculus",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 0.005,
+      "rel": 0.005
+    }
+  }
+}

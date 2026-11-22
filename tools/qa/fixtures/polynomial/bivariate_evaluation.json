@@ -1,0 +1,87 @@
+{
+  "case": "bivariate_evaluation",
+  "expected": {
+    "values": {
+      "data": [
+        "0xc034800000000000",
+        "0xbff0000000000000",
+        "0xbfd9000000000000",
+        "0x402e000000000000",
+        "0xc01a800000000000",
+        "0x3fc374bc6a7ef9e8"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "kind": {
+      "kind": "str",
+      "v": "multivariate_evaluation"
+    },
+    "points": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff8000000000000",
+        "0xc000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0xbfe8000000000000",
+        "0x400a000000000000",
+        "0x4000000000000000",
+        "0x3ff0000000000000",
+        "0xbff8000000000000",
+        "0xbff8000000000000",
+        "0x3fd999999999999a",
+        "0x3feccccccccccccd"
+      ],
+      "rows": 6
+    },
+    "terms": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x4008000000000000",
+        "0x4000000000000000",
+        "0x3ff0000000000000",
+        "0x4000000000000000",
+        "0x3ff0000000000000",
+        "0x3ff0000000000000",
+        "0xbff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "rows": 3
+    },
+    "variable_count": {
+      "kind": "int",
+      "v": 2
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "3x\u00b2y + 2xy \u2212 1",
+    "generator": "polynomial",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "operations": [
+      "values at six points, from a dense grid"
+    ],
+    "reference": "NumPy 2.1.3",
+    "sampling": "hand-chosen coefficients and factored polynomials with known roots",
+    "seed": 20260706
+  },
+  "module": "polynomial",
+  "schema_version": 2,
+  "tolerances": {
+    "f32": {
+      "abs": 0.0001,
+      "rel": 0.0001
+    },
+    "f64": {
+      "abs": 1e-12,
+      "rel": 1e-12
+    }
+  }
+}

@@ -35,12 +35,18 @@ locally anyway, the setup lives in [ci/README.md](ci/README.md) (optional).
 
 - **No panics on library paths** — fallible ops return typed per-module errors (`LinalgError`,
   `DiffError`, `IntegrateError`, `SolveError`), never `unwrap`. Clippy enforces this.
+- **Fallible functions take a `try_` prefix** — `try_row`, `try_from_slice` — `Option` or
+  `Result` alike.
+- **A `Mut` type mirrors its read-only twin**, plus what writing adds; document any gap.
 - **Stay generic over the scalar** — inside generic code, never call an `f64`-only
   function (it silently drops the autodiff payload). Use the `Numeric` trait surface.
+- **Descriptive names** — variables and other names need to be as clear as possible: `matrix`,
+  not `m`.
 - **Tests**: f64 assertions may use golden values; f32 correctness is asserted via
   mathematical identities (e.g. reconstruction, round-trips), not goldens.
-- **Docs**: public APIs get a doc example; behavior notes (NaN policy, iteration
-  budgets) live on the item.
+- **Docs**: public APIs get a doc example — one or two sentences, then the example. Don't name a
+  method that doesn't exist. Behavior notes (NaN policy, iteration budgets) live on the item, and
+  new API earns a line on its [tutorial page](crates/multicalc/tutorials/), compiled as a doctest.
 
 ## Where does a check go?
 
@@ -56,16 +62,26 @@ the layer that matches and not duplicating another's.
 | `demos/examples/showcase/` | live Rerun demos; measured numbers only | panic on edge cases (errors render as demo states); hardcode a perf claim |
 | `tools/qa` | cross-implementation goldens (numpy/mpmath/MINPACK); `.md` accuracy tables generated from the fixtures | duplicate self-consistency tests; hand-edit the generated tables |
 | `tools/embedded-smoke` | on-target FP-path + stack/text budgets; goldens only via generated `fixtures.rs` | hand-write golden values |
+| `tools/hilshare` | answers and time budgets on the three HILShare boards, as a Tock app; goldens from the generated `fixtures.rs` of embedded-smoke | write a golden value by hand; move a budget with no board figure |
 
 Shared problem definitions and tolerance helpers live in `tools/testkit`, so a problem is
 declared once and reused across `tests/suite/`, the QA crate, and embedded-smoke.
 
+The QA fixtures are regenerated with `tools/qa/gen/generate.sh`, which needs Python 3.12. See [Regeneration](tools/qa/README.md#regeneration) for what it sets up and when
+to rebuild the lock file.
+
 ## Releasing
 
 Releases are automated from `main`:
+1. When that PR merges, the release workflow publishes to crates.io and creates a `vX.Y.Z` tag and GitHub release whose notes come from the matching changelog section.
+2. The `Cargo.toml` version and the top dated changelog heading must match; a bump with no changelog entry fails the release.
 
-1. In a PR, bump `version` in `Cargo.toml` and rename the `## [Unreleased]` heading in `CHANGELOG.md` to `## [X.Y.Z] - YYYY-MM-DD` (matching the new version), then open a fresh empty `## [Unreleased]` section above it. Refresh the comparison/tag links at the bottom of the changelog (point `[Unreleased]` at `vX.Y.Z...HEAD` and add a `[X.Y.Z]` tag link).
-2. When that PR merges, the release workflow publishes to crates.io and creates a `vX.Y.Z` tag and GitHub release whose notes come from the matching changelog section.
-3. The `Cargo.toml` version and the top dated changelog heading must match; a bump with no changelog entry fails the release.
+Before step 1, build the docs the way docs.rs will and skim the result — docs.rs only rebuilds on a publish, so a broken page stays broken until the next release:
+
+```sh
+RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc -p multicalc --no-deps --all-features
+```
+
+The `--cfg docsrs` flag is nightly-only and turns on the "Available on crate feature `alloc` only" badges. Check that the `alloc`-gated items (`ParticleFilter`, `Jacobian::get_on_heap`) are present and badged.
 
 Thank you for all the contributions!

@@ -41,7 +41,7 @@ def _differentiation(out, meta):
     x0 = 2.0
     f = problems.scalar1(key)
     probe = float(f(mpmath.mpf(x0)))
-    for order in (1, 2, 3):
+    for order, ordinal in ((1, "1st"), (2, "2nd"), (3, "3rd")):
         value = mpmath.diff(f, x0, order)
         inputs = {
             "op": schema.string("derivative"),
@@ -55,7 +55,9 @@ def _differentiation(out, meta):
         }
         schema.write_fixture(
             out, "calculus", f"cube_diff_o{order}", meta,
-            {"f64/host": schema.tol(1e-12, 1e-12)}, inputs, expected,
+            {"f64": schema.tol(1e-12, 1e-12)}, inputs, expected,
+            equation="x³",
+            operations=[f"{ordinal} derivative at x=2"],
         )
 
 
@@ -64,7 +66,11 @@ def _partials(out, meta):
     point = [1.0, 2.0, 3.0]
     f = problems.scalarn(key)
     probe = float(f(_mpf_point(point)))
-    for suffix, axes in (("x", [0]), ("xy", [0, 1]), ("xxy", [0, 0, 1])):
+    for suffix, axes, operation in (
+        ("x", [0], "∂/∂x at (1,2,3)"),
+        ("xy", [0, 1], "∂²/∂x∂y at (1,2,3)"),
+        ("xxy", [0, 0, 1], "∂³/∂x²∂y at (1,2,3)"),
+    ):
         orders = [0, 0, 0]
         for a in axes:
             orders[a] += 1
@@ -81,14 +87,18 @@ def _partials(out, meta):
         }
         schema.write_fixture(
             out, "calculus", f"g_transcendental_partial_{suffix}", meta,
-            {"f64/host": schema.tol(1e-10, 1e-10)}, inputs, expected,
+            {"f64": schema.tol(1e-10, 1e-10)}, inputs, expected,
+            equation="g = y·sin x + x·cos y + x·y·eᶻ",
+            operations=[operation],
         )
 
 
 def _jacobians(out, meta):
-    for case, key, point, funcs, nvars in (
-        ("jacobian_23", "jac_23", [1.0, 2.0, 3.0], 2, 3),
-        ("jacobian_66", "jac_66", [1.0, 2.0, 3.0, 4.0, 5.0, 6.0], 6, 6),
+    for case, key, point, funcs, nvars, operation, equation in (
+        ("jacobian_23", "jac_23", [1.0, 2.0, 3.0], 2, 3,
+         "Jacobian at (1,2,3)", "[x·y·z, x² + y²]"),
+        ("jacobian_66", "jac_66", [1.0, 2.0, 3.0, 4.0, 5.0, 6.0], 6, 6,
+         "Jacobian at (1,2,3,4,5,6)", "six coupled functions of six variables"),
     ):
         f = problems.vectorfn(key)
         probe = [float(x) for x in f(_mpf_point(point))]
@@ -110,7 +120,8 @@ def _jacobians(out, meta):
         }
         schema.write_fixture(
             out, "calculus", case, meta,
-            {"f64/host": schema.tol(1e-10, 1e-10)}, inputs, expected,
+            {"f64": schema.tol(1e-10, 1e-10)}, inputs, expected,
+            equation=equation, operations=[operation],
         )
 
 
@@ -137,7 +148,9 @@ def _hessian(out, meta):
     expected = {"hessian": schema.matrix(hess), "f_at_probe": schema.scalar(probe)}
     schema.write_fixture(
         out, "calculus", "hessian_3x3", meta,
-        {"f64/host": schema.tol(1e-10, 1e-10)}, inputs, expected,
+        {"f64": schema.tol(1e-10, 1e-10)}, inputs, expected,
+        equation="y·sin x + 2x·eʸ + z²",
+        operations=["Hessian at (1,2,3)"],
     )
 
 
@@ -169,7 +182,9 @@ def _vector_field(out, meta):
     }
     schema.write_fixture(
         out, "calculus", "vfield_curl_div", meta,
-        {"f64/host": schema.tol(1e-12, 1e-12)}, inputs, expected,
+        {"f64": schema.tol(1e-12, 1e-12)}, inputs, expected,
+        equation="[y, -x, 2z]",
+        operations=["Curl at (1,2,3)", "Divergence at (1,2,3)"],
     )
 
     # Line and flux integrals of the field [y, -x] along the unit circle
@@ -185,16 +200,20 @@ def _vector_field(out, meta):
     limits = [0.0, float(two_pi)]
     # multicalc integrates the line/flux with a default 120-point secant-trapezoidal
     # rule, so its result trails the exact analytic value by O(1/N^2) ~ 3e-3.
-    tol_int = {"f64/host": schema.tol(5e-3, 5e-3)}
+    tol_int = {"f64": schema.tol(5e-3, 5e-3)}
     schema.write_fixture(
         out, "calculus", "vfield_line_circle", meta, tol_int,
         {"op": schema.string("line_integral"), "limits": schema.vector(limits)},
         {"line_integral": schema.scalar(float(line))},
+        equation="[y, -x]",
+        operations=["Line integral on the unit circle"],
     )
     schema.write_fixture(
         out, "calculus", "vfield_flux_circle", meta, tol_int,
         {"op": schema.string("flux_integral"), "limits": schema.vector(limits)},
         {"flux_integral": schema.scalar(float(flux))},
+        equation="[y, -x]",
+        operations=["Flux integral on the unit circle"],
     )
 
 
@@ -231,7 +250,10 @@ def _approximation(out, meta):
     }
     schema.write_fixture(
         out, "calculus", "approx_taylor", meta,
-        {"f64/host": schema.tol(1e-12, 1e-12)}, inputs, expected,
+        {"f64": schema.tol(1e-12, 1e-12)}, inputs, expected,
+        equation="x + y² + z³",
+        operations=["Linear Taylor predict at (1.1,2.1,2.9)",
+                    "Quadratic Taylor predict at (1.1,2.1,2.9)"],
     )
 
 
@@ -240,6 +262,7 @@ def run(out, seed):
         "calculus", seed,
         "closed-form analytic; mpmath high-precision derivatives",
         libraries=("mpmath",),
+        reference="closed-form analytic (mpmath {mpmath})",
     )
     _differentiation(out, meta)
     _partials(out, meta)

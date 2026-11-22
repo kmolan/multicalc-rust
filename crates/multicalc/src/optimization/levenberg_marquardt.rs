@@ -1,14 +1,14 @@
 //! The Levenberg-Marquardt least-squares solver (MINPACK `lmder` driver).
 
 use crate::error::SolveError;
-use crate::linear_algebra::qr::{PivotedQr, enorm, max, min};
-use crate::linear_algebra::{Matrix, Vector};
-use crate::numerical_derivative::autodiff::AutoDiffMulti;
-use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-use crate::numerical_derivative::jacobian::Jacobian;
+use crate::linear_algebra::Vector;
+use crate::linear_algebra::{PivotedQr, enorm, max, min};
+use crate::numerical_derivative::AutoDiffMulti;
+use crate::numerical_derivative::DerivatorMultiVariable;
+use crate::numerical_derivative::Jacobian;
 use crate::optimization::trust_region::determine_lambda_and_parameter_update;
 use crate::optimization::{MinimizationReport, TerminationReason, is_finite, report};
-use crate::scalar::{Numeric, Primal, VectorFn};
+use crate::scalar::{Numeric, VectorFn};
 
 /// Safety cap on the trust-region retries within one outer iteration; the `xtol` test ends the
 /// retries long before this on any real problem.
@@ -22,13 +22,16 @@ const MAX_TRUST_REGION_TRIALS: usize = 100;
 /// # Examples
 /// ```
 /// use multicalc::optimization::LevenbergMarquardt;
-/// use multicalc::numerical_derivative::autodiff::AutoDiffMulti;
-/// use multicalc::scalar::c;
+/// use multicalc::numerical_derivative::AutoDiffMulti;
+/// use multicalc::scalar::constant;
 /// use multicalc::scalar_fn_vec;
 ///
 /// // Minimize the Rosenbrock residual; the minimum is at (1, 1).
-/// let f = scalar_fn_vec!(|v: &[f64; 2]| [c(10.0) * (v[1] - v[0] * v[0]), c(1.0) - v[0]]);
-/// let report = LevenbergMarquardt::<AutoDiffMulti>::default().minimize(&f, &[-1.2, 1.0]).unwrap();
+/// let residuals = scalar_fn_vec!(|point: &[f64; 2]| [constant(10.0) * (point[1] - point[0] * point[0]), constant(1.0) - point[0]]);
+/// let initial_guess = [-1.2, 1.0];
+///
+/// let solver = LevenbergMarquardt::<AutoDiffMulti>::default();
+/// let report = solver.minimize(&residuals, &initial_guess).unwrap();
 /// assert!((report.solution[0] - 1.0).abs() < 1e-6);
 /// assert!((report.solution[1] - 1.0).abs() < 1e-6);
 /// ```
@@ -45,6 +48,20 @@ pub struct LevenbergMarquardt<D: DerivatorMultiVariable = AutoDiffMulti> {
 impl<D: DerivatorMultiVariable + Default> Default for LevenbergMarquardt<D> {
     fn default() -> Self {
         Self::from_derivator(D::default())
+    }
+}
+
+impl LevenbergMarquardt<AutoDiffMulti> {
+    /// A solver using exact autodiff derivatives.
+    ///
+    /// ```
+    /// use multicalc::optimization::LevenbergMarquardt;
+    ///
+    /// const SOLVER: LevenbergMarquardt = LevenbergMarquardt::new();
+    /// ```
+    #[inline]
+    pub const fn new() -> Self {
+        Self::from_derivator(AutoDiffMulti::new())
     }
 }
 
@@ -106,7 +123,7 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
         self
     }
 
-    /// Minimizes `‖f(x)‖²` starting from `x0`.
+    /// Minimizes `‖f(x)‖²` starting from `initial_guess`.
     ///
     /// Returns the converged point and which test stopped it, or a
     /// [`SolveError`]: [`NonFinite`](SolveError::NonFinite) if a residual or Jacobian is
@@ -116,24 +133,23 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
     pub fn minimize<F, const N: usize, const M: usize>(
         &self,
         f: &F,
-        x0: &[D::Scalar; N],
+        initial_guess: &[D::Scalar; N],
     ) -> Result<MinimizationReport<N, D::Scalar>, SolveError>
     where
         D: Clone,
-        D::Scalar: Primal,
         F: VectorFn<N, M>,
     {
         let zero = D::Scalar::ZERO;
         let one = D::Scalar::ONE;
-        let p1 = D::Scalar::from_f64(0.1);
+        let tenth = D::Scalar::from_f64(0.1);
         let p25 = D::Scalar::from_f64(0.25);
-        let p5 = D::Scalar::HALF;
+        let half = D::Scalar::HALF;
         let p75 = D::Scalar::from_f64(0.75);
         let p0001 = D::Scalar::from_f64(1.0e-4);
 
         let jacobian = Jacobian::from_derivator(self.derivator.clone());
 
-        let mut x = *x0;
+        let mut x = *initial_guess;
         let mut residuals = f.eval(&x);
         if !is_finite(&residuals) {
             return Err(SolveError::NonFinite);
@@ -148,12 +164,11 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
         let mut first = true;
 
         for _ in 0..self.patience {
-            let jac = jacobian.get(f, &x)?;
-            if !jac.iter().all(is_finite) {
+            let j = jacobian.evaluate(f, &x)?;
+            if !j.is_finite() {
                 return Err(SolveError::NonFinite);
             }
-            let dls = PivotedQr::decompose(Matrix::from_fn(|r, c| jac[r][c]))?
-                .into_damped(Vector::new(residuals));
+            let dls = PivotedQr::decompose(j)?.into_damped(Vector::new(residuals));
 
             if first {
                 for (slot, &column_norm) in diag.iter_mut().zip(dls.column_norms.iter()) {
@@ -185,14 +200,15 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
             for _ in 0..MAX_TRUST_REGION_TRIALS {
                 let update = determine_lambda_and_parameter_update(&dls, &diag, delta, par);
                 par = update.lambda;
-                let p = update.step;
-                let pnorm = enorm(&core::array::from_fn::<_, N, _>(|j| diag[j] * p[j]));
+                let step = update.step;
+                let step_arr = *step.as_array();
+                let pnorm = enorm(&core::array::from_fn::<_, N, _>(|j| diag[j] * step_arr[j]));
                 if first {
                     delta = min(delta, pnorm);
                     first = false;
                 }
 
-                let x_new: [D::Scalar; N] = core::array::from_fn(|j| x[j] - p[j]);
+                let x_new: [D::Scalar; N] = core::array::from_fn(|j| x[j] - step_arr[j]);
                 let residuals_new = f.eval(&x_new);
                 evaluations += 1;
                 if !is_finite(&residuals_new) {
@@ -201,16 +217,16 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
                 let fnorm1 = enorm(&residuals_new);
 
                 // Actual reduction in the objective.
-                let actred = if p1 * fnorm1 < fnorm {
+                let actred = if tenth * fnorm1 < fnorm {
                     one - (fnorm1 / fnorm) * (fnorm1 / fnorm)
                 } else {
                     -one
                 };
 
                 // Predicted reduction and directional derivative.
-                let temp1 = dls.a_x_norm(&p) / fnorm;
+                let temp1 = dls.a_x_norm(&step) / fnorm;
                 let temp2 = (par.sqrt() * pnorm) / fnorm;
-                let prered = temp1 * temp1 + (temp2 * temp2) / p5;
+                let prered = temp1 * temp1 + (temp2 * temp2) / half;
                 let dirder = -(temp1 * temp1 + temp2 * temp2);
 
                 let ratio = if prered != zero {
@@ -222,23 +238,23 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
                 // Adjust the trust-region radius and damping by the gain ratio.
                 if ratio <= p25 {
                     let mut temp = if actred >= zero {
-                        p5
+                        half
                     } else {
-                        let denom = dirder + p5 * actred;
+                        let denom = dirder + half * actred;
                         if denom != zero {
-                            p5 * dirder / denom
+                            half * dirder / denom
                         } else {
-                            p5
+                            half
                         }
                     };
-                    if p1 * fnorm1 >= fnorm || temp < p1 {
-                        temp = p1;
+                    if tenth * fnorm1 >= fnorm || temp < tenth {
+                        temp = tenth;
                     }
-                    delta = temp * min(delta, pnorm / p1);
+                    delta = temp * min(delta, pnorm / tenth);
                     par /= temp;
                 } else if par == zero || ratio >= p75 {
-                    delta = pnorm / p5;
-                    par = p5 * par;
+                    delta = pnorm / half;
+                    par = half * par;
                 }
 
                 // Accept the step when the ratio is high enough.
@@ -251,7 +267,7 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
                 }
 
                 // Convergence tests.
-                if actred.abs() <= self.ftol && prered <= self.ftol && p5 * ratio <= one {
+                if actred.abs() <= self.ftol && prered <= self.ftol && half * ratio <= one {
                     return Ok(report(x, fnorm, evaluations, TerminationReason::Ftol));
                 }
                 if delta <= self.xtol * xnorm {
@@ -264,9 +280,6 @@ impl<D: DerivatorMultiVariable> LevenbergMarquardt<D> {
             }
         }
 
-        Err(SolveError::DidNotConverge {
-            iters: evaluations,
-            residual: fnorm.to_f64(),
-        })
+        Err(SolveError::DidNotConverge { iters: evaluations })
     }
 }

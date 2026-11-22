@@ -4,7 +4,7 @@
 //! `scripts/build_gaussian_integration_tables.py`.
 
 use crate::error::IntegrateError;
-use crate::numerical_integration::mode::GaussianQuadratureMethod;
+use crate::numerical_integration::GaussianQuadratureMethod;
 
 pub mod hermite;
 pub mod laguerre;
@@ -17,7 +17,7 @@ pub const MAX_ORDER: usize = 30;
 ///
 /// ```
 /// use multicalc::gaussian_tables::nodes;
-/// use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
+/// use multicalc::numerical_integration::GaussianQuadratureMethod;
 ///
 /// const PAIRS: &[(f64, f64)] = match nodes(GaussianQuadratureMethod::GaussLegendre, 4) {
 ///     Ok(t) => t,

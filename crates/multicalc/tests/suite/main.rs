@@ -1,15 +1,27 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod approximation;
+mod control;
 mod discretization;
+mod dynamics;
+mod estimation;
 mod gaussian_tables;
 mod kinematics;
 mod linear_algebra;
+mod mapping;
+mod mlp_inference;
+mod motion;
 mod numerical_derivative;
 mod numerical_integration;
 mod ode;
 mod optimization;
+mod planning;
+mod plant;
+mod polynomial;
+mod random;
 mod root_finding;
 mod scalar;
+mod signal_processing;
 mod spatial;
+mod tutorials;
 mod utils;
 mod vector_field;

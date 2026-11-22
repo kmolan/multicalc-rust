@@ -19,16 +19,30 @@ impl<D: DerivatorMultiVariable + Default> Default for Hessian<D> {
     }
 }
 
+impl Hessian<AutoDiffMulti> {
+    /// A Hessian using exact autodiff derivatives.
+    ///
+    /// ```
+    /// use multicalc::numerical_derivative::Hessian;
+    ///
+    /// const H: Hessian = Hessian::new();
+    /// ```
+    #[inline]
+    pub const fn new() -> Self {
+        Self::from_derivator(AutoDiffMulti::new())
+    }
+}
+
 impl<D: DerivatorMultiVariable> Hessian<D> {
     /// Builds a Hessian from an explicit derivator. Use this to supply a custom derivator,
     /// either one from this crate or your own implementation of [`DerivatorMultiVariable`].
-    pub fn from_derivator(derivator: D) -> Self {
+    pub const fn from_derivator(derivator: D) -> Self {
         Hessian { derivator }
     }
 
     /// Returns the Hessian matrix of `function` evaluated at `vector_of_points`.
     ///
-    /// The result is the symmetric matrix of second partial derivatives, so entry `[i][j]`
+    /// The result is the symmetric matrix of second partial derivatives, so entry `(i, j)`
     /// is `d²(function)/d(variable i) d(variable j)`. Only the upper triangle and diagonal
     /// are evaluated; the rest is mirrored, relying on the symmetry of the Hessian.
     ///
@@ -41,42 +55,42 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     ///
     /// # Examples
     /// ```
-    /// use multicalc::numerical_derivative::hessian::Hessian;
-    /// use multicalc::scalar::c;
+    /// use multicalc::numerical_derivative::Hessian;
+    /// use multicalc::scalar::constant;
     /// use multicalc::scalar_fn;
     ///
     /// // f(x, y) = y*sin(x) + 2*x*e^y
-    /// let my_func =
-    ///     scalar_fn!(|args: &[f64; 2]| args[1] * args[0].sin() + c(2.0) * args[0] * args[1].exp());
-    ///
+    /// let function =
+    ///     scalar_fn!(|args: &[f64; 2]| args[1] * args[0].sin() + constant(2.0) * args[0] * args[1].exp());
+    /// let point = [1.0, 2.0];
     ///
     /// let hessian: Hessian = Hessian::default();
-    /// let result = hessian.get(&my_func, &[1.0, 2.0]).unwrap();
-    /// assert!(f64::abs(result[0][0] - (-2.0 * f64::sin(1.0))) < 1e-12);
+    /// let result = hessian.evaluate(&function, &point).unwrap();
+    /// assert!(f64::abs(result[(0, 0)] - (-2.0 * f64::sin(1.0))) < 1e-12);
     /// ```
-    pub fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
+    pub fn evaluate<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize>(
         &self,
         function: &F,
         vector_of_points: &[D::Scalar; NUM_VARS],
-    ) -> Result<[[D::Scalar; NUM_VARS]; NUM_VARS], DiffError> {
+    ) -> Result<Matrix<NUM_VARS, NUM_VARS, D::Scalar>, DiffError> {
         let mut result: Matrix<NUM_VARS, NUM_VARS, D::Scalar> =
             Matrix::from_fn(|_, _| <D::Scalar as Numeric>::NAN);
 
-        // explicit indices drive the symmetric mirror write `result[(col, row)]`
         for row_index in 0..NUM_VARS {
             for col_index in 0..NUM_VARS {
                 if result[(row_index, col_index)].is_nan() {
-                    result[(row_index, col_index)] = self.derivator.get_double_partial(
+                    let value = self.derivator.second_partial_derivative(
                         function,
                         &[row_index, col_index],
                         vector_of_points,
                     )?;
+                    result[(row_index, col_index)] = value;
                     // a Hessian is symmetric, so mirror instead of recomputing
-                    result[(col_index, row_index)] = result[(row_index, col_index)];
+                    result[(col_index, row_index)] = value;
                 }
             }
         }
 
-        Ok(result.into_array())
+        Ok(result)
     }
 }

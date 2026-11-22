@@ -9,80 +9,47 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 /// Current fixture format. A file with a different version is rejected on load.
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// An `f64` stored as its 64-bit pattern, written as `"0x{:016x}"`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct F64(pub u64);
 
 impl F64 {
+    #[must_use]
     pub fn from_f64(x: f64) -> Self {
         F64(x.to_bits())
     }
+    #[must_use]
     pub fn to_f64(self) -> f64 {
         f64::from_bits(self.0)
     }
 }
 
 impl Serialize for F64 {
-    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(&format!("0x{:016x}", self.0))
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&format!("0x{:016x}", self.0))
     }
 }
 
 impl<'de> Deserialize<'de> for F64 {
-    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(d)?;
-        let hex = s.strip_prefix("0x").unwrap_or(&s);
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        let hex = text.strip_prefix("0x").unwrap_or(&text);
         u64::from_str_radix(hex, 16)
             .map(F64)
             .map_err(serde::de::Error::custom)
     }
 }
 
-/// An `f32` stored as its 32-bit pattern, written as `"0x{:08x}"`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct F32(pub u32);
-
-impl F32 {
-    pub fn from_f32(x: f32) -> Self {
-        F32(x.to_bits())
-    }
-    pub fn to_f32(self) -> f32 {
-        f32::from_bits(self.0)
-    }
-}
-
-impl Serialize for F32 {
-    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(&format!("0x{:08x}", self.0))
-    }
-}
-
-impl<'de> Deserialize<'de> for F32 {
-    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(d)?;
-        let hex = s.strip_prefix("0x").unwrap_or(&s);
-        u32::from_str_radix(hex, 16)
-            .map(F32)
-            .map_err(serde::de::Error::custom)
-    }
-}
-
-/// One block of a manifold state.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ManifoldBlock {
-    pub kind: String,
-    pub data: Vec<F64>,
-}
-
-/// A self-describing fixture value. Floats are hex; ints, strings, and bools are
-/// plain JSON. `Quaternion` and `ManifoldState` are reserved for later phases.
+/// A self-describing fixture value. Floats are hex; ints and strings are plain
+/// JSON.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Value {
     Scalar {
-        v: F64,
+        #[serde(rename = "v")]
+        value: F64,
     },
     Vector {
         data: Vec<F64>,
@@ -92,36 +59,26 @@ pub enum Value {
         cols: usize,
         row_major: Vec<F64>,
     },
-    Quaternion {
-        w: F64,
-        x: F64,
-        y: F64,
-        z: F64,
-    },
-    ManifoldState {
-        nq: usize,
-        nv: usize,
-        blocks: Vec<ManifoldBlock>,
-    },
     Int {
-        v: i64,
+        #[serde(rename = "v")]
+        value: i64,
     },
     Str {
-        v: String,
-    },
-    Bool {
-        v: bool,
+        #[serde(rename = "v")]
+        value: String,
     },
 }
 
 impl Value {
+    #[must_use]
     pub fn as_scalar(&self) -> f64 {
         match self {
-            Value::Scalar { v } => v.to_f64(),
+            Value::Scalar { value } => value.to_f64(),
             other => unreachable!("expected scalar value, got {other:?}"),
         }
     }
 
+    #[must_use]
     pub fn as_vector(&self) -> Vec<f64> {
         match self {
             Value::Vector { data } => data.iter().map(|b| b.to_f64()).collect(),
@@ -129,6 +86,7 @@ impl Value {
         }
     }
 
+    #[must_use]
     pub fn as_matrix(&self) -> (usize, usize, Vec<f64>) {
         match self {
             Value::Matrix {
@@ -140,59 +98,46 @@ impl Value {
         }
     }
 
+    /// The `(rows, cols)` of a matrix value, without decoding its entries.
+    #[must_use]
+    pub fn shape(&self) -> (usize, usize) {
+        match self {
+            Value::Matrix { rows, cols, .. } => (*rows, *cols),
+            other => unreachable!("expected matrix value, got {other:?}"),
+        }
+    }
+
+    #[must_use]
     pub fn as_int(&self) -> i64 {
         match self {
-            Value::Int { v } => *v,
+            Value::Int { value } => *value,
             other => unreachable!("expected int value, got {other:?}"),
         }
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
-            Value::Str { v } => v,
+            Value::Str { value } => value,
             other => unreachable!("expected string value, got {other:?}"),
         }
     }
 }
 
-/// Absolute and relative thresholds for one comparison.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct Tol {
-    pub abs: f64,
-    pub rel: f64,
-}
+pub use multicalc_testkit::tol::Tol;
 
-impl From<Tol> for multicalc_testkit::tol::Tol {
-    fn from(t: Tol) -> Self {
-        multicalc_testkit::tol::Tol {
-            abs: t.abs,
-            rel: t.rel,
-        }
-    }
-}
-
-/// Per-`<scalar>/<target>` tolerance table, e.g. `"f64/host"` or `"f32/host"`.
-/// Reserved targets: `host`, `aarch64`, `thumbv7em-eabi`, `thumbv7em-eabihf`,
-/// `thumbv6m`.
+/// How close a computed value has to be to the golden, per scalar type.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Tolerances {
-    pub table: BTreeMap<String, Tol>,
-}
-
-impl Tolerances {
-    /// Looks up `<scalar>/<target>`, falls back to `<scalar>/default`, then to a
-    /// zero tolerance (exact match required).
-    pub fn get(&self, scalar: &str, target: &str) -> Tol {
-        *self
-            .table
-            .get(&format!("{scalar}/{target}"))
-            .or_else(|| self.table.get(&format!("{scalar}/default")))
-            .unwrap_or(&Tol { abs: 0.0, rel: 0.0 })
-    }
+    /// Bound for the `f64` result, which is the one the golden holds.
+    pub f64: Tol,
+    /// Bound for the `f32` rerun, on the fixtures that have one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub f32: Option<Tol>,
 }
 
 /// Provenance for a fixture: the generator, exact library versions, seed, date,
-/// and a note on how inputs were sampled.
+/// a note on how inputs were sampled, and the text the accuracy tables show.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Metadata {
     pub generator: String,
@@ -200,6 +145,14 @@ pub struct Metadata {
     pub seed: u64,
     pub date: String,
     pub sampling: String,
+    /// The problem the fixture is built on, written the way it appears in the
+    /// accuracy tables.
+    pub equation: String,
+    /// What was computed from that problem. Usually one entry; a fixture that
+    /// checks several quantities at once lists one per table row.
+    pub operations: Vec<String>,
+    /// The library and version the golden came from.
+    pub reference: String,
 }
 
 /// One golden case: its inputs, expected outputs, and the tolerances to compare
@@ -254,23 +207,14 @@ mod tests {
         expected.insert(
             "det".to_string(),
             Value::Scalar {
-                v: F64::from_f64(2.5),
-            },
-        );
-
-        let mut table = BTreeMap::new();
-        table.insert(
-            "f64/host".to_string(),
-            Tol {
-                abs: 1e-11,
-                rel: 1e-10,
+                value: F64::from_f64(2.5),
             },
         );
 
         let mut libraries = BTreeMap::new();
         libraries.insert("numpy".to_string(), "2.1.3".to_string());
 
-        let fx = Fixture {
+        let fixture = Fixture {
             schema_version: SCHEMA_VERSION,
             metadata: Metadata {
                 generator: "test".to_string(),
@@ -278,22 +222,31 @@ mod tests {
                 seed: 20260706,
                 date: "2026-07-06T00:00:00+00:00".to_string(),
                 sampling: "handwritten".to_string(),
+                equation: "det(A)".to_string(),
+                operations: vec!["LU decompose, 2×2".to_string()],
+                reference: "numpy/LAPACK 2.1.3".to_string(),
             },
             module: "linalg".to_string(),
             case: "demo".to_string(),
-            tolerances: Tolerances { table },
+            tolerances: Tolerances {
+                f64: Tol {
+                    abs: 1e-11,
+                    rel: 1e-10,
+                },
+                f32: None,
+            },
             inputs,
             expected,
         };
 
-        let json = serde_json::to_string(&fx).unwrap();
+        let json = serde_json::to_string(&fixture).unwrap();
         let back: Fixture = serde_json::from_str(&json).unwrap();
 
-        let (r, c, data) = back.inputs["A"].as_matrix();
-        assert_eq!((r, c), (2, 2));
+        let (rows, cols, data) = back.inputs["A"].as_matrix();
+        assert_eq!((rows, cols), (2, 2));
         assert_eq!(data[1].to_bits(), (-0.0_f64).to_bits());
         assert_eq!(data[2], f64::INFINITY);
         assert_eq!(back.expected["det"].as_scalar(), 2.5);
-        assert_eq!(back.tolerances.get("f64", "host").rel, 1e-10);
+        assert_eq!(back.tolerances.f64.rel, 1e-10);
     }
 }

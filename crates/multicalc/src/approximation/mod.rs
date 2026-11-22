@@ -1,9 +1,21 @@
+//! Least-squares function approximation with goodness-of-fit metrics.
+//!
+//! - [`LinearApproximator`] — fit a linear model to sampled points.
+//! - [`QuadraticApproximator`] — fit a quadratic model.
+
 use crate::scalar::Numeric;
 use crate::utils::summation::Acc;
 pub use crate::utils::summation::SummationMethod;
 
-pub mod linear_approximation;
-pub mod quadratic_approximation;
+mod linear_approximation;
+mod quadratic_approximation;
+
+pub use linear_approximation::{
+    LinearApproximation, LinearApproximationPredictionMetrics, LinearApproximator,
+};
+pub use quadratic_approximation::{
+    QuadraticApproximation, QuadraticApproximationPredictionMetrics, QuadraticApproximator,
+};
 
 /// Goodness-of-fit metrics shared by the linear and quadratic approximators.
 ///
@@ -11,6 +23,7 @@ pub mod quadratic_approximation;
 /// number of fitted terms (`p`), used only for the adjusted R². `r_squared` is `NaN` when
 /// the truth is constant over `points` (zero total variance); `adjusted_r_squared` is
 /// `NaN` when there are too few points (`num_points <= num_predictors + 1`).
+#[must_use]
 pub(crate) fn compute_metrics<T, P, O, const NUM_VARS: usize, const NUM_POINTS: usize>(
     predict: P,
     points: &[[T; NUM_VARS]; NUM_POINTS],

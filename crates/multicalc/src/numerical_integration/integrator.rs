@@ -28,12 +28,25 @@ pub(crate) fn classify<T: Numeric>(limit: &[T; 2]) -> Result<Domain<T>, Integrat
     }
 }
 
+/// Returns `sample` unchanged, or [`IntegrateError::NonFinite`] if it is NaN or infinite.
+/// The quadrature and iterative rules never check their samples otherwise, so a blow-up in
+/// the integrand would silently propagate into a garbage result. Mirrors the `Rk45` policy
+/// in `ode/rk45.rs`.
+pub(crate) fn is_finite<T: Numeric>(sample: T) -> Result<T, IntegrateError> {
+    if sample.is_finite() {
+        Ok(sample)
+    } else {
+        Err(IntegrateError::NonFinite)
+    }
+}
+
 /// Returns the `t`-interval the rule walks for a domain. The finite end of a
 /// semi-infinite domain sits at `t = 0` and is perfectly regular, so it is included;
 /// only an infinite end needs the `T::EPSILON` inset that keeps the transform away from
 /// its singular limit.
-pub(crate) fn t_bounds<T: Numeric>(d: &Domain<T>) -> (T, T) {
-    match d {
+#[must_use]
+pub(crate) fn t_bounds<T: Numeric>(domain: &Domain<T>) -> (T, T) {
+    match domain {
         Domain::Finite(a, b) => (*a, *b),
         Domain::LowerToInf(_) => (T::ZERO, T::ONE - T::EPSILON), // finite end t=0, +inf at t=1
         Domain::UpperToInf(_) => (T::ZERO, T::ONE - T::EPSILON), // finite end t=0, -inf at t=1
@@ -43,21 +56,28 @@ pub(crate) fn t_bounds<T: Numeric>(d: &Domain<T>) -> (T, T) {
 
 /// Maps a sample `t` to its position `x` and the Jacobian `dx/dt` for a domain.
 /// Finite domains are the identity, so the finite path pays nothing extra.
-pub(crate) fn map_sample<T: Numeric>(d: &Domain<T>, t: T) -> (T, T) {
-    match *d {
-        Domain::Finite(_, _) => (t, T::ONE),
+#[must_use]
+pub(crate) fn map_sample<T: Numeric>(domain: &Domain<T>, sample: T) -> (T, T) {
+    match *domain {
+        Domain::Finite(_, _) => (sample, T::ONE),
         Domain::LowerToInf(a) => {
-            let q = T::ONE - t;
-            (a + t / q, T::ONE / (q * q))
+            let one_minus_t = T::ONE - sample;
+            (
+                a + sample / one_minus_t,
+                T::ONE / (one_minus_t * one_minus_t),
+            )
         }
         Domain::UpperToInf(b) => {
-            let q = T::ONE - t;
-            (b - t / q, T::ONE / (q * q))
+            let one_minus_t = T::ONE - sample;
+            (
+                b - sample / one_minus_t,
+                T::ONE / (one_minus_t * one_minus_t),
+            )
         }
         Domain::BothInf => {
-            let u = T::PI * (t - T::HALF);
-            let c = u.cos();
-            (u.tan(), T::PI / (c * c))
+            let angle = T::PI * (sample - T::HALF);
+            let cos_angle = angle.cos();
+            (angle.tan(), T::PI / (cos_angle * cos_angle))
         }
     }
 }
@@ -73,28 +93,28 @@ pub trait IntegratorSingleVariable {
     /// # Errors
     /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero, or
     /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined.
-    fn get<F: Fn(Self::Scalar) -> Self::Scalar, const NUM_INTEGRATIONS: usize>(
+    fn integrate<F: Fn(Self::Scalar) -> Self::Scalar, const NUM_INTEGRATIONS: usize>(
         &self,
         func: &F,
         integration_limit: &[[Self::Scalar; 2]; NUM_INTEGRATIONS],
     ) -> Result<Self::Scalar, IntegrateError>;
 
     /// Convenience wrapper for a single integral of a single variable function.
-    fn get_single<F: Fn(Self::Scalar) -> Self::Scalar>(
+    fn single_integral<F: Fn(Self::Scalar) -> Self::Scalar>(
         &self,
         func: &F,
         integration_limit: &[Self::Scalar; 2],
     ) -> Result<Self::Scalar, IntegrateError> {
-        self.get(func, &[*integration_limit])
+        self.integrate(func, &[*integration_limit])
     }
 
     /// Convenience wrapper for a double integral of a single variable function.
-    fn get_double<F: Fn(Self::Scalar) -> Self::Scalar>(
+    fn double_integral<F: Fn(Self::Scalar) -> Self::Scalar>(
         &self,
         func: &F,
         integration_limit: &[[Self::Scalar; 2]; 2],
     ) -> Result<Self::Scalar, IntegrateError> {
-        self.get(func, integration_limit)
+        self.integrate(func, integration_limit)
     }
 }
 
@@ -116,7 +136,7 @@ pub trait IntegratorMultiVariable {
     /// # Errors
     /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero, or
     /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined.
-    fn get<
+    fn integrate<
         F: Fn(&[Self::Scalar; NUM_VARS]) -> Self::Scalar,
         const NUM_VARS: usize,
         const NUM_INTEGRATIONS: usize,
@@ -129,7 +149,7 @@ pub trait IntegratorMultiVariable {
     ) -> Result<Self::Scalar, IntegrateError>;
 
     /// Convenience wrapper for a single partial integral of a multi variable function.
-    fn get_single_partial<
+    fn single_partial_integral<
         F: Fn(&[Self::Scalar; NUM_VARS]) -> Self::Scalar,
         const NUM_VARS: usize,
     >(
@@ -139,11 +159,11 @@ pub trait IntegratorMultiVariable {
         integration_limits: &[Self::Scalar; 2],
         point: &[Self::Scalar; NUM_VARS],
     ) -> Result<Self::Scalar, IntegrateError> {
-        self.get([idx_to_integrate], func, &[*integration_limits], point)
+        self.integrate([idx_to_integrate], func, &[*integration_limits], point)
     }
 
     /// Convenience wrapper for a double partial integral of a multi variable function.
-    fn get_double_partial<
+    fn double_partial_integral<
         F: Fn(&[Self::Scalar; NUM_VARS]) -> Self::Scalar,
         const NUM_VARS: usize,
     >(
@@ -153,6 +173,6 @@ pub trait IntegratorMultiVariable {
         integration_limits: &[[Self::Scalar; 2]; 2],
         point: &[Self::Scalar; NUM_VARS],
     ) -> Result<Self::Scalar, IntegrateError> {
-        self.get(idx_to_integrate, func, integration_limits, point)
+        self.integrate(idx_to_integrate, func, integration_limits, point)
     }
 }

@@ -1,59 +1,22 @@
 //! Std-only visualization adapter for `multicalc`.
 //!
-//! Maps core types to a small [`VizSink`] trait, with a CSV backend ([`CsvSink`]) for the
-//! `plot.py` fallback and, behind the `rerun` feature, a Rerun backend ([`RerunSink`], live or
-//! recorded). With the feature off the crate builds headless, with no Rerun in the dependency
-//! tree. A satellite crate: never a dependency of the core, excluded from bare-metal builds.
+//! Maps core types to a small [`VizSink`] trait, with a Rerun backend ([`RerunSink`], live or
+//! recorded) behind the `rerun` feature. With the feature off the crate builds headless, with no
+//! Rerun in the dependency tree and nothing to log to. A satellite crate: never a dependency of
+//! the core, excluded from bare-metal builds.
+//!
+//! Also carries [`sim`], a std-only simulator the demos drive: rooms as occupancy grids, the
+//! sensors a machine carries and what they get wrong, and two whole worlds built on top of them —
+//! a wheeled vehicle finding its way around a floor plan, and a quadrotor that finds itself on one
+//! and then flies a planned loop. All of it is demo scaffolding, never core numerics.
 
-mod csv_sink;
-#[cfg(feature = "rerun")]
-mod rerun_sink;
-mod sink;
+pub mod sim;
+pub mod visualization;
 
 #[doc(hidden)]
 pub mod loop_util;
 
-pub use csv_sink::CsvSink;
 pub use multicalc::scalar::Primal;
 #[cfg(feature = "rerun")]
-pub use rerun_sink::RerunSink;
-pub use sink::{Rgba, VizError, VizSink, VizSinkExt};
-
-#[cfg(all(test, feature = "rerun"))]
-mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-
-    use super::*;
-
-    // Records a few primitives to a temp file and checks a non-empty recording is produced.
-    // Headless: `save` needs no viewer, so this runs in CI.
-    #[test]
-    fn record_writes_nonempty_rrd() -> Result<(), VizError> {
-        let path = std::env::temp_dir().join("multicalc_demos_smoke.rrd");
-        let _ = std::fs::remove_file(&path);
-
-        let mut sink = RerunSink::record("multicalc-demos/smoke", &path)?;
-        sink.set_sequence("iteration", 0);
-        sink.scalar("objective", 1.0)?;
-        sink.points2d("data", &[[0.0, 0.0], [1.0, 1.0]])?;
-        sink.transform3d("pose", [0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0])?;
-        sink.boxes3d(
-            "pose/body",
-            &[[0.0, 0.0, 0.0]],
-            &[[0.5, 0.5, 0.5]],
-            &[[0x39, 0x87, 0xe5, 0xff]],
-        )?;
-        sink.arrows3d(
-            "pose/axis",
-            &[[0.0, 0.0, 0.0]],
-            &[[1.0, 0.0, 0.0]],
-            &[[0xc9, 0x85, 0x00, 0xff]],
-        )?;
-        sink.flush()?;
-        drop(sink);
-
-        let len = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-        assert!(len > 0, "recording should produce a non-empty .rrd");
-        Ok(())
-    }
-}
+pub use visualization::RerunSink;
+pub use visualization::{Rgba, VizError, VizSink, VizSinkExt};

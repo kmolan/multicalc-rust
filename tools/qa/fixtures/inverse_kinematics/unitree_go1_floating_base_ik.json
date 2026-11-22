@@ -1,0 +1,96 @@
+{
+  "case": "unitree_go1_floating_base_ik",
+  "expected": {
+    "converged": {
+      "kind": "int",
+      "v": 1
+    },
+    "reached_position": {
+      "data": [
+        "0x3f95c2eb2f90e0a8",
+        "0xbfc039581028abe8",
+        "0x3fc19cc7f07e251a"
+      ],
+      "kind": "vector"
+    },
+    "reached_quaternion": {
+      "data": [
+        "0x3fecd076710c45d7",
+        "0xbda73f0c25ee49ae",
+        "0xbfdbd679adf92a8d",
+        "0xbd9ceb98ff571516"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "model_file": {
+      "kind": "str",
+      "v": "unitree_go1/go1.xml"
+    },
+    "seed": {
+      "data": [
+        "0xbfb999999999999a",
+        "0x3fa999999999999a",
+        "0x3fd47ae147ae147b",
+        "0x3fefd712f9a817c1",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fb98eaecb8bcb2c",
+        "0x3fb999999999999a",
+        "0x3ff0000000000000",
+        "0xbffb333333333333",
+        "0x3fb999999999999a",
+        "0x3ff0000000000000",
+        "0xbffb333333333333",
+        "0x3fb999999999999a",
+        "0x3ff0000000000000",
+        "0xbffb333333333333",
+        "0x3fb999999999999a",
+        "0x3ff0000000000000",
+        "0xbffb333333333333"
+      ],
+      "kind": "vector"
+    },
+    "target_position": {
+      "data": [
+        "0x3f95c2eb2e813900",
+        "0xbfc0395810624dd3",
+        "0x3fc19cc7f059e53f"
+      ],
+      "kind": "vector"
+    },
+    "target_quaternion": {
+      "data": [
+        "0x3fecd076710c3f2d",
+        "0x0000000000000000",
+        "0xbfdbd679adf94625",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "Go1: floating base + 12 hinges, 6-DoF foot task (12 DoF spare)",
+    "generator": "inverse_kinematics",
+    "libraries": {
+      "mink": "1.2.0",
+      "mujoco": "3.11.0"
+    },
+    "operations": [
+      "floating-base IK: pose -> reached pose"
+    ],
+    "reference": "mink 1.2.0 on MuJoCo 3.11.0",
+    "sampling": "targets taken by running forward kinematics on a chosen configuration, then seeding the solve away from it; goldens are mink's differential IK on the same model",
+    "seed": 20260706
+  },
+  "module": "inverse_kinematics",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-06,
+      "rel": 1e-06
+    }
+  }
+}

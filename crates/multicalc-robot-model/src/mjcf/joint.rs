@@ -1,0 +1,140 @@
+//! `<joint>` parsing: kind, axis, anchor, travel limits and joint dynamics.
+
+use multicalc::kinematics::JointKind;
+use multicalc::linear_algebra::Vector;
+use roxmltree::Node;
+
+use crate::JointDescription;
+use crate::ModelError;
+use crate::mjcf::compiler::CompilerSettings;
+use crate::mjcf::defaults::{DefaultTable, JointDefaults};
+use crate::xml::bad_attribute;
+
+/// MJCF's default joint type.
+const ASSUMED_JOINT_TYPE: &str = "hinge";
+
+/// The joint a body carries, `None` if welded.
+///
+/// Free joints are handled by the caller; a body reaching here carries at most one hinge or slide.
+pub(crate) fn read_joint(
+    body: Node,
+    table: &DefaultTable,
+    class_chain: Option<&str>,
+    settings: &CompilerSettings,
+    body_name: &str,
+) -> Result<Option<JointDescription>, ModelError> {
+    let joints: Vec<Node> = body
+        .children()
+        .filter(|child| {
+            child.is_element() && matches!(child.tag_name().name(), "joint" | "freejoint")
+        })
+        .collect();
+
+    let node = match joints.as_slice() {
+        [] => return Ok(None),
+        [only] => *only,
+        many => {
+            return Err(ModelError::MultipleJoints {
+                body: body_name.to_owned(),
+                count: many.len(),
+            });
+        }
+    };
+
+    let resolved = effective(node, table, class_chain)?;
+
+    let joint_type = resolved.joint_type.as_deref().unwrap_or(ASSUMED_JOINT_TYPE);
+    let is_revolute = joint_type == "hinge";
+    let base_kind = match joint_type {
+        "hinge" => JointKind::Revolute,
+        "slide" => JointKind::Prismatic,
+        other => {
+            return Err(ModelError::UnsupportedJoint {
+                body: body_name.to_owned(),
+                joint_type: other.to_owned(),
+            });
+        }
+    };
+    let to_radians = |value: f64| {
+        if is_revolute {
+            settings.to_radians(value)
+        } else {
+            value
+        }
+    };
+
+    let axis = Vector::new(resolved.axis.unwrap_or([0.0, 0.0, 1.0]))
+        .try_normalized()
+        .ok_or_else(|| bad_attribute(node, "axis", node.attribute("axis").unwrap_or_default()))?;
+    let anchor = Vector::new(resolved.pos.unwrap_or([0.0; 3]));
+    let limits = read_limits(node, &resolved, settings.auto_limits, to_radians, body_name)?;
+
+    // An unlimited hinge is continuous; every other type is kept as stated.
+    let kind = if is_revolute && limits.is_none() {
+        JointKind::Continuous
+    } else {
+        base_kind
+    };
+
+    let name = node.attribute("name").unwrap_or("joint").to_owned();
+
+    Ok(Some(JointDescription {
+        name,
+        kind,
+        axis,
+        anchor,
+        limits,
+        zero_offset: to_radians(resolved.reference.unwrap_or(0.0)),
+        armature: resolved.armature.unwrap_or(0.0),
+        damping: resolved.damping.unwrap_or(0.0),
+        friction_loss: resolved.friction_loss.unwrap_or(0.0),
+        spring_reference: to_radians(resolved.spring_reference.unwrap_or(0.0)),
+        spring_stiffness: resolved.stiffness.unwrap_or(0.0),
+        // MJCF has no mimic construct.
+        mimic: None,
+    }))
+}
+
+/// Travel limits, from `range` and `limited`.
+fn read_limits(
+    node: Node,
+    resolved: &JointDefaults,
+    auto_limits: bool,
+    to_radians: impl Fn(f64) -> f64,
+    body_name: &str,
+) -> Result<Option<(f64, f64)>, ModelError> {
+    let needs_range = || ModelError::LimitsNeedRange {
+        body: body_name.to_owned(),
+    };
+
+    match resolved.limited.as_deref().unwrap_or("auto") {
+        "false" => Ok(None),
+        "true" => {
+            let [lower, upper] = resolved.range.ok_or_else(needs_range)?;
+            Ok(Some((to_radians(lower), to_radians(upper))))
+        }
+        "auto" => match resolved.range {
+            Some([lower, upper]) if auto_limits => Ok(Some((to_radians(lower), to_radians(upper)))),
+            Some(_) => Err(needs_range()),
+            None => Ok(None),
+        },
+        other => Err(bad_attribute(node, "limited", other)),
+    }
+}
+
+/// Joint settings in precedence order: own attributes, named class, inherited `childclass`,
+/// unnamed default block.
+fn effective(
+    node: Node,
+    table: &DefaultTable,
+    class_chain: Option<&str>,
+) -> Result<JointDefaults, ModelError> {
+    let mut settings = table.resolve(None)?.joint.clone();
+    if let Some(name) = class_chain {
+        settings = settings.overridden_by(&table.resolve(Some(name))?.joint);
+    }
+    if let Some(name) = node.attribute("class") {
+        settings = settings.overridden_by(&table.resolve(Some(name))?.joint);
+    }
+    Ok(settings.overridden_by(&JointDefaults::read(node)?))
+}

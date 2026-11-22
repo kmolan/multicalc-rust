@@ -43,26 +43,34 @@ jobs:
     with:
       full: true
 
+  hilshare:
+    name: HILShare app
+    uses: ./.github/workflows/hilshare.yml
+
   test:
     name: test (${{ matrix.rust }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # "1.85" is the MSRV and must match Cargo.toml `rust-version`
-        rust: [stable, "1.85"]
+        # "1.92" is the MSRV and must match Cargo.toml `rust-version`
+        rust: [stable, "1.92"]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
-      - uses: Swatinem/rust-cache@v2
       - name: Test (default, no_std-shaped)
         run: cargo test -p multicalc
       - name: Test (alloc feature)
         run: cargo test -p multicalc --features alloc
+      # Default features, so the Rerun-backed `viewer` stays out of the tree.
+      - name: Test (model ingestion)
+        run: cargo test -p multicalc-robot-model
+      # All features on: the README and tutorial examples are compiled here too, and some of
+      # them use the alloc-only types.
       - name: Doctests
-        run: cargo test -p multicalc --doc
+        run: cargo test -p multicalc --all-features --doc
 
   qa:
     name: qa fixtures (host-only)
@@ -70,17 +78,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
       # Reads committed fixtures only — never runs Python, never downloads MuJoCo.
       - run: cargo test -p multicalc-qa
       - name: Smoke fixtures are up to date
         run: |
           cargo run -p multicalc-qa --bin gen_smoke_fixtures
           git diff --exit-code tools/embedded-smoke/src/fixtures.rs
+      - name: Generated model source is up to date
+        run: |
+          cargo run -p multicalc-qa --bin gen_model_source
+          git diff --exit-code tools/embedded-smoke/src/franka_panda_model.rs
       - name: Accuracy tables are up to date
         run: |
           cargo run -p multicalc-qa --bin gen_accuracy_tables
           git diff --exit-code benchmarks/*.md
+
+  python-bindings:
+    name: python bindings (host-only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Develop + smoke test
+        working-directory: crates/multicalc-py
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -U pip maturin pytest
+          maturin develop
+          python -m pytest tests/ -v
 
   lint:
     name: fmt + clippy
@@ -90,11 +119,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
       - name: Formatting
         run: cargo fmt --all --check
       - name: Clippy
         run: cargo clippy -p multicalc --all-targets --features alloc -- -D warnings
+      - name: Clippy (model ingestion)
+        run: cargo clippy -p multicalc-robot-model --all-targets -- -D warnings
+      - name: No Rerun without the viewer feature
+        run: "! cargo tree -p multicalc-robot-model -i rerun"
+      - name: Clippy (python bindings)
+        run: cargo clippy -p multicalc-py --all-targets -- -D warnings
       - name: No nightly features
         run: |
           if grep -rnE '#!\[feature\(|generic_const_exprs' crates/*/src; then
@@ -110,7 +144,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
       - name: Build docs (deny warnings, broken links)
         run: cargo doc -p multicalc --no-deps --all-features
 
@@ -122,7 +155,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: thumbv7em-none-eabi, thumbv7em-none-eabihf
-      - uses: Swatinem/rust-cache@v2
       - name: Build for bare metal (no default features)
         run: cargo build -p multicalc --no-default-features --target thumbv7em-none-eabi
 
@@ -145,7 +177,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-hack
       - name: Every feature combination compiles
         run: cargo hack -p multicalc --feature-powerset --no-dev-deps check
@@ -156,7 +187,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
       - name: Build headless demos
         run: cargo build -p multicalc-demos --examples --no-default-features
       - name: Run basics
@@ -189,7 +219,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: llvm-tools-preview
-      - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-llvm-cov
       - name: Measure line coverage
         run: |
@@ -213,7 +242,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - uses: Swatinem/rust-cache@v2
       - name: Build (lib + examples, default features)
         run: cargo build -p multicalc-demos --examples
       - name: Check headless (no default features)
@@ -222,6 +250,8 @@ jobs:
         run: cargo clippy -p multicalc-demos --all-targets -- -D warnings
       - name: Clippy (headless)
         run: cargo clippy -p multicalc-demos --all-targets --no-default-features -- -D warnings
+      - name: Clippy (headless + alloc)
+        run: cargo clippy -p multicalc-demos --all-targets --no-default-features --features alloc -- -D warnings
       - name: No Rerun in the headless tree
         run: "! cargo tree -p multicalc-demos --no-default-features -i rerun"
       - name: Headless record smoke test

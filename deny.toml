@@ -1,9 +1,9 @@
 # Supply-chain checks for cargo-deny.
 
 [graph]
-# multicalc-demos is a host-only, unpublished visualization satellite; its heavy Rerun tree is not
-# part of the shipped or bare-metal graph, so it is excluded from the supply-chain audit.
-exclude = ["multicalc-demos"]
+# Host-only unpublished satellites excluded from the supply-chain audit:
+# multicalc-demos (heavy Rerun tree) and multicalc-py (PyO3 host bindings).
+exclude = ["multicalc-demos", "multicalc-py"]
 
 [advisories]
 # Fail on known security advisories and yanked crates.

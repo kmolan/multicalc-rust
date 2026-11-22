@@ -12,6 +12,7 @@ use crate::scalar::{Numeric, ScalarFn, ScalarFnN, VectorFn};
 /// Low and high sample offsets (in units of the step size) and the divisor factor
 /// for each finite-difference mode.
 #[inline]
+#[must_use]
 fn offsets<T: Numeric>(method: FiniteDifferenceMode) -> (T, T, T) {
     match method {
         FiniteDifferenceMode::Forward => (T::ZERO, T::ONE, T::ONE),
@@ -21,9 +22,9 @@ fn offsets<T: Numeric>(method: FiniteDifferenceMode) -> (T, T, T) {
 }
 
 /// Configuration shared by the single- and multi-variable finite-difference differentiators.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FiniteDifferenceConfig<T = f64> {
-    /// The finite-difference step size. See [`mode::DEFAULT_STEP_SIZE`].
+    /// The finite-difference step size. See [`FiniteDifferenceMode::default_step_size`].
     pub step_size: T,
     /// Forward, Backward or Central difference.
     pub method: FiniteDifferenceMode,
@@ -35,9 +36,10 @@ pub struct FiniteDifferenceConfig<T = f64> {
 impl<T: Numeric> Default for FiniteDifferenceConfig<T> {
     /// Central difference with the default step size and multiplier; best for most cases.
     fn default() -> Self {
+        let method = FiniteDifferenceMode::Central;
         FiniteDifferenceConfig {
-            step_size: T::from_f64(mode::DEFAULT_STEP_SIZE),
-            method: FiniteDifferenceMode::Central,
+            step_size: method.default_step_size(),
+            method,
             step_size_multiplier: T::from_f64(mode::DEFAULT_STEP_SIZE_MULTIPLIER),
         }
     }
@@ -45,6 +47,7 @@ impl<T: Numeric> Default for FiniteDifferenceConfig<T> {
 
 impl<T: Numeric> FiniteDifferenceConfig<T> {
     /// Builds a config with explicit parameters.
+    #[must_use]
     pub fn from_parameters(step: T, method: FiniteDifferenceMode, multiplier: T) -> Self {
         FiniteDifferenceConfig {
             step_size: step,
@@ -53,17 +56,20 @@ impl<T: Numeric> FiniteDifferenceConfig<T> {
         }
     }
 
-    /// Returns [`DiffError::StepSizeZero`] if the step size is zero.
+    /// Returns an error if the step size is zero, negative, infinite, or NaN.
     fn check_step_size(&self) -> Result<(), DiffError> {
         if self.step_size == T::ZERO {
             return Err(DiffError::StepSizeZero);
+        }
+        if !self.step_size.is_finite() || self.step_size < T::ZERO {
+            return Err(DiffError::InvalidStepSize);
         }
         Ok(())
     }
 }
 
 /// Finite-difference differentiator for single-variable functions.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FiniteDifferenceSingle<T = f64> {
     pub config: FiniteDifferenceConfig<T>,
 }
@@ -78,6 +84,7 @@ impl<T: Numeric> Default for FiniteDifferenceSingle<T> {
 
 impl<T: Numeric> FiniteDifferenceSingle<T> {
     /// Builds a differentiator with explicit parameters.
+    #[must_use]
     pub fn from_parameters(step: T, method: FiniteDifferenceMode, multiplier: T) -> Self {
         FiniteDifferenceSingle {
             config: FiniteDifferenceConfig::from_parameters(step, method, multiplier),
@@ -85,18 +92,19 @@ impl<T: Numeric> FiniteDifferenceSingle<T> {
     }
 
     #[inline]
+    #[must_use]
     fn diff<F: ScalarFn>(&self, order: usize, func: &F, point: T, step: T) -> T {
-        let (lo, hi, denom) = offsets::<T>(self.config.method);
+        let (lower, upper, denom) = offsets::<T>(self.config.method);
 
         if order == 1 {
-            let low = func.eval(point + lo * step);
-            let high = func.eval(point + hi * step);
+            let low = func.eval(point + lower * step);
+            let high = func.eval(point + upper * step);
             return (high - low) / (denom * step);
         }
 
         let next = self.config.step_size_multiplier * step;
-        let low = self.diff(order - 1, func, point + lo * step, next);
-        let high = self.diff(order - 1, func, point + hi * step, next);
+        let low = self.diff(order - 1, func, point + lower * step, next);
+        let high = self.diff(order - 1, func, point + upper * step, next);
         (high - low) / (denom * step)
     }
 }
@@ -104,7 +112,7 @@ impl<T: Numeric> FiniteDifferenceSingle<T> {
 impl<T: Numeric> DerivatorSingleVariable for FiniteDifferenceSingle<T> {
     type Scalar = T;
 
-    fn get<F: ScalarFn>(&self, order: usize, func: &F, point: T) -> Result<T, DiffError> {
+    fn differentiate<F: ScalarFn>(&self, order: usize, func: &F, point: T) -> Result<T, DiffError> {
         if order == 0 {
             return Err(DiffError::OrderZero);
         }
@@ -114,7 +122,7 @@ impl<T: Numeric> DerivatorSingleVariable for FiniteDifferenceSingle<T> {
 }
 
 /// Finite-difference differentiator for multi-variable functions.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FiniteDifferenceMulti<T = f64> {
     pub config: FiniteDifferenceConfig<T>,
 }
@@ -129,6 +137,7 @@ impl<T: Numeric> Default for FiniteDifferenceMulti<T> {
 
 impl<T: Numeric> FiniteDifferenceMulti<T> {
     /// Builds a differentiator with explicit parameters.
+    #[must_use]
     pub fn from_parameters(step: T, method: FiniteDifferenceMode, multiplier: T) -> Self {
         FiniteDifferenceMulti {
             config: FiniteDifferenceConfig::from_parameters(step, method, multiplier),
@@ -136,6 +145,7 @@ impl<T: Numeric> FiniteDifferenceMulti<T> {
     }
 
     #[inline]
+    #[must_use]
     fn diff<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize, const NUM_ORDER: usize>(
         &self,
         order: usize,
@@ -144,13 +154,13 @@ impl<T: Numeric> FiniteDifferenceMulti<T> {
         point: &[T; NUM_VARS],
         step: T,
     ) -> T {
-        let (lo, hi, denom) = offsets::<T>(self.config.method);
+        let (lower, upper, denom) = offsets::<T>(self.config.method);
         let var = idx_to_differentiate[order - 1];
 
         let mut low_point = *point;
-        low_point[var] += lo * step;
+        low_point[var] += lower * step;
         let mut high_point = *point;
-        high_point[var] += hi * step;
+        high_point[var] += upper * step;
 
         if order == 1 {
             return (func.eval(&high_point) - func.eval(&low_point)) / (denom * step);
@@ -166,7 +176,7 @@ impl<T: Numeric> FiniteDifferenceMulti<T> {
 impl<T: Numeric> DerivatorMultiVariable for FiniteDifferenceMulti<T> {
     type Scalar = T;
 
-    fn get<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize, const NUM_ORDER: usize>(
+    fn differentiate<F: ScalarFnN<NUM_VARS>, const NUM_VARS: usize, const NUM_ORDER: usize>(
         &self,
         func: &F,
         idx_to_differentiate: &[usize; NUM_ORDER],
@@ -208,19 +218,19 @@ impl<T: Numeric> DerivatorMultiVariable for FiniteDifferenceMulti<T> {
             return Err(DiffError::IndexOutOfRange);
         }
 
-        let (lo, hi, denom) = offsets::<T>(self.config.method);
+        let (lower, upper, denom) = offsets::<T>(self.config.method);
         let step = self.config.step_size;
 
         let mut low_point = *point;
-        low_point[col] += lo * step;
+        low_point[col] += lower * step;
         let mut high_point = *point;
-        high_point[col] += hi * step;
+        high_point[col] += upper * step;
 
         let low = func.eval(&low_point);
         let high = func.eval(&high_point);
 
-        Ok(core::array::from_fn(|m| {
-            (high[m] - low[m]) / (denom * step)
+        Ok(core::array::from_fn(|row| {
+            (high[row] - low[row]) / (denom * step)
         }))
     }
 }

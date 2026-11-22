@@ -13,7 +13,7 @@ import struct
 from datetime import datetime, timezone
 from importlib.metadata import version
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def hex_f64(x):
@@ -21,13 +21,6 @@ def hex_f64(x):
     x = float(x)
     assert not math.isnan(x), "NaN is not allowed in fixtures"
     return "0x%016x" % struct.unpack("<Q", struct.pack("<d", x))[0]
-
-
-def hex_f32(x):
-    """A Python float as the hex of its 32-bit pattern, e.g. `"0x3f800000"`."""
-    x = float(x)
-    assert not math.isnan(x), "NaN is not allowed in fixtures"
-    return "0x%08x" % struct.unpack("<I", struct.pack("<f", x))[0]
 
 
 # --- value builders ---
@@ -61,10 +54,6 @@ def string(s):
     return {"kind": "str", "v": str(s)}
 
 
-def boolean(b):
-    return {"kind": "bool", "v": bool(b)}
-
-
 # --- tolerances and metadata ---
 
 
@@ -81,35 +70,44 @@ def _generation_date():
     return datetime.now(timezone.utc).isoformat()
 
 
-def metadata(generator, seed, sampling, libraries=("numpy", "scipy", "mpmath")):
-    """Provenance header: generator name, live library versions, seed, date, and a
-    note on how inputs were sampled."""
+def metadata(generator, seed, sampling, libraries, reference):
+    """Provenance shared by every fixture one generator writes: its name, the live
+    library versions, the seed, the date, a note on how inputs were sampled, and
+    where the goldens came from.
+
+    `reference` is a label with the library name in braces, e.g.
+    `"numpy/LAPACK {numpy}"`; the version is filled in from the same lookup that
+    records `libraries`, so the two cannot disagree."""
+    libs = {name: version(name) for name in libraries}
     return {
         "generator": generator,
-        "libraries": {name: version(name) for name in libraries},
+        "libraries": libs,
         "seed": int(seed),
         "date": _generation_date(),
         "sampling": sampling,
+        "reference": reference.format(**libs),
     }
 
 
-def write_fixture(out, module, case, meta, tolerances, inputs, expected):
-    """Writes `{out}/v1/{module}/{case}.json`, creating directories as needed."""
-    # A missing f64/host key would make the loader fall back to an exact-match
-    # (zero) tolerance, silently demanding bit-exact equality. Fail loudly instead.
-    assert "f64/host" in tolerances, (
-        f"fixture {module}/{case} has no f64/host tolerance"
-    )
+def write_fixture(
+    out, module, case, meta, tolerances, inputs, expected, *, equation, operations
+):
+    """Writes `{out}/{module}/{case}.json`, creating directories as needed.
+
+    `equation` is the problem this fixture is built on and `operations` names what
+    was computed from it, one entry per row it contributes to an accuracy table."""
+    assert "f64" in tolerances, f"fixture {module}/{case} has no f64 tolerance"
+    assert operations, f"fixture {module}/{case} names no operation"
     obj = {
         "schema_version": SCHEMA_VERSION,
-        "metadata": meta,
+        "metadata": {**meta, "equation": equation, "operations": list(operations)},
         "module": module,
         "case": case,
-        "tolerances": {"table": tolerances},
+        "tolerances": tolerances,
         "inputs": inputs,
         "expected": expected,
     }
-    path = os.path.join(out, "v1", module, case + ".json")
+    path = os.path.join(out, module, case + ".json")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="ascii", newline="\n") as f:
         json.dump(obj, f, sort_keys=True, indent=2, ensure_ascii=True)

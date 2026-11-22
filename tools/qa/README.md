@@ -16,7 +16,8 @@ The project's quality-assurance crate. It owns four jobs:
 
 The reference values live as committed JSON fixtures under `fixtures/`. The Rust
 tests load them, run multicalc on the same inputs, and compare within per-fixture
-tolerances. Fixtures are produced by containerized Python generators in `gen/`.
+tolerances. Fixtures are produced by the Python generators in `gen/`, which run
+against an exact, locked set of library versions.
 
 **Generation is maintainer-run under Linux/WSL. CI never runs Python and never
 downloads anything — it only reads the committed fixtures** (`cargo test -p
@@ -28,8 +29,8 @@ multicalc-qa`).
 src/        schema, loader, and the named-problem registry
 src/bin/    generators for the smoke goldens and the accuracy-doc tables
 benches/    the latency bench (criterion), regenerates benchmarks/latency.md
-fixtures/   committed goldens, versioned as v1, v2, …
-gen/        Python generators and their pinned container
+fixtures/   committed goldens, one directory per module
+gen/        Python generators, their pinned requirements, and the regeneration script
 tests/      one suite per module (calculus, linalg, optimization, root_finding, …)
 ```
 
@@ -39,14 +40,14 @@ The generated accuracy tables live in `benchmarks/` at the repo root.
 
 Every fixture is one JSON object. Floating-point numbers are stored as the hex of
 their IEEE-754 bit pattern (`f64::to_bits`), so values round-trip exactly and a
-regenerated file is byte-for-byte comparable. Integers, strings, and booleans are
-plain JSON. NaN is not allowed.
+regenerated file is byte-for-byte comparable. Integers and strings are plain JSON.
+NaN is not allowed.
 
-An abridged example (`fixtures/v1/quadrature/two_x_legendre_o4.json`):
+An abridged example (`fixtures/quadrature/two_x_legendre_o4.json`):
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "module": "quadrature",
   "case": "two_x_legendre_o4",
   "metadata": {
@@ -54,13 +55,14 @@ An abridged example (`fixtures/v1/quadrature/two_x_legendre_o4.json`):
     "libraries": { "mpmath": "1.3.0" },
     "seed": 20260706,
     "date": "2026-07-06T00:00:00+00:00",
-    "sampling": "closed-form spot checks; mpmath goldens"
+    "sampling": "closed-form spot checks; mpmath goldens",
+    "equation": "∫ 2x dx",
+    "operations": ["Gauss-Legendre order 4 on [0,2]"],
+    "reference": "mpmath 1.3.0"
   },
   "tolerances": {
-    "table": {
-      "f64/host": { "abs": 1e-12, "rel": 1e-12 },
-      "f32/host": { "abs": 1e-4,  "rel": 1e-4 }
-    }
+    "f64": { "abs": 1e-12, "rel": 1e-12 },
+    "f32": { "abs": 1e-4,  "rel": 1e-4 }
   },
   "inputs": {
     "integrand": { "kind": "str",    "v": "two_x" },
@@ -79,17 +81,20 @@ Fields:
 
 - `schema_version` — the fixture format version; a loader rejects anything else.
 - `metadata` — the generator, the exact reference-library versions, the seed, the
-  generation date, and a note on how inputs were sampled.
+  generation date, and a note on how inputs were sampled. `equation`,
+  `operations`, and `reference` are the text the accuracy tables show: the problem,
+  what was computed from it (one entry per table row), and where the golden came
+  from. Writing them here keeps the published description next to the code that
+  produced the number.
 - `module` / `case` — which suite the fixture belongs to and its unique name.
-- `tolerances.table` — keyed `"<scalar>/<target>"` (e.g. `f64/host`, `f32/host`),
-  each an absolute/relative pair. A comparison passes when
-  `|got - want| <= abs + rel * max(|got|, |want|)`. The `aarch64` and `thumbv*`
-  targets are reserved for later phases.
+- `tolerances` — an absolute/relative pair for `f64`, and one for `f32` on the
+  fixtures that rerun in single precision. A comparison passes when
+  `|got - want| <= abs + rel * max(|got|, |want|)`.
 - `inputs` — the exact inputs, as hex where floating-point.
 - `expected` — the reference outputs.
 
 Value kinds: `scalar`, `vector`, `matrix` (row-major, with `rows`/`cols`), `int`,
-`str`, `bool`. `quaternion` and `manifold_state` are reserved and unused today.
+and `str`.
 
 ### What is compared
 
@@ -101,7 +106,7 @@ they are checked only through multicalc's own reconstruction identities.
 
 The `f64` result carries the golden value. For `f32`, the same input is re-run and
 a mathematical identity is asserted (reconstruction, `A·A⁺·A ≈ A`, `L·Lᵀ ≈ A`, and
-so on) against the `f32/host` tolerance; `f32` results are never compared to the
+so on) against the `f32` tolerance; `f32` results are never compared to the
 `f64` golden.
 
 ## The named-problem registry
@@ -119,59 +124,71 @@ The harness is meant to grow to Pinocchio (`pin`), MuJoCo, FilterPy, and similar
 Adding a reference is additive:
 
 1. Pin the package in `gen/requirements.txt` (commented placeholders are already
-   there) so its version is recorded in each fixture's metadata.
+   there) so its version is recorded in each fixture's metadata, then rebuild
+   `gen/requirements.lock` as described under Regeneration.
 2. Add a generator under `gen/generators/` and call it from `gen/generate.py`.
    Compute goldens from the reference and write them with the shared `schema.py`
    builders — no schema change needed for scalars, vectors, or matrices.
-3. If the outputs are rigid-body states or rotations, use the reserved
-   `quaternion` / `manifold_state` value kinds and the reserved per-target
-   tolerance keys (`aarch64`, `thumbv*`) rather than inventing new ones — they
-   exist so this stays forward-compatible.
+3. If the outputs need a shape the value kinds do not cover — a rotation, a
+   rigid-body state — add the kind to `gen/schema.py` and `src/schema.rs` together
+   and bump `schema_version`. A reader rejects a version it does not know, so the
+   break is visible rather than silent.
 4. For any function-valued problem (a dynamics model, a filter step), add a stable
    key to both `gen/problems.py` and `src/problems.rs`, then a matching Rust suite
    under `tests/`.
 
-Keep new goldens in the current `fixtures/vN/`; only a value-changing regeneration
-of existing fixtures needs a new version. MuJoCo and other large downloads stay on
-the maintainer's generation side — CI must remain fixture-only.
+Keep new goldens alongside the existing ones. MuJoCo and other large downloads
+stay on the maintainer's generation side — CI must remain fixture-only.
 
 ## Regeneration
 
-Generators are pinned in a container so the recorded library versions match the
-committed fixtures. The seed is fixed (`20260706`). To reproduce a fixture set
-byte-for-byte, set `SOURCE_DATE_EPOCH` to the instant frozen in the fixtures'
-`metadata.date` — v1 was generated with `SOURCE_DATE_EPOCH=1783296000`
-(2026-07-06 UTC).
-
-With Docker (run from the repo root):
+Generation runs in a virtualenv under `gen/.venv`, installed from a locked set of
+library versions so the versions recorded in each fixture match the committed
+ones. It needs Python 3.12. From anywhere in the repo:
 
 ```bash
-docker build -t mc-qa-gen tools/qa/gen
-docker run --rm --user "$(id -u):$(id -g)" \
-  -e SOURCE_DATE_EPOCH=1783296000 \
-  -v "$PWD/tools/qa/fixtures:/out" mc-qa-gen
+tools/qa/gen/generate.sh
 ```
 
-`--user` keeps the written files owned by you rather than root.
+The script builds the virtualenv on first use, installs `gen/requirements.lock`,
+and writes to `tools/qa/fixtures`. It also sets the four environment variables the
+goldens depend on: `OPENBLAS_NUM_THREADS=1` and `OMP_NUM_THREADS=1` so BLAS adds
+its partial sums in the same order every run, `PYTHONHASHSEED=0`, and
+`SOURCE_DATE_EPOCH=1783296000` — the instant stamped into every fixture's
+`metadata.date`. The seed is fixed at `20260706`. A run with no toolchain change
+leaves `git status` clean.
 
-Without Docker, a virtualenv with the pinned requirements works too (also from the
-repo root):
+Pass an output directory as the first argument to write somewhere else, and set
+`PYTHON=` to choose a different interpreter.
+
+### Relocking
+
+`requirements.txt` holds the packages the generators use directly;
+`requirements.lock` adds everything those pull in, with a hash for each, and is
+what actually gets installed. After changing a direct pin, rebuild the lock from
+`gen/`:
 
 ```bash
-python -m venv .venv
-.venv/bin/pip install -r tools/qa/gen/requirements.txt
-SOURCE_DATE_EPOCH=1783296000 .venv/bin/python tools/qa/gen/generate.py --out tools/qa/fixtures
+pip-compile --generate-hashes --allow-unsafe --strip-extras \
+  --output-file=requirements.lock requirements.txt
 ```
 
-Byte-stability holds for the same image/build. A different numpy/BLAS build may
-differ in the last few bits, which is exactly why comparisons use tolerances and
-why such drift creates a new fixture version rather than rewriting an old one.
+Then delete `gen/.venv`, rerun `generate.sh` so the new versions are the ones
+stamped into the fixtures, and review the diff.
 
-## Immutability and versioning
+Byte-stability holds for the same locked set. A different numpy/BLAS build may
+differ in the last few bits, which is exactly why comparisons use tolerances.
 
-`fixtures/vN/` is immutable once committed. Regeneration that changes any value
-goes into a new `fixtures/v(N+1)/` in a reviewed change; `v1` is never rewritten.
+## Changing a fixture
 
-Because each fixture freezes the exact reference-library versions in its metadata,
-accuracy claims are version-qualified: a fixture states that multicalc matches, for
-example, numpy 2.1.3 and mpmath 1.3.0 to the listed tolerance.
+Fixtures are regenerated in place, and the diff is the review artifact. A change to
+any golden value has to be explained in the change that carries it — a new
+reference-library version, a corrected input, a new case. Superseded values stay
+recoverable through git history.
+
+Two things hold steady independently of that. `schema_version` guards the file
+format: the loader rejects a file it does not recognise, so a format change is a
+deliberate, visible break. And because each fixture freezes the exact
+reference-library versions in its metadata, accuracy claims carry those versions
+with them: a fixture states that multicalc matches, for example, numpy 2.1.3 and
+mpmath 1.3.0 to the listed tolerance.

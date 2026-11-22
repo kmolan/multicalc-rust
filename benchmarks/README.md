@@ -6,7 +6,7 @@ and **latency** (criterion measurements).
 ## Accuracy
 
 Per-module tables showing multicalc's numerics tested against established external libraries
-(numpy, scipy, mpmath). Each row lists the operation, the equation, the tolerance it must match
+(numpy, scipy, mpmath, filterpy, MuJoCo, Pinocchio). Each row lists the operation, the equation, the tolerance it must match
 within, and which library it is checked against. The tables are generated from the fixtures under
 [`tools/qa`](../tools/qa) and kept in sync by a CI `git diff` guard.
 
@@ -17,6 +17,17 @@ within, and which library it is checked against. The tables are generated from t
 | optimization | [`optimization.md`](optimization.md) | Levenberg-Marquardt and Gauss-Newton least-squares minimizers. |
 | root_finding | [`root_finding.md`](root_finding.md) | Scalar and system root finders: bisection, Newton, damped Newton, square-system Newton. |
 | ode | [`ode.md`](ode.md) | RK45 integrator trajectories against scipy `solve_ivp`. |
+| estimation | [`estimation.md`](estimation.md) | Linear and extended Kalman filter predict/update runs against FilterPy, including a coordinated-turn motion model. |
+| control | [`control.md`](control.md) | Riccati solver, and the Lyapunov certificate against scipy, plus the geometric attitude law's conventions. |
+| signal_processing | [`signal_processing.md`](signal_processing.md) | Biquad design, frequency response, and filtered output against `scipy.signal`, including a fourth-order cascade and a harmonic notch. |
+| mjcf | [`mjcf.md`](mjcf.md) | Reading a MuJoCo model file into multicalc's robot types — a free body's mass and spin, and a jointed robot's body tree, joint settings and per-link mass — against MuJoCo's own compile of it. |
+| urdf | [`urdf.md`](urdf.md) | Reading a URDF model file into multicalc's robot types — the link list, joint order and kinds, travel limits and coupled joints, and where every link ends up — against Pinocchio's own parse of it. |
+| kinematics | [`kinematics.md`](kinematics.md) | Working out where every part of a jointed robot ends up from its joint readings, and how each joint's rate moves each part, against MuJoCo's own solve of the same model — plus the reverse, the joint readings that put a chosen frame at a pose you name, against mink's differential IK. |
+| dynamics | [`dynamics.md`](dynamics.md) | One rigid body's straight-line and turning accelerations under gravity and an applied push and turn, against MuJoCo's own solve of the same body. |
+| spatial | [`spatial.md`](spatial.md) | Reading a motion or a force from another frame, the two spatial cross products, and what a body's mass distribution does to a motion — its momentum, what it takes to hold that motion, and its energy — against Pinocchio's own spatial algebra. |
+| polynomial | [`polynomial.md`](polynomial.md) | Evaluation, derivatives, areas, products, composition, interpolation, fitting, exact real roots, and polynomials in several variables, against numpy. |
+| motion | [`motion.md`](motion.md) | Minimum-snap trajectory coefficients and sampled states, against an independent constrained solve in numpy. |
+| mapping | [`mapping.md`](mapping.md) | Exact Euclidean distance transform, costmap inflation, and the likelihood-field measurement model, against scipy and closed-form numpy. |
 
 Regenerate with `cargo run -p multicalc-qa --bin gen_accuracy_tables`; CI fails if a regenerated
 table differs from the committed doc. Runnable, self-checking demos live in [`demos/`](../demos).

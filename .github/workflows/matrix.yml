@@ -60,7 +60,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
       # Runs the library tests on each host. This overlaps the x86_64 `test` job on
       # purpose so the matrix is one complete cross-target gate on its own.
       - name: Build and test
@@ -81,26 +80,24 @@ jobs:
         with:
           targets: ${{ matrix.target }}
           components: llvm-tools-preview
-      - uses: Swatinem/rust-cache@v2
       # cargo-binutils provides `cargo size`, used by the budget check. It wraps
-      # the llvm-tools-preview component installed above. rust-cache does not cover
-      # installed binaries, so cache the compiled tool separately (built from source
-      # on a cache miss, restored on a hit).
+      # the llvm-tools-preview component installed above. Cache the compiled tool
+      # separately (built from source on a cache miss, restored on a hit).
       - name: Install cargo-binutils (cached)
         uses: taiki-e/cache-cargo-install-action@v3
         with:
           tool: cargo-binutils
-      # Cache the QEMU apt package + its dependencies instead of re-downloading it
-      # on every run.
-      - name: Install QEMU (cached)
-        uses: awalsh128/cache-apt-pkgs-action@v1
-        with:
-          packages: qemu-system-arm
-          version: 1.0
-      - name: Install QEMU (RISC-V)
+      - name: Install QEMU (Arm)
+        if: startsWith(matrix.target, 'thumb')
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-system-misc
+          sudo apt-get install -y qemu-system-arm
+          command -v qemu-system-arm
+      - name: Install QEMU (RISC-V)
+        if: startsWith(matrix.target, 'riscv')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-riscv
           command -v qemu-system-riscv32
       - name: Run smoke tests + budget checks under QEMU
         run: |

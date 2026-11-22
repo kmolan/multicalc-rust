@@ -1,0 +1,89 @@
+{
+  "case": "riccati_double_integrator",
+  "expected": {
+    "K": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fed58acc1123174",
+        "0x3ffa2b66e7c3cd76"
+      ],
+      "rows": 1
+    },
+    "P": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x4031d5be0f233534",
+        "0x4024066560954aa3",
+        "0x4024066560954aa3",
+        "0x4031db4940114f15"
+      ],
+      "rows": 2
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff0000000000000",
+        "0x3fb999999999999a",
+        "0x0000000000000000",
+        "0x3ff0000000000000"
+      ],
+      "rows": 2
+    },
+    "B": {
+      "cols": 1,
+      "kind": "matrix",
+      "row_major": [
+        "0x3f747ae147ae147c",
+        "0x3fb999999999999a"
+      ],
+      "rows": 2
+    },
+    "Q": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3ff0000000000000"
+      ],
+      "rows": 2
+    },
+    "R": {
+      "cols": 1,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ff0000000000000"
+      ],
+      "rows": 1
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "P = A\u1d40PA \u2212 A\u1d40PB(R + B\u1d40PB)\u207b\u00b9B\u1d40PA + Q",
+    "generator": "control",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "operations": [
+      "Riccati solve, double integrator"
+    ],
+    "reference": "SciPy 1.14.1",
+    "sampling": "fixed textbook systems plus entries uniform in [-1, 1] from a generator-local stream; stable matrices rescaled to a largest growth factor of 0.9; SPD costs are M\u00b7M\u1d40 + I",
+    "seed": 20260706
+  },
+  "module": "control",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-09,
+      "rel": 1e-09
+    }
+  }
+}

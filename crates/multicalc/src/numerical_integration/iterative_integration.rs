@@ -34,7 +34,22 @@ impl Default for IterativeConfig {
 
 impl IterativeConfig {
     /// Builds a config with an explicit iteration count and rule.
+    ///
+    /// For counts up to 12,000, `total_iterations` is automatically rounded up
+    /// to the nearest valid step multiple required by the chosen integration rule
+    /// (e.g., multiples of 4 for Boole's rule, 3 for Simpson's 3/8 rule).
+    /// Above 12,000, the count is left untouched.
+    #[must_use]
     pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self {
+        let total_iterations = if total_iterations <= 12000 {
+            match integration_method {
+                IterativeMethod::Booles => total_iterations.next_multiple_of(4),
+                IterativeMethod::Simpsons => total_iterations.next_multiple_of(3),
+                IterativeMethod::Trapezoidal => total_iterations,
+            }
+        } else {
+            total_iterations
+        };
         IterativeConfig {
             total_iterations,
             integration_method,
@@ -61,42 +76,42 @@ impl IterativeConfig {
     }
 }
 
-/// Dispatches to the chosen rule, integrating `g` over `[lo, hi]` with `iterations`
-/// intervals. The caller decides the domain branch before building `g`, so a finite
+/// Dispatches to the chosen rule, integrating `integrand` over `[lower, upper]` with `iterations`
+/// intervals. The caller decides the domain branch before building `integrand`, so a finite
 /// integral passes `func` straight through with no per-sample transform.
-fn integrate_rule<T: Numeric, G: FnMut(T) -> T>(
+fn integrate_rule<T: Numeric, G: FnMut(T) -> Result<T, IntegrateError>>(
     method: IterativeMethod,
     iterations: u64,
-    lo: T,
-    hi: T,
-    g: G,
+    lower: T,
+    upper: T,
+    integrand: G,
     summation: SummationMethod,
-) -> T {
+) -> Result<T, IntegrateError> {
     match method {
-        IterativeMethod::Booles => booles(iterations, lo, hi, g, summation),
-        IterativeMethod::Simpsons => simpsons(iterations, lo, hi, g, summation),
-        IterativeMethod::Trapezoidal => trapezoidal(iterations, lo, hi, g, summation),
+        IterativeMethod::Booles => booles(iterations, lower, upper, integrand, summation),
+        IterativeMethod::Simpsons => simpsons(iterations, lower, upper, integrand, summation),
+        IterativeMethod::Trapezoidal => trapezoidal(iterations, lower, upper, integrand, summation),
     }
 }
 
-/// Boole's composite rule over `[lo, hi]`.
-fn booles<T: Numeric, G: FnMut(T) -> T>(
+/// Boole's composite rule over `[lower, upper]`.
+fn booles<T: Numeric, G: FnMut(T) -> Result<T, IntegrateError>>(
     iterations: u64,
-    lo: T,
-    hi: T,
-    mut g: G,
+    lower: T,
+    upper: T,
+    mut integrand: G,
     summation: SummationMethod,
-) -> T {
-    let delta = (hi - lo) / T::from_u64(iterations);
-    let mut point = lo;
+) -> Result<T, IntegrateError> {
+    let delta = (upper - lower) / T::from_u64(iterations);
+    let mut point = lower;
 
     let mut ans = Acc::new(summation);
-    ans.add(T::from_f64(7.0) * g(point));
+    ans.add(T::from_f64(7.0) * integrand(point)?);
     let mut multiplier = T::from_f64(32.0);
 
     for iter in 0..iterations - 1 {
         point += delta;
-        ans.add(multiplier * g(point));
+        ans.add(multiplier * integrand(point)?);
 
         if (iter + 2) % 2 != 0 {
             multiplier = T::from_f64(32.0);
@@ -107,29 +122,29 @@ fn booles<T: Numeric, G: FnMut(T) -> T>(
         }
     }
 
-    ans.add(T::from_f64(7.0) * g(hi));
+    ans.add(T::from_f64(7.0) * integrand(upper)?);
 
-    T::TWO * delta * ans.total() / T::from_f64(45.0)
+    Ok(T::TWO * delta * ans.total() / T::from_f64(45.0))
 }
 
-/// Simpson's 3/8 composite rule over `[lo, hi]`.
-fn simpsons<T: Numeric, G: FnMut(T) -> T>(
+/// Simpson's 3/8 composite rule over `[lower, upper]`.
+fn simpsons<T: Numeric, G: FnMut(T) -> Result<T, IntegrateError>>(
     iterations: u64,
-    lo: T,
-    hi: T,
-    mut g: G,
+    lower: T,
+    upper: T,
+    mut integrand: G,
     summation: SummationMethod,
-) -> T {
-    let delta = (hi - lo) / T::from_u64(iterations);
-    let mut point = lo;
+) -> Result<T, IntegrateError> {
+    let delta = (upper - lower) / T::from_u64(iterations);
+    let mut point = lower;
 
     let mut ans = Acc::new(summation);
-    ans.add(g(point));
+    ans.add(integrand(point)?);
     let mut multiplier = T::from_f64(3.0);
 
     for iter in 0..iterations - 1 {
         point += delta;
-        ans.add(multiplier * g(point));
+        ans.add(multiplier * integrand(point)?);
 
         if (iter + 2) % 3 == 0 {
             multiplier = T::TWO;
@@ -138,33 +153,33 @@ fn simpsons<T: Numeric, G: FnMut(T) -> T>(
         }
     }
 
-    ans.add(g(hi));
+    ans.add(integrand(upper)?);
 
-    T::from_f64(3.0) * delta * ans.total() / T::from_f64(8.0)
+    Ok(T::from_f64(3.0) * delta * ans.total() / T::from_f64(8.0))
 }
 
-/// Trapezoidal composite rule over `[lo, hi]`.
-fn trapezoidal<T: Numeric, G: FnMut(T) -> T>(
+/// Trapezoidal composite rule over `[lower, upper]`.
+fn trapezoidal<T: Numeric, G: FnMut(T) -> Result<T, IntegrateError>>(
     iterations: u64,
-    lo: T,
-    hi: T,
-    mut g: G,
+    lower: T,
+    upper: T,
+    mut integrand: G,
     summation: SummationMethod,
-) -> T {
-    let delta = (hi - lo) / T::from_u64(iterations);
-    let mut point = lo;
+) -> Result<T, IntegrateError> {
+    let delta = (upper - lower) / T::from_u64(iterations);
+    let mut point = lower;
 
     let mut ans = Acc::new(summation);
-    ans.add(g(point));
+    ans.add(integrand(point)?);
 
     for _ in 0..iterations - 1 {
         point += delta;
-        ans.add(T::TWO * g(point));
+        ans.add(T::TWO * integrand(point)?);
     }
 
-    ans.add(g(hi));
+    ans.add(integrand(upper)?);
 
-    T::HALF * delta * ans.total()
+    Ok(T::HALF * delta * ans.total())
 }
 
 /// Implements the iterative methods for numerical integration for single variable functions
@@ -185,6 +200,7 @@ impl<T> Default for IterativeSingle<T> {
 
 impl<T> IterativeSingle<T> {
     /// custom constructor. Optimal for fine-tuning for more complex equations
+    #[must_use]
     pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self {
         IterativeSingle {
             config: IterativeConfig::from_parameters(total_iterations, integration_method),
@@ -196,6 +212,7 @@ impl<T> IterativeSingle<T> {
     ///
     /// Default is [`SummationMethod::Pairwise`]. Pass [`SummationMethod::Kahan`]
     /// for opt-in compensated summation.
+    #[must_use]
     pub fn with_kahan_summation(mut self) -> Self {
         self.config.summation = SummationMethod::Kahan;
         self
@@ -212,29 +229,28 @@ impl<T: Numeric> IterativeSingle<T> {
         level: usize,
         func: &F,
         integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
-    ) -> T {
+    ) -> Result<T, IntegrateError> {
         let method = self.config.integration_method;
         let iterations = self.config.total_iterations;
         let summation = self.config.summation;
 
-        let domain = match classify(&integration_limit[level - 1]) {
-            Ok(d) => d,
-            Err(_) => return T::NAN, // limits validated in check_for_errors; unreachable
-        };
+        let domain = classify(&integration_limit[level - 1])?;
 
         if level == 1 {
             return match domain {
-                Domain::Finite(a, b) => integrate_rule(method, iterations, a, b, func, summation),
+                Domain::Finite(a, b) => {
+                    integrate_rule(method, iterations, a, b, |x| is_finite(func(x)), summation)
+                }
                 _ => {
-                    let (lo, hi) = t_bounds(&domain);
+                    let (lower, upper) = t_bounds(&domain);
                     integrate_rule(
                         method,
                         iterations,
-                        lo,
-                        hi,
-                        |t| {
-                            let (x, jacobian) = map_sample(&domain, t);
-                            func(x) * jacobian
+                        lower,
+                        upper,
+                        |sample| {
+                            let (x, jacobian) = map_sample(&domain, sample);
+                            is_finite(func(x) * jacobian)
                         },
                         summation,
                     )
@@ -242,19 +258,21 @@ impl<T: Numeric> IterativeSingle<T> {
             };
         }
 
-        let inner = self.integrate(level - 1, func, integration_limit);
+        let inner = self.integrate(level - 1, func, integration_limit)?;
         match domain {
-            Domain::Finite(a, b) => integrate_rule(method, iterations, a, b, |_| inner, summation),
+            Domain::Finite(a, b) => {
+                integrate_rule(method, iterations, a, b, |_| is_finite(inner), summation)
+            }
             _ => {
-                let (lo, hi) = t_bounds(&domain);
+                let (lower, upper) = t_bounds(&domain);
                 integrate_rule(
                     method,
                     iterations,
-                    lo,
-                    hi,
-                    |t| {
-                        let (_, jacobian) = map_sample(&domain, t);
-                        inner * jacobian
+                    lower,
+                    upper,
+                    |sample| {
+                        let (_, jacobian) = map_sample(&domain, sample);
+                        is_finite(inner * jacobian)
                     },
                     summation,
                 )
@@ -278,36 +296,41 @@ impl<T: Numeric> IntegratorSingleVariable for IterativeSingle<T> {
     /// * `integration_limit` - the `[lower, upper]` limit for each level of integration.
     ///
     /// # Errors
-    /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero, or
-    /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined.
+    /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero,
+    /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined, or
+    /// [`IntegrateError::NonFinite`] if a sampled integrand value is infinite or NaN.
     ///
     /// # Examples
     /// ```
-    /// use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
-    /// use multicalc::numerical_integration::iterative_integration::IterativeSingle;
+    /// use multicalc::numerical_integration::IntegratorSingleVariable;
+    /// use multicalc::numerical_integration::IterativeSingle;
     ///
-    /// let my_func = |x: f64| 2.0 * x;
+    /// let line = |x: f64| 2.0 * x;
     /// let integrator = IterativeSingle::default();
     ///
-    /// // single integration of 2x over [0, 2] is 4
-    /// let val = integrator.get(&my_func, &[[0.0, 2.0]; 1]).unwrap();
-    /// assert!(f64::abs(val - 4.0) < 1e-6);
+    /// // one integration of 2x over [0, 2] is 4
+    /// let single_limits = [[0.0, 2.0]];
+    /// let area = integrator.integrate(&line, &single_limits).unwrap();
+    /// assert!(f64::abs(area - 4.0) < 1e-6);
     ///
-    /// // double integration over [0, 2] then [-1, 1] is 8
-    /// let val = integrator.get(&my_func, &[[0.0, 2.0], [-1.0, 1.0]]).unwrap();
-    /// assert!(f64::abs(val - 8.0) < 1e-6);
+    /// // integrating twice, over [0, 2] then [-1, 1], is 8
+    /// let double_limits = [[0.0, 2.0], [-1.0, 1.0]];
+    /// let volume = integrator.integrate(&line, &double_limits).unwrap();
+    /// assert!(f64::abs(volume - 8.0) < 1e-6);
     ///
-    /// // an infinite limit, for a decaying integrand: integral of e^(-x^2) over the real line is sqrt(pi)
-    /// let val = integrator.get(&|x| (-x * x).exp(), &[[f64::NEG_INFINITY, f64::INFINITY]]).unwrap();
-    /// assert!(f64::abs(val - std::f64::consts::PI.sqrt()) < 1e-6);
+    /// // an infinite limit, for a decaying integrand
+    /// let bell = |x: f64| (-x * x).exp();
+    /// let real_line = [[f64::NEG_INFINITY, f64::INFINITY]];
+    /// let total = integrator.integrate(&bell, &real_line).unwrap();
+    /// assert!(f64::abs(total - std::f64::consts::PI.sqrt()) < 1e-6);
     /// ```
-    fn get<F: Fn(T) -> T, const NUM_INTEGRATIONS: usize>(
+    fn integrate<F: Fn(T) -> T, const NUM_INTEGRATIONS: usize>(
         &self,
         func: &F,
         integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
     ) -> Result<T, IntegrateError> {
         self.config.check_for_errors(integration_limit)?;
-        Ok(self.integrate(NUM_INTEGRATIONS, func, integration_limit))
+        self.integrate(NUM_INTEGRATIONS, func, integration_limit)
     }
 }
 
@@ -329,6 +352,7 @@ impl<T> Default for IterativeMulti<T> {
 
 impl<T> IterativeMulti<T> {
     /// custom constructor, optimal for fine-tuning the integrator for more complex equations
+    #[must_use]
     pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self {
         IterativeMulti {
             config: IterativeConfig::from_parameters(total_iterations, integration_method),
@@ -337,6 +361,7 @@ impl<T> IterativeMulti<T> {
     }
 
     /// Opt in to Kahan compensated summation for the composite-rule accumulators.
+    #[must_use]
     pub fn with_kahan_summation(mut self) -> Self {
         self.config.summation = SummationMethod::Kahan;
         self
@@ -359,15 +384,12 @@ impl<T: Numeric> IterativeMulti<T> {
         func: &F,
         integration_limits: &[[T; 2]; NUM_INTEGRATIONS],
         point: &[T; NUM_VARS],
-    ) -> T {
+    ) -> Result<T, IntegrateError> {
         let method = self.config.integration_method;
         let iterations = self.config.total_iterations;
         let summation = self.config.summation;
 
-        let domain = match classify(&integration_limits[level - 1]) {
-            Ok(d) => d,
-            Err(_) => return T::NAN, // limits validated in check_for_errors; unreachable
-        };
+        let domain = classify(&integration_limits[level - 1])?;
         let var = idx_to_integrate[level - 1];
 
         if level == 1 {
@@ -380,21 +402,21 @@ impl<T: Numeric> IterativeMulti<T> {
                     b,
                     |x| {
                         current[var] = x;
-                        func(&current)
+                        is_finite(func(&current))
                     },
                     summation,
                 ),
                 _ => {
-                    let (lo, hi) = t_bounds(&domain);
+                    let (lower, upper) = t_bounds(&domain);
                     integrate_rule(
                         method,
                         iterations,
-                        lo,
-                        hi,
-                        |t| {
-                            let (x, jacobian) = map_sample(&domain, t);
+                        lower,
+                        upper,
+                        |sample| {
+                            let (x, jacobian) = map_sample(&domain, sample);
                             current[var] = x;
-                            func(&current) * jacobian
+                            is_finite(func(&current) * jacobian)
                         },
                         summation,
                     )
@@ -422,14 +444,14 @@ impl<T: Numeric> IterativeMulti<T> {
                 summation,
             ),
             _ => {
-                let (lo, hi) = t_bounds(&domain);
+                let (lower, upper) = t_bounds(&domain);
                 integrate_rule(
                     method,
                     iterations,
-                    lo,
-                    hi,
-                    |t| {
-                        let (x, jacobian) = map_sample(&domain, t);
+                    lower,
+                    upper,
+                    |sample| {
+                        let (x, jacobian) = map_sample(&domain, sample);
                         current[var] = x;
                         let inner = self.integrate(
                             level - 1,
@@ -437,8 +459,8 @@ impl<T: Numeric> IterativeMulti<T> {
                             func,
                             integration_limits,
                             &current,
-                        );
-                        inner * jacobian
+                        )?;
+                        is_finite(inner * jacobian)
                     },
                     summation,
                 )
@@ -461,23 +483,31 @@ impl<T: Numeric> IntegratorMultiVariable for IterativeMulti<T> {
     ///   upper limit; a variable held constant holds that constant.
     ///
     /// # Errors
-    /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero, or
-    /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined.
+    /// [`IntegrateError::IterationsZero`] if the configured iteration count is zero,
+    /// [`IntegrateError::LimitsIllDefined`] if any limit is ill-defined,
+    /// [`IntegrateError::IndexOutOfRange`] if any index is `>= NUM_VARS`, or
+    /// [`IntegrateError::NonFinite`] if a sampled integrand value is infinite or NaN.
     ///
     /// # Examples
     /// ```
-    /// use multicalc::numerical_integration::integrator::IntegratorMultiVariable;
-    /// use multicalc::numerical_integration::iterative_integration::IterativeMulti;
+    /// use multicalc::numerical_integration::IntegratorMultiVariable;
+    /// use multicalc::numerical_integration::IterativeMulti;
     ///
-    /// // f(x, y, z) = 2x + yz, integrated over x in [0, 1] with (y, z) = (2, 3); result is 7
-    /// let func = |args: &[f64; 3]| 2.0 * args[0] + args[1] * args[2];
-    /// let point = [1.0, 2.0, 3.0];
+    /// // f(x, y, z) = 2x + yz, integrated over x with (y, z) held at (2, 3); result is 7
+    /// let function = |args: &[f64; 3]| 2.0 * args[0] + args[1] * args[2];
     /// let integrator = IterativeMulti::default();
+    /// let variable_indices = [0];        // integrate over x
+    /// let limits = [[0.0, 1.0]];
+    /// let point = [1.0, 2.0, 3.0];
     ///
-    /// let val = integrator.get([0; 1], &func, &[[0.0, 1.0]; 1], &point).unwrap();
-    /// assert!(f64::abs(val - 7.0) < 1e-6);
+    /// let area = integrator.integrate(variable_indices, &function, &limits, &point).unwrap();
+    /// assert!(f64::abs(area - 7.0) < 1e-6);
     /// ```
-    fn get<F: Fn(&[T; NUM_VARS]) -> T, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
+    fn integrate<
+        F: Fn(&[T; NUM_VARS]) -> T,
+        const NUM_VARS: usize,
+        const NUM_INTEGRATIONS: usize,
+    >(
         &self,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
         func: &F,
@@ -485,12 +515,17 @@ impl<T: Numeric> IntegratorMultiVariable for IterativeMulti<T> {
         point: &[T; NUM_VARS],
     ) -> Result<T, IntegrateError> {
         self.config.check_for_errors(integration_limits)?;
-        Ok(self.integrate(
+        for &idx in &idx_to_integrate {
+            if idx >= NUM_VARS {
+                return Err(IntegrateError::IndexOutOfRange);
+            }
+        }
+        self.integrate(
             NUM_INTEGRATIONS,
             idx_to_integrate,
             func,
             integration_limits,
             point,
-        ))
+        )
     }
 }

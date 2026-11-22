@@ -1,12 +1,16 @@
 use crate::error::IntegrateError;
-use crate::numerical_integration::iterative_integration::DEFAULT_TOTAL_ITERATIONS;
+use crate::numerical_integration::DEFAULT_TOTAL_ITERATIONS;
 use crate::scalar::Numeric;
 
 /// Builds the curve position [transformations[0](t), ..., transformations[N-1](t)].
-fn curve_point<T: Numeric, const N: usize>(transformations: &[&dyn Fn(T) -> T; N], t: T) -> [T; N] {
+#[must_use]
+fn curve_point<T: Numeric, const N: usize>(
+    transformations: &[&dyn Fn(T) -> T; N],
+    parameter: T,
+) -> [T; N] {
     let mut point = [T::ZERO; N];
     for i in 0..N {
-        point[i] = transformations[i](t);
+        point[i] = transformations[i](parameter);
     }
     point
 }
@@ -22,6 +26,8 @@ fn get_partial<T: Numeric, const N: usize>(
 ) -> Result<T, IntegrateError> {
     if total_iterations == 0 {
         return Err(IntegrateError::IterationsZero);
+    } else if idx >= N {
+        return Err(IntegrateError::IndexOutOfRange);
     }
     // rejects NaN, equal, and reversed limits (partial_cmp is None for NaN)
     if !matches!(
@@ -32,22 +38,22 @@ fn get_partial<T: Numeric, const N: usize>(
     }
 
     let delta = (integration_limit[1] - integration_limit[0]) / T::from_u64(total_iterations);
-    let mut t = integration_limit[0];
+    let mut parameter = integration_limit[0];
     let mut ans = T::ZERO;
 
     //use the trapezoidal rule for line integrals, caching the shared endpoint so each
     //curve point and field value is evaluated once per node rather than twice
     //https://ocw.mit.edu/ans7870/18/18.013a/textbook/HTML/chapter25/section04.html
-    let mut left = curve_point(transformations, t);
+    let mut left = curve_point(transformations, parameter);
     let mut left_value = vector_field[idx](&left);
 
     for _ in 0..total_iterations {
-        let right = curve_point(transformations, t + delta);
+        let right = curve_point(transformations, parameter + delta);
         let right_value = vector_field[idx](&right);
 
         ans += (right[idx] - left[idx]) * (left_value + right_value) / T::TWO;
 
-        t += delta;
+        parameter += delta;
         left = right;
         left_value = right_value;
     }
@@ -59,7 +65,7 @@ fn get_partial<T: Numeric, const N: usize>(
 ///
 /// The curve is described by a parameter `t`: the transforms map `t` to each coordinate, and
 /// the field is sampled at the resulting curve position. Uses the default iteration count;
-/// see [`get_2d_custom`] to set it.
+/// see [`line_integral_2d_custom`] to set it.
 ///
 /// # Arguments
 /// * `vector_field` - the two field components, each taking the curve position `[x, y]`.
@@ -72,24 +78,25 @@ fn get_partial<T: Numeric, const N: usize>(
 ///
 /// # Examples
 /// ```
-/// use multicalc::vector_field::line_integral;
+/// use multicalc::vector_field::line_integral_2d;
 ///
 /// // the field (y, -x) along the unit circle (cos t, sin t), for t in [0, 2*pi]
 /// let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] =
 ///     [&(|args: &[f64; 2]| args[1]), &(|args: &[f64; 2]| -args[0])];
 /// let transformation_matrix: [&dyn Fn(f64) -> f64; 2] =
-///     [&(|t: f64| t.cos()), &(|t: f64| t.sin())];
+///     [&(|parameter: f64| parameter.cos()), &(|parameter: f64| parameter.sin())];
 ///
-/// let val = line_integral::get_2d(&vector_field_matrix, &transformation_matrix, &[0.0, 6.28]).unwrap();
+/// let limits = [0.0, 6.28];   // one full turn around the circle
+/// let val = line_integral_2d(&vector_field_matrix, &transformation_matrix, &limits).unwrap();
 /// // the line integral is -2*pi
 /// assert!(f64::abs(val + 6.28) < 0.01);
 /// ```
-pub fn get_2d<T: Numeric>(
+pub fn line_integral_2d<T: Numeric>(
     vector_field: &[&dyn Fn(&[T; 2]) -> T; 2],
     transformations: &[&dyn Fn(T) -> T; 2],
     integration_limit: &[T; 2],
 ) -> Result<T, IntegrateError> {
-    get_2d_custom(
+    line_integral_2d_custom(
         vector_field,
         transformations,
         integration_limit,
@@ -97,25 +104,25 @@ pub fn get_2d<T: Numeric>(
     )
 }
 
-/// Same as [`get_2d`] but with an explicit iteration count for finer control.
+/// Same as [`line_integral_2d`] but with an explicit iteration count for finer control.
 ///
 /// # Errors
 /// [`IntegrateError::IterationsZero`] if `total_iterations` is zero, or
 /// [`IntegrateError::LimitsIllDefined`] if the lower limit is not strictly less than the
 /// upper limit.
-pub fn get_2d_custom<T: Numeric>(
+pub fn line_integral_2d_custom<T: Numeric>(
     vector_field: &[&dyn Fn(&[T; 2]) -> T; 2],
     transformations: &[&dyn Fn(T) -> T; 2],
     integration_limit: &[T; 2],
     total_iterations: u64,
 ) -> Result<T, IntegrateError> {
-    Ok(get_partial_2d(
+    Ok(line_integral_partial_2d(
         vector_field,
         transformations,
         integration_limit,
         total_iterations,
         0,
-    )? + get_partial_2d(
+    )? + line_integral_partial_2d(
         vector_field,
         transformations,
         integration_limit,
@@ -125,13 +132,14 @@ pub fn get_2d_custom<T: Numeric>(
 }
 
 /// Line integral of a single field component (`idx`) along the 2D curve. Used by both
-/// [`get_2d_custom`] and the flux integral.
+/// [`line_integral_2d_custom`] and the flux integral.
 ///
 /// # Errors
 /// [`IntegrateError::IterationsZero`] if `total_iterations` is zero, or
 /// [`IntegrateError::LimitsIllDefined`] if the lower limit is not strictly less than the
 /// upper limit.
-pub fn get_partial_2d<T: Numeric>(
+/// [`IntegrateError::IndexOutOfRange`] if `idx` is greater than or equal to 2.
+pub fn line_integral_partial_2d<T: Numeric>(
     vector_field: &[&dyn Fn(&[T; 2]) -> T; 2],
     transformations: &[&dyn Fn(T) -> T; 2],
     integration_limit: &[T; 2],
@@ -147,18 +155,18 @@ pub fn get_partial_2d<T: Numeric>(
     )
 }
 
-/// Same as [`get_2d`] but for a parametrized curve in a 3D vector field. Uses the default
-/// iteration count; see [`get_3d_custom`] to set it.
+/// Same as [`line_integral_2d`] but for a parametrized curve in a 3D vector field. Uses the default
+/// iteration count; see [`line_integral_3d_custom`] to set it.
 ///
 /// # Errors
 /// [`IntegrateError::LimitsIllDefined`] if the lower limit is not strictly less than the
 /// upper limit.
-pub fn get_3d<T: Numeric>(
+pub fn line_integral_3d<T: Numeric>(
     vector_field: &[&dyn Fn(&[T; 3]) -> T; 3],
     transformations: &[&dyn Fn(T) -> T; 3],
     integration_limit: &[T; 2],
 ) -> Result<T, IntegrateError> {
-    get_3d_custom(
+    line_integral_3d_custom(
         vector_field,
         transformations,
         integration_limit,
@@ -166,31 +174,31 @@ pub fn get_3d<T: Numeric>(
     )
 }
 
-/// Same as [`get_3d`] but with an explicit iteration count for finer control.
+/// Same as [`line_integral_3d`] but with an explicit iteration count for finer control.
 ///
 /// # Errors
 /// [`IntegrateError::IterationsZero`] if `total_iterations` is zero, or
 /// [`IntegrateError::LimitsIllDefined`] if the lower limit is not strictly less than the
 /// upper limit.
-pub fn get_3d_custom<T: Numeric>(
+pub fn line_integral_3d_custom<T: Numeric>(
     vector_field: &[&dyn Fn(&[T; 3]) -> T; 3],
     transformations: &[&dyn Fn(T) -> T; 3],
     integration_limit: &[T; 2],
     total_iterations: u64,
 ) -> Result<T, IntegrateError> {
-    Ok(get_partial_3d(
+    Ok(line_integral_partial_3d(
         vector_field,
         transformations,
         integration_limit,
         total_iterations,
         0,
-    )? + get_partial_3d(
+    )? + line_integral_partial_3d(
         vector_field,
         transformations,
         integration_limit,
         total_iterations,
         1,
-    )? + get_partial_3d(
+    )? + line_integral_partial_3d(
         vector_field,
         transformations,
         integration_limit,
@@ -200,13 +208,14 @@ pub fn get_3d_custom<T: Numeric>(
 }
 
 /// Line integral of a single field component (`idx`) along the 3D curve. Used by both
-/// [`get_3d_custom`] and the flux integral.
+/// [`line_integral_3d_custom`] and the flux integral.
 ///
 /// # Errors
 /// [`IntegrateError::IterationsZero`] if `total_iterations` is zero, or
 /// [`IntegrateError::LimitsIllDefined`] if the lower limit is not strictly less than the
 /// upper limit.
-pub fn get_partial_3d<T: Numeric>(
+/// [`IntegrateError::IndexOutOfRange`] if `idx` is greater than or equal to 3.
+pub fn line_integral_partial_3d<T: Numeric>(
     vector_field: &[&dyn Fn(&[T; 3]) -> T; 3],
     transformations: &[&dyn Fn(T) -> T; 3],
     integration_limit: &[T; 2],

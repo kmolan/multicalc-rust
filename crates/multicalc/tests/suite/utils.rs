@@ -4,12 +4,12 @@ use core::fmt::{self, Write};
 use multicalc::error::{CalcError, DiffError, IntegrateError, LinalgError, SolveError};
 
 // Captures the single `write_str` call `Display` makes, so no allocator is needed.
-struct Probe<'a> {
-    expected: &'a str,
+struct Probe<'expected> {
+    expected: &'expected str,
     matched: bool,
 }
 
-impl Write for Probe<'_> {
+impl<'expected> Write for Probe<'expected> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         self.matched = s == self.expected;
         Ok(())
@@ -32,6 +32,10 @@ fn linalg_display_strings() {
         "matrix is singular or rank-deficient"
     ));
     assert!(renders_as(
+        LinalgError::IllConditioned,
+        "matrix is too ill-conditioned to solve reliably"
+    ));
+    assert!(renders_as(
         LinalgError::NotPositiveDefinite,
         "matrix is not positive definite"
     ));
@@ -42,6 +46,10 @@ fn linalg_display_strings() {
     assert!(renders_as(
         LinalgError::NonFinite,
         "matrix contained a non-finite value"
+    ));
+    assert!(renders_as(
+        LinalgError::InvalidTimestep,
+        "timestep must be finite and non-negative"
     ));
 }
 
@@ -91,6 +99,10 @@ fn integrate_display_strings() {
         IntegrateError::NonFinite,
         "integrand or state contained a non-finite value"
     ));
+    assert!(renders_as(
+        IntegrateError::IndexOutOfRange,
+        "variable index out of range"
+    ));
 }
 
 #[test]
@@ -126,12 +138,8 @@ fn wrapped_errors_forward() {
 #[test]
 fn data_carrying_display() {
     assert_eq!(
-        SolveError::DidNotConverge {
-            iters: 7,
-            residual: 0.5,
-        }
-        .to_string(),
-        "solver did not converge after 7 iterations (residual 0.5)"
+        SolveError::DidNotConverge { iters: 7 }.to_string(),
+        "solver did not converge after 7 iterations"
     );
     assert_eq!(
         IntegrateError::DidNotConverge { steps: 12 }.to_string(),

@@ -1,12 +1,12 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use multicalc::gaussian_tables::{MAX_ORDER, nodes};
-use multicalc::numerical_integration::mode::GaussianQuadratureMethod;
+use multicalc::numerical_integration::GaussianQuadratureMethod;
 
 use proptest::prelude::*;
 
 #[test]
-fn lookup() {
+fn node_count_matches_the_requested_order() {
     assert_eq!(
         nodes(GaussianQuadratureMethod::GaussLegendre, 4)
             .unwrap()
@@ -19,7 +19,7 @@ fn lookup() {
 
 proptest! {
     #[test]
-    fn proptest_lookup(order in 1..=MAX_ORDER) {
+    fn proptest_every_order_returns_that_many_nodes(order in 1..=MAX_ORDER) {
         prop_assert_eq!(
             nodes(GaussianQuadratureMethod::GaussLegendre, order)
                 .unwrap()

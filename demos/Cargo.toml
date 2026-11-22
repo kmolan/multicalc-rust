@@ -2,18 +2,30 @@
 name = "multicalc-demos"
 version.workspace = true
 edition.workspace = true
-# Rerun requires Rust 1.92, above the workspace 1.85 floor, so this crate sets its own.
-rust-version = "1.92"
+rust-version.workspace = true
 license.workspace = true
 publish = false
 autoexamples = false
 
 [features]
-default = ["rerun"]
+default = ["rerun", "alloc"]
 rerun = ["dep:rerun"]
+# Turns on multicalc's heap types (the particle filter), used by the estimation example's extra
+# section and the 2D localization and obstacle avoidance showcase (its localizer and lap driver).
+alloc = ["multicalc/alloc"]
 
 [dependencies]
-multicalc = { path = "../crates/multicalc" }
+# The simulated world is built on `mapping::DynamicOccupancyGrid`, which is heap-backed, so the
+# demos always need multicalc's `alloc`. The demos' own `alloc` feature stays as the gate for the
+# heavier demo code (the particle-filter localizer and the lap driver).
+multicalc = { path = "../crates/multicalc", features = ["alloc"] }
+# Reads MuJoCo and URDF model files into multicalc types, for the model-ingestion examples.
+multicalc-robot-model = { path = "../crates/multicalc-robot-model" }
+# Seeded RNG for the sensor simulator, so a run reproduces exactly. Showcase-side only; the core
+# crate stays rand-free. `rand_distr` supplies the Gaussian, which `rand` itself does not carry.
+rand = "0.10.2"
+rand_distr = "0.6.0"
+rand_pcg = "0.10.2"
 # Pinned to match the paired Rerun viewer version. Only the logging SDK is needed: `spawn()`
 # launches the external viewer on PATH, so the in-process `native_viewer` is not compiled in.
 rerun = { version = "=0.33.1", default-features = false, features = ["sdk"], optional = true }
@@ -24,12 +36,24 @@ workspace = true
 # Basics: headless, self-checking, multicalc-only. No required-features, so they
 # build and run with the rerun feature off.
 [[example]]
+name = "avoidance"
+path = "examples/basics/avoidance.rs"
+
+[[example]]
 name = "approximation"
 path = "examples/basics/approximation.rs"
 
 [[example]]
+name = "attitude_filter"
+path = "examples/basics/attitude_filter.rs"
+
+[[example]]
 name = "autodiff_scalars"
 path = "examples/basics/autodiff_scalars.rs"
+
+[[example]]
+name = "control_loops"
+path = "examples/basics/control_loops.rs"
 
 [[example]]
 name = "curve_fit"
@@ -42,6 +66,18 @@ path = "examples/basics/differentiation.rs"
 [[example]]
 name = "discretization"
 path = "examples/basics/discretization.rs"
+
+[[example]]
+name = "error_state_estimation"
+path = "examples/basics/error_state_estimation.rs"
+
+[[example]]
+name = "estimation"
+path = "examples/basics/estimation.rs"
+
+[[example]]
+name = "forward_kinematics"
+path = "examples/basics/forward_kinematics.rs"
 
 [[example]]
 name = "gaussian_integration"
@@ -68,6 +104,27 @@ name = "linear_algebra"
 path = "examples/basics/linear_algebra.rs"
 
 [[example]]
+name = "localized_lap_check"
+path = "examples/basics/localized_lap_check.rs"
+required-features = ["alloc"]
+
+[[example]]
+name = "minimum_snap_trajectory"
+path = "examples/basics/minimum_snap_trajectory.rs"
+
+[[example]]
+name = "mjcf_model_ingestion"
+path = "examples/basics/mjcf_model_ingestion.rs"
+
+[[example]]
+name = "motion_profiles"
+path = "examples/basics/motion_profiles.rs"
+
+[[example]]
+name = "path_planning"
+path = "examples/basics/path_planning.rs"
+
+[[example]]
 name = "ode"
 path = "examples/basics/ode.rs"
 
@@ -76,12 +133,36 @@ name = "optimization_solvers"
 path = "examples/basics/optimization_solvers.rs"
 
 [[example]]
+name = "polynomials"
+path = "examples/basics/polynomials.rs"
+
+[[example]]
+name = "articulated_dynamics"
+path = "examples/basics/articulated_dynamics.rs"
+
+[[example]]
+name = "torque_control"
+path = "examples/basics/torque_control.rs"
+
+[[example]]
+name = "rigid_body_dynamics"
+path = "examples/basics/rigid_body_dynamics.rs"
+
+[[example]]
 name = "root_finding"
 path = "examples/basics/root_finding.rs"
 
 [[example]]
+name = "signal_filters"
+path = "examples/basics/signal_filters.rs"
+
+[[example]]
 name = "svd"
 path = "examples/basics/svd.rs"
+
+[[example]]
+name = "urdf_model_ingestion"
+path = "examples/basics/urdf_model_ingestion.rs"
 
 [[example]]
 name = "vector_field"
@@ -91,11 +172,6 @@ path = "examples/basics/vector_field.rs"
 [[example]]
 name = "curve_fit_live"
 path = "examples/showcase/curve_fit_live.rs"
-required-features = ["rerun"]
-
-[[example]]
-name = "curve_fit_record"
-path = "examples/showcase/curve_fit_record.rs"
 required-features = ["rerun"]
 
 [[example]]
@@ -109,9 +185,9 @@ path = "examples/showcase/gradient_marbles.rs"
 required-features = ["rerun"]
 
 [[example]]
-name = "2d_arm_ik"
-path = "examples/showcase/2d_arm_ik.rs"
-required-features = ["rerun"]
+name = "2d_localization_obstacle_avoidance"
+path = "examples/showcase/2d_localization_obstacle_avoidance.rs"
+required-features = ["rerun", "alloc"]
 
 [[example]]
 name = "newton_fractal"
@@ -121,4 +197,9 @@ required-features = ["rerun"]
 [[example]]
 name = "3d_arm_ik"
 path = "examples/showcase/3d_arm_ik.rs"
+required-features = ["rerun"]
+
+[[example]]
+name = "3d_drone_flight"
+path = "examples/showcase/3d_drone_flight.rs"
 required-features = ["rerun"]

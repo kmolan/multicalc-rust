@@ -22,16 +22,30 @@ impl<D: DerivatorMultiVariable + Default> Default for Jacobian<D> {
     }
 }
 
+impl Jacobian<AutoDiffMulti> {
+    /// A Jacobian using exact autodiff derivatives.
+    ///
+    /// ```
+    /// use multicalc::numerical_derivative::Jacobian;
+    ///
+    /// const J: Jacobian = Jacobian::new();
+    /// ```
+    #[inline]
+    pub const fn new() -> Self {
+        Self::from_derivator(AutoDiffMulti::new())
+    }
+}
+
 impl<D: DerivatorMultiVariable> Jacobian<D> {
     /// Builds a Jacobian from an explicit derivator. Use this to supply a custom derivator,
     /// either one from this crate or your own implementation of [`DerivatorMultiVariable`].
-    pub fn from_derivator(derivator: D) -> Self {
+    pub const fn from_derivator(derivator: D) -> Self {
         Jacobian { derivator }
     }
 
     /// Returns the Jacobian matrix of `function` evaluated at `vector_of_points`.
     ///
-    /// The result has one row per output and one column per variable, so entry `[m][n]`
+    /// The result has one row per output and one column per variable, so entry `(m, n)`
     /// is `d(output m)/d(variable n)`.
     ///
     /// # Arguments
@@ -44,23 +58,27 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     ///
     /// # Examples
     /// ```
-    /// use multicalc::numerical_derivative::jacobian::Jacobian;
+    /// use multicalc::numerical_derivative::Jacobian;
     /// use multicalc::scalar_fn_vec;
     ///
     /// // the vector function (x*y*z, x^2 + y^2)
-    /// let f = scalar_fn_vec!(|v: &[f64; 3]| [v[0] * v[1] * v[2], v[0] * v[0] + v[1] * v[1]]);
-    ///
+    /// let function = scalar_fn_vec!(|point: &[f64; 3]| [point[0] * point[1] * point[2], point[0] * point[0] + point[1] * point[1]]);
+    /// let point = [1.0, 2.0, 3.0];
     ///
     /// let jacobian: Jacobian = Jacobian::default();
-    /// let result = jacobian.get(&f, &[1.0, 2.0, 3.0]).unwrap();
+    /// let result = jacobian.evaluate(&function, &point).unwrap();
     /// // result is [[6, 3, 2], [2, 4, 0]]
-    /// assert!(f64::abs(result[0][0] - 6.0) < 1e-12);
+    /// assert!(f64::abs(result[(0, 0)] - 6.0) < 1e-12);
     /// ```
-    pub fn get<F: VectorFn<NUM_VARS, NUM_FUNCS>, const NUM_FUNCS: usize, const NUM_VARS: usize>(
+    pub fn evaluate<
+        F: VectorFn<NUM_VARS, NUM_FUNCS>,
+        const NUM_FUNCS: usize,
+        const NUM_VARS: usize,
+    >(
         &self,
         function: &F,
         vector_of_points: &[D::Scalar; NUM_VARS],
-    ) -> Result<[[D::Scalar; NUM_VARS]; NUM_FUNCS], DiffError> {
+    ) -> Result<Matrix<NUM_FUNCS, NUM_VARS, D::Scalar>, DiffError> {
         if NUM_FUNCS == 0 {
             return Err(DiffError::EmptyFunctionSet);
         }
@@ -71,15 +89,15 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
             let column = self
                 .derivator
                 .jacobian_column(function, n, vector_of_points)?;
-            for (m, &value) in column.iter().enumerate() {
-                result[(m, n)] = value;
+            for (row, &value) in column.iter().enumerate() {
+                result[(row, n)] = value;
             }
         }
 
-        Ok(result.into_array())
+        Ok(result)
     }
 
-    /// Same as [`Jacobian::get`] but returns a heap-allocated `Vec<Vec<_>>`, which avoids a
+    /// Same as [`Jacobian::evaluate`] but returns a heap-allocated `Vec<Vec<_>>`, which avoids a
     /// stack overflow on large inputs. Requires the `alloc` feature (off by default).
     ///
     /// The result has one row per output and one column per variable, so entry `[m][n]`
@@ -93,7 +111,8 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     /// [`DiffError::EmptyFunctionSet`] if `function` has no outputs, or
     /// [`DiffError::StepSizeZero`] if the derivator's step size is zero.
     #[cfg(feature = "alloc")]
-    pub fn get_on_heap<
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    pub fn evaluate_on_heap<
         F: VectorFn<NUM_VARS, NUM_FUNCS>,
         const NUM_FUNCS: usize,
         const NUM_VARS: usize,
@@ -115,8 +134,8 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
             let column = self
                 .derivator
                 .jacobian_column(function, n, vector_of_points)?;
-            for (m, &value) in column.iter().enumerate() {
-                result[m].push(value);
+            for (row, &value) in column.iter().enumerate() {
+                result[row].push(value);
             }
         }
 

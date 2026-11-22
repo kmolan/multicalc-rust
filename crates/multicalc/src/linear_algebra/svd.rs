@@ -10,19 +10,28 @@ use crate::scalar::Numeric;
 
 /// A thin singular value decomposition `A = U · diag(σ) · Vᵀ` for a matrix with `M ≥ N`.
 ///
-/// `u` has orthonormal columns, `singular_values` holds the σ in descending order (all ≥ 0), and
-/// `v` has orthonormal columns.
-
+/// `left` is `U` (orthonormal columns), `singular_values` holds the σ in descending order (all ≥ 0),
+/// and `right` is `V` (orthonormal columns).
+#[derive(Debug, Clone, Copy)]
+#[must_use]
+pub struct Svd<const M: usize, const N: usize, T = f64> {
+    /// Left factor `U` with orthonormal columns.
+    pub(crate) left: Matrix<M, N, T>,
+    /// Singular values in descending order.
+    pub(crate) singular_values: Vector<N, T>,
+    /// Right factor `V` with orthonormal columns.
+    pub(crate) right: Matrix<N, N, T>,
+}
 
 /// Settings for the one-sided Jacobi SVD.
 #[derive(Debug, Clone, Copy)]
 pub struct SvdSettings {
-    /// Maximum number of Jacobi sweeps before giving up on convergence.
+    /// Maximum number of Jacobi sweeps.
     max_sweeps: usize,
 }
 
 impl Default for SvdSettings {
-    /// Default budget: 60 sweeps, matching the previous hardcoded behaviour.
+    /// 60 sweeps.
     fn default() -> Self {
         Self { max_sweeps: 60 }
     }
@@ -37,60 +46,26 @@ impl SvdSettings {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#[derive(Debug, Clone, Copy)]
-#[must_use]
-pub struct Svd<const M: usize, const N: usize, T = f64> {
-    /// Left factor `U` with orthonormal columns.
-    pub(crate) u: Matrix<M, N, T>,
-    /// Singular values in descending order.
-    pub(crate) singular_values: Vector<N, T>,
-    /// Right factor `V` with orthonormal columns.
-    pub(crate) v: Matrix<N, N, T>,
-}
-
 impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
     /// Decomposes `self` as `U · diag(σ) · Vᵀ` by one-sided Jacobi (thin form, `M ≥ N`).
     ///
-    /// `U` has orthonormal columns, the σ are non-negative and descending, and `V` has orthonormal
-    /// columns. Returns [`LinalgError::Underdetermined`] for a wide matrix (`M < N`) — transpose it
+    /// `left` is `U` (orthonormal columns), the σ are non-negative and descending, and `right` is `V`
+    /// (orthonormal columns). Returns [`LinalgError::Underdetermined`] for a wide matrix (`M < N`) — transpose it
     /// first — or [`LinalgError::NonFinite`] if any entry is not finite.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
     /// let a = Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
     /// let svd = a.svd().unwrap();
-    /// let (u, s, v) = (svd.u(), svd.singular_values(), svd.v());
+    /// let (left, sigma, right) = (svd.left(), svd.singular_values(), svd.right());
     /// // U · diag(σ) · Vᵀ == A.
-    /// for r in 0..3 {
-    ///     for c in 0..2 {
+    /// for row in 0..3 {
+    ///     for col in 0..2 {
     ///         let mut acc = 0.0;
     ///         for k in 0..2 {
-    ///             acc += u[(r, k)] * s[k] * v[(c, k)];
+    ///             acc += left[(row, k)] * sigma[k] * right[(col, k)];
     ///         }
-    ///         assert!((acc - a[(r, c)]).abs() < 1e-12);
+    ///         assert!((acc - a[(row, col)]).abs() < 1e-12);
     ///     }
     /// }
     /// ```
@@ -103,54 +78,46 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
     /// use multicalc::linear_algebra::Matrix;
     /// // For a wide matrix, decompose its transpose.
     /// let a = Matrix::<2, 3>::new([[1.0, 0.0, 2.0], [0.0, 1.0, 1.0]]);
-    /// let at = a.transpose();
-    /// let svd = at.svd().unwrap();
-    /// let (u, s, v) = (svd.u(), svd.singular_values(), svd.v());
-    /// for r in 0..3 {
-    ///     for c in 0..2 {
+    /// let a_transpose = a.transpose();
+    /// let svd = a_transpose.svd().unwrap();
+    /// let (left, sigma, right) = (svd.left(), svd.singular_values(), svd.right());
+    /// for row in 0..3 {
+    ///     for col in 0..2 {
     ///         let mut acc = 0.0;
     ///         for k in 0..2 {
-    ///             acc += u[(r, k)] * s[k] * v[(c, k)];
+    ///             acc += left[(row, k)] * sigma[k] * right[(col, k)];
     ///         }
-    ///         assert!((acc - at[(r, c)]).abs() < 1e-12);
+    ///         assert!((acc - a_transpose[(row, col)]).abs() < 1e-12);
     ///     }
     /// }
     /// ```
-    /// Decomposes `self` as `U · diag(σ) · Vᵀ` by one-sided Jacobi (thin form, `M ≥ N`), using
-/// the default settings (60 sweeps).
-///
-/// [...existing doc comments yahan rakho jaise the...]
-pub fn svd(self) -> Result<Svd<M, N, T>, LinalgError> {
-    self.svd_with_settings(SvdSettings::default())
-}
-
-/// Same as [`Matrix::svd`] but with configurable settings, such as the sweep budget.
-pub fn svd_with_settings(self, settings: SvdSettings) -> Result<Svd<M, N, T>, LinalgError> {
-    if M < N {
-        return Err(LinalgError::Underdetermined);
+    pub fn svd(self) -> Result<Svd<M, N, T>, LinalgError> {
+        self.svd_with_settings(SvdSettings::default())
     }
-    for r in 0..M {
-        for c in 0..N {
-            if !self[(r, c)].is_finite() {
-                return Err(LinalgError::NonFinite);
-            }
+
+    /// [`Matrix::svd`] with the given [`SvdSettings`], such as the sweep budget.
+    pub fn svd_with_settings(self, settings: SvdSettings) -> Result<Svd<M, N, T>, LinalgError> {
+        if M < N {
+            return Err(LinalgError::Underdetermined);
         }
-    }
+        if !self.is_finite() {
+            return Err(LinalgError::NonFinite);
+        }
 
-    let mut u = self;
-    let mut v = Matrix::<N, N, T>::identity();
+        let mut left = self;
+        let mut right = Matrix::<N, N, T>::identity();
 
-    let max_sweeps = settings.max_sweeps;   
-    
+        // One-sided Jacobi: rotate column pairs of left until its columns are orthogonal.
+        let max_sweeps = settings.max_sweeps;
         for _ in 0..max_sweeps {
             let mut off_max = T::ZERO;
-            for p in 0..N {
-                for q in (p + 1)..N {
-                    let cp = u.column(p);
-                    let cq = u.column(q);
-                    let alpha = cp.norm_squared();
-                    let beta = cq.norm_squared();
-                    let gamma = cp.dot(cq);
+            for col_p in 0..N {
+                for col_q in (col_p + 1)..N {
+                    let col_p_vec = Vector::<M, T>::from_fn(|row| left[(row, col_p)]);
+                    let col_q_vec = Vector::<M, T>::from_fn(|row| left[(row, col_q)]);
+                    let alpha = col_p_vec.norm_squared();
+                    let beta = col_q_vec.norm_squared();
+                    let gamma = col_p_vec.dot(col_q_vec);
                     if alpha == T::ZERO || beta == T::ZERO {
                         continue;
                     }
@@ -162,23 +129,23 @@ pub fn svd_with_settings(self, settings: SvdSettings) -> Result<Svd<M, N, T>, Li
                     if gamma.abs() <= T::EPSILON * scale {
                         continue;
                     }
-                    // Rotation that makes columns p and q orthogonal.
+                    // Rotation that makes columns col_p and col_q orthogonal.
                     let zeta = (beta - alpha) / (T::TWO * gamma);
                     let sign = if zeta < T::ZERO { -T::ONE } else { T::ONE };
-                    let t = sign / (zeta.abs() + (T::ONE + zeta * zeta).sqrt());
-                    let c = T::ONE / (T::ONE + t * t).sqrt();
-                    let s = c * t;
+                    let tan = sign / (zeta.abs() + (T::ONE + zeta * zeta).sqrt());
+                    let cos = T::ONE / (T::ONE + tan * tan).sqrt();
+                    let sin = cos * tan;
                     for i in 0..M {
-                        let up = u[(i, p)];
-                        let uq = u[(i, q)];
-                        u[(i, p)] = c * up - s * uq;
-                        u[(i, q)] = s * up + c * uq;
+                        let left_p = left[(i, col_p)];
+                        let left_q = left[(i, col_q)];
+                        left[(i, col_p)] = cos * left_p - sin * left_q;
+                        left[(i, col_q)] = sin * left_p + cos * left_q;
                     }
                     for i in 0..N {
-                        let vp = v[(i, p)];
-                        let vq = v[(i, q)];
-                        v[(i, p)] = c * vp - s * vq;
-                        v[(i, q)] = s * vp + c * vq;
+                        let right_p = right[(i, col_p)];
+                        let right_q = right[(i, col_q)];
+                        right[(i, col_p)] = cos * right_p - sin * right_q;
+                        right[(i, col_q)] = sin * right_p + cos * right_q;
                     }
                 }
             }
@@ -187,14 +154,14 @@ pub fn svd_with_settings(self, settings: SvdSettings) -> Result<Svd<M, N, T>, Li
             }
         }
 
-        // The column norms are the singular values; normalize U's columns by them.
+        // The column norms are the singular values; normalize left's columns by them.
         let mut singular_values = Vector::<N, T>::zeros();
         for k in 0..N {
-            let sigma = u.column(k).norm();
+            let sigma = Vector::<M, T>::from_fn(|row| left[(row, k)]).norm();
             singular_values[k] = sigma;
             if sigma > T::ZERO {
                 for i in 0..M {
-                    u[(i, k)] /= sigma;
+                    left[(i, k)] /= sigma;
                 }
             }
         }
@@ -212,43 +179,43 @@ pub fn svd_with_settings(self, settings: SvdSettings) -> Result<Svd<M, N, T>, Li
                 singular_values[k] = singular_values[top];
                 singular_values[top] = tmp;
                 for i in 0..M {
-                    let tmp = u[(i, k)];
-                    u[(i, k)] = u[(i, top)];
-                    u[(i, top)] = tmp;
+                    let tmp = left[(i, k)];
+                    left[(i, k)] = left[(i, top)];
+                    left[(i, top)] = tmp;
                 }
                 for i in 0..N {
-                    let tmp = v[(i, k)];
-                    v[(i, k)] = v[(i, top)];
-                    v[(i, top)] = tmp;
+                    let tmp = right[(i, k)];
+                    right[(i, k)] = right[(i, top)];
+                    right[(i, top)] = tmp;
                 }
             }
         }
 
-        // Sign convention: the largest-magnitude entry of each U column is positive.
+        // Sign convention: the largest-magnitude entry of each left column is positive.
         for k in 0..N {
             let mut row = 0;
             let mut best = T::ZERO;
             for i in 0..M {
-                let mag = u[(i, k)].abs();
+                let mag = left[(i, k)].abs();
                 if mag > best {
                     best = mag;
                     row = i;
                 }
             }
-            if u[(row, k)] < T::ZERO {
+            if left[(row, k)] < T::ZERO {
                 for i in 0..M {
-                    u[(i, k)] = -u[(i, k)];
+                    left[(i, k)] = -left[(i, k)];
                 }
                 for i in 0..N {
-                    v[(i, k)] = -v[(i, k)];
+                    right[(i, k)] = -right[(i, k)];
                 }
             }
         }
 
         Ok(Svd {
-            u,
+            left,
             singular_values,
-            v,
+            right,
         })
     }
 
@@ -263,9 +230,9 @@ pub fn svd_with_settings(self, settings: SvdSettings) -> Result<Svd<M, N, T>, Li
     /// let a = Matrix::<2, 3>::new([[1.0, 0.0, 2.0], [0.0, 1.0, 1.0]]);
     /// let pinv = a.pseudo_inverse().unwrap();
     /// let recon = a * pinv * a; // A·A⁺·A == A
-    /// for r in 0..2 {
-    ///     for c in 0..3 {
-    ///         assert!((recon[(r, c)] - a[(r, c)]).abs() < 1e-12);
+    /// for row in 0..2 {
+    ///     for col in 0..3 {
+    ///         assert!((recon[(row, col)] - a[(row, col)]).abs() < 1e-12);
     ///     }
     /// }
     /// ```
@@ -285,13 +252,13 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
     }
 
     /// The left factor `U`, with orthonormal columns.
-    pub fn u(&self) -> Matrix<M, N, T> {
-        self.u
+    pub fn left(&self) -> Matrix<M, N, T> {
+        self.left
     }
 
     /// The right factor `V`, with orthonormal columns.
-    pub fn v(&self) -> Matrix<N, N, T> {
-        self.v
+    pub fn right(&self) -> Matrix<N, N, T> {
+        self.right
     }
 
     /// The number of singular values greater than `tol`.
@@ -300,7 +267,8 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
     /// use multicalc::linear_algebra::Matrix;
     /// // Column 2 is twice column 1, so the matrix has rank 1.
     /// let a = Matrix::<3, 2>::new([[1.0, 2.0], [2.0, 4.0], [3.0, 6.0]]);
-    /// assert_eq!(a.svd().unwrap().rank(1e-9), 1);
+    /// let tolerance = 1e-9;
+    /// assert_eq!(a.svd().unwrap().rank(tolerance), 1);
     /// ```
     #[inline]
     #[must_use]
@@ -336,6 +304,7 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
     }
 
     /// The default cutoff below which a singular value counts as zero.
+    #[must_use]
     fn default_tol(&self) -> T {
         if N == 0 {
             return T::ZERO;
@@ -350,7 +319,7 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
             for k in 0..N {
                 let sigma = self.singular_values[k];
                 if sigma > tol {
-                    acc += self.v[(i, k)] * self.u[(j, k)] / sigma;
+                    acc += self.right[(i, k)] * self.left[(j, k)] / sigma;
                 }
             }
             acc
@@ -364,9 +333,9 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
     /// let a = Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
     /// let pinv = a.svd().unwrap().pseudo_inverse();
     /// let recon = a * pinv * a; // A·A⁺·A == A
-    /// for r in 0..3 {
-    ///     for c in 0..2 {
-    ///         assert!((recon[(r, c)] - a[(r, c)]).abs() < 1e-12);
+    /// for row in 0..3 {
+    ///     for col in 0..2 {
+    ///         assert!((recon[(row, col)] - a[(row, col)]).abs() < 1e-12);
     ///     }
     /// }
     /// ```
@@ -382,7 +351,8 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
     /// use multicalc::linear_algebra::{Matrix, Vector};
     /// // Overdetermined and consistent: the exact solution is x = [1, 2].
     /// let a = Matrix::<3, 2>::new([[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]);
-    /// let x = a.svd().unwrap().solve(Vector::new([1.0, 2.0, 3.0]));
+    /// let b = Vector::new([1.0, 2.0, 3.0]);
+    /// let x = a.svd().unwrap().solve(b);
     /// assert!((x[0] - 1.0).abs() < 1e-12);
     /// assert!((x[1] - 2.0).abs() < 1e-12);
     /// ```
@@ -392,9 +362,10 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
         for k in 0..N {
             let sigma = self.singular_values[k];
             if sigma > tol {
-                z[k] = self.u.column(k).dot(b) / sigma;
+                let left_col = Vector::<M, T>::from_fn(|row| self.left[(row, k)]);
+                z[k] = left_col.dot(b) / sigma;
             }
         }
-        self.v * z
+        self.right * z
     }
 }

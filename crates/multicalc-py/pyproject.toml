@@ -1,0 +1,17 @@
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "multicalc_py"
+dynamic = ["version"]
+description = "Python bindings for multicalc"
+requires-python = ">=3.10"
+classifiers = [
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[tool.maturin]
+module-name = "multicalc_py"
+manifest-path = "Cargo.toml"

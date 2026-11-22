@@ -1,10 +1,10 @@
 //! Scalar Newton and damped Newton solvers.
 
 use crate::error::{LinalgError, SolveError};
-use crate::numerical_derivative::autodiff::AutoDiffSingle;
-use crate::numerical_derivative::derivator::DerivatorSingleVariable;
+use crate::numerical_derivative::AutoDiffSingle;
+use crate::numerical_derivative::DerivatorSingleVariable;
 use crate::root_finding::{RootReport, RootTermination};
-use crate::scalar::{Numeric, Primal, ScalarFn};
+use crate::scalar::{Numeric, ScalarFn};
 
 /// Maximum step halvings per iteration when backtracking is enabled.
 const MAX_BACKTRACK: usize = 20;
@@ -25,13 +25,15 @@ const MAX_BACKTRACK: usize = 20;
 /// # Examples
 /// ```
 /// use multicalc::root_finding::Newton;
-/// use multicalc::scalar::c;
+/// use multicalc::scalar::constant;
 /// use multicalc::scalar_fn;
 ///
 /// // f(x) = x² − 2, root at √2 ≈ 1.41421356
-/// let f = scalar_fn!(|x| c(-2.0) + x * x);
+/// let function = scalar_fn!(|x| constant(-2.0) + x * x);
 /// let solver: Newton = Newton::default();
-/// let report = solver.solve(&f, 2.0_f64).unwrap();
+/// let initial_guess = 2.0_f64;
+///
+/// let report = solver.solve(&function, initial_guess).unwrap();
 /// assert!((report.root - 2.0_f64.sqrt()).abs() < 1e-12);
 /// ```
 pub struct Newton<D: DerivatorSingleVariable = AutoDiffSingle> {
@@ -48,12 +50,26 @@ impl<D: DerivatorSingleVariable + Default> Default for Newton<D> {
     }
 }
 
+impl Newton<AutoDiffSingle> {
+    /// A solver using exact autodiff derivatives.
+    ///
+    /// ```
+    /// use multicalc::root_finding::Newton;
+    ///
+    /// const SOLVER: Newton = Newton::new();
+    /// ```
+    #[inline]
+    pub const fn new() -> Self {
+        Self::from_derivator(AutoDiffSingle::new())
+    }
+}
+
 impl<D: DerivatorSingleVariable> Newton<D> {
     /// Builds a solver with the given derivator and default settings:
     /// tolerances of `30 × EPSILON`, budget of 100 iterations, backtracking off.
     ///
     /// ```
-    /// use multicalc::numerical_derivative::autodiff::AutoDiffSingle;
+    /// use multicalc::numerical_derivative::AutoDiffSingle;
     /// use multicalc::root_finding::Newton;
     ///
     /// const D: AutoDiffSingle = AutoDiffSingle::new();
@@ -108,45 +124,42 @@ impl<D: DerivatorSingleVariable> Newton<D> {
     pub fn solve<F: ScalarFn>(
         &self,
         f: &F,
-        x0: D::Scalar,
-    ) -> Result<RootReport<D::Scalar>, SolveError>
-    where
-        D::Scalar: Primal,
-    {
+        initial_guess: D::Scalar,
+    ) -> Result<RootReport<D::Scalar>, SolveError> {
         let one = D::Scalar::ONE;
         let half = D::Scalar::HALF;
 
-        let mut x = x0;
-        let mut fx = f.eval(x);
-        if !fx.is_finite() {
+        let mut x = initial_guess;
+        let mut residual = f.eval(x);
+        if !residual.is_finite() {
             return Err(SolveError::NonFinite);
         }
 
         for iter in 1..=self.max_iterations {
-            if fx.abs() <= self.ftol {
+            if residual.abs() <= self.ftol {
                 return Ok(RootReport {
                     root: x,
-                    residual: fx,
+                    residual,
                     iterations: iter,
                     termination: RootTermination::ResidualTolerance,
                 });
             }
 
-            let dfx = self.derivator.get_single(f, x)?;
-            if !dfx.is_finite() {
+            let derivative = self.derivator.first_derivative(f, x)?;
+            if !derivative.is_finite() {
                 return Err(SolveError::NonFinite);
             }
-            if dfx == D::Scalar::ZERO {
+            if derivative == D::Scalar::ZERO {
                 return Err(SolveError::Linalg(LinalgError::Singular));
             }
 
-            let step = fx / dfx;
+            let step = residual / derivative;
 
             // Try the full Newton step; when backtracking is on, halve alpha until |f|
             // decreases or the per-iteration safeguard runs out.
             let mut alpha = one;
             let mut tries = 0usize;
-            let (x_new, fx_new) = loop {
+            let (x_new, residual_new) = loop {
                 let candidate = x - alpha * step;
                 let trial = f.eval(candidate);
                 if !self.backtracking {
@@ -155,7 +168,7 @@ impl<D: DerivatorSingleVariable> Newton<D> {
                     }
                     break (candidate, trial);
                 }
-                if (trial.is_finite() && trial.abs() < fx.abs()) || tries >= MAX_BACKTRACK {
+                if (trial.is_finite() && trial.abs() < residual.abs()) || tries >= MAX_BACKTRACK {
                     if !trial.is_finite() {
                         return Err(SolveError::NonFinite);
                     }
@@ -167,12 +180,12 @@ impl<D: DerivatorSingleVariable> Newton<D> {
 
             let step_taken = (x_new - x).abs();
             x = x_new;
-            fx = fx_new;
+            residual = residual_new;
 
             if step_taken <= self.xtol * (one + x.abs()) {
                 return Ok(RootReport {
                     root: x,
-                    residual: fx,
+                    residual,
                     iterations: iter,
                     termination: RootTermination::StepTolerance,
                 });
@@ -181,7 +194,6 @@ impl<D: DerivatorSingleVariable> Newton<D> {
 
         Err(SolveError::DidNotConverge {
             iters: self.max_iterations,
-            residual: fx.abs().to_f64(),
         })
     }
 }

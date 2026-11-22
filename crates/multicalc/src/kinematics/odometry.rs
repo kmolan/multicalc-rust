@@ -20,13 +20,15 @@ use crate::spatial::{SE2, SO2};
 /// use multicalc::kinematics::{BodyArc, integrate};
 /// use multicalc::spatial::SE2;
 /// // Two ticks of 0.05 rad turn each leave the pose rotated by 0.1 rad.
-/// let d = BodyArc::new(0.1_f64, 0.05);
-/// let pose = integrate(integrate(SE2::identity(), d), d);
+/// let start = SE2::identity();
+/// let step = BodyArc::new(0.1_f64, 0.05);   // turn 0.1 rad while moving 0.05 m along the arc
+/// let pose = integrate(integrate(start, step), step);
 /// assert!((pose.rotation().log() - 0.1).abs() < 1e-12);
 /// ```
 #[inline]
-pub fn integrate<T: Numeric>(pose: SE2<T>, d: BodyArc<T>) -> SE2<T> {
-    pose * SE2::exp(Vector::new([d.linear(), T::ZERO, d.angular()]))
+#[must_use]
+pub fn integrate<T: Numeric>(pose: SE2<T>, arc: BodyArc<T>) -> SE2<T> {
+    pose * SE2::exp(Vector::new([arc.linear(), T::ZERO, arc.angular()]))
 }
 
 /// The odometry process model, `[x, y, θ, Δs, Δθ] → [x', y', θ']`.
@@ -40,10 +42,11 @@ pub fn integrate<T: Numeric>(pose: SE2<T>, d: BodyArc<T>) -> SE2<T> {
 pub struct OdometryStep;
 
 impl VectorFn<5, 3> for OdometryStep {
-    fn eval<S: Numeric>(&self, p: &[S; 5]) -> [S; 3] {
-        let pose = SE2::from_parts(SO2::exp(p[2]), Vector::new([p[0], p[1]]));
-        let next = pose * SE2::exp(Vector::new([p[3], S::ZERO, p[4]]));
-        let t = next.translation();
-        [t[0], t[1], next.rotation().log()]
+    fn eval<S: Numeric>(&self, state: &[S; 5]) -> [S; 3] {
+        let pose = SE2::from_parts(SO2::exp(state[2]), Vector::new([state[0], state[1]]));
+        let next = pose * SE2::exp(Vector::new([state[3], S::ZERO, state[4]]));
+        let translation = next.translation();
+        let [translation_x, translation_y] = *translation.as_array();
+        [translation_x, translation_y, next.rotation().log()]
     }
 }

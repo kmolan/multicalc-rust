@@ -1,16 +1,20 @@
 //! Root finding for scalar equations and square systems.
 //!
-//! [`Bisection`] brackets a scalar root and halves the interval within a guaranteed budget.
-//! [`Newton`] and [`NewtonSystem`] take Newton steps using a derivative from any
-//! [`Derivator`](crate::numerical_derivative::derivator) (exact autodiff by default), each
-//! with an optional backtracking line search. Every solver takes an iteration budget and
-//! reports why it stopped as a [`RootTermination`].
+//! - [`Bisection`] — brackets a scalar root and halves the interval within a guaranteed budget.
+//! - [`Brent`] — preserves a bracket while accelerating with interpolation steps.
+//! - [`Newton`] / [`NewtonSystem`] — Newton steps from any
+//!   [`DerivatorSingleVariable`](crate::numerical_derivative::DerivatorSingleVariable) (exact
+//!   autodiff by default), with an optional backtracking line search.
+//!
+//! Every solver takes an iteration budget and reports why it stopped as a [`RootTermination`].
 
-pub mod bisection;
-pub mod newton;
-pub mod newton_system;
+mod bisection;
+mod brent;
+mod newton;
+mod newton_system;
 
 pub use bisection::Bisection;
+pub use brent::Brent;
 pub use newton::Newton;
 pub use newton_system::NewtonSystem;
 
@@ -24,7 +28,7 @@ pub enum RootTermination {
     ResidualTolerance,
     /// The step size fell to or below the step tolerance.
     StepTolerance,
-    /// The bracket width fell to or below the step tolerance (bisection only).
+    /// The bracket width fell to or below the step tolerance.
     BracketWidth,
 }
 
@@ -60,11 +64,13 @@ pub struct RootReportN<const N: usize, T = f64> {
 ///
 /// Built from comparisons rather than multiplication so it is correct for infinities
 /// and does not overflow.
+#[must_use]
 pub(crate) fn same_sign<T: Numeric>(a: T, b: T) -> bool {
     (a >= T::ZERO) == (b >= T::ZERO)
 }
 
-/// Returns `true` when every element of `v` is finite.
-pub(crate) fn all_finite<const K: usize, T: Numeric>(v: &[T; K]) -> bool {
-    v.iter().all(|x| x.is_finite())
+/// Returns `true` when every element of `values` is finite.
+#[must_use]
+pub(crate) fn all_finite<const K: usize, T: Numeric>(values: &[T; K]) -> bool {
+    values.iter().all(|x| x.is_finite())
 }

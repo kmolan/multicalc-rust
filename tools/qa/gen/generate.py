@@ -1,7 +1,9 @@
 """Entry point: seed the RNG and run each module's generator in a fixed order.
 
-Writes fixtures under `<out>/v1/**`. Run inside the pinned container so the
-library versions recorded in each fixture match the committed ones.
+Writes one directory of fixtures per module under `<out>`. Run it through
+`generate.sh`, which installs
+the pinned libraries so the versions recorded in each fixture match the committed
+ones.
 """
 
 import argparse
@@ -9,13 +11,27 @@ import argparse
 import numpy as np
 
 from generators import (
+    articulated_control,
+    articulated_dynamics,
     calculus,
+    control,
     discretization,
+    dynamics,
+    estimation,
+    inverse_kinematics,
+    kinematics,
     linalg,
+    mapping,
+    mjcf,
+    motion,
     ode,
     optimization,
+    polynomial,
     quadrature,
     root_finding,
+    signal_processing,
+    spatial,
+    urdf,
 )
 
 SEED = 20260706
@@ -23,12 +39,16 @@ SEED = 20260706
 
 def main():
     parser = argparse.ArgumentParser(description="Generate QA fixtures.")
-    parser.add_argument("--out", required=True, help="output directory (holds v1/)")
+    parser.add_argument(
+        "--out", required=True, help="output directory (one subdirectory per module)"
+    )
     args = parser.parse_args()
 
     rng = np.random.default_rng(SEED)
     linalg.run(args.out, rng, SEED)
     discretization.run(args.out, rng, SEED)
+    # The last rng consumer: registering it here leaves the streams above untouched.
+    estimation.run(args.out, rng, SEED)
     optimization.run(args.out, SEED)
     quadrature.run(args.out, SEED)
     ode.run(args.out, SEED)
@@ -36,6 +56,19 @@ def main():
     # cannot perturb the linalg/discretization streams above.
     calculus.run(args.out, SEED)
     root_finding.run(args.out, SEED)
+    mjcf.run(args.out, SEED)
+    urdf.run(args.out, SEED)
+    spatial.run(args.out, SEED)
+    dynamics.run(args.out, SEED)
+    articulated_dynamics.run(args.out, SEED)
+    articulated_control.run(args.out, SEED)
+    kinematics.run(args.out, SEED)
+    inverse_kinematics.run(args.out, SEED)
+    signal_processing.run(args.out, SEED)
+    polynomial.run(args.out, SEED)
+    motion.run(args.out, SEED)
+    control.run(args.out, SEED)
+    mapping.run(args.out, SEED)
 
 
 if __name__ == "__main__":

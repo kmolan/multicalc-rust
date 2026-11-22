@@ -1,20 +1,20 @@
 //! Nonlinear least-squares optimization.
 //!
-//! [`LevenbergMarquardt`] and its undamped sibling [`GaussNewton`] minimize the sum of squared
-//! residuals of a `VectorFn`, reporting the outcome as a [`MinimizationReport`] whose
-//! [`TerminationReason`] says which test converged. The Jacobian is taken by exact autodiff by
-//! default, or by finite differences if a finite-difference derivator is supplied. Failures
-//! (non-finite values, an underdetermined system, no convergence within the budget) come back as a
+//! - [`LevenbergMarquardt`] — damped Gauss–Newton; the robust default.
+//! - [`GaussNewton`] — the undamped sibling.
+//!
+//! Both minimize the sum of squared residuals of a `VectorFn`, reporting a [`MinimizationReport`]
+//! whose [`TerminationReason`] says which test converged. Jacobians are exact autodiff by default (or
+//! finite differences if a derivator is supplied); failures come back as a
 //! [`SolveError`](crate::error::SolveError).
 //!
 //! The Levenberg-Marquardt driver ports MINPACK's `lmder`/`lmpar` (Moré, Garbow, Hillstrom; public
-//! domain, netlib), following Moré (1978), "The Levenberg-Marquardt algorithm: Implementation and
-//! theory", and Nocedal & Wright, *Numerical Optimization*, chapters 4 and 10. This is a clean-room,
-//! fixed-size `no_std` reimplementation on this crate's own [`Vector`](crate::linear_algebra::Vector)
-//! and [`Matrix`](crate::linear_algebra::Matrix) types.
+//! domain, netlib), following Moré (1978) and Nocedal & Wright, *Numerical Optimization*, ch. 4 and
+//! 10 — a clean-room, fixed-size `no_std` reimplementation on this crate's own
+//! [`Vector`](crate::linear_algebra::Vector) and [`Matrix`](crate::linear_algebra::Matrix) types.
 
-pub mod gauss_newton;
-pub mod levenberg_marquardt;
+mod gauss_newton;
+mod levenberg_marquardt;
 pub(crate) mod trust_region;
 
 pub use gauss_newton::GaussNewton;
@@ -49,9 +49,10 @@ pub struct MinimizationReport<const N: usize, T = f64> {
     pub termination: TerminationReason,
 }
 
-/// Whether every element of `v` is finite.
-pub(crate) fn is_finite<const K: usize, T: Numeric>(v: &[T; K]) -> bool {
-    v.iter().all(|value| value.is_finite())
+/// Whether every element of `values` is finite.
+#[must_use]
+pub(crate) fn is_finite<const K: usize, T: Numeric>(values: &[T; K]) -> bool {
+    values.iter().all(|value| value.is_finite())
 }
 
 /// Assembles a report at the final point (objective is half the sum of squared residuals).

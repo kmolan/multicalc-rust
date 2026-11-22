@@ -1,0 +1,78 @@
+{
+  "case": "lyapunov_stable_3x3",
+  "expected": {
+    "P": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x4019c9dd8bcc694c",
+        "0x3fe9d18eab8e39c2",
+        "0xbfeea43ecd455a3c",
+        "0x3fe9d18eab8e39c3",
+        "0x400346b04f2dd09a",
+        "0xbfed3ed84afb8869",
+        "0xbfeea43ecd455a3d",
+        "0xbfed3ed84afb8868",
+        "0x401020389d4bfda8"
+      ],
+      "rows": 3
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0xbfe53d58590eea78",
+        "0xbfc95a40fc4c3b73",
+        "0x3fe09391dd12531b",
+        "0x3fbfde31f0cd8054",
+        "0xbfb2a5de9a537e47",
+        "0x3fd2e73c17b606c5",
+        "0x3fe3022c4b2f2c38",
+        "0xbfcaca73a736e85f",
+        "0x3fda32dd995c87cb"
+      ],
+      "rows": 3
+    },
+    "Q": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3ffa91163e5aa1a4",
+        "0x3fdae5114ce865ca",
+        "0x3fe1358b969c1f08",
+        "0x3fdae5114ce865ca",
+        "0x400068ce967f16f6",
+        "0xbfa5e29f845d7418",
+        "0x3fe1358b969c1f08",
+        "0xbfa5e29f845d7418",
+        "0x3ffcbbfe0dabe084"
+      ],
+      "rows": 3
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "A\u1d40PA \u2212 P + Q = 0",
+    "generator": "control",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "operations": [
+      "Lyapunov certificate, 3\u00d73"
+    ],
+    "reference": "SciPy 1.14.1",
+    "sampling": "fixed textbook systems plus entries uniform in [-1, 1] from a generator-local stream; stable matrices rescaled to a largest growth factor of 0.9; SPD costs are M\u00b7M\u1d40 + I",
+    "seed": 20260706
+  },
+  "module": "control",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-09,
+      "rel": 1e-09
+    }
+  }
+}
