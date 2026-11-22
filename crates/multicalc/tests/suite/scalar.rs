@@ -1017,8 +1017,8 @@ mod jet {
     #[test]
     fn a_constant_has_zero_higher_coefficients() {
         let constant = Jet::<f64, 4>::constant(2.0);
-        for order in 1..4 {
-            assert!(f64::abs(constant.coeffs[order]) < TOL);
+        for coefficient in &constant.coeffs[1..] {
+            assert!(f64::abs(*coefficient) < TOL);
         }
     }
 
