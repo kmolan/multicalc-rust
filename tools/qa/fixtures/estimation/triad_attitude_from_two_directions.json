@@ -1,0 +1,99 @@
+{
+  "case": "triad_attitude_from_two_directions",
+  "expected": {
+    "orientation": {
+      "data": [
+        "0x3febf5448b67fa93",
+        "0x3fc8834672c0d56b",
+        "0xbfbea4180f710ac4",
+        "0x3fdb93af4118f011"
+      ],
+      "kind": "vector"
+    },
+    "rotation_matrix": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fe33357a182e010",
+        "0xbfe98f85fadd9615",
+        "0xbfa695a62cd0d458",
+        "0x3fe6a06d52805aad",
+        "0x3fe1c52ecf6f064d",
+        "0xbfdc049c80c2a275",
+        "0x3fd7f29981d2f974",
+        "0x3fcda15b163e2e4a",
+        "0x3fecbc67c4b1e11c"
+      ],
+      "rows": 3
+    }
+  },
+  "inputs": {
+    "case": {
+      "kind": "str",
+      "v": "attitude_from_two_directions"
+    },
+    "kind": {
+      "kind": "str",
+      "v": "triad"
+    },
+    "primary_observed": {
+      "data": [
+        "0xbfd7f29981d2f971",
+        "0xbfcda15b163e2e42",
+        "0xbfecbc67c4b1e11b"
+      ],
+      "kind": "vector"
+    },
+    "primary_reference": {
+      "data": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0xbff0000000000000"
+      ],
+      "kind": "vector"
+    },
+    "secondary_observed": {
+      "data": [
+        "0x3fe33357a182e00c",
+        "0xbfe98f85fadd9616",
+        "0xbfa695a62cd0d450"
+      ],
+      "kind": "vector"
+    },
+    "secondary_reference": {
+      "data": [
+        "0x3ff0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000"
+      ],
+      "kind": "vector"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "R = [r1 r2 r3] * [o1 o2 o3]^T from two direction pairs",
+    "generator": "estimation",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "operations": [
+      "Attitude from two direction pairs (down + north), noiseless"
+    ],
+    "reference": "SciPy 1.14.1",
+    "sampling": "two exactly-rotated direction pairs, noiseless",
+    "seed": 20260706
+  },
+  "module": "estimation",
+  "schema_version": 2,
+  "tolerances": {
+    "f32": {
+      "abs": 1e-05,
+      "rel": 1e-05
+    },
+    "f64": {
+      "abs": 1e-13,
+      "rel": 1e-12
+    }
+  }
+}

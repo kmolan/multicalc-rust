@@ -27,7 +27,7 @@ fn record_writes_nonempty_rrd() -> Result<(), VizError> {
     sink.flush()?;
     drop(sink);
 
-    let len = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+    let len = std::fs::metadata(&path).map(|meta| meta.len()).unwrap_or(0);
     assert!(len > 0, "recording should produce a non-empty .rrd");
     Ok(())
 }

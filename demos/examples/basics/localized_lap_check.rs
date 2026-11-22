@@ -24,6 +24,7 @@ fn report(label: &str, value: f64) {
 }
 
 /// The value at the given fraction of a sorted list, e.g. `0.5` for the median.
+#[must_use]
 fn quantile(sorted: &[f64], fraction: f64) -> f64 {
     if sorted.is_empty() {
         return 0.0;
@@ -51,7 +52,7 @@ fn main() {
 
     // Localization runs before the timed loop and is not counted against the driving budget.
     while world.phase() == Phase::Localizing {
-        world.step();
+        let _ = world.step();
     }
 
     let mut tick_costs = Vec::with_capacity(driving_ticks as usize);

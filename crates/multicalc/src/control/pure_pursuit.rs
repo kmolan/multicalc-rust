@@ -2,7 +2,7 @@
 
 use crate::error::ControlError;
 use crate::kinematics::BodyTwist;
-use crate::linear_algebra::Vector;
+use crate::linear_algebra::Vector2D;
 use crate::scalar::Numeric;
 use crate::spatial::SE2;
 
@@ -66,7 +66,7 @@ impl<T: Numeric> Curvature<T> {
 /// ```
 pub fn pure_pursuit_curvature<T: Numeric>(
     pose: SE2<T>,
-    lookahead_point: Vector<2, T>,
+    lookahead_point: Vector2D<T>,
     lookahead_distance: T,
 ) -> Result<Curvature<T>, ControlError> {
     if !lookahead_distance.is_finite() || lookahead_distance <= T::ZERO {

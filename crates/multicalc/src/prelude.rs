@@ -16,11 +16,14 @@
 //! `numerical_integration` and `approximation` take it as a parameter.
 
 pub use crate::error::CalcError;
+pub use crate::estimation::NominalStateFn;
+pub use crate::mapping::{MutableOccupancyMap, OccupancyMap};
 pub use crate::numerical_derivative::{
     DerivatorMultiVariable, DerivatorSingleVariable, derivative, partial, second_derivative,
 };
 pub use crate::numerical_integration::{
     IntegratorMultiVariable, IntegratorSingleVariable, integral,
 };
+pub use crate::planning::{StateSpace, StateValidity, TraversalCost};
 pub use crate::random::RandomSource;
 pub use crate::scalar::{Numeric, Primal, ScalarFn, ScalarFnN, VectorFn};

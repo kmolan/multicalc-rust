@@ -1,9 +1,12 @@
 """Linear-algebra goldens from numpy/LAPACK.
 
 Only gauge-free quantities are stored (determinant, inverse, solve, least-squares
-solution, residual norm, singular values, pseudo-inverse, and the unique Cholesky
-factor). Raw Q/R/U/V are never emitted; the Rust side checks those through its own
-reconstruction identities. Inputs are sampled with the passed RNG and written as
+solution, residual norm, singular values, pseudo-inverse, the unique Cholesky
+factor, and a symmetric matrix's eigenvalues, determinant, and condition number).
+Raw Q/R/U/V are never emitted, and neither is an eigenvector matrix, since a
+repeated eigenvalue leaves its directions undetermined and a simple one still
+leaves a sign free; the Rust side checks those through its own reconstruction
+identities. Inputs are sampled with the passed RNG and written as
 exact bits, so the tests never depend on the RNG.
 """
 
@@ -122,6 +125,49 @@ def _cholesky(out, rng, meta):
         )
 
 
+def _symmetric_eigen(out, seed, meta):
+    # A generator of its own, seeded from the shared seed, so adding these cases leaves the draws
+    # the modules after this one take from the shared stream exactly where they were.
+    rng = np.random.default_rng([seed, 1])
+
+    def emit(case, a, operation, f32):
+        # Averaging the two halves makes the stored matrix read exactly the same across the
+        # diagonal, so the Rust side's symmetry check never sees BLAS rounding.
+        a = (a + a.T) / 2.0
+        eigenvalues = np.linalg.eigvalsh(a)[::-1]  # eigvalsh is ascending; multicalc is descending
+        inputs = {
+            "decomp": schema.string("symmetric_eigen"),
+            "A": schema.matrix(a),
+        }
+        expected = {
+            "eigenvalues": schema.vector(eigenvalues),
+            "det": schema.scalar(float(np.linalg.det(a))),
+            "condition_number": schema.scalar(float(np.linalg.cond(a, 2))),
+        }
+        schema.write_fixture(
+            out, "linalg", case, meta, _tolerances(f32), inputs, expected,
+            equation="λ(A)",
+            operations=[operation],
+        )
+
+    # Positive definite by construction.
+    for n, f32 in ((3, (1e-3, 1e-3)), (4, (1e-3, 1e-3)), (6, (1e-2, 1e-2))):
+        m = rng.uniform(-1.0, 1.0, size=(n, n))
+        emit(f"symmetric_eigen_{n}x{n}", m @ m.T + n * np.eye(n),
+             f"symmetric eigendecomposition, {n}×{n}", f32)
+
+    # Mixed signs, from a chosen spectrum and a random orthogonal factor, so the sign handling and
+    # the descending-by-value order are both exercised.
+    spectra = {
+        4: ([4.0, 1.5, -0.75, -3.0], (1e-3, 1e-3)),
+        6: ([5.0, 2.5, 0.75, -0.5, -2.0, -4.0], (1e-2, 1e-2)),
+    }
+    for n, (spectrum, f32) in spectra.items():
+        q, _ = np.linalg.qr(rng.uniform(-1.0, 1.0, size=(n, n)))
+        emit(f"symmetric_eigen_indefinite_{n}x{n}", q @ np.diag(spectrum) @ q.T,
+             f"symmetric eigendecomposition (indefinite), {n}×{n}", f32)
+
+
 def run(out, rng, seed):
     meta = schema.metadata(
         "linalg", seed, "entries uniform in [-1, 1], ill-conditioned draws rejected",
@@ -132,3 +178,4 @@ def run(out, rng, seed):
     _qr(out, rng, meta)
     _svd(out, rng, meta)
     _cholesky(out, rng, meta)
+    _symmetric_eigen(out, seed, meta)

@@ -1,0 +1,122 @@
+{
+  "case": "profile_jerk_limited_short_1d",
+  "expected": {
+    "phase_durations": {
+      "data": [
+        "0x3fd965fea53d6e3d",
+        "0x0000000000000000",
+        "0x3fd965fea53d6e3d",
+        "0x0000000000000000",
+        "0x3fd965fea53d6e3d",
+        "0x0000000000000000",
+        "0x3fd965fea53d6e3d"
+      ],
+      "kind": "vector"
+    },
+    "sampled_states": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3f65555555555554",
+        "0x3fa428a2f98d7286",
+        "0x3fd965fea53d6e3c",
+        "0x3f9555555555555b",
+        "0x3fc428a2f98d728b",
+        "0x3fe965fea53d6e40",
+        "0x3fb0aaaaaaaaaaad",
+        "0x3fd1a38e9a5bc43b",
+        "0x3fd965fea53d6e45",
+        "0x3fc0000000000001",
+        "0x3fd428a2f98d728e",
+        "0xbc98000000000000",
+        "0x3fc7aaaaaaaaaaaa",
+        "0x3fd1a38e9a5bc43f",
+        "0xbfd965fea53d6e3c",
+        "0x3fcd555555555558",
+        "0x3fc428a2f98d7292",
+        "0xbfe965fea53d6e40",
+        "0x3fcfaaaaaaaaaaae",
+        "0x3fa428a2f98d72a3",
+        "0xbfd965fea53d6e4a",
+        "0x3fd0000000000001",
+        "0xbc9d2c0000000000",
+        "0x0000000000000000"
+      ],
+      "rows": 9
+    },
+    "state_tolerance": {
+      "data": [
+        "0x3e112e0be826d695",
+        "0x3e112e0be826d695"
+      ],
+      "kind": "vector"
+    },
+    "total_duration": {
+      "kind": "scalar",
+      "v": "0x3ff965fea53d6e3d"
+    }
+  },
+  "inputs": {
+    "acceleration_limit": {
+      "kind": "scalar",
+      "v": "0x3ff0000000000000"
+    },
+    "distance": {
+      "kind": "scalar",
+      "v": "0x3fd0000000000000"
+    },
+    "has_jerk_limit": {
+      "kind": "int",
+      "v": 1
+    },
+    "jerk_limit": {
+      "kind": "scalar",
+      "v": "0x4000000000000000"
+    },
+    "sample_times": {
+      "data": [
+        "0x0000000000000000",
+        "0x3fc965fea53d6e3d",
+        "0x3fd965fea53d6e3d",
+        "0x3fe30c7efbee12ae",
+        "0x3fe965fea53d6e3d",
+        "0x3fefbf7e4e8cc9cc",
+        "0x3ff30c7efbee12ae",
+        "0x3ff6393ed095c075",
+        "0x3ff965fea53d6e3d"
+      ],
+      "kind": "vector"
+    },
+    "speed_limit": {
+      "kind": "scalar",
+      "v": "0x4000000000000000"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "S-curve, d = 0.25 m, v_max = 2 m/s, a_max = 1 m/s\u00b2, j_max = 2 m/s\u00b3; a below a_max",
+    "generator": "motion",
+    "libraries": {
+      "numpy": "2.1.3",
+      "scipy": "1.14.1"
+    },
+    "operations": [
+      "phase durations",
+      "p, v, a at 9 samples"
+    ],
+    "reference": "NumPy 2.1.3 / SciPy 1.14.1",
+    "sampling": "hand-chosen waypoints with durations either given or from an average speed",
+    "seed": 20260706
+  },
+  "module": "motion",
+  "schema_version": 2,
+  "tolerances": {
+    "f64": {
+      "abs": 1e-07,
+      "rel": 1e-07
+    }
+  }
+}

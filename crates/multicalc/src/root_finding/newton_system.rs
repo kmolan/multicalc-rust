@@ -7,7 +7,7 @@ use crate::numerical_derivative::AutoDiffMulti;
 use crate::numerical_derivative::DerivatorMultiVariable;
 use crate::numerical_derivative::Jacobian;
 use crate::root_finding::{RootReportN, RootTermination, all_finite};
-use crate::scalar::{Numeric, Primal, VectorFn};
+use crate::scalar::{Numeric, VectorFn};
 
 /// Maximum step halvings per iteration when backtracking is enabled.
 const MAX_BACKTRACK: usize = 20;
@@ -29,13 +29,13 @@ const MAX_BACKTRACK: usize = 20;
 /// # Examples
 /// ```
 /// use multicalc::root_finding::NewtonSystem;
-/// use multicalc::scalar::c;
+/// use multicalc::scalar::constant;
 /// use multicalc::scalar_fn_vec;
 ///
 /// // Find (x, y) where x² + y² = 4 and xy = 1.
-/// let f = scalar_fn_vec!(|v: &[f64; 2]| [
-///     c(-4.0) + v[0] * v[0] + v[1] * v[1],
-///     c(-1.0) + v[0] * v[1],
+/// let f = scalar_fn_vec!(|point: &[f64; 2]| [
+///     constant(-4.0) + point[0] * point[0] + point[1] * point[1],
+///     constant(-1.0) + point[0] * point[1],
 /// ]);
 /// let solver: NewtonSystem = NewtonSystem::default();
 /// let initial_guess = [1.5_f64, 0.8];
@@ -124,11 +124,10 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
     pub fn solve<F, const N: usize>(
         &self,
         f: &F,
-        x0: &[D::Scalar; N],
+        initial_guess: &[D::Scalar; N],
     ) -> Result<RootReportN<N, D::Scalar>, SolveError>
     where
         D: Clone,
-        D::Scalar: Primal,
         F: VectorFn<N, N>,
     {
         let one = D::Scalar::ONE;
@@ -136,12 +135,12 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
 
         let jacobian = Jacobian::from_derivator(self.derivator.clone());
 
-        let mut x = *x0;
-        let mut r = f.eval(&x);
-        if !all_finite(&r) {
+        let mut x = *initial_guess;
+        let mut residual = f.eval(&x);
+        if !all_finite(&residual) {
             return Err(SolveError::NonFinite);
         }
-        let mut fnorm = enorm(&r);
+        let mut fnorm = enorm(&residual);
 
         for iter in 1..=self.max_iterations {
             if fnorm <= self.ftol {
@@ -158,17 +157,18 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
                 return Err(SolveError::NonFinite);
             }
 
-            let neg_r: [D::Scalar; N] = core::array::from_fn(|i| -r[i]);
+            let neg_residual: [D::Scalar; N] = core::array::from_fn(|i| -residual[i]);
             // Solve J·step = -F; returns SingularMatrix if J is rank-deficient.
-            let step = j.solve(Vector::new(neg_r))?;
-            let sa = *step.as_array();
+            let step = j.solve(Vector::new(neg_residual))?;
+            let step_arr = *step.as_array();
 
             // Try the full Newton step; when backtracking is on, halve alpha until ‖F‖
             // decreases or the per-iteration safeguard runs out.
             let mut alpha = one;
             let mut tries = 0usize;
-            let (x_new, r_new, fnorm_new) = loop {
-                let candidate: [D::Scalar; N] = core::array::from_fn(|k| x[k] + alpha * sa[k]);
+            let (x_new, residual_new, fnorm_new) = loop {
+                let candidate: [D::Scalar; N] =
+                    core::array::from_fn(|k| x[k] + alpha * step_arr[k]);
                 let trial = f.eval(&candidate);
                 let trial_finite = all_finite(&trial);
                 let trial_fnorm = if trial_finite {
@@ -196,7 +196,7 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
             let step_norm = alpha * enorm(step.as_array());
             let xnorm = enorm(&x_new);
             x = x_new;
-            r = r_new;
+            residual = residual_new;
             fnorm = fnorm_new;
 
             if step_norm <= self.xtol * (one + xnorm) {
@@ -211,7 +211,6 @@ impl<D: DerivatorMultiVariable> NewtonSystem<D> {
 
         Err(SolveError::DidNotConverge {
             iters: self.max_iterations,
-            residual: fnorm.to_f64(),
         })
     }
 }

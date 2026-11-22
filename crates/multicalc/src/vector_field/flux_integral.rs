@@ -27,7 +27,7 @@ use crate::vector_field::line_integral::{line_integral_partial_2d, line_integral
 /// let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] =
 ///     [&(|args: &[f64; 2]| args[1]), &(|args: &[f64; 2]| -args[0])];
 /// let transformation_matrix: [&dyn Fn(f64) -> f64; 2] =
-///     [&(|t: f64| t.cos()), &(|t: f64| t.sin())];
+///     [&(|parameter: f64| parameter.cos()), &(|parameter: f64| parameter.sin())];
 ///
 /// let limits = [0.0, 6.28];   // one full turn around the circle
 /// let val = flux_integral_2d(&vector_field_matrix, &transformation_matrix, &limits).unwrap();

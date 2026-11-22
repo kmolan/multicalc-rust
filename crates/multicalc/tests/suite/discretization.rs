@@ -3,17 +3,18 @@
 //! Discretization + matrix-exponential invariants and closed-form checks.
 
 use multicalc::discretization::{q_discrete_white_noise, van_loan, zoh};
-use multicalc::linear_algebra::Matrix;
+use multicalc::error::LinalgError;
+use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Matrix4D};
 use multicalc::scalar::Dual;
 use proptest::prelude::*;
 
-fn matrix3(entries: [[f64; 3]; 3]) -> Matrix<3, 3> {
+fn matrix3(entries: [[f64; 3]; 3]) -> Matrix3D {
     Matrix::new(entries)
 }
 
 #[test]
 fn expm_zero_is_identity() {
-    let exponential = Matrix::<4, 4>::zeros().expm().unwrap();
+    let exponential = Matrix4D::<f64>::zeros().expm().unwrap();
     for row in 0..4 {
         for column in 0..4 {
             let expected = if row == column { 1.0 } else { 0.0 };
@@ -32,11 +33,19 @@ fn expm_diagonal_is_elementwise_exp() {
 }
 
 #[test]
+fn expm_rejects_non_finite_input() {
+    for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let matrix = Matrix::<1, 1>::new([[value]]);
+        assert_eq!(matrix.expm().err(), Some(LinalgError::NonFinite));
+    }
+}
+
+#[test]
 fn expm_derivative_finite_and_correct() {
     // d/dx expm(x·M)|_{x=0} = M. One Dual through expm; compare to central FD.
     let generator = matrix3([[0.1, 0.4, -0.2], [0.0, -0.3, 0.5], [0.2, 0.1, 0.05]]);
     let autodiff =
-        Matrix::<3, 3, Dual<f64>>::from_fn(|row, column| Dual::new(0.0, generator[(row, column)]))
+        Matrix3D::<Dual<f64>>::from_fn(|row, column| Dual::new(0.0, generator[(row, column)]))
             .expm()
             .unwrap();
     for row in 0..3 {
@@ -50,7 +59,7 @@ fn expm_derivative_finite_and_correct() {
 
 #[test]
 fn zoh_double_integrator() {
-    let state_matrix = Matrix::<2, 2>::new([[0.0, 1.0], [0.0, 0.0]]);
+    let state_matrix = Matrix2D::new([[0.0, 1.0], [0.0, 0.0]]);
     let input_matrix = Matrix::<2, 1>::new([[0.0], [1.0]]);
     let timestep = 0.1;
     let (discrete_state, discrete_input) =
@@ -84,6 +93,61 @@ fn van_loan_qd_symmetric_and_f_matches_expm() {
 }
 
 #[test]
+fn zoh_rejects_negative_timestep() {
+    let state_matrix = Matrix::<1, 1>::new([[1.0]]);
+    let input_matrix = Matrix::<1, 1>::new([[1.0]]);
+
+    assert_eq!(
+        zoh::<1, 1, 2, f64>(state_matrix, input_matrix, -0.1).err(),
+        Some(LinalgError::InvalidTimestep)
+    );
+}
+
+#[test]
+fn van_loan_rejects_negative_timestep() {
+    let state_matrix = Matrix::<1, 1>::new([[1.0]]);
+    let continuous_noise = Matrix::<1, 1>::new([[1.0]]);
+
+    assert_eq!(
+        van_loan::<1, 2, f64>(state_matrix, continuous_noise, -0.1).err(),
+        Some(LinalgError::InvalidTimestep)
+    );
+}
+
+#[test]
+fn discretization_rejects_non_finite_timesteps() {
+    let state_matrix = Matrix::<1, 1>::new([[1.0]]);
+    let input_or_noise_matrix = Matrix::<1, 1>::new([[1.0]]);
+
+    for timestep in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert_eq!(
+            zoh::<1, 1, 2, f64>(state_matrix, input_or_noise_matrix, timestep).err(),
+            Some(LinalgError::InvalidTimestep)
+        );
+        assert_eq!(
+            van_loan::<1, 2, f64>(state_matrix, input_or_noise_matrix, timestep).err(),
+            Some(LinalgError::InvalidTimestep)
+        );
+    }
+}
+
+#[test]
+fn zero_timestep_is_valid() {
+    let state_matrix = Matrix::<1, 1>::new([[1.0]]);
+    let input_or_noise_matrix = Matrix::<1, 1>::new([[1.0]]);
+
+    let (zoh_state, zoh_input) =
+        zoh::<1, 1, 2, f64>(state_matrix, input_or_noise_matrix, 0.0).unwrap();
+    assert_eq!(zoh_state, Matrix::identity());
+    assert_eq!(zoh_input, Matrix::zeros());
+
+    let (van_loan_state, van_loan_noise) =
+        van_loan::<1, 2, f64>(state_matrix, input_or_noise_matrix, 0.0).unwrap();
+    assert_eq!(van_loan_state, Matrix::identity());
+    assert_eq!(van_loan_noise, Matrix::zeros());
+}
+
+#[test]
 fn qdwn_matches_closed_form() {
     let timestep = 0.1;
     let variance = 2.0;
@@ -97,9 +161,9 @@ fn qdwn_matches_closed_form() {
 proptest! {
     #[test]
     fn expm_times_neg_expm_is_identity(
-        v in prop::collection::vec(-0.6f64..0.6, 9)
+        entries in prop::collection::vec(-0.6f64..0.6, 9)
     ) {
-        let matrix = Matrix::<3, 3>::from_fn(|row, column| v[row * 3 + column]);
+        let matrix = Matrix3D::from_fn(|row, column| entries[row * 3 + column]);
         let product = matrix.expm().unwrap() * matrix.scale(-1.0).expm().unwrap();
         for row in 0..3 {
             for column in 0..3 {

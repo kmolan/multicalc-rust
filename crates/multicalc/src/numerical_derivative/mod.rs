@@ -78,7 +78,7 @@ pub fn second_derivative<T: Numeric, F: ScalarFn>(function: &F, point: T) -> T {
 /// use multicalc::numerical_derivative::partial;
 /// use multicalc::scalar_fn;
 /// # fn main() -> Result<(), multicalc::error::DiffError> {
-/// let function = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1]);   // g(x, y) = x^2 * y
+/// let function = scalar_fn!(|point: &[f64; 2]| point[0] * point[0] * point[1]);   // g(x, y) = x^2 * y
 /// let variable_index = 0;                                         // differentiate by x
 /// let point = [3.0_f64, 4.0];
 ///

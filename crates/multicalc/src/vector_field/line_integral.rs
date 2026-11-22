@@ -3,10 +3,14 @@ use crate::numerical_integration::DEFAULT_TOTAL_ITERATIONS;
 use crate::scalar::Numeric;
 
 /// Builds the curve position [transformations[0](t), ..., transformations[N-1](t)].
-fn curve_point<T: Numeric, const N: usize>(transformations: &[&dyn Fn(T) -> T; N], t: T) -> [T; N] {
+#[must_use]
+fn curve_point<T: Numeric, const N: usize>(
+    transformations: &[&dyn Fn(T) -> T; N],
+    parameter: T,
+) -> [T; N] {
     let mut point = [T::ZERO; N];
     for i in 0..N {
-        point[i] = transformations[i](t);
+        point[i] = transformations[i](parameter);
     }
     point
 }
@@ -22,6 +26,8 @@ fn get_partial<T: Numeric, const N: usize>(
 ) -> Result<T, IntegrateError> {
     if total_iterations == 0 {
         return Err(IntegrateError::IterationsZero);
+    } else if idx >= N {
+        return Err(IntegrateError::IndexOutOfRange);
     }
     // rejects NaN, equal, and reversed limits (partial_cmp is None for NaN)
     if !matches!(
@@ -32,22 +38,22 @@ fn get_partial<T: Numeric, const N: usize>(
     }
 
     let delta = (integration_limit[1] - integration_limit[0]) / T::from_u64(total_iterations);
-    let mut t = integration_limit[0];
+    let mut parameter = integration_limit[0];
     let mut ans = T::ZERO;
 
     //use the trapezoidal rule for line integrals, caching the shared endpoint so each
     //curve point and field value is evaluated once per node rather than twice
     //https://ocw.mit.edu/ans7870/18/18.013a/textbook/HTML/chapter25/section04.html
-    let mut left = curve_point(transformations, t);
+    let mut left = curve_point(transformations, parameter);
     let mut left_value = vector_field[idx](&left);
 
     for _ in 0..total_iterations {
-        let right = curve_point(transformations, t + delta);
+        let right = curve_point(transformations, parameter + delta);
         let right_value = vector_field[idx](&right);
 
         ans += (right[idx] - left[idx]) * (left_value + right_value) / T::TWO;
 
-        t += delta;
+        parameter += delta;
         left = right;
         left_value = right_value;
     }
@@ -78,7 +84,7 @@ fn get_partial<T: Numeric, const N: usize>(
 /// let vector_field_matrix: [&dyn Fn(&[f64; 2]) -> f64; 2] =
 ///     [&(|args: &[f64; 2]| args[1]), &(|args: &[f64; 2]| -args[0])];
 /// let transformation_matrix: [&dyn Fn(f64) -> f64; 2] =
-///     [&(|t: f64| t.cos()), &(|t: f64| t.sin())];
+///     [&(|parameter: f64| parameter.cos()), &(|parameter: f64| parameter.sin())];
 ///
 /// let limits = [0.0, 6.28];   // one full turn around the circle
 /// let val = line_integral_2d(&vector_field_matrix, &transformation_matrix, &limits).unwrap();
@@ -132,6 +138,7 @@ pub fn line_integral_2d_custom<T: Numeric>(
 /// [`IntegrateError::IterationsZero`] if `total_iterations` is zero, or
 /// [`IntegrateError::LimitsIllDefined`] if the lower limit is not strictly less than the
 /// upper limit.
+/// [`IntegrateError::IndexOutOfRange`] if `idx` is greater than or equal to 2.
 pub fn line_integral_partial_2d<T: Numeric>(
     vector_field: &[&dyn Fn(&[T; 2]) -> T; 2],
     transformations: &[&dyn Fn(T) -> T; 2],
@@ -207,6 +214,7 @@ pub fn line_integral_3d_custom<T: Numeric>(
 /// [`IntegrateError::IterationsZero`] if `total_iterations` is zero, or
 /// [`IntegrateError::LimitsIllDefined`] if the lower limit is not strictly less than the
 /// upper limit.
+/// [`IntegrateError::IndexOutOfRange`] if `idx` is greater than or equal to 3.
 pub fn line_integral_partial_3d<T: Numeric>(
     vector_field: &[&dyn Fn(&[T; 3]) -> T; 3],
     transformations: &[&dyn Fn(T) -> T; 3],

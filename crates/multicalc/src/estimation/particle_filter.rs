@@ -24,7 +24,7 @@ use alloc::vec::Vec;
 
 use crate::error::EstimationError;
 use crate::linear_algebra::{Cholesky, Matrix, Vector};
-use crate::random::{Pcg32, RandomSource};
+use crate::random::{Pcg32, RandomScalar, RandomSource};
 use crate::scalar::{Numeric, VectorFn};
 
 /// How the filter draws a fresh, equally-weighted cloud from the current weighted one.
@@ -49,18 +49,24 @@ pub enum ResamplingScheme {
 impl ResamplingScheme {
     /// Fills `indices` with the chosen sample positions for `weights`.
     ///
-    /// `weights` must be normalized and the same length as `indices`. Uniforms are drawn from
-    /// `random` in a fixed order and count so a recorded draw sequence reproduces the result exactly:
-    /// one draw for [`Systematic`](Self::Systematic); one per element for
+    /// For non-empty inputs, `weights` must be normalized and the same length as `indices`. Uniforms
+    /// are drawn from `random` in a fixed order and count so a recorded draw sequence reproduces the
+    /// result exactly: one draw for [`Systematic`](Self::Systematic); one per element for
     /// [`Stratified`](Self::Stratified) and [`Multinomial`](Self::Multinomial); and, for
     /// [`Residual`](Self::Residual), one per leftover slot after the whole-number copies are laid
     /// down.
-    pub fn resample_indices<T: Numeric, R: RandomSource>(
+    ///
+    /// An empty `weights` slice returns without consuming randomness or modifying `indices`.
+    pub fn resample_indices<T: RandomScalar, R: RandomSource<T>>(
         self,
         weights: &[T],
         random: &mut R,
         indices: &mut [usize],
     ) {
+        if weights.is_empty() {
+            return;
+        }
+
         match self {
             ResamplingScheme::Systematic => systematic(weights, random, indices),
             ResamplingScheme::Stratified => stratified(weights, random, indices),
@@ -71,10 +77,14 @@ impl ResamplingScheme {
 }
 
 /// One random offset shared by every pick, spaced one stratum apart. Draws a single uniform.
-fn systematic<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indices: &mut [usize]) {
+fn systematic<T: RandomScalar, R: RandomSource<T>>(
+    weights: &[T],
+    random: &mut R,
+    indices: &mut [usize],
+) {
     let count = indices.len();
     let count_scalar = T::from_usize(count);
-    let offset = T::from_f64(random.next_unit_f64());
+    let offset = random.next_unit();
 
     // Picks sit at one-stratum spacing, all shifted by the same offset. Walk a running total of the
     // weights and place each pick on the first source whose total reaches it, so heavier sources,
@@ -92,7 +102,11 @@ fn systematic<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indice
 }
 
 /// A fresh random pick inside each evenly spaced stratum. Draws one uniform per pick.
-fn stratified<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indices: &mut [usize]) {
+fn stratified<T: RandomScalar, R: RandomSource<T>>(
+    weights: &[T],
+    random: &mut R,
+    indices: &mut [usize],
+) {
     let count = indices.len();
     let count_scalar = T::from_usize(count);
 
@@ -101,7 +115,7 @@ fn stratified<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indice
     let mut running_sum = weights[0];
     let mut source = 0;
     for (step, slot) in indices.iter_mut().enumerate() {
-        let offset = T::from_f64(random.next_unit_f64());
+        let offset = random.next_unit();
         let position = (offset + T::from_usize(step)) / count_scalar;
         while position >= running_sum && source + 1 < count {
             source += 1;
@@ -112,18 +126,26 @@ fn stratified<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indice
 }
 
 /// Each pick drawn independently from the weight distribution. Draws one uniform per pick.
-fn multinomial<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indices: &mut [usize]) {
+fn multinomial<T: RandomScalar, R: RandomSource<T>>(
+    weights: &[T],
+    random: &mut R,
+    indices: &mut [usize],
+) {
     // Every pick is an independent throw at the 0-to-1 line; each lands on the source whose weight
     // covers where it fell. Simple, but the picks clump more than the spaced schemes above.
     for slot in indices.iter_mut() {
-        let draw = T::from_f64(random.next_unit_f64());
+        let draw = random.next_unit();
         *slot = draw_from_weights(weights, draw);
     }
 }
 
 /// The whole-number share of each weight first, then the leftover slots filled by independent draws
 /// on the normalized fractional remainders. Draws one uniform per leftover slot.
-fn residual<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indices: &mut [usize]) {
+fn residual<T: RandomScalar, R: RandomSource<T>>(
+    weights: &[T],
+    random: &mut R,
+    indices: &mut [usize],
+) {
     let count = indices.len();
     let count_scalar = T::from_usize(count);
 
@@ -147,12 +169,13 @@ fn residual<T: Numeric, R: RandomSource>(weights: &[T], random: &mut R, indices:
     }
 
     for slot in indices.iter_mut().skip(filled) {
-        let draw = T::from_f64(random.next_unit_f64());
+        let draw = random.next_unit();
         *slot = draw_from_remainders(weights, count_scalar, remainder_sum, draw);
     }
 }
 
 /// The smallest source whose cumulative weight reaches `draw`.
+#[must_use]
 fn draw_from_weights<T: Numeric>(weights: &[T], draw: T) -> usize {
     let mut running_sum = T::ZERO;
     for (source, &weight) in weights.iter().enumerate() {
@@ -165,6 +188,7 @@ fn draw_from_weights<T: Numeric>(weights: &[T], draw: T) -> usize {
 }
 
 /// The smallest source whose cumulative fractional remainder reaches `draw`.
+#[must_use]
 fn draw_from_remainders<T: Numeric>(
     weights: &[T],
     count_scalar: T,
@@ -182,12 +206,22 @@ fn draw_from_remainders<T: Numeric>(
     weights.len() - 1
 }
 
+/// Logs a normalized weight without letting linear underflow make it permanently impossible.
+fn recoverable_log_weight<T: Numeric>(weight: T) -> T {
+    if weight == T::ZERO {
+        T::MIN_POSITIVE.log()
+    } else {
+        weight.log()
+    }
+}
+
 /// Scores how well a particle's predicted measurement matches the real one, as a log-weight.
 ///
 /// Implement this for a custom sensor; [`GaussianLikelihood`] is the ready-made default.
 pub trait Likelihood<const MEASUREMENT_DIMENSION: usize, T: Numeric> {
     /// The log of the (unnormalized) weight for a particle whose model predicts `predicted` when the
     /// sensor read `measurement`. Larger means a better match.
+    #[must_use]
     fn log_weight(
         &self,
         predicted: &[T; MEASUREMENT_DIMENSION],
@@ -295,7 +329,7 @@ pub struct ParticleFilter<
     const STATE_DIMENSION: usize,
     const MEASUREMENT_DIMENSION: usize,
     T = f64,
-    R = Pcg32,
+    R = Pcg32<T>,
 > {
     particles: Vec<Vector<STATE_DIMENSION, T>>,
     weights: Vec<T>,
@@ -309,8 +343,8 @@ pub struct ParticleFilter<
     log_weight_scratch: Vec<T>,
 }
 
-impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeric>
-    ParticleFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T, Pcg32>
+impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: RandomScalar>
+    ParticleFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T, Pcg32<T>>
 {
     /// Builds a filter with a [`Pcg32`] seeded from `seed`, sampling the initial cloud from the
     /// Gaussian `initial_mean`/`initial_covariance`.
@@ -335,10 +369,10 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
     }
 }
 
-impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeric, R>
+impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: RandomScalar, R>
     ParticleFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T, R>
 where
-    R: RandomSource,
+    R: RandomSource<T>,
 {
     /// Builds a filter with an explicit random backend — the built-in [`Pcg32`] or your own
     /// [`RandomSource`]. [`new`](Self::new) is the seeded-`Pcg32` default.
@@ -377,19 +411,19 @@ where
         let initial_factor = initial_covariance
             .cholesky()
             .map_err(|_| EstimationError::NotPositiveDefinite)?
-            .l();
+            .lower();
 
         let process_noise_factor = process_noise
             .cholesky()
             .map_err(|_| EstimationError::NotPositiveDefinite)?
-            .l();
+            .lower();
 
         // Scatter the starting cloud around the mean: each particle is the mean plus the initial
         // factor applied to a vector of standard normal draws, which reshapes those draws to match
         // the requested covariance.
         let mut particles = Vec::with_capacity(particle_count);
         for _ in 0..particle_count {
-            let sample = Vector::from_fn(|_| T::from_f64(random.standard_normal()));
+            let sample = Vector::from_fn(|_| random.standard_normal());
             particles.push(initial_mean + initial_factor * sample);
         }
 
@@ -451,7 +485,7 @@ where
         self.process_noise_factor = process_noise
             .cholesky()
             .map_err(|_| EstimationError::NotPositiveDefinite)?
-            .l();
+            .lower();
         Ok(())
     }
 
@@ -472,7 +506,7 @@ where
         let mut finite = true;
         for particle in self.particles.iter_mut() {
             let propagated = Vector::new(process_model.eval(particle.as_array()));
-            let noise = Vector::from_fn(|_| T::from_f64(self.random.standard_normal()));
+            let noise = Vector::from_fn(|_| self.random.standard_normal());
             *particle = propagated + self.process_noise_factor * noise;
             if !particle.is_finite() {
                 finite = false;
@@ -507,11 +541,13 @@ where
 
         // Score every particle in log space: ask the model what this particle would have measured,
         // let the likelihood rate how well that matches the real reading, and add it to the
-        // particle's current log-weight. Working in logs keeps tiny probabilities from underflowing.
+        // particle's current log-weight. A displayed zero only means the linear representation
+        // underflowed, so give it the smallest positive prior instead of making it permanently
+        // impossible.
         for i in 0..self.particles.len() {
             let predicted = measurement_model.eval(self.particles[i].as_array());
             let score = likelihood.log_weight(&predicted, measurement.as_array());
-            self.log_weight_scratch[i] = self.weights[i].ln() + score;
+            self.log_weight_scratch[i] = recoverable_log_weight(self.weights[i]) + score;
         }
 
         self.normalize_and_resample()
@@ -573,9 +609,11 @@ where
         F: FnMut(&Vector<STATE_DIMENSION, T>) -> T,
     {
         // Combine each particle's score with its current weight in log space, matching update's
-        // scoring loop; the shared tail then normalizes and resamples.
+        // scoring loop. Floor a displayed zero so underflow does not make the particle permanently
+        // impossible; the shared tail then normalizes and resamples.
         for i in 0..self.particles.len() {
-            self.log_weight_scratch[i] = self.weights[i].ln() + score(&self.particles[i]);
+            self.log_weight_scratch[i] =
+                recoverable_log_weight(self.weights[i]) + score(&self.particles[i]);
         }
 
         self.normalize_and_resample()
@@ -676,7 +714,7 @@ where
             }
             // Nudge every particle along this axis by an independent draw at that scale.
             for particle in self.particles.iter_mut() {
-                particle[axis] += scale * T::from_f64(self.random.standard_normal());
+                particle[axis] += scale * self.random.standard_normal();
             }
         }
     }

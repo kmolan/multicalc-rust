@@ -18,9 +18,9 @@ use multicalc::scalar::{Numeric, VectorFn};
 struct LineFit;
 
 impl VectorFn<2, 3> for LineFit {
-    fn eval<S: Numeric>(&self, p: &[S; 2]) -> [S; 3] {
+    fn eval<S: Numeric>(&self, params: &[S; 2]) -> [S; 3] {
         // residuals at t = 0,1,2 with y = 1,3,5
-        let (a, b) = (p[0], p[1]);
+        let (a, b) = (params[0], params[1]);
         [
             a + b * S::from_f64(0.0) - S::from_f64(1.0),
             a + b * S::from_f64(1.0) - S::from_f64(3.0),

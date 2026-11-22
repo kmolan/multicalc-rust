@@ -1,7 +1,11 @@
 Cargo.lock
+# The Tock app's figures are judged against budgets, so its dependency versions are fixed.
+!tools/hilshare/Cargo.lock
 target/
 .claude/
 __pycache__/
 *.pyc
 smoke-*.txt
 tools/qa/gen/.venv/
+.venv/
+.pytest_cache/

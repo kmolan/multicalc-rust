@@ -2,6 +2,8 @@
 //! target — an exact two-step hand check, a noisy track, Joseph vs naive covariance, a control
 //! input, innovation gating, and one `Dual` derivative through an update. The extended filter adds a
 //! nonlinear landmark range/bearing sighting, its reduction to the linear filter, and angle wrapping.
+//! The unscented filter closes the Kalman set by sampling the model instead of differentiating it,
+//! on a sensor with a corner in it that no derivative describes.
 //! With `--features alloc`, a closing section locates a differential-drive robot from beacon ranges
 //! with a particle filter.
 //!
@@ -10,7 +12,7 @@
 
 use multicalc::{
     CalcError, CovarianceUpdate, Dual, ExtendedKalmanFilter, KalmanFilter, KalmanModel, Matrix,
-    Numeric, Vector, VectorFn, q_discrete_white_noise,
+    Matrix2D, Matrix3D, Numeric, UnscentedKalmanFilter, Vector, VectorFn, q_discrete_white_noise,
 };
 
 fn report(label: &str, value: f64, exact: f64) {
@@ -22,9 +24,10 @@ fn report(label: &str, value: f64, exact: f64) {
 }
 
 /// A constant-velocity tracker over a 1 s step: position integrates velocity, position is measured.
+#[must_use]
 fn tracker<T: Numeric>(
-    initial_covariance: Matrix<2, 2, T>,
-    process_noise: Matrix<2, 2, T>,
+    initial_covariance: Matrix2D<T>,
+    process_noise: Matrix2D<T>,
     measurement_noise: Matrix<1, 1, T>,
 ) -> KalmanFilter<2, 1, T> {
     KalmanFilter::new(
@@ -39,8 +42,9 @@ fn tracker<T: Numeric>(
     )
 }
 
-fn trace<const N: usize>(m: Matrix<N, N>) -> f64 {
-    (0..N).map(|i| m[(i, i)]).sum()
+#[must_use]
+fn trace<const N: usize>(mat: Matrix<N, N>) -> f64 {
+    (0..N).map(|i| mat[(i, i)]).sum()
 }
 
 /// Range and bearing to a known landmark, from a [x, y, heading] pose. Written once; its Jacobian
@@ -82,11 +86,6 @@ impl VectorFn<1, 1> for Compass {
     fn eval<S: Numeric>(&self, state: &[S; 1]) -> [S; 1] {
         [state[0]]
     }
-}
-
-/// Folds an angle into a ±π band by subtracting whole turns.
-fn wrap_to_pi<T: Numeric>(angle: T) -> T {
-    angle - T::TWO_PI * (angle / T::TWO_PI).round()
 }
 
 /// The beacons a robot ranges against to find itself, at the corners of a 10 m square room.
@@ -137,7 +136,9 @@ impl VectorFn<3, 4> for BeaconRanges {
 /// many-hypotheses belief a single Gaussian cannot hold.
 #[cfg(feature = "alloc")]
 fn particle_filter() -> Result<(), CalcError> {
-    use multicalc::{GaussianLikelihood, ParticleFilter, Pcg32, RandomSource, ResamplingScheme};
+    use multicalc::{
+        GaussianLikelihood, Matrix4D, ParticleFilter, Pcg32, RandomSource, ResamplingScheme,
+    };
 
     let particle_count = 1500;
     let timestep = 1.0;
@@ -158,13 +159,12 @@ fn particle_filter() -> Result<(), CalcError> {
         7,
     )?
     .with_resampling(ResamplingScheme::Systematic);
-    let sensor =
-        GaussianLikelihood::new(Matrix::<4, 4>::identity().scale(range_noise * range_noise))?;
+    let sensor = GaussianLikelihood::new(Matrix4D::identity().scale(range_noise * range_noise))?;
 
     // The true pose the robot actually follows; the filter never sees it. Each measurement is the
     // true ranges plus sensor noise, drawn from a seeded generator so the run reproduces exactly.
     let mut truth = [5.0_f64, 4.0, 0.3];
-    let mut range_generator = Pcg32::new(20);
+    let mut range_generator = Pcg32::<f64>::new(20);
 
     println!("\nParticle filter: locating a robot from 4 beacon ranges with a 1500-sample cloud");
     println!("  step |  est x  est y  est θ |  ess");
@@ -225,14 +225,16 @@ fn particle_filter() -> Result<(), CalcError> {
 /// How far the cloud reaches in position: the square root of the summed weighted variance of the x
 /// and y coordinates, a plain-metres measure of how sure the filter is.
 #[cfg(feature = "alloc")]
-fn position_spread<R: multicalc::random::RandomSource>(
+#[must_use]
+fn position_spread<R: multicalc::random::RandomSource<f64>>(
     filter: &multicalc::estimation::ParticleFilter<3, 4, f64, R>,
 ) -> f64 {
     let mean = filter.mean();
     let mut variance = 0.0;
     for (particle, &weight) in filter.particles().iter().zip(filter.weights()) {
-        let p = *particle;
-        variance += weight * ((p[0] - mean[0]).powi(2) + (p[1] - mean[1]).powi(2));
+        let particle_state = *particle;
+        variance += weight
+            * ((particle_state[0] - mean[0]).powi(2) + (particle_state[1] - mean[1]).powi(2));
     }
     variance.sqrt()
 }
@@ -375,9 +377,9 @@ fn main() -> Result<(), CalcError> {
     // landmark. The measurement model is written once as a plain function; its Jacobian is taken by
     // automatic differentiation, so there are no hand-derived Jacobians anywhere.
     let initial_pose = Vector::new([0.0, 0.0, 0.0]); // [x, y, heading] at the origin
-    let initial_covariance = Matrix::<3, 3>::identity(); // a wide, uncertain prior
+    let initial_covariance = Matrix3D::identity(); // a wide, uncertain prior
     let process_noise = Matrix::zeros();
-    let measurement_noise = Matrix::<2, 2>::identity().scale(0.01); // a precise sensor
+    let measurement_noise = Matrix2D::identity().scale(0.01); // a precise sensor
 
     let mut extended = ExtendedKalmanFilter::<3, 2>::new(
         initial_pose,
@@ -406,7 +408,7 @@ fn main() -> Result<(), CalcError> {
     // is what "extended" means. Run the same constant-velocity models through both and compare.
     let initial_state = Vector::new([0.0, 0.0]);
     let initial_covariance = Matrix::identity();
-    let process_noise = Matrix::<2, 2>::identity().scale(0.01);
+    let process_noise = Matrix2D::identity().scale(0.01);
     let measurement_noise = Matrix::new([[0.5]]);
 
     let mut reduced = ExtendedKalmanFilter::<2, 1>::new(
@@ -455,7 +457,7 @@ fn main() -> Result<(), CalcError> {
         compass_noise,
     );
     let predicted = Compass.eval(wrapped.state().as_array())[0];
-    let residual = wrap_to_pi(measurement - predicted);
+    let residual = (measurement - predicted).wrap_to_pi();
     wrapped.update_with_residual(&Compass, Vector::new([residual]))?;
 
     println!("\nAngle wrapping near ±π (true heading error ≈ 0.08 rad)");
@@ -476,7 +478,51 @@ fn main() -> Result<(), CalcError> {
         "the plain residual throws the estimate across the circle"
     );
 
-    // (10) A particle filter, the nonlinear, non-Gaussian cousin of the Kalman filters: it carries a
+    // (10) The unscented filter: instead of flattening the model to a straight line, it pushes a
+    // spread of points through the model untouched and rebuilds the estimate from where they land.
+    // The model here saturates at 6 — a corner no derivative describes — and this filter never asks
+    // for one.
+    struct SaturatingRange;
+    impl VectorFn<2, 1> for SaturatingRange {
+        fn eval<S: Numeric>(&self, state: &[S; 2]) -> [S; 1] {
+            let to_landmark_x = S::from_f64(3.0) - state[0];
+            let to_landmark_y = S::from_f64(4.0) - state[1];
+            let range = (to_landmark_x * to_landmark_x + to_landmark_y * to_landmark_y).sqrt();
+            let ceiling = S::from_f64(6.0);
+            [if range > ceiling { ceiling } else { range }]
+        }
+    }
+    struct StationaryPoint;
+    impl VectorFn<2, 2> for StationaryPoint {
+        fn eval<S: Numeric>(&self, state: &[S; 2]) -> [S; 2] {
+            [state[0], state[1]]
+        }
+    }
+
+    let mut unscented = UnscentedKalmanFilter::<2, 1>::new(
+        Vector::new([0.0, 0.0]),
+        Matrix2D::identity(),
+        Matrix2D::identity().scale(0.01),
+        Matrix::new([[0.1]]),
+    )
+    .with_scaling(0.3, 2.0, 0.0)?;
+    let uncertainty_before = trace(unscented.covariance());
+    unscented.predict(&StationaryPoint)?;
+    unscented.update(&SaturatingRange, Vector::new([5.5]))?;
+    let uncertainty_after = trace(unscented.covariance());
+    println!("\nUnscented filter: a range sensor that saturates, with no derivative taken");
+    println!(
+        "  estimate: [{:.3}, {:.3}]",
+        unscented.state()[0],
+        unscented.state()[1]
+    );
+    println!("  uncertainty (trace P): {uncertainty_before:.3} -> {uncertainty_after:.3}");
+    assert!(
+        unscented.state()[0] < 0.0 && unscented.state()[1] < 0.0,
+        "a longer range than predicted moves the estimate away from the landmark"
+    );
+
+    // (11) A particle filter, the nonlinear, non-Gaussian cousin of the Kalman filters: it carries a
     // cloud of weighted samples instead of one Gaussian. It is heap-backed, so it lives behind the
     // `alloc` feature; without it, the rest of the example still runs.
     #[cfg(feature = "alloc")]

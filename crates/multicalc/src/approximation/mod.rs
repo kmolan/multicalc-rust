@@ -23,6 +23,7 @@ pub use quadratic_approximation::{
 /// number of fitted terms (`p`), used only for the adjusted R². `r_squared` is `NaN` when
 /// the truth is constant over `points` (zero total variance); `adjusted_r_squared` is
 /// `NaN` when there are too few points (`num_points <= num_predictors + 1`).
+#[must_use]
 pub(crate) fn compute_metrics<T, P, O, const NUM_VARS: usize, const NUM_POINTS: usize>(
     predict: P,
     points: &[[T; NUM_VARS]; NUM_POINTS],

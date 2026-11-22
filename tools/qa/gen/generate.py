@@ -11,14 +11,27 @@ import argparse
 import numpy as np
 
 from generators import (
+    articulated_control,
+    articulated_dynamics,
     calculus,
+    control,
     discretization,
+    dynamics,
     estimation,
+    inverse_kinematics,
+    kinematics,
     linalg,
+    mapping,
+    mjcf,
+    motion,
     ode,
     optimization,
+    polynomial,
     quadrature,
     root_finding,
+    signal_processing,
+    spatial,
+    urdf,
 )
 
 SEED = 20260706
@@ -43,6 +56,19 @@ def main():
     # cannot perturb the linalg/discretization streams above.
     calculus.run(args.out, SEED)
     root_finding.run(args.out, SEED)
+    mjcf.run(args.out, SEED)
+    urdf.run(args.out, SEED)
+    spatial.run(args.out, SEED)
+    dynamics.run(args.out, SEED)
+    articulated_dynamics.run(args.out, SEED)
+    articulated_control.run(args.out, SEED)
+    kinematics.run(args.out, SEED)
+    inverse_kinematics.run(args.out, SEED)
+    signal_processing.run(args.out, SEED)
+    polynomial.run(args.out, SEED)
+    motion.run(args.out, SEED)
+    control.run(args.out, SEED)
+    mapping.run(args.out, SEED)
 
 
 if __name__ == "__main__":

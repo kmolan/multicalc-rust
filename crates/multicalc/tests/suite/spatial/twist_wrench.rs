@@ -65,7 +65,7 @@ fn wrench_converter_roundtrips() {
 fn ops_are_componentwise_and_match_vector() {
     let first_twist = Twist::from_array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
     let second_twist = Twist::from_array([6.0, 5.0, 4.0, 3.0, 2.0, 1.0]);
-    // Each op agrees with doing the same on the underlying Vector<6>.
+    // Each op agrees with doing the same on the underlying Vector6D.
     assert_eq!(
         (first_twist + second_twist).to_vector(),
         first_twist.to_vector() + second_twist.to_vector()
@@ -123,4 +123,24 @@ fn ad_transparent_under_dual() {
         assert!(output.value.is_finite() && output.deriv.is_finite());
         assert!(output.deriv.abs() < 1e-12);
     }
+}
+
+#[test]
+fn wrench_default_is_zero() {
+    let wrench = Wrench::<f64>::from_array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+    let zero = Wrench::<f64>::default();
+
+    assert_eq!(zero, Wrench::zeros());
+    assert_eq!(wrench + zero, wrench);
+    assert_eq!(zero + wrench, wrench);
+}
+
+#[test]
+fn twist_default_is_zero() {
+    let twist = Twist::<f64>::from_array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+    let zero = Twist::<f64>::default();
+
+    assert_eq!(zero, Twist::zeros());
+    assert_eq!(twist + zero, twist);
+    assert_eq!(zero + twist, twist);
 }

@@ -1,0 +1,572 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
+//! Checks model ingestion against MuJoCo's own compile of the same file.
+//!
+//! MuJoCo defines what an MJCF file means, so it is the reference here rather than a second reader
+//! of the same format. It reports a body's inertia as three numbers along the axes the body lines
+//! up best with, plus the turn to get there; the generator rebuilds the full tensor in the body's
+//! own axes before writing the golden, so what is compared below is nine numbers against nine.
+
+use std::path::Path;
+
+use multicalc::kinematics::JointKind;
+use multicalc::spatial::FreeJointState;
+use multicalc_qa::load::*;
+use multicalc_qa::schema::{Fixture, Tol, Value};
+
+/// MuJoCo does not keep a body's inertia as the nine numbers the file states (or the three plus a
+/// turn `diaginertia` gives); it diagonalizes whatever it is given and keeps that, so the tensor
+/// rebuilt from `body_inertia`/`body_iquat` has been through an eigendecomposition MuJoCo did
+/// internally rather than being read back unchanged. Mass, position and orientation carry no such
+/// step and are still checked at the fixture's own tight bound; only this one field needs the
+/// looser one, measured against the file's own numbers up to a small safety margin.
+const ROTATIONAL_INERTIA_TOLERANCE: Tol = Tol {
+    abs: 1e-6,
+    rel: 1e-6,
+};
+
+/// The vendored models the fixtures name, which sit outside this crate.
+#[must_use]
+fn menagerie() -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../third_party/menagerie")
+}
+
+#[test]
+fn ingested_models_match_mujoco() {
+    for fixture in load_dir("mjcf") {
+        match fixture.case.as_str() {
+            "skydio_x2_free_joint" => check_free_body(&fixture),
+            "franka_panda_tree" => check_body_tree(&fixture),
+            "unitree_go1_floating_base_tree" => check_go1_tree(&fixture),
+            other => unreachable!("no comparison for fixture {other}"),
+        }
+    }
+}
+
+/// The Skydio X2: a single body on a free joint, its mass worked out from its shapes.
+fn check_free_body(fixture: &Fixture) {
+    let case = fixture.case.as_str();
+    let path = menagerie().join(fixture.inputs["model_file"].as_str());
+    let model = multicalc_robot_model::mjcf::load_path(&path)
+        .unwrap_or_else(|err| unreachable!("{case}: loading {path:?}: {err}"));
+    let body = model
+        .body_named("x2")
+        .unwrap_or_else(|| unreachable!("{case}: model has no body called x2"));
+    let tolerance = fixture.tolerances.f64;
+    let inertia = body
+        .inertia()
+        .unwrap_or_else(|| unreachable!("{case}: body x2 states no mass properties"));
+
+    assert_scalar(
+        inertia.mass(),
+        &fixture.expected["mass"],
+        tolerance,
+        &format!("{case} mass"),
+    );
+    assert_vector::<3>(
+        &inertia.center_of_mass(),
+        &fixture.expected["center_of_mass"],
+        tolerance,
+        &format!("{case} center_of_mass"),
+    );
+    assert_matrix::<3, 3>(
+        &inertia.rotational_inertia(),
+        &fixture.expected["rotational_inertia"],
+        tolerance,
+        &format!("{case} rotational_inertia"),
+    );
+    assert_vector::<3>(
+        &body.pose().translation(),
+        &fixture.expected["body_position"],
+        tolerance,
+        &format!("{case} body_position"),
+    );
+
+    // A quaternion and its negative name the same turn, so both sides are compared in their
+    // scalar-positive form rather than component by component as written.
+    let quaternion = body.pose().rotation().quaternion().as_array();
+    let want = fixture.expected["body_quaternion"].as_vector();
+    let flip = if quaternion[0] < 0.0 { -1.0 } else { 1.0 };
+    let want_flip = if want[0] < 0.0 { -1.0 } else { 1.0 };
+    for index in 0..4 {
+        assert!(
+            close(flip * quaternion[index], want_flip * want[index], tolerance),
+            "{case} body_quaternion[{index}]: got {}, want {}",
+            flip * quaternion[index],
+            want_flip * want[index]
+        );
+    }
+
+    assert_eq!(
+        i64::from(model.has_floating_base()),
+        fixture.expected["free_joint"].as_int(),
+        "{case} free_joint"
+    );
+
+    // Ties the parsed model to how the core type packs a free joint's numbers. The fixture
+    // keys keep MuJoCo's own `nq` / `nv` wording, since they record what MuJoCo reported.
+    assert_eq!(
+        FreeJointState::<f64>::GENERALIZED_POSITION_DIMENSION as i64,
+        fixture.expected["configuration_dimension"].as_int(),
+        "{case} configuration_dimension"
+    );
+    assert_eq!(
+        FreeJointState::<f64>::GENERALIZED_VELOCITY_DIMENSION as i64,
+        fixture.expected["velocity_dimension"].as_int(),
+        "{case} velocity_dimension"
+    );
+}
+
+/// The Franka Panda: the body tree, every joint's geometry and travel, and the dynamics figures
+/// forward kinematics never reads — field for field against MuJoCo's compiled model, and again
+/// once the model has gone through `kinematic_tree`.
+fn check_body_tree(fixture: &Fixture) {
+    let case = fixture.case.as_str();
+    let path = menagerie().join(fixture.inputs["model_file"].as_str());
+    let model = multicalc_robot_model::mjcf::load_path(&path)
+        .unwrap_or_else(|err| unreachable!("{case}: loading {path:?}: {err}"));
+    let tolerance = fixture.tolerances.f64;
+
+    assert_eq!(
+        model.body_count() as i64,
+        fixture.expected["body_count"].as_int(),
+        "{case} body_count"
+    );
+    assert_eq!(
+        model.movable_joint_count() as i64,
+        fixture.expected["movable_joint_count"].as_int(),
+        "{case} movable_joint_count"
+    );
+    assert_eq!(
+        i64::from(model.has_floating_base()),
+        fixture.expected["free_joint"].as_int(),
+        "{case} free_joint"
+    );
+
+    let body_names: Vec<&str> = fixture.expected["body_names"]
+        .as_str()
+        .split_whitespace()
+        .collect();
+    assert_eq!(
+        body_names.len(),
+        model.body_count(),
+        "{case} body_names count"
+    );
+    for (index, name) in body_names.iter().enumerate() {
+        assert_eq!(
+            model.body(index).unwrap().name(),
+            *name,
+            "{case} body {index} name"
+        );
+    }
+
+    let parents = fixture.expected["parents"].as_vector();
+    let (_, _, origin_positions) = fixture.expected["origin_positions"].as_matrix();
+    let (_, _, origin_quaternions) = fixture.expected["origin_quaternions"].as_matrix();
+    let joint_kinds: Vec<char> = fixture.expected["joint_kinds"].as_str().chars().collect();
+    let (_, _, axes) = fixture.expected["axes"].as_matrix();
+    let (_, _, anchors) = fixture.expected["anchors"].as_matrix();
+    let zero_offsets = fixture.expected["zero_offsets"].as_vector();
+    let limited = fixture.expected["limited"].as_vector();
+    let (_, _, ranges) = fixture.expected["ranges"].as_matrix();
+    let armatures = fixture.expected["armatures"].as_vector();
+    let dampings = fixture.expected["dampings"].as_vector();
+    let friction_losses = fixture.expected["friction_losses"].as_vector();
+    let spring_references = fixture.expected["spring_references"].as_vector();
+    let spring_stiffnesses = fixture.expected["spring_stiffnesses"].as_vector();
+    let masses = fixture.expected["masses"].as_vector();
+    let (_, _, centers_of_mass) = fixture.expected["centers_of_mass"].as_matrix();
+    let (_, _, rotational_inertias) = fixture.expected["rotational_inertias"].as_matrix();
+
+    for index in 0..model.body_count() {
+        let body = model.body(index).unwrap();
+        let ctx = format!("{case} body {index}");
+
+        let expected_parent = parents[index] as i64;
+        let got_parent = body.parent().map_or(-1, |parent| parent as i64);
+        assert_eq!(got_parent, expected_parent, "{ctx} parent");
+
+        let translation = body.pose().translation();
+        for axis in 0..3 {
+            assert!(
+                close(
+                    translation[axis],
+                    origin_positions[3 * index + axis],
+                    tolerance
+                ),
+                "{ctx} origin_position[{axis}]"
+            );
+        }
+
+        // A quaternion and its negative name the same turn.
+        let quaternion = body.pose().rotation().quaternion().as_array();
+        let want = [
+            origin_quaternions[4 * index],
+            origin_quaternions[4 * index + 1],
+            origin_quaternions[4 * index + 2],
+            origin_quaternions[4 * index + 3],
+        ];
+        let flip = if quaternion[0] < 0.0 { -1.0 } else { 1.0 };
+        let want_flip = if want[0] < 0.0 { -1.0 } else { 1.0 };
+        for component in 0..4 {
+            assert!(
+                close(
+                    flip * quaternion[component],
+                    want_flip * want[component],
+                    tolerance
+                ),
+                "{ctx} origin_quaternion[{component}]"
+            );
+        }
+
+        let mass_properties = body
+            .inertia()
+            .unwrap_or_else(|| unreachable!("{ctx}: body states no mass properties"));
+        assert!(
+            close(mass_properties.mass(), masses[index], tolerance),
+            "{ctx} mass"
+        );
+        let center_of_mass = mass_properties.center_of_mass();
+        for axis in 0..3 {
+            assert!(
+                close(
+                    center_of_mass[axis],
+                    centers_of_mass[3 * index + axis],
+                    tolerance
+                ),
+                "{ctx} center_of_mass[{axis}]"
+            );
+        }
+        let inertia = mass_properties.rotational_inertia();
+        for row in 0..3 {
+            for column in 0..3 {
+                assert!(
+                    close(
+                        inertia[(row, column)],
+                        rotational_inertias[(3 * index + row) * 3 + column],
+                        ROTATIONAL_INERTIA_TOLERANCE,
+                    ),
+                    "{ctx} rotational_inertia({row},{column})"
+                );
+            }
+        }
+
+        let expected_kind = joint_kinds[index];
+        match (body.joint(), expected_kind) {
+            (None, 'F') => {}
+            (Some(joint), 'R') => assert_eq!(joint.kind(), JointKind::Revolute, "{ctx} kind"),
+            (Some(joint), 'P') => assert_eq!(joint.kind(), JointKind::Prismatic, "{ctx} kind"),
+            (joint, kind) => unreachable!("{ctx}: joint {joint:?} does not match kind {kind}"),
+        }
+
+        let Some(joint) = body.joint() else {
+            continue;
+        };
+
+        let axis = joint.axis();
+        for component in 0..3 {
+            assert!(
+                close(axis[component], axes[3 * index + component], tolerance),
+                "{ctx} axis[{component}]"
+            );
+        }
+        let anchor = joint.anchor();
+        for component in 0..3 {
+            assert!(
+                close(anchor[component], anchors[3 * index + component], tolerance),
+                "{ctx} anchor[{component}]"
+            );
+        }
+        assert!(
+            close(joint.zero_offset(), zero_offsets[index], tolerance),
+            "{ctx} zero_offset"
+        );
+        assert!(
+            close(joint.armature(), armatures[index], tolerance),
+            "{ctx} armature"
+        );
+        assert!(
+            close(joint.damping(), dampings[index], tolerance),
+            "{ctx} damping"
+        );
+        assert!(
+            close(joint.friction_loss(), friction_losses[index], tolerance),
+            "{ctx} friction_loss"
+        );
+        assert!(
+            close(
+                joint.spring_reference(),
+                spring_references[index],
+                tolerance
+            ),
+            "{ctx} spring_reference"
+        );
+        assert!(
+            close(
+                joint.spring_stiffness(),
+                spring_stiffnesses[index],
+                tolerance
+            ),
+            "{ctx} spring_stiffness"
+        );
+
+        let expected_limits = if limited[index] == 0.0 {
+            None
+        } else {
+            Some((ranges[2 * index], ranges[2 * index + 1]))
+        };
+        match (joint.limits(), expected_limits) {
+            (None, None) => {}
+            (Some((lower, upper)), Some((want_lower, want_upper))) => {
+                assert!(close(lower, want_lower, tolerance), "{ctx} limits lower");
+                assert!(close(upper, want_upper, tolerance), "{ctx} limits upper");
+            }
+            (got, want) => unreachable!("{ctx}: limits {got:?} does not match {want:?}"),
+        }
+    }
+
+    // The converted tree: the same dynamics data, having survived `kinematic_tree`. Forward
+    // kinematics never reads armature, damping, friction loss or the zero reference, so this is
+    // the only place in the suite that would notice the conversion dropping them.
+    let tree = model
+        .kinematic_tree::<16, 16>()
+        .unwrap_or_else(|err| unreachable!("{case}: kinematic_tree: {err}"));
+    for index in 0..model.body_count() {
+        let joint = tree.joint(index).unwrap();
+        let ctx = format!("{case} tree slot {index}");
+        assert!(
+            close(joint.armature(), armatures[index], tolerance),
+            "{ctx} armature"
+        );
+        assert!(
+            close(joint.damping(), dampings[index], tolerance),
+            "{ctx} damping"
+        );
+        assert!(
+            close(joint.friction_loss(), friction_losses[index], tolerance),
+            "{ctx} friction_loss"
+        );
+        assert!(
+            close(joint.zero_offset(), zero_offsets[index], tolerance),
+            "{ctx} zero_offset"
+        );
+    }
+}
+
+/// The Unitree Go1: whole-model structure (thirteen bodies, the trunk's free joint included) plus
+/// every dynamics field for three representative bodies — the trunk itself, an abduction joint,
+/// and a knee joint — field for field against MuJoCo's compiled model.
+///
+/// Lighter than `check_body_tree` above: the forward-kinematics fixture
+/// (`kinematics/unitree_go1_floating_base`) already cross-checks all thirteen bodies' structure by
+/// comparing pose and Jacobian agreement across several configurations, so a wrong body count,
+/// parent, or joint kind would fail loudly there. What is worth checking here specifically is that
+/// multi-level default-class inheritance and free-joint ingestion both read correctly, which three
+/// representative bodies are enough to show.
+fn check_go1_tree(fixture: &Fixture) {
+    let case = fixture.case.as_str();
+    let path = menagerie().join(fixture.inputs["model_file"].as_str());
+    let model = multicalc_robot_model::mjcf::load_path(&path)
+        .unwrap_or_else(|err| unreachable!("{case}: loading {path:?}: {err}"));
+    let tolerance = fixture.tolerances.f64;
+
+    assert_eq!(
+        model.body_count() as i64,
+        fixture.expected["body_count"].as_int(),
+        "{case} body_count"
+    );
+    assert_eq!(
+        model.movable_joint_count() as i64,
+        fixture.expected["movable_joint_count"].as_int(),
+        "{case} movable_joint_count"
+    );
+    assert_eq!(
+        i64::from(model.has_floating_base()),
+        fixture.expected["free_joint"].as_int(),
+        "{case} free_joint"
+    );
+
+    let body_names: Vec<&str> = fixture.expected["body_names"]
+        .as_str()
+        .split_whitespace()
+        .collect();
+    assert_eq!(
+        body_names.len(),
+        model.body_count(),
+        "{case} body_names count"
+    );
+    for (index, name) in body_names.iter().enumerate() {
+        assert_eq!(
+            model.body(index).unwrap().name(),
+            *name,
+            "{case} body {index} name"
+        );
+    }
+
+    let parents = fixture.expected["parents"].as_vector();
+    for (index, &expected_parent) in parents.iter().enumerate() {
+        let got_parent = model
+            .body(index)
+            .unwrap()
+            .parent()
+            .map_or(-1, |parent| parent as i64);
+        assert_eq!(
+            got_parent, expected_parent as i64,
+            "{case} body {index} parent"
+        );
+    }
+
+    // The converted tree: `config_len`/`velocity_len` are what the fixture's Python side calls
+    // `nq`/`nv`, so a mismatch here means the floating base widened the configuration wrong.
+    let tree = model
+        .kinematic_tree::<13, 19>()
+        .unwrap_or_else(|err| unreachable!("{case}: kinematic_tree: {err}"));
+    assert_eq!(
+        tree.config_len() as i64,
+        fixture.expected["configuration_dimension"].as_int(),
+        "{case} configuration_dimension"
+    );
+    assert_eq!(
+        tree.velocity_len() as i64,
+        fixture.expected["velocity_dimension"].as_int(),
+        "{case} velocity_dimension"
+    );
+
+    for (label, index) in [("trunk", 0usize), ("fr_hip", 1), ("fr_calf", 3)] {
+        let body = model.body(index).unwrap();
+        let joint = body
+            .joint()
+            .unwrap_or_else(|| unreachable!("{case} {label}: body carries no joint"));
+        let ctx = format!("{case} {label}");
+        let field =
+            |suffix: &str| -> &Value { &fixture.expected[format!("{label}_{suffix}").as_str()] };
+
+        let mass_properties = body
+            .inertia()
+            .unwrap_or_else(|| unreachable!("{ctx}: body states no mass properties"));
+        assert!(
+            close(mass_properties.mass(), field("mass").as_scalar(), tolerance),
+            "{ctx} mass"
+        );
+        let center_of_mass = mass_properties.center_of_mass();
+        let want_com = field("center_of_mass").as_vector();
+        for axis in 0..3 {
+            assert!(
+                close(center_of_mass[axis], want_com[axis], tolerance),
+                "{ctx} center_of_mass[{axis}]"
+            );
+        }
+        let inertia = mass_properties.rotational_inertia();
+        let (_, _, want_inertia) = field("rotational_inertia").as_matrix();
+        for row in 0..3 {
+            for column in 0..3 {
+                assert!(
+                    close(
+                        inertia[(row, column)],
+                        want_inertia[row * 3 + column],
+                        ROTATIONAL_INERTIA_TOLERANCE,
+                    ),
+                    "{ctx} rotational_inertia({row},{column})"
+                );
+            }
+        }
+
+        let translation = body.pose().translation();
+        let want_position = field("origin_position").as_vector();
+        for axis in 0..3 {
+            assert!(
+                close(translation[axis], want_position[axis], tolerance),
+                "{ctx} origin_position[{axis}]"
+            );
+        }
+        let quaternion = body.pose().rotation().quaternion().as_array();
+        let want_quaternion = field("origin_quaternion").as_vector();
+        let flip = if quaternion[0] < 0.0 { -1.0 } else { 1.0 };
+        let want_flip = if want_quaternion[0] < 0.0 { -1.0 } else { 1.0 };
+        for component in 0..4 {
+            assert!(
+                close(
+                    flip * quaternion[component],
+                    want_flip * want_quaternion[component],
+                    tolerance
+                ),
+                "{ctx} origin_quaternion[{component}]"
+            );
+        }
+
+        match (joint.kind(), field("joint_kind").as_str()) {
+            // A floating joint has no axis, anchor, or per-DOF dynamics figure to compare.
+            (JointKind::Floating, "X") => continue,
+            (JointKind::Revolute, "R") => {}
+            (kind, want) => unreachable!("{ctx}: joint kind {kind:?} does not match {want}"),
+        }
+
+        let axis = joint.axis();
+        let want_axis = field("axis").as_vector();
+        for component in 0..3 {
+            assert!(
+                close(axis[component], want_axis[component], tolerance),
+                "{ctx} axis[{component}]"
+            );
+        }
+        let anchor = joint.anchor();
+        let want_anchor = field("anchor").as_vector();
+        for component in 0..3 {
+            assert!(
+                close(anchor[component], want_anchor[component], tolerance),
+                "{ctx} anchor[{component}]"
+            );
+        }
+        assert!(
+            close(
+                joint.zero_offset(),
+                field("zero_offset").as_scalar(),
+                tolerance
+            ),
+            "{ctx} zero_offset"
+        );
+        assert!(
+            close(joint.armature(), field("armature").as_scalar(), tolerance),
+            "{ctx} armature"
+        );
+        assert!(
+            close(joint.damping(), field("damping").as_scalar(), tolerance),
+            "{ctx} damping"
+        );
+        assert!(
+            close(
+                joint.friction_loss(),
+                field("friction_loss").as_scalar(),
+                tolerance
+            ),
+            "{ctx} friction_loss"
+        );
+        assert!(
+            close(
+                joint.spring_reference(),
+                field("spring_reference").as_scalar(),
+                tolerance
+            ),
+            "{ctx} spring_reference"
+        );
+        assert!(
+            close(
+                joint.spring_stiffness(),
+                field("spring_stiffness").as_scalar(),
+                tolerance
+            ),
+            "{ctx} spring_stiffness"
+        );
+
+        assert!(
+            field("limited").as_scalar() != 0.0,
+            "{ctx}: expected a limited joint"
+        );
+        let want_range = field("range").as_vector();
+        let (lower, upper) = joint
+            .limits()
+            .unwrap_or_else(|| unreachable!("{ctx}: joint has no limits"));
+        assert!(close(lower, want_range[0], tolerance), "{ctx} limits lower");
+        assert!(close(upper, want_range[1], tolerance), "{ctx} limits upper");
+    }
+}

@@ -30,6 +30,7 @@ pub(crate) struct PairwiseSum<T: Numeric> {
 
 impl<T: Numeric> PairwiseSum<T> {
     #[inline]
+    #[must_use]
     pub(crate) fn new() -> Self {
         Self {
             tree: [T::ZERO; LEVELS],
@@ -70,6 +71,7 @@ impl<T: Numeric> PairwiseSum<T> {
     }
 
     #[inline]
+    #[must_use]
     pub(crate) fn total(&self) -> T {
         // Combine the live tree slots (smallest first) with the partial block. Scan only up
         // to the highest occupied level (~log2 n): an unfilled block leaves the tree empty,
@@ -110,6 +112,7 @@ pub(crate) struct KahanSum<T: Numeric> {
 
 impl<T: Numeric> KahanSum<T> {
     #[inline]
+    #[must_use]
     pub(crate) fn new() -> Self {
         Self {
             sum: T::ZERO,
@@ -120,12 +123,13 @@ impl<T: Numeric> KahanSum<T> {
     #[inline]
     pub(crate) fn add(&mut self, value: T) {
         let y = value - self.compensation;
-        let t = self.sum + y;
-        self.compensation = (t - self.sum) - y;
-        self.sum = t;
+        let next = self.sum + y;
+        self.compensation = (next - self.sum) - y;
+        self.sum = next;
     }
 
     #[inline]
+    #[must_use]
     pub(crate) fn total(&self) -> T {
         self.sum
     }
@@ -138,6 +142,7 @@ pub(crate) enum Acc<T: Numeric> {
 
 impl<T: Numeric> Acc<T> {
     #[inline]
+    #[must_use]
     pub(crate) fn new(method: SummationMethod) -> Self {
         match method {
             SummationMethod::Pairwise => Acc::Pairwise(PairwiseSum::new()),
@@ -146,14 +151,15 @@ impl<T: Numeric> Acc<T> {
     }
 
     #[inline]
-    pub(crate) fn add(&mut self, v: T) {
+    pub(crate) fn add(&mut self, value: T) {
         match self {
-            Acc::Pairwise(a) => a.add(v),
-            Acc::Kahan(a) => a.add(v),
+            Acc::Pairwise(a) => a.add(value),
+            Acc::Kahan(a) => a.add(value),
         }
     }
 
     #[inline]
+    #[must_use]
     pub(crate) fn total(self) -> T {
         match self {
             Acc::Pairwise(a) => a.total(),
@@ -178,9 +184,9 @@ mod tests {
 
         let mut acc = PairwiseSum::new();
         let mut naive = 0.0;
-        for &v in &values {
-            acc.add(v);
-            naive += v;
+        for &value in &values {
+            acc.add(value);
+            naive += value;
         }
 
         // Reordered additions, so assert closeness rather than bit-equality.
@@ -193,9 +199,9 @@ mod tests {
 
         let mut acc = PairwiseSum::new();
         let mut naive = 0.0f32;
-        for &v in &values {
-            acc.add(v);
-            naive += v;
+        for &value in &values {
+            acc.add(value);
+            naive += value;
         }
 
         assert!((acc.total() - naive).abs() < 1e-5);

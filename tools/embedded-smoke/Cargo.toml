@@ -2,7 +2,7 @@
 name = "embedded-smoke"
 version = "0.0.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.92"
 publish = false
 
 # thumbv7em / riscv32 runs the full set (default). thumbv6m runs the reduced
@@ -22,9 +22,9 @@ cortex-m-semihosting = "0.5"
 panic-semihosting = { version = "0.6", features = ["exit"] }
 
 [target.'cfg(any(target_arch = "riscv32", target_arch = "riscv64"))'.dependencies]
-riscv-rt = "0.13"
+riscv-rt = "0.18"
 riscv-semihosting = "0.2"
-riscv = { version = "0.12", features = ["critical-section-single-hart"] }
+riscv = { version = "0.16", features = ["critical-section-single-hart"] }
 
 # This dev-only crate needs one small unsafe block to measure stack use, so it does
 # not inherit the core crate's "no unsafe" rule. It sets its own lints instead of

@@ -2,17 +2,15 @@
 
 use multicalc::error::EstimationError;
 use multicalc::estimation::{CovarianceUpdate, KalmanFilter, KalmanModel};
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Matrix2D, Vector};
 use multicalc::scalar::{Dual, Numeric};
 use multicalc_testkit::tol::{Tol, assert_matrix_close, assert_vector_close};
 use proptest::prelude::*;
 
-use crate::support::{symmetric_positive_definite, trace};
-
 /// A constant-velocity tracker over a 1 s step: position integrates velocity, position is measured.
 fn constant_velocity_filter<T: Numeric>(
-    initial_covariance: Matrix<2, 2, T>,
-    process_noise: Matrix<2, 2, T>,
+    initial_covariance: Matrix2D<T>,
+    process_noise: Matrix2D<T>,
     measurement_noise: Matrix<1, 1, T>,
 ) -> KalmanFilter<2, 1, T> {
     KalmanFilter::new(
@@ -84,7 +82,7 @@ proptest! {
         measurement in -10.0f64..10.0,
     ) {
         let mut filter = constant_velocity_filter::<f64>(
-            symmetric_positive_definite::<2>(&covariance_entries),
+            Matrix::<2, 2>::symmetric_positive_definite(&covariance_entries),
             Matrix::identity().scale(0.01),
             Matrix::new([[measurement_noise]]),
         );
@@ -105,7 +103,7 @@ proptest! {
         measurement in -10.0f64..10.0,
     ) {
         let mut filter = constant_velocity_filter::<f64>(
-            symmetric_positive_definite::<2>(&covariance_entries),
+            Matrix::<2, 2>::symmetric_positive_definite(&covariance_entries),
             Matrix::identity().scale(0.01),
             Matrix::new([[measurement_noise]]),
         );
@@ -121,8 +119,8 @@ proptest! {
         measurement_noise in 0.05f64..5.0,
         measurement in -10.0f64..10.0,
     ) {
-        let initial_covariance = symmetric_positive_definite::<2>(&covariance_entries);
-        let process_noise = Matrix::<2, 2>::identity().scale(0.01);
+        let initial_covariance = Matrix::<2, 2>::symmetric_positive_definite(&covariance_entries);
+        let process_noise = Matrix2D::identity().scale(0.01);
         let noise = Matrix::new([[measurement_noise]]);
 
         let mut joseph = constant_velocity_filter::<f64>(initial_covariance, process_noise, noise);
@@ -146,15 +144,15 @@ proptest! {
         measurement in -10.0f64..10.0,
     ) {
         let mut filter = constant_velocity_filter::<f64>(
-            symmetric_positive_definite::<2>(&covariance_entries),
+            Matrix::<2, 2>::symmetric_positive_definite(&covariance_entries),
             Matrix::zeros(),
             Matrix::new([[measurement_noise]]),
         );
         filter.predict();
-        let before = trace(filter.covariance());
+        let before = filter.covariance().trace();
         filter.update(Vector::new([measurement])).unwrap();
 
-        prop_assert!(trace(filter.covariance()) <= before + 1e-9);
+        prop_assert!(filter.covariance().trace() <= before + 1e-9);
     }
 
     #[test]
@@ -163,7 +161,7 @@ proptest! {
         measurement in -10.0f64..10.0,
     ) {
         let mut filter = constant_velocity_filter::<f64>(
-            symmetric_positive_definite::<2>(&covariance_entries),
+            Matrix::<2, 2>::symmetric_positive_definite(&covariance_entries),
             Matrix::zeros(),
             Matrix::new([[1e14]]),
         );
@@ -179,7 +177,7 @@ proptest! {
         covariance_entries in prop::collection::vec(-2.0f64..2.0, 4),
         state in prop::collection::vec(-10.0f64..10.0, 2),
     ) {
-        let initial_covariance = symmetric_positive_definite::<2>(&covariance_entries);
+        let initial_covariance = Matrix::<2, 2>::symmetric_positive_definite(&covariance_entries);
         let mut filter = KalmanFilter::<2, 1>::new(
             Vector::new([state[0], state[1]]),
             initial_covariance,
@@ -200,8 +198,8 @@ proptest! {
     fn predict_with_zero_control_matches_plain_predict(
         covariance_entries in prop::collection::vec(-2.0f64..2.0, 4),
     ) {
-        let initial_covariance = symmetric_positive_definite::<2>(&covariance_entries);
-        let process_noise = Matrix::<2, 2>::identity().scale(0.01);
+        let initial_covariance = Matrix::<2, 2>::symmetric_positive_definite(&covariance_entries);
+        let process_noise = Matrix2D::identity().scale(0.01);
         let noise = Matrix::new([[1.0]]);
 
         let mut plain = constant_velocity_filter::<f64>(initial_covariance, process_noise, noise);
@@ -225,7 +223,7 @@ proptest! {
 fn covariance_stays_symmetric_and_positive_definite_in_single_precision() {
     let mut filter = constant_velocity_filter::<f32>(
         Matrix::identity(),
-        Matrix::<2, 2, f32>::identity().scale(0.01),
+        Matrix2D::<f32>::identity().scale(0.01),
         Matrix::new([[0.5]]),
     );
 
@@ -246,7 +244,7 @@ fn covariance_stays_symmetric_and_positive_definite_in_single_precision() {
 fn posterior_position<T: Numeric>(process_noise_scale: T) -> T {
     let mut filter = constant_velocity_filter::<T>(
         Matrix::identity(),
-        Matrix::<2, 2, T>::identity().scale(process_noise_scale),
+        Matrix2D::<T>::identity().scale(process_noise_scale),
         Matrix::new([[T::from_f64(0.5)]]),
     );
     filter.predict();

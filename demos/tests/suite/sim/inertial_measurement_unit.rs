@@ -1,4 +1,4 @@
-use multicalc_demos::sim::geometry::wrap_angle;
+use multicalc::scalar::Numeric;
 use multicalc_demos::sim::inertial_measurement_unit::InertialMeasurementUnit;
 use rand::SeedableRng;
 use rand_pcg::Pcg32;
@@ -11,7 +11,7 @@ fn zero_noise_and_offset_returns_the_truth() {
     // A heading past π is folded back into range; the turn rate passes through unchanged.
     let reading = unit.read(4.0, 0.2, &mut rng);
     assert!(
-        (reading.heading - wrap_angle(4.0)).abs() < 1e-12,
+        (reading.heading - (4.0).wrap_to_pi()).abs() < 1e-12,
         "heading: {}",
         reading.heading
     );
@@ -36,7 +36,7 @@ fn a_heading_near_pi_plus_offset_wraps_past_pi() {
         reading.heading
     );
     assert!(
-        (reading.heading - wrap_angle(PI - 0.05 + 0.1)).abs() < 1e-12,
+        (reading.heading - (PI - 0.05 + 0.1).wrap_to_pi()).abs() < 1e-12,
         "heading: {}",
         reading.heading
     );

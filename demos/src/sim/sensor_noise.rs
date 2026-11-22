@@ -7,6 +7,7 @@ use rand_pcg::Pcg32;
 ///
 /// A zero or negative deviation means a perfect sensor, which the draw itself cannot express, so it
 /// is answered directly.
+#[must_use]
 pub fn gaussian_noise(deviation: f64, rng: &mut Pcg32) -> f64 {
     if deviation <= 0.0 {
         return 0.0;

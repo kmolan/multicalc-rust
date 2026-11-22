@@ -58,6 +58,11 @@ const DOCS: &[Doc] = &[
                 "svd_4x3",
                 "svd_12x6",
                 "svd_20x6",
+                "symmetric_eigen_3x3",
+                "symmetric_eigen_4x4",
+                "symmetric_eigen_6x6",
+                "symmetric_eigen_indefinite_4x4",
+                "symmetric_eigen_indefinite_6x6",
             ],
         }],
     },
@@ -115,19 +120,53 @@ const DOCS: &[Doc] = &[
         file: "ode.md",
         modules: &[Module {
             name: "ode",
-            cases: &["exp_decay", "harmonic", "van_der_pol_mild", "two_body"],
+            cases: &[
+                "exp_decay",
+                "harmonic",
+                "van_der_pol_mild",
+                "two_body",
+                "prescribed_rate_attitude_first_order",
+                "prescribed_rate_attitude_second_order",
+                "tumbling_free_body",
+            ],
         }],
     },
     Doc {
         file: "estimation.md",
         modules: &[Module {
             name: "estimation",
+            // One row per filter. Every fixture still runs in `cargo test -p multicalc-qa`; the
+            // ones left out here are second cases for a filter already shown.
             cases: &[
                 "kalman_filter_constant_velocity_one_dimensional",
-                "kalman_filter_constant_velocity_two_dimensional",
                 "kalman_filter_with_control_input",
-                "extended_kalman_filter_landmark_range_and_bearing",
                 "extended_kalman_filter_coordinated_turn_fusion",
+                "unscented_kalman_filter_coordinated_turn_fusion",
+                "error_state_kalman_filter_imu_trajectory",
+                "triad_attitude_from_two_directions",
+                "mahony_attitude_filter",
+                "madgwick_attitude_filter",
+            ],
+        }],
+    },
+    Doc {
+        file: "control.md",
+        modules: &[Module {
+            name: "control",
+            // One flying machine end to end — design its position loop, prove that loop
+            // settles, hold the attitude it asks for — plus a cart balancing a pole, which is
+            // the harder design of the two, and the four model-based arm laws. The other
+            // control fixtures are checked by the QA suite without adding a row here.
+            cases: &[
+                "riccati_quadrotor_hover",
+                "lyapunov_closed_loop_quadrotor_hover",
+                "riccati_cart_pole",
+                "geometric_attitude_general",
+                "computed_torque_double_pendulum",
+                "computed_torque_franka_panda",
+                "joint_impedance_franka_panda",
+                "joint_pd_franka_panda",
+                "cartesian_impedance_franka_panda",
             ],
         }],
     },
@@ -148,17 +187,158 @@ const DOCS: &[Doc] = &[
             ],
         }],
     },
+    Doc {
+        file: "mjcf.md",
+        modules: &[Module {
+            name: "mjcf",
+            cases: &[
+                "skydio_x2_free_joint",
+                "franka_panda_tree",
+                "unitree_go1_floating_base_tree",
+            ],
+        }],
+    },
+    Doc {
+        file: "urdf.md",
+        modules: &[Module {
+            name: "urdf",
+            cases: &["panda_urdf_tree", "panda_urdf_forward_kinematics"],
+        }],
+    },
+    Doc {
+        file: "kinematics.md",
+        modules: &[
+            Module {
+                name: "kinematics",
+                cases: &[
+                    "planar_two_link_revolute",
+                    "mixed_revolute_prismatic_fixed",
+                    "branching_three_joint",
+                    "franka_panda_seven_joint",
+                    "unitree_go1_floating_base",
+                ],
+            },
+            Module {
+                name: "inverse_kinematics",
+                cases: &[
+                    "six_hinge_chain",
+                    "six_hinge_chain_near_singular",
+                    "franka_panda_redundant",
+                    "unitree_go1_floating_base_ik",
+                ],
+            },
+        ],
+    },
+    Doc {
+        file: "spatial.md",
+        modules: &[Module {
+            name: "spatial",
+            cases: &[
+                "plucker_transforms",
+                "spatial_cross_products",
+                "spatial_inertia_algebra",
+                "spatial_inertia_transform_and_composite",
+            ],
+        }],
+    },
+    Doc {
+        file: "dynamics.md",
+        modules: &[Module {
+            name: "dynamics",
+            cases: &[
+                "free_body_spinning_no_torque",
+                "free_body_tilted_with_wrench",
+                "articulated_double_pendulum",
+                "articulated_franka_panda",
+            ],
+        }],
+    },
+    Doc {
+        file: "signal_processing.md",
+        modules: &[Module {
+            name: "signal_processing",
+            cases: &[
+                "gyro_conditioning_chain",
+                "motor_vibration_band_pass",
+                "accelerometer_drift_high_pass",
+                "encoder_curve_fit",
+                "lidar_despiking",
+            ],
+        }],
+    },
+    Doc {
+        file: "polynomial.md",
+        modules: &[Module {
+            name: "polynomial",
+            cases: &[
+                "horner_degree7",
+                "derivative_degree5",
+                "definite_integral_degree5",
+                "product_degree3_by_degree4",
+                "composition_degree3_in_degree2",
+                "roots_quadratic",
+                "roots_quadratic_dominant_linear",
+                "roots_cubic_three_real",
+                "roots_cubic_one_real",
+                "roots_quartic_four_real",
+                "roots_quartic_two_real",
+                "roots_degree6_sturm",
+                "interpolation_five_points",
+                "least_squares_cubic_fit",
+                "bivariate_evaluation",
+                "bivariate_partial_derivatives",
+                "trivariate_evaluation",
+                "bivariate_product",
+                "bivariate_substitution",
+            ],
+        }],
+    },
+    Doc {
+        file: "motion.md",
+        modules: &[Module {
+            name: "motion",
+            cases: &[
+                "minimum_snap_single_segment_3d",
+                "minimum_snap_three_segments_3d",
+                "minimum_snap_three_segments_moving_ends_3d",
+                "minimum_snap_seven_segments_3d",
+                "profile_trapezoid_cruise_1d",
+                "profile_trapezoid_triangular_1d",
+                "profile_jerk_limited_cruise_1d",
+                "profile_jerk_limited_no_cruise_1d",
+                "profile_jerk_limited_short_1d",
+                "profile_synchronized_three_axes",
+            ],
+        }],
+    },
+    Doc {
+        file: "mapping.md",
+        modules: &[Module {
+            name: "mapping",
+            cases: &[
+                "distance_transform_single_obstacle_9x9",
+                "distance_transform_straight_wall_16x16",
+                "distance_transform_two_obstacles_16x16",
+                "distance_transform_random_32x32",
+                "distance_transform_random_64x64",
+                "costmap_straight_wall_16x16",
+                "costmap_random_32x32",
+                "likelihood_field_wall_16x16",
+            ],
+        }],
+    },
 ];
 
 /// A single float, in trimmed scientific notation: `4e0`, `1.5e-15`, `0`.
+#[must_use]
 fn fmt_num(x: f64) -> String {
     if x == 0.0 {
         return "0".to_string();
     }
-    let s = format!("{x:.6e}");
-    let (mantissa, exp) = s
+    let text = format!("{x:.6e}");
+    let (mantissa, exp) = text
         .split_once('e')
-        .unwrap_or_else(|| unreachable!("float format has no exponent: {s}"));
+        .unwrap_or_else(|| unreachable!("float format has no exponent: {text}"));
     let mantissa = mantissa.trim_end_matches('0').trim_end_matches('.');
     format!("{mantissa}e{exp}")
 }
@@ -166,6 +346,7 @@ fn fmt_num(x: f64) -> String {
 /// Builds the markdown table for a doc, skipping modules whose fixtures are not
 /// on disk. Returns an empty string when no rows are available. A fixture that
 /// checks several quantities at once contributes one row per operation.
+#[must_use]
 fn build_table(doc: &Doc) -> String {
     let mut body = String::new();
     for module in doc.modules {
@@ -177,17 +358,17 @@ fn build_table(doc: &Doc) -> String {
         }
         let fixtures = load_dir(module.name);
         for case in module.cases {
-            let Some(fx) = fixtures.iter().find(|f| &f.case == case) else {
+            let Some(fixture) = fixtures.iter().find(|f| &f.case == case) else {
                 continue;
             };
-            for operation in &fx.metadata.operations {
+            for operation in &fixture.metadata.operations {
                 let _ = write!(
                     body,
                     "\n| {} | {} | {} | {} |",
                     operation,
-                    fx.metadata.equation,
-                    fmt_num(fx.tolerances.f64.rel),
-                    fx.metadata.reference,
+                    fixture.metadata.equation,
+                    fmt_num(fixture.tolerances.f64.rel),
+                    fixture.metadata.reference,
                 );
             }
         }

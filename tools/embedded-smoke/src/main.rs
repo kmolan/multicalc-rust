@@ -50,14 +50,18 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
 mod checks;
 mod fixtures;
+mod franka_panda_model;
 
 // Byte written across free stack so we can find how deep the stack went.
 const PAINT: u8 = 0xAA;
 // Bytes of free stack to watch. Must be smaller than the free stack on the
-// target (64 KB RAM) and larger than the deepest check. 4 KB fits both. If the
+// target (64 KB RAM) and larger than the deepest check. The deepest check is the
+// geometric Jacobian at ~3.6 KB, so 6 KB fits both with room to spare. If the
 // printed stack ever equals WINDOW it has saturated — raise WINDOW and confirm
-// the target still has room.
-const WINDOW: usize = 4096;
+// the target still has room. There is less headroom than the 64 KB suggests: at
+// 12 KB the paint runs off the bottom of riscv32's free stack and the image hangs
+// instead of finishing.
+const WINDOW: usize = 6144;
 // Bytes just below the current stack pointer we never touch (our own frame).
 const GUARD: usize = 64;
 
@@ -74,6 +78,8 @@ fn main() -> ! {
     let svd_sv = checks::svd_golden();
     checks::error_path_returns_err();
     let pid = checks::pid_step();
+    let poly = checks::polynomial_evaluate();
+    let poly_quadratic_root = checks::polynomial_quadratic_roots();
 
     // Full set: thumbv7em and riscv32 (default features). Each check returns its headline
     // scalar, captured now and emitted below (after the stack is measured). The tuple order
@@ -94,7 +100,18 @@ fn main() -> ! {
             checks::extended_kalman_filter_golden(),
             checks::pure_pursuit_identity(),
             checks::follow_the_gap_identity(),
+            checks::lqr_identity(),
+            checks::geometric_attitude_identity(),
             checks::kalman_filter_identity_f32(),
+            checks::polynomial_roots_golden(),
+            checks::polynomial_sturm_identity(),
+            checks::piecewise_polynomial_golden(),
+            checks::multivariate_identity(),
+            checks::polynomial_evaluate_identity_f32(),
+            checks::occupancy_ray_cast_identity(),
+            checks::kinematic_tree_identity(),
+            checks::geometric_jacobian_identity(),
+            checks::franka_forward_kinematics_f32(),
         )
     };
 
@@ -115,6 +132,8 @@ fn main() -> ! {
     let _ = hprintln!("SMOKE_VAL_svd_s1={:e}", svd_sv[1]);
     let _ = hprintln!("SMOKE_VAL_svd_s2={:e}", svd_sv[2]);
     let _ = hprintln!("SMOKE_VAL_pid={:e}", pid);
+    let _ = hprintln!("SMOKE_VAL_poly={:e}", poly);
+    let _ = hprintln!("SMOKE_VAL_poly_quadratic_root={:e}", poly_quadratic_root);
 
     // Full-set headlines. Both thumbv7em ABIs and riscv32 build the full set, so the key
     // set matches across them; the thumbv6m canary emits none of these and is compared
@@ -134,7 +153,18 @@ fn main() -> ! {
             extended_kalman,
             pure_pursuit,
             follow_the_gap,
+            lqr,
+            geometric_attitude,
             kalman_f32,
+            poly_root0,
+            poly_sturm0,
+            piecewise,
+            multivariate,
+            poly_f32,
+            occupancy_ray_cast,
+            forward_kinematics,
+            geometric_jacobian,
+            franka_hand_x,
         ) = full;
         let _ = hprintln!("SMOKE_VAL_quad={:e}", quad);
         let _ = hprintln!("SMOKE_VAL_jac00={:e}", jac00);
@@ -148,7 +178,18 @@ fn main() -> ! {
         let _ = hprintln!("SMOKE_VAL_extended_kalman={:e}", extended_kalman);
         let _ = hprintln!("SMOKE_VAL_pure_pursuit={:e}", pure_pursuit);
         let _ = hprintln!("SMOKE_VAL_follow_the_gap={:e}", follow_the_gap);
+        let _ = hprintln!("SMOKE_VAL_lqr={:e}", lqr);
+        let _ = hprintln!("SMOKE_VAL_geometric_attitude={:e}", geometric_attitude);
         let _ = hprintln!("SMOKE_VAL_kalman_f32={:e}", kalman_f32);
+        let _ = hprintln!("SMOKE_VAL_poly_root0={:e}", poly_root0);
+        let _ = hprintln!("SMOKE_VAL_poly_sturm0={:e}", poly_sturm0);
+        let _ = hprintln!("SMOKE_VAL_piecewise={:e}", piecewise);
+        let _ = hprintln!("SMOKE_VAL_multivariate={:e}", multivariate);
+        let _ = hprintln!("SMOKE_VAL_poly_f32={:e}", poly_f32);
+        let _ = hprintln!("SMOKE_VAL_occupancy_ray_cast={:e}", occupancy_ray_cast);
+        let _ = hprintln!("SMOKE_VAL_forward_kinematics={:e}", forward_kinematics);
+        let _ = hprintln!("SMOKE_VAL_geometric_jacobian={:e}", geometric_jacobian);
+        let _ = hprintln!("SMOKE_VAL_franka_hand_x={:e}", franka_hand_x);
     }
 
     debug::exit(debug::EXIT_SUCCESS);

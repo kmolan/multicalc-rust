@@ -1,0 +1,177 @@
+{
+  "case": "unscented_kalman_filter_landmark_range_and_bearing",
+  "expected": {
+    "covariance": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fd59f777374cdc2",
+        "0xbfcc341801cc3d1f",
+        "0x3fb44fe481c9599b",
+        "0xbfcc341801cc3d20",
+        "0x3fc55922bf5c0dc6",
+        "0xbfabceff4894ed30",
+        "0x3fb44fe481c9599b",
+        "0xbfabceff4894ed30",
+        "0x3f9ce4a59efd4e1b"
+      ],
+      "rows": 3
+    },
+    "innovation": {
+      "data": [
+        "0x3fab0f58e20f1980",
+        "0x3fad95fee736c820"
+      ],
+      "kind": "vector"
+    },
+    "innovation_covariance": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fbf68af9d483564",
+        "0x3ee356bdfcabc1a7",
+        "0x3ee356bdfcabc1b5",
+        "0x3faeabfb8849abb3"
+      ],
+      "rows": 2
+    },
+    "state": {
+      "data": [
+        "0x3fc9a9e07dd32487",
+        "0xbfb7968fac863927",
+        "0x3fb2db5d95f95c30"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "alpha": {
+      "kind": "scalar",
+      "v": "0x3fd3333333333333"
+    },
+    "beta": {
+      "kind": "scalar",
+      "v": "0x4000000000000000"
+    },
+    "case": {
+      "kind": "str",
+      "v": "landmark_range_and_bearing"
+    },
+    "initial_covariance": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fe0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fe0000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fe0000000000000"
+      ],
+      "rows": 3
+    },
+    "initial_state": {
+      "data": [
+        "0x3fc999999999999a",
+        "0xbfb999999999999a",
+        "0x3fa999999999999a"
+      ],
+      "kind": "vector"
+    },
+    "kappa": {
+      "kind": "scalar",
+      "v": "0x0000000000000000"
+    },
+    "kind": {
+      "kind": "str",
+      "v": "unscented_kalman_filter"
+    },
+    "landmark": {
+      "data": [
+        "0x4008000000000000",
+        "0x4010000000000000"
+      ],
+      "kind": "vector"
+    },
+    "measurement_noise": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x3fb999999999999a",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3fa999999999999a"
+      ],
+      "rows": 2
+    },
+    "measurements": {
+      "cols": 2,
+      "kind": "matrix",
+      "row_major": [
+        "0x4014134bbdfea9b5",
+        "0x3fecf3aa2cbeb896",
+        "0x401493d2c2772f8c",
+        "0x3fea5778240da13d",
+        "0x4013ee0bae532d4e",
+        "0x3fecd10f8d0708e5",
+        "0x401457e36af92b91",
+        "0x3fedab87e19e045c",
+        "0x4013c7f73660967b",
+        "0x3fec861bec0b9631",
+        "0x4013fb284b1f0c19",
+        "0x3febbcc402d3ca3d",
+        "0x401368a2cdeaf3d1",
+        "0x3fec9e9b909f0b46",
+        "0x401435e9c8a22f4f",
+        "0x3fee4095c4317da8"
+      ],
+      "rows": 8
+    },
+    "process_noise": {
+      "cols": 3,
+      "kind": "matrix",
+      "row_major": [
+        "0x3f50624dd2f1a9fc",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3f50624dd2f1a9fc",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x0000000000000000",
+        "0x3f50624dd2f1a9fc"
+      ],
+      "rows": 3
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "h = [\u221a((3\u2212x)\u00b2+(4\u2212y)\u00b2), atan2(4\u2212y, 3\u2212x)\u2212\u03b8], f = I, \u03b1 = 0.3",
+    "generator": "estimation",
+    "libraries": {
+      "filterpy": "1.4.5",
+      "numpy": "2.1.3"
+    },
+    "operations": [
+      "Unscented Kalman filter, 8 steps, state 3 / measurement 2, spread 0.3"
+    ],
+    "reference": "FilterPy 1.4.5",
+    "sampling": "measurements are a constant-velocity truth track plus N(0, 0.5) noise; controls uniform in [-1, 1]",
+    "seed": 20260706
+  },
+  "module": "estimation",
+  "schema_version": 2,
+  "tolerances": {
+    "f32": {
+      "abs": 0.001,
+      "rel": 0.001
+    },
+    "f64": {
+      "abs": 1e-10,
+      "rel": 1e-09
+    }
+  }
+}

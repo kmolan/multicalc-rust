@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<!-- A root link plus a two-link cycle disconnected from it. -->
+<robot name="bad_cycle">
+  <link name="base_link">
+    <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>
+  </link>
+  <link name="ring_first">
+    <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>
+  </link>
+  <link name="ring_second">
+    <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>
+  </link>
+  <joint name="round" type="fixed">
+    <parent link="ring_first"/><child link="ring_second"/>
+  </joint>
+  <joint name="and_back" type="fixed">
+    <parent link="ring_second"/><child link="ring_first"/>
+  </joint>
+</robot>

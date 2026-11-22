@@ -2,14 +2,12 @@
 
 use multicalc::error::{DiffError, EstimationError};
 use multicalc::estimation::{CovarianceUpdate, ExtendedKalmanFilter, KalmanFilter, KalmanModel};
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Vector};
 use multicalc::numerical_derivative::FiniteDifferenceMode;
 use multicalc::numerical_derivative::FiniteDifferenceMulti;
 use multicalc::scalar::{Dual, Numeric, VectorFn};
 use multicalc_testkit::tol::{Tol, assert_matrix_close, assert_vector_close};
 use proptest::prelude::*;
-
-use crate::support::{symmetric_positive_definite, trace};
 
 /// Unicycle motion: [x, y, heading] driven by a forward and an angular velocity over one step.
 struct UnicycleMotion {
@@ -80,8 +78,8 @@ impl VectorFn<3, 3> for NonFiniteMotion {
 /// are then the constant matrices the linear filter is handed.
 #[test]
 fn extended_filter_with_linear_models_matches_linear_filter() {
-    let initial_covariance = Matrix::<2, 2>::identity();
-    let process_noise = Matrix::<2, 2>::identity().scale(0.01);
+    let initial_covariance = Matrix2D::identity();
+    let process_noise = Matrix2D::identity().scale(0.01);
     let measurement_noise = Matrix::new([[0.5]]);
 
     let mut extended = ExtendedKalmanFilter::<2, 1>::new(
@@ -220,9 +218,9 @@ proptest! {
     ) {
         let mut filter = ExtendedKalmanFilter::<3, 2>::new(
             Vector::new([0.0, 0.0, 0.0]),
-            symmetric_positive_definite::<3>(&covariance_entries),
-            Matrix::<3, 3>::identity().scale(0.01),
-            Matrix::<2, 2>::identity().scale(measurement_noise),
+            Matrix::<3, 3>::symmetric_positive_definite(&covariance_entries),
+            Matrix3D::identity().scale(0.01),
+            Matrix2D::identity().scale(measurement_noise),
         );
         let model = LandmarkRangeAndBearing { landmark_x: 3.0, landmark_y: 4.0 };
         let measurement = Vector::new([
@@ -256,19 +254,19 @@ proptest! {
     ) {
         let mut filter = ExtendedKalmanFilter::<3, 2>::new(
             Vector::new([0.0, 0.0, 0.0]),
-            symmetric_positive_definite::<3>(&covariance_entries),
+            Matrix::<3, 3>::symmetric_positive_definite(&covariance_entries),
             Matrix::zeros(),
-            Matrix::<2, 2>::identity().scale(measurement_noise),
+            Matrix2D::identity().scale(measurement_noise),
         );
         let model = LandmarkRangeAndBearing { landmark_x: 3.0, landmark_y: 4.0 };
         let measurement = Vector::new([
             5.0 + range_error,
             4.0_f64.atan2(3.0) + bearing_error,
         ]);
-        let before = trace(filter.covariance());
+        let before = filter.covariance().trace();
         filter.update(&model, measurement).unwrap();
 
-        prop_assert!(trace(filter.covariance()) <= before + 1e-9);
+        prop_assert!(filter.covariance().trace() <= before + 1e-9);
     }
 
     #[test]
@@ -279,9 +277,9 @@ proptest! {
     ) {
         let mut filter = ExtendedKalmanFilter::<3, 2>::new(
             Vector::new([0.0, 0.0, 0.0]),
-            symmetric_positive_definite::<3>(&covariance_entries),
+            Matrix::<3, 3>::symmetric_positive_definite(&covariance_entries),
             Matrix::zeros(),
-            Matrix::<2, 2>::identity().scale(1e14),
+            Matrix2D::identity().scale(1e14),
         );
         let model = LandmarkRangeAndBearing { landmark_x: 3.0, landmark_y: 4.0 };
         let measurement = Vector::new([
@@ -301,9 +299,9 @@ proptest! {
         range_error in -1.0f64..1.0,
         bearing_error in -0.5f64..0.5,
     ) {
-        let initial_covariance = symmetric_positive_definite::<3>(&covariance_entries);
-        let process_noise = Matrix::<3, 3>::identity().scale(0.01);
-        let noise = Matrix::<2, 2>::identity().scale(measurement_noise);
+        let initial_covariance = Matrix::<3, 3>::symmetric_positive_definite(&covariance_entries);
+        let process_noise = Matrix3D::identity().scale(0.01);
+        let noise = Matrix2D::identity().scale(measurement_noise);
         let model = LandmarkRangeAndBearing { landmark_x: 3.0, landmark_y: 4.0 };
         let measurement = Vector::new([
             5.0 + range_error,
@@ -331,12 +329,12 @@ proptest! {
         covariance_entries in prop::collection::vec(-2.0f64..2.0, 9),
     ) {
         let initial_state = Vector::new([1.0, -2.0, 0.7]);
-        let initial_covariance = symmetric_positive_definite::<3>(&covariance_entries);
+        let initial_covariance = Matrix::<3, 3>::symmetric_positive_definite(&covariance_entries);
         let mut filter = ExtendedKalmanFilter::<3, 2>::new(
             initial_state,
             initial_covariance,
             Matrix::zeros(),
-            Matrix::<2, 2>::identity(),
+            Matrix2D::identity(),
         );
         let motion = UnicycleMotion { timestep: 0.1, forward_velocity: 0.0, angular_velocity: 0.0 };
         filter.predict(&motion).unwrap();
@@ -352,9 +350,9 @@ proptest! {
         range_error in -1.0f64..1.0,
         bearing_error in -0.5f64..0.5,
     ) {
-        let initial_covariance = symmetric_positive_definite::<3>(&covariance_entries);
-        let process_noise = Matrix::<3, 3>::identity().scale(0.01);
-        let noise = Matrix::<2, 2>::identity().scale(measurement_noise);
+        let initial_covariance = Matrix::<3, 3>::symmetric_positive_definite(&covariance_entries);
+        let process_noise = Matrix3D::identity().scale(0.01);
+        let noise = Matrix2D::identity().scale(measurement_noise);
         let model = LandmarkRangeAndBearing { landmark_x: 3.0, landmark_y: 4.0 };
         let measurement = Vector::new([
             5.0 + range_error,
@@ -387,8 +385,8 @@ fn covariance_stays_symmetric_and_positive_definite_in_single_precision() {
     let mut filter = ExtendedKalmanFilter::<3, 2, f32>::new(
         Vector::new([0.0, 0.0, 0.0]),
         Matrix::identity(),
-        Matrix::<3, 3, f32>::identity().scale(0.01),
-        Matrix::<2, 2, f32>::identity().scale(0.5),
+        Matrix3D::<f32>::identity().scale(0.01),
+        Matrix2D::<f32>::identity().scale(0.5),
     );
     let motion = UnicycleMotion {
         timestep: 0.05,
@@ -426,7 +424,7 @@ fn posterior_x<T: Numeric>(measurement_noise_scale: T) -> T {
         Vector::new([T::ZERO, T::ZERO, T::ZERO]),
         Matrix::identity(),
         Matrix::zeros(),
-        Matrix::<2, 2, T>::identity().scale(measurement_noise_scale),
+        Matrix2D::<T>::identity().scale(measurement_noise_scale),
     );
     let model = LandmarkRangeAndBearing {
         landmark_x: 3.0,

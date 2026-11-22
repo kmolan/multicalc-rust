@@ -1,5 +1,5 @@
 use multicalc::error::LinalgError;
-use multicalc::linear_algebra::{Matrix, PivotedQr, Vector};
+use multicalc::linear_algebra::{Matrix, Matrix3D, PivotedQr, Vector};
 use multicalc_testkit::tol::{assert_identity, assert_matrix_close, max_abs};
 use proptest::prelude::*;
 use proptest::test_runner::TestCaseError;
@@ -18,7 +18,7 @@ fn qr_rejects_underdetermined() {
 #[test]
 fn qr_solves_square_system() {
     // A x = b with the exact solution x = [1, 1, 1].
-    let matrix = Matrix::<3, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 10.0]]);
+    let matrix = Matrix3D::<f64>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 10.0]]);
     let right_hand_side = Vector::new([6.0, 15.0, 25.0]);
     let solution = PivotedQr::decompose(matrix)
         .unwrap()
@@ -47,7 +47,7 @@ fn qr_solve_rejects_rank_deficient() {
     let right_hand_side = Vector::new([1.0, 2.0, 3.0]);
 
     // The middle column is zero, so R has an exactly-zero diagonal entry.
-    let zero_column = Matrix::<3, 3>::new([[1.0, 0.0, 2.0], [3.0, 0.0, 4.0], [5.0, 0.0, 6.0]]);
+    let zero_column = Matrix3D::new([[1.0, 0.0, 2.0], [3.0, 0.0, 4.0], [5.0, 0.0, 6.0]]);
     assert!(matches!(
         PivotedQr::decompose(zero_column)
             .unwrap()
@@ -57,7 +57,7 @@ fn qr_solve_rejects_rank_deficient() {
 
     // col2 = col0 + col1: dependent columns leave a tiny (not exactly zero) diagonal, which the
     // relative rank tolerance still flags.
-    let dependent = Matrix::<3, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 9.0], [7.0, 8.0, 15.0]]);
+    let dependent = Matrix3D::new([[1.0, 2.0, 3.0], [4.0, 5.0, 9.0], [7.0, 8.0, 15.0]]);
     assert!(matches!(
         PivotedQr::decompose(dependent)
             .unwrap()
@@ -92,7 +92,7 @@ fn damped_solve_satisfies_normal_equations() {
     // x must satisfy (JᵀJ + D²) x = Jᵀb.
     let normal_matrix = jacobian.transpose() * jacobian;
     let normal_right_hand_side = jacobian.transpose() * right_hand_side;
-    let left_side = Matrix::<3, 3>::from_fn(|row, column| {
+    let left_side = Matrix3D::from_fn(|row, column| {
         normal_matrix[(row, column)]
             + if row == column {
                 diagonal[row] * diagonal[row]
@@ -108,9 +108,11 @@ fn damped_solve_satisfies_normal_equations() {
 #[test]
 fn damped_zero_diagonal_matches_least_squares() {
     let (jacobian, right_hand_side) = sample_problem();
-    let qr = PivotedQr::decompose(jacobian).unwrap();
-    let expected = qr.solve_least_squares(right_hand_side).unwrap();
-    let (solution, _) = qr.into_damped(right_hand_side).solve_with_zero_diagonal();
+    let pivoted_qr = PivotedQr::decompose(jacobian).unwrap();
+    let expected = pivoted_qr.solve_least_squares(right_hand_side).unwrap();
+    let (solution, _) = pivoted_qr
+        .into_damped(right_hand_side)
+        .solve_with_zero_diagonal();
     for index in 0..3 {
         assert!((solution[index] - expected[index]).abs() < 1e-12);
     }
@@ -185,14 +187,14 @@ fn qr_factorizes_hilbert_stably() {
     let hilbert = Matrix::<8, 8>::from_fn(|row, column| 1.0 / ((row + column + 1) as f64));
     let factorization = PivotedQr::decompose(hilbert).unwrap();
     let permutation = factorization.permutation();
-    let q = factorization.q();
-    let r = factorization.r();
+    let orthogonal = factorization.orthogonal();
+    let triangular = factorization.triangular();
 
     // The factorization stays backward-stable regardless of conditioning.
-    assert_identity(q.transpose() * q, 1e-12);
+    assert_identity(orthogonal.transpose() * orthogonal, 1e-12);
     let column_permuted =
         Matrix::<8, 8>::from_fn(|row, column| hilbert[(row, permutation[column])]);
-    assert_matrix_close(q * r, column_permuted, 1e-12);
+    assert_matrix_close(orthogonal * triangular, column_permuted, 1e-12);
 
     // Solving is backward-stable (tiny residual) though the solution itself degrades.
     let true_coefficients = [1.0; 8];
@@ -257,12 +259,12 @@ fn check_qr_property<const M: usize, const N: usize>(
 
     // M >= N is guaranteed by the generators below, so this never hits `Underdetermined`.
     let factorization = PivotedQr::decompose(matrix).unwrap();
-    let r = factorization.r();
-    let q = factorization.q();
+    let triangular = factorization.triangular();
+    let orthogonal = factorization.orthogonal();
     let permutation = factorization.permutation();
 
     let minimum_diagonal = (0..N).fold(f64::MAX, |smallest, index| {
-        smallest.min(r[(index, index)].abs())
+        smallest.min(triangular[(index, index)].abs())
     });
     prop_assume!(minimum_diagonal >= 1e-6 * scale);
 
@@ -271,14 +273,14 @@ fn check_qr_property<const M: usize, const N: usize>(
     // R is upper-triangular by construction; check anyway as a structural guard.
     for row in 0..N {
         for column in 0..row {
-            assert_eq!(r[(row, column)], 0.0);
+            assert_eq!(triangular[(row, column)], 0.0);
         }
     }
 
-    assert_identity(q.transpose() * q, tolerance);
+    assert_identity(orthogonal.transpose() * orthogonal, tolerance);
 
     let column_permuted = Matrix::<M, N>::from_fn(|row, column| matrix[(row, permutation[column])]);
-    assert_matrix_close(q * r, column_permuted, tolerance);
+    assert_matrix_close(orthogonal * triangular, column_permuted, tolerance);
 
     Ok(())
 }

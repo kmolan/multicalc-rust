@@ -2,7 +2,7 @@
 //! against finite differences including at exactly zero curvature.
 
 use multicalc::kinematics::{BodyArc, BodyTwist, OdometryStep, Unicycle, integrate};
-use multicalc::linear_algebra::Vector;
+use multicalc::linear_algebra::{Vector, Vector3D};
 use multicalc::ode::Rk4;
 use multicalc::scalar::{Dual, Numeric, VectorFn};
 use multicalc::spatial::SE2;
@@ -16,7 +16,7 @@ fn arc_outputs<T: Numeric>(arc_length: T, heading_change: T) -> [T; 3] {
     [translation[0], translation[1], pose.rotation().log()]
 }
 
-fn rk4_to(rate: BodyTwist<f64>, timestep: f64, final_time: f64) -> Vector<3, f64> {
+fn rk4_to(rate: BodyTwist<f64>, timestep: f64, final_time: f64) -> Vector3D {
     let field = Unicycle::new(rate).field();
     let step_count = (final_time / timestep).round() as usize;
     let mut state = Vector::new([0.0, 0.0, 0.0]);

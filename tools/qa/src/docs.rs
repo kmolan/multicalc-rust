@@ -9,7 +9,7 @@ use std::path::Path;
 /// everything outside the markers untouched.
 pub fn replace_marked_region(path: &Path, begin: &str, end: &str, body: &str) {
     let content =
-        std::fs::read_to_string(path).unwrap_or_else(|e| unreachable!("read {path:?}: {e}"));
+        std::fs::read_to_string(path).unwrap_or_else(|err| unreachable!("read {path:?}: {err}"));
     let begin_at = content
         .find(begin)
         .unwrap_or_else(|| unreachable!("no {begin:?} marker in {path:?}"));
@@ -21,5 +21,5 @@ pub fn replace_marked_region(path: &Path, begin: &str, end: &str, body: &str) {
         &content[..begin_at + begin.len()],
         &content[end_at..]
     );
-    std::fs::write(path, new).unwrap_or_else(|e| unreachable!("write {path:?}: {e}"));
+    std::fs::write(path, new).unwrap_or_else(|err| unreachable!("write {path:?}: {err}"));
 }

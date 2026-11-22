@@ -6,57 +6,57 @@
 [![Docs](https://docs.rs/multicalc/badge.svg)](https://docs.rs/multicalc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Scientific computing that fits on a microcontroller, built and tested from scratch in one integrated package. Estimation, control, kinematics, Lie groups, calculus, autodiff and linear algebra in stable no_std Rust with
-no heap, no panics and no unsafe. Run the same code from your laptop to your Cortex-M0.**
+**Scientific computing that fits on a microcontroller, built and tested from scratch in one integrated package. Estimation, control, kinematics, Lie groups, calculus, autodiff and linear algebra in stable no_std Rust with no heap, no panics and no unsafe.**
 
-https://github.com/user-attachments/assets/93dee114-67f6-4124-a20d-88a8be50da6f
+https://github.com/user-attachments/assets/ed45ccb5-ca95-4e4b-8399-27d09284b220
 
-*A reel of the live [showcase demos](demos#live-showcases): a 2D robot running particle filter localization + EKF sensor fusion + obstacle avoidance over a 1kHz loop rate; then an 8-link SE(3) arm tracking a moving 3D pose. Every number on
-screen is measured live, inside a 1 ms tick.*
+*A reel of the live [showcase demos](demos#live-showcases): a quadcopter performing state estimation, planning and control to fly waypoints, 2D robot running particle filter localization + EKF sensor fusion + obstacle avoidance over a 1kHz loop rate; then a Franka Panda arm, loaded from its MuJoCo model file, tracking a moving 3D pose. Every number on screen is measured live, inside a 1 ms tick.*
 
 ## Highlights
 
 - **1 kHz loop rates:** No heap, fixed-size types, bounded work per call. Results in a full robotics control loop at 1 kHz.
-- **Exercise the same math from a server to a microcontroller.** Every commit is built and tested on **six targets**:
+- **Tested on six embedded targets:** Every commit is built and tested on **six targets**:
   the `x86_64` and `aarch64` Linux hosts and on four bare-metal ABIs (`thumbv7em` soft-float,
   `thumbv7em` hardware-FPU, `thumbv6m`, and `riscv32imc`), running the real math under QEMU.
   `no_std`, no-alloc, and no-panic rules hold on each target.
-- **Fast, and measured.** Each module's results are verified against established libraries like `numpy`, `scipy`, and `filterpy` fixtures within ~1 ulp, thus validating the rust
+- **Measured against external references:** Each module's results are verified against established libraries like `numpy`, `scipy`, and `filterpy` fixtures within ~1 ulp, thus validating the rust
   implementation. See the
   [benchmarks](benchmarks).
-- **Exact derivatives, not estimates.** Differentiation, Jacobians, Hessians, Newton steps, and
-  Levenberg-Marquardt fits use forward-mode automatic differentiation, so derivatives are exact
-  to machine precision; finite differences remain available for black-box functions. The extended
-  Kalman filter's Jacobians come from autodiff — none are hand-derived.
 - **Pure safe and panic-free.** `#![forbid(unsafe_code)]`, no C dependencies, and `unwrap`/
   `panic` denied on library paths; every fallible call returns a typed error. Types are fixed-size
   and stack-allocated, and iteration counts are bounded.
-- **One dependency.** `no_std`, no heap by default, with transcendentals from
-  [`libm`](https://crates.io/crates/libm).
 
 
 ## What it does
 
 ### Robotics and control
 
-- [Estimation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#estimation): linear and extended `KalmanFilter`s (autodiff Jacobians, no hand-derived ones) and a `ParticleFilter` for nonlinear, non-Gaussian problems (`alloc` only).
-- [Control](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#control): `Pid` with anti-windup and a filtered derivative, a one-pole low-pass, the `pure_pursuit_curvature` path-following law, and `FollowTheGap` reactive obstacle avoidance over a range scan.
-- [Spatial math](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#spatial-quaternions-and-lie-groups): `Quaternion`, the `SO2`/`SE2`/`SO3`/`SE3` Lie groups for 2D and 3D rotations and rigid-body transforms with left and right Jacobians and their inverses on all four, and `Twist`/`Wrench` screw-theory types.
-- [Kinematics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#kinematics): differential-drive and unicycle maps between wheel and body motion, with exact SE(2) odometry.
-- [Motion](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#motion): `PolylinePath`, a stack-allocated waypoint path with arc-length, closest-point, and lookahead queries.
+- [Estimation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/estimation.md): linear, extended, and unscented `KalmanFilter`s (autodiff Jacobians, no hand-derived ones; the unscented one needs no derivatives at all), an `ErrorStateKalmanFilter` that fuses an IMU with position and heading fixes, `MahonyFilter` and `MadgwickFilter` for attitude estimation, and a `ParticleFilter` for nonlinear, non-Gaussian problems (`alloc` only), with a `Monte Carlo Localization` built on top of it.
+- [Control](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/control.md): `Pid` control, infinite horizon `Lqr`, `GeometricAttitudeController` for drones, the `pure pursuit` path-following law, and `FollowTheGap` reactive obstacle avoidance. Model-based torque control on any `ArticulatedBody`: `ComputedTorqueController` (feedback linearization through `H(q)`), `JointImpedanceController` and `CartesianImpedanceController` (spring-damper in joint and tool space), and `JointPdController` (PD with optional gravity compensation).
+- [Spatial math](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/spatial-quaternions-and-lie-groups.md): `Quaternion`, the `SO2`/`SE2`/`SO3`/`SE3` Lie groups with left/right Jacobians and inverses, and `Twist`/`Wrench` spatial algebra in `[v; ω]` — Plücker transforms, 6×6 adjoints, motion and force cross products, and `SpatialInertia` momentum, bias wrench, energy and composition.
+- [Rigid-body dynamics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/rigid-body-dynamics.md): `RigidBody` for a single body, `ArticulatedBody` for a jointed robot — inverse dynamics, the joint-space inertia matrix and forward dynamics (RNEA, CRBA, ABA) with armature, viscous damping and Coulomb friction, checked against Pinocchio. Both read from an MJCF or URDF file with `multicalc-robot-model`.
+- [Plant](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/plant.md): Actuator models between a command and the wrench a body feels — `MultirotorMixer` maps a wrench to rotor thrusts and back, `RotorLag` a rotor's first-order thrust lag, and `PositionServo` a position-commanded joint's second-order servo, discretized exactly.
+- [Kinematics](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/kinematics.md): `KinematicTree` for revolute/prismatic/continuous/fixed/floating chains and forward and inverse kinematics, generic over the scalar with autodiff, built by hand or read from an MJCF or URDF file; a damped-least-squares SE(3) pose solver with joint limits and null-space redundancy resolution.
+- [Collision checking](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/kinematics.md#collision-checking): `CollisionQuery` for sphere/capsule proximity — primitives on tree frames against each other and against world-fixed obstacles, with pair exclusions and fixed capacities.
+- [Motion](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/motion.md): `PolylinePath` for waypoint paths with arc-length, closest-point, and lookahead queries, `MinimumSnapPlanner` for the smoothest trajectory through them, and `MotionProfilePlanner` for jerk-limited point-to-point moves with multi-axis synchronization.
+- [Mapping](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/mapping.md): bit-packed `OccupancyGrid` and heap `DynamicOccupancyGrid`, `LogOddsGrid` integrating scans in log-odds, `ScanGeometry` with whole-scan casting, exact Euclidean `DistanceField` with its gradient, and `CostGrid` inflation.
+- [Planning](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/planning.md): `GridPlanner` for Dijkstra, A\*, weighted A\* and any-angle Theta\*, priced by `UniformCost` or `CostmapCost`; `Rrt`, `RrtStar` and `Prm` over a `StateSpace`. Caller-owned workspaces, no allocation.
+- [MLP inference](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/mlp-inference.md): `Layer` and `Activation` run a trained MLP policy forward over borrowed `MatrixView`/`VectorView` parameters, and `ParameterCursor` walks a flat export a layer at a time, in a const no-copy no-alloc environment.
 
 ### Core math
 
-- [Automatic differentiation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#scalars-and-automatic-differentiation): Exact autodiff of any order (total and partial), plus Jacobian and Hessian matrices.
-- [Linear algebra](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#linear-algebra): fixed-size, stack-allocated `Matrix` and `Vector` with LU, Cholesky, column-pivoted QR, SVD, and the matrix exponential `expm`: solves, general N×N determinant and inverse, pseudo-inverse, and condition number.
-- [Least-squares optimization](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#least-squares-optimization): `LevenbergMarquardt` and `GaussNewton` solvers for nonlinear curve fitting.
-- [Root finding](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#root-finding): bracketed bisection and Newton solvers for scalar equations and square systems, with an optional damped line search.
-- [Integration](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#integration): iterative Newton-Cotes rules (Boole, Simpson, Trapezoidal) and Gaussian quadrature (Legendre, Hermite, Laguerre) over finite, semi-infinite, and infinite limits.
-- [ODE integrators](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#ode-integrators): fixed-step `Rk4` and adaptive `Rk45` (Dormand-Prince 5(4)) with PI step control and dense output.
-- [Discretization](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#discretization): zero-order hold, Van Loan, and discrete white-noise models for continuous-time linear systems.
-- [Vector calculus](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#vector-calculus): curl, divergence, and line and flux integrals.
-- [Approximation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#taylor-approximation): linear and quadratic Taylor models with goodness-of-fit metrics.
-- [Random](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md#random): `Pcg32` and the `RandomSource` trait, a seedable `no_std` generator for the particle filter and for stochastic models.
+- [Automatic differentiation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/scalars-and-automatic-differentiation.md): Exact autodiff of any order (total and partial), plus Jacobian and Hessian matrices.
+- [Linear algebra](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/linear-algebra.md): fixed-size, stack-allocated `Matrix` and `Vector` with LU, Cholesky, column-pivoted QR, SVD, symmetric eigendecomposition, and the matrix exponential `expm`. General N×N determinant and inverse, pseudo-inverse, eigenvalue clamping, zero-copy `MatrixView` / `VectorView`, `solve_discrete_riccati` and `solve_discrete_lyapunov`.
+- [Least-squares optimization](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/least-squares-optimization.md): `LevenbergMarquardt` and `GaussNewton` solvers for nonlinear curve fitting.
+- [Root finding](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/root-finding.md): bracketed bisection and Newton solvers for scalar equations and square systems, with an optional damped line search.
+- [Polynomials](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/polynomials.md): `Polynomial` for evaluation with any number of derivatives in one pass, arithmetic, calculus, fitting and real roots; `PiecewisePolynomial` for curves made of pieces; and `MultivariatePolynomial` for several variables with symbolic partial derivatives.
+- [Integration](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/integration.md): iterative Newton-Cotes rules (Boole, Simpson, Trapezoidal) and Gaussian quadrature (Legendre, Hermite, Laguerre) over finite, semi-infinite, and infinite limits.
+- [ODE integrators](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/ode-integrators.md): fixed-step `Rk4` and adaptive `Rk45` (Dormand-Prince 5(4)) with PI step control and dense output, plus `ExponentialMap`, which is a purely orientation integrator.
+- [Discretization](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/discretization.md): zero-order hold, Van Loan, and discrete white-noise models for continuous-time linear systems.
+- [Signal processing](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/signal-processing.md): `Biquad` low-pass, high-pass, band-pass, and notch filters; with cascades, motor-harmonic notches, and per-channel filtering. Plus `MovingAverage`, `RunningMedian`, `SavitzkyGolay` smoothing, `Deadband`, `Hysteresis` and `SlewRateLimiter` conditioning.
+- [Vector calculus](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/vector-calculus.md): curl, divergence, and line and flux integrals.
+- [Approximation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/taylor-approximation.md): linear and quadratic Taylor models with goodness-of-fit metrics.
+- [Random](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/random.md): `Pcg32` and the `RandomSource` trait, a seedable `no_std` generator for the particle filter and for stochastic models.
 
 ## Quick start
 
@@ -64,13 +64,13 @@ Two formulas, written once, carried through six modules, each step feeding the n
 
 ```rust
 use multicalc::prelude::*;
-use multicalc::{Hessian, Jacobian, KalmanFilter, KalmanModel, Matrix, Newton, SE3, SO3, Vector, c};
+use multicalc::{Hessian, Jacobian, KalmanFilter, KalmanModel, Matrix, Newton, SE3, SO3, Vector, constant };
 use multicalc::{scalar_fn, scalar_fn_vec};
 
 fn main() -> Result<(), CalcError> {
     // Written once, evaluated at f64 here and at an autodiff number wherever a derivative is asked
     // for — the formula text never changes.
-    let f = scalar_fn!(|x| x * x * x - c(2.0) * x);                     // f(x)    = x³ - 2x
+    let f = scalar_fn!(|x| x * x * x - constant(2.0) * x);                     // f(x)    = x³ - 2x
     let g = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1] + v[0].sin()); // g(x, y) = x²y + sin x
 
     // Derivatives — exact, by forward-mode autodiff. No step size, no truncation error.
@@ -86,7 +86,7 @@ fn main() -> Result<(), CalcError> {
     let hessian = Hessian::new().evaluate(&g, &point)?;      // 2x2 second derivatives
     let both = scalar_fn_vec!(|v: &[f64; 2]| [
         v[0] * v[0] * v[1] + v[0].sin(),
-        v[0] * v[0] * v[0] - c(2.0) * v[0],
+        v[0] * v[0] * v[0] - constant(2.0) * v[0],
     ]);
     let jacobian = Jacobian::new().evaluate(&both, &point)?; // 2x2 first derivatives
 
@@ -131,12 +131,11 @@ fn main() -> Result<(), CalcError> {
 }
 ```
 
-Every fallible call propagates with `?`: each module has its own error enum, and all of them
-convert into the `CalcError` umbrella, so one return type covers a program that mixes modules.
+Every fallible call propagates with `?`: each module has its own error enum, and all of them convert into the `CalcError` umbrella, so one return type covers a program that mixes modules.
 
 ## Full tutorial
 
-Refer to the [guide](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/GUIDE.md) for a comprehensive tutorial for each module. It shows the full imports,
+Refer to the [tutorials](https://github.com/kmolan/multicalc-rust/tree/main/crates/multicalc/tutorials) for a comprehensive tutorial for each module. They show the full imports,
 expected outputs in comments, error-path notes, and pointers to runnable demos. Start there when you need the complete picture of a feature.
 
 ## Accuracy
@@ -150,6 +149,8 @@ for the index, or go straight to
 [optimization](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/optimization.md),
 [ode](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/ode.md),
 [estimation](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/estimation.md),
+[kinematics](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/kinematics.md),
+[dynamics](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/dynamics.md),
 or [root_finding](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks/root_finding.md).
 
 ## Runnable demos
@@ -165,19 +166,15 @@ cargo run -p multicalc-demos --example <name>
 
 ## Documentation
 
-- **[Guide](crates/multicalc/GUIDE.md)**: A worked section for every module: imports, a runnable
-  snippet, error paths, and a demo pointer.
+- **[Tutorials](crates/multicalc/tutorials/README.md)**: A worked page for every module: imports, a
+  runnable snippet, error paths, and a demo pointer.
 - **[Crate README](crates/multicalc/README.md)** / **[API docs](https://docs.rs/multicalc)**: the
   crates.io page and full API reference, with notes on `no_std`, error handling, and heap allocation.
 - **[Examples](demos#start-here)**: Self-contained, self-checking programs for each module in the
   `demos/` crate. Run one with `cargo run -p multicalc-demos --example <name>`.
 - **[Benchmarks](benchmarks)**: Per-module accuracy tables and latency measurements, generated
   from the QA fixtures and checked in CI.
-- **[Live showcases](demos#live-showcases)**: Five animated Rerun demos, led by a robot that boots not
-  knowing where it is, finds itself on a known map with a particle filter, then fuses wheel odometry,
-  an IMU, and GPS to lap a course of obstacles on lidar alone. The others are an 8-link SE(3) arm
-  tracking a moving 3D pose, a Newton fractal, Fourier epicycles drawing Ferris, and gradient-driven
-  marbles, each streaming live-measured speed and accuracy.
+- **[Live showcases](demos#live-showcases)**: Six animated Rerun demos, including a quadcopter using particle filter localization then using state estimation to fly a planned loop, a 2D robot using monte carlo localization, then fusing wheel odometry+IMU+GPS for state estimation to lap a course of obstacles. The others are a Franka Panda arm, loaded from its MuJoCo model file tracking a moving 3D pose, a Newton fractal, Fourier epicycles drawing Ferris, and gradient-driven marbles, each streaming live-measured speed and accuracy.
 - **[QA crate](tools/qa)**: `multicalc-qa` holds the CI-enforced accuracy fixtures and generates the [benchmarks](benchmarks) tables from them.
 
 ## Repository layout
@@ -186,6 +183,12 @@ The published library crate lives in [`crates/multicalc`](crates/multicalc); the
 root is a Cargo workspace. Runnable demos live in the dev-only [`demos/`](demos) crate (basics and
 live Rerun showcases), and [`tools/embedded-smoke`](tools/embedded-smoke) runs `multicalc` on the
 four bare-metal targets (three Cortex-M targets + `riscv32imc`) under QEMU every PR.
+[`tools/hilshare`](tools/hilshare) is the same math as a Tock app. CI builds it on each PR, and a
+maintainer runs it on the three HILShare boards with the `Board` workflow.
+[`crates/multicalc-robot-model`](crates/multicalc-robot-model) reads MuJoCo MJCF and URDF model
+files into multicalc's robot types, and ships a `model_viewer` binary that draws any of them in a
+Rerun viewer. See
+[README](crates/multicalc-robot-model/README.md) for more details.
 
 ## Contributing
 

@@ -13,20 +13,29 @@
 use core::hint::black_box;
 
 use multicalc::LevenbergMarquardt;
-use multicalc::control::{FollowTheGap, Pid, pure_pursuit_curvature};
+use multicalc::SO3;
+use multicalc::control::{
+    FollowTheGap, GeometricAttitudeController, Lqr, Pid, pure_pursuit_curvature,
+};
 use multicalc::error::LinalgError;
-use multicalc::estimation::{ExtendedKalmanFilter, KalmanFilter, KalmanModel};
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::estimation::{
+    ConstantTurnAndSpeed, ExtendedKalmanFilter, KalmanFilter, KalmanModel,
+};
+use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Vector, Vector2D};
+use multicalc::mapping::{MutableOccupancyMap, OccupancyGrid, OccupancyMap, ScanGeometry};
 use multicalc::numerical_derivative::DerivatorSingleVariable;
 use multicalc::numerical_derivative::Jacobian;
 use multicalc::numerical_derivative::{AutoDiffMulti, AutoDiffSingle};
 use multicalc::numerical_integration::GaussianQuadratureMethod;
 use multicalc::numerical_integration::GaussianSingle;
 use multicalc::numerical_integration::IntegratorSingleVariable;
+use multicalc::polynomial::{
+    MultivariatePolynomial, MultivariateTerm, PiecewisePolynomial, Polynomial,
+};
 use multicalc::root_finding::Newton;
 use multicalc::scalar::{Numeric, VectorFn};
 use multicalc::scalar_fn;
-use multicalc::spatial::SE2;
+use multicalc::spatial::{SE2, SO2};
 use multicalc::vector_field::{curl_3d, divergence_3d};
 use multicalc_testkit::problems::{Jac23, Rosenbrock, VField3d, Wien};
 
@@ -118,9 +127,12 @@ pub fn portable_path() {
 /// No-panic negative path: a fallible decomposition returns a typed `Err` on bad input
 /// instead of crashing.
 pub fn error_path_returns_err() {
-    let singular = black_box(Matrix::<3, 3>::zeros());
-    assert!(matches!(singular.lu(), Err(LinalgError::Singular)));
-    let indefinite = black_box(Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 1.0]]));
+    let singular = black_box(Matrix3D::<f64>::zeros());
+    assert!(matches!(
+        singular.lu_decompose(),
+        Err(LinalgError::Singular)
+    ));
+    let indefinite = black_box(Matrix2D::new([[1.0, 2.0], [2.0, 1.0]]));
     assert!(matches!(
         indefinite.cholesky(),
         Err(LinalgError::NotPositiveDefinite)
@@ -130,7 +142,7 @@ pub fn error_path_returns_err() {
 /// Golden: singular values of a fixture matrix must match the host QA golden (linalg/svd_3x3).
 /// Returns the values for the cross-ABI guard (emitted on every target).
 pub fn svd_golden() -> [f64; 3] {
-    let a: Matrix<3, 3> = black_box(Matrix::new(fixtures::SVD_3X3_INPUT));
+    let a: Matrix3D = black_box(Matrix::new(fixtures::SVD_3X3_INPUT));
     let sv = a.svd().expect("svd").singular_values();
     for i in 0..3 {
         assert_close!(
@@ -157,10 +169,10 @@ pub fn lie_group_identity() -> f64 {
         0.0,
         core::f64::consts::FRAC_PI_2,
     ])));
-    let p = rz.act(black_box(Vector::new([1.0, 0.0, 0.0])));
-    assert_close!("lie_rot_x", black_box(p[0]), 0.0, 1e-12, 0.0);
-    assert_close!("lie_rot_y", black_box(p[1]), 1.0, 1e-12, 0.0);
-    assert_close!("lie_rot_z", black_box(p[2]), 0.0, 1e-12, 0.0);
+    let point = rz.act(black_box(Vector::new([1.0, 0.0, 0.0])));
+    assert_close!("lie_rot_x", black_box(point[0]), 0.0, 1e-12, 0.0);
+    assert_close!("lie_rot_y", black_box(point[1]), 1.0, 1e-12, 0.0);
+    assert_close!("lie_rot_z", black_box(point[2]), 0.0, 1e-12, 0.0);
 
     // SO(3) exp/log round trip.
     let phi = black_box(Vector::new([0.3, -0.6, 0.2]));
@@ -170,10 +182,10 @@ pub fn lie_group_identity() -> f64 {
     }
 
     // SE(3) exp/log round trip (exercises the left Jacobian and its inverse).
-    let xi = black_box(Vector::new([0.5, -0.2, 0.1, 0.3, -0.6, 0.2]));
-    let back6 = SE3::exp(xi).log();
+    let twist = black_box(Vector::new([0.5, -0.2, 0.1, 0.3, -0.6, 0.2]));
+    let back6 = SE3::exp(twist).log();
     for i in 0..6 {
-        assert_close!("lie_se3", black_box(back6[i]), xi[i], 1e-9, 0.0);
+        assert_close!("lie_se3", black_box(back6[i]), twist[i], 1e-9, 0.0);
     }
     black_box(back6[0])
 }
@@ -185,7 +197,7 @@ pub fn ode_identity() {
     use multicalc::linear_algebra::Vector;
     use multicalc::ode::{Rk4, Rk45};
 
-    let f = |_t: f64, y: &Vector<2, f64>| Vector::new([y[1], -y[0]]);
+    let f = |_t: f64, y: &Vector2D| Vector::new([y[1], -y[0]]);
     let steps = 2000;
     let dt = core::f64::consts::TAU / steps as f64;
     let yf = Rk4::integrate(
@@ -273,34 +285,6 @@ pub fn root_finding_golden() -> f64 {
     black_box(report.root)
 }
 
-/// Rolls `[x, y, heading, speed, turn_rate]` one tick along a turning arc. Mirrors
-/// `CoordinatedTurn` in `tools/qa/tests/estimation.rs`; the two must stay in step.
-struct CoordinatedTurn {
-    timestep: f64,
-}
-
-impl VectorFn<5, 5> for CoordinatedTurn {
-    fn eval<S: Numeric>(&self, state: &[S; 5]) -> [S; 5] {
-        let [x, y, heading, speed, turn_rate] = *state;
-        let dt = S::from_f64(self.timestep);
-        let next_heading = heading + turn_rate * dt;
-        let (next_x, next_y) = if turn_rate.abs() > S::from_f64(1e-6) {
-            let radius = speed / turn_rate;
-            (
-                x + radius * (next_heading.sin() - heading.sin()),
-                y + radius * (heading.cos() - next_heading.cos()),
-            )
-        } else {
-            (
-                x + speed * heading.cos() * dt,
-                y + speed * heading.sin() * dt,
-            )
-        };
-        let wrapped = next_heading - S::TWO_PI * (next_heading / S::TWO_PI).round();
-        [next_x, next_y, wrapped, speed, turn_rate]
-    }
-}
-
 /// A position fix: the sensor sees the first two state components.
 struct GlobalPosition;
 impl VectorFn<5, 2> for GlobalPosition {
@@ -348,7 +332,7 @@ pub fn kalman_filter_golden() -> f64 {
 /// check that drives autodiff Jacobians at 5x5 on target. Returns `state[0]`. Full set only.
 #[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
 pub fn extended_kalman_filter_golden() -> f64 {
-    let motion = CoordinatedTurn {
+    let motion = ConstantTurnAndSpeed {
         timestep: fixtures::COORDINATED_TURN_TIMESTEP,
     };
     let mut filter = ExtendedKalmanFilter::<5, 2>::new(
@@ -401,6 +385,66 @@ pub fn pure_pursuit_identity() -> f64 {
         0.0
     );
     black_box(left.value())
+}
+
+/// Identity: a wall drawn at x = 1.25 on a 16x16 map of 0.25 m cells is met at exactly 0.75 m by a
+/// beam fired along the row from x = 0.5, and a beam fired the other way meets nothing. A scan cast
+/// across the same map reads the same range on its middle beam. Covers the bit-packed storage, the
+/// rasterizing and the cell walk together. Returns the distance. Full set only.
+///
+/// The map is a bit per cell, so 16x16 is 64 bytes against the 256 a `[[bool; 16]; 16]` needs.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn occupancy_ray_cast_identity() -> f64 {
+    let mut map: OccupancyGrid<16, 16, 1> = OccupancyGrid::try_new(0.25, [0.0, 0.0]).expect("grid");
+
+    // A wall up the map, drawn from world points rather than marked cell by cell.
+    let wall_x = 1.25;
+    let wall = [[wall_x, 0.0], [wall_x, 4.0]];
+    let open_ended = false;
+    map.occupy_polyline(&wall, open_ended);
+
+    let sensor_position = [0.5, 0.5];
+    let along_the_row = 0.0;
+    let maximum_range = 4.0;
+    let distance = map
+        .cast_ray(black_box(sensor_position), along_the_row, maximum_range)
+        .expect("wall");
+    let expected = wall_x - sensor_position[0];
+    assert_close!(
+        "occupancy_ray_cast",
+        black_box(distance),
+        expected,
+        1e-12,
+        0.0
+    );
+
+    let back_along_the_row = core::f64::consts::PI;
+    assert!(
+        map.cast_ray(
+            black_box(sensor_position),
+            back_along_the_row,
+            maximum_range
+        )
+        .is_none(),
+        "occupancy_ray_cast_behind"
+    );
+
+    // A three-beam scan facing along the row: the middle beam reads what the single cast did.
+    let scan: ScanGeometry<3> = ScanGeometry::try_new(0.2, maximum_range).expect("scan");
+    let pose = SE2::from_parts(
+        SO2::from_angle(along_the_row),
+        Vector2D::new(sensor_position),
+    );
+    let ranges = map.cast_scan(black_box(pose), &scan);
+    assert_close!(
+        "occupancy_cast_scan",
+        black_box(ranges[1]),
+        expected,
+        1e-12,
+        0.0
+    );
+
+    black_box(distance)
 }
 
 /// Identity: an unobstructed scan drives straight ahead at cruise speed, and a wall all round
@@ -503,4 +547,377 @@ pub fn pid_step() -> f64 {
     }
     assert_close!("pid_settled", black_box(measurement), setpoint, 0.01, 0.0);
     black_box(measurement)
+}
+
+/// Identity: an optimal feedback law built for a cart carrying its speed forward brings a state
+/// started away from zero back home, and the loop it closes certifies as settling. Returns the
+/// distance left at the end. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn lqr_identity() -> f64 {
+    let state_transition = Matrix::<2, 2>::new([[1.0, 0.1], [0.0, 1.0]]);
+    let input_model = Matrix::<2, 1>::new([[0.005], [0.1]]);
+    let controller = Lqr::new(
+        black_box(state_transition),
+        input_model,
+        Matrix::<2, 2>::identity(),
+        Matrix::<1, 1>::identity(),
+    )
+    .expect("lqr design");
+    let _ = controller.certify_stability().expect("lqr certificate");
+
+    let mut state = Vector::new([1.0, 0.0]);
+    for _ in 0..400 {
+        let input = controller.control(state);
+        state = state_transition * state + input_model * input;
+    }
+    assert_close!("lqr_settled", black_box(state.norm()), 0.0, 1e-6, 0.0);
+    black_box(state.norm())
+}
+
+/// Identity: a body already pointing the right way and not turning needs no torque, and a body
+/// tipped about x is pushed back the other way. Returns the x torque of the tipped case. Full set
+/// only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn geometric_attitude_identity() -> f64 {
+    let inertia = Matrix::<3, 3>::from_diagonal([0.02, 0.02, 0.04]);
+    let controller =
+        GeometricAttitudeController::new(6.0, 1.2, inertia).expect("attitude controller");
+    let level = SO3::<f64>::identity();
+    let still = Vector::new([0.0, 0.0, 0.0]);
+
+    let at_target = controller.torque(level, still, level, still, still);
+    assert_close!(
+        "attitude_at_target",
+        black_box(at_target.norm()),
+        0.0,
+        1e-12,
+        0.0
+    );
+
+    let tipped = SO3::exp(black_box(Vector::new([0.1, 0.0, 0.0])));
+    let pushed_back = controller.torque(tipped, still, level, still, still);
+    assert!(pushed_back[0] < 0.0, "attitude_pushes_back");
+    black_box(pushed_back[0])
+}
+
+/// Identity: a degree-7 polynomial's value and first two derivatives at `x = 0.5`, against
+/// hand-computed constants. Repeated multiply-and-add over eight coefficients, so it adds
+/// almost nothing to `.text` and no new library surface. Returns the value. Canary set.
+pub fn polynomial_evaluate() -> f64 {
+    // 1 + 2x + 3x² + 4x³ + 5x⁴ + 6x⁵ + 7x⁶ + 8x⁷ at x = 1/2, where every power of a half is
+    // exact, so the three answers below are exact too.
+    let polynomial = Polynomial::<8, f64>::new(black_box([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]));
+    let [value, slope, bend] = polynomial.evaluate_with_derivatives(black_box(0.5));
+
+    assert_close!("polynomial_value", black_box(value), 3.921875, 1e-12, 0.0);
+    assert_close!("polynomial_slope", black_box(slope), 14.5625, 1e-12, 0.0);
+    assert_close!("polynomial_bend", black_box(bend), 71.625, 1e-12, 0.0);
+    black_box(value)
+}
+
+/// Identity: the roots of `(x − 1)(x − 2)` are 1 and 2. Pulls in `sqrt` and `copysign`, both
+/// already linked by the canary's SVD check, so it adds no new library surface on the M0.
+/// Returns the first root. Canary set.
+pub fn polynomial_quadratic_roots() -> f64 {
+    let quadratic = Polynomial::<3, f64>::new(black_box([2.0, -3.0, 1.0]));
+    let roots = quadratic.real_roots().expect("quadratic roots");
+
+    assert!(roots.len() == 2, "polynomial_quadratic_root_count");
+    let found = roots.as_slice();
+    assert_close!("polynomial_root_0", black_box(found[0]), 1.0, 1e-12, 0.0);
+    assert_close!("polynomial_root_1", black_box(found[1]), 2.0, 1e-12, 0.0);
+    black_box(found[0])
+}
+
+/// Golden: the four real roots of `x(x − 1)(x − 2)(x − 4)` against the host QA golden
+/// (polynomial/roots_quartic_four_real). Returns root 0. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn polynomial_roots_golden() -> f64 {
+    let quartic = Polynomial::<5, f64>::new(black_box(fixtures::POLYNOMIAL_QUARTIC_COEFFICIENTS));
+    let roots = quartic.real_roots().expect("quartic roots");
+
+    assert!(
+        roots.len() == fixtures::POLYNOMIAL_QUARTIC_ROOTS.len(),
+        "polynomial_quartic_root_count"
+    );
+    for (index, want) in fixtures::POLYNOMIAL_QUARTIC_ROOTS.iter().enumerate() {
+        assert_close!(
+            "polynomial_quartic_root",
+            black_box(roots.as_slice()[index]),
+            *want,
+            fixtures::POLYNOMIAL_QUARTIC_ABS,
+            fixtures::POLYNOMIAL_QUARTIC_REL
+        );
+    }
+    black_box(roots.as_slice()[0])
+}
+
+/// Identity: the six roots of `(x + 3)(x + 1)(x − 0.5)(x − 2)(x − 4)(x − 7)`, found by counting
+/// sign changes and halving rather than by a formula. The deepest polynomial path on target —
+/// a chain of seven polynomials plus the range stack. Returns root 0. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn polynomial_sturm_identity() -> f64 {
+    let degree6 =
+        Polynomial::<7, f64>::new(black_box([84.0, -131.0, -126.5, 104.5, 5.5, -9.5, 1.0]));
+    let bound = degree6.cauchy_root_bound().expect("root bound");
+    let roots = degree6
+        .real_roots_in(black_box(-bound), black_box(bound), 1e-9, 200)
+        .expect("roots by halving");
+
+    assert!(roots.len() == 6, "polynomial_sturm_root_count");
+    let expected = [-3.0, -1.0, 0.5, 2.0, 4.0, 7.0];
+    for (index, want) in expected.iter().enumerate() {
+        assert_close!(
+            "polynomial_sturm_root",
+            black_box(roots.as_slice()[index]),
+            *want,
+            1e-8,
+            0.0
+        );
+    }
+    black_box(roots.as_slice()[0])
+}
+
+/// Golden: the planned trajectory a controller follows, evaluated on target. Builds the
+/// piecewise curve straight from the host golden's coefficients and compares position, velocity
+/// and acceleration at the fixture's own sample times. **This is the hot-loop path** — planning
+/// stays host-side. Returns the first sampled position component. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn piecewise_polynomial_golden() -> f64 {
+    let mut pieces = [[Polynomial::<8, f64>::zeros(); 3]; 3];
+    for (segment, piece) in pieces.iter_mut().enumerate() {
+        for (axis, slot) in piece.iter_mut().enumerate() {
+            *slot = Polynomial::new(fixtures::MINIMUM_SNAP_COEFFICIENTS[segment * 3 + axis]);
+        }
+    }
+    let trajectory = PiecewisePolynomial::<3, 8, 3, f64>::try_from_pieces(
+        black_box(&pieces),
+        black_box(&fixtures::MINIMUM_SNAP_DURATIONS),
+    )
+    .expect("trajectory");
+
+    let mut first = 0.0;
+    for (sample, time) in fixtures::MINIMUM_SNAP_SAMPLE_TIMES.iter().enumerate() {
+        let orders = trajectory
+            .evaluate_with_derivatives::<3>(black_box(*time))
+            .expect("trajectory state");
+        for (order, found) in orders.iter().enumerate() {
+            let want = fixtures::MINIMUM_SNAP_SAMPLED_STATES[sample * 3 + order];
+            for axis in 0..3 {
+                assert_close!(
+                    "piecewise_state",
+                    black_box(found[axis]),
+                    want[axis],
+                    fixtures::MINIMUM_SNAP_ABS,
+                    fixtures::MINIMUM_SNAP_REL
+                );
+            }
+        }
+        if sample == 0 {
+            first = orders[0][0];
+        }
+    }
+    black_box(first)
+}
+
+/// Identity: `3x²y + 2xy − 1` at `(1.5, −2.0)` and its slopes there, against hand-computed
+/// values. Exercises raising to a whole-number power on target. Returns the value. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn multivariate_identity() -> f64 {
+    let polynomial = MultivariatePolynomial::<2, 3, f64>::try_from_terms(&[
+        MultivariateTerm::new(3.0, [2, 1]),
+        MultivariateTerm::new(2.0, [1, 1]),
+        MultivariateTerm::new(-1.0, [0, 0]),
+    ])
+    .expect("multivariate");
+
+    let point = black_box([1.5, -2.0]);
+    // 3·2.25·(−2) + 2·1.5·(−2) − 1
+    let value = polynomial.evaluate(&point);
+    assert_close!("multivariate_value", black_box(value), -20.5, 1e-12, 0.0);
+
+    // 6xy + 2y, and 3x² + 2x.
+    let gradient = polynomial.gradient_at(&point);
+    assert_close!(
+        "multivariate_slope_x",
+        black_box(gradient[0]),
+        -22.0,
+        1e-12,
+        0.0
+    );
+    assert_close!(
+        "multivariate_slope_y",
+        black_box(gradient[1]),
+        9.75,
+        1e-12,
+        0.0
+    );
+    black_box(value)
+}
+
+/// The degree-7 evaluation again in `f32`, widened on the way out. Single precision is where
+/// soft-float and a hardware FPU are most likely to disagree, which is what the cross-ABI guard
+/// exists to catch. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn polynomial_evaluate_identity_f32() -> f64 {
+    let polynomial = Polynomial::<8, f32>::new(black_box([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]));
+    let [value, slope]: [f32; 2] = polynomial.evaluate_with_derivatives(black_box(0.5_f32));
+
+    assert_close!(
+        "polynomial_value_f32",
+        black_box(f64::from(value)),
+        3.921875,
+        1e-5,
+        0.0
+    );
+    assert_close!(
+        "polynomial_slope_f32",
+        black_box(f64::from(slope)),
+        14.5625,
+        1e-5,
+        0.0
+    );
+    black_box(f64::from(value))
+}
+
+/// A two-joint planar arm of unit links, welded to a tool frame one link further out.
+/// Shared by the kinematics checks below. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+fn planar_arm() -> multicalc::kinematics::KinematicTree<3, 3, f64> {
+    use multicalc::kinematics::{Joint, JointParent, KinematicTree};
+    use multicalc::spatial::{SE3, SO3};
+
+    let about_z = Vector::new([0.0, 0.0, 1.0]);
+    let along_x = SE3::from_parts(SO3::identity(), Vector::new([1.0, 0.0, 0.0]));
+    let joints = [
+        Joint::revolute(about_z, SE3::identity()),
+        Joint::revolute(about_z, along_x),
+        Joint::fixed(along_x),
+    ];
+    let parents = [
+        JointParent::World,
+        JointParent::Joint(0),
+        JointParent::Joint(1),
+    ];
+    KinematicTree::<3, 3, f64>::try_from_joints(&joints, &parents)
+        .unwrap_or_else(|_| unreachable!("two-joint planar arm is a valid tree"))
+}
+
+/// Identity: a two-joint planar arm of unit links puts its tool at
+/// `[cos a + cos(a+b), sin a + sin(a+b), 0]`. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn kinematic_tree_identity() -> f64 {
+    let tree = planar_arm();
+    let (a, b) = (0.3_f64, -0.7);
+    let state = tree
+        .forward_kinematics(&black_box(Vector::new([a, b, 0.0])))
+        .unwrap_or_else(|_| unreachable!("finite readings"));
+    let tool = state
+        .pose(2)
+        .unwrap_or_else(|| unreachable!("three joints were settled"))
+        .translation();
+
+    assert_close!(
+        "fk_x",
+        black_box(tool[0]),
+        a.cos() + (a + b).cos(),
+        1e-12,
+        0.0
+    );
+    assert_close!(
+        "fk_y",
+        black_box(tool[1]),
+        a.sin() + (a + b).sin(),
+        1e-12,
+        0.0
+    );
+    assert_close!("fk_z", black_box(tool[2]), 0.0, 1e-12, 0.0);
+    black_box(tool[0])
+}
+
+/// Identity: on the same arm stretched along x, the tool sits 2 units out, so turning the
+/// shoulder sweeps it sideways at twice the rate turning the elbow does, and the weld
+/// contributes nothing. Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn geometric_jacobian_identity() -> f64 {
+    use multicalc::kinematics::JacobianFrame;
+
+    let tree = planar_arm();
+    let jacobian = tree
+        .geometric_jacobian_at(&black_box(Vector::zeros()), 2, JacobianFrame::World)
+        .unwrap_or_else(|_| unreachable!("finite readings, valid tool index"));
+
+    let shoulder = jacobian
+        .column(0)
+        .unwrap_or_else(|| unreachable!("column 0 is active"));
+    let elbow = jacobian
+        .column(1)
+        .unwrap_or_else(|| unreachable!("column 1 is active"));
+    let weld = jacobian
+        .column(2)
+        .unwrap_or_else(|| unreachable!("column 2 is active"));
+
+    assert_close!(
+        "jac_shoulder_v",
+        black_box(shoulder.linear()[1]),
+        2.0,
+        1e-12,
+        0.0
+    );
+    assert_close!("jac_elbow_v", black_box(elbow.linear()[1]), 1.0, 1e-12, 0.0);
+    assert_close!(
+        "jac_shoulder_w",
+        black_box(shoulder.angular()[2]),
+        1.0,
+        1e-12,
+        0.0
+    );
+    assert_close!("jac_weld", black_box(weld.linear().norm()), 0.0, 1e-12, 0.0);
+    black_box(shoulder.linear()[1])
+}
+
+/// Golden: the Franka arm built from its own model file, read on target in single precision,
+/// puts its hand where MuJoCo puts it. Also checks the joint data the file carried came across.
+/// Full set only.
+#[cfg_attr(not(feature = "full-smoke"), allow(dead_code))]
+pub fn franka_forward_kinematics_f32() -> f64 {
+    let tree = crate::franka_panda_model::franka_panda_arm();
+
+    // The file states these in a default block every link inherits, so a reader that missed the
+    // block would leave them at zero and forward kinematics would not notice.
+    let shoulder = tree.joint(1).unwrap_or_else(|| unreachable!("nine slots"));
+    assert_close!(
+        "franka_armature",
+        f64::from(shoulder.armature()),
+        0.1,
+        1e-7,
+        0.0
+    );
+    assert_close!(
+        "franka_damping",
+        f64::from(shoulder.damping()),
+        1.0,
+        1e-7,
+        0.0
+    );
+
+    let readings = Vector::from_fn(|i| fixtures::FRANKA_JOINT_READINGS[i] as f32);
+    let state = tree
+        .forward_kinematics(&black_box(readings))
+        .unwrap_or_else(|_| unreachable!("finite readings"));
+    let hand = state
+        .pose(8)
+        .unwrap_or_else(|| unreachable!("nine slots were settled"))
+        .translation();
+
+    for axis in 0..3 {
+        assert_close!(
+            "franka_hand",
+            f64::from(black_box(hand[axis])),
+            fixtures::FRANKA_HAND_POSITION[axis],
+            2e-4,
+            0.0
+        );
+    }
+    f64::from(black_box(hand[0]))
 }

@@ -91,6 +91,13 @@ every target including the Cortex-M0; the full set adds the heavier checks on th
 | `kalman_filter_identity_f32` | full set | Identity in `f32`: two unit-measurement steps of a constant-velocity filter land on the exact `[5/3, 2/3]`. Emits `SMOKE_VAL_kalman_f32`. |
 | `pure_pursuit_identity` | full set | Identity: pure pursuit returns zero curvature for a point dead ahead and the exact `2·lateral/L²` for one off to the side. Emits `SMOKE_VAL_pure_pursuit`. |
 | `follow_the_gap_identity` | full set | Identity: a 31-beam clear scan drives straight ahead at cruise speed; a wall all round stops the robot and reports it blocked. Emits `SMOKE_VAL_follow_the_gap`. |
+| `polynomial_evaluate` | all (incl. `thumbv6m`) | Identity: a degree-7 polynomial's value and first two derivatives at `x = 1/2`, where every power is exact. Emits `SMOKE_VAL_poly`. |
+| `polynomial_quadratic_roots` | all (incl. `thumbv6m`) | Identity: the roots of `(x−1)(x−2)` are 1 and 2, by the closed form. Emits `SMOKE_VAL_poly_quadratic_root`. |
+| `polynomial_roots_golden` | full set | Golden: the four real roots of `x(x−1)(x−2)(x−4)` vs the `roots_quartic_four_real` QA golden. Emits `SMOKE_VAL_poly_root0`. |
+| `polynomial_sturm_identity` | full set | Identity: the six roots of a sixth-power polynomial, found by counting sign changes and halving rather than by a formula — the deepest polynomial path on target. Emits `SMOKE_VAL_poly_sturm0`. |
+| `piecewise_polynomial_golden` | full set | Golden: a planned minimum-snap trajectory evaluated for position, velocity and acceleration vs the `minimum_snap_three_segments_3d` QA golden. This is the hot-loop path a controller follows; planning stays host-side. Emits `SMOKE_VAL_piecewise`. |
+| `multivariate_identity` | full set | Identity: `3x²y + 2xy − 1` and its slopes at `(1.5, −2)`, exercising whole-number powers on target. Emits `SMOKE_VAL_multivariate`. |
+| `polynomial_evaluate_identity_f32` | full set | Identity in `f32`: the same degree-7 evaluation at single precision, where soft-float and the hardware FPU are most likely to differ. Emits `SMOKE_VAL_poly_f32`. |
 
 ## Pass/fail contract
 

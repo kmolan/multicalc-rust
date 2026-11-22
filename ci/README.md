@@ -19,6 +19,9 @@ Do **not** raise `tolerance_pct` to get under a gate — that loosens every row 
 regressions. Budgets are per-binary and per-scalar precisely so one domain's growth never spends
 another's headroom; keep them tight and per-row.
 
+Time budgets on real hardware are a separate set, in `tools/hilshare`; its README has their
+protocol.
+
 ## Smoke-test harness
 
 The on-target smoke binary is a hand-rolled `#[entry]` runner (`cortex-m-rt` on ARM,
@@ -49,6 +52,19 @@ cargo run -p multicalc-qa --bin gen_smoke_fixtures
 The output is deterministic. CI regenerates it and runs `git diff --exit-code` on `fixtures.rs`, so
 a stale checked-in copy fails the build. Change a fixture and rerun the generator; never edit
 `fixtures.rs` by hand.
+
+The Franka forward-kinematics check needs a whole model, not a handful of numbers, so it gets its
+own generator: `tools/qa/src/bin/gen_model_source.rs` reads
+`third_party/menagerie/franka_emika_panda/panda.xml` through `multicalc-robot-model` and writes
+`tools/embedded-smoke/src/franka_panda_model.rs` as Rust source that builds the same tree, so the
+target never reads a model file. Regenerate with:
+
+```
+cargo run -p multicalc-qa --bin gen_model_source
+```
+
+Guarded the same way: CI regenerates it and runs `git diff --exit-code` on
+`franka_panda_model.rs`. Never edit that file by hand either.
 
 ## Test-set tiering
 

@@ -28,141 +28,182 @@ fn circle_field() -> [&'static dyn Fn(&[f64; 2]) -> f64; 2] {
 }
 
 fn circle_transforms() -> [&'static dyn Fn(f64) -> f64; 2] {
-    [&(|t: f64| t.cos()), &(|t: f64| t.sin())]
+    [&(|time: f64| time.cos()), &(|time: f64| time.sin())]
 }
 
 #[test]
 fn calculus() {
-    for fx in load_dir("calculus") {
-        let t = fx.tolerances.f64;
-        match fx.inputs["op"].as_str() {
+    for fixture in load_dir("calculus") {
+        let tolerance = fixture.tolerances.f64;
+        match fixture.inputs["op"].as_str() {
             "derivative" => {
-                let point = fx.inputs["point"].as_scalar();
-                let order = fx.inputs["order"].as_int() as usize;
+                let point = fixture.inputs["point"].as_scalar();
+                let order = fixture.inputs["order"].as_int() as usize;
                 let cube = scalar_fn!(|x| x * x * x);
-                let d = AutoDiffSingle::default()
+                let derivative = AutoDiffSingle::default()
                     .differentiate(order, &cube, point)
                     .unwrap();
-                assert_scalar(d, &fx.expected["derivative"], t, "derivative");
+                assert_scalar(
+                    derivative,
+                    &fixture.expected["derivative"],
+                    tolerance,
+                    "derivative",
+                );
                 assert_scalar(
                     cube.eval::<f64>(point),
-                    &fx.expected["f_at_probe"],
-                    t,
+                    &fixture.expected["f_at_probe"],
+                    tolerance,
                     "f_at_probe",
                 );
             }
             "partial" => {
-                let point = to_vector::<3>(&fx.inputs["point"]).into_array();
-                let axes: Vec<usize> = fx.inputs["axes"]
+                let point = to_vector::<3>(&fixture.inputs["point"]).into_array();
+                let axes: Vec<usize> = fixture.inputs["axes"]
                     .as_str()
                     .split(',')
-                    .map(|s| s.parse().unwrap())
+                    .map(|part| part.parse().unwrap())
                     .collect();
-                let d = AutoDiffMulti::default();
+                let derivator = AutoDiffMulti::default();
                 let val = match axes.as_slice() {
-                    [a] => d.first_partial_derivative(&G, *a, &point),
-                    [a, b] => d.differentiate(&G, &[*a, *b], &point),
-                    [a, b, c] => d.differentiate(&G, &[*a, *b, *c], &point),
+                    [a] => derivator.first_partial_derivative(&Transcendental, *a, &point),
+                    [a, b] => derivator.differentiate(&Transcendental, &[*a, *b], &point),
+                    [a, b, third] => {
+                        derivator.differentiate(&Transcendental, &[*a, *b, *third], &point)
+                    }
                     _ => panic!("unexpected axes {axes:?}"),
                 }
                 .unwrap();
-                assert_scalar(val, &fx.expected["partial"], t, "partial");
+                assert_scalar(val, &fixture.expected["partial"], tolerance, "partial");
                 assert_scalar(
-                    G.eval::<f64>(&point),
-                    &fx.expected["f_at_probe"],
-                    t,
+                    Transcendental.eval::<f64>(&point),
+                    &fixture.expected["f_at_probe"],
+                    tolerance,
                     "f_at_probe",
                 );
             }
-            "jacobian" => match fx.inputs["func"].as_str() {
+            "jacobian" => match fixture.inputs["func"].as_str() {
                 "jac_23" => {
-                    let p = to_vector::<3>(&fx.inputs["point"]).into_array();
+                    let point = to_vector::<3>(&fixture.inputs["point"]).into_array();
                     let j = Jacobian::<AutoDiffMulti>::default()
-                        .evaluate(&Jac23, &p)
+                        .evaluate(&Jac23, &point)
                         .unwrap();
-                    assert_matrix(&j, &fx.expected["jacobian"], t, "jacobian");
+                    assert_matrix(&j, &fixture.expected["jacobian"], tolerance, "jacobian");
                     assert_vector(
-                        &Vector::new(Jac23.eval::<f64>(&p)),
-                        &fx.expected["f_at_probe"],
-                        t,
+                        &Vector::new(Jac23.eval::<f64>(&point)),
+                        &fixture.expected["f_at_probe"],
+                        tolerance,
                         "f_at_probe",
                     );
                 }
                 "jac_66" => {
-                    let p = to_vector::<6>(&fx.inputs["point"]).into_array();
+                    let point = to_vector::<6>(&fixture.inputs["point"]).into_array();
                     let j = Jacobian::<AutoDiffMulti>::default()
-                        .evaluate(&Jac66, &p)
+                        .evaluate(&Jac66, &point)
                         .unwrap();
-                    assert_matrix(&j, &fx.expected["jacobian"], t, "jacobian");
+                    assert_matrix(&j, &fixture.expected["jacobian"], tolerance, "jacobian");
                     assert_vector(
-                        &Vector::new(Jac66.eval::<f64>(&p)),
-                        &fx.expected["f_at_probe"],
-                        t,
+                        &Vector::new(Jac66.eval::<f64>(&point)),
+                        &fixture.expected["f_at_probe"],
+                        tolerance,
                         "f_at_probe",
                     );
                 }
                 other => panic!("unknown jacobian func {other}"),
             },
             "hessian" => {
-                let p = to_vector::<3>(&fx.inputs["point"]).into_array();
+                let point = to_vector::<3>(&fixture.inputs["point"]).into_array();
                 let h = Hessian::<AutoDiffMulti>::default()
-                    .evaluate(&HessianTarget, &p)
+                    .evaluate(&HessianTarget, &point)
                     .unwrap();
-                assert_matrix(&h, &fx.expected["hessian"], t, "hessian");
+                assert_matrix(&h, &fixture.expected["hessian"], tolerance, "hessian");
                 assert_scalar(
-                    HessianTarget.eval::<f64>(&p),
-                    &fx.expected["f_at_probe"],
-                    t,
+                    HessianTarget.eval::<f64>(&point),
+                    &fixture.expected["f_at_probe"],
+                    tolerance,
                     "f_at_probe",
                 );
             }
             "curl_div" => {
-                let p = to_vector::<3>(&fx.inputs["point"]).into_array();
-                let c = curl_3d(AutoDiffMulti::default(), &VField3d, &p).unwrap();
-                assert_vector(&Vector::new(c), &fx.expected["curl"], t, "curl");
-                let dv = divergence_3d(AutoDiffMulti::default(), &VField3d, &p).unwrap();
-                assert_scalar(dv, &fx.expected["divergence"], t, "divergence");
+                let point = to_vector::<3>(&fixture.inputs["point"]).into_array();
+                let curl = curl_3d(AutoDiffMulti::default(), &VField3d, &point).unwrap();
                 assert_vector(
-                    &Vector::new(VField3d.eval::<f64>(&p)),
-                    &fx.expected["f_at_probe"],
-                    t,
+                    &Vector::new(curl),
+                    &fixture.expected["curl"],
+                    tolerance,
+                    "curl",
+                );
+                let divergence =
+                    divergence_3d(AutoDiffMulti::default(), &VField3d, &point).unwrap();
+                assert_scalar(
+                    divergence,
+                    &fixture.expected["divergence"],
+                    tolerance,
+                    "divergence",
+                );
+                assert_vector(
+                    &Vector::new(VField3d.eval::<f64>(&point)),
+                    &fixture.expected["f_at_probe"],
+                    tolerance,
                     "f_at_probe",
                 );
             }
             "line_integral" => {
-                let lv = fx.inputs["limits"].as_vector();
-                let val = line_integral_2d(&circle_field(), &circle_transforms(), &[lv[0], lv[1]])
-                    .unwrap();
-                assert_scalar(val, &fx.expected["line_integral"], t, "line_integral");
+                let limits = fixture.inputs["limits"].as_vector();
+                let val = line_integral_2d(
+                    &circle_field(),
+                    &circle_transforms(),
+                    &[limits[0], limits[1]],
+                )
+                .unwrap();
+                assert_scalar(
+                    val,
+                    &fixture.expected["line_integral"],
+                    tolerance,
+                    "line_integral",
+                );
             }
             "flux_integral" => {
-                let lv = fx.inputs["limits"].as_vector();
-                let val = flux_integral_2d(&circle_field(), &circle_transforms(), &[lv[0], lv[1]])
-                    .unwrap();
-                assert_scalar(val, &fx.expected["flux_integral"], t, "flux_integral");
+                let limits = fixture.inputs["limits"].as_vector();
+                let val = flux_integral_2d(
+                    &circle_field(),
+                    &circle_transforms(),
+                    &[limits[0], limits[1]],
+                )
+                .unwrap();
+                assert_scalar(
+                    val,
+                    &fixture.expected["flux_integral"],
+                    tolerance,
+                    "flux_integral",
+                );
             }
             "approx" => {
-                let p = to_vector::<3>(&fx.inputs["p"]).into_array();
-                let q = to_vector::<3>(&fx.inputs["q"]).into_array();
+                let point = to_vector::<3>(&fixture.inputs["p"]).into_array();
+                let query = to_vector::<3>(&fixture.inputs["q"]).into_array();
                 let linear = LinearApproximator::<AutoDiffMulti>::default()
-                    .approximate(&ApproxTarget, &p)
+                    .approximate(&ApproxTarget, &point)
                     .unwrap()
-                    .predict(&q);
-                assert_scalar(linear, &fx.expected["linear_predict"], t, "linear_predict");
+                    .predict(&query);
+                assert_scalar(
+                    linear,
+                    &fixture.expected["linear_predict"],
+                    tolerance,
+                    "linear_predict",
+                );
                 let quadratic = QuadraticApproximator::<AutoDiffMulti>::default()
-                    .approximate(&ApproxTarget, &p)
+                    .approximate(&ApproxTarget, &point)
                     .unwrap()
-                    .predict(&q);
+                    .predict(&query);
                 assert_scalar(
                     quadratic,
-                    &fx.expected["quadratic_predict"],
-                    t,
+                    &fixture.expected["quadratic_predict"],
+                    tolerance,
                     "quadratic_predict",
                 );
                 assert_scalar(
-                    ApproxTarget.eval::<f64>(&p),
-                    &fx.expected["f_at_probe"],
-                    t,
+                    ApproxTarget.eval::<f64>(&point),
+                    &fixture.expected["f_at_probe"],
+                    tolerance,
                     "f_at_probe",
                 );
             }

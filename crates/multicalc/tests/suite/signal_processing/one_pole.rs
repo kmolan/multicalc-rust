@@ -1,0 +1,161 @@
+//! One-pole low-pass filter tests: DC gain, pass-through, step attenuation, and constructor
+//! rejection, at f32 and f64.
+
+use multicalc::error::SignalError;
+use multicalc::scalar::Numeric;
+use multicalc::signal_processing::OnePoleLowPass;
+
+// ---- steady state -----------------------------------------------------------
+
+fn assert_dc_gain_is_one<T: Numeric>(tolerance: T) {
+    let smoothing = T::from_f64(0.3);
+    let mut filter = OnePoleLowPass::new(smoothing).unwrap();
+    let input = T::from_f64(5.0);
+    for _ in 0..500 {
+        let _ = filter.filter(input);
+    }
+    assert!((filter.value() - input).abs() < tolerance);
+}
+
+#[test]
+fn dc_gain_is_one_f64() {
+    assert_dc_gain_is_one(1e-9_f64);
+}
+
+#[test]
+fn dc_gain_is_one_f32() {
+    assert_dc_gain_is_one(1e-3_f32);
+}
+
+// ---- pass-through -----------------------------------------------------------
+
+fn assert_alpha_one_is_pass_through<T: Numeric>() {
+    let mut filter = OnePoleLowPass::new(T::ONE).unwrap();
+    for input in [1.0, -2.0, 3.5, 0.0] {
+        let value = T::from_f64(input);
+        assert_eq!(filter.filter(value), value);
+    }
+}
+
+#[test]
+fn alpha_one_is_pass_through_f64() {
+    assert_alpha_one_is_pass_through::<f64>();
+}
+
+#[test]
+fn alpha_one_is_pass_through_f32() {
+    assert_alpha_one_is_pass_through::<f32>();
+}
+
+// ---- transient --------------------------------------------------------------
+
+fn assert_step_attenuated_and_monotone<T: Numeric>(tolerance: T) {
+    let smoothing = T::from_f64(0.25);
+    let mut filter = OnePoleLowPass::new(smoothing).unwrap();
+    let _ = filter.filter(T::ZERO); // seed at zero, then step the input to one
+    let target = T::ONE;
+    let mut previous = T::ZERO;
+    // Strict checks only while the gap to the target stays above f32 resolution.
+    for _ in 0..25 {
+        let output = filter.filter(target);
+        assert!(output < target); // a low-pass never overshoots a step
+        assert!(output > previous); // and climbs monotonically toward it
+        previous = output;
+    }
+    for _ in 0..200 {
+        let _ = filter.filter(target);
+    }
+    assert!((filter.value() - target).abs() < tolerance);
+}
+
+#[test]
+fn step_is_attenuated_and_monotone_f64() {
+    assert_step_attenuated_and_monotone(1e-6_f64);
+}
+
+#[test]
+fn step_is_attenuated_and_monotone_f32() {
+    assert_step_attenuated_and_monotone(1e-3_f32);
+}
+
+// ---- construction -----------------------------------------------------------
+
+#[test]
+fn new_rejects_out_of_range_and_non_finite() {
+    assert_eq!(
+        OnePoleLowPass::<f64>::new(-0.1),
+        Err(SignalError::CoefficientOutOfRange)
+    );
+    assert_eq!(
+        OnePoleLowPass::<f64>::new(1.5),
+        Err(SignalError::CoefficientOutOfRange)
+    );
+    assert_eq!(
+        OnePoleLowPass::<f64>::new(f64::NAN),
+        Err(SignalError::NonFinite)
+    );
+}
+
+#[test]
+fn from_cutoff_rejects_non_positive_timestep() {
+    assert_eq!(
+        OnePoleLowPass::<f64>::from_cutoff(5.0, 0.0),
+        Err(SignalError::NonPositiveTimestep)
+    );
+    assert_eq!(
+        OnePoleLowPass::<f64>::from_cutoff(5.0, -0.01),
+        Err(SignalError::NonPositiveTimestep)
+    );
+}
+
+#[test]
+fn from_cutoff_rejects_negative_cutoff() {
+    assert_eq!(
+        OnePoleLowPass::<f64>::from_cutoff(-1.0, 0.01),
+        Err(SignalError::FrequencyOutOfRange)
+    );
+}
+
+#[test]
+fn reset_clears_state() {
+    let mut filter = OnePoleLowPass::new(0.5_f64).unwrap();
+    let _ = filter.filter(3.0);
+    filter.reset();
+    assert_eq!(filter.value(), 0.0);
+    // The next sample seeds the filter again, so it passes straight through.
+    assert_eq!(filter.filter(7.0), 7.0);
+}
+
+// ---- handling non-finite signal ---------------------------------------------
+#[test]
+fn non_finite_input_spoils_filter_till_reset() {
+    let mut running = OnePoleLowPass::new(0.5_f64).unwrap();
+    let _ = running.filter(1.0);
+
+    assert!(running.filter(f64::NAN).is_nan());
+    assert!(running.filter(1.0).is_nan());
+
+    running.reset();
+    assert!(running.filter(1.0).is_finite());
+}
+
+#[test]
+fn non_finite_first_sample_spoils_filter() {
+    // The first sample seeds the state directly, so it spoils an untouched filter too
+    let mut running = OnePoleLowPass::new(0.5_f64).unwrap();
+
+    assert!(running.filter(f64::NAN).is_nan());
+    assert!(running.filter(1.0).is_nan());
+}
+
+#[test]
+fn filter_checked_protects_filter() {
+    let mut running = OnePoleLowPass::new(0.5_f64).unwrap();
+    let _ = running.filter(1.0);
+    let untouched = running;
+
+    for signal in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        assert_eq!(running.filter_checked(signal), Err(SignalError::NonFinite));
+        assert_eq!(running, untouched);
+    }
+}

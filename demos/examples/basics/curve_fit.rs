@@ -16,21 +16,23 @@ const OBJ_TOL: f64 = 1e-12;
 
 // y = a·e^(b·t), generic over the scalar so autodiff differentiates the residuals for free.
 struct SensorFit<const M: usize> {
-    t: [f64; M],
+    times: [f64; M],
     y: [f64; M],
 }
 
 impl<const M: usize> VectorFn<2, M> for SensorFit<M> {
-    fn eval<S: Numeric>(&self, p: &[S; 2]) -> [S; M] {
-        let (a, b) = (p[0], p[1]);
-        core::array::from_fn(|i| a * (b * S::from_f64(self.t[i])).exp() - S::from_f64(self.y[i]))
+    fn eval<S: Numeric>(&self, params: &[S; 2]) -> [S; M] {
+        let (a, b) = (params[0], params[1]);
+        core::array::from_fn(|i| {
+            a * (b * S::from_f64(self.times[i])).exp() - S::from_f64(self.y[i])
+        })
     }
 }
 
 fn main() {
-    let t: [f64; 8] = core::array::from_fn(|i| i as f64);
+    let times: [f64; 8] = core::array::from_fn(|i| i as f64);
     let y: [f64; 8] = core::array::from_fn(|i| A_TRUE * (B_TRUE * i as f64).exp());
-    let problem = SensorFit { t, y };
+    let problem = SensorFit { times, y };
 
     // Deliberately away from the truth (100, -ln 2), so the fit has work to do.
     let initial_guess = [80.0, -0.3];
@@ -40,15 +42,15 @@ fn main() {
         .expect("curve fit did not converge");
 
     let (a, b) = (report.solution[0], report.solution[1]);
-    let (da, db) = ((a - A_TRUE).abs(), (b - B_TRUE).abs());
+    let (err_a, err_b) = ((a - A_TRUE).abs(), (b - B_TRUE).abs());
     println!("fit y = a·e^(b·t) to 8 samples");
-    println!("  a = {a:.9}   |err| = {da:.1e}");
-    println!("  b = {b:.9}   |err| = {db:.1e}");
+    println!("  a = {a:.9}   |err| = {err_a:.1e}");
+    println!("  b = {b:.9}   |err| = {err_b:.1e}");
     println!(
         "  objective = {:.1e}   ({} evals, {:?})",
         report.objective_function, report.evaluations, report.termination
     );
 
-    let converged = da < PARAM_TOL && db < PARAM_TOL && report.objective_function < OBJ_TOL;
+    let converged = err_a < PARAM_TOL && err_b < PARAM_TOL && report.objective_function < OBJ_TOL;
     assert!(converged, "fit missed the shared tolerance");
 }

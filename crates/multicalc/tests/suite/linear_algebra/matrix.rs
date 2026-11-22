@@ -1,6 +1,18 @@
 use multicalc::error::LinalgError;
-use multicalc::linear_algebra::{Matrix, Vector};
-use multicalc_testkit::tol::{assert_identity, assert_matrix_close};
+use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Matrix4D, Vector, Vector3D};
+use multicalc_testkit::tol::{Tol, assert_identity, assert_matrix_close, assert_scalar_close};
+use proptest::prelude::*;
+
+// A strategy for producing matrices in property-based tests.
+fn matrix_strategy<const ROWS: usize, const COLS: usize, S>(
+    num_strategy: S,
+) -> impl Strategy<Value = Matrix<ROWS, COLS>>
+where
+    S: Strategy<Value = f64>,
+{
+    prop::array::uniform::<_, ROWS>(prop::array::uniform::<_, COLS>(num_strategy))
+        .prop_map(Matrix::new)
+}
 
 // ----- matrix arithmetic, multiply, transpose -----
 
@@ -13,12 +25,36 @@ fn matrix_arithmetic() {
     assert_eq!(right - left, Matrix::new([[4.0, 4.0], [4.0, 4.0]]));
     assert_eq!(-left, Matrix::new([[-1.0, -2.0], [-3.0, -4.0]]));
     assert_eq!(left * 2.0, left.scale(2.0));
+    assert_eq!(left / 2.0, left.scale(0.5));
 
     let mut accumulated = left;
     accumulated += right;
     assert_eq!(accumulated, left + right);
     accumulated -= right;
     assert_eq!(accumulated, left);
+
+    // Check division by zero behavior
+    let a = Matrix::new([
+        [1.0, -1.0, 0.0],
+        [f64::INFINITY, f64::NEG_INFINITY, f64::NAN],
+    ]);
+    let div_zero = a / 0.0;
+    let expected = Matrix::new([
+        [f64::INFINITY, f64::NEG_INFINITY, f64::NAN],
+        [f64::INFINITY, f64::NEG_INFINITY, f64::NAN],
+    ]);
+    div_zero
+        .into_array()
+        .into_iter()
+        .flatten()
+        .zip(expected.into_array().into_iter().flatten())
+        .for_each(|(got, want)| {
+            assert_eq!(
+                got.total_cmp(&want),
+                core::cmp::Ordering::Equal,
+                "{got} != {want}"
+            );
+        })
 }
 
 #[test]
@@ -40,7 +76,7 @@ fn try_row_column() {
 fn matrix_multiply() {
     let left = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
     let right = Matrix::new([[5.0, 6.0], [7.0, 8.0]]);
-    let identity: Matrix<2, 2> = Matrix::identity();
+    let identity: Matrix2D = Matrix::identity();
 
     assert_eq!(left * identity, left);
     assert_eq!(identity * left, left);
@@ -72,12 +108,243 @@ fn matrix_transpose() {
     );
 }
 
+fn check_matrix_is_finite<const ROWS: usize, const COLS: usize>(matrix: Matrix<ROWS, COLS>) {
+    assert_eq!(
+        matrix.is_finite(),
+        matrix.into_array().iter().flatten().all(|x| x.is_finite())
+    );
+}
+
+// Check the Frobenius norm implementation using the alternate definition
+// `||A||_F = sqrt(Tr(A * A^T))`.
+fn check_matrix_frobenius_norm<const ROWS: usize, const COLS: usize>(matrix: Matrix<ROWS, COLS>) {
+    let norm = matrix.frobenius_norm();
+    let alt_def = (matrix * matrix.transpose()).trace().sqrt();
+    assert_eq!(norm.is_finite(), alt_def.is_finite(), "{norm} != {alt_def}");
+    if norm.is_finite() {
+        assert_scalar_close(
+            norm,
+            alt_def,
+            Tol {
+                abs: 0.0,
+                rel: 1e-8,
+            },
+        );
+    }
+}
+
+fn check_matrix_trace<const N: usize>(matrix_a: Matrix<N, N>, matrix_b: Matrix<N, N>) {
+    // Property: `tr(I)=N`
+    let identity: Matrix<N, N> = Matrix::identity();
+    assert_eq!(identity.trace(), N as f64);
+
+    // Property: `tr(AB)=tr(BA)`
+    let matrix_ab = (matrix_a * matrix_b).trace();
+    let matrix_ba = (matrix_b * matrix_a).trace();
+
+    assert_eq!(
+        matrix_ab.is_finite(),
+        matrix_ba.is_finite(),
+        "{matrix_ab} != {matrix_ba}"
+    );
+    if matrix_ab.is_finite() {
+        assert_scalar_close(
+            matrix_ab,
+            matrix_ba,
+            Tol {
+                abs: 0.0,
+                rel: 1e-8,
+            },
+        );
+    }
+}
+
+fn check_matrix_from_diagonal<const N: usize>(diag: [f64; N]) {
+    let matrix = Matrix::from_diagonal(diag);
+    for i in 0..N {
+        assert_eq!(matrix[(i, i)], diag[i]);
+        for j in 0..N {
+            if i != j {
+                assert_eq!(matrix[(i, j)], 0.0);
+            }
+        }
+    }
+    let extracted_diagonal = matrix.diagonal();
+    assert_eq!(extracted_diagonal, diag);
+}
+
+fn check_matrix_symmetric_positive_definite<const N: usize>(
+    entries: &[f64],
+    vector_x: Matrix<N, 1>,
+) -> Result<(), TestCaseError> {
+    prop_assume!(vector_x.frobenius_norm() > <f64 as multicalc::Numeric>::EPSILON);
+
+    assert_eq!(entries.len(), N * N);
+    let matrix: Matrix<N, N> = Matrix::symmetric_positive_definite(entries);
+
+    // Check symmetric
+    for i in 0..N {
+        for j in 0..N {
+            assert_eq!(matrix[(i, j)], matrix[(j, i)]);
+        }
+    }
+
+    // Check positive definite
+    let matrix_a = vector_x.transpose() * (matrix * vector_x);
+    assert!(matrix_a[(0, 0)] > 0.0);
+
+    Ok(())
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    #[test]
+    fn matrix_is_finite_1x1(matrix in matrix_strategy::<1, 1, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(matrix);
+    }
+
+    #[test]
+    fn matrix_is_finite_2x2(matrix in matrix_strategy::<2, 2, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(matrix);
+    }
+
+    #[test]
+    fn matrix_is_finite_3x3(matrix in matrix_strategy::<3, 3, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(matrix);
+    }
+
+    #[test]
+    fn matrix_is_finite_4x3(matrix in matrix_strategy::<4, 3, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(matrix);
+    }
+
+    #[test]
+    fn matrix_is_finite_3x4(matrix in matrix_strategy::<3, 4, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(matrix);
+    }
+
+    #[test]
+    fn matrix_is_finite_4x4(matrix in matrix_strategy::<4, 4, _>(prop::num::f64::ANY)) {
+        check_matrix_is_finite(matrix);
+    }
+
+    #[test]
+    fn matrix_frobenius_norm_1x1(matrix in matrix_strategy::<1, 1, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(matrix);
+    }
+
+    #[test]
+    fn matrix_frobenius_norm_2x2(matrix in matrix_strategy::<2, 2, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(matrix);
+    }
+
+    #[test]
+    fn matrix_frobenius_norm_3x3(matrix in matrix_strategy::<3, 3, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(matrix);
+    }
+
+    #[test]
+    fn matrix_frobenius_norm_4x3(matrix in matrix_strategy::<4, 3, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(matrix);
+    }
+
+    #[test]
+    fn matrix_frobenius_norm_3x4(matrix in matrix_strategy::<3, 4, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(matrix);
+    }
+
+    #[test]
+    fn matrix_frobenius_norm_4x4(matrix in matrix_strategy::<4, 4, _>(prop::num::f64::ANY)) {
+        check_matrix_frobenius_norm(matrix);
+    }
+
+    // Note: using `prop::num::f64::NORMAL` as opposed to `prop::num::f64::ANY` because
+    // if `NaN` or `Infinity` are involved then the equality check will fail (`NaN != NaN`).
+    #[test]
+    fn matrix_trace_1x1(
+        a in matrix_strategy::<1, 1, _>(prop::num::f64::NORMAL),
+        b in matrix_strategy::<1, 1, _>(prop::num::f64::NORMAL)
+    ) {
+        check_matrix_trace(a, b);
+    }
+
+    #[test]
+    fn matrix_trace_2x2(
+        a in matrix_strategy::<2, 2, _>(prop::num::f64::NORMAL),
+        b in matrix_strategy::<2, 2, _>(prop::num::f64::NORMAL)
+    ) {
+        check_matrix_trace(a, b);
+
+    }
+
+    #[test]
+    fn matrix_trace_3x3(
+        a in matrix_strategy::<3, 3, _>(prop::num::f64::NORMAL),
+        b in matrix_strategy::<3, 3, _>(prop::num::f64::NORMAL)
+    ) {
+        check_matrix_trace(a, b);
+    }
+
+    #[test]
+    fn matrix_trace_4x4(
+        a in matrix_strategy::<4, 4, _>(prop::num::f64::NORMAL),
+        b in matrix_strategy::<4, 4, _>(prop::num::f64::NORMAL)
+    ) {
+        check_matrix_trace(a, b);
+    }
+
+    #[test]
+    fn matrix_from_diagonal_1x1(diag in prop::array::uniform1(prop::num::f64::NORMAL)) {
+        check_matrix_from_diagonal(diag);
+    }
+
+    #[test]
+    fn matrix_from_diagonal_2x2(diag in prop::array::uniform2(prop::num::f64::NORMAL)) {
+        check_matrix_from_diagonal(diag);
+    }
+
+    #[test]
+    fn matrix_from_diagonal_3x3(diag in prop::array::uniform3(prop::num::f64::NORMAL)) {
+        check_matrix_from_diagonal(diag);
+    }
+
+    #[test]
+    fn matrix_from_diagonal_4x4(diag in prop::array::uniform4(prop::num::f64::NORMAL)) {
+        check_matrix_from_diagonal(diag);
+    }
+
+    #[test]
+    fn matrix_symmetric_positive_definite_2x2(
+        entries in prop::collection::vec(prop::num::f64::NORMAL, 4),
+        x in matrix_strategy::<2, 1, _>(prop::num::f64::NORMAL),
+    ) {
+        check_matrix_symmetric_positive_definite(&entries, x)?;
+    }
+
+    #[test]
+    fn matrix_symmetric_positive_definite_3x3(
+        entries in prop::collection::vec(prop::num::f64::NORMAL, 9),
+        x in matrix_strategy::<3, 1, _>(prop::num::f64::NORMAL),
+    ) {
+        check_matrix_symmetric_positive_definite(&entries, x)?;
+    }
+
+    #[test]
+    fn matrix_symmetric_positive_definite_4x4(
+        entries in prop::collection::vec(prop::num::f64::NORMAL, 16),
+        x in matrix_strategy::<4, 1, _>(prop::num::f64::NORMAL),
+    ) {
+        check_matrix_symmetric_positive_definite(&entries, x)?;
+    }
+}
+
 // ----- determinant & inverse (specialized) -----
 
 #[test]
 fn matrix_determinant() {
-    let identity_2x2: Matrix<2, 2> = Matrix::identity();
-    let identity_3x3: Matrix<3, 3> = Matrix::identity();
+    let identity_2x2: Matrix2D = Matrix::identity();
+    let identity_3x3: Matrix3D = Matrix::identity();
     assert_eq!(identity_2x2.determinant(), 1.0);
     assert_eq!(identity_3x3.determinant(), 1.0);
 
@@ -92,8 +359,8 @@ fn matrix_determinant() {
 
 #[test]
 fn matrix_inverse() {
-    let identity_2x2: Matrix<2, 2> = Matrix::identity();
-    let identity_3x3: Matrix<3, 3> = Matrix::identity();
+    let identity_2x2: Matrix2D = Matrix::identity();
+    let identity_3x3: Matrix3D = Matrix::identity();
     assert_eq!(identity_2x2.inverse(), Ok(identity_2x2));
     assert_eq!(identity_3x3.inverse(), Ok(identity_3x3));
 
@@ -121,14 +388,14 @@ fn matrix_inverse() {
     assert_eq!(near_singular_3x3.inverse(), Err(LinalgError::Singular));
 
     // Tiny but full-rank still inverts (scaled threshold, not absolute eps).
-    let tiny = Matrix::<2, 2>::identity().scale(1e-8);
+    let tiny = Matrix2D::identity().scale(1e-8);
     assert!(tiny.inverse().is_ok());
 }
 
 #[test]
 fn matrix_4x4_determinant_and_inverse() {
     // Upper-triangular: the determinant is the product of the diagonal.
-    let upper = Matrix::<4, 4>::new([
+    let upper = Matrix4D::new([
         [2.0, 1.0, 1.0, 1.0],
         [0.0, 3.0, 1.0, 1.0],
         [0.0, 0.0, 4.0, 1.0],
@@ -137,7 +404,7 @@ fn matrix_4x4_determinant_and_inverse() {
     assert_eq!(upper.determinant(), 120.0);
 
     // Reference determinant and inverse from an exact rational solve.
-    let symmetric = Matrix::<4, 4>::new([
+    let symmetric = Matrix4D::new([
         [4.0, 3.0, 2.0, 1.0],
         [3.0, 4.0, 3.0, 2.0],
         [2.0, 3.0, 4.0, 3.0],
@@ -157,7 +424,7 @@ fn matrix_4x4_determinant_and_inverse() {
 
     // A non-symmetric matrix, so its (non-symmetric) inverse catches any transpose error in
     // the adjugate. Reference from an exact rational solve.
-    let non_symmetric = Matrix::<4, 4>::new([
+    let non_symmetric = Matrix4D::new([
         [1.0, 2.0, 3.0, 4.0],
         [2.0, 1.0, 0.0, 1.0],
         [0.0, 3.0, 1.0, 2.0],
@@ -177,7 +444,7 @@ fn matrix_4x4_determinant_and_inverse() {
     assert_identity(non_symmetric_inverse * non_symmetric, 1e-12);
 
     // Rows in arithmetic progression are rank-deficient.
-    let singular = Matrix::<4, 4>::new([
+    let singular = Matrix4D::new([
         [1.0, 2.0, 3.0, 4.0],
         [5.0, 6.0, 7.0, 8.0],
         [9.0, 10.0, 11.0, 12.0],
@@ -187,7 +454,7 @@ fn matrix_4x4_determinant_and_inverse() {
     assert_eq!(singular.inverse(), Err(LinalgError::Singular));
 
     // The same code at f32 round-trips to the identity.
-    let single_precision = Matrix::<4, 4, f32>::new([
+    let single_precision = Matrix4D::<f32>::new([
         [4.0, 3.0, 2.0, 1.0],
         [3.0, 4.0, 3.0, 2.0],
         [2.0, 3.0, 4.0, 3.0],
@@ -199,7 +466,7 @@ fn matrix_4x4_determinant_and_inverse() {
     );
 
     // Near-singular: det is tiny but nonzero under exact compare.
-    let near_singular_4x4 = Matrix::<4, 4>::new([
+    let near_singular_4x4 = Matrix4D::new([
         [1.0, 0.0, 0.0, 0.0],
         [0.0, 1.0, 0.0, 0.0],
         [0.0, 0.0, 1.0, 0.0],
@@ -242,22 +509,98 @@ fn matrix_5x5_determinant_and_inverse() {
 
 #[test]
 fn matrix_solve_agrees_with_lu() {
-    let matrix = Matrix::<3, 3>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
+    let matrix = Matrix3D::<f64>::new([[2.0, 1.0, 1.0], [4.0, 3.0, 3.0], [8.0, 7.0, 9.0]]);
     let right_hand_side = Vector::new([7.0, 19.0, 49.0]);
     let solution = matrix.solve(right_hand_side).unwrap();
 
     // The convenience solver matches an explicit LU solve.
-    let lu_solution = matrix.lu().unwrap().solve(right_hand_side);
+    let lu_solution = matrix.lu_decompose().unwrap().solve(right_hand_side);
     for index in 0..3 {
         assert!((solution[index] - lu_solution[index]).abs() < 1e-12);
     }
     assert!((matrix * solution - right_hand_side).norm() < 1e-12);
 
     // A singular system is rejected.
-    let singular = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 4.0]]);
+    let singular = Matrix2D::new([[1.0, 2.0], [2.0, 4.0]]);
     assert_eq!(
         singular.solve(Vector::new([1.0, 2.0])).err(),
         Some(LinalgError::Singular)
+    );
+}
+
+// ----- evening a matrix out across its diagonal -----
+
+#[test]
+fn symmetrized_averages_each_pair() {
+    let lopsided = Matrix3D::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]);
+    let evened = lopsided.symmetrized();
+
+    assert_eq!(
+        evened.into_array(),
+        [[1.0, 3.0, 5.0], [3.0, 5.0, 7.0], [5.0, 7.0, 9.0]]
+    );
+}
+
+#[test]
+fn symmetrized_output_is_exactly_symmetric() {
+    // Entries that do not divide evenly, so an average worked out twice would land a rounding step
+    // apart if the two halves were computed separately.
+    let awkward =
+        Matrix::<4, 4>::from_fn(|row, column| 1.0 / (1.0 + row as f64 + 3.0 * column as f64));
+    let evened = awkward.symmetrized();
+
+    for row in 0..4 {
+        for column in 0..4 {
+            assert_eq!(evened[(row, column)], evened[(column, row)]);
+        }
+    }
+}
+
+#[test]
+fn symmetrized_leaves_a_symmetric_matrix_alone() {
+    let already_even = Matrix2D::new([[2.0, 1.0], [1.0, 3.0]]);
+
+    assert_eq!(already_even.symmetrized(), already_even);
+}
+
+#[test]
+fn symmetrized_then_clamped_repairs_a_drifted_covariance() {
+    // Eigenvalues 3 and -1, with one pair nudged off by a couple of rounding steps.
+    let drift = 4.0 * f64::EPSILON;
+    let drifted = Matrix2D::new([[1.0, 2.0], [2.0 + drift, 1.0]]);
+
+    let minimum_eigenvalue = 0.5;
+    let repaired = drifted
+        .symmetrized()
+        .symmetric_eigendecomposition()
+        .unwrap()
+        .clamped(minimum_eigenvalue);
+
+    let tolerance = Tol {
+        abs: 1e-12,
+        rel: 0.0,
+    };
+    let decomposed = repaired.symmetric_eigendecomposition().unwrap();
+    assert_scalar_close(decomposed.eigenvalues()[0], 3.0, tolerance);
+    assert_scalar_close(decomposed.eigenvalues()[1], minimum_eigenvalue, tolerance);
+    assert!(decomposed.is_positive_definite());
+
+    // That drift is small enough that the decomposition would have accepted it anyway. A pair that
+    // disagrees outright is rejected until it is evened out first.
+    let lopsided = Matrix2D::new([[1.0, 2.0], [2.5, 1.0]]);
+    assert_eq!(
+        lopsided.symmetric_eigendecomposition().err(),
+        Some(LinalgError::NotSymmetric)
+    );
+    assert!(
+        lopsided
+            .symmetrized()
+            .symmetric_eigendecomposition()
+            .unwrap()
+            .clamped(minimum_eigenvalue)
+            .symmetric_eigendecomposition()
+            .unwrap()
+            .is_positive_definite()
     );
 }
 
@@ -265,12 +608,12 @@ fn matrix_solve_agrees_with_lu() {
 
 #[test]
 fn genericity_f32() {
-    let first = Vector::<3, f32>::new([1.0, 2.0, 2.0]);
-    let second = Vector::<3, f32>::new([2.0, 0.0, 1.0]);
+    let first = Vector3D::<f32>::new([1.0, 2.0, 2.0]);
+    let second = Vector3D::<f32>::new([2.0, 0.0, 1.0]);
     assert!((first.norm() - 3.0).abs() < 1e-6);
     assert!((first.dot(second) - 4.0).abs() < 1e-6);
 
-    let matrix = Matrix::<2, 2, f32>::new([[1.0, 2.0], [3.0, 4.0]]);
-    let identity: Matrix<2, 2, f32> = Matrix::identity();
+    let matrix = Matrix2D::<f32>::new([[1.0, 2.0], [3.0, 4.0]]);
+    let identity: Matrix2D<f32> = Matrix::identity();
     assert_eq!(matrix * identity, matrix);
 }

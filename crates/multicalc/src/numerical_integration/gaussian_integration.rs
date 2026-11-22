@@ -32,6 +32,7 @@ impl Default for GaussianConfig {
 
 impl GaussianConfig {
     /// Builds a config with an explicit order and quadrature family.
+    #[must_use]
     pub const fn from_parameters(
         order: usize,
         integration_method: GaussianQuadratureMethod,
@@ -53,7 +54,7 @@ impl GaussianConfig {
         integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
     ) -> Result<(), IntegrateError> {
         for limit in integration_limit {
-            let ok = match self.integration_method {
+            let limits_ok = match self.integration_method {
                 GaussianQuadratureMethod::GaussLegendre => {
                     limit[0].is_finite() && limit[1].is_finite() && limit[0] < limit[1]
                 }
@@ -65,7 +66,7 @@ impl GaussianConfig {
                 }
             };
 
-            if !ok {
+            if !limits_ok {
                 return Err(IntegrateError::LimitsIllDefined);
             }
         }
@@ -92,6 +93,7 @@ impl<T> Default for GaussianSingle<T> {
 
 impl<T> GaussianSingle<T> {
     /// custom constructor, optimal for fine-tuning for specific cases
+    #[must_use]
     pub const fn from_parameters(
         order: usize,
         integration_method: GaussianQuadratureMethod,
@@ -232,6 +234,7 @@ impl<T> Default for GaussianMulti<T> {
 
 impl<T> GaussianMulti<T> {
     /// custom constructor, optimal for fine-tuning for specific cases
+    #[must_use]
     pub const fn from_parameters(
         order: usize,
         integration_method: GaussianQuadratureMethod,

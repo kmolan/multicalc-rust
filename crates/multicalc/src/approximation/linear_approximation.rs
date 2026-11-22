@@ -33,23 +33,27 @@ pub struct LinearApproximationPredictionMetrics<T = f64> {
 impl<const NUM_VARS: usize, T: Numeric> LinearApproximation<NUM_VARS, T> {
     /// Evaluates the approximation at `x`.
     #[inline]
+    #[must_use]
     pub fn predict(&self, x: &[T; NUM_VARS]) -> T {
         let dx = Vector::from(*x) - Vector::from(self.point);
         self.value + Vector::from(self.gradient).dot(dx)
     }
 
     /// The base point the approximation is centered on.
+    #[must_use]
     pub fn point(&self) -> &[T; NUM_VARS] {
         &self.point
     }
 
     /// The gradient at the base point. These are also the coefficients of the expanded
     /// linear form `intercept + Σ coefficients[i] * x[i]`.
+    #[must_use]
     pub fn coefficients(&self) -> &[T; NUM_VARS] {
         &self.gradient
     }
 
     /// The intercept of the expanded form `intercept + Σ coefficients[i] * x[i]`.
+    #[must_use]
     pub fn intercept(&self) -> T {
         let mut intercept = self.value;
         for i in 0..NUM_VARS {
@@ -66,6 +70,7 @@ impl<const NUM_VARS: usize, T: Numeric> LinearApproximation<NUM_VARS, T> {
     ///
     /// `r_squared` is `NaN` when the truth is constant over `points`;
     /// `adjusted_r_squared` is `NaN` when there are too few points.
+    #[must_use]
     pub fn prediction_metrics<O: ScalarFnN<NUM_VARS>, const NUM_POINTS: usize>(
         &self,
         points: &[[T; NUM_VARS]; NUM_POINTS],
@@ -132,6 +137,7 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D> {
     ///
     /// Pairwise summation remains the default. Call this before [`Self::approximate`] so the
     /// resulting [`LinearApproximation`] accumulates metrics with Kahan.
+    #[must_use]
     pub fn with_kahan_summation(mut self) -> Self {
         self.summation = SummationMethod::Kahan;
         self

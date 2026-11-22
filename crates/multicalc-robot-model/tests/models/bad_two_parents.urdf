@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!-- One link as the child of two joints. -->
+<robot name="bad_two_parents">
+  <link name="base_link">
+    <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>
+  </link>
+  <link name="upper_arm">
+    <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>
+  </link>
+  <link name="tip">
+    <inertial><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial>
+  </link>
+  <joint name="shoulder" type="fixed">
+    <parent link="base_link"/><child link="upper_arm"/>
+  </joint>
+  <joint name="from_the_base" type="fixed">
+    <parent link="base_link"/><child link="tip"/>
+  </joint>
+  <joint name="also_from_the_arm" type="fixed">
+    <parent link="upper_arm"/><child link="tip"/>
+  </joint>
+</robot>

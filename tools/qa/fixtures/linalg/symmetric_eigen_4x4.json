@@ -1,0 +1,77 @@
+{
+  "case": "symmetric_eigen_4x4",
+  "expected": {
+    "condition_number": {
+      "kind": "scalar",
+      "v": "0x3ffe52baedeb99b8"
+    },
+    "det": {
+      "kind": "scalar",
+      "v": "0x408640c147be3cec"
+    },
+    "eigenvalues": {
+      "data": [
+        "0x401e8d16a22c7eb1",
+        "0x4013c4e3b443c6cb",
+        "0x4012b941b3366a29",
+        "0x40101ecaed119b80"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 4,
+      "kind": "matrix",
+      "row_major": [
+        "0x4015c54b11245a5f",
+        "0x3ff5b34f71590e21",
+        "0xbfea6007d841cc95",
+        "0xbfe36fd629317f04",
+        "0x3ff5b34f71590e21",
+        "0x40164bc2e81e85b4",
+        "0xbfe6b7f3ef426cf5",
+        "0xbfcd2e4f198d1e15",
+        "0xbfea6007d841cc95",
+        "0xbfe6b7f3ef426cf5",
+        "0x4015d4983d57776b",
+        "0x3fdab0dfa5ce448f",
+        "0xbfe36fd629317f04",
+        "0xbfcd2e4f198d1e15",
+        "0x3fdab0dfa5ce448f",
+        "0x40134460c01df3a7"
+      ],
+      "rows": 4
+    },
+    "decomp": {
+      "kind": "str",
+      "v": "symmetric_eigen"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "\u03bb(A)",
+    "generator": "linalg",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "operations": [
+      "symmetric eigendecomposition, 4\u00d74"
+    ],
+    "reference": "numpy/LAPACK 2.1.3",
+    "sampling": "entries uniform in [-1, 1], ill-conditioned draws rejected",
+    "seed": 20260706
+  },
+  "module": "linalg",
+  "schema_version": 2,
+  "tolerances": {
+    "f32": {
+      "abs": 0.001,
+      "rel": 0.001
+    },
+    "f64": {
+      "abs": 1e-11,
+      "rel": 1e-10
+    }
+  }
+}

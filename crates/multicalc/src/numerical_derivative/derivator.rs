@@ -77,7 +77,7 @@ pub trait DerivatorMultiVariable {
     /// use multicalc::scalar_fn;
     ///
     /// // f(x, y, z) = y*sin(x) + x*cos(y) + x*y*e^z
-    /// let function = scalar_fn!(|v: &[f64; 3]| v[1] * v[0].sin() + v[0] * v[1].cos() + v[0] * v[1] * v[2].exp());
+    /// let function = scalar_fn!(|point: &[f64; 3]| point[1] * point[0].sin() + point[0] * point[1].cos() + point[0] * point[1] * point[2].exp());
     /// let derivator = FiniteDifferenceMulti::default();
     /// let variable_indices = [0, 1];   // once by x, then by y
     /// let point = [1.0, 2.0, 3.0];

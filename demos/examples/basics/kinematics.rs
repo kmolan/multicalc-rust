@@ -23,69 +23,70 @@ fn report(label: &str, value: f64, exact: f64) {
 fn main() {
     let wheel_radius = 0.036_f64; // 36 mm
     let track_width = 0.235; // 235 mm between the wheels
-    let dd = DifferentialDrive::new(wheel_radius, track_width).unwrap();
+    let diff_drive = DifferentialDrive::new(wheel_radius, track_width).unwrap();
 
     // (1) Wheel velocities to a body twist. Equal drives straight; opposite spins in place.
-    let straight = dd.forward(WheelVelocities::new(10.0, 10.0));
+    let straight = diff_drive.forward(WheelVelocities::new(10.0, 10.0));
     println!("Both wheels at 10 rad/s");
     report("v [m/s]", straight.linear(), 0.36);
     report("omega [rad/s]", straight.angular(), 0.0);
 
-    let spin = dd.forward(WheelVelocities::new(-10.0, 10.0));
+    let spin = diff_drive.forward(WheelVelocities::new(-10.0, 10.0));
     println!("\nWheels at -10 and +10 rad/s");
     report("v [m/s]", spin.linear(), 0.0);
     report("omega [rad/s]", spin.angular(), 0.72 / 0.235);
 
     // (2) The maps are a bijection, so the round trip is an identity.
     let wheels = WheelVelocities::new(7.5, -2.25);
-    let back = dd.inverse(dd.forward(wheels));
+    let back = diff_drive.inverse(diff_drive.forward(wheels));
     println!("\nRound trip: wheels -> body twist -> wheels");
     report("left [rad/s]", back.left(), 7.5);
     report("right [rad/s]", back.right(), -2.25);
 
     // (3) Odometry along the exact constant-twist arc, against the closed form for radius v/omega.
-    let (v, w, t) = (0.4_f64, 0.9, 1.3);
+    let (speed, w, duration) = (0.4_f64, 0.9, 1.3);
     let start = SE2::identity();
-    let pose = integrate(start, BodyTwist::new(v, w).integrate_over(t));
-    let (theta, radius) = (w * t, v / w);
+    let pose = integrate(start, BodyTwist::new(speed, w).integrate_over(duration));
+    let (theta, radius) = (w * duration, speed / w);
     println!("\nArc of a constant twist (v = 0.4, omega = 0.9) held for 1.3 s");
-    let xy = pose.translation();
-    report("x [m]", xy[0], radius * theta.sin());
-    report("y [m]", xy[1], radius * (1.0 - theta.cos()));
+    let trans = pose.translation();
+    report("x [m]", trans[0], radius * theta.sin());
+    report("y [m]", trans[1], radius * (1.0 - theta.cos()));
     report("heading [rad]", pose.rotation().log(), theta);
 
     // (4) The encoder path, end to end: two full circles of opposite curvature must return to the
     // start. The sign change is the point — it exercises both turning directions.
     let n = 2000;
-    let dt = (2.0 * PI / w) / f64::from(n);
+    let timestep = (2.0 * PI / w) / f64::from(n);
     let mut figure_eight = SE2::identity();
     for sign in [1.0, -1.0] {
-        let vel = dd.inverse(BodyTwist::new(0.36, w * sign));
+        let vel = diff_drive.inverse(BodyTwist::new(0.36, w * sign));
         let (left_m, right_m) = (
-            vel.left() * dd.wheel_radius() * dt,
-            vel.right() * dd.wheel_radius() * dt,
+            vel.left() * diff_drive.wheel_radius() * timestep,
+            vel.right() * diff_drive.wheel_radius() * timestep,
         );
         for _ in 0..n {
-            let rotations = dd.wheel_rotations_from_travel(left_m, right_m);
-            figure_eight = dd.odometry_step(figure_eight, rotations);
+            let rotations = diff_drive.wheel_rotations_from_travel(left_m, right_m);
+            figure_eight = diff_drive.odometry_step(figure_eight, rotations);
         }
     }
     println!("\nFigure eight: two opposed circles through the encoder path");
-    let xy = figure_eight.translation();
-    report("x [m]", xy[0], 0.0);
-    report("y [m]", xy[1], 0.0);
+    let trans = figure_eight.translation();
+    report("x [m]", trans[0], 0.0);
+    report("y [m]", trans[1], 0.0);
     report("heading [rad]", figure_eight.rotation().log(), 0.0);
 
     // (5) One Dual through an odometry step: d(x)/d(arc length), exact, no hand-derived formula.
     let step = integrate(
         SE2::<Dual<f64>>::identity(),
-        BodyTwist::new(Dual::variable(v), Dual::constant(w)).integrate_over(Dual::constant(t)),
+        BodyTwist::new(Dual::variable(speed), Dual::constant(w))
+            .integrate_over(Dual::constant(duration)),
     );
     println!("\nAutodiff through an odometry step");
     // x = (v/omega)*sin(omega*t), so dx/dv = sin(omega*t)/omega.
-    let t = step.translation();
-    report("dx/dv [s]", t[0].deriv, theta.sin() / w);
-    report("dy/dv [s]", t[1].deriv, (1.0 - theta.cos()) / w);
+    let translation = step.translation();
+    report("dx/dv [s]", translation[0].deriv, theta.sin() / w);
+    report("dy/dv [s]", translation[1].deriv, (1.0 - theta.cos()) / w);
 
     println!("\nAll checks passed.");
 }

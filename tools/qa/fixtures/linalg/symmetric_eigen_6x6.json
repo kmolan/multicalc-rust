@@ -1,0 +1,99 @@
+{
+  "case": "symmetric_eigen_6x6",
+  "expected": {
+    "condition_number": {
+      "kind": "scalar",
+      "v": "0x3ff9565dd542d2f2"
+    },
+    "det": {
+      "kind": "scalar",
+      "v": "0x41028387ac5cd7e7"
+    },
+    "eigenvalues": {
+      "data": [
+        "0x40230151708f63c2",
+        "0x4020ff930de19b89",
+        "0x401d66007fed6c2a",
+        "0x401aef8a2084d94a",
+        "0x40194aee052e817f",
+        "0x401800afa208b426"
+      ],
+      "kind": "vector"
+    }
+  },
+  "inputs": {
+    "A": {
+      "cols": 6,
+      "kind": "matrix",
+      "row_major": [
+        "0x401d7c479f95348f",
+        "0x3fe2ffcf6988f461",
+        "0x3fd5b0221da703c4",
+        "0x3fee5c1d42584d68",
+        "0x3fc4bedb73375bf3",
+        "0x3fccb8a977a22266",
+        "0x3fe2ffcf6988f461",
+        "0x401c5032f8cdc0e5",
+        "0xbfe535e9dbe5d0f7",
+        "0x3fc9d397d19f20c3",
+        "0xbfeb0a8124e17b06",
+        "0xbfcee45475da0f19",
+        "0x3fd5b0221da703c4",
+        "0xbfe535e9dbe5d0f7",
+        "0x401cdd0a7a17c16d",
+        "0x3fde43fc20a9fea5",
+        "0x3fe725101013ff9d",
+        "0x3fdccfde4d52e6e3",
+        "0x3fee5c1d42584d68",
+        "0x3fc9d397d19f20c3",
+        "0x3fde43fc20a9fea5",
+        "0x401f840a81b6c712",
+        "0x3fe37e0f15f67cd5",
+        "0x3fe412e3b4e1af74",
+        "0x3fc4bedb73375bf3",
+        "0xbfeb0a8124e17b06",
+        "0x3fe725101013ff9d",
+        "0x3fe37e0f15f67cd5",
+        "0x401daa61199947d4",
+        "0x3f9e715ecc51c3b1",
+        "0x3fccb8a977a22266",
+        "0xbfcee45475da0f19",
+        "0x3fdccfde4d52e6e3",
+        "0x3fe412e3b4e1af74",
+        "0x3f9e715ecc51c3b1",
+        "0x401dcb0096c0b3f5"
+      ],
+      "rows": 6
+    },
+    "decomp": {
+      "kind": "str",
+      "v": "symmetric_eigen"
+    }
+  },
+  "metadata": {
+    "date": "2026-07-06T00:00:00+00:00",
+    "equation": "\u03bb(A)",
+    "generator": "linalg",
+    "libraries": {
+      "numpy": "2.1.3"
+    },
+    "operations": [
+      "symmetric eigendecomposition, 6\u00d76"
+    ],
+    "reference": "numpy/LAPACK 2.1.3",
+    "sampling": "entries uniform in [-1, 1], ill-conditioned draws rejected",
+    "seed": 20260706
+  },
+  "module": "linalg",
+  "schema_version": 2,
+  "tolerances": {
+    "f32": {
+      "abs": 0.01,
+      "rel": 0.01
+    },
+    "f64": {
+      "abs": 1e-11,
+      "rel": 1e-10
+    }
+  }
+}

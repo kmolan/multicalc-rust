@@ -31,6 +31,7 @@ pub struct HyperDual<T: Numeric = f64> {
 impl<T: Numeric> HyperDual<T> {
     /// A hyper-dual number with explicit components.
     #[inline]
+    #[must_use]
     pub fn new(real: T, eps1: T, eps2: T, eps1eps2: T) -> Self {
         HyperDual {
             real,
@@ -42,6 +43,7 @@ impl<T: Numeric> HyperDual<T> {
 
     /// A constant, whose derivatives are all zero.
     #[inline]
+    #[must_use]
     pub fn constant(real: T) -> Self {
         HyperDual {
             real,
@@ -55,6 +57,7 @@ impl<T: Numeric> HyperDual<T> {
     /// single-variable function. For a mixed partial, seed two inputs on separate directions with
     /// `new(xᵢ, 1, 0, 0)` and `new(xⱼ, 0, 1, 0)`.
     #[inline]
+    #[must_use]
     pub fn variable(real: T) -> Self {
         HyperDual {
             real,
@@ -66,23 +69,25 @@ impl<T: Numeric> HyperDual<T> {
 
     /// Applies a univariate function `φ` given its value and first two derivatives at `real`.
     ///
-    /// With `val = φ(real)`, `d1 = φ'(real)`, `d2 = φ''(real)`, this carries the chain rule
+    /// With `val = φ(real)`, `deriv1 = φ'(real)`, `deriv2 = φ''(real)`, this carries the chain rule
     /// through to second order.
     #[inline]
-    fn chain(self, val: T, d1: T, d2: T) -> Self {
+    #[must_use]
+    fn chain(self, val: T, deriv1: T, deriv2: T) -> Self {
         HyperDual {
             real: val,
-            eps1: d1 * self.eps1,
-            eps2: d1 * self.eps2,
-            eps1eps2: d1 * self.eps1eps2 + d2 * self.eps1 * self.eps2,
+            eps1: deriv1 * self.eps1,
+            eps2: deriv1 * self.eps2,
+            eps1eps2: deriv1 * self.eps1eps2 + deriv2 * self.eps1 * self.eps2,
         }
     }
 
     /// The reciprocal `1/self`, via `φ(x) = 1/x` (`φ' = -1/x²`, `φ'' = 2/x³`).
     #[inline]
+    #[must_use]
     fn recip(self) -> Self {
-        let t = T::ONE / self.real;
-        self.chain(t, -(t * t), T::TWO * t * t * t)
+        let inv = T::ONE / self.real;
+        self.chain(inv, -(inv * inv), T::TWO * inv * inv * inv)
     }
 }
 
@@ -217,14 +222,32 @@ impl<T: Numeric> Numeric for HyperDual<T> {
         eps2: T::ZERO,
         eps1eps2: T::ZERO,
     };
+    const THREE: Self = HyperDual {
+        real: T::THREE,
+        eps1: T::ZERO,
+        eps2: T::ZERO,
+        eps1eps2: T::ZERO,
+    };
     const HALF: Self = HyperDual {
         real: T::HALF,
         eps1: T::ZERO,
         eps2: T::ZERO,
         eps1eps2: T::ZERO,
     };
+    const TEN: Self = HyperDual {
+        real: T::TEN,
+        eps1: T::ZERO,
+        eps2: T::ZERO,
+        eps1eps2: T::ZERO,
+    };
     const HUNDRED: Self = HyperDual {
         real: T::HUNDRED,
+        eps1: T::ZERO,
+        eps2: T::ZERO,
+        eps1eps2: T::ZERO,
+    };
+    const ONE_HUNDRED_EIGHTY: Self = HyperDual {
+        real: T::ONE_HUNDRED_EIGHTY,
         eps1: T::ZERO,
         eps2: T::ZERO,
         eps1eps2: T::ZERO,
@@ -290,6 +313,8 @@ impl<T: Numeric> Numeric for HyperDual<T> {
         eps1eps2: T::ZERO,
     };
 
+    type Constant = T;
+
     #[inline]
     fn from_f64(value: f64) -> Self {
         HyperDual::constant(T::from_f64(value))
@@ -314,9 +339,17 @@ impl<T: Numeric> Numeric for HyperDual<T> {
     #[inline]
     fn sqrt(self) -> Self {
         let root = self.real.sqrt();
-        let d1 = T::ONE / (T::TWO * root);
-        let d2 = -(d1 / (T::TWO * self.real));
-        self.chain(root, d1, d2)
+        let deriv1 = T::ONE / (T::TWO * root);
+        let deriv2 = -(deriv1 / (T::TWO * self.real));
+        self.chain(root, deriv1, deriv2)
+    }
+    /// At `real == 0` the derivatives are unbounded and become `inf`/`NaN`.
+    #[inline]
+    fn cbrt(self) -> Self {
+        let root = self.real.cbrt();
+        let deriv1 = T::ONE / (T::THREE * root * root);
+        let deriv2 = -(T::TWO * deriv1 * deriv1 / root);
+        self.chain(root, deriv1, deriv2)
     }
     #[inline]
     fn sin(self) -> Self {
@@ -328,22 +361,54 @@ impl<T: Numeric> Numeric for HyperDual<T> {
     }
     #[inline]
     fn tan(self) -> Self {
-        let t = self.real.tan();
-        let sec2 = T::ONE + t * t;
-        self.chain(t, sec2, T::TWO * t * sec2)
+        let tan_val = self.real.tan();
+        let sec2 = T::ONE + tan_val * tan_val;
+        self.chain(tan_val, sec2, T::TWO * tan_val * sec2)
     }
     #[inline]
     fn exp(self) -> Self {
-        let e = self.real.exp();
-        self.chain(e, e, e)
+        let exp_val = self.real.exp();
+        self.chain(exp_val, exp_val, exp_val)
+    }
+    #[inline]
+    fn expm1(self) -> Self {
+        let exp_val = self.real.exp();
+        let em1 = self.real.expm1();
+        self.chain(em1, exp_val, exp_val)
     }
     /// Defined for `real > 0`; at `0` the value is `-inf` and the derivatives unbounded.
     #[inline]
-    fn ln(self) -> Self {
+    fn log(self) -> Self {
         self.chain(
-            self.real.ln(),
+            self.real.log(),
             T::ONE / self.real,
             -(T::ONE / (self.real * self.real)),
+        )
+    }
+
+    #[inline]
+    fn ln_1p(self) -> Self {
+        let xp1 = self.real + T::ONE;
+        self.chain(self.real.ln_1p(), T::ONE / xp1, -(T::ONE / (xp1 * xp1)))
+    }
+
+    #[inline]
+    fn log2(self) -> Self {
+        let ln2 = T::TWO.log();
+        self.chain(
+            self.real.log2(),
+            T::ONE / self.real / ln2,
+            -(T::ONE / (self.real * self.real)) / ln2,
+        )
+    }
+
+    #[inline]
+    fn log10(self) -> Self {
+        let ln10 = T::TEN.log();
+        self.chain(
+            self.real.log10(),
+            T::ONE / self.real / ln10,
+            -(T::ONE / (self.real * self.real)) / ln10,
         )
     }
 
@@ -355,16 +420,16 @@ impl<T: Numeric> Numeric for HyperDual<T> {
     #[inline]
     fn atan2(self, other: Self) -> Self {
         let (y, x) = (self, other);
-        let (yr, xr) = (y.real, x.real);
-        let r2 = xr * xr + yr * yr;
-        let r4 = r2 * r2;
-        let f_y = xr / r2;
-        let f_x = -yr / r2;
-        let f_yy = -(T::TWO * xr * yr) / r4;
-        let f_xx = (T::TWO * xr * yr) / r4;
-        let f_xy = (yr * yr - xr * xr) / r4;
+        let (y_real, x_real) = (y.real, x.real);
+        let r_sq = x_real * x_real + y_real * y_real;
+        let r_fourth = r_sq * r_sq;
+        let f_y = x_real / r_sq;
+        let f_x = -y_real / r_sq;
+        let f_yy = -(T::TWO * x_real * y_real) / r_fourth;
+        let f_xx = (T::TWO * x_real * y_real) / r_fourth;
+        let f_xy = (y_real * y_real - x_real * x_real) / r_fourth;
         HyperDual {
-            real: yr.atan2(xr),
+            real: y_real.atan2(x_real),
             eps1: f_y * y.eps1 + f_x * x.eps1,
             eps2: f_y * y.eps2 + f_x * x.eps2,
             eps1eps2: f_y * y.eps1eps2
@@ -378,18 +443,28 @@ impl<T: Numeric> Numeric for HyperDual<T> {
     /// univariate `chain` helper with slope `s` and zero curvature.
     #[inline]
     fn copysign(self, sign: Self) -> Self {
-        let s = if (self.real < T::ZERO) == (sign.real < T::ZERO) {
+        let sign_scale = if (self.real < T::ZERO) == (sign.real < T::ZERO) {
             T::ONE
         } else {
             -T::ONE
         };
-        self.chain(self.real.copysign(sign.real), s, T::ZERO)
+        self.chain(self.real.copysign(sign.real), sign_scale, T::ZERO)
     }
     /// Largest integer `<= self`; the derivatives of a step function are zero.
     #[inline]
     fn floor(self) -> Self {
         HyperDual {
             real: self.real.floor(),
+            eps1: T::ZERO,
+            eps2: T::ZERO,
+            eps1eps2: T::ZERO,
+        }
+    }
+    /// Largest integer `>= self`; the derivatives of a step function are zero.
+    #[inline]
+    fn ceil(self) -> Self {
+        HyperDual {
+            real: self.real.ceil(),
             eps1: T::ZERO,
             eps2: T::ZERO,
             eps1eps2: T::ZERO,
@@ -407,6 +482,43 @@ impl<T: Numeric> Numeric for HyperDual<T> {
         }
     }
 
+    /// Rounds towards zero, effectively removing the decimal part.
+    /// A step function, so the derivative is zero.
+    #[inline]
+    fn trunc(self) -> Self {
+        HyperDual {
+            real: self.real.trunc(),
+            eps1: T::ZERO,
+            eps2: T::ZERO,
+            eps1eps2: T::ZERO,
+        }
+    }
+
+    /// Restrict a value to the interval `[min, max]`. Inside this range
+    /// it is the identity function, so nothing changes. Outside this range
+    /// it is a constant function (equal to either `min` or `max`), so the derivative
+    /// is equal to zero.
+    #[inline]
+    fn clamp(self, min: Self::Constant, max: Self::Constant) -> Self {
+        if self.real < min {
+            HyperDual {
+                real: min,
+                eps1: T::ZERO,
+                eps2: T::ZERO,
+                eps1eps2: T::ZERO,
+            }
+        } else if max < self.real {
+            HyperDual {
+                real: max,
+                eps1: T::ZERO,
+                eps2: T::ZERO,
+                eps1eps2: T::ZERO,
+            }
+        } else {
+            self
+        }
+    }
+
     /// Reflects the real part only; the derivatives are not inspected.
     #[inline]
     fn is_nan(self) -> bool {
@@ -417,5 +529,10 @@ impl<T: Numeric> Numeric for HyperDual<T> {
     #[inline]
     fn is_finite(self) -> bool {
         self.real.is_finite()
+    }
+    /// Reflects the real part only; an infinite value can still carry a finite derivative.
+    #[inline]
+    fn is_infinite(self) -> bool {
+        self.real.is_infinite()
     }
 }

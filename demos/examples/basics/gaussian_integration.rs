@@ -68,7 +68,7 @@ fn main() {
             hermite_m
                 .integrate(
                     by_x_then_y,
-                    &|v: &[f64; 2]| v[0] * v[0] * v[1] * v[1],
+                    &|point: &[f64; 2]| point[0] * point[0] * point[1] * point[1],
                     &plane,
                     &origin,
                 )

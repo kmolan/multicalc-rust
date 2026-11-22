@@ -67,9 +67,9 @@ impl<T: Numeric> DerivatorSingleVariable for AutoDiffSingle<T> {
             0 => Err(DiffError::OrderZero),
             1 => Ok(func.eval(Dual::variable(point)).deriv),
             2 => Ok(func.eval(HyperDual::variable(point)).eps1eps2),
-            o if o <= MAX_ORDER => Ok(func
+            order if order <= MAX_ORDER => Ok(func
                 .eval(Jet::<T, { MAX_ORDER + 1 }>::variable(point))
-                .derivative(o)),
+                .derivative(order)),
             _ => Err(DiffError::OrderUnsupported),
         }
     }
@@ -84,7 +84,7 @@ impl<T: Numeric> DerivatorSingleVariable for AutoDiffSingle<T> {
 /// use multicalc::scalar_fn;
 ///
 /// // f(x, y) = x^2 * y + sin(x)
-/// let function = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1] + v[0].sin());
+/// let function = scalar_fn!(|point: &[f64; 2]| point[0] * point[0] * point[1] + point[0].sin());
 /// let autodiff = AutoDiffMulti::default();
 /// let finite_difference = FiniteDifferenceMulti::default();
 /// let point = [1.0, 2.0];
@@ -179,13 +179,13 @@ impl<T: Numeric> DerivatorMultiVariable for AutoDiffMulti<T> {
                 let k = idx_to_differentiate[2];
                 // three independent directions: the two HyperDual epsilons plus the outer Dual.
                 // equal indices just seed the same variable on more than one direction.
-                let seed: [Dual<HyperDual<T>>; NUM_VARS] = core::array::from_fn(|m| {
-                    let a = if m == i { T::ONE } else { T::ZERO };
-                    let b = if m == j { T::ONE } else { T::ZERO };
-                    let c = if m == k { T::ONE } else { T::ZERO };
+                let seed: [Dual<HyperDual<T>>; NUM_VARS] = core::array::from_fn(|idx| {
+                    let a = if idx == i { T::ONE } else { T::ZERO };
+                    let b = if idx == j { T::ONE } else { T::ZERO };
+                    let seed_k = if idx == k { T::ONE } else { T::ZERO };
                     Dual::new(
-                        HyperDual::new(point[m], a, b, T::ZERO),
-                        HyperDual::new(c, T::ZERO, T::ZERO, T::ZERO),
+                        HyperDual::new(point[idx], a, b, T::ZERO),
+                        HyperDual::new(seed_k, T::ZERO, T::ZERO, T::ZERO),
                     )
                 });
                 Ok(func.eval(&seed).deriv.eps1eps2)
@@ -215,6 +215,6 @@ impl<T: Numeric> DerivatorMultiVariable for AutoDiffMulti<T> {
         seed[col] = Dual::variable(point[col]);
 
         let outputs = func.eval(&seed);
-        Ok(core::array::from_fn(|m| outputs[m].deriv))
+        Ok(core::array::from_fn(|row| outputs[row].deriv))
     }
 }

@@ -7,15 +7,18 @@ set -euo pipefail
 basics=(
   approximation
   autodiff_scalars
+  control_loops
   curve_fit
   differentiation
   discretization
+  error_state_estimation
   estimation
   gaussian_integration
   iterative_integration
   jacobian_hessian
   lie_groups
   linear_algebra
+  mjcf_model_ingestion
   ode
   optimization_solvers
   root_finding

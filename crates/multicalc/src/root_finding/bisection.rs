@@ -2,7 +2,7 @@
 
 use crate::error::SolveError;
 use crate::root_finding::{RootReport, RootTermination, same_sign};
-use crate::scalar::{Numeric, Primal, ScalarFn};
+use crate::scalar::{Numeric, ScalarFn};
 
 /// A bracketed scalar root solver using bisection.
 ///
@@ -16,11 +16,11 @@ use crate::scalar::{Numeric, Primal, ScalarFn};
 /// # Examples
 /// ```
 /// use multicalc::root_finding::Bisection;
-/// use multicalc::scalar::c;
+/// use multicalc::scalar::constant;
 /// use multicalc::scalar_fn;
 ///
 /// // f(x) = x² − 2, root at √2 ≈ 1.41421356
-/// let function = scalar_fn!(|x| c(-2.0) + x * x);
+/// let function = scalar_fn!(|x| constant(-2.0) + x * x);
 /// let lower_bound = 0.0_f64;
 /// let upper_bound = 2.0;
 ///
@@ -83,48 +83,47 @@ impl<T: Numeric> Bisection<T> {
     /// [`NonFinite`](SolveError::NonFinite) if `f` returns a non-finite value,
     /// [`InvalidBracket`](SolveError::InvalidBracket) if `f(a)` and `f(b)` share a sign, or
     /// [`DidNotConverge`](SolveError::DidNotConverge) if the budget is exhausted.
-    pub fn solve<F: ScalarFn>(&self, f: &F, a: T, b: T) -> Result<RootReport<T>, SolveError>
-    where
-        T: Primal,
-    {
-        let fa = f.eval(a);
-        let fb = f.eval(b);
+    pub fn solve<F: ScalarFn>(&self, f: &F, a: T, b: T) -> Result<RootReport<T>, SolveError> {
+        let value_a = f.eval(a);
+        let value_b = f.eval(b);
 
-        if !fa.is_finite() || !fb.is_finite() {
+        if !value_a.is_finite() || !value_b.is_finite() {
             return Err(SolveError::NonFinite);
         }
-        if fa == T::ZERO {
+        if value_a == T::ZERO {
             return Ok(RootReport {
                 root: a,
-                residual: fa,
+                residual: value_a,
                 iterations: 0,
                 termination: RootTermination::ResidualTolerance,
             });
         }
-        if fb == T::ZERO {
+        if value_b == T::ZERO {
             return Ok(RootReport {
                 root: b,
-                residual: fb,
+                residual: value_b,
                 iterations: 0,
                 termination: RootTermination::ResidualTolerance,
             });
         }
-        if same_sign(fa, fb) {
+        if same_sign(value_a, value_b) {
             return Err(SolveError::InvalidBracket);
         }
 
-        // Order so lo < hi numerically; the midpoint formula lo + (hi - lo)/2 then
+        // Order so lower < upper numerically; the midpoint formula lower + (upper - lower)/2 then
         // always lands strictly inside the interval.
-        let (mut lo, mut flo, mut hi) = if a <= b { (a, fa, b) } else { (b, fb, a) };
-        let mut last_residual = fa;
+        let (mut lower, mut value_lower, mut upper) = if a <= b {
+            (a, value_a, b)
+        } else {
+            (b, value_b, a)
+        };
 
         for iter in 1..=self.max_iterations {
-            let mid = lo + (hi - lo) * T::HALF;
+            let mid = lower + (upper - lower) * T::HALF;
             let fmid = f.eval(mid);
             if !fmid.is_finite() {
                 return Err(SolveError::NonFinite);
             }
-            last_residual = fmid;
             if fmid.abs() <= self.ftol {
                 return Ok(RootReport {
                     root: mid,
@@ -133,7 +132,7 @@ impl<T: Numeric> Bisection<T> {
                     termination: RootTermination::ResidualTolerance,
                 });
             }
-            if (hi - lo) <= self.xtol * (T::ONE + mid.abs()) {
+            if (upper - lower) <= self.xtol * (T::ONE + mid.abs()) {
                 return Ok(RootReport {
                     root: mid,
                     residual: fmid,
@@ -143,17 +142,16 @@ impl<T: Numeric> Bisection<T> {
             }
             // Replace the endpoint that shares a sign with fmid to keep the sign change
             // bracketed.
-            if same_sign(fmid, flo) {
-                lo = mid;
-                flo = fmid;
+            if same_sign(fmid, value_lower) {
+                lower = mid;
+                value_lower = fmid;
             } else {
-                hi = mid;
+                upper = mid;
             }
         }
 
         Err(SolveError::DidNotConverge {
             iters: self.max_iterations,
-            residual: last_residual.abs().to_f64(),
         })
     }
 }

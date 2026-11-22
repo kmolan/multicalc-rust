@@ -6,6 +6,28 @@ use multicalc::numerical_integration::*;
 use proptest::prelude::*;
 
 #[test]
+fn booles_round_up_total_iterations() {
+    let config_120 = IterativeConfig::from_parameters(120, IterativeMethod::Booles);
+    let config_121 = IterativeConfig::from_parameters(121, IterativeMethod::Booles);
+    let config_122 = IterativeConfig::from_parameters(122, IterativeMethod::Booles);
+    let config_123 = IterativeConfig::from_parameters(123, IterativeMethod::Booles);
+    assert!(config_120.total_iterations == 120);
+    assert!(config_121.total_iterations == 124);
+    assert!(config_122.total_iterations == 124);
+    assert!(config_123.total_iterations == 124);
+}
+
+#[test]
+fn simpson_round_up_total_iterations() {
+    let config_120 = IterativeConfig::from_parameters(120, IterativeMethod::Simpsons);
+    let config_121 = IterativeConfig::from_parameters(121, IterativeMethod::Simpsons);
+    let config_122 = IterativeConfig::from_parameters(122, IterativeMethod::Simpsons);
+    assert!(config_120.total_iterations == 120);
+    assert!(config_121.total_iterations == 123);
+    assert!(config_122.total_iterations == 123);
+}
+
+#[test]
 fn booles_rule_integrates_a_line_to_its_closed_form() {
     // closed form of 2x is x*x
     let line = |x: f64| -> f64 { 2.0 * x };

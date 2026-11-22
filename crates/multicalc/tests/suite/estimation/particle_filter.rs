@@ -1,8 +1,8 @@
 use multicalc::error::EstimationError;
 use multicalc::estimation::{
-    GaussianLikelihood, KalmanFilter, KalmanModel, ParticleFilter, ResamplingScheme,
+    GaussianLikelihood, KalmanFilter, KalmanModel, Likelihood, ParticleFilter, ResamplingScheme,
 };
-use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::linear_algebra::{Matrix, Matrix2D, Vector};
 use multicalc::random::{Pcg32, RandomSource};
 use multicalc::scalar::{Numeric, VectorFn};
 
@@ -41,11 +41,11 @@ impl VectorFn<2, 1> for MeasurePosition {
     }
 }
 
-fn identity_covariance() -> Matrix<2, 2> {
+fn identity_covariance() -> Matrix2D {
     Matrix::new([[1.0, 0.0], [0.0, 1.0]])
 }
 
-fn small_noise() -> Matrix<2, 2> {
+fn small_noise() -> Matrix2D {
     Matrix::new([[0.01, 0.0], [0.0, 0.01]])
 }
 
@@ -182,6 +182,32 @@ fn every_scheme_covers_heavy_particles() {
 }
 
 #[test]
+fn every_scheme_leaves_indices_unchanged_for_empty_weights() {
+    let schemes = [
+        ResamplingScheme::Systematic,
+        ResamplingScheme::Stratified,
+        ResamplingScheme::Multinomial,
+        ResamplingScheme::Residual,
+    ];
+    let weights: [f64; 0] = [];
+
+    for scheme in schemes {
+        let mut random = Pcg32::new(5);
+        let initial_random = random.clone();
+        let mut indices = [7usize, 8, 9];
+
+        scheme.resample_indices(&weights, &mut random, &mut indices);
+
+        assert_eq!(random, initial_random);
+        assert_eq!(
+            indices,
+            [7, 8, 9],
+            "empty weights should leave indices untouched for {scheme:?}"
+        );
+    }
+}
+
+#[test]
 fn incompatible_measurement_degenerates() {
     let particle_count = 200;
     let seed = 3;
@@ -265,8 +291,8 @@ fn converges_to_kalman_on_linear_gaussian_model() {
     let sensor = GaussianLikelihood::new(measurement_noise).unwrap();
 
     let process = ConstantVelocity { timestep };
-    let measurement_seed = 99;
-    let mut measurement_random = Pcg32::new(measurement_seed);
+    let measurement_seed = 113;
+    let mut measurement_random = Pcg32::<f64>::new(measurement_seed);
     let mut truth = [0.0_f64, 1.0];
 
     for _ in 0..40 {
@@ -408,5 +434,68 @@ fn a_zero_score_closure_leaves_the_weights_uniform() {
     assert!(
         (effective_sample_size - particle_count as f64).abs() < 1e-9,
         "a flat score should leave the full sample size: {effective_sample_size}"
+    );
+}
+
+#[test]
+fn particle_recovers_after_its_exported_weight_underflows() {
+    let mut filter = ParticleFilter::<2, 2>::new(
+        2,
+        Vector::new([0.0, 0.0]),
+        identity_covariance(),
+        small_noise(),
+        44,
+    )
+    .unwrap()
+    .with_resample_threshold(0.0);
+    let recovering_particle = filter.particles()[0].into_array();
+
+    struct Scores {
+        recovering_particle: [f64; 2],
+        recovering_score: f64,
+        other_score: f64,
+    }
+
+    impl Likelihood<2, f64> for Scores {
+        fn log_weight(&self, predicted: &[f64; 2], _measurement: &[f64; 2]) -> f64 {
+            if *predicted == self.recovering_particle {
+                self.recovering_score
+            } else {
+                self.other_score
+            }
+        }
+    }
+
+    // Push one displayed weight below f64's range without resampling the particle away.
+    filter
+        .update(
+            &MeasureBoth,
+            &Scores {
+                recovering_particle,
+                recovering_score: -1000.0,
+                other_score: 0.0,
+            },
+            Vector::new([0.0, 0.0]),
+        )
+        .unwrap();
+    assert_eq!(filter.weights()[0], 0.0);
+
+    // A later observation reverses the evidence. The particle must still have a finite internal
+    // prior even though its exported linear weight rounded to zero.
+    filter
+        .update(
+            &MeasureBoth,
+            &Scores {
+                recovering_particle,
+                recovering_score: 0.0,
+                other_score: -2000.0,
+            },
+            Vector::new([0.0, 0.0]),
+        )
+        .unwrap();
+    assert!(
+        filter.weights()[0] > 1.0 - 1e-12,
+        "the previously underflowed particle should recover: {:?}",
+        filter.weights()
     );
 }

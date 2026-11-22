@@ -30,11 +30,18 @@ pub trait Numeric:
     const ONE: Self;
     /// The value `2`.
     const TWO: Self;
+    /// The value `3`.
+    const THREE: Self;
     /// The value `0.5`.
     const HALF: Self;
+    /// The value `10`.
+    const TEN: Self;
     /// The value `100`.
     const HUNDRED: Self;
+    // The value `180`.
+    const ONE_HUNDRED_EIGHTY: Self;
     /// Archimedes' constant, π.
+    #[allow(clippy::min_ident_chars)]
     const PI: Self;
     /// Two times π (the circle constant τ) — one full turn in radians.
     const TWO_PI: Self;
@@ -65,6 +72,11 @@ pub trait Numeric:
     /// ```
     const MIN_POSITIVE: Self;
 
+    /// The type used to represent constant values.
+    /// For normal numbers (such as `f32` and `f64`) this is simply `Self`.
+    /// For auto differentiation types this is the underlying scalar value.
+    type Constant: Numeric;
+
     /// Converts from `f64`, narrowing if necessary. Used for table values and literals.
     fn from_f64(value: f64) -> Self;
     /// Converts from `u64`, e.g. an iteration count.
@@ -76,6 +88,15 @@ pub trait Numeric:
     fn abs(self) -> Self;
     /// Square root.
     fn sqrt(self) -> Self;
+    /// Cube root.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let x: f64 = 8.0;
+    /// assert_eq!(x.cbrt(), 2.0);
+    /// ```
+    fn cbrt(self) -> Self;
     /// Sine, with `self` in radians.
     fn sin(self) -> Self;
     /// Cosine, with `self` in radians.
@@ -85,7 +106,67 @@ pub trait Numeric:
     /// `e` raised to the power `self`.
     fn exp(self) -> Self;
     /// Natural logarithm of `self`.
-    fn ln(self) -> Self;
+    fn log(self) -> Self;
+
+    /// Calculates `(e^self) - 1`.
+    /// The default implementation computes the result using `exp` and normal subtraction,
+    /// however overrides for `f32` and `f64` use a more accurate primitive.
+    /// Other implementors of the trait will also likely want to override this method.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let x: f64 = 0.0;
+    /// assert_eq!(x.expm1(), 0.0);
+    /// ```
+    fn expm1(self) -> Self {
+        self.exp() - Self::ONE
+    }
+
+    /// Calculates `ln(1 + x)`.
+    /// The default implementation computes the result using `log` and normal addition,
+    /// however overrides for `f32` and `f64` use a more accurate primitive.
+    /// Other implementors of the trait will also likely want to override this method.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let x: f64 = 0.0;
+    /// assert_eq!(x.ln_1p(), 0.0);
+    /// ```
+    fn ln_1p(self) -> Self {
+        (self + Self::ONE).log()
+    }
+
+    /// Base 2 logarithm.
+    /// The default implementation uses two calls to `log`.
+    /// More efficient overrides are used for `f32` and `f64`.
+    /// Other implementors of the trait will also likely want to override this method.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let x: f64 = 2.0;
+    /// assert_eq!(x.log2(), 1.0);
+    /// ```
+    fn log2(self) -> Self {
+        self.log() / Self::TWO.log()
+    }
+
+    /// Base 10 logarithm.
+    /// The default implementation uses two calls to `log`.
+    /// More efficient overrides are used for `f32` and `f64`.
+    /// Other implementors of the trait will also likely want to override this method.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let x: f64 = 10.0;
+    /// assert_eq!(x.log10(), 1.0);
+    /// ```
+    fn log10(self) -> Self {
+        self.log() / Self::TEN.log()
+    }
 
     /// Four-quadrant arctangent of `self / other`, in radians, taking `self` as the y
     /// coordinate and `other` as the x coordinate. Result in `(-π, π]`.
@@ -100,11 +181,52 @@ pub trait Numeric:
     /// implementations therefore carry a zero derivative.
     fn floor(self) -> Self;
 
+    /// The largest integer greater than or equal to `self`.
+    ///
+    /// A step function, so its derivative is zero everywhere it is differentiable; the dual
+    /// implementations therefore carry a zero derivative.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let x: f64 = 2.1;
+    /// assert_eq!(x.ceil(), 3.0);
+    /// ```
+    fn ceil(self) -> Self;
+
     /// The nearest integer to `self`, rounding half away from zero.
     ///
     /// A step function, so its derivative is zero everywhere it is differentiable; the dual
     /// implementations therefore carry a zero derivative.
     fn round(self) -> Self;
+
+    /// The rounds a number toward zero, effectively removing the decimal part.
+    ///
+    /// A step function, so its derivative is zero everywhere it is differentiable; the dual
+    /// implementations therefore carry a zero derivative.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let x: f64 = 2.8;
+    /// assert_eq!(x.trunc(), 2.0);
+    /// ```
+    fn trunc(self) -> Self;
+
+    /// Restrict a value to the interval `[min, max]` unless it is NaN.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let min: f64 = -1.0;
+    /// let max: f64 = 2.0;
+    ///
+    /// assert_eq!(Numeric::clamp(17.0, min, max), max);
+    /// assert_eq!(Numeric::clamp(1.0, min, max), 1.0);
+    /// assert_eq!(Numeric::clamp(-1.3, min, max), min);
+    /// assert!(Numeric::clamp(f64::NAN, min, max).is_nan());
+    /// ```
+    fn clamp(self, min: Self::Constant, max: Self::Constant) -> Self;
 
     /// Sign of `self`: `1` for positive, `-1` for negative, `0` at zero.
     ///
@@ -140,6 +262,55 @@ pub trait Numeric:
     #[inline]
     fn min(self, other: Self) -> Self {
         if self < other { self } else { other }
+    }
+
+    /// Folds an angle into a ±π band by subtracting whole turns.
+    ///
+    /// Note: This function can fail to produce a result in the range [-π, π] due to
+    /// loss of precision in floating point numbers.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// // Small-ish number of whole turns removed
+    /// let x: f64 = 0.132 + 10.0 * f64::TWO_PI;
+    /// assert!((x.wrap_to_pi() - 0.132).abs() < 1e-8);
+    ///
+    /// // A very large number fails to be in range due to precision loss.
+    /// let x: f64 = 3.6663732791101215e224;
+    /// assert!(x.wrap_to_pi() < -4e200);
+    /// ```
+    #[inline]
+    fn wrap_to_pi(self) -> Self {
+        self - Self::TWO_PI * (self / Self::TWO_PI).round()
+    }
+
+    /// Convert an angle measured in degrees to on measured in radians.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let deg: f64 = 90.0;
+    /// let rad = deg.to_radians();
+    /// assert!((rad - f64::PI / 2.0).abs() < 1e-12);
+    /// ```
+    #[inline]
+    fn to_radians(self) -> Self {
+        self / Self::ONE_HUNDRED_EIGHTY * Self::PI
+    }
+
+    /// Convert an angle measured in radians to on measured in degrees.
+    ///
+    /// ```
+    /// use multicalc::Numeric;
+    ///
+    /// let rad: f64 = f64::PI / 4.0;
+    /// let deg = rad.to_degrees();
+    /// assert!((deg - 45.0).abs() < 1e-12);
+    /// ```
+    #[inline]
+    fn to_degrees(self) -> Self {
+        self / Self::PI * Self::ONE_HUNDRED_EIGHTY
     }
 
     /// Arctangent, in radians.
@@ -188,11 +359,11 @@ pub trait Numeric:
     #[inline]
     fn tanh(self) -> Self {
         if self < Self::ZERO {
-            let e = (self * Self::TWO).exp();
-            (e - Self::ONE) / (e + Self::ONE)
+            let exponential = (self * Self::TWO).exp();
+            (exponential - Self::ONE) / (exponential + Self::ONE)
         } else {
-            let e = (-(self * Self::TWO)).exp();
-            (Self::ONE - e) / (Self::ONE + e)
+            let exponential = (-(self * Self::TWO)).exp();
+            (Self::ONE - exponential) / (Self::ONE + exponential)
         }
     }
 
@@ -230,7 +401,7 @@ pub trait Numeric:
     #[inline]
     fn powf(self, n: Self) -> Self {
         if self > Self::ZERO {
-            return (n * self.ln()).exp();
+            return (n * self.log()).exp();
         }
 
         if self == Self::ZERO {
@@ -246,18 +417,18 @@ pub trait Numeric:
             if n > Self::ONE && n == n.floor() {
                 return self * self * (n - Self::ONE);
             }
-            return (n * self.ln()).exp();
+            return (n * self.log()).exp();
         }
 
         // self < 0. Only an integral exponent has a real value.
         if n != n.floor() || !n.is_finite() {
-            return (n * self.ln()).exp(); // NaN, as libm::pow gives
+            return (n * self.log()).exp(); // NaN, as libm::pow gives
         }
 
         // |self|^n carries the correct magnitude and the correct |derivative|; the sign
         // of both follows (-1)^n. Recovering n's parity without leaving the scalar type:
         // n - 2·floor(n/2) is 0 for even n and 1 for odd n.
-        let magnitude = (n * (-self).ln()).exp();
+        let magnitude = (n * (-self).log()).exp();
         let half = n * Self::HALF;
         let parity = n - Self::TWO * half.floor();
         if parity == Self::ZERO {
@@ -276,7 +447,7 @@ pub trait Numeric:
     /// The reciprocal `1 / self`.
     #[inline]
     fn recip(self) -> Self {
-        Self::ONE / self
+        Self::ONE.safe_div(self)
     }
 
     /// `self` raised to an integer power, by exponentiation-by-squaring.
@@ -303,18 +474,49 @@ pub trait Numeric:
         if n < 0 { Self::ONE / acc } else { acc }
     }
 
+    /// Division with a zero check to prevent possible panics.
+    /// The behavior is meant to match the floating point standard.
+    /// I.e. this has the following rules:
+    /// (finite positive) / zero = INFINITY
+    /// (finite negative) / zero = NEG_INFINITY
+    /// INFINITY / zero = INFINITY
+    /// NEG_INFINITY / zero = NEG_INFINITY
+    /// zero / zero = NAN
+    /// NAN / zero = NAN
+    #[inline]
+    fn safe_div(self, other: Self) -> Self {
+        if other == Self::ZERO {
+            if self.is_nan() {
+                return Self::NAN;
+            } else if self < Self::ZERO {
+                return Self::NEG_INFINITY;
+            } else if Self::ZERO < self {
+                return Self::INFINITY;
+            } else {
+                return Self::NAN;
+            }
+        }
+
+        self / other
+    }
+
     /// Returns `true` if `self` is NaN.
     fn is_nan(self) -> bool;
     /// Returns `true` if `self` is neither infinite nor NaN.
     fn is_finite(self) -> bool;
+    /// Returns `true` if `self` is positive or negative infinity and false otherwise.
+    fn is_infinite(self) -> bool;
 }
 
 impl Numeric for f64 {
     const ZERO: Self = 0.0;
     const ONE: Self = 1.0;
     const TWO: Self = 2.0;
+    const THREE: Self = 3.0;
     const HALF: Self = 0.5;
+    const TEN: Self = 10.0;
     const HUNDRED: Self = 100.0;
+    const ONE_HUNDRED_EIGHTY: Self = 180.0;
     const PI: Self = core::f64::consts::PI;
     const TWO_PI: Self = core::f64::consts::PI * 2.0;
     const EPSILON: Self = f64::EPSILON;
@@ -325,6 +527,8 @@ impl Numeric for f64 {
     const NEG_INFINITY: Self = f64::NEG_INFINITY;
     const MAX: Self = f64::MAX;
     const MIN_POSITIVE: Self = f64::MIN_POSITIVE;
+
+    type Constant = f64;
 
     #[inline]
     fn from_f64(value: f64) -> Self {
@@ -348,6 +552,10 @@ impl Numeric for f64 {
         libm::sqrt(self)
     }
     #[inline]
+    fn cbrt(self) -> Self {
+        libm::cbrt(self)
+    }
+    #[inline]
     fn sin(self) -> Self {
         libm::sin(self)
     }
@@ -364,8 +572,24 @@ impl Numeric for f64 {
         libm::exp(self)
     }
     #[inline]
-    fn ln(self) -> Self {
+    fn expm1(self) -> Self {
+        libm::expm1(self)
+    }
+    #[inline]
+    fn log(self) -> Self {
         libm::log(self)
+    }
+    #[inline]
+    fn ln_1p(self) -> Self {
+        libm::log1p(self)
+    }
+    #[inline]
+    fn log2(self) -> Self {
+        libm::log2(self)
+    }
+    #[inline]
+    fn log10(self) -> Self {
+        libm::log10(self)
     }
 
     #[inline]
@@ -381,8 +605,20 @@ impl Numeric for f64 {
         libm::floor(self)
     }
     #[inline]
+    fn ceil(self) -> Self {
+        libm::ceil(self)
+    }
+    #[inline]
     fn round(self) -> Self {
         libm::round(self)
+    }
+    #[inline]
+    fn trunc(self) -> Self {
+        libm::trunc(self)
+    }
+    #[inline]
+    fn clamp(self, min: Self::Constant, max: Self::Constant) -> Self {
+        self.clamp(min, max)
     }
     #[inline]
     fn max(self, other: Self) -> Self {
@@ -449,14 +685,21 @@ impl Numeric for f64 {
     fn is_finite(self) -> bool {
         f64::is_finite(self)
     }
+    #[inline]
+    fn is_infinite(self) -> bool {
+        f64::is_infinite(self)
+    }
 }
 
 impl Numeric for f32 {
     const ZERO: Self = 0.0;
     const ONE: Self = 1.0;
     const TWO: Self = 2.0;
+    const THREE: Self = 3.0;
     const HALF: Self = 0.5;
+    const TEN: Self = 10.0;
     const HUNDRED: Self = 100.0;
+    const ONE_HUNDRED_EIGHTY: Self = 180.0;
     const PI: Self = core::f32::consts::PI;
     const TWO_PI: Self = core::f32::consts::PI * 2.0;
     const EPSILON: Self = f32::EPSILON;
@@ -467,6 +710,8 @@ impl Numeric for f32 {
     const NEG_INFINITY: Self = f32::NEG_INFINITY;
     const MAX: Self = f32::MAX;
     const MIN_POSITIVE: Self = f32::MIN_POSITIVE;
+
+    type Constant = f32;
 
     #[inline]
     fn from_f64(value: f64) -> Self {
@@ -490,6 +735,10 @@ impl Numeric for f32 {
         libm::sqrtf(self)
     }
     #[inline]
+    fn cbrt(self) -> Self {
+        libm::cbrtf(self)
+    }
+    #[inline]
     fn sin(self) -> Self {
         libm::sinf(self)
     }
@@ -506,8 +755,24 @@ impl Numeric for f32 {
         libm::expf(self)
     }
     #[inline]
-    fn ln(self) -> Self {
+    fn expm1(self) -> Self {
+        libm::expm1f(self)
+    }
+    #[inline]
+    fn log(self) -> Self {
         libm::logf(self)
+    }
+    #[inline]
+    fn ln_1p(self) -> Self {
+        libm::log1pf(self)
+    }
+    #[inline]
+    fn log2(self) -> Self {
+        libm::log2f(self)
+    }
+    #[inline]
+    fn log10(self) -> Self {
+        libm::log10f(self)
     }
 
     #[inline]
@@ -523,8 +788,20 @@ impl Numeric for f32 {
         libm::floorf(self)
     }
     #[inline]
+    fn ceil(self) -> Self {
+        libm::ceilf(self)
+    }
+    #[inline]
     fn round(self) -> Self {
         libm::roundf(self)
+    }
+    #[inline]
+    fn trunc(self) -> Self {
+        libm::truncf(self)
+    }
+    #[inline]
+    fn clamp(self, min: Self::Constant, max: Self::Constant) -> Self {
+        self.clamp(min, max)
     }
     #[inline]
     fn max(self, other: Self) -> Self {
@@ -590,5 +867,9 @@ impl Numeric for f32 {
     #[inline]
     fn is_finite(self) -> bool {
         f32::is_finite(self)
+    }
+    #[inline]
+    fn is_infinite(self) -> bool {
+        f32::is_infinite(self)
     }
 }

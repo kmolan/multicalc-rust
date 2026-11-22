@@ -13,15 +13,15 @@ use core::fmt;
 pub enum VizError {
     /// A backend SDK call failed (stream setup, connection, log, or flush).
     Backend(String),
-    /// A filesystem error (CSV writer, or writing a recording).
-    Io(std::io::Error),
+    /// A filesystem error, from writing a recording.
+    IoError(std::io::Error),
 }
 
 impl fmt::Display for VizError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            VizError::Backend(m) => write!(f, "viz backend error: {m}"),
-            VizError::Io(e) => write!(f, "viz io error: {e}"),
+            VizError::Backend(msg) => write!(f, "viz backend error: {msg}"),
+            VizError::IoError(err) => write!(f, "viz io error: {err}"),
         }
     }
 }
@@ -29,8 +29,8 @@ impl fmt::Display for VizError {
 impl std::error::Error for VizError {}
 
 impl From<std::io::Error> for VizError {
-    fn from(e: std::io::Error) -> Self {
-        VizError::Io(e)
+    fn from(err: std::io::Error) -> Self {
+        VizError::IoError(err)
     }
 }
 
@@ -43,11 +43,32 @@ pub trait VizSink {
     /// Advances a sequence timeline (e.g. an iteration or sample index).
     fn set_sequence(&mut self, timeline: &str, seq: i64);
 
+    /// Marks whatever is logged next as belonging to no particular moment.
+    ///
+    /// Scene furniture — a floor grid, a course outline — belongs to the whole run rather than to
+    /// the tick it happened to be logged on. Turn this on before logging it and off again
+    /// afterwards. The default ignores the flag, so backends without the notion keep working.
+    fn set_static(&mut self, always: bool) {
+        let _ = always;
+    }
+
     /// Logs one scalar at the current timeline position.
     fn scalar(&mut self, path: &str, value: f64) -> Result<(), VizError>;
 
+    /// Logs several scalars that belong on one plot together, at the current timeline position.
+    ///
+    /// Everything logged under one path is drawn on one set of axes, which is the only way to put
+    /// two quantities side by side rather than in plots of their own. Pair it with
+    /// [`VizSink::series_styles`] to name and colour them.
+    ///
+    /// The default logs nothing, so backends that only understand one value at a time keep working.
+    fn scalars(&mut self, path: &str, values: &[f64]) -> Result<(), VizError> {
+        let _ = (path, values);
+        Ok(())
+    }
+
     /// Logs a set of 2D points.
-    fn points2d(&mut self, path: &str, xy: &[[f64; 2]]) -> Result<(), VizError>;
+    fn points2d(&mut self, path: &str, points_xy: &[[f64; 2]]) -> Result<(), VizError>;
 
     /// Logs a set of 3D points.
     fn points3d(&mut self, path: &str, xyz: &[[f64; 3]]) -> Result<(), VizError>;
@@ -63,12 +84,12 @@ pub trait VizSink {
     fn points2d_styled(
         &mut self,
         path: &str,
-        xy: &[[f64; 2]],
+        points_xy: &[[f64; 2]],
         colors: &[Rgba],
         radii: &[f32],
     ) -> Result<(), VizError> {
         let _ = (colors, radii);
-        self.points2d(path, xy)
+        self.points2d(path, points_xy)
     }
 
     /// Logs 2D points that each carry a text label, for a legend or a named landmark. `colors` and
@@ -81,13 +102,13 @@ pub trait VizSink {
     fn points2d_labeled(
         &mut self,
         path: &str,
-        xy: &[[f64; 2]],
+        points_xy: &[[f64; 2]],
         colors: &[Rgba],
         radii: &[f32],
         labels: &[&str],
     ) -> Result<(), VizError> {
         let _ = labels;
-        self.points2d_styled(path, xy, colors, radii)
+        self.points2d_styled(path, points_xy, colors, radii)
     }
 
     /// Logs 3D points with per-point styling. Broadcast and unit conventions match
@@ -164,6 +185,51 @@ pub trait VizSink {
     /// Logs a markdown text panel (the `hud/stats` headline).
     fn text(&mut self, path: &str, markdown: &str) -> Result<(), VizError>;
 
+    /// Logs a triangle mesh: vertex positions, one triangle per index triple into them, and a
+    /// normal and a color for each vertex.
+    ///
+    /// The default is a no-op, so backends that cannot draw a mesh keep working.
+    fn mesh3d(
+        &mut self,
+        path: &str,
+        vertices: &[[f64; 3]],
+        triangles: &[[u32; 3]],
+        normals: &[[f64; 3]],
+        colors: &[Rgba],
+    ) -> Result<(), VizError> {
+        let _ = (path, vertices, triangles, normals, colors);
+        Ok(())
+    }
+
+    /// Logs a 3D model read from a file, such as an `.obj` or a `.glb`.
+    ///
+    /// The file is read and sent as it is; whatever reads it back is what understands the format.
+    /// A model file says nothing about what units it was drawn in or which way up it was drawn, so
+    /// a caller almost always pairs this with [`VizSink::transform3d_scaled`] on the same path.
+    ///
+    /// The default is a no-op, so backends that cannot draw a model keep working.
+    fn model3d(&mut self, path: &str, file_path: &std::path::Path) -> Result<(), VizError> {
+        let _ = (path, file_path);
+        Ok(())
+    }
+
+    /// A pose that also resizes whatever sits under it.
+    ///
+    /// For anything drawn in units of its own — a model file measured in centimetres, say — where
+    /// the resizing belongs to the thing itself and not to where it is.
+    ///
+    /// The default is a no-op, so backends without the notion keep working.
+    fn transform3d_scaled(
+        &mut self,
+        path: &str,
+        translation: [f64; 3],
+        quat_wxyz: [f64; 4],
+        scale: f64,
+    ) -> Result<(), VizError> {
+        let _ = (path, translation, quat_wxyz, scale);
+        Ok(())
+    }
+
     /// Styles the scalar series at `path`: line `color`, legend `name`, and `width`. Applied
     /// statically, so it holds across the whole timeline; call it once alongside the scalars.
     ///
@@ -176,6 +242,20 @@ pub trait VizSink {
         width: f32,
     ) -> Result<(), VizError> {
         let _ = (path, color, name, width);
+        Ok(())
+    }
+
+    /// Styles several series sharing one path: a `color` and a `name` each, one `width` for all.
+    ///
+    /// The default is a no-op, so backends without series styling keep default plot colors.
+    fn series_styles(
+        &mut self,
+        path: &str,
+        colors: &[Rgba],
+        names: &[&str],
+        width: f32,
+    ) -> Result<(), VizError> {
+        let _ = (path, colors, names, width);
         Ok(())
     }
 

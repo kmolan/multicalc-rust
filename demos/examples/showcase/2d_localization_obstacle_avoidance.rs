@@ -16,9 +16,13 @@ use std::collections::VecDeque;
 use std::f64::consts::{PI, TAU};
 
 use multicalc::linear_algebra::Matrix;
+use multicalc::mapping::{CellState, LogOddsGrid, OccupancyMap, ScanGeometry};
+use multicalc::{SE2, SO2, Vector2D};
 use multicalc_demos::loop_util::{LatencyRing, Pacer, commas};
-use multicalc_demos::sim::localization_obstacle_avoidance_2d::{LapWorld, Phase};
-use multicalc_demos::sim::{OccupancyGrid, circle_outline};
+use multicalc_demos::sim::circle_outline;
+use multicalc_demos::sim::localization_obstacle_avoidance_2d::{
+    BEAMS, LapWorld, Phase, TRACK_COLUMNS, TRACK_ROWS,
+};
 use multicalc_demos::{RerunSink, Rgba, VizError, VizSink};
 
 const HERO: Rgba = [0x39, 0x87, 0xe5, 0xff]; // the fused estimate, its ellipse and trail
@@ -26,6 +30,8 @@ const TRUTH: Rgba = [0xc9, 0x85, 0x00, 0xff]; // the true robot body and heading
 const ACCENT: Rgba = [0x90, 0x85, 0xe9, 0xff]; // the localization cloud and GPS fixes
 const CHROME: Rgba = [0x89, 0x87, 0x81, 0xff]; // the map walls
 const RAY: Rgba = [0x89, 0x87, 0x81, 70]; // lidar rays, faint
+const BELIEF_FREE: Rgba = [0xe8, 0xe6, 0xe1, 0x50]; // space the robot has seen through
+const BELIEF_BLOCKED: Rgba = [0x2b, 0x2a, 0x28, 0xff]; // wall the robot has found for itself
 
 // The legend sits off to the right of the course (which spans x 0..6, y 0..4), level with it and
 // centred on its height, so it never covers anything the demo is showing. Label text is drawn at a
@@ -50,30 +56,32 @@ const TICK_RATE_HERTZ: f64 = 1000.0; // the rate that budget comes from: one tic
 ///
 /// For [[a, b], [b, c]] the two spreads are (a + c)/2 ± sqrt(((a − c)/2)² + b²), the long axis
 /// points at 0.5·atan2(2b, a − c), and the semi-axes are 2·sqrt(spread) for the 2σ contour.
+#[must_use]
 fn covariance_ellipse(
     center: [f64; 2],
     covariance: &Matrix<5, 5, f64>,
     segments: usize,
 ) -> Vec<[f64; 2]> {
-    let (a, b, c) = (covariance[(0, 0)], covariance[(0, 1)], covariance[(1, 1)]);
-    let mean = 0.5 * (a + c);
-    let spread = (0.5 * (a - c)).hypot(b);
+    let (a, b, cov_yy) = (covariance[(0, 0)], covariance[(0, 1)], covariance[(1, 1)]);
+    let mean = 0.5 * (a + cov_yy);
+    let spread = (0.5 * (a - cov_yy)).hypot(b);
     let major = 2.0 * (mean + spread).max(0.0).sqrt();
     let minor = 2.0 * (mean - spread).max(0.0).sqrt();
-    let (sin, cos) = (0.5 * (2.0 * b).atan2(a - c)).sin_cos();
+    let (sin, cos) = (0.5 * (2.0 * b).atan2(a - cov_yy)).sin_cos();
     (0..=segments)
         .map(|i| {
-            let t = TAU * i as f64 / segments as f64;
-            let (ex, ey) = (major * t.cos(), minor * t.sin());
+            let angle = TAU * i as f64 / segments as f64;
+            let (ell_x, ell_y) = (major * angle.cos(), minor * angle.sin());
             [
-                center[0] + cos * ex - sin * ey,
-                center[1] + sin * ex + cos * ey,
+                center[0] + cos * ell_x - sin * ell_y,
+                center[1] + sin * ell_x + cos * ell_y,
             ]
         })
         .collect()
 }
 
 /// A short strip from `pose` in its heading direction, to show which way the robot faces.
+#[must_use]
 fn heading_tick(pose: [f64; 3], length: f64) -> Vec<[f64; 2]> {
     vec![
         [pose[0], pose[1]],
@@ -85,13 +93,14 @@ fn heading_tick(pose: [f64; 3], length: f64) -> Vec<[f64; 2]> {
 }
 
 /// The centres of every occupied cell, for drawing the map walls as a point cloud.
-fn wall_points(grid: &OccupancyGrid) -> Vec<[f64; 2]> {
+#[must_use]
+fn wall_points<M: OccupancyMap>(grid: &M) -> Vec<[f64; 2]> {
     let origin = grid.origin();
     let cell = grid.resolution();
     let mut points = Vec::new();
     for row in 0..grid.rows() {
         for column in 0..grid.columns() {
-            if grid.is_occupied(column, row) {
+            if grid.is_occupied(row, column) {
                 points.push([
                     origin[0] + (column as f64 + 0.5) * cell,
                     origin[1] + (row as f64 + 0.5) * cell,
@@ -102,12 +111,39 @@ fn wall_points(grid: &OccupancyGrid) -> Vec<[f64; 2]> {
     points
 }
 
+/// The cells the robot has decided about for itself, split into the free ones and the blocked ones.
+///
+/// Everything else is still unknown, and is simply not drawn — so the map fills in as the robot
+/// drives rather than being there from the start.
+#[must_use]
+fn belief_points(
+    belief: &LogOddsGrid<TRACK_ROWS, TRACK_COLUMNS>,
+) -> (Vec<[f64; 2]>, Vec<[f64; 2]>) {
+    let geometry = belief.geometry();
+    let mut free = Vec::new();
+    let mut blocked = Vec::new();
+    for row in 0..TRACK_ROWS {
+        for column in 0..TRACK_COLUMNS {
+            let Some(centre) = geometry.center_of(row, column) else {
+                continue;
+            };
+            match belief.cell_state(row, column) {
+                CellState::Free => free.push(centre),
+                CellState::Occupied => blocked.push(centre),
+                CellState::Unknown => {}
+            }
+        }
+    }
+    (free, blocked)
+}
+
 /// The two wheels of the robot: each one's rim, and the tread marks that show it rolling.
 ///
 /// Seen from straight above, a rolling wheel looks perfectly still — nothing about its outline
 /// changes as it turns. The tread marks carry the motion instead: they slide along the wheel by
 /// exactly the distance its rim has rolled, so the wheels visibly drive the robot forward, and on a
 /// turn on the spot the two sets of marks run opposite ways.
+#[must_use]
 fn wheel_shapes(
     pose: [f64; 3],
     wheelbase: f64,
@@ -155,6 +191,7 @@ fn wheel_shapes(
 }
 
 /// The direction beam `index` points, from straight ahead, positive to the left.
+#[must_use]
 fn beam_angle(index: usize, beams: usize) -> f64 {
     -FIELD_OF_VIEW / 2.0 + FIELD_OF_VIEW * index as f64 / (beams - 1) as f64
 }
@@ -167,12 +204,22 @@ fn main() -> Result<(), VizError> {
         );
     }
 
-    let mut rr = RerunSink::live("multicalc-demos/2d-localization-obstacle-avoidance")?;
+    let mut sink = RerunSink::live("multicalc-demos/2d-localization-obstacle-avoidance")?;
     let mut world = LapWorld::new(20260722).expect("the pinned configuration is valid");
 
+    // A map the robot builds for itself, alongside the prior map it localizes against. Every scan
+    // is folded in by addition in log-odds, so unknown space resolves into free and blocked as the
+    // robot drives — which is the point of showing it.
+    let mut belief: Box<LogOddsGrid<TRACK_ROWS, TRACK_COLUMNS>> = Box::new(
+        LogOddsGrid::try_new(world.track().grid.resolution(), world.track().grid.origin())
+            .expect("the track's own placement is valid"),
+    );
+    let belief_scan: ScanGeometry<BEAMS> =
+        ScanGeometry::try_new(FIELD_OF_VIEW, LIDAR_RANGE).expect("the lidar's own arc is valid");
+
     // Statics at tick 0 so they forward-fill across the run.
-    rr.set_sequence("tick", 0);
-    rr.points2d_styled(
+    sink.set_sequence("tick", 0);
+    sink.points2d_styled(
         "world/map",
         &wall_points(&world.track().grid),
         &[CHROME],
@@ -180,11 +227,12 @@ fn main() -> Result<(), VizError> {
     )?;
 
     // A colour key for the scene, so a viewer can read every element without guessing.
-    let legend: [(&str, Rgba); 5] = [
+    let legend: [(&str, Rgba); 6] = [
         ("true robot · heading · lidar hits", TRUTH),
         ("fused estimate · 2σ ellipse · trail", HERO),
         ("particle cloud · GPS fix", ACCENT),
-        ("map walls", CHROME),
+        ("map walls (prior)", CHROME),
+        ("map built from scans", BELIEF_BLOCKED),
         ("lidar rays", RAY),
     ];
     let legend_points: Vec<[f64; 2]> = (0..legend.len())
@@ -192,7 +240,7 @@ fn main() -> Result<(), VizError> {
         .collect();
     let legend_colors: Vec<Rgba> = legend.iter().map(|(_, color)| *color).collect();
     let legend_labels: Vec<&str> = legend.iter().map(|(label, _)| *label).collect();
-    rr.points2d_labeled(
+    sink.points2d_labeled(
         "world/legend",
         &legend_points,
         &legend_colors,
@@ -209,7 +257,7 @@ fn main() -> Result<(), VizError> {
     loop {
         let late_us = pacer.wait();
         n += 1;
-        rr.set_sequence("tick", n);
+        sink.set_sequence("tick", n);
         let record = world.step();
 
         if record.phase == Phase::Driving {
@@ -226,23 +274,30 @@ fn main() -> Result<(), VizError> {
         let pose = record.pose.into_array();
         let position = [pose[0], pose[1]];
 
+        // Fold this tick's scan into the map the robot is building. Every tick, not just the ones
+        // that get drawn: what the map holds is the whole run, not a sample of it.
+        if record.phase == Phase::Driving {
+            let placed = SE2::from_parts(SO2::from_angle(pose[2]), Vector2D::new(position));
+            belief.integrate_scan(placed, &belief_scan, &record.scan);
+        }
+
         // Spatial geometry every GEOM_EVERY ticks.
         if n % GEOM_EVERY == 0 {
             // The true robot: its body, the way it faces, and the two wheels carrying it there.
             let drive = world.vehicle().drive();
-            rr.line_strips2d(
+            sink.line_strips2d(
                 "world/truth",
                 &[circle_outline(position, FOOTPRINT_RADIUS, 24)],
                 &[TRUTH],
                 &[0.02],
             )?;
-            rr.line_strips2d(
+            sink.line_strips2d(
                 "world/truth/heading",
                 &[heading_tick(pose, 0.3)],
                 &[TRUTH],
                 &[0.02],
             )?;
-            rr.line_strips2d(
+            sink.line_strips2d(
                 "world/truth/wheels",
                 &wheel_shapes(
                     pose,
@@ -262,7 +317,7 @@ fn main() -> Result<(), VizError> {
                         .iter()
                         .map(|particle| [particle[0], particle[1]])
                         .collect();
-                    rr.points2d_styled("world/cloud", &cloud, &[ACCENT], &[0.02])?;
+                    sink.points2d_styled("world/cloud", &cloud, &[ACCENT], &[0.02])?;
                 }
                 Phase::Driving => {
                     let fused = [record.estimate[0], record.estimate[1]];
@@ -272,14 +327,14 @@ fn main() -> Result<(), VizError> {
                     fused_trail.push_back(fused);
 
                     // The fused estimate: a dot, its 2σ ellipse, and its trail.
-                    rr.points2d_styled("world/fused", &[fused], &[HERO], &[0.06])?;
-                    rr.line_strips2d(
+                    sink.points2d_styled("world/fused", &[fused], &[HERO], &[0.06])?;
+                    sink.line_strips2d(
                         "world/fused/ellipse",
                         &[covariance_ellipse(fused, &record.covariance, 32)],
                         &[HERO],
                         &[0.012],
                     )?;
-                    rr.line_strips2d(
+                    sink.line_strips2d(
                         "world/fused/trail",
                         &[fused_trail.iter().copied().collect()],
                         &[HERO],
@@ -288,7 +343,7 @@ fn main() -> Result<(), VizError> {
 
                     // The most recent GPS fix.
                     if let Some(fix) = record.gps_fix {
-                        rr.points2d_styled("world/gps", &[fix], &[ACCENT], &[0.05])?;
+                        sink.points2d_styled("world/gps", &[fix], &[ACCENT], &[0.05])?;
                     }
 
                     // The lidar: a faint ray per beam, and the hit points.
@@ -310,15 +365,25 @@ fn main() -> Result<(), VizError> {
                             hits.push(end);
                         }
                     }
-                    rr.line_strips2d("world/lidar/rays", &rays, &[RAY], &[0.003])?;
-                    rr.points2d_styled("world/lidar/hits", &hits, &[TRUTH], &[0.02])?;
+                    sink.line_strips2d("world/lidar/rays", &rays, &[RAY], &[0.003])?;
+                    sink.points2d_styled("world/lidar/hits", &hits, &[TRUTH], &[0.02])?;
+
+                    // The map the robot is building, from the same scan it just steered on.
+                    let (free, blocked) = belief_points(&belief);
+                    sink.points2d_styled("world/belief/free", &free, &[BELIEF_FREE], &[0.05])?;
+                    sink.points2d_styled(
+                        "world/belief/blocked",
+                        &blocked,
+                        &[BELIEF_BLOCKED],
+                        &[0.05],
+                    )?;
                 }
             }
         }
 
         // Scalars every tick while driving.
         if record.phase == Phase::Driving {
-            rr.scalar("plots/speed", record.twist.linear())?;
+            sink.scalar("plots/speed", record.twist.linear())?;
         }
 
         // Hud every HUD_EVERY ticks.
@@ -355,7 +420,7 @@ fn main() -> Result<(), VizError> {
                     )
                 }
             };
-            rr.text("hud/stats", &markdown)?;
+            sink.text("hud/stats", &markdown)?;
         }
     }
 }

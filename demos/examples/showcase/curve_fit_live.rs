@@ -12,25 +12,27 @@ use multicalc_demos::{RerunSink, VizError, VizSink};
 
 const A_TRUE: f64 = 100.0;
 const B_TRUE: f64 = -0.5;
-const M: usize = 8;
+const N_SAMPLES: usize = 8;
 
 // Residuals of y = a·e^(b·t), generic over the scalar so autodiff supplies the Jacobian.
 struct SensorFit {
-    t: [f64; M],
-    y: [f64; M],
+    times: [f64; N_SAMPLES],
+    y: [f64; N_SAMPLES],
 }
 
-impl VectorFn<2, M> for SensorFit {
-    fn eval<S: Numeric>(&self, p: &[S; 2]) -> [S; M] {
-        let (a, b) = (p[0], p[1]);
-        core::array::from_fn(|i| a * (b * S::from_f64(self.t[i])).exp() - S::from_f64(self.y[i]))
+impl VectorFn<2, N_SAMPLES> for SensorFit {
+    fn eval<S: Numeric>(&self, params: &[S; 2]) -> [S; N_SAMPLES] {
+        let (a, b) = (params[0], params[1]);
+        core::array::from_fn(|i| {
+            a * (b * S::from_f64(self.times[i])).exp() - S::from_f64(self.y[i])
+        })
     }
 }
 
 fn main() -> Result<(), VizError> {
-    let t: [f64; M] = core::array::from_fn(|i| i as f64);
-    let y: [f64; M] = core::array::from_fn(|i| A_TRUE * (B_TRUE * i as f64).exp());
-    let problem = SensorFit { t, y };
+    let times: [f64; N_SAMPLES] = core::array::from_fn(|i| i as f64);
+    let y: [f64; N_SAMPLES] = core::array::from_fn(|i| A_TRUE * (B_TRUE * i as f64).exp());
+    let problem = SensorFit { times, y };
 
     // Deliberately away from the truth, so the fit has work to do.
     let initial_guess = [80.0, -0.3];
@@ -39,29 +41,29 @@ fn main() -> Result<(), VizError> {
         .minimize(&problem, &initial_guess)
         .expect("curve fit did not converge");
     let (a, b) = (report.solution[0], report.solution[1]);
-    let fit = |tt: f64| a * (b * tt).exp();
+    let fit = |sample_t: f64| a * (b * sample_t).exp();
 
     // Spawns the viewer and streams data scatter, fitted curve, and residual series.
-    let mut rr = RerunSink::live("multicalc-demos/curve-fit")?;
+    let mut sink = RerunSink::live("multicalc-demos/curve-fit")?;
 
-    let data_pts: Vec<[f64; 2]> = (0..M).map(|i| [t[i], y[i]]).collect();
-    rr.points2d("data", &data_pts)?;
+    let data_pts: Vec<[f64; 2]> = (0..N_SAMPLES).map(|i| [times[i], y[i]]).collect();
+    sink.points2d("data", &data_pts)?;
 
     let steps = 100;
-    let (t0, t1) = (t[0], t[M - 1]);
+    let (t_lo, t_hi) = (times[0], times[N_SAMPLES - 1]);
     let curve: Vec<[f64; 2]> = (0..=steps)
         .map(|k| {
-            let tt = t0 + (t1 - t0) * (k as f64) / (steps as f64);
-            [tt, fit(tt)]
+            let sample_t = t_lo + (t_hi - t_lo) * (k as f64) / (steps as f64);
+            [sample_t, fit(sample_t)]
         })
         .collect();
-    rr.points2d("fit", &curve)?;
+    sink.points2d("fit", &curve)?;
 
-    for i in 0..M {
-        rr.set_sequence("sample", i as i64);
-        rr.scalar("residual", fit(t[i]) - y[i])?;
+    for i in 0..N_SAMPLES {
+        sink.set_sequence("sample", i as i64);
+        sink.scalar("residual", fit(times[i]) - y[i])?;
     }
-    rr.scalar("objective", report.objective_function)?;
-    rr.flush()?;
+    sink.scalar("objective", report.objective_function)?;
+    sink.flush()?;
     Ok(())
 }
