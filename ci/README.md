@@ -19,7 +19,7 @@ Do **not** raise `tolerance_pct` to get under a gate — that loosens every row 
 regressions. Budgets are per-binary and per-scalar precisely so one domain's growth never spends
 another's headroom; keep them tight and per-row.
 
-Time budgets on real hardware are a separate set, in `tools/openhil`; its README has their
+Time budgets on real hardware are a separate set, in `tools/hilshare`; its README has their
 protocol.
 
 ## Smoke-test harness
