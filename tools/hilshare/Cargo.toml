@@ -1,0 +1,30 @@
+# multicalc as a Tock app for HILShare: runs the checks of multicalc as a Tock process on the
+# three HILShare boards and prints the HILShare markers. Dev-only and never published. Its own
+# workspace: build-tab.sh builds it one time for each board, at the fixed app addresses of that
+# kernel, with the linker script of libtock-rs, on a pinned toolchain (rust-toolchain.toml).
+[workspace]
+
+[package]
+name = "multicalc-hilshare"
+version = "0.4.0"
+edition = "2024"
+rust-version = "1.92"
+authors = ["akathail <anmolkathail@gmail.com>"]
+description = "Runs the checks of multicalc as a Tock app and reports them as HILShare markers"
+license = "MIT"
+publish = false
+
+[dependencies]
+multicalc = { path = "../../crates/multicalc", default-features = false }
+libtock = { git = "https://github.com/tock/libtock-rs", rev = "b7f17591e43607474958ed7d117ba831e54e1017" }
+
+[build-dependencies]
+libtock_build_scripts = { git = "https://github.com/tock/libtock-rs", rev = "b7f17591e43607474958ed7d117ba831e54e1017" }
+
+# A cycle count of an unoptimized build tells nothing. libtock-rs has no unwinder.
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+debug = true
+panic = "abort"

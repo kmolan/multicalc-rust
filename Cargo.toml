@@ -8,9 +8,9 @@ members = [
     "tools/testkit",
     "demos",
 ]
-# tools/openhil is its own workspace: a Tock app with its own toolchain, target and linker
+# tools/hilshare is its own workspace: a Tock app with its own toolchain, target and linker
 # layout, built from inside its directory.
-exclude = ["tools/openhil"]
+exclude = ["tools/hilshare"]
 default-members = ["crates/multicalc"]
 resolver = "3"
 

@@ -1,0 +1,25 @@
+# Cargo reads this file from the current directory upwards, not from `--manifest-path`, so
+# each build starts in tools/hilshare.
+#
+# No rustflags here. Cargo joins the array of a parent directory onto this one, and the
+# repository root gives the cortex-m-rt and riscv-rt linker scripts of embedded-smoke.
+# build-tab.sh sets RUSTFLAGS, which replaces each configured `target.*.rustflags`.
+
+# Soft-float ABI: the Cortex-M port of the kernel does not save the FPU state across a context
+# switch, and the Pico 2 kernel turns the FPU off.
+[build]
+target = "thumbv7em-none-eabi"
+
+# libtock-rs apps link at fixed addresses. These are the addresses of the Nucleo-F411RE kernel:
+# app flash from 0x08040000 (with the TBF header) and app RAM from 0x20008000. build-tab.sh gives
+# the addresses of the other boards in the environment, which overrides [env].
+#
+# The MPU block of a process is a power of two, and it starts at a multiple of half its size,
+# so a block at 0x20008000 is 64 KB at most. The kernel takes 1128 bytes of the block, and
+# elf2tab adds 2048 bytes to the RAM of the ELF. Thus, a length of 60K gives a link error
+# below the 64408 bytes that preflight accepts.
+[env]
+LIBTOCK_LINKER_FLASH = "0x08040000"
+LIBTOCK_LINKER_FLASH_LENGTH = "255K"
+LIBTOCK_LINKER_RAM = "0x20008000"
+LIBTOCK_LINKER_RAM_LENGTH = "60K"
