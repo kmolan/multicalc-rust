@@ -77,7 +77,7 @@ h1 {
   font-weight: 800; margin: 22px 0 16px;
 }
 h1 .soft { color: var(--text-muted); }
-.lede { font-size: clamp(16px, 2.2vw, 19px); color: var(--text-secondary); max-width: 640px; margin: 0 auto; }
+.lede { font-size: clamp(16px, 2.2vw, 19px); color: var(--text-secondary); max-width: 640px; margin: 0 auto; text-wrap: balance; }
 .tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 26px 0 30px; }
 .tag {
   font-family: var(--mono); font-size: 13px; padding: 5px 10px; border-radius: 6px;
@@ -108,7 +108,7 @@ h1 .soft { color: var(--text-muted); }
   margin: 56px 0 0;
 }
 @media (min-width: 720px) { .stats { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 1000px) { .stats { grid-template-columns: repeat(6, 1fr); } }
+@media (min-width: 1000px) { .stats { grid-template-columns: repeat(5, 1fr); } }
 .stat { background: var(--surface-1); padding: 22px 20px; }
 .stat .v { font-size: 34px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .stat .v small { font-size: 18px; font-weight: 600; color: var(--text-secondary); margin-left: 2px; }
@@ -214,8 +214,8 @@ footer a:hover { color: var(--text-primary); }
 <header class="hero">
   <div class="wrap">
     <span class="pill"><span class="dot"></span>Now tested on real silicon</span>
-    <h1>Robotics math<br><span class="soft">for microcontrollers.</span></h1>
-    <p class="lede">Estimation, control, kinematics, dynamics, Lie groups, autodiff and linear algebra. One crate. Stable Rust.</p>
+    <h1>The whole robotics stack.<br><span class="soft">On bare metal.</span></h1>
+    <p class="lede">Sense, plan and control on stable Rust in one integrated crate.</p>
     <div class="tags">
       <span class="tag">no_std</span>
       <span class="tag">no heap</span>
@@ -232,11 +232,10 @@ footer a:hover { color: var(--text-primary); }
 
     <div class="stats">
       <div class="stat"><div class="v">1<small>kHz</small></div><div class="l">full control loop</div></div>
-      <div class="stat"><div class="v">34<small>ns</small></div><div class="l">Kalman filter step</div></div>
-      <div class="stat"><div class="v">490<small>ns</small></div><div class="l">7-DoF inverse dynamics</div></div>
-      <div class="stat"><div class="v">3.5<small>µs</small></div><div class="l">exact derivative on a RISC-V MCU</div></div>
       <div class="stat"><div class="v">1e-10</div><div class="l">tolerance vs MuJoCo and Pinocchio</div></div>
-      <div class="stat"><div class="v">3</div><div class="l">real boards, 6 CI targets</div></div>
+      <div class="stat"><div class="v">490<small>ns</small></div><div class="l">7-DoF inverse dynamics</div></div>
+      <div class="stat"><div class="v">646<small>ns</small></div><div class="l">7-DoF forward dynamics</div></div>
+      <div class="stat"><div class="v">22<small>µs</small></div><div class="l">7-DoF inverse kinematics</div></div>
     </div>
   </div>
 </header>
