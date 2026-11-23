@@ -72,6 +72,26 @@ fn normalized_innovation_squared_matches_hand_computation() {
     assert!((normalized - 1.0 / 3.0).abs() < 1e-12);
 }
 
+#[test]
+fn set_model_replaces_model_and_getters_return_values() {
+    let mut filter =
+        constant_velocity_filter::<f64>(Matrix::identity(), Matrix::zeros(), Matrix::new([[1.0]]));
+
+    let model = KalmanModel {
+        state_transition: Matrix::new([[2.0, 1.0], [0.0, 3.0]]),
+        measurement_model: Matrix::new([[0.0, 1.0]]),
+        process_noise: Matrix::new([[0.2, 0.0], [0.0, 0.3]]),
+        measurement_noise: Matrix::new([[0.5]]),
+    };
+
+    filter.set_model(model);
+
+    assert_eq!(filter.state_transition(), model.state_transition);
+    assert_eq!(filter.measurement_model(), model.measurement_model);
+    assert_eq!(filter.process_noise(), model.process_noise);
+    assert_eq!(filter.measurement_noise(), model.measurement_noise);
+}
+
 // ----- Properties -----
 
 proptest! {
