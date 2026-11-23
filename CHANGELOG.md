@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Speed up quaternion transform_point.** `Quaternion::transform_point` previously
+  computed `q * p * q.conjugate()` to rotate the point, which takes 28 multiplications.
+  It now uses `v + 2w * (u × v) + 2 * u × (u × v)`, which gives the same result in
+  15 multiplications. @shivaang12
 - **A checked rigid-body state derivative.** `RigidBody::try_state_derivative` reports
   `DynamicsError::DegenerateOrientation` when a state's four orientation numbers normalize to
   nothing, a case the infallible `state_derivative` answers with an all-zero derivative that an
