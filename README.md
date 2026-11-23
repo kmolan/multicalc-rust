@@ -1,5 +1,6 @@
 # multicalc
 
+[![Website](https://img.shields.io/badge/website-kmolan.github.io-e8683a)](https://kmolan.github.io/multicalc-rust/)
 [![On crates.io](https://img.shields.io/crates/v/multicalc.svg)](https://crates.io/crates/multicalc)
 ![Downloads](https://img.shields.io/crates/d/multicalc?style=flat-square)
 [![CI](https://github.com/kmolan/multicalc-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/kmolan/multicalc-rust/actions/workflows/ci.yml)
@@ -12,7 +13,7 @@ in one `no_std` Rust crate. No heap, no panics, no unsafe.
 https://github.com/user-attachments/assets/ed45ccb5-ca95-4e4b-8399-27d09284b220
 
 *The [live showcases](demos#live-showcases). Each number on screen is measured live, inside a 1 ms
-tick.* **[Website](https://kmolan.github.io/multicalc-rust/)**
+tick.*
 
 ## Highlights
 
@@ -99,6 +100,7 @@ Each module has its own error enum, and each one converts into `CalcError`.
 
 ## Documentation
 
+- **[Website](https://kmolan.github.io/multicalc-rust/)**: demos, silicon timings, latency and accuracy charts.
 - **[Tutorials](crates/multicalc/tutorials/README.md)**: one page for each module.
 - **[API docs](https://docs.rs/multicalc)**: the full API reference.
 - **[Demos](demos)**: a self-checking example for each module, and six live showcases. Run one with
