@@ -72,6 +72,43 @@ fn normalized_innovation_squared_matches_hand_computation() {
     assert!((normalized - 1.0 / 3.0).abs() < 1e-12);
 }
 
+/// The measurement log-likelihood match the one-dimensional Gaussian formula.
+#[test]
+fn log_likelihood_matches_hand_computation() {
+    let mut filter =
+        constant_velocity_filter::<f64>(Matrix::identity(), Matrix::zeros(), Matrix::new([[1.0]]));
+
+    filter.predict();
+    filter.update(Vector::new([0.5])).unwrap();
+
+    // After prediction: P = [[2, 1], [1, 1]].
+    // The measurement observes position, so S = 2 + 1 = 3.
+    // Innovation y = 0.5 - 0 = 0.5.
+    let expected = -0.5 * (0.5_f64 * 0.5 / 3.0 + 3.0_f64.ln() + (2.0 * core::f64::consts::PI).ln());
+
+    let actual = filter.log_likelihood().unwrap();
+
+    assert!((actual - expected).abs() < 1e-12);
+}
+
+/// A measurement closer to the prediction has a higher log-likelihood.
+#[test]
+fn better_matching_measurement_has_higher_log_likelihood() {
+    let make_score = |measurement: f64| {
+        let mut filter = constant_velocity_filter::<f64>(
+            Matrix::identity(),
+            Matrix::zeros(),
+            Matrix::new([[1.0]]),
+        );
+
+        filter.predict();
+        filter.update(Vector::new([measurement])).unwrap();
+        filter.log_likelihood().unwrap()
+    };
+
+    assert!(make_score(0.0) > make_score(1.0));
+}
+
 // ----- Properties -----
 
 proptest! {

@@ -206,6 +206,51 @@ fn unicycle_predict_matches_hand_computation() {
     );
 }
 
+#[test]
+fn log_likelihood_matches_hand_computation() {
+    let mut filter = ExtendedKalmanFilter::<2, 1>::new(
+        Vector::new([0.0, 0.0]),
+        Matrix::identity(),
+        Matrix::zeros(),
+        Matrix::new([[1.0]]),
+    );
+
+    filter.predict(&ConstantVelocityMotion).unwrap();
+    filter
+        .update(&PositionMeasurement, Vector::new([0.5]))
+        .unwrap();
+
+    // Prediction gives P = [[2, 1], [1, 1]].
+    // Position is measured, so innovation covariance S = 2 + 1 = 3.
+    // Innovation y = 0.5.
+    let expected = -0.5 * (0.5_f64 * 0.5 / 3.0 + 3.0_f64.ln() + (2.0 * core::f64::consts::PI).ln());
+
+    let actual = filter.log_likelihood().unwrap();
+
+    assert!((actual - expected).abs() < 1e-12);
+}
+
+#[test]
+fn better_matching_measurement_has_higher_log_likelihood() {
+    let score = |measurement: f64| {
+        let mut filter = ExtendedKalmanFilter::<2, 1>::new(
+            Vector::new([0.0, 0.0]),
+            Matrix::identity(),
+            Matrix::zeros(),
+            Matrix::new([[1.0]]),
+        );
+
+        filter.predict(&ConstantVelocityMotion).unwrap();
+        filter
+            .update(&PositionMeasurement, Vector::new([measurement]))
+            .unwrap();
+
+        filter.log_likelihood().unwrap()
+    };
+
+    assert!(score(0.0) > score(1.0));
+}
+
 // ----- Properties -----
 
 proptest! {

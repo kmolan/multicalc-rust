@@ -90,6 +90,34 @@ impl<const N: usize, T: Numeric> Cholesky<N, T> {
         det
     }
 
+    /// The natural logarithm of the determinant of the factorized matrix.
+    ///
+    /// Computes `2 * sum(ln(L[i][i]))` directly, avoiding the intermediate
+    /// product used by `determinant()`.
+    ///
+    /// # Exemples
+    ///
+    ///```
+    ///use multicalc::linear_algebra::Matrix;
+    ///
+    ///let a = Matrix::<2, 2>::new([[4.0, 2.0],[2.0, 3.0]]);
+    ///let chol = a.cholesky().unwrap();
+    ///
+    /// // det(A) = 4*3 - 2*2 = 8, so ln(det(A)) = len(8).
+    /// assert!((chol.log_determinant() - 8.0_f64.ln()).abs() < 1e-12);
+    ///```
+    #[inline]
+    #[must_use]
+    pub fn log_determinant(&self) -> T {
+        let mut log_det = T::ZERO;
+
+        for i in 0..N {
+            log_det += self.lower[(i, i)].log() * T::TWO;
+        }
+
+        log_det
+    }
+
     /// Solves `A·x = b` for `x`, reusing this factorization.
     ///
     /// Infallible: the factorization already guaranteed every `L` diagonal entry is positive.

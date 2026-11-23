@@ -8,7 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-
+- **log-likelihood to the Kalman filters.** `log_determinant()` to the `Cholesky` decomposition
+  to calculate the natural logarithm of a matrix determinant efficiently.
+  `log_likelihood()` to both the linear and extended Kalman filters, using the `innovation`
+  and `innovation_covariance` to compute the Gaussian `log_likelihood`.@Thiago316316 (#211)
+  Added tests verifying the `log_likelihood` against a hand-calculated one-dimensional Gaussian result and 
+  confirming that measurements closer to the prediction receive higher scores. 
 - **A checked rigid-body state derivative.** `RigidBody::try_state_derivative` reports
   `DynamicsError::DegenerateOrientation` when a state's four orientation numbers normalize to
   nothing, a case the infallible `state_derivative` answers with an all-zero derivative that an
