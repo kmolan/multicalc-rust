@@ -215,9 +215,9 @@ footer a:hover { color: var(--text-primary); }
   <div class="wrap">
     <a class="brand" href="#">multi<b>calc</b></a>
     <ul>
-      <li class="hide-sm"><a href="#demos">Demos</a></li>
       <li class="hide-sm"><a href="#silicon">Silicon</a></li>
       <li class="hide-sm"><a href="#speed">Speed</a></li>
+      <li class="hide-sm"><a href="#demos">Demos</a></li>
       <li class="hide-sm"><a href="#accuracy">Accuracy</a></li>
       <li><a href="https://docs.rs/multicalc">Docs</a></li>
       <li><a href="https://github.com/kmolan/multicalc-rust">GitHub</a></li>
@@ -247,17 +247,59 @@ footer a:hover { color: var(--text-primary); }
     </div>
 
     <div class="stats">
-      <div class="stat"><div class="v">1<small>kHz</small></div><div class="l">full control loop</div></div>
       <div class="stat"><div class="v">34<small>ns</small></div><div class="l">Kalman filter step</div></div>
-      <div class="stat"><div class="v">183</div><div class="l">accuracy checks vs 8 references</div></div>
+      <div class="stat"><div class="v">490<small>ns</small></div><div class="l">7-DoF inverse dynamics</div></div>
+      <div class="stat"><div class="v">3.5<small>µs</small></div><div class="l">exact derivative on a 160 MHz RISC-V</div></div>
+      <div class="stat"><div class="v">1e-10</div><div class="l">tolerance vs MuJoCo and Pinocchio</div></div>
+      <div class="stat"><div class="v">3</div><div class="l">real boards, 6 CI targets</div></div>
       <div class="stat"><div class="v">1,780</div><div class="l">tests</div></div>
-      <div class="stat"><div class="v">6</div><div class="l">targets in CI</div></div>
-      <div class="stat"><div class="v">3</div><div class="l">real boards</div></div>
     </div>
   </div>
 </header>
 
 <main>
+
+<section id="silicon">
+  <div class="wrap">
+    <div class="kicker">Real silicon</div>
+    <h2>Same math. Real chips. Timed in cycles.</h2>
+    <p class="sub">A Tock app on three HILShare boards. f64 in software float. Each answer matches the QA golden.</p>
+    <div class="boards">
+      <div class="board"><i class="key" style="background:var(--series-1)"></i>
+        <div class="bn">ST Nucleo-F411RE</div><div class="bc">Cortex-M4F · 100 MHz</div>
+        <div class="pass"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6.5l2.5 2.5L10 3"/></svg>7/7 PASS</div></div>
+      <div class="board"><i class="key" style="background:var(--series-2)"></i>
+        <div class="bn">Raspberry Pi Pico 2</div><div class="bc">Cortex-M33 · 150 MHz</div>
+        <div class="pass"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6.5l2.5 2.5L10 3"/></svg>7/7 PASS</div></div>
+      <div class="board"><i class="key" style="background:var(--series-3)"></i>
+        <div class="bn">Seeed XIAO ESP32-C3</div><div class="bc">RV32IMC · 160 MHz</div>
+        <div class="pass"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6.5l2.5 2.5L10 3"/></svg>7/7 PASS</div></div>
+    </div>
+    <div class="card">
+      <h3>Warm time per check, µs</h3>
+      <p class="note">Log scale. Best of seven runs, call overhead removed.</p>
+      <div class="legend">
+        <span><i style="background:var(--series-1)"></i>Nucleo-F411RE</span>
+        <span><i style="background:var(--series-2)"></i>Pico 2</span>
+        <span><i style="background:var(--series-3)"></i>XIAO ESP32-C3</span>
+      </div>
+      <div class="chart" id="chart-silicon"></div>
+    </div>
+  </div>
+</section>
+
+<section id="speed">
+  <div class="wrap">
+    <div class="kicker">Latency</div>
+    <h2>Nanoseconds, not milliseconds.</h2>
+    <p class="sub">Criterion median, x86_64 i7-12650H, release profile.</p>
+    <div class="card">
+      <h3>Time per call</h3>
+      <p class="note">Log scale.</p>
+      <div class="chart" id="chart-latency"></div>
+    </div>
+  </div>
+</section>
 
 <section id="demos">
   <div class="wrap">
@@ -311,44 +353,14 @@ footer a:hover { color: var(--text-primary); }
   </div>
 </section>
 
-<section id="silicon">
+<section id="accuracy">
   <div class="wrap">
-    <div class="kicker">Real silicon</div>
-    <h2>Same math. Real chips. Timed in cycles.</h2>
-    <p class="sub">A Tock app on three HILShare boards. f64 in software float. Each answer matches the QA golden.</p>
-    <div class="boards">
-      <div class="board"><i class="key" style="background:var(--series-1)"></i>
-        <div class="bn">ST Nucleo-F411RE</div><div class="bc">Cortex-M4F · 100 MHz</div>
-        <div class="pass"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6.5l2.5 2.5L10 3"/></svg>7/7 PASS</div></div>
-      <div class="board"><i class="key" style="background:var(--series-2)"></i>
-        <div class="bn">Raspberry Pi Pico 2</div><div class="bc">Cortex-M33 · 150 MHz</div>
-        <div class="pass"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6.5l2.5 2.5L10 3"/></svg>7/7 PASS</div></div>
-      <div class="board"><i class="key" style="background:var(--series-3)"></i>
-        <div class="bn">Seeed XIAO ESP32-C3</div><div class="bc">RV32IMC · 160 MHz</div>
-        <div class="pass"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6.5l2.5 2.5L10 3"/></svg>7/7 PASS</div></div>
-    </div>
-    <div class="card">
-      <h3>Warm time per check, µs</h3>
-      <p class="note">Log scale. Best of seven runs, call overhead removed.</p>
-      <div class="legend">
-        <span><i style="background:var(--series-1)"></i>Nucleo-F411RE</span>
-        <span><i style="background:var(--series-2)"></i>Pico 2</span>
-        <span><i style="background:var(--series-3)"></i>XIAO ESP32-C3</span>
-      </div>
-      <div class="chart" id="chart-silicon"></div>
-    </div>
-  </div>
-</section>
-
-<section id="speed">
-  <div class="wrap">
-    <div class="kicker">Latency</div>
-    <h2>Nanoseconds, not milliseconds.</h2>
-    <p class="sub">Criterion median, x86_64 i7-12650H, release profile.</p>
-    <div class="card">
-      <h3>Time per call</h3>
-      <p class="note">Log scale.</p>
-      <div class="chart" id="chart-latency"></div>
+    <div class="kicker">Accuracy</div>
+    <h2>Checked against the libraries you trust.</h2>
+    <p class="sub">183 checks. Golden floats stored bit-exact. CI fails on any drift.</p>
+    <div class="grid-2">
+      <div class="card"><h3>Checks per tolerance</h3><p class="note">75% hold to 1e-9 or tighter.</p><div class="chart" id="chart-tolerance"></div></div>
+      <div class="card"><h3>Checks per reference</h3><p class="note">Locked library versions.</p><div class="chart" id="chart-references"></div></div>
     </div>
   </div>
 </section>
@@ -361,18 +373,6 @@ footer a:hover { color: var(--text-primary); }
     <div class="grid-2">
       <div class="card"><h3>.text, KB</h3><p class="note">Full check set; thumbv6m runs the canary set.</p><div class="chart" id="chart-flash"></div></div>
       <div class="card"><h3>Peak stack, bytes</h3><p class="note">High-water mark, f64.</p><div class="chart" id="chart-stack"></div></div>
-    </div>
-  </div>
-</section>
-
-<section id="accuracy">
-  <div class="wrap">
-    <div class="kicker">Accuracy</div>
-    <h2>Checked against the libraries you trust.</h2>
-    <p class="sub">183 checks. Golden floats stored bit-exact. CI fails on any drift.</p>
-    <div class="grid-2">
-      <div class="card"><h3>Checks per tolerance</h3><p class="note">75% hold to 1e-9 or tighter.</p><div class="chart" id="chart-tolerance"></div></div>
-      <div class="card"><h3>Checks per reference</h3><p class="note">Locked library versions.</p><div class="chart" id="chart-references"></div></div>
     </div>
   </div>
 </section>
@@ -451,8 +451,8 @@ const BOARDS = ["Nucleo-F411RE", "Pico 2", "XIAO ESP32-C3"];
 const SILICON = [
   { label: "Autodiff derivative", values: [5.79, 12.75, 3.45] },
   { label: "Vector dot, 4", values: [11.32, 21.78, 6.64] },
-  { label: "PID update", values: [2807.06 / 101, 1601.90 / 101, 1612.31 / 101] },
   { label: "Typed error path", values: [23.92, 31.77, 13.40] },
+  { label: "PID update", values: [2807.06 / 101, 1601.90 / 101, 1612.31 / 101] },
   { label: "SVD, 3×3", values: [1082.85, 711.46, 703.06] },
 ];
 
