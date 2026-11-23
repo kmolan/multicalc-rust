@@ -23,6 +23,29 @@ pub struct Svd<const M: usize, const N: usize, T = f64> {
     pub(crate) right: Matrix<N, N, T>,
 }
 
+/// Settings for the one-sided Jacobi SVD.
+#[derive(Debug, Clone, Copy)]
+pub struct SvdSettings {
+    /// Maximum number of Jacobi sweeps.
+    max_sweeps: usize,
+}
+
+impl Default for SvdSettings {
+    /// 60 sweeps.
+    fn default() -> Self {
+        Self { max_sweeps: 60 }
+    }
+}
+
+impl SvdSettings {
+    /// Sets the maximum number of Jacobi sweeps.
+    #[must_use]
+    pub const fn with_max_sweeps(mut self, max_sweeps: usize) -> Self {
+        self.max_sweeps = max_sweeps;
+        self
+    }
+}
+
 impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
     /// Decomposes `self` as `U · diag(σ) · Vᵀ` by one-sided Jacobi (thin form, `M ≥ N`).
     ///
@@ -69,6 +92,11 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
     /// }
     /// ```
     pub fn svd(self) -> Result<Svd<M, N, T>, LinalgError> {
+        self.svd_with_settings(SvdSettings::default())
+    }
+
+    /// [`Matrix::svd`] with the given [`SvdSettings`], such as the sweep budget.
+    pub fn svd_with_settings(self, settings: SvdSettings) -> Result<Svd<M, N, T>, LinalgError> {
         if M < N {
             return Err(LinalgError::Underdetermined);
         }
@@ -80,7 +108,7 @@ impl<const M: usize, const N: usize, T: Numeric> Matrix<M, N, T> {
         let mut right = Matrix::<N, N, T>::identity();
 
         // One-sided Jacobi: rotate column pairs of left until its columns are orthogonal.
-        let max_sweeps = 60;
+        let max_sweeps = settings.max_sweeps;
         for _ in 0..max_sweeps {
             let mut off_max = T::ZERO;
             for col_p in 0..N {

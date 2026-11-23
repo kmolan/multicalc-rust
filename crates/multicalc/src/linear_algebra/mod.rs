@@ -35,7 +35,7 @@ pub use cholesky::Cholesky;
 pub use lyapunov::{solve_discrete_lyapunov, solve_discrete_lyapunov_with_budget};
 pub use matrix::Matrix;
 pub use riccati::{solve_discrete_riccati, solve_discrete_riccati_with_budget};
-pub use svd::Svd;
+pub use svd::{Svd, SvdSettings};
 pub use symmetric_eigendecomposition::SymmetricEigendecomposition;
 pub use vector::Vector;
 pub use view::{MatrixView, MatrixViewMut, VectorView, VectorViewMut};
