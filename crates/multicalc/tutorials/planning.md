@@ -1,39 +1,38 @@
 # Planning
 
-Working out a route: a search over a grid map, or over a continuous state space by sampling.
+Route search over a grid map, or over a continuous state space by sampling.
 
 - `GridPlanner`: Dijkstra, A\*, weighted A\* and any-angle Theta\* over an `OccupancyMap`.
-- `TraversalCost`: what entering a cell costs, with `UniformCost` over a plain map and
-  `CostmapCost` over an inflation `CostGrid`.
-- `StateSpace` and `StateValidity`: where states live and which of them are free, with `BoxSpace`
+- `TraversalCost`: the cost to enter a cell, with `UniformCost` over a plain map and `CostmapCost`
+  over an inflation `CostGrid`.
+- `StateSpace` and `StateValidity`: the space of states and which states are free, with `BoxSpace`
   over a box in Euclidean space.
 - `Rrt`, `RrtStar` and `Prm`: sampling planners over that space.
-- `PlanReport`: the plan, its cost, and what the search spent finding it.
+- `PlanReport`: the plan, its cost, and the search effort.
 
 ## Planning is off-loop
 
-A search runs when the goal or the map changes — not every tick. What the control loop consumes is
-the `PolylinePath` that comes back, through
-[`MinimumSnapPlanner`](motion.md) or [`pure_pursuit_curvature`](control.md). Sizing the search that
-way is deliberate: a 128 by 128 grid search touches sixteen thousand cells, which is milliseconds of
-work and nothing a 1 kHz loop should be asked to do.
+A search runs when the goal or the map changes, not on each tick. The control loop consumes the
+`PolylinePath` that the search returns, through [`MinimumSnapPlanner`](motion.md) or
+[`pure_pursuit_curvature`](control.md). A 128 by 128 grid search touches approximately 16 000 cells,
+which is milliseconds of work and too much for a 1 kHz loop.
 
-Every search runs in a **caller-owned workspace**, so nothing here allocates and the memory is sized
-and placed by you — a `static`, or a `Box` where `alloc` is available. See
-[Sizing the workspaces](#sizing-the-workspaces) for what that costs.
+Each search runs in a **caller-owned workspace**, so nothing here allocates, and the caller sizes
+and places the memory: a `static`, or a `Box` where `alloc` is available. See
+[Sizing the workspaces](#sizing-the-workspaces) for the sizes.
 
 ## A first path
 
-`MAX_CELLS` must be at least the map's `rows · columns`; the natural way to write it is a `const` at
-the call site. `MAX_POINTS` is the waypoint capacity of the path that comes back — if it is short,
-`PlanningError::PathCapacityExceeded` says how many it would take, so you can resize and retry in
-one round trip.
+`MAX_CELLS` must be at least `rows · columns` of the map; write it as a `const` at the call site.
+`MAX_POINTS` is the waypoint capacity of the returned path. If it is too small,
+`PlanningError::PathCapacityExceeded { needed }` gives the necessary size, so one resize and retry
+is sufficient.
 
 ```rust
 use multicalc::mapping::{MutableOccupancyMap, OccupancyGrid, OccupancyMap};
 use multicalc::planning::{GridPlanner, GridSearchWorkspace, UniformCost};
 
-// A 10 m square of one-metre cells with a wall up the middle, open at the top.
+// A 10 m square of 1 m cells with a wall up the middle, open at the top.
 const ROWS: usize = 10;
 const COLUMNS: usize = 10;
 const MAX_CELLS: usize = ROWS * COLUMNS;
@@ -51,7 +50,7 @@ let goal = [9.5, 0.5];
 let report = GridPlanner::new()
     .try_plan::<MAX_CELLS, 64, _, _>(&room, &cost, start, goal, &mut workspace)?;
 
-// The plan starts and ends where it was asked to, and had to go round the wall.
+// The plan starts and ends at the requested points, and goes round the wall.
 let path = report.path();
 assert_eq!(path.waypoints().first().map(|point| *point.as_array()), Some(start));
 assert_eq!(path.waypoints().last().map(|point| *point.as_array()), Some(goal));
@@ -59,25 +58,29 @@ assert!(report.cost() > 9.0);
 # Ok::<(), multicalc::CalcError>(())
 ```
 
-`report.iterations()` is what the search spent — expansions for a grid search, samples drawn for a
-sampling planner — and `report.cost()` is what the plan costs under the traversal cost it was
-planned against. Under a uniform cost that is the path's length; a costmap scales each step by the
-cell it enters, so the cost exceeds the length wherever the path runs near an obstacle.
+`report.iterations()` is the search effort: expansions for a grid search, samples for a sampling
+planner. `report.cost()` is the plan cost under its traversal cost. Under a uniform cost, that is
+the path length. A costmap scales each step by the cost of the cell it enters, so the cost is more
+than the length where the path is near an obstacle.
 
 ## Choosing a search
 
-| Search | What it buys | What it costs |
-| --- | --- | --- |
-| `Dijkstra` | Settles every reachable cell in cost order. Useful when you want the cost field, not one route. | Expands the whole reachable set. |
-| `AStar` | The same optimal path, guided by a heuristic. The default. | Nothing, at weight one — it is optimal and strictly faster. |
-| Weighted A\* | A path within `weight` of optimal, found sooner. | Suboptimality, bounded by the weight. |
-| `ThetaStar` | Any-angle: straight segments rather than a grid staircase, and fewer waypoints. | A line-of-sight check per relaxation. |
+`GridPlanner::new()` runs A\*, eight-connected, with the Octile heuristic at weight one, no corner
+cutting, and a budget of one expansion per cell.
 
-Heuristics are `Manhattan`, `Octile` and `Euclidean`. **Manhattan paired with eight-connected
-movement is inadmissible** — it can overestimate a diagonal run and return a path that is not
-optimal — so that pairing is rejected outright with `PlanningError::InadmissibleHeuristic` rather
-than quietly returning a worse answer. Octile is the exact cost of an eight-connected straight run
-and is the default.
+| Search | Property | Cost |
+| --- | --- | --- |
+| `Dijkstra` | Settles each reachable cell in cost order. Use it for the cost field, not for one route. | Expands the full reachable set. |
+| `AStar` | The same optimal path, with a heuristic. The default. | No loss of optimality at weight one. |
+| Weighted A\* | `try_with_heuristic_weight(weight)`: a path within `weight` of optimal, in fewer expansions. | Suboptimality, bounded by the weight. |
+| `ThetaStar` | Any-angle: straight segments, not a grid staircase, and fewer waypoints. | A line-of-sight check per relaxation. |
+
+`try_with_heuristic_weight` returns `PlanningError::HeuristicWeightBelowOne` for a weight below one.
+
+The heuristics are `Manhattan` (`|Δrow| + |Δcolumn|`), `Octile` (`max + (√2 − 1)·min`, the exact
+cost of an eight-connected straight run, the default) and `Euclidean`. **Manhattan with
+eight-connected movement is inadmissible**: it can overestimate a diagonal run and return a
+suboptimal path. `try_plan` rejects that pair with `PlanningError::InadmissibleHeuristic`.
 
 ```rust
 # use multicalc::mapping::{MutableOccupancyMap, OccupancyGrid};
@@ -96,19 +99,19 @@ let (start, goal) = ([0.5, 0.5], [9.5, 9.5]);
 let by_astar = GridPlanner::new()
     .try_plan::<MAX_CELLS, 64, _, _>(&room, &cost, start, goal, &mut workspace)?;
 
-// Weighted A* trades optimality for speed, within the weight it was given.
+// Weighted A*: the cost is within the weight of optimal.
 let by_weighted = GridPlanner::new()
     .try_with_heuristic_weight(2.0)?
     .try_plan::<MAX_CELLS, 64, _, _>(&room, &cost, start, goal, &mut workspace)?;
 assert!(by_weighted.cost() <= 2.0 * by_astar.cost() + 1e-12);
 
-// Theta* costs no more and says it in fewer waypoints.
+// Theta*: no higher cost, in fewer waypoints.
 let by_theta = GridPlanner::new()
     .with_search(GridSearch::ThetaStar)
     .try_plan::<MAX_CELLS, 64, _, _>(&room, &cost, start, goal, &mut workspace)?;
 assert!(by_theta.cost() <= by_astar.cost() + 1e-9);
 
-// Four-connected movement needs a heuristic that never overestimates it.
+// Four-connected movement with Manhattan, its admissible heuristic.
 let four_connected = GridPlanner::new()
     .with_connectivity(GridConnectivity::FourConnected)
     .with_heuristic(GridHeuristic::Manhattan)
@@ -117,15 +120,15 @@ assert!(four_connected.cost() >= by_astar.cost());
 # Ok::<(), multicalc::CalcError>(())
 ```
 
-By default a diagonal step may not squeeze between two blocked cells meeting at a corner, which is a
-move no robot with width can make; `with_corner_cutting(true)` allows it. The same conservatism
-applies to Theta\*'s line-of-sight check: where a ray meets a cell corner exactly it enters one of
-the two neighbours and reports it blocked if it is.
+By default, a diagonal step cannot pass between two occupied cells that meet at a corner, because no
+robot with width can make that move. `with_corner_cutting(true)` allows it. The Theta\*
+line-of-sight check is equally conservative: where a ray meets a cell corner exactly, it enters one
+of the two neighbours and reports the ray blocked if that neighbour is occupied.
 
 ## Keeping off the walls
 
-A uniform cost has no reason to prefer the middle of a corridor, so it will happily plan a path that
-scrapes along a wall. A [`CostGrid`](mapping.md) inflated around the obstacles gives it one.
+A uniform cost has no preference for the middle of a corridor, so its path can run along a wall. A
+[`CostGrid`](mapping.md) inflated around the obstacles adds that preference.
 
 ```rust
 use multicalc::mapping::{
@@ -156,7 +159,7 @@ let clear_of_it = GridPlanner::new().try_plan::<MAX_CELLS, 256, _, _>(
     &room, &CostmapCost::new(&costmap).with_weight(5.0), start, goal, &mut workspace,
 )?;
 
-// The inflated plan keeps further from the wall, measured with the field itself.
+// The inflated plan has more clearance from the wall, measured with the field.
 let clearance = |report: &multicalc::planning::PlanReport<256, 2, f64>| {
     report.path().waypoints().iter()
         .filter_map(|point| field.distance_at(*point.as_array()))
@@ -167,14 +170,13 @@ assert!(clearance(&clear_of_it) > clearance(&hugging));
 ```
 
 **An unknown cell is impassable by default.** A [`LogOddsGrid`](mapping.md) reports `Unknown` for
-space no sensor has seen, and `UniformCost` refuses to route through it, because a planner that
-treats unmapped space as free will confidently drive into it. `with_unknown_passable(true)` opts back
-in where exploring is the point.
+space that no sensor saw, and `UniformCost` does not route through it. A planner that treats
+unmapped space as free drives into it. `with_unknown_passable(true)` allows unknown cells, for
+exploration.
 
 ## From a plan to a trajectory
 
-This is the chain the module exists to close: plan a route, smooth it, give it a time
-parameterization, and follow it.
+The full chain: plan a route, smooth it, time-parameterize it, and follow it.
 
 ```rust
 use multicalc::control::pure_pursuit_curvature;
@@ -192,8 +194,7 @@ for row in 2..8 {
 }
 let mut workspace: GridSearchWorkspace<MAX_CELLS> = GridSearchWorkspace::new();
 
-// Theta* first, because its straight segments are what a smoother wants: a grid staircase hands
-// the smoother corners that are not really there.
+// Theta*, because a smoother needs straight segments: a grid staircase gives it false corners.
 let report = GridPlanner::new()
     .with_search(GridSearch::ThetaStar)
     .try_plan::<MAX_CELLS, MAX_POINTS, _, _>(
@@ -203,18 +204,18 @@ let path = report.path();
 let segments = path.len() - 1;
 assert!(segments >= 1);
 
-// A first guess at how long each segment should take, then a polynomial per segment.
+// Initial segment durations, then one polynomial per segment.
 let mut durations = [0.0; MAX_POINTS];
 durations_from_average_speed(path.waypoints(), 1.0, &mut durations[..segments])?;
-// Three free derivatives a joint, so `3·(segments − 1)` of them.
+// Three free derivatives per interior waypoint, so `3·(segments − 1)` in total.
 let planner = MinimumSnapPlanner::<MAX_POINTS, 64, 2, f64>::new();
 let trajectory = planner.plan(path.waypoints(), &durations[..segments])?;
 
-// The trajectory gives position and its derivatives at any time along it.
+// Position and its derivatives at any time on the trajectory.
 let [position, velocity, _acceleration] = trajectory.evaluate_with_derivatives::<3>(0.5)?;
 assert!(position.is_finite() && velocity.norm() >= 0.0);
 
-// And a path follower steers to a lookahead point on the original waypoints.
+// A path follower steers to a lookahead point on the original waypoints.
 let lookahead_distance = 1.5;
 let start_pose = SE2::from_parts(SO2::from_angle(0.0), Vector2D::new([0.5, 0.5]));
 let projection = path.closest_point(Vector2D::new([0.5, 0.5]))?;
@@ -226,12 +227,12 @@ assert!(curvature.value().is_finite());
 
 ## Planning for a robot arm
 
-A grid is the wrong shape for a seven-joint arm: the configuration space is seven-dimensional and
-the obstacles live in the workspace, not in it. Sampling planners work the other way round — they
-draw configurations and ask an oracle whether each one is free.
+A grid does not suit a seven-joint arm: the configuration space has seven dimensions, and the
+obstacles are in the workspace, not in the configuration space. Sampling planners draw
+configurations and query a validity oracle for each one.
 
-`StateValidity` is that oracle, and its blanket implementation over `Fn(&Vector<N, T>) -> bool`
-means the everyday case is a closure:
+`StateValidity` is that oracle. It has a blanket implementation over `Fn(&Vector<N, T>) -> bool`, so
+the usual oracle is a closure:
 
 ```rust,ignore
 let is_state_valid = |configuration: &Vector<MAX_CONFIG, f64>| {
@@ -241,18 +242,18 @@ let is_state_valid = |configuration: &Vector<MAX_CONFIG, f64>| {
 };
 ```
 
-It answers `bool` rather than `Result` deliberately: the fallible parts of a real oracle fail only
-on construction bugs, never per state, and a generic error would add a type parameter to every
-`try_plan` while giving the planner nothing useful to do with it. A check that cannot be evaluated
-must report the state invalid.
+It returns `bool`, not `Result`. The fallible parts of a real oracle fail only on construction bugs,
+never per state, and a generic error would add a type parameter to each `try_plan` with no useful
+action for the planner. If a check cannot be evaluated, the oracle must report the state invalid.
 
-`StateSpace` says where the configurations live. `BoxSpace` covers joint limits in Euclidean space:
+`StateSpace` defines where the configurations are. `BoxSpace` covers joint limits in Euclidean
+space:
 
 ```rust
 use multicalc::planning::{BoxSpace, Rrt, RrtWorkspace, StateSpace};
 use multicalc::{Pcg32, Vector};
 
-// A two-joint arm's limits, and an obstacle that rules out a band of configurations.
+// The limits of a two-joint arm, and an obstacle that excludes a band of configurations.
 let space: BoxSpace<2> =
     BoxSpace::try_new(Vector::new([-3.0, -3.0]), Vector::new([3.0, 3.0]))?;
 let is_state_valid = |configuration: &Vector<2, f64>| {
@@ -280,35 +281,37 @@ for waypoint in report.path().waypoints() {
 # Ok::<(), multicalc::CalcError>(())
 ```
 
-**`StateSpace` is a trait on correctness grounds, not for flexibility.** A continuous joint at
-`+179°` and `−179°` is `2°` apart, but raw coordinate subtraction makes it `358°` and interpolates
-the long way round. A planner assuming Euclidean coordinates returns wrong nearest neighbours on
-exactly the arm configurations this crate cares about, so a wrapped joint needs its own `distance`
-and `interpolate` — about thirty lines: `sample` redrawing each actuated joint across its limits,
-`distance` delegating to the tree's own configuration metric, and `interpolate` a per-axis lerp with
-`wrap_to_pi` on the continuous joints.
+**`StateSpace` is a trait for correctness, not for flexibility.** A continuous joint at `+179°` and
+`−179°` is `2°` apart, but raw subtraction gives `358°` and interpolates the long way round. A
+planner that assumes Euclidean coordinates returns wrong nearest neighbours for such joints. Thus a
+wrapped joint needs its own `StateSpace` implementation, of approximately thirty lines:
 
-Keeping that implementation in your code rather than in the library is what keeps a
-`planning → kinematics` edge out of the crate's layering.
+- `sample` draws each actuated joint across its limits.
+- `distance` uses the configuration metric of the kinematic tree.
+- `interpolate` is a per-axis lerp, with `wrap_to_pi` on the continuous joints.
 
-Edge checking is **discrete**: `edge_is_valid` tests a fixed number of stations along a segment plus
-its far end, so an obstacle thinner than the spacing between two stations is missed. Raise
-`with_edge_checks` where that matters.
+That implementation is in user code, not in the library, so the crate has no
+`planning → kinematics` dependency.
+
+Edge validation is **discrete**: it tests a fixed number of interior stations on a segment (default
+8) plus the far end. It misses an obstacle thinner than the station spacing. Where that matters,
+increase `with_edge_checks`.
 
 ## RRT\*, and PRM
 
-The three sampling planners promise different things, which is why they are three types rather than
-one with a mode:
+The three sampling planners give different guarantees, so they are three types, not one type with a
+mode:
 
-- **`Rrt`** returns the **first** path it finds. Cheapest, and the answer is whatever the tree
-  happened to reach. An exhausted budget is `DidNotConverge`.
-- **`RrtStar`** returns the **best** path within its sample budget. Each new node picks the cheapest
-  reachable parent and rewires any neighbour it can improve, so cost falls as the budget grows — it
-  does not stop on first contact with the goal. For it the budget *is* the plan, so failing to reach
-  the goal is `NoPathFound` rather than `DidNotConverge`.
-- **`Prm`** builds a roadmap once and answers many queries against it. Worth its build cost where
-  the obstacles stay put and the queries keep coming; a tree planner is the better answer for a
-  single query.
+- **`Rrt`** returns the **first** path it finds. It is the cheapest, and the path is the first branch
+  that reaches the goal. An exhausted budget returns `DidNotConverge`.
+- **`RrtStar`** returns the **best** path within its sample budget. Each new node takes the
+  cheapest reachable parent and rewires each neighbour that it can improve, so the cost decreases as
+  the budget increases. It does not stop at the first contact with the goal. For RRT\* the full
+  budget is the plan, so a failure to reach the goal returns `NoPathFound`, not `DidNotConverge`.
+- **`Prm`** builds a roadmap once and answers many queries against it. Use it where the obstacles
+  are static and the queries repeat. For a single query, a tree planner is better. If the node
+  array fills, `try_build` stops sampling with no error and gives a sparser roadmap. If the edge
+  array fills, it returns `WorkspaceTooSmall`.
 
 ```rust
 use multicalc::planning::{BoxSpace, Prm, PrmWorkspace};
@@ -333,26 +336,25 @@ for index in 0..20 {
         &mut workspace,
     )?;
 }
-// Twenty queries later the roadmap is exactly as it was built. That reuse is the whole point.
+// After twenty queries, the roadmap is the same as it was after the build.
 assert_eq!(workspace.node_count(), nodes);
 # Ok::<(), multicalc::CalcError>(())
 ```
 
-Nearest-neighbour search is a linear scan, so O(n) a call and O(n²) over a build: at 2000 nodes that
-is about 4 M distance evaluations, milliseconds off-loop. A k-d tree is *not* the upgrade — its
-axis-split rule assumes a Euclidean product space, which is false for the wrapped and
-manifold-valued joints `StateSpace` exists to support, so it would make the answer wrong on exactly
-those states.
+Nearest-neighbour search is a linear scan: O(n) per call and O(n²) per build. At 2000 nodes, that is
+approximately 4 M distance evaluations, milliseconds off-loop. A k-d tree is *not* a valid upgrade:
+its axis-split rule assumes a Euclidean product space. That is false for the wrapped and
+manifold-valued joints that `StateSpace` supports, so the results would be wrong for those states.
 
-A fixed seed reproduces a plan exactly: one draw is spent per iteration whether or not the goal bias
-takes it, so the same `Pcg32` seed gives bit-identical waypoints.
+A fixed seed reproduces a plan exactly. Each iteration uses one draw, whether the goal bias takes it
+or not, so the same `Pcg32` seed gives bit-identical waypoints.
 
 ## Sizing the workspaces
 
-These are the largest stack objects in the crate, which is precisely why they are caller-owned: a
-workspace can live in a `static`, or in a `Box` where `alloc` is available, rather than on the stack.
+The workspaces are the largest stack objects in the crate, so they are caller-owned: a workspace can
+be in a `static`, or in a `Box` where `alloc` is available, and not on the stack.
 
-`GridSearchWorkspace` is `2·size_of::<T>() + 13` bytes a cell plus padding:
+`GridSearchWorkspace` is `2·size_of::<T>() + 13` bytes per cell plus padding:
 
 | Map | `f32` | `f64` |
 | --- | --- | --- |
@@ -360,32 +362,41 @@ workspace can live in a `static`, or in a `Box` where `alloc` is available, rath
 | 128 × 128 | ≈ 344 KB | ≈ 541 KB |
 | 256 × 256 | ≈ 1.4 MB | ≈ 2.2 MB |
 
-`RrtWorkspace` is `DIMENSION·size_of::<T>() + 12` bytes a node:
+`RrtWorkspace` is `DIMENSION·size_of::<T>() + 12` bytes per node at `f64`:
 
 | Nodes | 2-D `f64` | 7-D `f64` |
 | --- | --- | --- |
 | 1 000 | ≈ 28 KB | ≈ 68 KB |
 | 4 000 | ≈ 112 KB | ≈ 272 KB |
 
-`PrmWorkspace` adds `2·size_of::<T>() + 12` bytes a node for its search arrays and
-`size_of::<T>() + 8` an edge for the edge list.
+`PrmWorkspace` adds `2·size_of::<T>() + 12` bytes per node for its search arrays and
+`size_of::<T>() + 8` bytes per edge for the edge list.
 
 ## Errors
 
-Errors are [`PlanningError`](error-handling.md). The ones worth knowing apart:
+Errors are [`PlanningError`](error-handling.md). The important distinctions:
 
-- `NoPathFound` versus `DidNotConverge` — the first is a *proof* that nothing reachable is the goal,
-  for Dijkstra and A\*; the second means the search was cut short by its budget and says how much it
-  spent.
-- `StartNotFree` and `GoalNotFree` — an endpoint is blocked, so no plan can leave or reach it.
-- `WorkspaceTooSmall` — more cells, nodes or edges than the workspace holds.
-- `PathCapacityExceeded { needed }` — the plan is longer than `MAX_POINTS`, and `needed` is the size
-  that would work, so a resize and retry is one round trip.
-- `InadmissibleHeuristic` — Manhattan with eight-connected movement, rejected rather than silently
-  returning a suboptimal path.
+- `NoPathFound` and `DidNotConverge { iterations }`: for Dijkstra and A\*, `NoPathFound` is a *proof*
+  that the goal is not reachable. `DidNotConverge` means that the budget stopped the search, and
+  gives the effort spent.
+- `StartNotFree` and `GoalNotFree`: an endpoint is occupied. `StartOutOfBounds` and
+  `GoalOutOfBounds`: an endpoint is outside the map or the state space.
+- `WorkspaceTooSmall`: more cells, nodes or edges than the workspace holds.
+- `PathCapacityExceeded { needed }`: the plan has more waypoints than `MAX_POINTS`, and `needed` is
+  the size that works.
+- `InadmissibleHeuristic`: Manhattan with eight-connected movement.
+- `NonFinite`, `NonPositiveParameter`, `InvalidGoalBias`, `HeuristicWeightBelowOne`,
+  `BoundsReversed`, `MapTooLarge`: invalid configuration.
+
+Full demo:
+[path_planning.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/path_planning.rs).
 
 ## Next
 
-[Mapping](mapping.md) is where the maps, the distance field and the costmap come from;
-[Motion](motion.md) is what smooths a plan and gives it a time parameterization;
-[Control](control.md) is what follows it.
+[Mapping](mapping.md) gives the maps, the distance field and the costmap;
+[Motion](motion.md) smooths a plan and time-parameterizes it;
+[Control](control.md) follows it.
+
+---
+
+[Back to the tutorial index](README.md)

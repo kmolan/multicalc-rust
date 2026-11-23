@@ -1,8 +1,7 @@
 # Latency benchmarks
 
-Latency measurements with criterion in
-the optimized bench profile. **Numbers are machine-dependent**.
-Manually regenerate with `cargo bench -p multicalc-qa`.
+Criterion measurements in the optimized bench profile. **The numbers are machine-dependent.**
+Regenerate with `cargo bench -p multicalc-qa`.
 
 Measured on a 12th Gen Intel Core i7-12650H (16 threads) under WSL2 (Linux 6.18).
 

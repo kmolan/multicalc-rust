@@ -1,18 +1,21 @@
 # Derivatives, Jacobians, and Hessians
 
-Derivatives of any order, total and partial — exact through forward-mode autodiff, or by finite
-differences for black-box functions — plus Jacobian and Hessian matrices.
+Total and partial derivatives, exact by forward-mode autodiff or approximate by finite
+differences, plus Jacobian and Hessian matrices.
 
-- `derivative`, `second_derivative`, `partial`: one-call functions covering the common case. See
-  [the note on the two paths](importing.md#the-easy-path-and-the-configurable-one).
-- `AutoDiffSingle` / `AutoDiffMulti`: exact derivatives, to any order.
-- `FiniteDifferenceSingle` / `FiniteDifferenceMulti`: for functions you cannot author with
-  `scalar_fn!`.
-- Both implement the `DerivatorSingleVariable` / `DerivatorMultiVariable` traits
-  (`differentiate`, `first_derivative`, `second_derivative`, `first_partial_derivative`).
+- `derivative`, `second_derivative`, `partial`: one-call functions for the common case. See
+  [One-call functions and strategy objects](importing.md#one-call-functions-and-strategy-objects).
+- `AutoDiffSingle` / `AutoDiffMulti`: exact derivatives, to order 6 for one variable and to order 3
+  for several variables.
+- `FiniteDifferenceSingle` / `FiniteDifferenceMulti`: for black-box functions that you cannot
+  write with `scalar_fn!`. `from_parameters(step, mode, multiplier)` sets the step size and the
+  `FiniteDifferenceMode` (`Forward`, `Backward` or `Central`).
+- Both backends implement `DerivatorSingleVariable` (`differentiate`, `first_derivative`,
+  `second_derivative`) and `DerivatorMultiVariable` (`differentiate`, `first_partial_derivative`,
+  `second_partial_derivative`).
 - `Jacobian` and `Hessian` build the matrices.
 
-For several variables, the derivative order is just the number of indices you pass:
+For several variables, the derivative order is the number of indices in the array:
 
 ```rust
 use multicalc::AutoDiffMulti;
@@ -34,11 +37,7 @@ let twice_by_x_then_y = [0, 0, 1];
 let third = d.differentiate(&g, &twice_by_x_then_y, &point).unwrap();
 ```
 
-Pass a finite-difference derivator (`FiniteDifferenceSingle` / `FiniteDifferenceMulti`) instead
-when the function is a black box you cannot author with `scalar_fn!`.
-
-Write a vector-valued function with `scalar_fn_vec!` and its rows differentiate under autodiff
-to give the Jacobian; a scalar field gives the Hessian:
+`Jacobian` differentiates the rows of a `scalar_fn_vec!` function. `Hessian` takes a scalar field:
 
 ```rust
 use multicalc::Jacobian;
@@ -62,8 +61,14 @@ let h = hessian.evaluate(&g, &hessian_point).unwrap();
 With the `alloc` feature, `Jacobian::evaluate_on_heap` returns a `Vec<Vec<T>>` for inputs too large
 for the stack.
 
-Errors: these calls return [`DiffError`](error-handling.md): `OrderZero`, `OrderUnsupported`,
-`StepSizeZero` (finite differences), or `IndexOutOfRange`. Full demos:
+Errors: these calls return [`DiffError`](error-handling.md):
+
+- `OrderZero`, or `OrderUnsupported` above the autodiff order limit.
+- `StepSizeZero` or `InvalidStepSize` for a finite-difference step.
+- `IndexOutOfRange` for a variable index outside the point.
+- `EmptyFunctionSet` for a Jacobian of a function with no outputs.
+
+Full demos:
 [differentiation.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/differentiation.rs)
 and
 [jacobian_hessian.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/jacobian_hessian.rs).

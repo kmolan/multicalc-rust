@@ -23,7 +23,7 @@ defaults:
 jobs:
   matrix:
     name: target matrix
-    # Representative set (full: false by default): x86_64 host + both thumbv7em ABIs.
+    # Representative set (full: false by default): x86_64 host + the four bare-metal ABIs.
     # The complete matrix runs in full.yml (push:main / nightly) and on release.
     uses: ./.github/workflows/matrix.yml
 

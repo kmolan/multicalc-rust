@@ -5,14 +5,18 @@ Initial-value solvers for `y' = f(t, y)` systems, generic over the state dimensi
 - `Rk4`: fixed-step classical Runge–Kutta. `Rk4::step` advances one step; `Rk4::integrate`
   runs a fixed number of steps with a per-step callback.
 - `Rk45`: adaptive Dormand–Prince 5(4) with PI step control and cubic-Hermite dense output.
-  `solve` integrates to a target time, `solve_on_grid` fills requested sample times via dense
-  output, and `for_each_step` exposes each accepted step. Tolerances are set with `with_rtol`
-  and `with_atol`.
-- `ExponentialMap`: turns an orientation forward by the turn it makes over the step, so what comes
-  back is still a true rotation and there is nothing to scale back. `attitude_step` takes a steady
-  turn rate, `attitude_step_with_angular_acceleration` uses the rate half way through the step
-  instead, and `integrate_attitude` runs a fixed number of steps asking a callback for the rate as
-  it goes.
+  - `solve` integrates to a target time.
+  - `solve_on_grid` fills sorted sample times from the dense output, with no allocation.
+  - `for_each_step` gives each accepted step to a callback.
+  - `with_rtol` (default `1e-6`) and `with_atol` (default `1e-9`) set the tolerances.
+    `with_first_step`, `with_min_step`, `with_max_step` and `with_max_steps` set the step limits.
+- `ExponentialMap`: the Lie-group integrator on SO(3), `R ← R · exp(ω·dt)` with `ω` in the body
+  frame.
+  - `attitude_step` holds `ω` constant over the step. It is first order.
+  - `attitude_step_with_angular_acceleration` uses the midpoint rate `ω + α·dt/2`. It is second
+    order.
+  - `integrate_attitude` runs a fixed number of midpoint steps. It gets `ω` from a callback at the
+    start and at the half step, and gives each node to an observer.
 
 ```rust
 use multicalc::{Rk4, Rk45};
@@ -32,8 +36,7 @@ let yf = Rk45::default().solve(&f, start_time, &y0, one_period).unwrap();
 assert!((yf[0] - 1.0).abs() < 1e-6 && yf[1].abs() < 1e-6);
 ```
 
-Dense output samples a whole grid in one pass, and `for_each_step` lets you track a conserved
-quantity as the solver runs:
+Dense output fills a time grid in one pass:
 
 ```rust
 use multicalc::Rk45;
@@ -53,17 +56,9 @@ let mut out = [Vector2D::zeros(); 4];
 solver.solve_on_grid(&f, start_time, &y0, &times, &mut out).unwrap();
 ```
 
-Stepping an orientation is the one case where the state is not a plain list of numbers. Four
-orientation numbers stepped by `Rk4` or `Rk45` slowly leave unit length and have to be scaled back,
-and that scaling is a correction with no physical meaning. `ExponentialMap` avoids the problem
-instead of correcting it: the turn made over the step is composed onto the orientation, which keeps
-it a true rotation to within rounding.
-
-The trade is accuracy. `attitude_step` takes the turn rate as steady across the step, so its error
-shrinks in proportion to the step size; `attitude_step_with_angular_acceleration` and
-`integrate_attitude` use the rate half way through and shrink with the square of it. Both are
-coarser than `Rk4`, which shrinks with the fourth power — so pick by whether a drifting orientation
-or a coarser step hurts more for the run at hand.
+A quaternion state under `Rk4` or `Rk45` drifts off unit norm and needs renormalization.
+`ExponentialMap` composes the step rotation onto the orientation, so the result stays on SO(3) to
+rounding. The cost is order: first or second order, against fourth order for `Rk4`.
 
 ```rust
 use multicalc::ode::ExponentialMap;
@@ -90,9 +85,19 @@ assert!((swung[1] - 1.0).abs() < 1e-12);
 assert!((facing.quaternion().norm() - 1.0).abs() < 1e-14);
 ```
 
-Errors: the adaptive solver returns [`IntegrateError`](error-handling.md): `StepSizeTooSmall`,
-`DidNotConverge { steps }`, or `NonFinite`. `attitude_step` and `attitude_step_with_angular_acceleration` have no error path — each step is a fixed handful of small products. `integrate_attitude` returns [`IntegrateError`](error-handling.md) (`NonFinite` or `NonPositiveTimestep`) since it takes a timestep and drives many steps. Full demo (harmonic oscillator plus an acrobot,
-a tumbling quadrotor, and an N-body model):
+Errors: the fallible calls return [`IntegrateError`](error-handling.md).
+
+- `Rk4::step` and `Rk4::integrate` have no error path.
+- `Rk45` returns `LimitsIllDefined` for a NaN or zero-length span, or for a `solve_on_grid` time
+  grid of the wrong length, out of range or out of order. It returns `NonFinite`,
+  `StepSizeTooSmall` below `min_step`, or `DidNotConverge { steps }` when `max_steps` runs out.
+- `attitude_step` and `attitude_step_with_angular_acceleration` have no error path and do not
+  validate their input. Non-finite input can give a non-finite orientation. A non-positive `dt`
+  steps backward or not at all.
+- `integrate_attitude` returns `NonFinite` for a non-finite `dt` or rate, and
+  `NonPositiveTimestep` for `dt ≤ 0`.
+
+Full demo (harmonic oscillator, an acrobot, a quadrotor in free tumble and an N-body model):
 [ode.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/ode.rs).
 
 

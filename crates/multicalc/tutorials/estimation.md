@@ -1,22 +1,26 @@
 # Estimation
 
-State estimation from noisy measurements. `KalmanFilter` is the linear filter: `predict` rolls the
-state forward through a matrix model and grows the covariance by the process noise; `update` folds in
-a measurement and shrinks it. Fixed-size, no allocation, and generic over the `Numeric` scalar, so a
-`Dual` state differentiates the whole filter.
+State estimation from noisy measurements. All filters are fixed-size and generic over the `Numeric`
+scalar, so a `Dual` state differentiates the whole filter. `ParticleFilter` and
+`MonteCarloLocalizer` are heap-backed and need the `alloc` feature.
 
-- `KalmanFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T>`: built from an initial estimate and a
-  `KalmanModel`.
-- `KalmanModel<STATE_DIMENSION, MEASUREMENT_DIMENSION, T>`: the four matrices that describe what the
-  filter is tracking — transition, measurement model, process noise, measurement noise. Three of
-  them are the same shape, so naming each field is what stops a swapped pair compiling.
-- `predict` / `predict_with_control`: the time step, undriven or with a `control_model ·
-  control_input` term. `CONTROL_DIMENSION` lives on the method, so undriven users never meet it.
-- `update`: the measurement step. The only fallible operation in the module.
-- `CovarianceUpdate`: `Joseph` (the default) or `Naive`.
+## Kalman filter
+
+`KalmanFilter` is the linear filter. `predict` propagates `x = F·x`, `P = F·P·Fᵀ + Q`; `update` folds
+in a measurement and shrinks `P`.
+
+- `KalmanFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T>`: built from an initial estimate, an
+  initial covariance and a `KalmanModel`.
+- `KalmanModel<STATE_DIMENSION, MEASUREMENT_DIMENSION, T>`: the four matrices `state_transition`,
+  `measurement_model`, `process_noise` and `measurement_noise`. Three of them have the same shape, so
+  with named fields, a swapped pair does not compile.
+- `predict` / `predict_with_control`: the time step, without or with a `control_model ·
+  control_input` term. `CONTROL_DIMENSION` is a parameter of the method, not of the type.
+- `update`: the measurement step. It returns a `Result`; `predict` does not.
+- `with_covariance_update(CovarianceUpdate)`: `Joseph` (the default) or `Naive`.
 - `innovation` / `innovation_covariance` / `normalized_innovation_squared`: for measurement gating.
-- The setters (`set_state_transition`, `set_process_noise`, …) cover the time-varying case, where a
-  changing timestep changes the model between steps.
+- `set_state_transition`, `set_process_noise`, `set_measurement_model`, `set_measurement_noise`: for
+  a time-varying model, for example a variable timestep.
 
 ```rust
 use multicalc::{KalmanFilter, KalmanModel};
@@ -46,34 +50,39 @@ filter.update(outlier).unwrap();
 let gate = filter.normalized_innovation_squared().unwrap();
 ```
 
-The covariance update uses Joseph form by default — `(I − K·H)·P·(I − K·H)ᵀ + K·R·Kᵀ` — which stays
-symmetric and positive definite by construction, while the naive `(I − K·H)·P` loses symmetry as
-rounding builds up. Joseph form is not a guarantee at every scale: over roughly 10⁷ single-precision
-updates it drifts too, and the fix there is to symmetrize and clamp the covariance.
+The Joseph form `P = (I − K·H)·P·(I − K·H)ᵀ + K·R·Kᵀ` keeps `P` symmetric positive definite by
+construction. The naive `P = (I − K·H)·P` loses symmetry as rounding accumulates. Joseph form also
+drifts over approximately 10⁷ single-precision updates; at that scale, symmetrize and clamp the
+covariance.
 
 `update` returns `EstimationError::NonFinite` for a non-finite measurement or innovation covariance,
-and `EstimationError::NotPositiveDefinite` when the innovation covariance cannot be factorized — the
-gain is undefined. `predict` is a cheap element-wise path and propagates non-finite values silently.
+and `EstimationError::NotPositiveDefinite` when the innovation covariance has no Cholesky factor, so
+the gain is undefined. `predict` is an element-wise path and propagates non-finite values silently.
+
+## Extended filter
 
 `ExtendedKalmanFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T>` takes the process and measurement
-models as functions rather than matrices — any `VectorFn` — and re-linearizes them at the current
-estimate on every step. **The Jacobians come from automatic differentiation: write the model once
-and its partial derivatives are exact, with no hand-derived Jacobians anywhere** — the classic source
-of silent estimator bugs.
+models as functions (any `VectorFn`) and re-linearizes them at the current estimate on each step.
+**Automatic differentiation gives exact Jacobians: write the model once, and no Jacobian is derived
+by hand.**
 
-- `new` / `from_derivator`: the autodiff default, or an explicit differentiation backend (e.g.
-  `FiniteDifferenceMulti`).
-- `predict(&process_model)` / `update(&measurement_model, measurement)`: the models are passed per
-  step, not stored, so the type stays `ExtendedKalmanFilter<3, 2>`. A control input or a changing
-  timestep lives in the model as a field the caller sets between steps — there is no
-  `predict_with_control`. Unlike the linear filter, `predict` here evaluates and differentiates a
-  model, so it returns a `Result`.
-- `update_with_residual(&measurement_model, residual)`: `update` with a caller-formed residual, for
-  when a measurement component is an angle — plain subtraction is wrong across the ±π wrap, and only
-  the caller knows which components are angular.
-- `CovarianceUpdate`, the accessors, and `normalized_innovation_squared` are shared with the linear
-  filter. `predict` and `update` also return `EstimationError::Diff` if a Jacobian step fails —
-  reachable only with a finite-difference backend, as the autodiff default cannot.
+- `new` / `from_derivator`: the autodiff default, or an explicit differentiation backend, for
+  example `FiniteDifferenceMulti`.
+- `predict(&process_model)` / `update(&measurement_model, measurement)`: the caller passes the models
+  on each step, so the type stays `ExtendedKalmanFilter<3, 2>`. A control input or a variable
+  timestep is a field of the model that the caller sets between steps. There is no
+  `predict_with_control`.
+- `update_with_residual(&measurement_model, residual)`: `update` with a caller-formed residual.
+  Use it when a measurement component is an angle, because plain subtraction is wrong across the ±π
+  wrap. Only the caller knows which components are angular.
+- `CovarianceUpdate`, the accessors and `normalized_innovation_squared` are the same as on the
+  linear filter.
+
+`predict` evaluates and differentiates a caller model, so it returns a `Result`. Every step checks
+for non-finite values: `predict` returns `EstimationError::NonFinite` for a non-finite propagated
+state or Jacobian, and `update` does the same for the measurement, the residual and the innovation
+covariance. Both also return `EstimationError::Diff` if a Jacobian step fails. Only a
+finite-difference backend can cause `Diff`; the autodiff default cannot.
 
 ```rust
 use multicalc::ExtendedKalmanFilter;
@@ -111,39 +120,35 @@ filter.update(&RangeToLandmark, Vector::new([5.5])).unwrap();
 ## Unscented filter
 
 `UnscentedKalmanFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T>` takes the same `VectorFn` models
-the extended filter does, and handles their curvature a different way. Rather than flattening the
-model to a straight line at the current estimate, it picks `2·STATE_DIMENSION + 1` points spread
-around it, pushes each one through the model untouched, and rebuilds the estimate from where they
-land. **The model is never differentiated, so it does not have to be smooth** — a lookup table, a
-saturating actuator, or a branch on a threshold works here and does not work in a filter that needs
-a derivative. On a strongly curved model the answer is usually closer than one straight-line fit
-gets.
+as the extended filter. It propagates `2·STATE_DIMENSION + 1` sigma points through the model and
+rebuilds the mean and covariance from them. **The filter never differentiates the model, so the
+model does not have to be smooth**: a lookup table, a saturated actuator or a threshold branch is
+valid. On a strongly curved model, the result is usually closer than one linearization gives.
 
-- `new`: the same four matrices as the extended filter — initial estimate, initial covariance,
-  process noise, measurement noise.
-- `with_scaling(alpha, beta, kappa)`: how far the points spread and how the middle one is weighted.
-  `alpha` = 1e-3, `beta` = 2, `kappa` = 0 by default. It returns a `Result` rather than chaining,
-  because a spread that works out to zero or less has no points to place and is worth catching where
-  it is written rather than a step later.
-- `with_regularization(epsilon)`: adds `epsilon` to the diagonal before the covariance is
-  factorized. Off by default and never applied on its own — a covariance that cannot be factorized
-  returns `EstimationError::NotPositiveDefinite`, and quietly nudging it would hide a filter that
-  has gone wrong.
+- `new`: initial estimate, initial covariance, process noise and measurement noise.
+- `with_scaling(alpha, beta, kappa)`: the sigma-point spread and the weight of the centre point.
+  The defaults are `alpha` = 1e-3, `beta` = 2, `kappa` = 0. It returns
+  `EstimationError::InvalidTuning` if a value is not finite or if `alpha² · (STATE_DIMENSION + kappa)
+  ≤ 0`, because then the points have no spread.
+- `with_regularization(epsilon)`: adds `epsilon` to the diagonal before factorization. It is off by
+  default and the filter never applies it automatically. Without it, a covariance with no Cholesky
+  factor returns `EstimationError::NotPositiveDefinite` from `predict`. A negative or non-finite
+  `epsilon` returns `EstimationError::InvalidTuning`.
 - `predict(&process_model)` / `update(&measurement_model, measurement)` /
-  `update_with_residual(&measurement_model, residual)`: as on the extended filter. `update` works
-  from the points `predict` left behind, so predict first — with no prediction the gain is zero and
-  the estimate does not move.
-- The accessors and `normalized_innovation_squared` are shared with the other two filters. There is
-  no `CovarianceUpdate` here: Joseph and naive are two ways of writing one step this filter does not
-  have. Its covariance is made exactly symmetric every time it is formed instead.
+  `update_with_residual(&measurement_model, residual)`: as on the extended filter. `update` uses the
+  sigma points from the last `predict`. Before the first `predict`, the gain is zero and the estimate
+  does not move.
+- The accessors and `normalized_innovation_squared` are the same as on the other two filters. There
+  is no `CovarianceUpdate`, because the filter has no `(I − K·H)` step. The filter symmetrizes the
+  covariance each time it forms it.
 
 ```rust
 use multicalc::UnscentedKalmanFilter;
 use multicalc::{Matrix, Vector};
 use multicalc::{Numeric, VectorFn};
 
-// Range to a landmark at (3, 4), measured by a sensor that saturates at 6 — a model with a corner
-// in it, which no derivative describes and this filter does not need one for.
+// Range to a landmark at (3, 4), from a sensor that saturates at 6: the model has a corner, and
+// no derivative describes it.
 struct SaturatingRange;
 impl VectorFn<2, 1> for SaturatingRange {
     fn eval<S: Numeric>(&self, state: &[S; 2]) -> [S; 1] {
@@ -177,79 +182,79 @@ filter.update(&SaturatingRange, Vector::new([5.5])).unwrap();
 let position = filter.state();
 ```
 
-One thing this filter asks that the other two do not. It averages the points it gets back, so an
-angle that the process model wraps into a ±π band is a trap: two points a hair apart end up at +π
-and −π, and their average is nothing like either. Let an angular state component run past ±π inside
-the model and wrap it afterwards through `set_state`. The points themselves sit a fraction of a
-standard deviation apart, so nothing else this filter averages can straddle the boundary — but the
-innovation can, which is what `update_with_residual` is for, exactly as on the extended filter.
+The filter averages the propagated sigma points. If the process model wraps an angle into ±π, two
+adjacent points can land at +π and −π, and their mean is wrong. Let an angular state component run
+past ±π inside the model, and wrap it after the step through `set_state`. The sigma points are a
+fraction of a standard deviation apart, so no other average crosses the wrap. The innovation can
+cross it; use `update_with_residual` for that, as on the extended filter.
 
-Which of the two nonlinear filters to reach for comes down to the model. The extended filter is
-cheaper when the model is cheap to differentiate and gently curved. This one costs
-`2·STATE_DIMENSION + 1` evaluations per step instead of a derivative, and earns that back on a
-sharply curved model, or on any model a derivative does not describe.
+Choice between the two nonlinear filters:
+
+- The extended filter is cheaper when the model is cheap to differentiate and only slightly curved.
+- The unscented filter costs `2·STATE_DIMENSION + 1` model evaluations per step and no derivative.
+  It is better on a strongly curved model, or on a model that has no derivative.
 
 ## Error-state filter
 
-`ErrorStateKalmanFilter<MEASUREMENT_DIMENSION, T>` fuses an IMU — a turn-rate sensor and a push
-sensor — with whatever corrections a vehicle can get, and tracks where a body is, how it is moving,
-which way it faces, and what its own two sensors are getting steadily wrong.
+`ErrorStateKalmanFilter<MEASUREMENT_DIMENSION, T>` fuses an IMU (gyroscope and accelerometer) with
+aid measurements. It estimates position, velocity, orientation, gyroscope bias and accelerometer
+bias.
 
-It tracks the *correction* to a running guess rather than the guess itself. That is what lets the
-facing live on the rotation group, where it can turn any distance without wrapping or needing
-renormalization, while the uncertainty stays a plain flat fifteen numbers that ordinary matrix
-arithmetic can carry forward. After every correction the error is folded back into the guess and
-reset to zero, so it never grows large enough for the flat treatment to strain.
+The filter estimates the error of a nominal state, not the state itself. The orientation stays on
+SO(3), with no wrap and no renormalization, and the covariance is over a flat 15-dimensional error.
+After each update, the filter injects the error into the nominal state and resets the error to zero.
+Thus the error stays small and the linearization stays valid.
 
-The fifteen numbers run in this order, three each:
+The 15 error components, three each:
 
 | Index range | Meaning |
 | --- | --- |
-| 0..3 | where the estimate has the body, in world axes, metres |
-| 3..6 | how wrong the estimated speed is, world axes, m/s |
-| 6..9 | a small turn taking the estimated facing to the true one, radians |
-| 9..12 | the turn-rate sensor's steady offset, rad/s |
-| 12..15 | the push sensor's steady offset, m/s² |
+| 0..3 | position error, world axes, m |
+| 3..6 | velocity error, world axes, m/s |
+| 6..9 | rotation from the estimated orientation to the true orientation, rad |
+| 9..12 | gyroscope bias, rad/s |
+| 12..15 | accelerometer bias, m/s² |
 
-- `NominalState<T>`: the running guess — place, motion, facing, and the two sensor offsets. Built
-  with `new`, or with `at_rest` from a facing alone. `plus_error` folds a correction in and
-  `error_from` takes one back out; the two are exact inverses, which is what the reset relies on.
-  The starting facing usually comes from `SO3::from_two_direction_pairs`.
-- `ImuNoise<T>`: how noisy the IMU is, in the figures a datasheet quotes rather than as a raw noise
-  matrix. Four fields of the same type, so naming each is what stops a swapped pair compiling.
-- `NominalStateFn<MEASUREMENT_DIMENSION>`: a sensor model, written once against named fields and
-  evaluated at whatever kind of number the filter needs. **No derivative is ever coded by hand.**
-- `new(initial_state, initial_covariance, imu_noise, measurement_noise)`, with
-  `with_gravity` and `with_covariance_update` for the two settings that have defaults.
-- `predict(gyroscope_reading, accelerometer_reading, timestep)`: one IMU step. The transition it
-  uses is written in closed form and reachable as `error_state_transition`.
-- `update` / `update_with_residual` / `update_other`: one correction. Use the second when a
-  measurement is an angle, because plain subtraction is wrong across the ±π wrap. Use the third for a
-  sensor of a different width from the one the filter is declared with — a three-number position fix
-  and a one-number heading aid cannot both set the type's width.
-- `inject_error_and_reset(error)`: `update` calls this itself; it is public so the step can be
-  exercised with a known correction.
+- `NominalState<T>`: position, velocity, orientation and the two biases. Build it with `new`, or with
+  `at_rest` from an orientation alone. `plus_error` injects an error and `error_from` extracts one.
+  The reset relies on the invariant that the two are exact inverses. `SO3::from_two_direction_pairs`
+  usually gives the initial orientation.
+- `ImuNoise<T>`: the IMU noise in datasheet terms (`gyroscope_noise_density`,
+  `accelerometer_noise_density`, `gyroscope_bias_random_walk`, `accelerometer_bias_random_walk`), not
+  as a raw noise matrix. The four fields have the same type, so the names stop a swapped pair.
+- `NominalStateFn<MEASUREMENT_DIMENSION>`: a measurement model, written once against the named
+  fields and evaluated at the scalar type the filter needs. **No derivative is coded by hand.**
+- `new(initial_state, initial_covariance, imu_noise, measurement_noise)`. `with_gravity` replaces the
+  default gravity `(0, 0, −9.81)` (z up), and `with_covariance_update` replaces the default `Joseph`.
+- `predict(gyroscope_reading, accelerometer_reading, timestep)`: one IMU step. The error-state
+  transition is in closed form; `error_state_transition` returns it.
+- `update` / `update_with_residual` / `update_other`: one correction. Use `update_with_residual` when
+  a measurement is an angle, because plain subtraction is wrong across the ±π wrap. Use
+  `update_other` for a sensor of a different width from `MEASUREMENT_DIMENSION`, for example a
+  3-number position fix and a 1-number heading aid on the same filter.
+- `inject_error_and_reset(error)`: `update` calls it. It is public, so a test can apply a known
+  correction.
 - `condition_covariance(minimum_eigenvalue)`: see below.
-- `normalized_estimation_error_squared(true_state)`: how far the estimate is from a known truth,
-  measured against its own claimed spread. Only a test or a simulation has the truth to pass in.
+- `normalized_estimation_error_squared(true_state)`: NEES against a known truth. Only a test or a
+  simulation has the truth.
 
-**Two generic parameters, where the extended filter has four.** The state width is fixed at fifteen
-by the formulation. There is no pluggable differentiation backend either: a stepped difference over
-an error state is not meaningful, because the error is identically zero and a finite step would move
-a point on the rotation group by an amount the sensor model cannot tell from real signal. The
-Jacobian is always taken exactly.
+**Two generic parameters, where the extended filter has four.** The error state is fixed at 15. There
+is no pluggable differentiation backend: the error is identically zero at the linearization point,
+and a finite step on SO(3) is not distinguishable from signal in the measurement model. The filter
+always takes the Jacobian exactly, with `Dual`.
 
-Evening the spread out across its diagonal happens on every predict and every update, and costs
-almost nothing. Lifting a direction that rounding has pushed below zero is a different matter: it
-means working out the spread's directions, which costs far more than a filter step does. So
-`condition_covariance` is left to the caller's schedule — once a second, or on a health check, not
-every tick. Joseph form plus the automatic evening is what you get otherwise, and that is good for
-hours rather than for a ten-million-update single-precision duty cycle.
+Each `predict` and `update` symmetrizes the covariance, at almost no cost. `condition_covariance`
+also clamps the eigenvalues to `minimum_eigenvalue`. The eigendecomposition costs much more than a
+filter step, so call it on a slow schedule (for example, once per second or on a health check), not
+on each tick. Joseph form plus symmetrization is sufficient for hours of operation, but not for a
+10⁷-update single-precision duty cycle.
 
-Two things will look like bugs and are not. The turn-rate offset about the vertical is only visible
-through a heading aid, so without one it never settles. The push offset along the vertical is only
-visible when the push itself varies, because a body pushed a little too hard upward looks exactly
-like a body tilted a little.
+Two expected behaviors that are not bugs:
+
+- The gyroscope bias about the vertical axis is observable only through a heading aid. Without one,
+  it does not converge.
+- The accelerometer bias along the vertical axis is observable only when the specific force
+  changes. Otherwise, a small vertical bias is not distinguishable from a small tilt.
 
 ```rust
 use multicalc::{ErrorStateKalmanFilter, ImuNoise, NominalState, NominalStateFn};
@@ -279,19 +284,19 @@ let mut filter = ErrorStateKalmanFilter::<3>::new(
     Matrix::from_diagonal([tracker_spread * tracker_spread; 3]),
 );
 
-// Sitting still, the push sensor reads a full gravity upward.
+// At rest, the accelerometer reads one gravity upward.
 let gravity_strength = 9.81;
 let gyroscope_reading = Vector::new([0.0, 0.0, 0.0]);
 let accelerometer_reading = Vector::new([0.0, 0.0, gravity_strength]);
 let timestep = 0.001;
 filter.predict(gyroscope_reading, accelerometer_reading, timestep).unwrap();
 
-// The tracker says the drone is a little east of where the filter has it.
+// The tracker puts the drone a little east of the estimate.
 let step_east = 0.1;
 filter.update(&RoomTracker, Vector::new([step_east, 0.0, 0.0])).unwrap();
 assert!(filter.nominal_state().position()[0] > 0.0);
 
-// The sensor offsets start at zero and are learned from corrections like that one.
+// The biases start at zero and the corrections estimate them.
 let learned = filter.nominal_state().accelerometer_bias();
 assert!(learned.is_finite());
 ```
@@ -301,74 +306,68 @@ Full demo:
 
 ## Attitude filters
 
-`MahonyFilter<T>` and `MadgwickFilter<T>` work out which way a body is facing, and what its
-turn-rate sensor reads when the body is not turning, from a turn-rate sensor, a push sensor, and
-optionally a magnetometer. They carry a facing and a three-number offset and nothing else — no
-place, no speed, no spread. When a spread is wanted, that is `ErrorStateKalmanFilter`'s job, at
-roughly a hundred times the arithmetic; these are a handful of cross products and one exponential a
-tick, the same work whatever the readings are.
+`MahonyFilter<T>` and `MadgwickFilter<T>` estimate orientation and gyroscope bias from a gyroscope,
+an accelerometer and an optional magnetometer. They hold an orientation and a 3-vector bias only: no
+position, no velocity, no covariance. For a covariance, use `ErrorStateKalmanFilter`, at
+approximately 100 times the arithmetic. Each tick of these filters is a few cross products and one
+exponential map, with constant work.
 
-A turn-rate sensor alone gives a smooth facing that slowly wanders. A push sensor alone says which
-way is down but jumps about whenever the body is pushed; a magnetometer alone says which way is
-north and is easily disturbed. Both filters take the turn rate as the answer and nudge it, every
-tick, by however far the other two say it is off. They differ only in how they nudge:
+Both filters integrate the gyroscope and correct the orientation on each tick toward the
+accelerometer (down) and the magnetometer (north). They differ in the correction law:
 
-- `MahonyFilter` nudges harder the more wrong it is — a `with_proportional_gain` term acting now,
-  and a `with_integral_gain` term that turns the running total of those nudges into the offset
-  estimate. Set the integral gain to zero and no offset is learned, at the price of a small
-  permanent lean whenever the sensor really does have one.
-- `MadgwickFilter` always nudges by the same amount and takes only the direction from the readings.
-  That makes `with_correction_gain`, in radians per second, the whole tuning story: it is how fast
-  the filter is willing to walk toward the sensors, and it does not change whether the facing is a
-  degree out or ninety. `with_bias_gain` says how much of that walking to blame on a sensor offset;
-  set it to zero for the published filter's behaviour, which learns none.
+- `MahonyFilter`: a PI correction, proportional to the error. `with_proportional_gain` (default 1) is
+  the proportional term. `with_integral_gain` (default 0.1) integrates the correction into the bias
+  estimate. If the integral gain is zero, the filter estimates no bias and keeps a small steady tilt
+  when the gyroscope has a bias.
+- `MadgwickFilter`: a correction of fixed magnitude along the normalized error direction.
+  `with_correction_gain` (rad/s, default 0.1) is the full tuning: the rate at which the filter moves
+  toward the sensors, the same for a 1° error and a 90° error. `with_bias_gain` (default 0.01) sets
+  how much of that correction goes into the bias. Set it to zero for the published filter, which
+  estimates no bias.
 
-Shared by both:
+Common to both:
 
-- `new(initial_orientation)`: the only thing without a default. The starting facing usually comes
-  from `SO3::from_two_direction_pairs` on a still body.
-- `with_reference_directions(upward_reference, north_reference)`: which way is up and which way is
-  north, in world axes. Starts at `(0, 0, 1)` and `(1, 0, 0)`. Both go in at once so their order
-  cannot matter, and north is squared up against up before it is stored.
+- `new(initial_orientation)`: the only value with no default. `SO3::from_two_direction_pairs` on a
+  body at rest usually gives it.
+- `with_reference_directions(upward_reference, north_reference)`: up and north in world axes. The
+  defaults are `(0, 0, 1)` and `(1, 0, 0)`. The method takes both together, so their order has no
+  effect, and it orthogonalizes north against up before it stores them.
 - `step(gyroscope_reading, accelerometer_reading, magnetometer_reading, timestep)`: one tick. The
-  magnetometer is an `Option`, so a tick without one — or with one that is not to be trusted — is
-  a `None` rather than a separate call. `step_without_magnetometer` is the same thing spelled
-  shorter.
-- `orientation()` and `gyroscope_bias()`: what it has worked out. `set_orientation` and
-  `set_gyroscope_bias` put a value back, for re-seeding from a still-body fix or restoring a saved
-  offset at start-up.
+  magnetometer is an `Option`; pass `None` for a tick with no magnetometer or an untrusted one.
+  `step_without_magnetometer` is the shorter form.
+- `orientation()` and `gyroscope_bias()`: the estimate. `set_orientation` and `set_gyroscope_bias`
+  set a value, for example to re-seed from a fix at rest or to restore a saved bias at start-up.
 
-The magnetometer's world direction is worked out afresh each tick rather than taken as a setting:
-the measured field is turned into world axes, its upward part is kept as it is, and everything left
-over is laid along north. So the magnetometer only ever moves the heading, and a caller who does
-not know how steeply the local field dips cannot get a lasting lean out of it.
+On each tick, the filter rotates the measured magnetic field into world axes, keeps its vertical
+component, and puts the horizontal remainder along north. Thus the magnetometer corrects heading
+only, and an unknown magnetic dip angle causes no steady tilt.
 
-Three things will look like bugs and are not. Without a magnetometer the heading rides on the
-turn-rate sensor alone and slowly wanders — only the lean is pinned, because down is the only
-direction a push sensor can see. A body in free fall has no usable down at all: the push reading
-goes to nothing, contributes nothing, and the facing coasts on the turn rate until the body is
-caught. And `MadgwickFilter` never quite stands still even when it is exactly right, because a
-fixed-rate walk always takes a step; that step, `with_correction_gain` times the timestep, is its
-error floor.
+Expected behaviors that are not bugs:
 
-Neither filter can tell a sustained push from gravity. A body accelerating steadily gives a push
-reading that is confidently wrong about down, and both will believe it — which is the honest reason
-these are the error-state filter's complement rather than its replacement.
+- Without a magnetometer, the heading integrates the gyroscope alone and drifts. Only tilt is
+  corrected, because down is the only direction an accelerometer measures.
+- In free fall, the accelerometer reads zero and gives no correction. The orientation integrates the
+  gyroscope until the free fall stops.
+- `MadgwickFilter` does not stop at the true orientation, because each tick applies a correction of
+  fixed size. Its error floor is `with_correction_gain` times the timestep.
+- Neither filter can separate a sustained acceleration from gravity. A steady acceleration gives a
+  wrong down direction, and both filters follow it. Thus these filters complement the error-state
+  filter and do not replace it.
 
-The facing is pulled back onto unit length every tick. The step itself already gives a true
-rotation; the pull back is there because these filters are the ones expected to run for hours at a
-kilohertz in single precision with nothing else watching for drift.
+The filters renormalize the quaternion on each tick. The step itself gives a valid rotation; the
+renormalization is for runs of hours at kilohertz rates in single precision with no other drift
+check.
 
 ```rust
 use multicalc::{MadgwickFilter, MahonyFilter, SO3, Vector};
 
-// Starting off level by about a tenth of a radian, on a body that is in fact still and level.
+// Start approximately 0.1 rad off level, on a body that is at rest and level.
 let tilt = Vector::new([0.1, -0.05, 0.0]);
 let tilted = SO3::exp(tilt);
 let mut mahony = MahonyFilter::new(tilted);
 let mut madgwick = MadgwickFilter::new(tilted);
 
-// A still body reads one gravity upward, and a field pointing north and 60 degrees down.
+// At rest: one gravity upward, and a field that points north and 60 degrees down.
 let gravity_strength = 9.81;
 let not_turning = Vector::new([0.0, 0.0, 0.0]);
 let one_gravity_up = Vector::new([0.0, 0.0, gravity_strength]);
@@ -382,7 +381,7 @@ for _ in 0..ticks {
     madgwick.step(not_turning, one_gravity_up, Some(field), timestep).unwrap();
 }
 
-// Both have found level, and neither was leaned over by the steeply dipping field.
+// Both converge to level, and the steep dip causes no tilt.
 assert!(mahony.orientation().log().norm() < 1e-3);
 assert!(madgwick.orientation().log().norm() < 1e-3);
 ```
@@ -392,17 +391,15 @@ Full demo:
 
 ## Ready-made models
 
-Three pieces save writing the same model out for every project.
-
-- `ConstantTurnAndSpeed` rolls a vehicle's state `[x, y, heading, speed, turn rate]` forward one
-  tick along the arc it is turning through, taking speed and turn rate to hold. Tracking work calls
-  this the coordinated-turn model.
-- `DirectMeasurement<STATE_DIMENSION, MEASUREMENT_DIMENSION>` is a sensor reading state components
-  straight off, in the order listed — a position fix reading `[x, y]`, wheel encoders reading the
-  speed and turn rate.
-- `residual_with_wrapped_angles` subtracts a prediction from a reading with the components you name
-  as angles folded back into (-π, π]. Without it, a heading either side of the half turn reads as
-  nearly a whole turn of error and the filter lurches to correct it.
+- `ConstantTurnAndSpeed { timestep }`: the coordinated-turn model over the state
+  `[x, y, heading, speed, turn rate]`. It moves the state one tick along the arc, with speed and turn
+  rate held constant.
+- `DirectMeasurement<STATE_DIMENSION, MEASUREMENT_DIMENSION>`: a sensor that reads the state
+  components at the listed indices, for example `[x, y]` from a position fix. `try_new` returns
+  `EstimationError::StateIndexOutOfRange` for an index past the end of the state.
+- `residual_with_wrapped_angles(reading, predicted, angle_indices)`: `reading − predicted`, with the
+  listed components wrapped into (−π, π]. Without the wrap, a heading on the two sides of ±π gives an
+  error of almost one full turn, and the filter makes a large wrong correction.
 
 ```rust
 use multicalc::estimation::{
@@ -411,7 +408,7 @@ use multicalc::estimation::{
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::scalar::VectorFn;
 
-// A vehicle tracked as [x, y, heading, speed, turn rate], fixed by position alone.
+// A vehicle tracked as [x, y, heading, speed, turn rate], corrected by position alone.
 let timestep = 0.1;
 let motion = ConstantTurnAndSpeed { timestep };
 let position_fix = DirectMeasurement::<5, 2>::try_new([0, 1])?;
@@ -432,7 +429,7 @@ filter.predict(&motion)?;
 filter.update(&position_fix, fix)?;
 assert!(filter.state()[0].is_finite());
 
-// A heading sensor needs the angle-aware residual, since its reading wraps.
+// A heading sensor needs the wrapped residual.
 let heading_sensor = DirectMeasurement::<5, 2>::try_new([2, 4])?;
 let reading = Vector::new([3.10, 0.2]);
 let predicted = Vector::new(heading_sensor.eval(filter.state().as_array()));
@@ -442,28 +439,30 @@ filter.update_with_residual(&heading_sensor, residual)?;
 # Ok::<(), multicalc::CalcError>(())
 ```
 
+Full demo (linear, extended and unscented filters, and a particle filter with `alloc`):
+[estimation.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/estimation.rs).
+
 ## Particle filter
 
-`ParticleFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T, R>` carries a cloud of weighted state
-samples instead of a single Gaussian, so it can track a belief the Kalman filters cannot represent —
-strongly nonlinear, non-Gaussian, or with several peaks at once (a robot that could be in one of two
-corridors). It is the tool to reach for when a single-Gaussian belief is the thing that breaks, and
-the price is running hundreds to thousands of samples every step.
+`ParticleFilter<STATE_DIMENSION, MEASUREMENT_DIMENSION, T, R>` (`alloc` only) represents the belief
+as a set of weighted samples, not as one Gaussian. Thus it can track a nonlinear, non-Gaussian or
+multimodal belief, for example a robot that can be in one of two corridors. The cost is hundreds to
+thousands of samples per step.
 
-- `new(particle_count, initial_mean, initial_covariance, process_noise, seed)`: samples the starting
-  cloud from the given Gaussian, with a seeded built-in `Pcg32`. `from_random` takes any
-  `RandomSource` instead. `particle_count` must be at least one.
-- `predict(&process_model)`: pushes every sample through the model — any `VectorFn` — and adds a draw
-  of process noise. `update(&measurement_model, &likelihood, measurement)`: reweights each sample by
-  how well its predicted measurement matches, normalizes, and resamples if the cloud has degenerated.
-- `Likelihood` scores a sample as a log-weight; `GaussianLikelihood::new(measurement_noise)` is the
-  batteries-included default for additive Gaussian noise. Write your own for anything else.
-- `ResamplingScheme`: `Systematic` (the default), `Stratified`, `Multinomial`, or `Residual`. Set it
-  with `with_resampling`; tune when it fires with `with_resample_threshold`, and add post-resample
-  jitter with `with_roughening`.
-- `mean` (the usual estimate), `maximum_a_posteriori_state` (the single heaviest sample, for when the
-  belief has several peaks and the mean falls between them), `effective_sample_size`, `particles`,
-  and `weights`.
+- `new(particle_count, initial_mean, initial_covariance, process_noise, seed)`: samples the initial
+  set from the Gaussian, with a seeded `Pcg32`. `from_random` takes any `RandomSource`.
+- `predict(&process_model)`: propagates each sample through the model (any `VectorFn`) and adds a
+  process-noise draw.
+- `update(&measurement_model, &likelihood, measurement)`: reweights each sample by the likelihood of
+  the measurement, normalizes, and resamples if the effective sample size is below the threshold.
+- `Likelihood` gives the log-weight of a sample. `GaussianLikelihood::new(measurement_noise)` is the
+  implementation for additive Gaussian noise. Write a custom `Likelihood` for other noise.
+- `with_resampling(ResamplingScheme)`: `Systematic` (the default), `Stratified`, `Multinomial` or
+  `Residual`. `with_resample_threshold` sets the effective-sample-size threshold (default: half the
+  particle count). `with_roughening` adds jitter after a resample.
+- `mean` (the usual estimate), `maximum_a_posteriori_state` (the heaviest sample, for a multimodal
+  belief where the mean falls between the modes), `effective_sample_size`, `particles` and
+  `weights`.
 
 ```rust
 # use multicalc::{GaussianLikelihood, ParticleFilter};
@@ -503,31 +502,38 @@ for _ in 0..20 {
 assert!((filter.mean()[0] - 1.0).abs() < 0.2);
 ```
 
-The particle filter is heap-backed, so it is behind the `alloc` feature and the bare-metal build does
-not compile it. Its `update` returns `EstimationError::NonFinite` for a non-finite measurement and
-`EstimationError::WeightsDegenerate` when no sample can explain the measurement. `GaussianLikelihood`
-forms the mismatch by plain subtraction, so a measurement with an angular component needs a custom
-`Likelihood` that folds the angle into a ±π band first — the same wrap the extended filter's
-`update_with_residual` exists for.
+Errors:
 
+- `new` returns `EstimationError::NotPositiveDefinite` if a covariance has no Cholesky factor, and
+  `EstimationError::WeightsDegenerate` if `particle_count` is zero.
+- `update` returns `EstimationError::NonFinite` for a non-finite measurement, and
+  `EstimationError::WeightsDegenerate` when no sample explains the measurement.
 
----
-
-[Back to the tutorial index](README.md)
+`GaussianLikelihood` forms the residual by plain subtraction. For a measurement with an angular
+component, write a custom `Likelihood` that wraps the angle into ±π first, as with
+`update_with_residual` on the extended filter.
 
 ## Monte Carlo Localization
 
-`MonteCarloLocalizer` answers a different question than the filters above: not "where has the robot
-moved to", but "where on this map is it in the first place" — the problem a robot has when it is
-switched on and has no fix at all. It carries a cloud of pose guesses; every guess casts the beams it
-would see against the map, and the guesses matching the real scan gain weight. `alloc` only, since
-the cloud lives on the heap.
+`MonteCarloLocalizer<NUM_BEAMS>` (`alloc` only) solves global localization: it finds the pose of a
+robot on a known map with no initial fix. It is a particle filter over `[x, y, heading]`. Each
+particle casts the scan beams against the map, and the particles that match the real scan gain
+weight.
 
-Feed it travel and turn with `predict`, scans with `update`, and read the answer with `estimate`,
-which gives the best pose and how tightly the cloud is holding to it. `is_converged` says when the
-answer is worth trusting — usually the moment to hand over to a Kalman filter for the drive itself.
-The map is anything implementing [`OccupancyMap`](mapping.md), and the beam directions come from the
-same `ScanGeometry` the scan was taken with.
+- `new(hint, InitialParticleCloud, BeamModel, seed)`: the initial cloud around a rough pose.
+  `InitialParticleCloud` and `BeamModel` implement `Default`.
+- `predict(delta_arc_length, delta_heading)`: odometry. `set_motion_noise` sets its variance (default
+  `1e-4` on each of `x`, `y` and heading).
+- `update(&scan, &map, &geometry)`: reweights and resamples against any
+  [`OccupancyMap`](mapping.md). The beam directions come from the `ScanGeometry` of the real scan.
+  `update_against_field` scores against a `DistanceField` instead; see
+  [Mapping](mapping.md#localizing-with-a-likelihood-field).
+- `estimate()`: the pose and its 3×3 covariance. `is_converged(position_limit, heading_limit)`
+  tells when the result is reliable, which is usually the time to give control to a Kalman filter.
+
+`new` returns `EstimationError::NotPositiveDefinite` for an unusable cloud spread and
+`EstimationError::WeightsDegenerate` for a zero particle count. `update` returns
+`EstimationError::WeightsDegenerate` when no particle explains the scan.
 
 ```rust
 use multicalc::estimation::{BeamModel, InitialParticleCloud, MonteCarloLocalizer};
@@ -543,7 +549,7 @@ room.occupy_circle([2.8, 2.0], 0.25);
 const NUM_BEAMS: usize = 16;
 let scan: ScanGeometry<NUM_BEAMS> = ScanGeometry::try_new(2.0 * core::f64::consts::PI / 3.0, 6.0)?;
 
-// Where the robot really is, and the rough guess the localizer is given.
+// The true pose, and the rough hint the localizer gets.
 let truth = [1.2, 1.0, 0.3];
 let hint = [1.45, 0.75, 0.35];
 let cloud = InitialParticleCloud {
@@ -555,7 +561,7 @@ let beam_model = BeamModel { range_deviation: 0.15, ..Default::default() };
 let seed = 20260804;
 let mut localizer = MonteCarloLocalizer::<NUM_BEAMS>::new(hint, cloud, beam_model, seed)?;
 
-// One scan, taken standing still and fed in a few times as the robot looks around.
+// One scan from a robot at rest, given to the localizer a few times.
 let reading: [f64; NUM_BEAMS] = core::array::from_fn(|beam| {
     let offset = scan.beam_angle(beam).unwrap_or(0.0);
     room.cast_ray([truth[0], truth[1]], truth[2] + offset, scan.maximum_range())
@@ -565,7 +571,7 @@ for _ in 0..10 {
     localizer.update(&reading, &room, &scan)?;
 }
 
-// The cloud has settled onto the robot, and says so.
+// The cloud converges on the true pose.
 let (pose, _spread) = localizer.estimate();
 assert!((pose[0] - truth[0]).abs() < 0.25);
 assert!((pose[1] - truth[1]).abs() < 0.25);
@@ -575,3 +581,7 @@ assert!(localizer.is_converged(0.05, 0.2));
 
 Full demo:
 [localized_lap_check.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/localized_lap_check.rs).
+
+---
+
+[Back to the tutorial index](README.md)

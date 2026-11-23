@@ -1,25 +1,26 @@
 # embedded-smoke
 
-Runs smoke tests across the platforms `multicalc` supports: x86_64 and aarch64 Linux
-hosts, plus four bare-metal ABIs (Cortex-M4 soft-float, Cortex-M4 hard-float,
-Cortex-M0, and `riscv32imc`). Host tests cover the first two. Nothing but real
-on-target execution can cover the bare-metal set, and that is this crate. Each result
-must agree with a known answer to a tolerance — fixture abs/rel bands on-target, 1e-9
-relative between ABIs — not bit-for-bit, since soft-float paths round intermediates
-differently. The two Cortex-M4 ABIs and `riscv32imc` run the full check set; the
-Cortex-M0 runs a smaller canary (it builds with `--no-default-features`). A divergence
-beyond tolerance on any leg fails the build.
+A `no_std` / `no_main` smoke binary that runs `multicalc` on four bare-metal ABIs under QEMU:
+Cortex-M4 soft-float, Cortex-M4 hard-float, Cortex-M0 and `riscv32imc`. Host tests cannot cover
+these targets. Each result must agree with a known answer to a tolerance, not bit for bit, because
+soft-float paths round intermediates differently:
 
-It hosts a `no_std` / `no_main` smoke test that runs `multicalc` on bare-metal targets
-under QEMU. It is a dev-only crate (`publish = false`, not in `default-members`) and
-is never built for a host target. `cortex-m-rt` links for `thumb*` triples; `riscv-rt`
-links for `riscv32*`.
+- on target, the abs/rel band of the fixture;
+- between ABIs, `1e-9` relative (see [ci/README.md](../../ci/README.md#cross-abi-divergence-guard)).
+
+A divergence beyond tolerance on any leg fails the build.
+
+The crate is dev-only (`publish = false`, not in `default-members`), and it never builds for a host
+target. It is a separate crate because it is a full bare-metal program: start-up code, a crash
+handler, a custom link step, and chip-only dependencies (`cortex-m-rt`, `riscv-rt`). In
+`multicalc`, these would break the host build and add chip-only dependencies to a crate that ships
+to crates.io.
 
 ## Running
 
 ```sh
 rustup target add thumbv7em-none-eabi thumbv7em-none-eabihf thumbv6m-none-eabi riscv32imc-unknown-none-elf
-sudo apt-get install -y qemu-system-arm qemu-system-misc  # provides qemu-system-arm
+sudo apt-get install -y qemu-system-arm qemu-system-misc  # qemu-system-misc provides qemu-system-riscv32
 cargo install cargo-binutils                              # provides cargo size, for the gate
 
 cargo run -p embedded-smoke --release --target thumbv7em-none-eabi
@@ -32,119 +33,106 @@ Aliases: `cargo smoke-eabi`, `cargo smoke-eabihf`, `cargo smoke-m0`, `cargo smok
 
 ## Targets and QEMU machine
 
-| Target                        | Codegen                | QEMU machine          | RAM  |
-|-------------------------------|------------------------|-----------------------|------|
-| `thumbv7em-none-eabi`         | Cortex-M4, soft-float  | `netduinoplus2`       | 64K  |
-| `thumbv7em-none-eabihf`       | Cortex-M4, hard-float  | `netduinoplus2`       | 64K  |
-| `thumbv6m-none-eabi`          | Cortex-M0, CAS-free    | `microbit`            | 16K  |
-| `riscv32imc-unknown-none-elf` | RV32IMC, soft-float    | `virt` (`-bios none`) | 256K |
+| Target                        | Codegen                | QEMU machine          | RAM  | Flash / DRAM base |
+|-------------------------------|------------------------|-----------------------|------|-------------------|
+| `thumbv7em-none-eabi`         | Cortex-M4, soft-float  | `netduinoplus2`       | 64K  | `0x08000000`      |
+| `thumbv7em-none-eabihf`       | Cortex-M4, hard-float  | `netduinoplus2`       | 64K  | `0x08000000`      |
+| `thumbv6m-none-eabi`          | Cortex-M0, CAS-free    | `microbit` (nRF51)    | 16K  | `0x0`             |
+| `riscv32imc-unknown-none-elf` | RV32IMC, soft-float    | `virt` (`-bios none`) | 256K | `0x80000000`      |
 
-The `thumbv7em` ABIs run on `netduinoplus2` (Cortex-M4, FPU, 64K RAM, flash at
-`0x08000000`). `thumbv6m` runs on `microbit` (Cortex-M0, nRF51, 16K RAM, flash
-at `0x0`) — a real M0 core, so the run now asserts both RAM-size and ISA
-fidelity: an oversized image or an out-of-ISA (ARMv7E-M) instruction faults just
-as it would on silicon. `riscv32imc` runs on QEMU `virt` with `-bios none`
-(DRAM at `0x80000000`). `build.rs` picks each target's memory map.
+`microbit` is a real M0 core. Thus an oversized image or an out-of-ISA (ARMv7E-M) instruction
+faults, as it does on silicon.
 
-The runners and `rustflags` (`-Tlink.x`, `--nmagic`) live in
-`.cargo/config.toml`; the per-target memory map is supplied by `build.rs`.
-
-## Why a separate crate, not tests inside `multicalc`
-
-These smoke tests cannot live next to the code they check. This is a full
-program for a bare chip, not a normal test. It brings its own start-up code, its
-own crash handler, and a custom link step, and it needs chip-only crates (like
-`cortex-m-rt`) that only build for the chip targets. Pulling those into
-`multicalc` would break it on a normal computer and drag chip-only dependencies
-and build settings into a library that ships to `crates.io`. Keeping the two apart lets `multicalc`
-stay small, safe, and portable, while this crate stays dev-only and never ships.
+The runners and `rustflags` (`-Tlink.x`, `--nmagic`) are in `.cargo/config.toml` at the repository
+root. `build.rs` supplies the memory map of each target from `memory/`.
 
 ## Checks
 
-`src/checks.rs` holds the on-target cases against the public API. Each asserts a
-known answer to a tolerance, so a wrong result panics instead of passing, and
-every check stays `no_std`. Golden checks assert against values taken from the
-host QA fixtures (`src/fixtures.rs`, generated from `tools/qa`); identity
-checks assert a mathematical identity that needs no fixture.
+`src/checks.rs` holds the on-target checks against the public API. Each check asserts a known answer
+to a tolerance, so a wrong result panics. All checks are `no_std`.
 
-The set is tiered by the `full-smoke` feature (on by default): the canary runs on
-every target including the Cortex-M0; the full set adds the heavier checks on the
-`thumbv7em` ABIs and `riscv32imc`. `thumbv6m` builds with `--no-default-features`.
+- A **golden** check asserts against a value from the host QA fixtures (`src/fixtures.rs`, generated
+  from `tools/qa`).
+- An **identity** check asserts a mathematical identity and needs no fixture.
+
+The `full-smoke` feature (on by default) selects the set. The canary runs on all targets, and
+`thumbv6m` builds with `--no-default-features` to run only the canary. The full set adds the
+heavier checks on the `thumbv7em` ABIs and `riscv32imc`.
 
 | Test | Targets | Details |
 |------|---------|---------|
-| `portable_path` | all (incl. `thumbv6m`) | Identity: `multicalc` vector dot product `[1,2,3,4]·[4,3,2,1] = 20` — a no-atomics library call exercised on M0. |
-| `svd_golden` | all (incl. `thumbv6m`) | Golden: singular values of a 3×3 fixture matrix vs the `svd_3x3` QA golden. Also emits `SMOKE_VAL_svd_s*` for the cross-ABI guard. |
-| `error_path_returns_err` | all (incl. `thumbv6m`) | Negative path: a singular matrix's `lu()` and an indefinite matrix's `cholesky()` return a typed `Err`, not a panic. |
-| `pid_step` | all (incl. `thumbv6m`) | Identity: a PID controller's first output is the exact `kp·e + ki·e·dt`, and the plant it drives climbs to within 1% of the setpoint. Emits `SMOKE_VAL_pid`. |
-| `lm_fit` | full set | Golden: Levenberg-Marquardt Rosenbrock least-squares minimizer vs the `rosenbrock` QA golden. |
-| `autodiff_derivative` | full set | Identity: forward-mode autodiff of `x³` at `x = 2`, expects 12. |
-| `autodiff_derivative_f32` | full set | Identity in `f32`: the same `x³` derivative at single precision, where soft-float and the hardware FPU are most likely to differ. Emits `SMOKE_VAL_ad_f32`. |
-| `ode_identity` | full set | Identity: RK4 harmonic oscillator round trip and RK45 `y' = -y` to `e^{-1}`. |
-| `lie_group_identity` | full set | Identity: SO(3)/SE(3) exp/log round trips and one known rotation. |
-| `quadrature_identity` | full set | Identity: Gauss-Legendre order 4 of `2x` on `[0,2]`, expects 4. Emits `SMOKE_VAL_quad`. |
-| `jacobian_identity` | full set | Identity: Jacobian of `[x·y·z, x²+y²]` at `(1,2,3)` = `[[6,3,2],[2,4,0]]`. Emits `SMOKE_VAL_jac00`. |
-| `vector_field_identity` | full set | Identity: curl of `[y,-x,2z]` = `[0,0,-2]` and divergence = 2. Emits `SMOKE_VAL_div3d`. |
+| `portable_path` | all (incl. `thumbv6m`) | Identity: `multicalc` vector dot product `[1,2,3,4]·[4,3,2,1] = 20`, a no-atomics library call on M0. |
+| `svd_golden` | all (incl. `thumbv6m`) | Golden: singular values of a 3×3 fixture matrix vs the `svd_3x3` QA golden. Emits `SMOKE_VAL_svd_s*`. |
+| `error_path_returns_err` | all (incl. `thumbv6m`) | Negative path: `lu()` of a singular matrix and `cholesky()` of an indefinite matrix return a typed `Err`, not a panic. |
+| `pid_step` | all (incl. `thumbv6m`) | Identity: the first PID output is exactly `kp·e + ki·e·dt`, and the plant climbs to within 1% of the setpoint. Emits `SMOKE_VAL_pid`. |
+| `polynomial_evaluate` | all (incl. `thumbv6m`) | Identity: value and first two derivatives of a degree-7 polynomial at `x = 1/2`, where every power is exact. Emits `SMOKE_VAL_poly`. |
+| `polynomial_quadratic_roots` | all (incl. `thumbv6m`) | Identity: the closed-form roots of `(x−1)(x−2)` are 1 and 2. Emits `SMOKE_VAL_poly_quadratic_root`. |
+| `lm_fit` | full set | Golden: Levenberg-Marquardt on the Rosenbrock least-squares problem vs the `rosenbrock` QA golden. Emits `SMOKE_VAL_lm0`. |
+| `autodiff_derivative` | full set | Identity: forward-mode autodiff of `x³` at `x = 2` is 12. Emits `SMOKE_VAL_ad`. |
+| `autodiff_derivative_f32` | full set | Identity in `f32`: the same derivative, where soft-float and the FPU are most likely to differ. Emits `SMOKE_VAL_ad_f32`. |
+| `ode_identity` | full set | Identity: RK4 harmonic-oscillator round trip, and RK45 `y' = -y` to `e^{-1}`. |
+| `lie_group_identity` | full set | Identity: SO(3)/SE(3) exp/log round trips and one known rotation. Emits `SMOKE_VAL_lie`. |
+| `quadrature_identity` | full set | Identity: Gauss-Legendre order 4 of `2x` on `[0,2]` is 4. Emits `SMOKE_VAL_quad`. |
+| `jacobian_identity` | full set | Identity: the Jacobian of `[x·y·z, x²+y²]` at `(1,2,3)` is `[[6,3,2],[2,4,0]]`. Emits `SMOKE_VAL_jac00`. |
+| `vector_field_identity` | full set | Identity: curl of `[y,-x,2z]` is `[0,0,-2]`, and divergence is 2. Emits `SMOKE_VAL_div3d`. |
 | `root_finding_golden` | full set | Golden: Newton on Wien's equation vs the `wien_newton` QA golden. Emits `SMOKE_VAL_wien_root`. |
 | `kalman_filter_golden` | full set | Golden: eight predict/update steps of a constant-velocity Kalman filter vs the `kalman_filter_constant_velocity_one_dimensional` QA golden. Emits `SMOKE_VAL_kalman`. |
-| `extended_kalman_filter_golden` | full set | Golden: eight steps of an extended Kalman filter tracking a turning vehicle from position fixes, vs the `extended_kalman_filter_coordinated_turn_fusion` QA golden. The only check driving 5×5 autodiff Jacobians on target. Emits `SMOKE_VAL_extended_kalman`. |
-| `kalman_filter_identity_f32` | full set | Identity in `f32`: two unit-measurement steps of a constant-velocity filter land on the exact `[5/3, 2/3]`. Emits `SMOKE_VAL_kalman_f32`. |
-| `pure_pursuit_identity` | full set | Identity: pure pursuit returns zero curvature for a point dead ahead and the exact `2·lateral/L²` for one off to the side. Emits `SMOKE_VAL_pure_pursuit`. |
-| `follow_the_gap_identity` | full set | Identity: a 31-beam clear scan drives straight ahead at cruise speed; a wall all round stops the robot and reports it blocked. Emits `SMOKE_VAL_follow_the_gap`. |
-| `polynomial_evaluate` | all (incl. `thumbv6m`) | Identity: a degree-7 polynomial's value and first two derivatives at `x = 1/2`, where every power is exact. Emits `SMOKE_VAL_poly`. |
-| `polynomial_quadratic_roots` | all (incl. `thumbv6m`) | Identity: the roots of `(x−1)(x−2)` are 1 and 2, by the closed form. Emits `SMOKE_VAL_poly_quadratic_root`. |
+| `extended_kalman_filter_golden` | full set | Golden: eight EKF steps of a coordinated turn with position fixes vs the `extended_kalman_filter_coordinated_turn_fusion` QA golden. The only check that drives 5×5 autodiff Jacobians on target. Emits `SMOKE_VAL_extended_kalman`. |
+| `kalman_filter_identity_f32` | full set | Identity in `f32`: two unit-measurement steps of a constant-velocity filter give exactly `[5/3, 2/3]`. Emits `SMOKE_VAL_kalman_f32`. |
+| `pure_pursuit_identity` | full set | Identity: curvature is zero for a point dead ahead, and exactly `2·lateral/L²` for a point to the side. Emits `SMOKE_VAL_pure_pursuit`. |
+| `follow_the_gap_identity` | full set | Identity: a clear 31-beam scan drives straight ahead at cruise speed; a wall on all sides stops the robot and reports it blocked. Emits `SMOKE_VAL_follow_the_gap`. |
+| `lqr_identity` | full set | Identity: an LQR for `A = [[1, 0.1], [0, 1]]`, `B = [0.005, 0.1]` passes `certify_stability` and drives `[1, 0]` to `‖x‖ < 1e-6` in 400 steps. Emits `SMOKE_VAL_lqr`. |
+| `geometric_attitude_identity` | full set | Identity: zero torque at the target attitude with zero rate; a tilt about x gives a negative x torque. Emits `SMOKE_VAL_geometric_attitude`. |
 | `polynomial_roots_golden` | full set | Golden: the four real roots of `x(x−1)(x−2)(x−4)` vs the `roots_quartic_four_real` QA golden. Emits `SMOKE_VAL_poly_root0`. |
-| `polynomial_sturm_identity` | full set | Identity: the six roots of a sixth-power polynomial, found by counting sign changes and halving rather than by a formula — the deepest polynomial path on target. Emits `SMOKE_VAL_poly_sturm0`. |
-| `piecewise_polynomial_golden` | full set | Golden: a planned minimum-snap trajectory evaluated for position, velocity and acceleration vs the `minimum_snap_three_segments_3d` QA golden. This is the hot-loop path a controller follows; planning stays host-side. Emits `SMOKE_VAL_piecewise`. |
-| `multivariate_identity` | full set | Identity: `3x²y + 2xy − 1` and its slopes at `(1.5, −2)`, exercising whole-number powers on target. Emits `SMOKE_VAL_multivariate`. |
-| `polynomial_evaluate_identity_f32` | full set | Identity in `f32`: the same degree-7 evaluation at single precision, where soft-float and the hardware FPU are most likely to differ. Emits `SMOKE_VAL_poly_f32`. |
+| `polynomial_sturm_identity` | full set | Identity: the six roots of a sixth-degree polynomial by Sturm sign-change counts and bisection, the deepest polynomial path on target. Emits `SMOKE_VAL_poly_sturm0`. |
+| `piecewise_polynomial_golden` | full set | Golden: position, velocity and acceleration of a minimum-snap trajectory vs the `minimum_snap_three_segments_3d` QA golden. Evaluation is the hot-loop path; planning stays on the host. Emits `SMOKE_VAL_piecewise`. |
+| `multivariate_identity` | full set | Identity: `3x²y + 2xy − 1` and its gradient at `(1.5, −2)`, with integer powers. Emits `SMOKE_VAL_multivariate`. |
+| `polynomial_evaluate_identity_f32` | full set | Identity in `f32`: the degree-7 evaluation at single precision. Emits `SMOKE_VAL_poly_f32`. |
+| `occupancy_ray_cast_identity` | full set | Identity: on a 16×16 map of 0.25 m cells, a beam from x = 0.5 meets a wall at x = 1.25 at exactly 0.75 m; the reverse beam meets nothing; the middle beam of a scan reads the same range. Covers bit-packed storage, rasterization and the cell walk. Emits `SMOKE_VAL_occupancy_ray_cast`. |
+| `kinematic_tree_identity` | full set | Identity: a two-joint planar arm of unit links puts its tool at `[cos a + cos(a+b), sin a + sin(a+b), 0]`. Emits `SMOKE_VAL_forward_kinematics`. |
+| `geometric_jacobian_identity` | full set | Identity: the same arm at `q = 0`, world frame: shoulder linear `v_y = 2`, elbow `v_y = 1`, shoulder `ω_z = 1`, fixed-joint column zero. Emits `SMOKE_VAL_geometric_jacobian`. |
+| `franka_forward_kinematics_f32` | full set | Golden in `f32`: the Franka Panda tree from the generated `franka_panda_model.rs` puts its hand at the MuJoCo position (`kinematics/franka_panda_seven_joint`, configuration 0) to `2e-4`. Also checks the armature and damping inherited from the MJCF default class. Emits `SMOKE_VAL_franka_hand_x`. |
 
 ## Pass/fail contract
 
 The binary runs under QEMU semihosting:
 
-- Clean finish → `debug::exit(EXIT_SUCCESS)` → QEMU exits 0.
-- Panic (failed `assert!`/`expect`) → on ARM, `panic-semihosting` (with the `exit`
-  feature) prints and exits QEMU non-zero; on RISC-V, the crate's `#[panic_handler]`
-  does the same via `riscv-semihosting`.
+- Clean finish: `debug::exit(EXIT_SUCCESS)`, and QEMU exits 0.
+- Panic (failed `assert!`/`expect`): on ARM, `panic-semihosting` (with the `exit` feature) prints
+  the message and exits QEMU non-zero. On RISC-V, the `#[panic_handler]` of the crate does the same
+  through `riscv-semihosting`.
 
-> Note: `cargo run … | tee` masks the exit code unless `pipefail` is set. CI runs
-steps under `bash -eo pipefail`, so a panic still fails the job.
+> If you pipe `cargo run … | tee`, set `pipefail`, or `tee` hides the exit code. CI runs steps
+> under `bash -eo pipefail`, so a panic fails the job.
 
 ## Stack high-water mark
 
-`main.rs` measures peak stack by painting free stack below the entry frame with
-a sentinel and scanning for the deepest overwritten byte after the checks
-return. It emits one line, `STACK_HWM_BYTES=<n>`, read by the size/stack gate.
+`main.rs` paints the free stack below the entry frame with a sentinel. After the checks, it scans
+for the deepest overwritten byte and prints `STACK_HWM_BYTES=<n>` for the budget gate.
 
-- `PAINT`: sentinel byte (`0xAA`) written across the watched window.
-- `WINDOW`: bytes of free stack to paint and scan (4 KiB). Must exceed the
-  deepest check and fit the target RAM. If a printed value equals `WINDOW`, the
-  window saturated. Raise it and confirm headroom.
-- `GUARD`: bytes just below the current SP left untouched (the live frame), so
-  painting never corrupts running code.
+- `PAINT`: the sentinel byte (`0xAA`).
+- `WINDOW`: the bytes of free stack to paint and scan (6 KiB). It must exceed the deepest check and
+  fit the target RAM. If the measured value reaches `WINDOW`, the binary panics. Then raise
+  `WINDOW` and confirm the headroom.
+- `GUARD`: the bytes just below the current SP that the paint does not touch (the live frame).
 
-This is a fixed-window scan below the SP, so it needs no linker symbol and is
-identical across machines. If a target cannot yield a stable number, drop its
-`STACK_HWM_BYTES` line and leave that ABI `.text`-gated only.
+The scan uses a fixed window below the SP, so it needs no linker symbol and is identical on all
+machines. If a target cannot give a stable number, remove its `STACK_HWM_BYTES` line and gate that
+ABI on `.text` only.
 
 ## Size and stack gate
 
-`ci/budgets.toml` holds per-target `.text` and stack budgets with a shared
-`tolerance_pct`. `ci/check_budgets.sh` reads `.text` via `cargo size -- -A`,
-parses `STACK_HWM_BYTES` from the run output, and fails if either exceeds
-`budget × (1 + tolerance_pct/100)`:
+`ci/check_budgets.sh` reads `.text` through `cargo size -- -A` and parses `STACK_HWM_BYTES` from the
+run output. It compares both against `ci/budgets.toml`. For the formula and the raise protocol, see
+[ci/README.md](../../ci/README.md).
 
 ```sh
-cargo run -p embedded-smoke --release --target thumbv6m-none-eabi | tee smoke.txt
-bash ci/check_budgets.sh embedded-smoke thumbv6m-none-eabi smoke.txt
+cargo run -p embedded-smoke --release --target thumbv7em-none-eabi | tee smoke.txt
+bash ci/check_budgets.sh embedded-smoke thumbv7em-none-eabi smoke.txt
 ```
-
-Intentional growth must bump `ci/budgets.toml` in the same PR so it is visible
-in review.
 
 ## Lints
 
-This crate does **not** use `[lints] workspace = true`. It needs one small
-`unsafe` block for the stack scan, so it sets `unsafe_code = "allow"` locally
-and does not inherit the library's panic-free / no-unsafe lints.
+This crate does **not** use `[lints] workspace = true`. It needs `unsafe` for the stack scan and the
+exception handlers, so it sets `unsafe_code = "allow"` locally. It does not inherit the panic-free
+and no-unsafe lints of the library.

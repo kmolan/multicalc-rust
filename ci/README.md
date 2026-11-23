@@ -1,93 +1,100 @@
 # CI budget gate
 
-`ci/budgets.toml` holds `.text` and per-scalar stack budgets, keyed by `<binary>.<target>`.
-`ci/check_budgets.sh <binary> <target> <smoke-out>` measures the release smoke binary and fails
-if any gated row exceeds `budget × (1 + tolerance_pct/100)`.
+`ci/budgets.toml` holds the `.text` and per-scalar stack budgets, keyed by `<binary>.<target>`.
+`ci/check_budgets.sh <binary> <target> <smoke-out> [<build-args>]` measures the release smoke
+binary. It fails if a gated row exceeds `budget × (1 + tolerance_pct/100)`.
 
 ## Budget-raise protocol
 
-A red gate means a change grew a binary's `.text` or stack past its tolerance. Resolve it one of
-two ways, **in the same PR**:
+A red gate means that a change grew the `.text` or the stack of a binary past its tolerance. Fix it
+in the same PR, in one of two ways:
 
-1. **Regression** — investigate and shrink the change back under budget. Prefer this.
-2. **Legitimate growth** — raise the specific `text_bytes` / `stack_bytes_<scalar>` value in
-   `ci/budgets.toml`, with a one-line justification in the PR description. The reviewer approves the
-   new baseline. This is the line between a **reviewed re-baseline** and **silent bloat**: the number
-   moves in a diff a human signed off on.
+1. **Regression:** shrink the change back under the budget. Prefer this.
+2. **Legitimate growth:** raise the specific `text_bytes` or `stack_bytes_<scalar>` value in
+   `ci/budgets.toml`. Give a one-line reason in the PR description. The reviewer approves the new
+   baseline, so the number moves only in a diff that a human approved.
 
-Do **not** raise `tolerance_pct` to get under a gate — that loosens every row at once and hides real
-regressions. Budgets are per-binary and per-scalar precisely so one domain's growth never spends
-another's headroom; keep them tight and per-row.
+Do **not** raise `tolerance_pct`. It loosens every row at once and hides real regressions. The
+budgets are per binary and per scalar, so the growth of one domain never uses the headroom of
+another.
 
-Time budgets on real hardware are a separate set, in `tools/hilshare`; its README has their
-protocol.
+Time budgets on real hardware are a separate set in `tools/hilshare`. Its README has their protocol.
 
 ## Smoke-test harness
 
-The on-target smoke binary is a hand-rolled `#[entry]` runner (`cortex-m-rt` on ARM,
-`riscv-rt` on RISC-V). It runs every check in sequence in a single QEMU invocation, prints
-machine-readable result lines over semihosting (`hprintln!`, i.e. `SYS_WRITE0`), and exits
-QEMU with `debug::exit`. The budget gate and the cross-ABI guard parse those lines straight
-from QEMU stdout.
+The on-target smoke binary is a hand-rolled `#[entry]` runner (`cortex-m-rt` on ARM, `riscv-rt` on
+RISC-V). It runs all checks in sequence in one QEMU invocation. It prints machine-readable result
+lines over semihosting (`hprintln!`, `SYS_WRITE0`) and exits QEMU with `debug::exit`. The budget
+gate and the cross-ABI guard parse these lines from QEMU stdout.
 
-`embedded-test`/`defmt-test` are not used. Their harness is driven by the `probe-rs` host runner:
-it enumerates test cases through a probe-rs-specific semihosting operation and resets the target to
-run each `#[test]` in its own invocation. Under the plain `qemu-system-arm` /
-`qemu-system-riscv32 -kernel` runners these smoke tests use, nothing drives that protocol, so
-the harness aborts before any test runs. The per-test reset model is also incompatible with the single-invocation stack high-watermark measurement the budget gate reads. `defmt` output is avoided 
-for the same parsing reason: its RTT transport needs a host-side decoder, while the plain-text 
-semihosting lines need none.
+The harness does not use `embedded-test` or `defmt-test`:
+
+- Their harness needs the `probe-rs` host runner. The runner enumerates the tests through a
+  probe-rs-specific semihosting operation, and resets the target for each `#[test]`.
+- The plain `qemu-system-arm` / `qemu-system-riscv32 -kernel` runners do not drive that protocol,
+  so the harness aborts before a test runs.
+- The per-test reset is incompatible with the single-invocation stack high-water mark that the
+  budget gate reads.
+- `defmt` output needs a host-side RTT decoder. Plain-text semihosting lines need no decoder.
 
 ## Smoke fixtures (shared with the QA crate)
 
-The smoke checks assert against goldens taken from the host QA fixtures, so the target and the
-host share one source of truth. `tools/qa/src/bin/gen_smoke_fixtures.rs` reads the committed
-fixtures under `tools/qa/fixtures` and writes `tools/embedded-smoke/src/fixtures.rs` as
-bit-exact `f64::from_bits` consts. Regenerate with:
+The smoke checks assert against goldens from the host QA fixtures, so the target and the host share
+one source of truth. `tools/qa/src/bin/gen_smoke_fixtures.rs` reads the committed fixtures under
+`tools/qa/fixtures` and writes `tools/embedded-smoke/src/fixtures.rs` as bit-exact
+`f64::from_bits` consts:
 
 ```
 cargo run -p multicalc-qa --bin gen_smoke_fixtures
 ```
 
-The output is deterministic. CI regenerates it and runs `git diff --exit-code` on `fixtures.rs`, so
-a stale checked-in copy fails the build. Change a fixture and rerun the generator; never edit
-`fixtures.rs` by hand.
-
-The Franka forward-kinematics check needs a whole model, not a handful of numbers, so it gets its
-own generator: `tools/qa/src/bin/gen_model_source.rs` reads
-`third_party/menagerie/franka_emika_panda/panda.xml` through `multicalc-robot-model` and writes
-`tools/embedded-smoke/src/franka_panda_model.rs` as Rust source that builds the same tree, so the
-target never reads a model file. Regenerate with:
+The Franka forward-kinematics check needs a whole model. `tools/qa/src/bin/gen_model_source.rs`
+reads `third_party/menagerie/franka_emika_panda/panda.xml` through `multicalc-robot-model`. It writes
+`tools/embedded-smoke/src/franka_panda_model.rs`, Rust source that builds the same tree, so the
+target never reads a model file:
 
 ```
 cargo run -p multicalc-qa --bin gen_model_source
 ```
 
-Guarded the same way: CI regenerates it and runs `git diff --exit-code` on
-`franka_panda_model.rs`. Never edit that file by hand either.
+The output of both generators is deterministic. CI runs each generator and then
+`git diff --exit-code` on its output file, so a stale committed copy fails the build. If you change a
+fixture, run the generator again. Never edit `fixtures.rs` or `franka_panda_model.rs` by hand.
 
 ## Test-set tiering
 
-The `embedded-smoke` `full-smoke` feature (on by default) selects the check set. Both `thumbv7em`
-ABIs and `riscv32imc-unknown-none-elf` build with default features and run the full set;
-`thumbv6m` builds with `--no-default-features` and runs only the canary — the portable
-(no-atomics) path, one golden, and the no-panic negative path — which keeps the M0 image small
-while still smoke-running every PR. The target matrix threads `--no-default-features` into the
-`thumbv6m` run (see `.github/workflows/matrix.yml`).
+The `full-smoke` feature of `embedded-smoke` (on by default) selects the check set:
+
+| Target | Build | Check set |
+|---|---|---|
+| `thumbv7em-none-eabi`, `thumbv7em-none-eabihf`, `riscv32imc-unknown-none-elf` | default features | full set |
+| `thumbv6m-none-eabi` | `--no-default-features` | canary: the portable (no-atomics) path, one golden (`svd_golden`), the no-panic negative path, `pid_step` and two polynomial identities |
+
+The canary keeps the M0 image small, and it still runs on each PR.
+`.github/workflows/matrix.yml` gives `--no-default-features` to the `thumbv6m` leg.
 
 ## Cross-ABI divergence guard
 
-`ci/check_cross_abi.sh <eabi-out> <eabihf-out>` compares the soft-float (`thumbv7em-none-eabi`) and
-hardware-FPU (`thumbv7em-none-eabihf`) smoke runs and fails if any shared `SMOKE_VAL_<name>=` scalar
-differs by more than a relative tolerance (`1e-9`). Both ABIs run the same math on the same inputs,
-so their headline scalars must agree; a gap beyond tolerance is a soft-float-vs-FPU / `libm`
-divergence. Values are printed as f64 in Rust `{:e}` (shortest round-trip decimal). The two outputs
-come from separate matrix legs and meet in the `cross-abi` job. Widening the tolerance is a reviewed
-change in the same PR — like a budget re-baseline, never loosened to dodge a real divergence.
+```
+bash ci/check_cross_abi.sh <eabi> <eabihf> [<riscv> ...] [--subset <m0>]
+```
+
+The script compares the `SMOKE_VAL_<name>=` scalars of the smoke runs. It fails if a shared scalar
+differs by more than a relative tolerance of `1e-9`. All legs run the same math on the same inputs,
+so a gap beyond tolerance is a soft-float vs FPU / `libm` divergence.
+
+- The full-keyset legs (`thumbv7em-none-eabi`, `thumbv7em-none-eabihf`, `riscv32imc`) are
+  positional. They must expose an identical key set.
+- The subset leg (`thumbv6m`) uses `--subset`. It contributes only the keys it prints.
+
+Values are f64 in Rust `{:e}` format (shortest round-trip decimal). Each output comes from a
+separate matrix leg, and the legs meet in the `cross-abi` job. A wider tolerance is a reviewed
+change in the same PR, as a budget re-baseline is. Never widen it to hide a real divergence.
 
 ## Adding a binary or a scalar row
 
-- New smoke crate: add a `[<binary>.<target>]` section per target and add the package name
-  to the loop in `.github/workflows/matrix.yml`.
-- New scalar row: add `stack_bytes_<scalar>` to the section and make the smoke binary print
-  `STACK_HWM_BYTES_<SCALAR>=<n>`. An absent or `0` row is report-only.
+- New smoke crate: add a `[<binary>.<target>]` section for each target, and add the package name to
+  the loop in `.github/workflows/matrix.yml`.
+- New scalar row: add `stack_bytes_<scalar>` to the section, and make the smoke binary print
+  `STACK_HWM_BYTES_<SCALAR>=<n>`. The bare `STACK_HWM_BYTES=<n>` line counts as `f64`. An absent or
+  `0` row is report-only.

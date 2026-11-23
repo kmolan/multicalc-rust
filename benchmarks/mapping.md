@@ -8,7 +8,7 @@ Felzenszwalb–Huttenlocher (*Distance Transforms of Sampled Functions*, 2004): 
 one-dimensional lower-envelope passes over the parabolas `f(q) + (x − q)²` in squared cell units,
 rooted and scaled to metres. O(cells), no priority queue.
 `scipy.ndimage.distance_transform_edt` computes the same quantity by a different exact method, so
-`1e-12` is floating-point noise rather than algorithmic slack.
+`1e-12` is floating-point noise, not algorithmic slack.
 
 ## Costmap inflation
 

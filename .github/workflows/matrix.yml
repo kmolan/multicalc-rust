@@ -11,7 +11,7 @@ on:
   workflow_call:
     inputs:
       full:
-        description: Run the complete target matrix (adds aarch64 host + thumbv6m).
+        description: Run the complete target matrix (adds the aarch64 host).
         type: boolean
         default: false
 

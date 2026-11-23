@@ -1,13 +1,17 @@
 # Taylor approximation
 
-Local Taylor models of a function around a point (linear and quadratic) with goodness-of-fit
-metrics.
+Linear and quadratic Taylor models of a multi-variable function around a point, with
+goodness-of-fit metrics.
 
-- `LinearApproximator`: first-order model.
-- `QuadraticApproximator`: same API, also captures curvature.
-- `approximate` builds the model; `predict` evaluates it; `prediction_metrics` returns MAE, MSE,
-  RMSE, R², and adjusted R² against sample points.
-- Metrics use pairwise summation by default; chain `.with_kahan_summation()` to opt into Kahan.
+- `LinearApproximator`: `f(x) ≈ f(a) + ∇f(a)·(x − a)`.
+- `QuadraticApproximator`: the same API, plus the Hessian term `½ (x − a)ᵀ H(a) (x − a)`.
+- `approximate` builds the model from the derivator's partials (`AutoDiffMulti` by default).
+  `predict` evaluates it.
+- `prediction_metrics(&points, &f)` returns the mean absolute error, MSE, RMSE, R² and adjusted R²
+  against `f` at the sample points. R² is `NaN` if `f` is constant over the points. Adjusted R²
+  is `NaN` if there are too few points.
+- The metrics use pairwise summation by default. Chain `.with_kahan_summation()` on the
+  approximator for Kahan summation.
 
 ```rust
 use multicalc::LinearApproximator;
@@ -19,13 +23,15 @@ let linear: LinearApproximator = LinearApproximator::default();
 let model = linear.approximate(&f, &base_point).unwrap();
 
 let nearby = [1.1, 2.1, 3.1];
-let y = model.predict(&nearby);
-// model.prediction_metrics(&samples, &f) returns RMSE, R^2, and more
+let y = model.predict(&nearby);          // 35.2, against f = 35.301
+assert!((y - 35.2).abs() < 1e-12);
+
+let samples = [[1.1, 2.1, 3.1], [0.9, 1.9, 2.9], [1.0, 2.2, 3.0]];
+let metrics = model.prediction_metrics(&samples, &f);
+let rmse = metrics.root_mean_squared_error;
 ```
 
-`QuadraticApproximator` works the same way and captures curvature as well.
-
-Errors: the underlying derivatives return [`DiffError`](error-handling.md). Full demo:
+Errors: `approximate` returns [`DiffError`](error-handling.md) from the derivator. Full demo:
 [approximation.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/approximation.rs).
 
 

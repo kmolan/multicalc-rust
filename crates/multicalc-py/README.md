@@ -2,11 +2,10 @@
 
 Python bindings for [`multicalc`](../multicalc), built with PyO3 and maturin.
 
-This is a workspace-internal crate (`publish = false`): host-only development bindings,
-not published to crates.io or PyPI on their own. Import name is `multicalc_py`.
+A workspace-internal, host-only crate (`publish = false`), not on crates.io or PyPI. The import
+name is `multicalc_py`.
 
-Requires CPython **3.10+**. On **3.14**, the crate needs PyO3 **0.27+** (already pinned
-in `Cargo.toml`).
+Requires CPython **3.10+**. CPython **3.14** needs PyO3 **0.27+**; `Cargo.toml` pins 0.29.
 
 ## Develop
 
@@ -19,8 +18,8 @@ pip install -U pip maturin pytest
 maturin develop
 ```
 
-`maturin develop` needs an active venv (or a `.venv` in this directory / a parent). Prefer
-`python -m pytest` so you do not pick up a system `pytest`.
+`maturin develop` needs an active venv, or a `.venv` in this directory or a parent. Use
+`python -m pytest`, not `pytest`, so that the system `pytest` does not run.
 
 ## Test
 
@@ -29,13 +28,12 @@ python -m pytest tests/ -v
 cargo clippy -p multicalc-py --all-targets -- -D warnings
 ```
 
-PR CI runs the same path on Python 3.12 (`maturin develop` + `pytest`) and
-`cargo clippy -p multicalc-py --all-targets -- -D warnings`.
+PR CI runs these two steps on Python 3.12.
 
 ## What is exposed
 
-Host `f64` only. Const-generic sizes are fixed in the class name. This is a slice of
-the crate-root API, not every `multicalc` type or method.
+Host `f64` only. The class name fixes each const-generic size. The bindings cover a slice of the
+crate-root API, not every `multicalc` type or method.
 
 | Area | Python names |
 | --- | --- |
@@ -56,8 +54,8 @@ the crate-root API, not every `multicalc` type or method.
 | Plant / mapping | `MultirotorMixer4`, `RotorLag4`, `ScanGeometry5`, `DynamicOccupancyGrid` |
 | Autodiff / optimization | `Dual`, `HyperDual`, `Jet7`, `GaussNewton2x2`, `LevenbergMarquardt2x2` |
 
-Python residuals and ODE right-hand sides are evaluated as `f64` (finite differences).
-`Dual` / `HyperDual` / `Jet7` are separate types; they are not passed through those callbacks.
+Python residuals and ODE right-hand sides evaluate in `f64` (finite differences). `Dual`,
+`HyperDual` and `Jet7` are separate types, and those callbacks do not receive them.
 
 ## Example
 

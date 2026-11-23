@@ -1,15 +1,19 @@
 # Least-squares optimization
 
-Nonlinear least-squares solvers. They minimize the sum of squared residuals of a
-`scalar_fn_vec!` function, differentiating it under autodiff by default.
+Nonlinear least-squares solvers. They minimize `‖r(x)‖²` for the residuals `r` of a
+`scalar_fn_vec!` function, with the Jacobian from the derivator (`AutoDiffMulti` by default).
 
-- `LevenbergMarquardt`: the robust, damped default.
-- `GaussNewton`: the faster undamped variant for well-conditioned problems.
-- `minimize` returns a `MinimizationReport` whose `TerminationReason` says which convergence
-  test stopped the solver.
+- `LevenbergMarquardt`: the damped trust-region method, and the robust default. It ports MINPACK
+  `lmder`/`lmpar`.
+- `GaussNewton`: the undamped method, faster on well-conditioned problems. It has an optional
+  backtracking line search (`with_backtracking`).
+- Both take `with_ftol`, `with_xtol`, `with_gtol` and `with_patience`. `LevenbergMarquardt` also
+  takes `with_stepbound` and `with_scale_diag`.
+- `minimize` returns a `MinimizationReport` with `solution`, `objective_function`, `evaluations`
+  and `termination`. The `TerminationReason` (`Ftol`, `Xtol` or `Gtol`) gives the convergence test
+  that stopped the solver.
 
-Write the residuals `model - data` with `scalar_fn_vec!` and the solver differentiates them
-under autodiff:
+Write the residuals as `model - data`:
 
 ```rust
 use multicalc::LevenbergMarquardt;
@@ -29,17 +33,15 @@ let report = LevenbergMarquardt::<AutoDiffMulti>::default()
 // report.solution ~ [100.0, -0.693]; report.termination says which test converged
 ```
 
-`GaussNewton` has the same API and suits well-conditioned problems where damping is unnecessary.
-For a plain linear least-squares fit, use the QR factorization from
-[Linear algebra](linear-algebra.md) instead.
+`GaussNewton` has the same API. For a linear least-squares fit, use the QR factorization from
+[Linear algebra](linear-algebra.md).
 
-Errors: the solvers return [`SolveError`](error-handling.md): `DidNotConverge { iters, residual }`,
+Errors: the solvers return [`SolveError`](error-handling.md): `DidNotConverge { iters }`,
 `NonFinite`, or a wrapped `Linalg` / `Diff` error from a failed inner step.
 
-Credits: the Levenberg-Marquardt driver ports MINPACK's `lmder`/`lmpar` (Moré, Garbow,
-Hillstrom; public domain, netlib), following Moré (1978), "The Levenberg-Marquardt algorithm:
-Implementation and theory", and Nocedal & Wright, *Numerical Optimization*, chapters 4 and 10.
-Full demos:
+Credits: MINPACK `lmder`/`lmpar` (Moré, Garbow, Hillstrom; public domain, netlib); Moré (1978),
+"The Levenberg-Marquardt algorithm: Implementation and theory"; Nocedal & Wright, *Numerical
+Optimization*, chapters 4 and 10. Full demos:
 [curve_fit.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/curve_fit.rs)
 and
 [optimization_solvers.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/optimization_solvers.rs).

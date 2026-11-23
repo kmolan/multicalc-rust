@@ -10,14 +10,17 @@ panics, and generic over the `Numeric` scalar, so `f32`, `f64`, and the autodiff
   invariant) and rigid-body transform.
 - `Twist` / `Wrench`: typed spatial velocity and force in the linear-first `[v; ω]` /
   `[force; torque]` ordering, and the algebra that goes with them — see below.
-- `SpatialInertia`: a body's mass, the point it balances on, and how hard it is to spin, plus what
-  its motion carries.
+- `SpatialInertia`: mass, center of mass `c`, and rotational inertia `I_c` about `c`, with the
+  spatial products below.
 
 Every group provides `identity`, `compose` (also `*`), `inverse`, `act` on a point, `exp`/`log`,
-`hat`/`vee`, `adjoint`, geodesic `interpolate`, and matrix conversions. Conventions: the tangent
-ordering is `[v; ω]` (linear part first) for `SE2`/`SE3`; the retract is right-perturbation
-`X · exp(ξ)`; angles are radians. `exp`/`log` Taylor-continue near θ = 0 so derivatives stay
-finite at rest.
+`hat`/`vee`, `adjoint`, geodesic `interpolate`, left and right Jacobians, and matrix conversions.
+Conventions:
+
+- The `SE2`/`SE3` tangent order is `[v; ω]`, linear part first.
+- The retraction is right-perturbation `X · exp(ξ)`.
+- Angles are in radians.
+- `exp`/`log` switch to Taylor series near θ = 0, so derivatives stay finite at θ = 0.
 
 ```rust
 use multicalc::{SE3, SO3};
@@ -40,73 +43,72 @@ let twist = g.log();
 let g2 = SE3::exp(twist);
 ```
 
-`SO3::from_two_direction_pairs` reads an orientation straight off two directions the body can see.
-Standing still, a drone's push sensor says which way is down and its compass says roughly which way
-is north; both directions are also known in world terms, and two directions that are not parallel
-fix the orientation completely. The first pair is trusted exactly and the second only settles the
-leftover spin about it, so the noisier reading belongs second. It returns `None` when a direction has
-no length or when the pair are parallel. This is how an error-state filter gets its starting
-attitude — and it only works while the body is still, because a body in free fall feels no push at
-all and has no "down" to read.
+`SO3::from_two_direction_pairs` gives the orientation from two direction pairs, each observed in
+the body frame and known in the world frame. Two non-parallel directions fix the orientation.
 
-Because everything is generic over the scalar, a derivative with respect to a joint angle or
-pose parameter flows through `act`, `compose`, and `exp`/`log` under autodiff. That is what the
-inverse-kinematics showcases are built on. Full demo:
+- The orientation maps the primary observed direction onto its reference exactly.
+- The secondary pair sets only the remaining rotation about the primary direction, so put the
+  noisier reading second.
+- Only the directions are used; the lengths do not matter.
+- It returns `None` if a direction has zero or non-finite length, or if the two observed
+  directions or the two reference directions are parallel.
+
+An error-state filter uses it for the initial attitude from accelerometer and magnetometer
+readings. The accelerometer gives the gravity direction only at rest; in free fall the specific
+force is zero.
+
+All types are generic over the scalar, so `act`, `compose` and `exp`/`log` propagate autodiff
+derivatives with respect to joint angles or pose parameters. The inverse-kinematics showcases use
+this. Demo:
 [lie_groups.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/lie_groups.rs);
-worked application:
+application:
 [3d_arm_ik.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/3d_arm_ik.rs).
 
 ## Spatial algebra
 
-A motion and a force are each six numbers, and almost everything a robot's dynamics needs is one of
-three operations on them: reading one of them from a different frame, working out what a moving frame
-does to one of them, and asking what a body's mass distribution makes of a motion.
-
-Reading in another frame is the transform itself. An `SE3` that carries points from one frame to
-another carries motions and forces too — `act_twist` and `act_wrench` going one way,
-`inverse_act_twist` and `inverse_act_wrench` coming back. Nothing builds a 6×6 to do it; the 6×6
-forms (`adjoint` for motions, `force_adjoint` for forces) are there when a plain matrix is what you
-want.
-
-`Twist::cross` is what one motion does to another read from a frame riding along with it, and
-`Twist::cross_wrench` is the same idea for a force. `Twist::dot_wrench` pairs a motion with a force
-and gives the rate work is being done.
-
-`SpatialInertia` answers the rest: `momentum` for how much motion a body carries, `bias_wrench` for
-what it takes to hold the motion it already has, `kinetic_energy` for the energy in it, and `combined`
-for two bodies stuck rigidly together.
+| Operation | Formula or meaning |
+|---|---|
+| `SE3::act_twist` / `act_wrench` | Frame change of a twist / wrench; `inverse_act_twist` / `inverse_act_wrench` for the inverse. No 6×6 is formed. |
+| `SE3::act_inertia` / `inverse_act_inertia` | Frame change of a `SpatialInertia`. |
+| `SE3::adjoint` / `force_adjoint` | The 6×6 motion and force adjoints. |
+| `Twist::cross` | Motion cross product `v × v'`: `[ω×v' + v×ω' ; ω×ω']`. |
+| `Twist::cross_wrench` | Force cross product `v ×* f`: `[ω×f ; ω×τ + v×f]`. |
+| `Twist::dot_wrench` | Power `v·f + ω·τ`. |
+| `SpatialInertia::momentum` | Spatial momentum `I·v` about the body-frame origin. |
+| `SpatialInertia::bias_wrench` | The velocity-product term `v ×* (I·v)`, as RNEA needs it. |
+| `SpatialInertia::kinetic_energy` | `½·vᵀ·I·v`. |
+| `SpatialInertia::combined` | The inertia of two rigidly attached bodies. |
 
 ```rust
 use multicalc::linear_algebra::Vector;
 use multicalc::spatial::{SE3, SO3, SpatialInertia, Twist};
 
-// A 3 kg body that balances 10 cm above its own origin.
+// A 3 kg body with its center of mass 10 cm above its origin.
 let body = SpatialInertia::from_diagonal_inertia(
     3.0_f64,
     Vector::new([0.0, 0.0, 0.1]),
     Vector::new([0.05, 0.05, 0.08]),
 )?;
 
-// Sliding along x while turning about z.
+// Translation along x, rotation about z.
 let motion = Twist::new(Vector::new([1.0, 0.0, 0.0]), Vector::new([0.0, 0.0, 2.0]));
 
-// What that motion carries, and the energy in it.
 let carried = body.momentum(motion);
 let energy = body.kinetic_energy(motion);
 
-// The same body and the same motion, read from a frame half a metre along x.
+// The same body and twist in a frame 0.5 m along x.
 let elsewhere = SE3::from_parts(SO3::<f64>::identity(), Vector::new([0.5, 0.0, 0.0]));
 let moved_body = elsewhere.act_inertia(body);
 let moved_motion = elsewhere.act_twist(motion);
 
-// Energy does not care which frame it is read in.
+// Kinetic energy is frame-invariant.
 assert!((moved_body.kinetic_energy(moved_motion) - energy).abs() < 1e-12);
 
-// Neither does the momentum, once it is carried across too.
+// Momentum transforms as a wrench.
 let moved_momentum = elsewhere.act_wrench(carried);
 assert!((moved_momentum.to_vector() - moved_body.momentum(moved_motion).to_vector()).norm() < 1e-12);
 
-// Two bodies stuck together.
+// Two rigidly attached bodies.
 let whole = body.combined(moved_body);
 assert!((whole.mass() - 6.0).abs() < 1e-12);
 # Ok::<(), multicalc::CalcError>(())

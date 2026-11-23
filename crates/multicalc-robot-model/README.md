@@ -1,6 +1,6 @@
 # multicalc-robot-model
 
-Reads MuJoCo MJCF and URDF model files into [`multicalc`](https://crates.io/crates/multicalc)'s robot types, plus a bundled `model_viewer` binary to easily view model files.
+Reads MuJoCo MJCF and URDF model files into the robot types of [`multicalc`](https://crates.io/crates/multicalc). The `model_viewer` binary draws a model file.
 
 ![model_viewer drawing a Skydio X2, a TurtleBot3 Burger, a Franka Emika Panda, a Unitree Go2, a
 Shadow Hand and a Unitree H1](res/demo.jpg)
@@ -63,10 +63,10 @@ assert_eq!(model.kinematic_tree_to::<10, 10>("panda_hand")?.len(), 10);
 ## Viewing a model
 
 ```sh
-cargo run --features viewer --bin model_viewer -- go1.xml
+cargo run -p multicalc-robot-model --features viewer --bin model_viewer -- go1.xml
 ```
 
-Draws every body at the pose the file states, each joint at its own reference value. Needs a
+Draws each body at the pose that the file states, with each joint at its reference value. Needs a
 version-matched Rerun viewer on `PATH`: `cargo install rerun-cli --locked --version 0.33.1`.
 
 | Flag | Default | Effect |
@@ -76,23 +76,26 @@ version-matched Rerun viewer on `PATH`: `cargo install rerun-cli --locked --vers
 | `--package-path <name>=<dir>` | none | resolves `package://<name>/…`; repeatable |
 | `--frame-axes <metres>` | `0.05` | axis length, `0` for no frames |
 
-A viewer is spawned unless `RERUN_VIZ_URL` names one, or the host is WSL, whose virtualized GPU
-rarely starts one: there the default gRPC address reaches a viewer on the Windows side.
+The binary spawns a viewer, with two exceptions:
 
-To draw the geometry any other way it is on the model type: `BodyDescription::visual_geometry` in
-body axes, `RobotModel::mesh_path` against the model's directory and a package map.
+- If `RERUN_VIZ_URL` names a viewer, it connects to that viewer.
+- On WSL, the virtualized GPU rarely starts a viewer. The default gRPC address reaches a viewer on
+  the Windows side.
 
-Meshes are logged as file references, never parsed here. Rerun decodes `.obj`, `.stl`, `.glb`,
-`.gltf` and `.dae`, the last as triangles and diffuse colours without textures. An unresolvable path
-is skipped with a warning, its body still drawing its frame; a file the viewer cannot decode fails
-there, unreported.
+For other renderers, the geometry is on the model type: `BodyDescription::visual_geometry` in body
+axes, and `RobotModel::mesh_path` against the model directory and a package map.
+
+The viewer logs meshes as file references and never parses them. Rerun decodes `.obj`, `.stl`,
+`.glb`, `.gltf` and `.dae` (`.dae` as triangles and diffuse colours, without textures). If a path
+does not resolve, the viewer skips it with a warning, and the body still draws its frame. If Rerun
+cannot decode a file, it fails there, and the binary does not report it.
 
 ## Generating Rust source
 
 `RobotModel::to_rust_source(&options) -> Result<String, ModelError>` renders one `.rs` file: a
-single function building the parsed `KinematicTree` from literals, with no XML parsing and no file
-I/O, so it runs `no_std` and filesystem-free. It reads a `RobotModel` and never learns which reader
-built it, so both formats emit alike.
+single function that builds the parsed `KinematicTree` from literals. It has no XML parsing and no
+file I/O, so it runs `no_std` and with no filesystem. It reads only the `RobotModel`, so MJCF and
+URDF give the same output form.
 
 | Method | Default | What it sets |
 | --- | --- | --- |
@@ -116,4 +119,4 @@ std::fs::write("unitree_go1.rs", model.to_rust_source(&options)?)?;
 
 ## Licence
 
-Model files used by the examples and tests are third-party, under their upstream licences.
+The model files of the examples and tests are third-party, under their upstream licences.
