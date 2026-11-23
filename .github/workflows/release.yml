@@ -53,7 +53,7 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.new == 'true'
     uses: ./.github/workflows/matrix.yml
-    # Releases always run the complete 5-target matrix.
+    # Releases always run the complete 6-target matrix.
     with:
       full: true
 

@@ -2,11 +2,10 @@ name: Full CI
 
 # The complete suite, run where speed matters less than coverage: after a commit
 # lands on main (post-merge), nightly, and on demand. Per-PR runs use the trimmed
-# representative set in ci.yml; this workflow is a strict superset of it — it
-# re-runs host, thumbv7em, test, qa, lint, docs,
-# no_std and adds the aarch64 host, the thumbv6m canary, the MSRV
-# toolchain, the feature powerset, packaging, cargo-deny, and coverage. So a
-# direct push to main gets the same gates a PR would, plus the full matrix.
+# representative set in ci.yml; this workflow is a strict superset of it. It runs
+# each per-PR job again and adds the aarch64 host, the feature powerset, cargo-deny,
+# coverage, and the demos. A direct push to main gets the same gates as a PR, plus
+# the full matrix.
 #
 # Scheduled runs only fire from the default branch's copy of this file, and GitHub
 # disables schedules after 60 days of repository inactivity — a manual run or any

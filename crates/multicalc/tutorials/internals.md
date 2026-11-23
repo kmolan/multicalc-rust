@@ -1,8 +1,8 @@
 # Internals
 
-`utils` holds crate-internal numeric helpers — `pub(crate)`, not part of the public API. The main
-one is the blocked pairwise summation used for long running sums, where rounding error grows like
-`O(log n · eps)` instead of the naive `O(n · eps)`.
+`utils` holds crate-internal numeric helpers. They are `pub(crate)` and not part of the public API.
+The main helper is blocked pairwise summation for long sums: the rounding error grows as
+`O(log n · ε)`, against `O(n · ε)` for naive summation.
 
 ---
 

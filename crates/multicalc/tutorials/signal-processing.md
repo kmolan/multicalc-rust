@@ -1,45 +1,27 @@
 # Signal processing
 
-Filters for a stream of samples: give a filter a number, get the filtered number back. Fixed-size,
-no allocation, no panics, and generic over the `Numeric` scalar, so the same code runs at `f32` on a
-microcontroller.
+Streaming filters: one sample in, one filtered sample out. Fixed-size, no allocation, no panics,
+and generic over the `Numeric` scalar, so the same code runs at `f32` on a microcontroller.
 
-Frequencies are in hertz and timesteps in seconds. Every filter is configured once, with the
-configuration checked up front, and every call after that is infallible — it never panics, never
-allocates, and never returns an error.
+Frequencies are in hertz and timesteps in seconds. Each filter checks its configuration once at
+construction. After that, each per-sample call is infallible: no panic, no allocation, no error.
+The per-sample calls do not inspect the sample, so a NaN or an infinity goes in. The exception is
+`RunningMedian`, which rejects a NaN. Each filter also has a checked entry point; see
+[Non-finite samples](#non-finite-samples).
 
-Infallible is not the same as meaningful: the per-sample calls do not look at the sample they are
-handed, so a NaN or an infinity goes straight in — except on `RunningMedian`, which rejects a NaN
-before it reaches the window. Every filter also has a checked entry point that refuses one before it
-can do any harm — see [Non-finite samples](#non-finite-samples) below, and the module documentation
-for a table of the exact cost per filter.
-
-- `BiquadCoefficients`: the shape of a second-order filter, designed as a `low_pass`, `high_pass`,
-  `band_pass`, or `notch` from a frequency, a sharpness, and the seconds between samples. It also
-  reports on itself: `magnitude_at` and `magnitude_in_decibels_at` for how much of a frequency it
-  keeps, `phase_at` and `delay_at` for how far it shifts one, and `is_stable` for whether weights
-  handed in directly will settle.
-- `Biquad`: the running filter. `set_coefficients` swaps the weights without disturbing the memory
-  of recent samples, so a notch can follow a frequency that moves; `settle_to` starts it where a
-  long run of a value would leave it, skipping the opening transient.
-- `BiquadCascade`: several sections in series, for a sharper cut than one section gives.
-  `harmonic_notch_coefficients` fills one with notches on a frequency and the whole-number multiples
-  above it, which is the shape a spinning motor's vibration takes.
-- `MultiChannelBiquad`: one shape over every component of a `Vector`, each channel keeping its own
-  memory. One object and one call per tick for a three-axis rate sensor.
-- `OnePoleLowPass`: the simplest low-pass, by smoothing weight (`new`) or by cutoff frequency
-  (`from_cutoff`). This is the filter `Pid::with_derivative_filter` puts on the derivative term.
-- `MovingAverage`: the average of the last few samples, added up fresh each time so it cannot drift.
-- `RunningMedian`: their middle value instead, which drops a single bad reading outright and rejects
-  a NaN before it reaches the window.
-- `SavitzkyGolay`: a small curve fitted across the window, reporting the smoothed value together
-  with the slope and the bend — one noisy position reading gives a rate and an acceleration.
-- `Deadband`: treats values near zero as zero, in a plain form and one that leaves the band
-  smoothly rather than jumping.
-- `Hysteresis`: a yes-or-no answer with a gap between its thresholds, so a signal sitting near the
-  switching point does not chatter.
-- `SlewRateLimiter`: follows a target without moving faster than its separate rising and falling
-  limits, turning a step into a ramp.
+| Type | Function |
+|---|---|
+| `BiquadCoefficients` | Second-order section design: `low_pass`, `high_pass`, `band_pass`, `notch` from a frequency, a quality factor and a timestep, or `new` from raw weights. Response queries: `magnitude_at`, `magnitude_in_decibels_at`, `phase_at`, `delay_at` (phase delay, in seconds). `is_stable` checks raw weights. |
+| `Biquad` | The running section. `set_coefficients` changes the weights and keeps the state, so a notch can track a moving frequency. `settle_to` sets the steady state for a constant input and removes the start-up transient. |
+| `BiquadCascade` | Sections in series, for a steeper roll-off. `harmonic_notch_coefficients` designs notches at a fundamental and its integer harmonics, for motor vibration. |
+| `MultiChannelBiquad` | One design on each component of a `Vector`, with separate state per channel. One call per tick for a three-axis gyro. |
+| `OnePoleLowPass` | First-order low-pass, from a smoothing weight (`new`) or a cutoff (`from_cutoff`). `Pid::with_derivative_filter` puts this filter on the derivative term. |
+| `MovingAverage` | Mean of the window, summed from the whole window each sample, so it has no running-total drift. |
+| `RunningMedian` | Median of the window. It removes a single outlier and rejects a NaN. |
+| `SavitzkyGolay` | Least-squares polynomial fit across the window. It gives the value, the first derivative and the second derivative. |
+| `Deadband` | Maps values near zero to zero. `plain` passes values outside the band unchanged; `recentered` subtracts the threshold, so the output is continuous. |
+| `Hysteresis` | A boolean output with separate on and off thresholds, so a signal near the threshold does not chatter. |
+| `SlewRateLimiter` | Follows a target with separate rise and fall rate limits, so a step becomes a ramp. `symmetric` uses one rate. |
 
 ```rust
 use multicalc::{Biquad, BiquadCascade, BiquadCoefficients, MultiChannelBiquad};
@@ -48,12 +30,12 @@ use multicalc::Vector;
 
 let timestep = 0.001_f64; // a 1 kHz loop
 
-// A low-pass is about 3 dB down at its own cutoff, and lags by a few milliseconds below it.
+// Butterworth low-pass (Q = 1/√2): -3 dB at the cutoff, under 10 ms of phase delay at 5 Hz.
 let low_pass = BiquadCoefficients::low_pass(50.0, 0.70710678, timestep).unwrap();
 assert!((low_pass.magnitude_in_decibels_at(50.0).unwrap() + 3.0).abs() < 0.5);
 assert!(low_pass.delay_at(5.0).unwrap() < 0.01);
 
-// A notch removes one frequency: 2000 samples of a 180 Hz oscillation come out flat.
+// A notch at 180 Hz: after 2000 samples, a 180 Hz sine is gone.
 let mut notch = Biquad::new(BiquadCoefficients::notch(180.0, 4.0, timestep).unwrap());
 let mut last = 0.0;
 for sample in 0..2000 {
@@ -61,36 +43,36 @@ for sample in 0..2000 {
 }
 assert!(last.abs() < 0.05);
 
-// Retuning keeps the memory, so a tracked notch does not step as it moves.
+// Retune: the state is kept, so the output has no step.
 notch.set_coefficients(BiquadCoefficients::notch(210.0, 4.0, timestep).unwrap());
 
-// Notches on 80 Hz and its next two multiples, one section each. The fundamental is 80 Hz and not
-// 180 Hz because a third section on 180 Hz would sit at 540 Hz, past half of a 1 kHz sampling rate.
+// Notches at 80, 160 and 240 Hz. A 180 Hz fundamental would put the third at 540 Hz, above the
+// 500 Hz Nyquist frequency.
 let harmonics = harmonic_notch_coefficients::<3, f64>(80.0, 4.0, timestep).unwrap();
 let motor_notch = BiquadCascade::new(harmonics);
 for frequency_hz in [80.0, 160.0, 240.0] {
     assert!(motor_notch.magnitude_at(frequency_hz).unwrap() < 0.05);
 }
 
-// Three axes through one filter, each keeping its own memory.
+// Three axes, one design, separate state per axis.
 let mut rates = MultiChannelBiquad::new(low_pass);
 let filtered = rates.filter(Vector::new([0.3, -0.7, 1.1]));
 assert!(filtered[0] > 0.0);
 ```
 
-The window filters work from the last few samples rather than from a recurrence:
+The window filters use the last `WINDOW` samples, not a recurrence:
 
 ```rust
 use multicalc::{RunningMedian, SavitzkyGolay};
 
-// A median drops one wild reading outright. An average would carry a fifth of it into the output.
+// The median removes one outlier. A 5-sample mean would pass a fifth of it.
 let mut median = RunningMedian::<5, f64>::new().unwrap();
 for reading in [1.0, 1.1, 0.9, 50.0, 1.05] {
     median.filter(reading);
 }
 assert_eq!(median.value(), 1.05);
 
-// Three terms fit a curve exactly, so a curve comes back with its slope and bend.
+// A quadratic fit (3 terms) is exact on a parabola, so both derivatives are exact.
 let timestep = 0.001_f64;
 let mut fitted = SavitzkyGolay::<11, 3, f64>::latest(timestep).unwrap();
 let mut time = 0.0;
@@ -101,57 +83,76 @@ for sample in 0..200 {
 assert!((fitted.first_derivative() - time).abs() < 1e-6);
 assert!((fitted.second_derivative() - 1.0).abs() < 1e-6);
 
-// Reading at the newest sample costs no delay; reading at the middle costs half a window.
+// `latest` evaluates at the newest sample: no delay. `centered` evaluates mid-window.
 assert_eq!(fitted.delay(), 0.0);
 assert!((SavitzkyGolay::<11, 3, f64>::centered(timestep).unwrap().delay() - 0.005).abs() < 1e-12);
 ```
 
-Which of the three to reach for: a mean for gentle smoothing of a signal whose noise is small and
-even; a median when single readings come back wrong, which is the one case no amount of smoothing
-helps; and a curve fit when a rate or an acceleration is wanted out of the same noisy signal, since
-subtracting two noisy samples multiplies the noise by the sampling rate. Note that
-`SavitzkyGolay::centered` smooths considerably better than `latest` but describes a sample from half
-a window ago — eleven samples at 1 kHz puts its answer five milliseconds behind, which `delay()`
-reports so a loop can account for it.
+| Filter | Use |
+|---|---|
+| `MovingAverage` | Light smoothing of small, uniform noise. |
+| `RunningMedian` | Single wrong readings; no linear smoother removes them. |
+| `SavitzkyGolay` | A rate or an acceleration from a noisy signal. A finite difference multiplies the noise by the sample rate. |
 
-The last three shape a signal without filtering it. They live here for the same reason the filters
-do: numbers in, numbers out, nothing about robots.
+`SavitzkyGolay::centered` smooths better than `latest`, but its output is half a window old. At
+eleven samples and 1 kHz that is 5 ms. `delay()` returns this value, so a loop can compensate.
+
+`Deadband`, `Hysteresis` and `SlewRateLimiter` condition a signal; they are not filters. They are
+in this module because they map numbers to numbers with no robot model.
 
 ```rust
 use multicalc::{Deadband, Hysteresis, SlewRateLimiter};
 
-// A stick that reads a little off centre at rest. The re-centered form leaves the band smoothly,
-// so a small push gives a small command instead of jumping to a tenth.
+// Joystick deadband. `recentered` is continuous at the band edge: 0.5 gives 0.4, not 0.5.
 let stick = Deadband::recentered(0.1_f64).unwrap();
 assert_eq!(stick.apply(0.05), 0.0);
 assert!((stick.apply(0.5) - 0.4).abs() < 1e-12);
 
-// A switch that will not chatter: it turns on above 0.6 and off below 0.4, and holds in between.
+// On above 0.6, off below 0.4, hold in between.
 let mut warning = Hysteresis::new(0.4_f64, 0.6).unwrap();
 assert!(!warning.update(0.5));
 assert!(warning.update(0.7));
 assert!(warning.update(0.5));
 assert!(!warning.update(0.3));
 
-// A step in the target comes out as a ramp, climbing at one per second on a tenth-second tick.
+// Rise limit 1 per second, 0.1 s tick: a step becomes a ramp of 0.1 per tick.
 let mut command = SlewRateLimiter::new(1.0_f64, 2.0, 0.1).unwrap();
 command.filter(0.0);
 assert!((command.filter(10.0) - 0.1).abs() < 1e-12);
 ```
 
-The number worth knowing before picking a filter is `delay_at`. Every filter pays for what it
-removes by putting its output behind its input, and inside a control loop that delay is what eats
-the margin the loop has before it starts oscillating — so it is worth reading at the frequency the
-loop works around, not just at the cutoff. A sharper filter or a lower cutoff buys a cleaner signal
-with more delay, and there is no setting that avoids the trade.
+Read `delay_at` before you select a filter. Each filter delays its output to remove noise. In a
+control loop, that delay reduces the phase margin. Evaluate it near the loop crossover frequency,
+not only at the cutoff. A steeper filter or a lower cutoff gives a cleaner signal and more delay.
 
 ## Non-finite samples
 
-A sensor that drops out, a divide by zero upstream, a GPS with no fix: a NaN reaching a filter is a
-question of when, not whether. The unchecked call is for samples that have already been validated —
-it costs no branch, which is what a 1 kHz loop wants. The checked call is for everything else. The
-one exception is `RunningMedian`, which rejects a NaN before it reaches the window in both calls:
-its unchecked call pays the one branch, and only its checked call reports the dropout.
+Sensor dropouts, upstream division by zero and GPS loss without a fix all produce NaN. Use the
+unchecked call for samples already validated: it has no branch, for a 1 kHz loop. Use the checked
+call for all other samples. A checked call returns `Err(SignalError::NonFinite)` before it changes
+any state.
+
+| Filter | Unchecked | Effect of a non-finite sample | Checked |
+|---|---|---|---|
+| `OnePoleLowPass` | `filter` | Latches until `reset`. | `filter_checked` |
+| `Biquad` | `filter` | Latches: the value enters the feedback path. | `filter_checked` |
+| `BiquadCascade` | `filter` | Latches in each section. | `filter_checked` |
+| `MultiChannelBiquad` | `filter` | Latches in that channel only. | `filter_checked` |
+| `MovingAverage` | `filter` | Spoils one window, then clears. | `filter_checked` |
+| `RunningMedian` | `filter` | A NaN is rejected and the median holds. | `filter_checked` |
+| `SavitzkyGolay` | `filter` | Spoils value, slope and curvature for one window. | `filter_checked` |
+| `Deadband` | `apply` | Passes through; no state. | `apply_checked` |
+| `Hysteresis` | `update` | A NaN is ignored and the output holds. | `update_checked` |
+| `SlewRateLimiter` | `filter` | A NaN latches; an infinity latches only as the first target. | `filter_checked` |
+
+Two checked calls accept more than the name suggests:
+
+- `RunningMedian` rejects only NaN. The sort orders an infinity correctly, so the median treats it
+  as an outlier.
+- `SlewRateLimiter` rejects an infinity only before the first sample. After that, the rate clamp
+  bounds it.
+
+`settle_to` is not checked. `RunningMedian::filter` pays one branch for its NaN check.
 
 ```rust
 use multicalc::error::SignalError;
@@ -159,14 +160,13 @@ use multicalc::{Biquad, BiquadCoefficients, RunningMedian};
 
 let shape = BiquadCoefficients::low_pass(50.0, 0.70710678, 0.001_f64).unwrap();
 
-// Unchecked, one bad sample ruins the filter for good: it enters the feedback path, and every
-// later output is a NaN no matter how clean the input becomes.
+// Unchecked: the NaN enters the feedback path, and each later output is NaN.
 let mut spoiled = Biquad::new(shape);
 let _ = spoiled.filter(1.0);
 let _ = spoiled.filter(f64::NAN);
 assert!(spoiled.filter(1.0).is_nan());
 
-// Checked, the sample is refused and the filter is left exactly where it was.
+// Checked: the sample is rejected and the state does not change.
 let mut guarded = Biquad::new(shape);
 let _ = guarded.filter(1.0);
 let before = guarded.value();
@@ -174,9 +174,8 @@ let before = guarded.value();
 assert_eq!(guarded.filter_checked(f64::NAN), Err(SignalError::NonFinite));
 assert_eq!(guarded.value(), before);
 
-// `RunningMedian` rejects only a NaN: an infinity is an ordinary wild reading to a median, so it
-// is let through and dropped by the sort, while a NaN is refused at the window boundary by both
-// entry points — the checked one just says so.
+// `RunningMedian` accepts an infinity as an outlier. Both entry points reject a NaN; only the
+// checked one reports it.
 let mut median = RunningMedian::<5, f64>::new().unwrap();
 for reading in [1.0, 1.1, 0.9, f64::INFINITY, 1.05] {
     let _ = median.filter_checked(reading);
@@ -184,8 +183,7 @@ for reading in [1.0, 1.1, 0.9, f64::INFINITY, 1.05] {
 assert_eq!(median.value(), 1.05);
 assert_eq!(median.filter_checked(f64::NAN), Err(SignalError::NonFinite));
 
-// Unchecked, the same NaN is still refused, so the answer holds where it was instead of shifting
-// to a plausible finite number that is simply wrong.
+// Unchecked: the NaN is rejected and the median holds.
 let mut unchecked = RunningMedian::<5, f64>::new().unwrap();
 for reading in [1.0, 1.1, 0.9, 50.0, 1.05] {
     let _ = unchecked.filter(reading);
@@ -196,20 +194,27 @@ assert_eq!(unchecked.filter(f64::NAN), held);
 assert_eq!(unchecked.value(), held);
 ```
 
-Pick one entry point per filter and stay with it: a checked call promises that *this* sample will
-not spoil the filter, not that the output is finite, so a filter already ruined through the
-unchecked call keeps returning NaN from checked calls too. `reset` is what brings it back.
+Use one entry point per filter. A checked call protects the filter from that sample only. It does
+not guarantee a finite output, and it cannot repair a filter that an unchecked call already
+spoiled. Use `reset` to recover.
 
-One failure stays silent, and no check downstream will catch it: a NaN reaching `Hysteresis` leaves
-the switch holding its last answer, so a dead sensor looks exactly like a signal parked inside the
-gap. `RunningMedian` holds too, but at a value built only from the readings it accepted — never a
-number the data does not support — and `filter_checked` reports each rejected NaN.
+Caution: a NaN into `Hysteresis::update` is silent. The switch holds its last output, so a dead
+sensor looks the same as a signal inside the hysteresis band. `RunningMedian` also holds, but at a
+value from accepted readings only, and `filter_checked` reports each rejected NaN.
 
-Errors: every constructor, the four response queries (`magnitude_at`,
-`magnitude_in_decibels_at`, `phase_at`, `delay_at`), and the checked entry points above all return
-[`SignalError`](error-handling.md). Full demo:
+## Errors
+
+These calls return [`SignalError`](error-handling.md):
+
+- Each design and filter constructor. `Biquad::new`, `BiquadCascade::new` and
+  `MultiChannelBiquad::new` take a checked design and are infallible.
+- `harmonic_notch_coefficients`.
+- The response queries `magnitude_at`, `magnitude_in_decibels_at`, `phase_at` and `delay_at`.
+- `BiquadCascade::set_section` (`SectionIndexOutOfRange`).
+- The checked entry points above.
+
+Demo:
 [signal_filters.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/signal_filters.rs).
-
 
 ---
 

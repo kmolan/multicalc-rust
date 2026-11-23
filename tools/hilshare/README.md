@@ -6,9 +6,9 @@ boards: the Nucleo-F411RE (Cortex-M4F at 100 MHz), the Raspberry Pi Pico 2 (Cort
 `embedded-smoke` runs the same math under QEMU; this app runs it on silicon and times it.
 
 A dev-only crate (`publish = false`) in its own workspace. It links
-[libtock-rs](https://github.com/tock/libtock-rs) at the fixed app addresses of each kernel on a
-pinned toolchain (`rust-toolchain.toml`), so build it from inside this directory, not from the
-repository root.
+[libtock-rs](https://github.com/tock/libtock-rs) at the fixed app addresses of each kernel, on a
+pinned toolchain (`rust-toolchain.toml`). Build it from this directory, not from the repository
+root.
 
 ## What it prints
 
@@ -37,7 +37,7 @@ available, the app prints `HILSHARE_CHECK name=clock_rate status=FAIL` and
 `HILSHARE_RESULT=FAIL`.
 
 A check is `PASS` when its eight answers agreed with the known answer and `us <= budget_us`.
-`HILSHARE_RESULT` is `PASS` when the seven checks are. The goldens come from
+`HILSHARE_RESULT` is `PASS` when all seven checks pass. The goldens come from
 `tools/embedded-smoke/src/fixtures.rs`, which `multicalc-qa` generates. Do not write a golden by
 hand.
 
@@ -48,9 +48,9 @@ cargo install elf2tab --version 0.13.0 --locked
 tools/hilshare/build-tab.sh
 ```
 
-Build through the script. It sets `RUSTFLAGS`, which replaces the linker flags that the
-`.cargo/config.toml` of the repository root gives for `embedded-smoke`. It builds the app one time
-for each board, at the addresses of that kernel, and packs the three TBFs in
+Build through the script. It sets `RUSTFLAGS`, which replaces the `embedded-smoke` linker flags in
+the `.cargo/config.toml` of the repository root. It builds the app one time for each board, at the
+addresses of that kernel. It packs the three TBFs in
 `tools/hilshare/target/tab/multicalc-hilshare.tab`, with the ELF of each board beside it.
 
 ## In CI, and on the board
@@ -60,7 +60,7 @@ change to an API that a check calls must keep this crate building.
 
 CI does not run the app on a board. A maintainer starts the `Board` workflow by hand
 (`.github/workflows/board.yml`). It builds the TAB and runs it on the three boards through
-`hilshare/action@v1`. A red run is investigated and blocks nothing.
+`hilshare/action@v1`. A red run blocks nothing; a maintainer investigates it.
 
 ## Budgets
 
@@ -88,7 +88,8 @@ Measure each budget again when one of these changes:
 - the channel in `rust-toolchain.toml`
 - the version of the HILShare kernel
 - `Cargo.lock`, or the libtock-rs rev in `Cargo.toml`
-- the release profile in `Cargo.toml`, `.cargo/config.toml`, or the addresses in `build-tab.sh`
+- the release profile in `Cargo.toml`, `tools/hilshare/.cargo/config.toml`, or the addresses in
+  `build-tab.sh`
 
 Measure the budget of one check again when a change to multicalc moves the figure of that check
 above its budget. The `Board` run is then red. Make the regression smaller, or raise that one

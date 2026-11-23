@@ -1,17 +1,16 @@
 # multicalc tutorials
 
-A tour of every public module — the robotics and control layer (estimation, control, kinematics,
-motion, spatial) and the calculus, autodiff, and linear-algebra core it is built on: what each does,
-where to start, a snippet you can run, the errors it can return, and a link to a full demo. Read the
-pages in order if you are new to the crate, or open a single one once you know your way around.
+One page for each public module: what it does, a runnable snippet, the errors it can return, and a
+link to a full demo. The robotics layer (estimation, control, kinematics, motion, spatial) builds on
+the calculus, autodiff and linear-algebra core. If you are new to the crate, read the pages in order.
 
-Every operation is generic over the [`Numeric`](scalars-and-automatic-differentiation.md) scalar
-trait, which is implemented for `f32` and `f64` and defaults to `f64`. The math functions come
-from `libm`, so the crate works without `std`. Methods like `f64::sin` need `std`; in a
-`no_std` crate, call the `libm` version instead (`libm::sin(x)` in place of `x.sin()`). The
-crate re-exports `libm` as `multicalc::libm`.
+Each operation is generic over the [`Numeric`](scalars-and-automatic-differentiation.md) scalar
+trait. `Numeric` is implemented for `f32` and `f64`, and the default is `f64`. The math functions
+come from `libm`, so the crate works without `std`. Methods such as `f64::sin` need `std`. In a
+`no_std` crate, call `libm::sin(x)` in place of `x.sin()`. The crate re-exports `libm` as
+`multicalc::libm`.
 
-Every fallible call returns a `Result`, and the error is the module family's own enum; see
+Each fallible call returns a `Result` with the module family's own error enum. See
 [Error handling](error-handling.md).
 
 ## Contents

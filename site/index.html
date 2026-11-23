@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>multicalc</title>
+<meta name="description" content="Robotics math for microcontrollers. Estimation, control, kinematics, dynamics, Lie groups, autodiff and linear algebra in no_std Rust.">
+<meta property="og:title" content="multicalc">
+<meta property="og:description" content="Robotics math for microcontrollers. no_std, no heap, no panics, no unsafe. Tested on real silicon.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --surface-0: #0c0d0f;
+  --surface-1: #131417;
+  --surface-2: #1a1b1f;
+  --line: #24262b;
+  --grid: #202226;
+  --text-primary: #f0efec;
+  --text-secondary: #b4b3ad;
+  --text-muted: #7c7d80;
+  --accent: #e8683a;
+  --good: #0ca30c;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+.wrap { max-width: 1160px; margin: 0 auto; padding: 0 16px; }
+@media (min-width: 720px) { .wrap { padding: 0 32px; } }
+
+/* nav */
+nav {
+  position: sticky; top: 0; z-index: 10;
+  background: color-mix(in srgb, var(--surface-0) 82%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+.brand { font-family: var(--mono); font-weight: 500; letter-spacing: -0.02em; }
+.brand b { color: var(--accent); font-weight: 500; }
+nav ul { display: flex; gap: 22px; list-style: none; margin: 0; padding: 0; font-size: 14px; color: var(--text-secondary); }
+nav ul a:hover { color: var(--text-primary); }
+@media (max-width: 720px) { nav ul li.hide-sm { display: none; } }
+
+/* hero */
+.hero { padding: 72px 0 40px; text-align: center; position: relative; overflow: hidden; }
+.hero::before {
+  content: ""; position: absolute; inset: -40% -10% auto; height: 520px;
+  background: radial-gradient(closest-side, rgba(232,104,58,0.16), transparent 70%);
+  pointer-events: none;
+}
+.pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--text-secondary);
+  border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px 5px 8px;
+  background: var(--surface-1);
+}
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px rgba(12,163,12,0.2); }
+h1 {
+  font-size: clamp(40px, 7.5vw, 84px); line-height: 1.02; letter-spacing: -0.045em;
+  font-weight: 800; margin: 22px 0 16px;
+}
+h1 .soft { color: var(--text-muted); }
+.lede { font-size: clamp(16px, 2.2vw, 19px); color: var(--text-secondary); max-width: 640px; margin: 0 auto; text-wrap: balance; }
+.tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 26px 0 30px; }
+.tag {
+  font-family: var(--mono); font-size: 13px; padding: 5px 10px; border-radius: 6px;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--text-primary);
+}
+.cta { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px;
+  padding: 11px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-1);
+  transition: border-color .15s, background .15s;
+}
+.btn:hover { border-color: #3a3d44; background: var(--surface-2); }
+.btn.primary { background: var(--text-primary); color: var(--surface-0); border-color: var(--text-primary); }
+.btn.primary:hover { background: #fff; }
+.btn code { font-family: var(--mono); font-weight: 500; font-size: 14px; }
+
+.reel {
+  margin: 48px auto 0; max-width: 1080px; border-radius: 16px; overflow: hidden;
+  border: 1px solid var(--line); background: #000;
+  box-shadow: 0 40px 120px -40px rgba(232,104,58,0.35), 0 0 0 1px rgba(255,255,255,0.02);
+}
+.reel video { display: block; width: 100%; height: auto; }
+
+/* stats */
+.stats {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px;
+  background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+  margin: 56px 0 0;
+}
+@media (min-width: 720px) { .stats { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1000px) { .stats { grid-template-columns: repeat(5, 1fr); } }
+.stat { background: var(--surface-1); padding: 22px 20px; }
+.stat .v { font-size: 34px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat .v small { font-size: 18px; font-weight: 600; color: var(--text-secondary); margin-left: 2px; }
+.stat .l { font-size: 13px; color: var(--text-muted); margin-top: 6px; }
+
+/* sections */
+section { padding: 96px 0 0; }
+.kicker { font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+h2 { font-size: clamp(28px, 4.2vw, 44px); letter-spacing: -0.035em; line-height: 1.08; margin: 10px 0 10px; font-weight: 700; }
+.sub { color: var(--text-secondary); margin: 0 0 32px; max-width: 680px; }
+
+.card { background: var(--surface-1); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+.card h3 { font-size: 15px; margin: 0 0 2px; font-weight: 600; }
+.card .note { font-size: 13px; color: var(--text-muted); margin: 0 0 14px; }
+
+/* demos */
+.demos { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 760px) { .demos { grid-template-columns: 1fr 1fr; } }
+.demo { background: var(--surface-1); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.demo .media { aspect-ratio: 2 / 1.08; background: #000; overflow: hidden; }
+.demo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.demo .meta { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; padding: 16px 18px 18px; }
+.demo .meta > div:first-child { min-width: 0; }
+.demo .name { font-family: var(--mono); font-size: 13px; color: var(--text-secondary); overflow-wrap: anywhere; }
+.demo .modules { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.demo .metric { text-align: right; }
+.demo .metric .v { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; }
+.demo .metric .l { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+
+/* charts */
+.grid-2 { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 900px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+.chart { width: 100%; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart text { font-family: var(--sans); font-size: 12px; fill: var(--text-secondary); }
+.chart .tick text { fill: var(--text-muted); font-variant-numeric: tabular-nums; }
+.chart .val { fill: var(--text-primary); font-variant-numeric: tabular-nums; font-weight: 500; }
+.chart .gl { stroke: var(--grid); stroke-width: 1; }
+.chart .hit { fill: transparent; }
+.chart .hit:hover + .bar, .chart g.row:hover .bar { filter: brightness(1.18); }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--text-secondary); margin: 0 0 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+#tooltip {
+  position: fixed; pointer-events: none; z-index: 50; opacity: 0; transition: opacity .1s;
+  background: var(--surface-2); border: 1px solid #33363c; border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; line-height: 1.4; box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  max-width: 280px;
+}
+#tooltip .tt-k { color: var(--text-muted); font-size: 12px; }
+#tooltip .tt-v { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* tables */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-1); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
+th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 12px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; background: var(--surface-1); }
+tr:last-child td { border-bottom: 0; }
+td.mono { font-family: var(--mono); font-size: 13px; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+th.num { text-align: right; }
+.chip { font-family: var(--mono); font-size: 12px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text-secondary); }
+.chip.si { color: var(--text-primary); border-color: rgba(232,104,58,0.5); background: rgba(232,104,58,0.12); }
+.chip.ok { color: var(--text-primary); border-color: rgba(12,163,12,0.4); background: rgba(12,163,12,0.12); }
+tr.silicon td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+
+/* modules */
+.mods { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.mod { background: var(--surface-1); padding: 16px 18px; transition: background .15s; }
+.mod:hover { background: var(--surface-2); }
+.mod .mn { font-weight: 600; font-size: 15px; }
+.mod .mt { font-family: var(--mono); font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
+
+/* code */
+pre {
+  margin: 0; padding: 22px 24px; overflow-x: auto; border-radius: 14px;
+  background: var(--surface-1); border: 1px solid var(--line);
+  font-family: var(--mono); font-size: 13.5px; line-height: 1.7; color: var(--text-secondary);
+}
+pre .k { color: #c792ea; } pre .f { color: #82aaff; } pre .n { color: #f78c6c; } pre .c { color: var(--text-muted); } pre .t { color: #ffcb6b; }
+
+footer { margin-top: 110px; border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--text-muted); font-size: 13px; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; }
+footer a:hover { color: var(--text-primary); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#">multi<b>calc</b></a>
+    <ul>
+      <li class="hide-sm"><a href="#silicon">Silicon</a></li>
+      <li class="hide-sm"><a href="#speed">Speed</a></li>
+      <li class="hide-sm"><a href="#demos">Demos</a></li>
+      <li class="hide-sm"><a href="#accuracy">Accuracy</a></li>
+      <li><a href="https://docs.rs/multicalc">Docs</a></li>
+      <li><a href="https://github.com/kmolan/multicalc-rust">GitHub</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="pill"><span class="dot"></span>Now tested on real silicon</span>
+    <h1>The whole robotics stack.<br><span class="soft">On bare metal.</span></h1>
+    <p class="lede">Sense, plan and control on stable Rust in one integrated crate.</p>
+    <div class="tags">
+      <span class="tag">no_std</span>
+      <span class="tag">no heap</span>
+      <span class="tag">no panics</span>
+      <span class="tag">no unsafe</span>
+    </div>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/kmolan/multicalc-rust">GitHub</a>
+      <a class="btn" href="https://crates.io/crates/multicalc"><code>cargo add multicalc</code></a>
+    </div>
+    <div class="reel">
+      <video src="media/combined_demo_reel.mp4" autoplay muted loop playsinline preload="metadata" aria-label="Demo reel: quadcopter, 2D robot and Franka Panda arm"></video>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="v">1<small>kHz</small></div><div class="l">full control loop</div></div>
+      <div class="stat"><div class="v">1e-10</div><div class="l">tolerance vs MuJoCo and Pinocchio</div></div>
+      <div class="stat"><div class="v">490<small>ns</small></div><div class="l">7-DoF inverse dynamics</div></div>
+      <div class="stat"><div class="v">646<small>ns</small></div><div class="l">7-DoF forward dynamics</div></div>
+      <div class="stat"><div class="v">22<small>µs</small></div><div class="l">7-DoF inverse kinematics</div></div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<section id="silicon">
+  <div class="wrap">
+    <div class="kicker">Real silicon</div>
+    <h2>Same math. Real chips. Timed in cycles.</h2>
+    <p class="sub">Three microcontrollers, Arm and RISC-V. f64 in software float. Each answer matches the reference.</p>
+    <div class="card">
+      <h3>Warm time per check, µs</h3>
+      <p class="note">Log scale. Best of seven runs.</p>
+      <div class="legend">
+        <span><i style="background:var(--series-1)"></i>Arm Cortex-M4F</span>
+        <span><i style="background:var(--series-2)"></i>Arm Cortex-M33</span>
+        <span><i style="background:var(--series-3)"></i>RISC-V</span>
+      </div>
+      <div class="chart" id="chart-silicon"></div>
+    </div>
+  </div>
+</section>
+
+<section id="speed">
+  <div class="wrap">
+    <div class="kicker">Latency</div>
+    <h2>Nanoseconds, not milliseconds.</h2>
+    <p class="sub">Criterion median, x86_64 i7-12650H, release profile.</p>
+    <div class="card">
+      <h3>Time per call</h3>
+      <p class="note">Log scale.</p>
+      <div class="chart" id="chart-latency"></div>
+    </div>
+  </div>
+</section>
+
+<section id="demos">
+  <div class="wrap">
+    <div class="kicker">Live demos</div>
+    <h2>Every number on screen is measured live.</h2>
+    <p class="sub">Six Rerun showcases. Each tick is one fixed 1 ms step.</p>
+    <div class="demos">
+      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
+        <div class="media"><img loading="lazy" src="media/3d_drone_showcase.gif" alt="Skydio X2 quadcopter flies a minimum-snap loop"></div>
+        <div class="meta">
+          <div><div class="name">3d_drone_flight</div><div class="modules">ESKF · LQR · geometric attitude · min-snap</div></div>
+          <div class="metric"><div class="v">≈ 2 µs</div><div class="l">per tick</div></div>
+        </div>
+      </a>
+      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
+        <div class="media"><img loading="lazy" src="media/2d_localization_obstacle_avoidance_showcase.gif" alt="Differential-drive robot localizes with a particle filter and laps an obstacle course"></div>
+        <div class="meta">
+          <div><div class="name">2d_localization_obstacle_avoidance</div><div class="modules">particle filter · EKF · follow-the-gap</div></div>
+          <div class="metric"><div class="v">0.72 µs</div><div class="l">0 collisions / 600k ticks</div></div>
+        </div>
+      </a>
+      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
+        <div class="media"><img loading="lazy" src="media/3d_arm_ik_showcase.gif" alt="Franka Panda arm tracks a moving 3D pose"></div>
+        <div class="meta">
+          <div><div class="name">3d_arm_ik</div><div class="modules">SE(3) IK · dynamics · gravity-comp PD</div></div>
+          <div class="metric"><div class="v">2–6 mm</div><div class="l">lag at 1 kHz</div></div>
+        </div>
+      </a>
+      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
+        <div class="media"><img loading="lazy" src="media/newton_fractal_showcase.gif" alt="Newton fractal: every pixel is a Newton solve"></div>
+        <div class="meta">
+          <div><div class="name">newton_fractal</div><div class="modules">Newton system · autodiff Jacobian</div></div>
+          <div class="metric"><div class="v">4M / s</div><div class="l">solves, one core</div></div>
+        </div>
+      </a>
+      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
+        <div class="media"><img loading="lazy" src="media/gradient_marbles_showcase.gif" alt="2,000 marbles follow exact autodiff gradients"></div>
+        <div class="meta">
+          <div><div class="name">gradient_marbles</div><div class="modules">2,000 exact gradients per tick</div></div>
+          <div class="metric"><div class="v">0.0</div><div class="l">error vs analytic</div></div>
+        </div>
+      </a>
+      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
+        <div class="media"><img loading="lazy" src="media/fourier_ferris_showcase.gif" alt="Fourier epicycles draw Ferris"></div>
+        <div class="meta">
+          <div><div class="name">fourier_ferris</div><div class="modules">Gauss-Legendre quadrature</div></div>
+          <div class="metric"><div class="v">≈ 1e-15</div><div class="l">coefficient error</div></div>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section id="accuracy">
+  <div class="wrap">
+    <div class="kicker">Accuracy</div>
+    <h2>Checked against the libraries you trust.</h2>
+    <p class="sub">183 checks. Golden floats stored bit-exact. CI fails on any drift.</p>
+    <div class="card"><h3>Checks per reference</h3><p class="note">Locked library versions.</p><div class="chart" id="chart-references"></div></div>
+  </div>
+</section>
+
+<section id="footprint">
+  <div class="wrap">
+    <div class="kicker">Footprint</div>
+    <h2>Fits in flash. Gated in CI.</h2>
+    <p class="sub">Release smoke binary per bare-metal target. A PR fails at +10%.</p>
+    <div class="grid-2">
+      <div class="card"><h3>.text, KB</h3><p class="note">Full check set; thumbv6m runs the canary set.</p><div class="chart" id="chart-flash"></div></div>
+      <div class="card"><h3>Peak stack, bytes</h3><p class="note">High-water mark, f64.</p><div class="chart" id="chart-stack"></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="platforms">
+  <div class="wrap">
+    <div class="kicker">Platforms</div>
+    <h2>Host. Emulator. Silicon.</h2>
+    <p class="sub">Host and QEMU run in CI. Silicon runs on real boards.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Platform</th><th>Core</th><th>Runs on</th><th>Gate</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">x86_64-unknown-linux-gnu</td><td>x86_64</td><td><span class="chip">CI host</span></td><td>full test suite</td></tr>
+          <tr><td class="mono">aarch64-unknown-linux-gnu</td><td>Arm64</td><td><span class="chip">CI host</span></td><td>full test suite</td></tr>
+          <tr><td class="mono">thumbv7em-none-eabihf</td><td>Cortex-M4F</td><td><span class="chip">QEMU</span></td><td>goldens · .text · stack · cross-ABI</td></tr>
+          <tr><td class="mono">thumbv7em-none-eabi</td><td>Cortex-M4, soft-float</td><td><span class="chip">QEMU</span></td><td>goldens · .text · stack · cross-ABI</td></tr>
+          <tr><td class="mono">riscv32imc-unknown-none-elf</td><td>RV32IMC</td><td><span class="chip">QEMU</span></td><td>goldens · .text · stack</td></tr>
+          <tr><td class="mono">thumbv6m-none-eabi</td><td>Cortex-M0</td><td><span class="chip">QEMU</span></td><td>canary · .text · stack</td></tr>
+          <tr class="silicon"><td>Microcontroller</td><td>Arm Cortex-M4F</td><td><span class="chip si">silicon</span></td><td>goldens · µs budget</td></tr>
+          <tr class="silicon"><td>Microcontroller</td><td>Arm Cortex-M33</td><td><span class="chip si">silicon</span></td><td>goldens · µs budget</td></tr>
+          <tr class="silicon"><td>Microcontroller</td><td>RISC-V RV32IMC</td><td><span class="chip si">silicon</span></td><td>goldens · µs budget</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="code">
+  <div class="wrap">
+    <div class="kicker">Autodiff</div>
+    <h2>Write it once. Differentiate it exactly.</h2>
+    <p class="sub">The same formula runs at f64 and at a dual number. No step size, no truncation error.</p>
+<pre><span class="k">let</span> f = <span class="f">scalar_fn!</span>(|x| x * x * x - <span class="f">constant</span>(<span class="n">2.0</span>) * x);    <span class="c">// x³ − 2x</span>
+
+<span class="k">let</span> slope = <span class="f">derivative</span>(&amp;f, <span class="n">2.0</span>);                          <span class="c">// 10, exact</span>
+<span class="k">let</span> root  = <span class="t">Newton</span>::<span class="f">new</span>().<span class="f">solve</span>(&amp;f, <span class="n">2.0</span>)?.root;           <span class="c">// √2</span>
+<span class="k">let</span> area  = <span class="f">integral</span>(&amp;|x: <span class="t">f64</span>| f.<span class="f">eval</span>(x), [<span class="n">0.0</span>, <span class="n">2.0</span>])?;   <span class="c">// 0</span>
+
+<span class="k">let mut</span> filter = <span class="t">KalmanFilter</span>::<span class="f">new</span>(state, covariance, model);
+filter.<span class="f">predict</span>();
+filter.<span class="f">update</span>(measurement)?;                              <span class="c">// 34 ns, no heap</span></pre>
+  </div>
+</section>
+
+<section id="modules">
+  <div class="wrap">
+    <div class="kicker">Modules</div>
+    <h2>One integrated stack.</h2>
+    <p class="sub">Each module has a tutorial, a demo and a fixture table.</p>
+    <div class="mods" id="modules-grid"></div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>multicalc · MIT</span>
+    <span>
+      <a href="https://github.com/kmolan/multicalc-rust">GitHub</a> ·
+      <a href="https://crates.io/crates/multicalc">crates.io</a> ·
+      <a href="https://docs.rs/multicalc">docs.rs</a> ·
+      <a href="https://github.com/kmolan/multicalc-rust/tree/main/benchmarks">Benchmarks</a>
+    </span>
+  </div>
+</footer>
+
+<div id="tooltip" role="tooltip"></div>
+
+<script>
+const SERIES = ["var(--series-1)", "var(--series-2)", "var(--series-3)"];
+const BOARDS = ["Arm Cortex-M4F", "Arm Cortex-M33", "RISC-V"];
+
+// Warm time on silicon, microseconds. The PID check times 101 updates; shown per update.
+const SILICON = [
+  { label: "Autodiff derivative", values: [5.79, 12.75, 3.45] },
+  { label: "Vector dot, 4", values: [11.32, 21.78, 6.64] },
+  { label: "Typed error path", values: [23.92, 31.77, 13.40] },
+  { label: "PID update", values: [2807.06 / 101, 1601.90 / 101, 1612.31 / 101] },
+  { label: "SVD, 3×3", values: [1082.85, 711.46, 703.06] },
+];
+
+// benchmarks/latency.md, median, nanoseconds.
+const LATENCY = [
+  ["Servo tick, 7 joints", 9.1],
+  ["Kalman step, 2-state", 34.1],
+  ["Rigid-body step", 95.8],
+  ["Jacobian 6×6, autodiff", 273.1],
+  ["Newton system, 2×2", 329.4],
+  ["LU solve, 10×10", 402.6],
+  ["Inverse dynamics, 7-DoF", 489.6],
+  ["UKF step, 5-state", 517.6],
+  ["Mass matrix, 7-DoF", 599.2],
+  ["Forward dynamics, 7-DoF", 646.0],
+  ["EKF step, 5-state", 679.1],
+  ["SVD least squares, 30×3", 823.3],
+  ["ESKF predict, 15-state", 2040],
+  ["LQR solve, 4×1", 2590],
+  ["Min-snap, 8 waypoints", 20110],
+  ["IK, 7-DoF SE(3)", 21880],
+  ["Particle filter, 1,000", 65670],
+];
+
+// ci/budgets.toml
+const FLASH = [["thumbv7em-none-eabihf", 200.776], ["riscv32imc", 196.400], ["thumbv7em-none-eabi", 166.492], ["thumbv6m-none-eabi", 43.536]];
+const STACK = [["thumbv7em-none-eabihf", 3631], ["thumbv7em-none-eabi", 3311], ["riscv32imc", 3291], ["thumbv6m-none-eabi", 908]];
+
+// benchmarks/*.md accuracy tables
+const REFERENCES = [["NumPy / LAPACK", 46], ["SciPy / MINPACK", 34], ["Pinocchio", 30], ["mpmath", 25], ["NumPy + SciPy", 21], ["MuJoCo", 19], ["mink", 4], ["FilterPy", 4]];
+
+const MODULES = [
+  ["Estimation", "estimation", "KalmanFilter · ErrorStateKalmanFilter · ParticleFilter"],
+  ["Control", "control", "Lqr · Pid · ComputedTorqueController"],
+  ["Spatial math", "spatial-quaternions-and-lie-groups", "SO3 · SE3 · Twist · Wrench"],
+  ["Rigid-body dynamics", "rigid-body-dynamics", "RNEA · CRBA · ABA"],
+  ["Kinematics", "kinematics", "KinematicTree · SE(3) IK · CollisionQuery"],
+  ["Plant", "plant", "MultirotorMixer · RotorLag · PositionServo"],
+  ["Motion", "motion", "MinimumSnapPlanner · MotionProfilePlanner"],
+  ["Planning", "planning", "A* · Theta* · RrtStar · Prm"],
+  ["Mapping", "mapping", "LogOddsGrid · DistanceField · CostGrid"],
+  ["MLP inference", "mlp-inference", "Layer · Activation · ParameterCursor"],
+  ["Autodiff", "scalars-and-automatic-differentiation", "Dual · Jet · Jacobian · Hessian"],
+  ["Linear algebra", "linear-algebra", "LU · Cholesky · QR · SVD · expm"],
+  ["Least squares", "least-squares-optimization", "LevenbergMarquardt · GaussNewton"],
+  ["Root finding", "root-finding", "bisection · Brent · Newton"],
+  ["Polynomials", "polynomials", "Polynomial · PiecewisePolynomial"],
+  ["Integration", "integration", "Gauss-Legendre · Hermite · Laguerre"],
+  ["ODE", "ode-integrators", "Rk4 · Rk45 · ExponentialMap"],
+  ["Discretization", "discretization", "zero-order hold · Van Loan"],
+  ["Signal processing", "signal-processing", "Biquad · RunningMedian · SavitzkyGolay"],
+  ["Vector calculus", "vector-calculus", "curl · divergence · flux"],
+];
+
+const tutorialBase = "https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/";
+document.getElementById("modules-grid").innerHTML = MODULES.map(([name, file, types]) =>
+  `<a class="mod" href="${tutorialBase}${file}.md"><div class="mn">${name}</div><div class="mt">${types}</div></a>`).join("");
+
+const SVG = "http://www.w3.org/2000/svg";
+const tooltip = document.getElementById("tooltip");
+function element(tag, attributes, parent) {
+  const node = document.createElementNS(SVG, tag);
+  for (const key in attributes) node.setAttribute(key, attributes[key]);
+  if (parent) parent.appendChild(node);
+  return node;
+}
+function showTooltip(event, key, value) {
+  tooltip.innerHTML = `<div class="tt-k">${key}</div><div class="tt-v">${value}</div>`;
+  tooltip.style.opacity = 1;
+  const x = Math.min(event.clientX + 14, window.innerWidth - tooltip.offsetWidth - 8);
+  tooltip.style.left = x + "px";
+  tooltip.style.top = (event.clientY + 14) + "px";
+}
+function hideTooltip() { tooltip.style.opacity = 0; }
+function attachTooltip(node, key, value) {
+  node.addEventListener("mousemove", event => showTooltip(event, key, value));
+  node.addEventListener("mouseleave", hideTooltip);
+}
+
+function formatNanoseconds(value) {
+  if (value < 1000) return (value < 10 ? value.toFixed(1) : Math.round(value)) + " ns";
+  if (value < 1e6) { const micro = value / 1000; return (micro < 10 ? micro.toFixed(2) : micro.toFixed(1)) + " µs"; }
+  return (value / 1e6).toFixed(2) + " ms";
+}
+function formatMicroseconds(value) { return value < 100 ? value.toFixed(1) + " µs" : Math.round(value) + " µs"; }
+
+// Horizontal bars. rows: [{label, values:[...]}]. Log axis when `log` is set.
+function horizontalBars(container, rows, options) {
+  const width = container.clientWidth;
+  const narrow = width < 560;
+  const seriesCount = rows[0].values.length;
+  const barHeight = seriesCount > 1 ? 10 : 14;
+  const barGap = 2;
+  const groupHeight = seriesCount * barHeight + (seriesCount - 1) * barGap;
+  const rowGap = seriesCount > 1 ? 18 : 10;
+  const labelWidth = narrow ? 0 : (options.labelWidth || 180);
+  const labelOnTop = narrow ? 16 : 0;
+  const valueRoom = seriesCount > 1 ? 0 : 64;
+  const top = 4, axisHeight = 22;
+  const plotWidth = width - labelWidth - valueRoom - 8;
+  const height = top + rows.length * (groupHeight + rowGap + labelOnTop) + axisHeight;
+
+  const domain = options.domain;
+  const scale = options.log
+    ? value => (Math.log10(value) - Math.log10(domain[0])) / (Math.log10(domain[1]) - Math.log10(domain[0])) * plotWidth
+    : value => (value - domain[0]) / (domain[1] - domain[0]) * plotWidth;
+
+  container.innerHTML = "";
+  const svg = element("svg", { viewBox: `0 0 ${width} ${height}`, height, role: "img", "aria-label": options.aria });
+  container.appendChild(svg);
+  const plot = element("g", { transform: `translate(${labelWidth},${top})` }, svg);
+  const plotBottom = height - top - axisHeight;
+
+  const ticks = element("g", { class: "tick" }, plot);
+  for (const tick of options.ticks) {
+    const x = scale(tick);
+    element("line", { class: "gl", x1: x, x2: x, y1: 0, y2: plotBottom }, ticks);
+    const text = element("text", { x, y: plotBottom + 16, "text-anchor": "middle" }, ticks);
+    text.textContent = options.tickFormat(tick);
+  }
+
+  rows.forEach((row, rowIndex) => {
+    const y0 = rowIndex * (groupHeight + rowGap + labelOnTop) + labelOnTop;
+    const group = element("g", { class: "row" }, plot);
+    const label = element("text", narrow
+      ? { x: 0, y: y0 - 5 }
+      : { x: -12, y: y0 + groupHeight / 2 + 4, "text-anchor": "end" }, group);
+    label.textContent = row.label;
+    row.values.forEach((value, seriesIndex) => {
+      const y = y0 + seriesIndex * (barHeight + barGap);
+      const length = Math.max(scale(value), 2);
+      const radius = Math.min(4, barHeight / 2);
+      const path = `M0,${y} H${length - radius} Q${length},${y} ${length},${y + radius} V${y + barHeight - radius} Q${length},${y + barHeight} ${length - radius},${y + barHeight} H0 Z`;
+      const key = seriesCount > 1 ? `${row.label} · ${BOARDS[seriesIndex]}` : row.label;
+      const hit = element("rect", { class: "hit", x: 0, y: y - barGap / 2, width: Math.max(length, 40), height: barHeight + barGap }, group);
+      element("path", { class: "bar", d: path, fill: options.colors ? options.colors[seriesIndex] : SERIES[0] }, group);
+      attachTooltip(hit, key, options.valueFormat(value));
+      if (seriesCount === 1) {
+        const valueText = element("text", { class: "val", x: length + 8, y: y + barHeight / 2 + 4 }, group);
+        valueText.textContent = options.valueFormat(value);
+      }
+    });
+  });
+}
+
+function renderAll() {
+  horizontalBars(document.getElementById("chart-silicon"), SILICON, {
+    log: true, domain: [1, 2000], ticks: [1, 10, 100, 1000], labelWidth: 170,
+    tickFormat: tick => tick >= 1000 ? "1 ms" : tick + " µs",
+    valueFormat: formatMicroseconds, colors: SERIES, aria: "Warm time per check on three microcontrollers",
+  });
+  horizontalBars(document.getElementById("chart-latency"), LATENCY.map(([label, value]) => ({ label, values: [value] })), {
+    log: true, domain: [1, 200000], ticks: [1, 10, 100, 1000, 10000, 100000], labelWidth: 190,
+    tickFormat: tick => tick < 1000 ? tick + " ns" : tick / 1000 + " µs", valueFormat: formatNanoseconds, aria: "Host latency per operation",
+  });
+  horizontalBars(document.getElementById("chart-flash"), FLASH.map(([label, value]) => ({ label, values: [value] })), {
+    domain: [0, 240], ticks: [0, 50, 100, 150, 200], labelWidth: 160,
+    tickFormat: tick => tick, valueFormat: value => value.toFixed(1) + " KB", aria: "Flash size per target",
+  });
+  horizontalBars(document.getElementById("chart-stack"), STACK.map(([label, value]) => ({ label, values: [value] })), {
+    domain: [0, 4400], ticks: [0, 1000, 2000, 3000, 4000], labelWidth: 160,
+    tickFormat: tick => tick.toLocaleString(), valueFormat: value => value.toLocaleString() + " B", aria: "Peak stack per target",
+  });
+  horizontalBars(document.getElementById("chart-references"), REFERENCES.map(([label, value]) => ({ label, values: [value] })), {
+    domain: [0, 52], ticks: [0, 10, 20, 30, 40, 50], labelWidth: 130,
+    tickFormat: tick => tick, valueFormat: value => value, aria: "Accuracy checks per reference library",
+  });
+}
+renderAll();
+let resizeTimer;
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderAll, 120); });
+</script>
+</body>
+</html>

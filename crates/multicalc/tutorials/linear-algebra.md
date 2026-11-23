@@ -1,34 +1,28 @@
 # Linear algebra
 
 Fixed-size, stack-allocated `Matrix` and `Vector`. Dimensions are const generics, so a shape
-mismatch is a compile error and nothing is heap-allocated. Indexing (`v[i]`, `m[(r, c)]`) is
-the ergonomic path and panics on out-of-range like `Vec`. Use `get` / `get_mut` /
-`try_row` / `try_column` when you want `Option` instead of a panic (panicking `row` /
-`column` were removed). To reshape without copying at all — and without any panicking path —
-take a [borrowed view](#borrowed-views).
+mismatch is a compile error. Indexing (`v[i]`, `m[(r, c)]`) panics out of range, as `Vec` does.
+`get`, `get_mut`, `try_row` and `try_column` return `Option` instead. A
+[borrowed view](#borrowed-views) reshapes with no copy and no panic path.
 
-- `Matrix::lu_decompose` → `LuDecomposition`: partial-pivoting Doolittle LU; `solve`, `determinant`, `inverse`.
-- `Matrix::cholesky` → `Cholesky`: faster path for symmetric positive-definite matrices.
-- `PivotedQr`: column-pivoted Householder QR; `solve_least_squares`.
-- `Matrix::svd` → `Svd`: one-sided Jacobi SVD; `singular_values`, `condition_number`,
-  `pseudo_inverse`, minimum-norm `solve`.
-- `Matrix::symmetric_eigendecomposition` → `SymmetricEigendecomposition`: Jacobi rotations for a
-  symmetric matrix; `eigenvalues` (largest first), `eigenvectors`, `determinant`,
-  `condition_number`, `is_positive_definite`, and `clamped` for raising a drifted spectrum back
-  above zero.
+| Entry point | Result | Method |
+|---|---|---|
+| `Matrix::lu_decompose` | `LuDecomposition`: `solve`, `determinant`, `inverse` | Doolittle LU, partial pivoting |
+| `Matrix::cholesky` | `Cholesky`: `solve`, `determinant`, `inverse` | Cholesky–Banachiewicz, faster than LU; symmetric positive-definite only |
+| `PivotedQr::decompose` | `PivotedQr`: `solve_least_squares` | Column-pivoted Householder QR |
+| `Matrix::svd` | `Svd`: `singular_values`, `rank`, `condition_number`, `pseudo_inverse`, minimum-norm `solve` | One-sided Jacobi, `M ≥ N` |
+| `Matrix::symmetric_eigendecomposition` | `SymmetricEigendecomposition`: `eigenvalues` (largest first), `eigenvectors`, `determinant`, `condition_number`, `is_positive_definite`, `clamped` | Jacobi rotations |
 
 ## Borrowed views
 
-`Matrix::view` / `view_mut` and `Vector::view` / `view_mut` hand out a `MatrixView` /
-`VectorView`, or their `Mut` counterparts: a flat slice, an offset, and a stride per axis.
-Transposing, blocking, and slicing out a row, column, diagonal, or segment are index arithmetic;
-only `to_matrix` / `to_vector` copies. The `Mut` views mirror the read-only ones and add
-`try_get_mut`, `fill`, and `copy_from`.
+`Matrix::view` / `view_mut` and `Vector::view` / `view_mut` return a `MatrixView` / `VectorView`
+or the `Mut` form: a flat slice, an offset, and a stride per axis. Transpose, block, row, column,
+diagonal and segment are index arithmetic. Only `to_matrix` / `to_vector` copies. The `Mut` views
+add `try_get_mut`, `fill`, and `copy_from`.
 
-Views have no `Index`. `try_get` / `try_get_mut` are the accessors and every fallible call
-returns `Result<_, LinalgError>` carrying `OutOfBounds`, so nothing on a view panics. The bound
-cannot be left to the slice: a strided view's out-of-range subscript can still land on a real
-element of the parent buffer.
+Views have no `Index`. Each fallible call returns `Result<_, LinalgError>` with `OutOfBounds`, so
+no view operation panics. The view must check the bound itself: on a strided view, an out-of-range
+subscript can still land on a valid element of the parent buffer.
 
 ```rust
 use multicalc::linear_algebra::{Matrix, MatrixViewMut};
@@ -38,19 +32,19 @@ let matrix = Matrix::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
 let block = matrix.view().try_submatrix::<2, 2>(0, 1).unwrap();
 assert_eq!(block.to_matrix().into_array(), [[2.0, 3.0], [5.0, 6.0]]);
 
-// A column is strided, one row apart in the flat buffer.
+// A column has a stride of one row.
 let column = matrix.view().try_column(1).unwrap();
 assert_eq!(column.stride(), 3);
 assert_eq!(column.dot(matrix.view().try_column(1).unwrap()), 29.0);
 
-// Transposing into a caller's buffer, with no intermediate matrix.
+// Transpose into a caller buffer, with no intermediate matrix.
 let mut scratch = [0.0; 6];
 MatrixViewMut::<3, 2>::try_from_row_major_slice(&mut scratch)
     .unwrap()
     .copy_from(matrix.view().transposed());
 assert_eq!(scratch, [1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);
 
-// Two halves of one matrix, writable at once.
+// Two disjoint mutable halves of one matrix.
 let mut target = Matrix::<3, 2>::zeros();
 let (mut top, mut bottom) = target.view_mut().try_split_rows_at::<1, 2>().unwrap();
 *top.try_get_mut(0, 0).unwrap() = 1.0;
@@ -59,8 +53,6 @@ assert_eq!(target.into_array(), [[1.0, 0.0], [2.0, 2.0], [2.0, 2.0]]);
 ```
 
 ## Decompositions and solves
-
-Direct linear solves via LU and Cholesky:
 
 ```rust
 use multicalc::{Matrix2D, Matrix3D, Vector};
@@ -74,13 +66,13 @@ let factorization = a.lu_decompose().unwrap();
 let det = factorization.determinant();
 let inv = factorization.inverse();
 
-// A symmetric positive-definite matrix has a faster Cholesky path.
+// Symmetric positive-definite: Cholesky.
 let s = Matrix2D::new([[4.0, 2.0], [2.0, 3.0]]);
 let s_inv = s.cholesky().unwrap().inverse();
 ```
 
-The singular value decomposition (one-sided Jacobi) gives the pseudo-inverse, minimum-norm
-least-squares solve, rank, and condition number for any shape:
+`Matrix::svd` accepts `M ≥ N` and returns `Underdetermined` for a wide matrix.
+`Matrix::pseudo_inverse` accepts any shape and computes a wide input as `((Aᵀ)⁺)ᵀ`.
 
 ```rust
 use multicalc::{Matrix, Vector};
@@ -91,40 +83,34 @@ let svd = a.svd().unwrap();
 let sigma = svd.singular_values();          // descending, non-negative
 let cond = svd.condition_number();          // σ_max / σ_min
 
-// Moore-Penrose pseudo-inverse: tall, square, or wide (M < N) inputs.
+// Moore-Penrose pseudo-inverse.
 let a_pinv = a.pseudo_inverse().unwrap();
 
 // Minimum-norm least-squares solve of A·x = b, without forming A⁺.
 let x = svd.solve(Vector::new([1.0, 2.0, 3.0]));
 ```
 
-A symmetric matrix has real eigenvalues and orthonormal directions, found by rotating away the
-off-diagonal entries a pair at a time:
-
 ```rust
 use multicalc::Matrix2D;
 
-// This matrix has eigenvalues 3 and -1.
+// Eigenvalues 3 and -1.
 let a: Matrix2D = Matrix2D::new([[1.0, 2.0], [2.0, 1.0]]);
 let decomposition = a.symmetric_eigendecomposition().unwrap();
 
 let values = decomposition.eigenvalues();       // largest first
-let vectors = decomposition.eigenvectors();     // one direction per column
+let vectors = decomposition.eigenvectors();     // one eigenvector per column
 assert!((decomposition.condition_number() - 3.0).abs() < 1e-12);
 
-// V · diag(λ) · Vᵀ rebuilds the matrix.
+// A = V · diag(λ) · Vᵀ.
 let rebuilt: Matrix2D = Matrix2D::from_fn(|row, column| {
     (0..2).map(|k| vectors[(row, k)] * values[k] * vectors[(column, k)]).sum()
 });
 assert!((rebuilt[(0, 0)] - a[(0, 0)]).abs() < 1e-12);
 
-// Raising every eigenvalue to a floor and rebuilding turns a covariance that has
-// drifted below zero back into one a filter can keep using.
+// Clamp each eigenvalue to a floor and rebuild: repairs a covariance that lost definiteness.
 let repaired = decomposition.clamped(0.5);
 assert!((repaired[(0, 0)] - 1.75).abs() < 1e-12);
 ```
-
-For an overdetermined linear least-squares fit, use the column-pivoted QR directly:
 
 ```rust
 use multicalc::linear_algebra::PivotedQr;
@@ -136,28 +122,35 @@ let b = Vector::new([1.0, 3.0, 5.0]);
 let x = PivotedQr::decompose(a).unwrap().solve_least_squares(b).unwrap();
 ```
 
-Two matrix equations round out the module, both solved by iterations that double their reach each
-pass. `solve_discrete_riccati` finds the steady-state cost-to-go behind an optimal linear feedback
-law, and puts its answer back into the equation before returning it. `solve_discrete_lyapunov`
-solves `Aᵀ·P·A − P + Q = 0`, which is how a closed loop is shown to settle: an answer exists only
-when repeated application of `A` shrinks every direction, so not finding one is the verdict rather
-than a failure. Both are `O(n³)` per pass on a fixed budget, and both belong at design time.
+## Matrix equations
 
-Errors: factorizations and solves return [`LinalgError`](error-handling.md): `Singular`,
-`NotPositiveDefinite`, `Underdetermined` (a least-squares system with `M < N`), `NotSymmetric` (a
-matrix that does not read the same across the diagonal), `NonFinite`, or `DidNotConverge` (a
-matrix-equation solver that ran out of its budget). The view operations above return the same
-enum, always as `OutOfBounds`.
+Both solvers use doubling iterations, `O(n³)` per pass with a budget of 64 passes. Use them at
+design time, not in a control loop.
 
-Credits: the QR factorization, damped solve, and overflow-safe norm port MINPACK's `qrfac`,
-`qrsolv`, and `enorm` (Moré, Garbow, Hillstrom; public domain, netlib). LU and Cholesky follow
-the standard Doolittle and Cholesky–Banachiewicz algorithms; the SVD follows Golub & Van Loan,
-*Matrix Computations*, and Demmel & Veselić for high relative accuracy; the symmetric
-eigendecomposition follows the Jacobi method in the same Golub & Van Loan. Full demos:
-[linear_algebra.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/linear_algebra.rs)
-and
+- `solve_discrete_riccati`: the steady-state `P` of
+  `P = Aᵀ·P·A − Aᵀ·P·B·(R + Bᵀ·P·B)⁻¹·Bᵀ·P·A + Q`, the cost-to-go of LQR. The solver checks the
+  answer against the equation before it returns it.
+- `solve_discrete_lyapunov`: `Aᵀ·P·A − P + Q = 0`. A solution exists only if `A` is Schur stable,
+  so `DidNotConverge` is the verdict that the loop does not settle.
+
+The `_with_budget` forms set the pass budget.
+
+## Errors
+
+Factorizations and solves return [`LinalgError`](error-handling.md):
+
+- `Singular`, `IllConditioned` (LU pivot too small for a reliable solve), `NotPositiveDefinite`.
+- `Underdetermined`: a least-squares system or an SVD with `M < N`.
+- `NotSymmetric`, `NonFinite`.
+- `DidNotConverge`: a matrix-equation solver ran out of its budget.
+- `OutOfBounds`: the only error that view operations return.
+
+Credits: QR, the damped solve and the overflow-safe norm port MINPACK `qrfac`, `qrsolv` and
+`enorm` (Moré, Garbow, Hillstrom; public domain, netlib). The SVD follows Golub & Van Loan,
+*Matrix Computations*, and Demmel & Veselić. The symmetric eigendecomposition follows the Jacobi
+method in Golub & Van Loan. Demos:
+[linear_algebra.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/linear_algebra.rs),
 [svd.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/svd.rs).
-
 
 ---
 

@@ -1,50 +1,33 @@
 # MLP inference
 
-Running a learned policy on the robot, over parameters that are never copied.
+Forward-pass inference for a multi-layer perceptron, over borrowed parameters. Training is out of
+scope.
 
-- `Layer`: one dense layer — `activation(weights · input + biases)` — holding borrowed views of its
-  weights and biases rather than owning them.
-- `Activation`: the scalar function applied to each output, `Relu`, `Tanh`, or `Identity`.
-- `ParameterCursor`: a read position in the exported buffer, handing out one layer's parameters at
-  a time.
+- `Layer`: one dense layer, `y = activation(W·x + b)`. It holds borrowed views of `W` and `b`.
+- `Activation`: the element-wise nonlinearity, `Relu`, `Tanh`, or `Identity`.
+- `ParameterCursor`: a read position in a flat parameter buffer. It gives one layer at a time.
 
-A multi-layer perceptron is a stack of dense layers. Each takes the vector below it, forms one
-weighted sum per output, and passes every sum through an activation. Row `i` of the weight matrix is
-the recipe for output `i`: it is multiplied component by component with the whole input, summed, and
-offset by bias `i`. One layer's output is the next layer's input, and the last layer's output is
-whatever the policy was trained to produce — joint torques, rotor commands, a steering angle.
+Row `i` of `W` and bias `b_i` give output `i`. Without the activation, depth adds nothing:
+`W₂·(W₁·x + b₁) + b₂ = (W₂·W₁)·x + (W₂·b₁ + b₂)`.
 
-The activation is the only nonlinear step, and without it depth buys nothing: two affine maps
-composed are still one affine map, since `W₂·(W₁·x + b₁) + b₂` is `(W₂·W₁)·x + (W₂·b₁ + b₂)`.
-`Relu` clamps a negative sum to zero, which costs one comparison and no `libm` call, and is the
-usual choice inside a network. `Identity` is the usual choice on the output layer, where the value
-is a physical quantity that should be reported rather than squashed into a range.
+## Borrowed parameters
 
-Only inference lives here. Training happens on a machine with room for it; what arrives on the robot
-is a block of numbers read in order.
+Two 64-wide hidden layers over a 22-component observation are about 5,900 parameters, or 23 KB as
+`f32`. A small Cortex-M has 64 KB of RAM, and the weights are in flash. An owned copy would put
+23 KB on the stack in each cycle of a 1 kHz loop.
 
-## Why the parameters are borrowed
+A `Layer` holds a [`MatrixView`](linear-algebra.md#borrowed-views) of `W` and a `VectorView` of
+`b`: a slice, an offset, and a stride. A layer build copies nothing. `forward` writes only the
+`OUTPUT` activations.
 
-Two hidden layers 64 units wide over a 22-component observation come to about 5,900 numbers, some
-23 KB as `f32`. A small Cortex-M has 64 KB of RAM in total, and the weights are in flash. Owning
-them would copy that 23 KB onto the stack, and a control loop running at a kilohertz would do it a
-thousand times a second.
-
-So a `Layer` holds a [`MatrixView`](linear-algebra.md) of its weights and a `VectorView` of its
-biases: a slice, an offset, and a stride, pointing at wherever the parameters already are. Nothing
-is copied to build a layer. Running one writes `OUTPUT` numbers — the activations — rather than
-`OUTPUT × INPUT`.
-
-Widths are const parameters, so the shape of a network is settled when it compiles. Feeding a layer
-that produces three values into one that expects four does not build, rather than failing on the
-robot. Nothing is allocated and nothing panics, so this runs under `no_std`.
+Widths are const parameters, so a mismatched chain is a compile error, not a runtime fault. There
+is no allocation and no panic, so the module runs under `no_std`.
 
 ```rust
 use multicalc::linear_algebra::Vector;
 use multicalc::mlp_inference::{Activation, ParameterCursor};
 
-// A trained policy arrives as one flat block. This is a 2 -> 3 -> 1 network: each layer's weights
-// row-major, then its biases, in the order the layers run.
+// A 2 -> 3 -> 1 network as one flat block: per layer, weights row-major, then biases.
 let parameters = [
     0.5, -0.5, 1.0, 0.0, -1.0, 2.0, // 3x2 hidden weights
     0.0, 1.0, -1.0,                 // 3 hidden biases
@@ -52,38 +35,40 @@ let parameters = [
     0.5,                            // 1 output bias
 ];
 
-// The cursor walks the block, handing each layer its own run of it. Nothing is copied out.
 let mut cursor = ParameterCursor::new(&parameters);
 let hidden = cursor.try_take_layer::<3, 2>(Activation::Relu)?;
 let output = cursor.try_take_layer::<1, 3>(Activation::Identity)?;
 
-// Numbers left over would mean the shapes just declared disagree with the export.
+// Values left over mean that the declared shapes do not match the export.
 assert!(cursor.is_empty());
 
-// One control step: an observation in, an action out.
 let observation = Vector::new([2.0, 1.0]);
 let activations = hidden.forward(observation.view());
 
-// The third hidden unit sums to -1.0, so the rectifier switches it off.
+// The third hidden pre-activation is -1.0, so Relu gives 0.
 assert_eq!(activations.into_array(), [0.5, 3.0, 0.0]);
 assert_eq!(output.forward(activations.view()).into_array(), [4.0]);
 # Ok::<(), multicalc::CalcError>(())
 ```
 
-## Reading a layer's parameters yourself
+If `try_take_layer` runs past the end of the buffer, it returns `OutOfBounds` and does not move
+the cursor.
 
-The cursor covers the ordinary export, where the layers follow one another through a single block.
-When a layer's parameters sit somewhere else, the two constructors underneath it are still there.
-`try_from_slices` reads a weight run and a bias run row-major, which is what the cursor calls. When
-the parameters are already viewed — a block of a larger matrix, or a transposed export —
-`Layer::new` takes the views directly, and every reshaping the views offer is available first:
+## Other parameter layouts
+
+- `Layer::try_from_slices(weights, biases, activation)` reads row-major slices and rejects a
+  non-finite parameter.
+- `Layer::new(weights, biases, activation)` takes views directly, for example a block of a larger
+  matrix or a transposed export. It does not check the values.
+
+`ParameterCursor::try_take_layer` builds through `Layer::new`, so it does not check for non-finite
+parameters. `try_take_matrix` and `try_take_vector` give the raw views.
 
 ```rust
 use multicalc::linear_algebra::{MatrixView, Vector, VectorView};
 use multicalc::mlp_inference::{Activation, Layer};
 
-// An exporter that writes columns first leaves the weights transposed. A view fixes that by
-// swapping the strides, without moving a number.
+// A column-major export: `transposed` swaps the strides, with no copy.
 let column_major = [1.0, 0.0, 0.0, 1.0];
 let biases = [0.0, 0.0];
 let layer = Layer::new(
@@ -97,20 +82,45 @@ assert_eq!(layer.forward(input.view()), input);
 # Ok::<(), multicalc::CalcError>(())
 ```
 
-Getting that orientation wrong is the failure worth guarding against: a transposed weight matrix
-produces a network that runs cleanly and answers wrongly. A square layer will not even fail to
-compile. Check an export against known input/output pairs rather than against the shapes alone.
+A transposed weight matrix gives a network that runs without error and gives wrong outputs. A
+square layer compiles either way. Check an export against known input/output pairs, not only
+against the shapes.
 
 ## The activations
 
-| Variant | Value | Where it belongs |
+| Variant | Value | Use |
 |---|---|---|
 | `Relu` | `max(0, x)` | Hidden layers. One comparison, no `libm` call. |
-| `Tanh` | `tanh(x)`, in `(-1, 1)` | Where a bounded output matters, at one `libm` call per component. |
-| `Identity` | `x` | Output layers reporting a physical quantity. |
+| `Tanh` | `tanh(x)`, in `(-1, 1)` | A bounded output, at one `libm` call per component. |
+| `Identity` | `x` | Output layers that give a physical quantity, such as a torque or a steering angle. |
 
-`Activation` is `#[non_exhaustive]`, so more can be added without breaking a caller's `match`.
+`Activation` is `#[non_exhaustive]`, so a caller `match` needs a wildcard arm.
 
-Errors are [`LinalgError::OutOfBounds`](error-handling.md), returned when a slice is too short for
-the shape a layer declares. A slice longer than the shape is fine — the trailing elements are simply
-not part of the layer, which is what lets successive layers share one buffer.
+## Non-finite values
+
+A layer has no state, so a non-finite observation affects only that call. The effect depends on
+the activation:
+
+| Activation | NaN | Infinity |
+|---|---|---|
+| `Relu` | `0`: each comparison against NaN is false | `+inf` passes, `-inf` clamps to `0` |
+| `Tanh` | `NaN` | `±1` |
+| `Identity` | `NaN` | `±inf` |
+
+The `Relu` row is the hazard. A NaN does not propagate; it becomes `0`, and the later layers
+compute normally on a meaningless value. `Layer::forward_checked` rejects a non-finite
+observation before any arithmetic. `forward` checks nothing. No check guarantees a finite result,
+because finite values can still overflow.
+
+## Errors
+
+All errors are [`LinalgError`](error-handling.md):
+
+- `OutOfBounds`: a slice is shorter than the declared shape. A longer slice is valid; the layer
+  ignores the trailing elements, so consecutive layers can share one buffer.
+- `NonFinite`: from `try_from_slices` on a non-finite parameter, and from `forward_checked` on a
+  non-finite observation.
+
+---
+
+[Back to the tutorial index](README.md)

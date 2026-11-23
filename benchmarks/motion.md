@@ -15,8 +15,8 @@ conditioned — hence the looser tolerance on coefficients than on the states th
 Seven-phase S-curve and three-phase trapezoidal OTG, rest to rest. multicalc solves the phase
 durations in closed form from `v_peak = min(v_max, v_reach)`; the generator recovers them with SLSQP
 under the same displacement and limit constraints, then integrates the jerk schedule with DOP853.
-Shared only the phase-lengths-to-displacement map. Durations at `1e-7` (optimizer), states at `1e-9`
-(integrator).
+The two sides share only the map from phase durations to displacement. Durations compare at `1e-7`
+(optimizer), states at `1e-9` (integrator).
 
 <!-- BEGIN generated: accuracy -->
 | Operation | Equation | Tolerance | Tested Against |

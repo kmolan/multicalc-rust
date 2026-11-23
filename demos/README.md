@@ -1,12 +1,14 @@
 # multicalc-demos
 
-Runnable demos for [`multicalc`](../crates/multicalc): six live [Rerun](https://rerun.io)
-**[showcases](#live-showcases)** that animate a scene and stream measured speed and accuracy, and
-thirty-two headless **[basics](#basics)**, one per module, each checked against the analytic value.
+Runnable demos for [`multicalc`](../crates/multicalc):
 
-This is a satellite crate: it is never a dependency of the core library, is excluded from
-bare-metal builds and the default `cargo test`, and its dependency tree is excluded from the
-workspace supply-chain audit.
+- Six live [Rerun](https://rerun.io) **[showcases](#live-showcases)** that animate a scene and
+  stream measured speed and accuracy.
+- Thirty-three headless **[basics](#basics)**, about one for each module, each checked against
+  the analytic value.
+
+This is a satellite crate. The core library never depends on it. It is excluded from bare-metal
+builds, from the default `cargo test`, and from the `cargo deny` supply-chain audit.
 
 ## Live showcases
 
@@ -14,12 +16,16 @@ workspace supply-chain audit.
 cargo run --release -p multicalc-demos --example <name>
 ```
 
-Needs the `rerun` feature (on by default) and a [version-matched viewer](#viewer-setup) already up.
-`--release` is mandatory for the timing readouts. **Every number on screen is measured live** with
-`std::time::Instant` inside the demo — nothing is hardcoded — and each demo advances on logical time
-(a fixed 1 ms per tick / one step per frame), so the numbers are reproducible; a scheduling spike
-can make a tick display late but never changes what the demo computes. Figures below are for a
-modern desktop core (`x86_64`, `--release`).
+A showcase needs the `rerun` feature (on by default) and a [version-matched viewer](#viewer-setup).
+Build with `--release` for representative time readouts.
+
+- **Each number on screen is measured live** with `std::time::Instant` in the demo. No number is
+  hardcoded.
+- Each demo advances on logical time (a fixed 1 ms per tick, or one step per frame), so the
+  results are reproducible. A scheduling spike can delay the display of a tick, but it does not
+  change what the demo computes.
+
+The figures below are for a modern desktop core (`x86_64`, `--release`).
 
 - **`2d_localization_obstacle_avoidance`** (estimation + control). A differential-drive robot finds
   itself with a 2,000-particle filter on a known map, holds the pose with a 5-state EKF, and laps an
@@ -58,8 +64,7 @@ modern desktop core (`x86_64`, `--release`).
 
   ![gradient_marbles: 2,000 marbles steered by exact autodiff gradients down a 3D landscape](examples/resources/gifs/gradient_marbles_showcase.gif)
 
-`curve_fit_live` is one more showcase example: a live Levenberg-Marquardt fit, streamed as it
-converges.
+`curve_fit_live` is one more showcase: a live Levenberg-Marquardt fit, streamed as it converges.
 
 ## Viewer setup
 
@@ -69,7 +74,7 @@ Rerun SDK `=0.33.1` ⇄ viewer `0.33.1`. The SDK is exact-pinned; the viewer mus
 
 ### Install (for the live showcases)
 
-`live()` spawns the external Rerun viewer found on PATH, so install it version-matched to the SDK:
+`RerunSink::live()` spawns the external Rerun viewer on `PATH`. Install the viewer version that matches the SDK:
 
 ```
 cargo install rerun-cli --locked --version 0.33.1
@@ -79,8 +84,8 @@ cargo install rerun-cli --locked --version 0.33.1
 
 ### WSL usage (viewer on Windows)
 
-The live viewer is a GPU application; under WSL its virtualized GPU often cannot start it. Run
-the viewer on Windows instead (real GPU) and stream to it from WSL over gRPC.
+Under WSL, the virtualized GPU often cannot start the viewer. Run the viewer on Windows and
+stream to it from WSL over gRPC.
 
 1. Enable mirrored networking so WSL and Windows share `localhost`. In `C:\Users\<you>\.wslconfig`:
 
@@ -108,18 +113,20 @@ the viewer on Windows instead (real GPU) and stream to it from WSL over gRPC.
    rerun
    ```
 
-4. From WSL, run a live example. Under WSL it auto-detects the environment and streams to the
-   Windows viewer over the shared localhost instead of spawning a local one:
+4. From WSL, run a live example. If `WSL_DISTRO_NAME` is set, the example connects to
+   `127.0.0.1:9876` and does not spawn a local viewer:
 
    ```
    cargo run -p multicalc-demos --example curve_fit_live
    ```
 
-   The Windows viewer from step 3 MUST already be running; under WSL the example connects to it
-   and does not spawn one.
+   The Windows viewer from step 3 must already run.
 
-On NAT networking (the WSL default) instead of mirrored, set `RERUN_VIZ_URL` to the Windows host,
-launch the viewer bound to `0.0.0.0`, and allow inbound TCP 9876 in Windows Firewall:
+If WSL uses NAT networking (the default) instead of mirrored networking, do these steps:
+
+1. Set `RERUN_VIZ_URL` to the Windows host. When `RERUN_VIZ_URL` is set, the example connects to it.
+2. Start the viewer bound to `0.0.0.0`.
+3. Allow inbound TCP 9876 in Windows Firewall.
 
 ```
 export RERUN_VIZ_URL="rerun+http://$(ip route show default | awk '{print $3}'):9876/proxy"
@@ -128,10 +135,13 @@ cargo run -p multicalc-demos --example curve_fit_live
 
 ## Basics
 
-One per module, headless and terminating. No viewer, no flags. Each prints its results vs the
-analytic value with the `|err|` and self-checks with an assert. They depend only on `multicalc`,
-except `mjcf_model_ingestion` and `urdf_model_ingestion`, which read model files through
-`multicalc-robot-model`:
+Headless, with no viewer, and each runs to completion. Each prints its results against the analytic value
+with `|err|`, and asserts them. Most use only `multicalc`. These use more:
+
+- `mjcf_model_ingestion`, `urdf_model_ingestion` and `articulated_dynamics` read model files
+  through `multicalc-robot-model`.
+- `attitude_filter` and `error_state_estimation` draw sensor noise from `rand_pcg` and `rand_distr`.
+- `avoidance` and `localized_lap_check` use the `multicalc_demos::sim` simulator.
 
 ```sh
 cargo run -p multicalc-demos --example <name>
@@ -157,7 +167,7 @@ cargo run -p multicalc-demos --example <name>
 | `kinematics` | `kinematics` | Wheel↔body maps and their round trip, exact SE(2) odometry vs the closed-form arc, a `Dual` through a step. |
 | `lie_groups` | `spatial` | SO(3)/SE(3) compose and act, exp/log round trips, geodesic interpolation, a `Dual` through `exp` ∘ `act`. |
 | `linear_algebra` | `linear_algebra` | LU, Cholesky, solves and the direct 4×4 inverse; latency and error on well- and ill-conditioned inputs. |
-| `localized_lap_check` | `estimation`, `control`, `kinematics` | Acceptance gate for the localization showcase: 600,000 seeded ticks asserting zero contacts and fused RMS under 5 cm. Needs `--features alloc`. |
+| `localized_lap_check` | `estimation`, `control`, `kinematics` | Acceptance gate for the localization showcase: 600,000 seeded ticks asserting zero contacts and fused RMS under 5 cm. Needs the `alloc` feature. |
 | `minimum_snap_trajectory` | `motion` | `MinimumSnapPlanner` planned off the loop, evaluated inside it. |
 | `mjcf_model_ingestion` | `spatial`, `multicalc-robot-model` | MJCF load: a free body's mass, COM and rotational inertia, then a robot's body tree, joint travel and settings. |
 | `motion_profiles` | `motion` | Trapezoidal vs jerk-limited seven-phase, against their velocity, acceleration and jerk ceilings; three joints synchronized. |
@@ -173,6 +183,6 @@ cargo run -p multicalc-demos --example <name>
 | `urdf_model_ingestion` | `spatial`, `multicalc-robot-model` | URDF load: body tree, which links carry inertia, joint axes and travel, the coupled gripper mimic joint. |
 | `vector_field` | `vector_field` | Curl, divergence, line integrals, flux integrals. |
 
-`linear_algebra` and `svd` also print per-call latency; build them `--release` for representative
-numbers. `localized_lap_check` is the one basics example that needs a feature flag
-(`--features alloc`, for the particle filter) and should also be built `--release`.
+`linear_algebra` and `svd` also print per-call latency. Build them with `--release` for
+representative numbers. `localized_lap_check` needs the `alloc` feature (on by default) for the
+particle filter. Build it with `--release`.

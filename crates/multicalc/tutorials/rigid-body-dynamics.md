@@ -1,67 +1,71 @@
 # Rigid-body dynamics
 
-How a single body's mass is spread out, where that body is and how it is moving when nothing holds
-it in place, and how quickly its motion changes under the forces on it.
+Mass properties, free-body state, and dynamics for a single rigid body and for a fixed-base jointed
+robot.
 
-- `SpatialInertia`: a body's mass, the point it balances about, and how it resists being spun about
-  that point. `inertia_about` asks the same question about a different reference point — moving away
-  from the balance point always makes the body harder to spin, by the mass times how far the point
-  moved. Building one is fallible: the mass has to be positive and finite and the resistance has to
-  read the same across the diagonal, so a body that cannot exist is rejected at construction.
-- `FreeJointState`: the pose and velocity of a body free to move in all six directions.
-- `RigidBody`: takes an inertia and gravity and answers the question an integrator keeps asking —
-  given which way the body is facing, how fast it is turning, and what is pushing on it, how quickly
-  is its motion changing?
-- `ArticulatedBody`: a jointed robot with mass — the kinematic tree, one spatial inertia per joint
-  slot, and gravity. `inverse_dynamics` gives the joint torque that produces a stated acceleration
-  by the recursive Newton-Euler algorithm, `forward_dynamics` the acceleration a stated torque
-  produces by the articulated-body algorithm, and `joint_space_inertia` the `H(q)` relating the two
-  by the composite-rigid-body algorithm. `kinetic_energy` and `potential_energy` complete the
-  passivity picture. Per-joint armature, viscous damping and Coulomb friction come from the model.
-  Fixed-base.
+- `SpatialInertia`: mass `m`, center of mass `c`, and rotational inertia `I_c` about `c`.
+  `inertia_about(p)` gives the inertia about another point by the parallel-axis theorem,
+  `I_p = I_c + m·(|d|²·1₃ − d·dᵀ)` with `d = c − p`. Construction is fallible: the mass must be
+  positive and finite, and `I_c` must be symmetric with a positive diagonal.
+- `FreeJointState`: the pose and twist of a 6-DOF free body.
+- `RigidBody`: an inertia and gravity. It gives the accelerations from the orientation, the angular
+  rate, and the applied wrench, as an ODE right-hand side or a one-tick step.
+- `ArticulatedBody`: a fixed-base jointed robot with mass: a `KinematicTree`, one spatial inertia
+  per joint slot, and gravity.
+  - `inverse_dynamics`: joint torque for a given acceleration, by the recursive Newton-Euler
+    algorithm (RNEA).
+  - `forward_dynamics`: acceleration for a given torque, by the articulated-body algorithm (ABA).
+  - `joint_space_inertia`: `H(q)`, by the composite-rigid-body algorithm (CRBA).
+  - `kinetic_energy` and `potential_energy`, for passivity checks.
+  - Per-joint armature, viscous damping and Coulomb friction come from the model.
 
-Both `SpatialInertia` and `FreeJointState` hand their numbers back as plain arrays rather than
-wrapper types, so the conventions matter. The seven place numbers are position first, then
-orientation, as `[x, y, z, w, qx, qy, qz]` — matching how MuJoCo writes a free joint. The six motion
-numbers are `[v; ω]`, linear first, the ordering the rest of the crate uses.
+`FreeJointState` returns plain arrays:
+
+- `generalized_position`: `[x, y, z, w, qx, qy, qz]`, position first, then a scalar-first
+  quaternion, as MuJoCo orders a free joint.
+- `generalized_velocity`: `[v; ω]`, linear first, as in the rest of the crate.
 
 ```rust
 use multicalc::{FreeJointState, SpatialInertia};
 use multicalc::{Matrix, SE3, Twist, Vector};
 
-// A 2 kg body balancing at its origin.
+// A 2 kg body with its center of mass at its origin.
 let inertia = SpatialInertia::new(
     2.0_f64,
     Vector::new([0.0, 0.0, 0.0]),
     Matrix::from_diagonal([1.0, 1.0, 1.0]),
 )?;
 
-// Spinning it about a point one metre away is harder, by mass times distance squared.
+// Parallel-axis theorem, 1 m along x: I_yy = 1 + 2·1².
 let about_offset = inertia.inertia_about(Vector::new([1.0, 0.0, 0.0]));
 assert_eq!(about_offset[(1, 1)], 3.0);
 
-// Where the body is and how it is moving.
 let state = FreeJointState::new(SE3::<f64>::identity(), Twist::zeros());
 assert_eq!(state.generalized_position(), [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]);
 # Ok::<(), multicalc::CalcError>(())
 ```
 
-## The body's motion
+## Single-body motion
 
-Everything in `RigidBody` that can fail — inverting the body's resistance to spinning — happens once
-when the body is built, so each later call is a fixed handful of small products.
+`RigidBody::new` checks that `I_c` is positive-definite and inverts it once. Each later call is a
+fixed number of 3×3 products and does not fail.
 
-Straight-line motion is in world axes, turning is in the body's own axes, and so are the forces
-applied to it. That is the same split a flying machine already has: a position estimate in world
-axes, a turn rate straight off the gyro.
+- The linear velocity and acceleration are in world axes.
+- The angular rate, the angular acceleration and the applied wrench are in body axes. The applied
+  torque is about the body-frame origin.
 
-`RigidBody::stepped` closes the loop: hand it the state, the wrench, and how long the tick lasts,
-and it hands back the state a tick later. It reads the accelerations once at the start of the tick
-and once half way through and moves the whole state with the half-way values, and it carries the
-direction the body faces forward as a turn rather than as four loose numbers — so the orientation
-stays a true rotation with nothing to scale back. The error shrinks with the square of the tick
-length, coarser than handing `state_derivative` to `Rk4`, which shrinks with the fourth power but
-lets the orientation drift.
+This split matches a flight stack: world-frame position estimate, body-frame gyro rates.
+
+`RigidBody::stepped(state, wrench, timestep)` advances one tick by the explicit midpoint rule. It
+evaluates the accelerations at the start and at the midpoint, and advances the state with the
+midpoint values. It composes the rotation on `SO3`, so the orientation stays a unit quaternion
+with no renormalization. The global error is `O(Δt²)`. `Rk4` on `state_derivative` gives
+`O(Δt⁴)`, but its quaternion drifts off the unit sphere.
+
+The ODE state is a `Vector<13, T>`: `generalized_position` then `generalized_velocity`.
+`state_vector_from_free_joint` and `free_joint_from_state_vector` convert to and from
+`FreeJointState`. `free_joint_from_state_vector` normalizes the quaternion and returns `None` if
+it is zero.
 
 ```rust
 use multicalc::dynamics::{RigidBody, state_vector_from_free_joint};
@@ -69,7 +73,7 @@ use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::ode::Rk4;
 use multicalc::spatial::{FreeJointState, SE3, SpatialInertia, Twist, Wrench};
 
-// A small flying machine: 0.8 kg, harder to spin about its up axis than the other two.
+// A 0.8 kg quadrotor airframe, I_zz > I_xx = I_yy.
 let mass = 0.8_f64;
 let balance_point = Vector::new([0.0, 0.0, 0.0]);
 let resistance_to_spinning = Matrix::from_diagonal([0.005, 0.005, 0.009]);
@@ -79,12 +83,12 @@ let earth_gravity = Vector::new([0.0, 0.0, -gravity_strength]);
 let inertia = SpatialInertia::new(mass, balance_point, resistance_to_spinning)?;
 let body = RigidBody::new(inertia, earth_gravity)?;
 
-// Pushed straight up hard enough to carry its own weight, and turned not at all.
+// Body-frame thrust equal to the weight, zero torque.
 let weight = mass * gravity_strength;
 let no_turn = Vector::new([0.0, 0.0, 0.0]);
 let carrying_its_own_weight = Wrench::new(Vector::new([0.0, 0.0, weight]), no_turn);
 
-// Held there for a second, the machine has not moved.
+// After 1 s of hover from rest, the altitude is unchanged.
 let at_rest = FreeJointState::new(SE3::identity(), Twist::zeros());
 let start = state_vector_from_free_joint(at_rest);
 let rate = |_time: f64, state: &Vector<13, f64>| {
@@ -99,10 +103,9 @@ assert!(after[2].abs() < 1e-9);
 # Ok::<(), multicalc::CalcError>(())
 ```
 
-`RigidBody::state_derivative` never fails. A state whose four orientation numbers normalize to
-nothing names no direction, so the whole derivative comes back as zeros — an integrator reads that
-as a body at rest and holds it in place rather than stopping. `RigidBody::try_state_derivative` is
-the checked twin, reporting `DynamicsError::DegenerateOrientation` instead.
+`RigidBody::state_derivative` does not fail. If the four quaternion entries of the state do not
+normalize, it returns a zero derivative, so an integrator holds the body in place and continues.
+`RigidBody::try_state_derivative` returns `DynamicsError::DegenerateOrientation` instead.
 
 ```rust
 use multicalc::dynamics::RigidBody;
@@ -117,7 +120,7 @@ let inertia = SpatialInertia::from_diagonal_inertia(
 )?;
 let body = RigidBody::new(inertia, Vector::new([0.0, 0.0, -9.81]))?;
 
-// A state whose four orientation numbers are all zero names no direction.
+// The quaternion entries (indices 3 to 6) are all zero.
 let no_direction = Vector::new([
     1.0, -2.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.1, -0.2, 0.3, -0.4, 0.5,
 ]);
@@ -142,7 +145,7 @@ let inertia =
     SpatialInertia::from_diagonal_inertia(mass, balance_point, resistance_to_spinning)?;
 let body = RigidBody::new(inertia, earth_gravity)?;
 
-// Thrown while tumbling, with nothing pushing on it, and followed for a second.
+// Free flight from a tumbling twist, with no applied wrench, for 1 s.
 let thrown = Twist::new(Vector::new([1.5, 0.0, 2.0]), Vector::new([7.0, 3.0, 5.0]));
 let mut state = FreeJointState::new(SE3::identity(), thrown);
 let nothing_applied = Wrench::zeros();
@@ -152,7 +155,7 @@ for _ in 0..1000 {
     state = body.stepped(state, nothing_applied, tick);
 }
 
-// A second of tumbling and the direction it faces is still a true rotation.
+// The orientation is still a unit quaternion.
 let facing = state.pose().rotation().quaternion();
 assert!((facing.norm() - 1.0).abs() < 1e-13);
 # Ok::<(), multicalc::CalcError>(())
@@ -160,17 +163,20 @@ assert!((facing.norm() - 1.0).abs() < 1e-13);
 
 ## A jointed robot
 
-`ArticulatedBody` pairs the `KinematicTree` forward kinematics already walks with one spatial
-inertia per joint slot and gravity. A slot's inertia is stated in the frame that slot's pose
-returns — the body frame after the joint has moved, which is the frame MJCF's `<inertial>` is
-relative to. A floating base is refused at construction.
+`ArticulatedBody::new(tree, inertias, gravity)` takes one `Option<SpatialInertia>` per joint slot.
+A slot with no mass carries `None`; a weld carries its own inertia. Each inertia is stated in the
+frame that `KinematicTreeState::pose` returns for that slot: the body frame after the joint
+motion, which is the frame of MJCF `<inertial>`. `new` rejects a floating base.
 
-Torques carry armature, viscous damping and Coulomb friction as the model states them. The Coulomb
-term is `friction_loss · sign(q̇)`, zero at zero rate and not differentiable there, so under `Dual`
-it contributes nothing to `∂τ/∂q̇`.
+Joint torques include armature, viscous damping and Coulomb friction from the model. The Coulomb
+term is `friction_loss · sign(q̇)`, with `sign(0) = 0`. It is not differentiable at `q̇ = 0`, so
+under `Dual` it adds nothing to `∂τ/∂q̇`.
 
-The torque `inverse_dynamics` adds when the acceleration changes is exactly `H(q)·q̈`, which is what
-`joint_space_inertia` returns — two readings of one model.
+`inverse_dynamics` gives
+`τ = H(q)·q̈ + C(q,q̇)·q̇ + G(q) + damping⊙q̇ + friction_loss⊙sign(q̇)`. `joint_space_inertia`
+returns the same `H(q)`, with each armature on its diagonal entry. `gravity_torque` gives `G(q)`, and
+`bias_torque` gives the torque at `q̈ = 0`. The `_at` forms take a configuration and solve the
+forward kinematics first. The plain forms take a solved `KinematicTreeState`.
 
 ```rust
 use multicalc::dynamics::ArticulatedBody;
@@ -178,7 +184,7 @@ use multicalc::kinematics::{Joint, JointParent, KinematicTree};
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::spatial::{SE3, SO3, SpatialInertia};
 
-// Two hinges about y, a unit link between them, each link balancing half a metre out.
+// Two hinges about y, 1 m apart, each link with its center of mass 0.5 m out.
 let hinge_axis = Vector::new([0.0, 1.0, 0.0]);
 let link_length = 1.0;
 let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([link_length, 0.0, 0.0]));
@@ -202,7 +208,7 @@ let folded = Vector::new([0.3, -0.9]);
 let still = Vector::zeros();
 let speeding_up = Vector::new([1.0, 0.5]);
 
-// The gravity torque, and what the acceleration costs on top of it.
+// τ = G(q) + H(q)·q̈ at q̇ = 0.
 let holding = body.gravity_torque_at(&folded)?;
 let driving = body.inverse_dynamics_at(&folded, &still, &speeding_up)?;
 let inertial = body.joint_space_inertia_at(&folded)? * speeding_up;
@@ -212,9 +218,9 @@ for joint in 0..2 {
 # Ok::<(), multicalc::CalcError>(())
 ```
 
-The two directions are inverses. `forward_dynamics` is `O(n)` in the joint count and never forms
-`H`. `forward_dynamics_with_workspace` takes a caller-owned `DynamicsWorkspace` instead, for a
-control loop that cannot afford a model-sized frame on the stack.
+`forward_dynamics` inverts `inverse_dynamics`. It is `O(n)` in the joint count and does not form
+`H`. `forward_dynamics_with_workspace` takes a caller-owned `DynamicsWorkspace`, for a control
+loop that cannot hold a model-sized frame on the stack.
 
 ```rust
 use multicalc::dynamics::ArticulatedBody;
@@ -225,7 +231,7 @@ use multicalc::spatial::{SE3, SO3, SpatialInertia};
 let hinge_axis = Vector::new([0.0, 1.0, 0.0]);
 let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([1.0, 0.0, 0.0]));
 
-// Reflected rotor inertia, viscous damping and a breakaway friction loss per joint.
+// Per-joint armature, viscous damping and Coulomb friction loss.
 let armature = [0.05, 0.03];
 let damping = [0.7, 0.4];
 let friction_loss = [0.2, 0.1];
@@ -255,7 +261,7 @@ let folded = Vector::new([0.3, -0.9]);
 let moving = Vector::new([1.1, -0.7]);
 let wanted = Vector::new([0.8, 1.4]);
 
-// The torque that produces this acceleration, put back through the other direction.
+// ABA(RNEA(q̈)) = q̈.
 let torque = body.inverse_dynamics_at(&folded, &moving, &wanted)?;
 let produced = body.forward_dynamics_at(&folded, &moving, &torque)?;
 for joint in 0..2 {
@@ -264,8 +270,8 @@ for joint in 0..2 {
 # Ok::<(), multicalc::CalcError>(())
 ```
 
-With no dissipation, a swing released from rest holds `kinetic_energy + potential_energy` along its
-whole trajectory.
+With no dissipation, `kinetic_energy + potential_energy` stays constant along a trajectory released
+from rest.
 
 ```rust
 use multicalc::dynamics::ArticulatedBody;
@@ -292,7 +298,7 @@ let earth_gravity = Vector::new([0.0, 0.0, -9.81]);
 let arm = SpatialInertia::new(mass, balance_point, resistance_to_spinning)?;
 let body = ArticulatedBody::new(tree, &[Some(arm), Some(arm)], earth_gravity)?;
 
-// The four numbers an integrator carries: [q; q̇].
+// The integrator state is [q; q̇].
 let total_energy = |state: &Vector<4, f64>| -> Result<f64, multicalc::CalcError> {
     let solved = body.tree().forward_kinematics(&Vector::new([state[0], state[1]]))?;
     let rates = Vector::new([state[2], state[3]]);
@@ -318,40 +324,50 @@ assert!(held < 1e-8);
 # Ok::<(), multicalc::CalcError>(())
 ```
 
-A model file loads straight into one. `multicalc-robot-model` is not a dependency of this crate, so
-this block is shown rather than compiled; the `articulated_dynamics` demo runs it.
+`multicalc-robot-model` loads an `ArticulatedBody` from a model file. It is not a dependency of
+this crate, so this block does not compile here. The `articulated_dynamics` demo runs it.
 
 ```rust,ignore
 use multicalc::linear_algebra::Vector;
 
 let earth_gravity = Vector::new([0.0, 0.0, -9.81]);
-let model = multicalc_robot_model::mjcf::load_path(
+let model = multicalc_robot_model::mjcf::load_path(std::path::Path::new(
     "third_party/menagerie/franka_emika_panda/panda.xml",
-)?;
+))?;
 let panda = model.articulated_body::<16, 16>(earth_gravity)?;
 
-// What each joint holds against gravity at the zero configuration. Slot 0 is the welded base,
-// and the odd arm joints turn about an axis lined up with gravity, so they hold nothing.
+// G(q) at q = 0. Slot 0 is the welded base. The arm joints in odd slots have axes parallel to
+// gravity, so their torque is zero.
 let holding = panda.gravity_torque_at(&Vector::zeros())?;
 // holding[2] = -4.0399 N·m, holding[4] = -3.2669 N·m, holding[6] = 2.2997 N·m
 ```
 
-Errors: `SpatialInertia::new` returns [`SpatialError`](error-handling.md): `NonPositiveMass`,
-`NonFinite`, `NotSymmetric`, or `NonPositiveInertia`. `RigidBody::new` returns
-[`DynamicsError`](error-handling.md): `NonFinite`, `NonPositiveInertia`, or `Linalg`, and
-`RigidBody::try_state_derivative` adds `DegenerateOrientation`. Everything else on the per-tick
-path — `accelerations`, `state_derivative`, and `stepped` — is infallible.
+## Errors
 
-`SpatialInertia` and `FreeJointState` are what a model file loads into. The separate
-`multicalc-robot-model` crate reads a rigid body out of a MuJoCo MJCF or a URDF file — for MJCF,
-working its mass out from the shapes it is built from where the file does not state it — and is
-checked against MuJoCo's own compile of the same file. Full demo:
+- `SpatialInertia::new` returns [`SpatialError`](error-handling.md): `NonPositiveMass`,
+  `NonFinite`, `NotSymmetric`, or `NonPositiveInertia`.
+- `RigidBody::new` returns [`DynamicsError`](error-handling.md): `NonFinite`,
+  `NonPositiveInertia`, or `Linalg`.
+- `RigidBody::try_state_derivative` returns `DegenerateOrientation`.
+- `RigidBody::accelerations`, `state_derivative` and `stepped` are infallible.
+- `ArticulatedBody::new` returns `FloatingBaseUnsupported`, `InertiaCountMismatch`, or
+  `NonFinite`.
+- `ArticulatedBody` queries return `StateShapeMismatch` (poses solved for a different joint
+  count), `NonFinite`, or `Kinematics`. `forward_dynamics` also returns
+  `NonPositiveArticulatedInertia`: a movable joint with no inertia behind it, such as a massless
+  body on a joint with no armature.
+
+## Model files
+
+The separate `multicalc-robot-model` crate reads rigid bodies from MuJoCo MJCF and URDF files into
+`SpatialInertia` and `FreeJointState`. For MJCF, it computes the mass properties from the geoms
+where the file does not state them. Its output is checked against the MuJoCo compile of the same
+file. Demo:
 [mjcf_model_ingestion.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/mjcf_model_ingestion.rs).
 
-The wrench a body is handed usually comes from somewhere — see [Plant](plant.md) for the rotors
-that produce it. Full demo:
-[rigid_body_dynamics.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/rigid_body_dynamics.rs).
-
+[Plant](plant.md) models the rotors that produce the applied wrench. Demos:
+[rigid_body_dynamics.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/rigid_body_dynamics.rs),
+[articulated_dynamics.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/articulated_dynamics.rs).
 
 ---
 
