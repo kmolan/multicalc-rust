@@ -4,13 +4,13 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Math for real-time embedded systems, in stable no_std Rust: state estimation, control, kinematics, Lie groups, autodiff, and linear algebra — from 64-bit servers to bare-metal microcontrollers"
+description = "Robotics for microcontrollers. Sense, plan, estimate and control in no_std Rust in one integrated package. Tested on real hardware: run the same code from your laptop to a Cortex-M4."
 repository.workspace = true
 license.workspace = true
 documentation = "https://docs.rs/multicalc"
 readme = "README.md"
-keywords = ["no-std", "autodiff", "calculus", "embedded", "robotics"]
-categories = ["mathematics", "no-std", "no-std::no-alloc", "embedded", "science::robotics"]
+keywords = ["robotics", "embedded", "dynamics", "kinematics", "autodiff"]
+categories = ["science::robotics", "embedded", "no-std::no-alloc", "aerospace::drones", "mathematics"]
 
 [dependencies]
 libm = "0.2"

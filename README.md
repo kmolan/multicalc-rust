@@ -7,61 +7,73 @@
 [![Docs](https://docs.rs/multicalc/badge.svg)](https://docs.rs/multicalc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**The whole robotics stack, on bare metal.** Estimation, planning, kinematics, dynamics and control
-in one `no_std` Rust crate. No heap, no panics, no unsafe.
+**Robotics for microcontrollers.** Sense, plan, estimate and control in `no_std` Rust in one
+integrated package. Tested on real hardware: run the same code from your laptop to a Cortex-M4.
 
-https://github.com/user-attachments/assets/ed45ccb5-ca95-4e4b-8399-27d09284b220
+<p>
+  <img src="demos/examples/resources/gifs/3d_drone_showcase.gif" width="49%"
+       alt="3d_drone_flight: a Skydio X2 on an error-state filter, LQR and geometric attitude control">
+  <img src="demos/examples/resources/gifs/3d_arm_ik_showcase.gif" width="49%"
+       alt="3d_arm_ik: a Franka Panda on 1 kHz SE(3) inverse kinematics">
+</p>
 
-*The [live showcases](demos#live-showcases). Each number on screen is measured live, inside a 1 ms
-tick.*
+*[Live showcases](demos#live-showcases): each number on screen is measured inside a 1 ms tick.*
 
 ## Highlights
 
+- **Tested on real silicon.** Pinocchio-exact robot dynamics, checked on each run, and a full
+  1 kHz arm control loop on a 100 MHz Cortex-M4F. CI also tests the `x86_64` and `aarch64` hosts
+  and four bare-metal targets under QEMU.
 - **1 kHz control loops.** Fixed-size types, no heap, and bounded work for each call.
-- **Tested on real silicon.** Arm Cortex-M4F, Arm Cortex-M33 and RISC-V boards. CI also tests the
-  `x86_64` and `aarch64` hosts and four bare-metal targets under QEMU.
 - **Checked against reference libraries.** 183 checks against NumPy, SciPy, MuJoCo, Pinocchio,
   mpmath and FilterPy. See the [benchmarks](benchmarks).
-- **Heap only on request.** The default build needs no allocator. The `alloc` feature adds the particle
-  filter, Monte Carlo localization and `DynamicOccupancyGrid`.
 - **Safe and panic-free.** `#![forbid(unsafe_code)]`, no C dependencies, and a typed error from each
   fallible call.
-
-## What it does
-
-### Robotics
-
-| Module | Contents |
-| --- | --- |
-| [Estimation](crates/multicalc/tutorials/estimation.md) | Linear, extended and unscented `KalmanFilter`, `ErrorStateKalmanFilter`, `MahonyFilter`, `MadgwickFilter`; `ParticleFilter` and `MonteCarloLocalizer` (`alloc`) |
-| [Control](crates/multicalc/tutorials/control.md) | `Pid`, `Lqr`, `GeometricAttitudeController`, pure pursuit, `FollowTheGap`, `ComputedTorqueController`, joint and Cartesian impedance, `JointPdController` |
-| [Spatial math](crates/multicalc/tutorials/spatial-quaternions-and-lie-groups.md) | `Quaternion`, `SO2`/`SE2`/`SO3`/`SE3` with Jacobians, `Twist`, `Wrench`, `SpatialInertia` |
-| [Rigid-body dynamics](crates/multicalc/tutorials/rigid-body-dynamics.md) | `RigidBody`, `ArticulatedBody`: RNEA, CRBA, ABA, momentum observer. Models from MJCF or URDF |
-| [Kinematics](crates/multicalc/tutorials/kinematics.md) | `KinematicTree`, forward and inverse kinematics, `CollisionQuery` |
-| [Plant](crates/multicalc/tutorials/plant.md) | `MultirotorMixer`, `RotorLag`, `PositionServo` |
-| [Motion](crates/multicalc/tutorials/motion.md) | `PolylinePath`, `MinimumSnapPlanner`, `MotionProfilePlanner` |
-| [Mapping](crates/multicalc/tutorials/mapping.md) | `OccupancyGrid`, `DynamicOccupancyGrid` (`alloc`), `LogOddsGrid`, `DistanceField`, `CostGrid` |
-| [Planning](crates/multicalc/tutorials/planning.md) | `GridPlanner` (Dijkstra, A\*, Theta\*), `Rrt`, `RrtStar`, `Prm`. Caller-owned workspaces, no allocation |
-| [MLP inference](crates/multicalc/tutorials/mlp-inference.md) | `Layer`, `Activation`, `ParameterCursor` for trained policies |
-
-### Core math
-
-| Module | Contents |
-| --- | --- |
-| [Autodiff](crates/multicalc/tutorials/scalars-and-automatic-differentiation.md) | Exact derivatives (to order 6 in one variable, 3 in several), `Jacobian`, `Hessian` |
-| [Linear algebra](crates/multicalc/tutorials/linear-algebra.md) | `Matrix`, `Vector`: LU, Cholesky, QR, SVD, eigendecomposition, `expm`, Riccati and Lyapunov solvers |
-| [Least squares](crates/multicalc/tutorials/least-squares-optimization.md) | `LevenbergMarquardt`, `GaussNewton` |
-| [Root finding](crates/multicalc/tutorials/root-finding.md) | Bisection, Brent, Newton, damped line search |
-| [Polynomials](crates/multicalc/tutorials/polynomials.md) | `Polynomial`, `PiecewisePolynomial`, `MultivariatePolynomial` |
-| [Integration](crates/multicalc/tutorials/integration.md) | Newton-Cotes, Gauss-Legendre, Gauss-Hermite, Gauss-Laguerre |
-| [ODE](crates/multicalc/tutorials/ode-integrators.md) | `Rk4`, `Rk45`, `ExponentialMap` |
-| [Discretization](crates/multicalc/tutorials/discretization.md) | Zero-order hold, Van Loan, discrete white noise |
-| [Signal processing](crates/multicalc/tutorials/signal-processing.md) | `Biquad`, `MovingAverage`, `RunningMedian`, `SavitzkyGolay`, `SlewRateLimiter` |
-| [Vector calculus](crates/multicalc/tutorials/vector-calculus.md) | Curl, divergence, line and flux integrals |
-| [Approximation](crates/multicalc/tutorials/taylor-approximation.md) | Linear and quadratic Taylor models |
-| [Random](crates/multicalc/tutorials/random.md) | `Pcg32`, `RandomSource` |
+- **Builds in seconds.** A clean build takes about 2.5 s (debug, release or `thumbv7em`), with one
+  dependency, `libm` (i7-12650H, Rust 1.100).
 
 ## Quick start
+
+### A robot arm
+
+```sh
+cargo add multicalc multicalc-robot-model
+```
+
+```rust,no_run
+use multicalc::{JointPdController, JointReference, Vector};
+use multicalc_robot_model::load_path;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // The Franka Panda from MuJoCo Menagerie: a welded base, seven hinges, a welded hand.
+    let model = load_path("mujoco_menagerie/franka_emika_panda/panda.xml".as_ref())?;
+    let gravity = Vector::new([0.0, 0.0, -9.81]);
+    let arm = model.articulated_body_to::<9, 9>("hand", gravity)?;
+
+    // Forward kinematics: the hand pose at the measured configuration. Slots 0 and 8 are welds.
+    let measured_position = Vector::new([0.0, 0.1, 0.0, 0.0, -1.5, 0.0, 1.6, -0.7854, 0.0]);
+    let measured_velocity = Vector::zeros();
+    let state = arm.tree().forward_kinematics(&measured_position)?;
+    let hand = state.pose(8).ok_or("no hand frame")?;
+
+    // One tick of PD with gravity compensation: τ = kp⊙e + kd⊙ė + G(q), G(q) by RNEA.
+    let position_gains = Vector::from_fn(|_| 400.0);
+    let velocity_gains = Vector::from_fn(|_| 40.0);
+    let controller =
+        JointPdController::new(position_gains, velocity_gains)?.with_gravity_compensation(true);
+    let home = Vector::new([0.0, 0.0, 0.0, 0.0, -1.5708, 0.0, 1.5708, -0.7854, 0.0]);
+    let reference = JointReference::at_rest(home);
+    let torque =
+        controller.torque(&arm, &state, &measured_position, &measured_velocity, &reference)?;
+
+    Ok(())
+}
+```
+
+On a microcontroller, `RobotModel::to_rust_source` turns the model into Rust source that the
+firmware compiles.
+
+### Math, poses and filters
 
 ```rust
 use multicalc::prelude::*;
@@ -87,7 +99,8 @@ fn main() -> Result<(), CalcError> {
         process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
         measurement_noise: Matrix::new([[0.1]]),
     };
-    let mut filter = KalmanFilter::new(Vector::new([0.0, 0.0]), Matrix::new([[1.0, 0.0], [0.0, 1.0]]), model);
+    let initial_covariance = Matrix::new([[1.0, 0.0], [0.0, 1.0]]);
+    let mut filter = KalmanFilter::new(Vector::new([0.0, 0.0]), initial_covariance, model);
     filter.predict();
     filter.update(Vector::new([1.0]))?;
     let velocity = filter.state()[1];
@@ -98,37 +111,55 @@ fn main() -> Result<(), CalcError> {
 
 Each module has its own error enum, and each one converts into `CalcError`.
 
+## What it does
+
+### Robotics
+
+| Module | Contents |
+| --- | --- |
+| [Estimation](crates/multicalc/tutorials/estimation.md) | Linear, extended and unscented `KalmanFilter`, `ErrorStateKalmanFilter`, `MahonyFilter`, `MadgwickFilter`; `ParticleFilter` and `MonteCarloLocalizer` (`alloc`) |
+| [Control](crates/multicalc/tutorials/control.md) | `Pid`, `Lqr`, `GeometricAttitudeController`, pure pursuit, `FollowTheGap`, `ComputedTorqueController`, joint and Cartesian impedance, `JointPdController` |
+| [Spatial math](crates/multicalc/tutorials/spatial-quaternions-and-lie-groups.md) | `Quaternion`, `SO2`/`SE2`/`SO3`/`SE3` with Jacobians, `Twist`, `Wrench`, `SpatialInertia` |
+| [Rigid-body dynamics](crates/multicalc/tutorials/rigid-body-dynamics.md) | `RigidBody`, `ArticulatedBody`: RNEA, CRBA, ABA, momentum observer. Models from MJCF or URDF |
+| [Kinematics](crates/multicalc/tutorials/kinematics.md) | `KinematicTree`, forward and inverse kinematics, `CollisionQuery` |
+| [Plant](crates/multicalc/tutorials/plant.md) | `MultirotorMixer`, `RotorLag`, `PositionServo` |
+| [Motion](crates/multicalc/tutorials/motion.md) | `PolylinePath`, `MinimumSnapPlanner`, `MotionProfilePlanner` |
+| [Mapping](crates/multicalc/tutorials/mapping.md) | `OccupancyGrid`, `DynamicOccupancyGrid` (`alloc`), `LogOddsGrid`, `DistanceField`, `CostGrid` |
+| [Planning](crates/multicalc/tutorials/planning.md) | `GridPlanner` (Dijkstra, A\*, Theta\*), `Rrt`, `RrtStar`, `Prm` |
+| [MLP inference](crates/multicalc/tutorials/mlp-inference.md) | `Layer`, `Activation`, `ParameterCursor` for trained policies |
+
+### The core, also usable alone
+
+| Module | Contents |
+| --- | --- |
+| [Autodiff](crates/multicalc/tutorials/scalars-and-automatic-differentiation.md) | `Dual`, `HyperDual` and `Jet` scalars for exact derivatives, `Jacobian`, `Hessian` |
+| [Linear algebra](crates/multicalc/tutorials/linear-algebra.md) | `Matrix`, `Vector`: LU, Cholesky, QR, SVD, eigendecomposition, `expm`, Riccati and Lyapunov solvers |
+| [Least squares](crates/multicalc/tutorials/least-squares-optimization.md) | `LevenbergMarquardt`, `GaussNewton` |
+| [Root finding](crates/multicalc/tutorials/root-finding.md) | Bisection, Brent, Newton, damped line search |
+| [Polynomials](crates/multicalc/tutorials/polynomials.md) | `Polynomial`, `PiecewisePolynomial`, `MultivariatePolynomial` |
+| [Integration](crates/multicalc/tutorials/integration.md) | Newton-Cotes, Gauss-Legendre, Gauss-Hermite, Gauss-Laguerre |
+| [ODE](crates/multicalc/tutorials/ode-integrators.md) | `Rk4`, `Rk45`, `ExponentialMap` |
+| [Discretization](crates/multicalc/tutorials/discretization.md) | Zero-order hold, Van Loan, discrete white noise |
+| [Signal processing](crates/multicalc/tutorials/signal-processing.md) | `Biquad`, `MovingAverage`, `RunningMedian`, `SavitzkyGolay`, `SlewRateLimiter` |
+| [Vector calculus](crates/multicalc/tutorials/vector-calculus.md) | Curl, divergence, line and flux integrals |
+| [Approximation](crates/multicalc/tutorials/taylor-approximation.md) | Linear and quadratic Taylor models |
+| [Random](crates/multicalc/tutorials/random.md) | `Pcg32`, `RandomSource` |
+
 ## Documentation
 
-- **[Website](https://kmolan.github.io/multicalc-rust/)**: demos, silicon timings, latency and accuracy charts.
-- **[Tutorials](crates/multicalc/tutorials/README.md)**: one page for each module.
-- **[API docs](https://docs.rs/multicalc)**: the full API reference.
-- **[Demos](demos)**: a self-checking example for each module, and seven live showcases. Run one with
-  `cargo run -p multicalc-demos --example <name>`.
-- **[Benchmarks](benchmarks)**: accuracy tables for each module, and latency.
+[Tutorials](crates/multicalc/tutorials/README.md) · [API docs](https://docs.rs/multicalc) ·
+[Demos](demos) · [Website](https://kmolan.github.io/multicalc-rust/) · [Benchmarks](benchmarks) ·
+[Architecture](ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md)
 
-## Repository layout
+## Citation
 
-| Path | Contents |
-| --- | --- |
-| [`crates/multicalc`](crates/multicalc) | The library |
-| [`crates/multicalc-robot-model`](crates/multicalc-robot-model) | MJCF and URDF reader, and a `model_viewer` |
-| [`demos`](demos) | Examples and live showcases |
-| [`tools/qa`](tools/qa) | Accuracy fixtures and the benchmark tables |
-| [`tools/embedded-smoke`](tools/embedded-smoke) | Bare-metal tests under QEMU |
-| [`tools/hilshare`](tools/hilshare) | Tests on real boards |
-| [`site`](site) | The website |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | The crates, the domains, and the layer graph |
-
-## Contributing
-
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Acknowledgements
-
-The least-squares solvers and QR factorization port the public-domain MINPACK routines (Moré,
-Garbow, Hillstrom; netlib); the full citation is in the
-[crate README](crates/multicalc/README.md#acknowledgements).
+```bibtex
+@software{kathail_multicalc,
+  author = {Kathail, Anmol},
+  title  = {multicalc: robotics for microcontrollers},
+  url    = {https://github.com/kmolan/multicalc-rust},
+}
+```
 
 ## License
 

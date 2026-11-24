@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, cite it as below."
+type: software
+title: "multicalc"
+abstract: "Robotics for microcontrollers. Sense, plan, estimate and control in no_std Rust in one integrated package."
+authors:
+  - family-names: "Kathail"
+    given-names: "Anmol"
+repository-code: "https://github.com/kmolan/multicalc-rust"
+url: "https://kmolan.github.io/multicalc-rust/"
+license: MIT
+keywords:
+  - robotics
+  - embedded
+  - no-std
+  - rust
+  - autodiff
