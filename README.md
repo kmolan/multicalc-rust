@@ -118,6 +118,7 @@ Each module has its own error enum, and each one converts into `CalcError`.
 | [`tools/embedded-smoke`](tools/embedded-smoke) | Bare-metal tests under QEMU |
 | [`tools/hilshare`](tools/hilshare) | Tests on real boards |
 | [`site`](site) | The website |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | The crates, the domains, and the layer graph |
 
 ## Contributing
 
