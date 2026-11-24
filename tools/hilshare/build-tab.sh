@@ -35,7 +35,7 @@ for app in arm drone mobile_and_policy; do
     cp target/riscv32imc-unknown-none-elf/release/multicalc-hilshare "target/tab/multicalc-hilshare-$app-xiao-esp32c3.elf"
     elf2tab --kernel-major 2 --kernel-minor 3 \
         --package-name "multicalc-hilshare-$app" \
-        --stack 8192 --minimum-footer-size 256 \
+        --stack 16384 --minimum-footer-size 256 \
         --output-file "target/tab/multicalc-hilshare-$app.tab" \
         "target/tab/multicalc-hilshare-$app-nucleo-f411re.elf,cortex-m4" \
         "target/tab/multicalc-hilshare-$app-raspberry-pi-pico-2.elf,cortex-m4.0x10040080.0x20008000" \
