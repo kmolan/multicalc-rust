@@ -16,8 +16,11 @@ matrix `A` maps the thrusts to `[thrust; τx; τy; τz]`, with column `i` equal 
 
 - `wrench(thrusts)` returns `A·f` as a `Wrench`: force on body z, torque about the body-frame
   origin. `RigidBody` takes this form directly.
-- `rotor_thrusts(collective_thrust, torque)` returns `A⁺·[thrust; τ]`, with each thrust clamped to
-  the rotor limits.
+- `rotor_thrusts(collective_thrust, torque)` returns rotor thrusts inside the limits, with the
+  torque before the collective. With `d = A⁺·e₁`, the collective `c` moves, up or down, into
+  the interval where `c·d + A⁺·[0; τ]` fits the limits. If no `c` fits the full torque, yaw is
+  scaled down first. If roll and pitch alone do not fit, yaw is zero and roll and pitch are
+  scaled together. The work is `O(ROTOR_COUNT²)`, with no iteration.
 - `MultirotorMixer::new` computes `A⁺` once, so each call is one small matrix product.
 - `quadrotor_x` builds the X layout. The rotor order is front right, back left, front left, back
   right. The rotors on each diagonal turn the same way.
@@ -59,11 +62,20 @@ assert!(wrench.torque().norm() < 1e-12);
 let beyond_reach = 30.0;
 let too_much = mixer.rotor_thrusts(beyond_reach, no_turn);
 assert!(too_much.saturated());
+
+// Near full collective, a roll command keeps its torque and the collective gives way.
+let roll = Vector::new([0.2, 0.0, 0.0]);
+let aggressive = mixer.rotor_thrusts(19.0, roll);
+let produced = mixer.wrench(aggressive.thrusts());
+assert!((produced.torque()[0] - 0.2).abs() < 1e-12);
+assert!(aggressive.shortfall()[0] > 0.0);
 # Ok::<(), multicalc::CalcError>(())
 ```
 
-If a thrust is clamped, `RotorCommands::saturated` is `true` and `A·f` differs from the command.
-An outer loop can use this flag for anti-windup.
+`RotorCommands::shortfall` is `[thrust; τ]` minus the command that the thrusts produce, so
+`A·f = [thrust; τ] − shortfall`. A negative thrust component means that the collective went
+up to keep the torque. `RotorCommands::saturated` is `true` when the shortfall is not zero. An
+outer loop can use this flag for anti-windup.
 
 ## Rotor lag
 
