@@ -6,7 +6,8 @@
 [![Docs](https://docs.rs/multicalc/badge.svg)](https://docs.rs/multicalc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-**Scientific computing that fits on a microcontroller, built and tested from scratch in one integrated package. Estimation, control, kinematics, Lie groups, calculus, autodiff and linear algebra in stable no_std Rust with no heap, no panics and no unsafe.**
+**Robotics for microcontrollers.** Sense, plan, estimate and control in `no_std` Rust in one
+integrated package. Tested on real hardware: run the same code from your laptop to a Cortex-M4.
 
 ## Why use it
 
@@ -22,6 +23,9 @@
 - **Safe and panic-free:** `unsafe_code` is forbidden, there are no C dependencies, and
   `unwrap`/`expect`/`panic` are denied on library paths. Each fallible call returns a typed error.
   Types are fixed-size and stack-allocated, and iteration counts are bounded.
+- **Builds in seconds:** a clean build of the whole crate takes about 2.5 s, debug, release or
+  `thumbv7em`, with one dependency, `libm`. Generic code compiles in your crate, only for the
+  scalar types that you use. (i7-12650H, Rust 1.100.)
 
 ## What it does
 
@@ -39,7 +43,9 @@
 - [Planning](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/planning.md): `GridPlanner` for Dijkstra, A\*, weighted A\* and any-angle Theta\*, priced by `UniformCost` or `CostmapCost`; `Rrt`, `RrtStar` and `Prm` over a `StateSpace`. Caller-owned workspaces, no allocation.
 - [MLP inference](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/mlp-inference.md): `Layer` and `Activation` run a trained MLP policy forward over borrowed `MatrixView`/`VectorView` parameters, and `ParameterCursor` walks a flat export one layer at a time, with no copy and no allocation.
 
-### Core math
+### The core, also usable alone
+
+Built on its own `no_std` math core: autodiff, linear algebra and solvers.
 
 - [Automatic differentiation](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/scalars-and-automatic-differentiation.md): `Dual`, `HyperDual` and `Jet` scalars for exact forward-mode derivatives (total to order 6, partial to order 3), finite differences of any order, and Jacobian and Hessian matrices.
 - [Linear algebra](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/linear-algebra.md): fixed-size, stack-allocated `Matrix` and `Vector` with LU, Cholesky, column-pivoted QR, SVD, symmetric eigendecomposition, and the matrix exponential `expm`. General N×N determinant and inverse, pseudo-inverse, eigenvalue clamping, zero-copy `MatrixView` / `VectorView`, `solve_discrete_riccati` and `solve_discrete_lyapunov`.
@@ -55,6 +61,53 @@
 - [Random](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/random.md): `Pcg32` and the `RandomSource` trait, a seedable `no_std` generator for the particle filter and for stochastic models.
 
 ## Quick start
+
+### A robot arm
+
+```rust
+use multicalc::prelude::*;
+use multicalc::{ArticulatedBody, ComputedTorqueController, Joint, JointParent, JointReference};
+use multicalc::{KinematicTree, Matrix, SE3, SO3, SpatialInertia, Vector};
+
+fn main() -> Result<(), CalcError> {
+    // A two-link arm: hinges about y, links 0.5 m long along x, 1 kg each.
+    let hinge_axis = Vector::new([0.0, 1.0, 0.0]);
+    let elbow_origin = SE3::from_parts(SO3::identity(), Vector::new([0.5, 0.0, 0.0]));
+    let shoulder = Joint::revolute(hinge_axis, SE3::identity());
+    let elbow = Joint::revolute(hinge_axis, elbow_origin);
+    let tree = KinematicTree::<2, 2, f64>::try_from_joints(
+        &[shoulder, elbow],
+        &[JointParent::World, JointParent::Joint(0)],
+    )?;
+
+    let mass = 1.0;
+    let centre_of_mass = Vector::new([0.25, 0.0, 0.0]);
+    let rotational_inertia = Matrix::from_diagonal([0.01; 3]);
+    let link = SpatialInertia::new(mass, centre_of_mass, rotational_inertia)?;
+    let gravity = Vector::new([0.0, 0.0, -9.81]);
+    let arm = ArticulatedBody::new(tree, &[Some(link), Some(link)], gravity)?;
+
+    // Held level, G(q) by RNEA: shoulder −m·g·(0.25 + 0.75), elbow −m·g·0.25.
+    let level = Vector::new([0.0, 0.0]);
+    let holding = arm.gravity_torque_at(&level)?;
+    assert!((holding[0] + 9.81).abs() < 1e-12);
+    assert!((holding[1] + 2.4525).abs() < 1e-12);
+
+    // One control tick: computed torque from the measured state toward the level pose.
+    let controller = ComputedTorqueController::from_natural_frequency(20.0, 1.0)?;
+    let measured_position = Vector::new([0.1, -0.1]);
+    let measured_velocity = Vector::zeros();
+    let reference = JointReference::at_rest(level);
+    let torque = controller.torque_at(&arm, &measured_position, &measured_velocity, &reference)?;
+
+    Ok(())
+}
+```
+
+[`multicalc-robot-model`](https://crates.io/crates/multicalc-robot-model) builds the same
+`ArticulatedBody` from an MJCF or URDF file.
+
+### Exact derivatives
 
 Two formulas, written once, carried through six modules:
 
