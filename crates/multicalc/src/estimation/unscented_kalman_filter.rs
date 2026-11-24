@@ -87,6 +87,7 @@ pub struct UnscentedKalmanFilter<
     beta: T,
     kappa: T,
     regularization: T,
+    innovation_gate: Option<T>,
 }
 
 impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeric>
@@ -131,6 +132,7 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
             beta: T::TWO,
             kappa: T::ZERO,
             regularization: T::ZERO,
+            innovation_gate: None,
         }
     }
 
@@ -199,6 +201,66 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
         }
         self.regularization = regularization;
         Ok(self)
+    }
+
+    /// Rejects an update when `yᵀ·S⁻¹·y > threshold`.
+    ///
+    /// A rejected update returns [`MeasurementRejected`](EstimationError::MeasurementRejected). The
+    /// state and the covariance do not change, and the innovation and its covariance record the
+    /// rejected measurement. Set `threshold` to the chi-square quantile for
+    /// `MEASUREMENT_DIMENSION` degrees of freedom: `9.0` is one degree at 99.73 %.
+    ///
+    /// Returns [`InvalidTuning`](EstimationError::InvalidTuning) if `threshold` is not finite or
+    /// not positive.
+    ///
+    /// ```
+    /// use multicalc::error::EstimationError;
+    /// use multicalc::estimation::UnscentedKalmanFilter;
+    /// use multicalc::linear_algebra::{Matrix, Vector};
+    /// use multicalc::scalar::{Numeric, VectorFn};
+    ///
+    /// struct ConstantVelocity;
+    /// impl VectorFn<2, 2> for ConstantVelocity {
+    ///     fn eval<S: Numeric>(&self, state: &[S; 2]) -> [S; 2] {
+    ///         [state[0] + state[1], state[1]]
+    ///     }
+    /// }
+    /// struct Position;
+    /// impl VectorFn<2, 1> for Position {
+    ///     fn eval<S: Numeric>(&self, state: &[S; 2]) -> [S; 1] {
+    ///         [state[0]]
+    ///     }
+    /// }
+    ///
+    /// let mut filter = UnscentedKalmanFilter::<2, 1>::new(
+    ///     Vector::new([0.0, 0.0]),
+    ///     Matrix::identity(),
+    ///     Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
+    ///     Matrix::new([[0.1]]),
+    /// )
+    /// .with_innovation_gate(9.0)
+    /// .unwrap();
+    /// filter.predict(&ConstantVelocity).unwrap();
+    /// let predicted = filter.state();
+    ///
+    /// assert_eq!(
+    ///     filter.update(&Position, Vector::new([100.0])),
+    ///     Err(EstimationError::MeasurementRejected)
+    /// );
+    /// assert_eq!(filter.state(), predicted);
+    /// ```
+    pub fn with_innovation_gate(mut self, threshold: T) -> Result<Self, EstimationError> {
+        if !threshold.is_finite() || threshold <= T::ZERO {
+            return Err(EstimationError::InvalidTuning);
+        }
+        self.innovation_gate = Some(threshold);
+        Ok(self)
+    }
+
+    /// The threshold of the innovation gate, or `None` when no gate is set.
+    #[must_use]
+    pub fn innovation_gate(&self) -> Option<T> {
+        self.innovation_gate
     }
 
     /// Replaces the state estimate. Also the hook for re-wrapping an angular state component after
@@ -469,14 +531,23 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
         let factorization = innovation_covariance
             .cholesky()
             .map_err(|_| EstimationError::NotPositiveDefinite)?;
+
+        // The residual and its spread are kept so the caller can judge the fit.
+        self.innovation = residual;
+        self.innovation_covariance = innovation_covariance;
+        if self
+            .innovation_gate
+            .is_some_and(|threshold| residual.dot(factorization.solve(residual)) > threshold)
+        {
+            return Err(EstimationError::MeasurementRejected);
+        }
+
         let kalman_gain = factorization
             .solve_matrix::<STATE_DIMENSION>(cross_covariance.transpose())
             .transpose();
 
         // The gain sets both how far the estimate moves and how much uncertainty the reading
-        // takes away. The residual and its spread are kept so the caller can judge the fit.
-        self.innovation = residual;
-        self.innovation_covariance = innovation_covariance;
+        // takes away.
         self.state += kalman_gain * residual;
         self.covariance = (self.covariance
             - kalman_gain * innovation_covariance * kalman_gain.transpose())
@@ -497,6 +568,8 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
     /// measurement, or the formed innovation covariance holds an infinity or NaN, and
     /// [`NotPositiveDefinite`](EstimationError::NotPositiveDefinite) when the innovation covariance
     /// cannot be factorized — the gain is undefined.
+    /// Returns [`MeasurementRejected`](EstimationError::MeasurementRejected) when the
+    /// [innovation gate](Self::with_innovation_gate) rejects the measurement.
     pub fn update<MeasurementModel>(
         &mut self,
         measurement_model: &MeasurementModel,
@@ -535,6 +608,9 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
     /// can come between — but a model that wraps its own output puts points at +π and −π at once,
     /// and their average is meaningless. Wrap after the update through
     /// [`set_state`](Self::set_state) instead.
+    ///
+    /// Returns [`MeasurementRejected`](EstimationError::MeasurementRejected) when the
+    /// [innovation gate](Self::with_innovation_gate) rejects the measurement.
     ///
     /// ```
     /// use multicalc::estimation::UnscentedKalmanFilter;
