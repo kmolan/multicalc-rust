@@ -1,14 +1,15 @@
 name: Pages
 
-# Deploys site/ to GitHub Pages from the github-pages-site branch. site/media holds symbolic
-# links to the showcase GIFs and the demo reel; the copy resolves them.
+# Builds the site on the github-pages-site branch and deploys it to GitHub Pages: site/ with its
+# symbolic links resolved, the tutorials, and a Rerun recording of each site showcase.
 on:
   push:
     branches: [github-pages-site]
     paths:
       - site/**
-      - demos/examples/resources/gifs/**
-      - combined_demo_reel.mp4
+      - demos/**
+      - crates/multicalc/src/**
+      - crates/multicalc/tutorials/**
       - .github/workflows/pages.yml
   workflow_dispatch:
 
@@ -22,21 +23,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build the showcases
+        run: >-
+          cargo build --release -p multicalc-demos
+          --example 3d_drone_flight --example 3d_arm_torque
+          --example 2d_localization_obstacle_avoidance --example 3d_arm_ik
+          --example newton_fractal --example gradient_marbles --example fourier_ferris
+      - name: Assemble the site
+        run: |
+          cp -rL site _site
+          mkdir -p _site/tutorials _site/recordings
+          cp crates/multicalc/tutorials/*.md _site/tutorials/
+      - name: Record the showcases
+        run: |
+          for showcase in 3d_drone_flight 3d_arm_torque 2d_localization_obstacle_avoidance \
+              3d_arm_ik newton_fractal gradient_marbles fourier_ferris; do
+            MULTICALC_RECORD="_site/recordings/$showcase.rrd" "target/release/examples/$showcase"
+          done
+          ls -l _site/recordings
+          if find _site/recordings -name '*.rrd' -size +25M | grep -q .; then
+            echo "a recording is over 25 MB"
+            exit 1
+          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
   deploy:
     name: Deploy
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Assemble the site
-        run: |
-          cp -rL site _site
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
