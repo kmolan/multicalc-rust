@@ -89,12 +89,6 @@ fn vector_lit_raw(data: &[f64]) -> String {
 #[must_use]
 fn matrix_lit(value: &Value) -> String {
     let (rows, cols, data) = value.as_matrix();
-    matrix_lit_raw(rows, cols, &data)
-}
-
-/// A raw row-major slice as a bit-exact `[[f64; C]; R]` literal.
-#[must_use]
-fn matrix_lit_raw(rows: usize, cols: usize, data: &[f64]) -> String {
     let mut out = format!("[[f64; {cols}]; {rows}] = [\n");
     for row in 0..rows {
         out.push_str("    [\n");
@@ -158,6 +152,18 @@ fn matrix_lit_packed(rows: usize, cols: usize, data: &[f64]) -> String {
     }
     out.push_str("];\n");
     out
+}
+
+/// A fixture vector or matrix as a bit-exact packed literal.
+#[must_use]
+fn value_lit_packed(value: &Value) -> String {
+    match value {
+        Value::Matrix { .. } => {
+            let (rows, cols, data) = value.as_matrix();
+            matrix_lit_packed(rows, cols, &data)
+        }
+        _ => vector_lit_packed(&value.as_vector()),
+    }
 }
 
 /// A string literal.
@@ -478,100 +484,79 @@ fn main() {
         "FRANKA_DYNAMICS_JOINT_KINDS",
         &str_lit(model["joint_kinds"].as_str()),
     );
-    emit(
-        &mut robotics,
-        "The parent of each slot; `-1` is the world.",
-        "FRANKA_DYNAMICS_PARENTS",
-        &vector_lit_packed(&model["parents"].as_vector()),
-    );
-    emit(
-        &mut robotics,
-        "The origin translation of each slot.",
-        "FRANKA_DYNAMICS_ORIGIN_POSITIONS",
-        &{
-            let (rows, cols, data) = model["origin_positions"].as_matrix();
-            matrix_lit_packed(rows, cols, &data)
-        },
-    );
-    emit(
-        &mut robotics,
-        "The origin rotation of each slot, `w, x, y, z`.",
-        "FRANKA_DYNAMICS_ORIGIN_QUATERNIONS",
-        &{
-            let (rows, cols, data) = model["origin_quaternions"].as_matrix();
-            matrix_lit_packed(rows, cols, &data)
-        },
-    );
-    emit(
-        &mut robotics,
-        "The joint axis of each slot.",
-        "FRANKA_DYNAMICS_AXES",
-        &{
-            let (rows, cols, data) = model["axes"].as_matrix();
-            matrix_lit_packed(rows, cols, &data)
-        },
-    );
-    emit(
-        &mut robotics,
-        "The joint anchor of each slot.",
-        "FRANKA_DYNAMICS_ANCHORS",
-        &{
-            let (rows, cols, data) = model["anchors"].as_matrix();
-            matrix_lit_packed(rows, cols, &data)
-        },
-    );
-    for (doc, name, key) in [
+    // The model: each field, its doc and whether it is a `static`.
+    for (doc, name, key, is_static) in [
+        (
+            "The parent of each slot; `-1` is the world.",
+            "PARENTS",
+            "parents",
+            false,
+        ),
+        (
+            "The origin translation of each slot.",
+            "ORIGIN_POSITIONS",
+            "origin_positions",
+            false,
+        ),
+        (
+            "The origin rotation of each slot, `w, x, y, z`.",
+            "ORIGIN_QUATERNIONS",
+            "origin_quaternions",
+            false,
+        ),
+        ("The joint axis of each slot.", "AXES", "axes", false),
+        (
+            "The joint anchor of each slot.",
+            "ANCHORS",
+            "anchors",
+            false,
+        ),
         (
             "The zero offset of each slot.",
-            "FRANKA_DYNAMICS_ZERO_OFFSETS",
+            "ZERO_OFFSETS",
             "zero_offsets",
+            false,
         ),
         (
             "The armature of each slot.",
-            "FRANKA_DYNAMICS_ARMATURES",
+            "ARMATURES",
             "armatures",
+            false,
         ),
-        (
-            "The damping of each slot.",
-            "FRANKA_DYNAMICS_DAMPINGS",
-            "dampings",
-        ),
+        ("The damping of each slot.", "DAMPINGS", "dampings", false),
         (
             "The Coulomb friction loss of each slot.",
-            "FRANKA_DYNAMICS_FRICTION_LOSSES",
+            "FRICTION_LOSSES",
             "friction_losses",
+            false,
         ),
         (
             "The mass of each slot; `0` is a massless slot.",
-            "FRANKA_DYNAMICS_MASSES",
+            "MASSES",
             "masses",
+            false,
+        ),
+        (
+            "The center of mass of each slot, in its frame.",
+            "CENTERS_OF_MASS",
+            "centers_of_mass",
+            false,
+        ),
+        (
+            "The rotational inertia of each slot about its center of mass, row-major 3×3.",
+            "ROTATIONAL_INERTIAS",
+            "rotational_inertias",
+            true,
         ),
     ] {
-        emit(
-            &mut robotics,
-            doc,
-            name,
-            &vector_lit_packed(&model[key].as_vector()),
-        );
+        let name = format!("FRANKA_DYNAMICS_{name}");
+        let literal = value_lit_packed(&model[key]);
+        if is_static {
+            emit_static(&mut robotics, doc, &name, &literal);
+        } else {
+            emit(&mut robotics, doc, &name, &literal);
+        }
     }
-    emit(
-        &mut robotics,
-        "The center of mass of each slot, in its frame.",
-        "FRANKA_DYNAMICS_CENTERS_OF_MASS",
-        &{
-            let (rows, cols, data) = model["centers_of_mass"].as_matrix();
-            matrix_lit_packed(rows, cols, &data)
-        },
-    );
-    emit_static(
-        &mut robotics,
-        "The rotational inertia of each slot about its center of mass, row-major 3×3.",
-        "FRANKA_DYNAMICS_ROTATIONAL_INERTIAS",
-        &{
-            let (rows, cols, data) = model["rotational_inertias"].as_matrix();
-            matrix_lit_packed(rows, cols, &data)
-        },
-    );
     for (doc, name, value) in [
         (
             "`q` at state 1.",
