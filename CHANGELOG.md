@@ -115,11 +115,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Host-only Python bindings.** `multicalc-py` is a workspace crate (`publish = false`) with a
   thin PyO3/maturin surface over a slice of crate-root `multicalc` (`f64` only, sizes fixed in
   the type name). Import `multicalc_py`. Not published to crates.io or PyPI. @rtmongold (#330)
-- **A Tock app for hardware runs.** `tools/hilshare` runs seven checks as a Tock process on the
-  three HILShare boards: the Nucleo-F411RE, the Raspberry Pi Pico 2 and the XIAO ESP32-C3. It
-  compares each answer with a known value, and each time with a budget of the board, net of
-  the round trip of the system call. CI builds its TAB on each pull request, and a maintainer
-  starts a board run with the `Board` workflow.
+- **Tock apps for hardware runs.** `tools/hilshare` runs three apps as Tock processes on the
+  three HILShare boards: the Nucleo-F411RE, the Raspberry Pi Pico 2 and the XIAO ESP32-C3.
+  - `arm`: Franka Panda RNEA, CRBA and ABA against Pinocchio, a 1 kHz computed-torque tick with
+    the momentum observer, and the exact `∂τ/∂q̈ = H` by one `Dual` pass.
+  - `drone`: the Skydio X2 control tick at hover and the 15-state ESKF over an IMU trajectory.
+  - `mobile_and_policy`: an EKF and pure-pursuit tick, and an MLP policy against numpy.
+
+  The ticks run in `f32` on the FPU of the two Arm boards (HILShare kernel `0.3`). Each check
+  compares its answer with a known value, and its best and worst time with a budget of the board.
+  `benchmarks/silicon.md` holds the figures. CI builds the TABs on each pull request, and a
+  maintainer starts a board run with the `Board` workflow.
 
 - **Input limits on `Lqr`.** `with_input_limits` sets per-input limits. `control_limited` and
   `control_tracking_limited` return a `LimitedOutput` with the clamped input and a flag for each
