@@ -71,7 +71,7 @@ impl Budget {
 }
 
 /// Runs of each check. The first run pays for the cold cache and the flash fetches. The reported
-/// figure is the best of the other runs, the steady-state cost in a loop.
+/// figures are the best and the worst of the other runs.
 const REPEATS: usize = 8;
 
 fn main() {
@@ -98,11 +98,13 @@ fn main() {
     for (index, &(check, budget)) in checks::CHECKS.iter().enumerate() {
         let first = check();
         let mut warm = u32::MAX;
+        let mut worst = 0_u32;
         let mut agreed = first.passed;
         for _ in 1..REPEATS {
             let repeat = check();
             agreed &= repeat.passed;
             warm = warm.min(repeat.cycles);
+            worst = worst.max(repeat.cycles);
         }
 
         // The counter checks keep the raw figure. Each later check has the round trip of this
@@ -117,6 +119,7 @@ fn main() {
         }
         let net = warm.saturating_sub(overhead);
         let cold_net = first.cycles.saturating_sub(overhead);
+        let worst_net = worst.saturating_sub(overhead);
 
         // The budget judges the warm figure only: one run can cross a timeslice.
         let budget_microseconds = budget.microseconds();
@@ -125,18 +128,22 @@ fn main() {
         let check_passed = agreed && within_budget;
         passed += usize::from(check_passed);
         let time = hundredths_of_a_microsecond(net, clock_hz);
+        let worst_time = hundredths_of_a_microsecond(worst_net, clock_hz);
         let overhead_time = hundredths_of_a_microsecond(overhead, clock_hz);
         let _ = writeln!(
             console,
-            "HILSHARE_CHECK name={} status={} us={}.{:02} budget_us={} overhead_us={}.{:02} cycles={} cold_cycles={} value={:e}",
+            "HILSHARE_CHECK name={} status={} us={}.{:02} worst_us={}.{:02} budget_us={} overhead_us={}.{:02} cycles={} worst_cycles={} cold_cycles={} value={:e}",
             first.name,
             if check_passed { "PASS" } else { "FAIL" },
             time / 100,
             time % 100,
+            worst_time / 100,
+            worst_time % 100,
             budget_microseconds,
             overhead_time / 100,
             overhead_time % 100,
             net,
+            worst_net,
             cold_net,
             first.value
         );

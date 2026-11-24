@@ -126,10 +126,9 @@ pub const ROUND_TRIP_CHECK_INDEX: usize = 1;
 /// branch cost from 1 to 8 cycles each, with the system-call round trip; a counter that is
 /// stopped or absent misses that band. The value is the cycles of one iteration.
 ///
-/// The loop starts a 16-byte line. The Nucleo-F411RE kernel runs the flash at three wait
-/// states with no instruction cache, so a loop whose prefetch runs into the next line pays two
-/// flash reads each iteration. The Pico 2 and the XIAO run from flash through a cache, so the
-/// warm runs read the loop from the cache.
+/// The loop starts a 16-byte line, so the prefetch of one iteration stays in one line on each
+/// board. The Nucleo-F411RE kernel turns on the flash prefetch and the ART caches, and the Pico 2
+/// and the XIAO run from flash through a cache, so the warm runs read the loop from a cache.
 fn cycle_counter_sanity() -> CheckOutcome {
     const SPINS: u32 = 10_000;
     let mut remaining = SPINS;
