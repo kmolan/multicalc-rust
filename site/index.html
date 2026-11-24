@@ -84,6 +84,7 @@ h1 .soft { color: var(--text-muted); }
   background: var(--surface-2); border: 1px solid var(--line); color: var(--text-primary);
 }
 .cta { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.cta.left { justify-content: flex-start; }
 .btn {
   display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px;
   padding: 11px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-1);
@@ -235,6 +236,7 @@ footer a:hover { color: var(--text-primary); }
     </div>
     <div class="cta">
       <a class="btn primary" href="https://github.com/kmolan/multicalc-rust">GitHub</a>
+      <a class="btn" href="tutorials.html">Tutorials</a>
       <a class="btn" href="https://crates.io/crates/multicalc"><code>cargo add multicalc</code></a>
     </div>
     <div class="trio">
@@ -465,7 +467,10 @@ filter.<span class="f">update</span>(measurement)?;                             
       <a href="https://github.com/kmolan/multicalc-rust/graphs/contributors"><img alt="Contributors" src="https://img.shields.io/github/contributors/kmolan/multicalc-rust?style=flat-square"></a>
       <a href="https://github.com/kmolan/multicalc-rust/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22"><img alt="Open good first issues" src="https://img.shields.io/github/issues/kmolan/multicalc-rust/good%20first%20issue?style=flat-square&label=good%20first%20issues"></a>
     </div>
-    <a class="btn" href="https://github.com/kmolan/multicalc-rust/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22">Pick a good first issue</a>
+    <div class="cta left">
+      <a class="btn" href="https://github.com/kmolan/multicalc-rust/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22">Pick a good first issue</a>
+      <a class="btn" href="tutorials.html">Tutorials</a>
+    </div>
   </div>
 </section>
 
