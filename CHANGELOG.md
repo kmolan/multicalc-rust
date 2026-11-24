@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Showcase recordings.** With `MULTICALC_RECORD=<path>`, a showcase writes a 20 s `.rrd` file in
+  place of the live viewer. The site plays each recording in the browser.
 - **`multicalc-robot-model` on crates.io.** The MJCF and URDF reader releases with `multicalc`, at
   the same version. A tree's const generics are a capacity, so one binary loads each model up to
   that size.
