@@ -136,6 +136,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a covariance and resets the weights, for recovery after the robot moves without a model of the
   move. (#213)
 
+- **Array conversions and scaling on the spatial types.** `Quaternion` converts from and to
+  `[w, x, y, z]`. `Twist` and `Wrench` convert from and to `[T; 6]`, and `*` by a scalar scales
+  them as `scale` does. (#164)
+
 ### Changed
 
 - **`ModelError::UnsupportedOrientation` is gone**, replaced by `MultipleOrientations` for an element

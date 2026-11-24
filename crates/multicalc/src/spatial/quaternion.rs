@@ -717,3 +717,19 @@ impl<T: Numeric> Default for Quaternion<T> {
         Self::identity()
     }
 }
+
+impl<T: Numeric> From<[T; 4]> for Quaternion<T> {
+    /// Reads `[w, x, y, z]`.
+    #[inline]
+    fn from(array: [T; 4]) -> Self {
+        Self::from_array(array)
+    }
+}
+
+impl<T: Numeric> From<Quaternion<T>> for [T; 4] {
+    /// Writes `[w, x, y, z]`.
+    #[inline]
+    fn from(quaternion: Quaternion<T>) -> Self {
+        quaternion.as_array()
+    }
+}

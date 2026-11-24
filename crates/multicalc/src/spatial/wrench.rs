@@ -1,6 +1,6 @@
 //! Typed spatial force.
 
-use core::ops::{Add, Neg, Sub};
+use core::ops::{Add, Mul, Neg, Sub};
 
 use crate::linear_algebra::{Vector, Vector3D, Vector6D};
 use crate::scalar::Numeric;
@@ -199,6 +199,31 @@ impl<T: Numeric> From<Wrench<T>> for Vector6D<T> {
     #[inline]
     fn from(w: Wrench<T>) -> Self {
         w.to_vector()
+    }
+}
+
+impl<T: Numeric> From<[T; 6]> for Wrench<T> {
+    /// Reads `[force; torque]`.
+    #[inline]
+    fn from(array: [T; 6]) -> Self {
+        Self::from_array(array)
+    }
+}
+
+impl<T: Numeric> From<Wrench<T>> for [T; 6] {
+    /// Writes `[force; torque]`.
+    #[inline]
+    fn from(wrench: Wrench<T>) -> Self {
+        wrench.as_array()
+    }
+}
+
+/// [`Wrench::scale`] as an operator.
+impl<T: Numeric> Mul<T> for Wrench<T> {
+    type Output = Self;
+    #[inline]
+    fn mul(self, scalar: T) -> Self {
+        self.scale(scalar)
     }
 }
 

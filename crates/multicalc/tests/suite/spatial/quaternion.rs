@@ -777,3 +777,11 @@ fn quaternion_default_is_identity() {
     assert_eq!(quaternion * default_quaternion, quaternion);
     assert_eq!(default_quaternion * quaternion, quaternion);
 }
+
+#[test]
+fn converts_from_and_to_an_array() {
+    let quaternion: Quaternion = [0.5, 0.5, -0.5, 0.5].into();
+    assert_eq!(quaternion.as_array(), [0.5, 0.5, -0.5, 0.5]);
+    let array: [f64; 4] = quaternion.into();
+    assert_eq!(array, [0.5, 0.5, -0.5, 0.5]);
+}
