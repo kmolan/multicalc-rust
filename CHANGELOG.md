@@ -126,6 +126,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `IntegrateError::NonFinite` at the first state that is not finite. The observer of
   `try_integrate` sees only finite states. `step` and `integrate` do not change. (#158)
 
+- **Checked `settle_to` on the biquad filters.** `Biquad`, `BiquadCascade` and `MultiChannelBiquad`
+  have `try_settle_to`. It refuses a non-finite value with `SignalError::NonFinite`, and weights
+  that are not stable with the new `SignalError::UnstableCoefficients`. Weights with
+  `1 + a₁ + a₂ = 0` made `settle_to` fill the state with infinities. (#285)
+
 ### Changed
 
 - **`ModelError::UnsupportedOrientation` is gone**, replaced by `MultipleOrientations` for an element

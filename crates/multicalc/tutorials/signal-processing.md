@@ -12,7 +12,7 @@ The per-sample calls do not inspect the sample, so a NaN or an infinity goes in.
 | Type | Function |
 |---|---|
 | `BiquadCoefficients` | Second-order section design: `low_pass`, `high_pass`, `band_pass`, `notch` from a frequency, a quality factor and a timestep, or `new` from raw weights. Response queries: `magnitude_at`, `magnitude_in_decibels_at`, `phase_at`, `delay_at` (phase delay, in seconds). `is_stable` checks raw weights. |
-| `Biquad` | The running section. `set_coefficients` changes the weights and keeps the state, so a notch can track a moving frequency. `settle_to` sets the steady state for a constant input and removes the start-up transient. |
+| `Biquad` | The running section. `set_coefficients` changes the weights and keeps the state, so a notch can track a moving frequency. `settle_to` sets the steady state for a constant input and removes the start-up transient. `try_settle_to` refuses a non-finite value and weights that are not stable. |
 | `BiquadCascade` | Sections in series, for a steeper roll-off. `harmonic_notch_coefficients` designs notches at a fundamental and its integer harmonics, for motor vibration. |
 | `MultiChannelBiquad` | One design on each component of a `Vector`, with separate state per channel. One call per tick for a three-axis gyro. |
 | `OnePoleLowPass` | First-order low-pass, from a smoothing weight (`new`) or a cutoff (`from_cutoff`). `Pid::with_derivative_filter` puts this filter on the derivative term. |
@@ -152,7 +152,8 @@ Two checked calls accept more than the name suggests:
 - `SlewRateLimiter` rejects an infinity only before the first sample. After that, the rate clamp
   bounds it.
 
-`settle_to` is not checked. `RunningMedian::filter` pays one branch for its NaN check.
+`try_settle_to` is the checked form of `settle_to`: it refuses a non-finite value and weights
+that are not stable. `RunningMedian::filter` pays one branch for its NaN check.
 
 ```rust
 use multicalc::error::SignalError;
@@ -182,6 +183,11 @@ for reading in [1.0, 1.1, 0.9, f64::INFINITY, 1.05] {
 }
 assert_eq!(median.value(), 1.05);
 assert_eq!(median.filter_checked(f64::NAN), Err(SignalError::NonFinite));
+
+// `1 + a₁ + a₂ = 0` puts a pole at z = 1, so no steady state exists.
+let integrator = BiquadCoefficients::new([1.0, 0.0, 0.0], [-1.0, 0.0], 0.001_f64).unwrap();
+let mut running = Biquad::new(integrator);
+assert_eq!(running.try_settle_to(1.0), Err(SignalError::UnstableCoefficients));
 
 // Unchecked: the NaN is rejected and the median holds.
 let mut unchecked = RunningMedian::<5, f64>::new().unwrap();

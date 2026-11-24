@@ -415,3 +415,41 @@ fn filter_checked_protects_filter() {
         assert_eq!(running, untouched);
     }
 }
+
+fn integrator() -> BiquadCoefficients<f64> {
+    BiquadCoefficients::new([1.0, 0.0, 0.0], [-1.0, 0.0], 0.001).unwrap()
+}
+
+#[test]
+fn try_settle_to_refuses_a_dc_null_filter() {
+    let mut filter = Biquad::new(integrator());
+    let _ = filter.filter(1.0);
+    let before = filter;
+    assert_eq!(
+        filter.try_settle_to(1.0),
+        Err(SignalError::UnstableCoefficients)
+    );
+    assert_eq!(filter, before);
+}
+
+#[test]
+fn try_settle_to_refuses_a_non_finite_value() {
+    let mut filter = Biquad::new(BiquadCoefficients::low_pass(50.0, 0.70710678, 0.001).unwrap());
+    let before = filter;
+    assert_eq!(filter.try_settle_to(f64::NAN), Err(SignalError::NonFinite));
+    assert_eq!(filter, before);
+}
+
+#[test]
+fn try_settle_to_matches_settle_to_on_designs() {
+    for shape in [
+        BiquadCoefficients::low_pass(50.0, 0.70710678, 0.001).unwrap(),
+        BiquadCoefficients::notch(120.0, 5.0, 0.001).unwrap(),
+    ] {
+        let mut unchecked = Biquad::new(shape);
+        let mut checked = unchecked;
+        unchecked.settle_to(1.5);
+        checked.try_settle_to(1.5).unwrap();
+        assert_eq!(checked, unchecked);
+    }
+}
