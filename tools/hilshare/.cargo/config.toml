@@ -5,7 +5,7 @@
 # repository root gives the cortex-m-rt and riscv-rt linker scripts of embedded-smoke.
 # build-tab.sh sets RUSTFLAGS, which replaces each configured `target.*.rustflags`.
 
-# Hard-float ABI on the Nucleo-F411RE and the Raspberry Pi Pico 2: HILShare kernel 0.3.0 gives the
+# Hard-float ABI on the Nucleo-F411RE and the Raspberry Pi Pico 2: HILShare kernel 0.3 gives the
 # FPU to the one process, with FPCCR.ASPEN = 0 and no FPU state save. The FPUs are single
 # precision, so f64 stays in software.
 [build]

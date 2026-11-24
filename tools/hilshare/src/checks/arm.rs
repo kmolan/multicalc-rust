@@ -96,7 +96,7 @@ pub fn franka_inverse_dynamics() -> CheckOutcome {
     let Some(body) = franka_body::<f64>(false) else {
         return failed(NAME, 0);
     };
-    let body = black_box(body);
+    let body = black_box(&body);
     let position = black_box(franka_row::<f64>(fixtures::FRANKA_DYNAMICS_POSITIONS));
     let velocity = black_box(franka_row::<f64>(fixtures::FRANKA_DYNAMICS_VELOCITIES));
     let acceleration = black_box(franka_row::<f64>(fixtures::FRANKA_DYNAMICS_ACCELERATIONS));
@@ -130,7 +130,7 @@ pub fn franka_mass_matrix() -> CheckOutcome {
     let Some(body) = franka_body::<f64>(false) else {
         return failed(NAME, 0);
     };
-    let body = black_box(body);
+    let body = black_box(&body);
     let position = black_box(franka_row::<f64>(fixtures::FRANKA_DYNAMICS_POSITIONS));
 
     let start = cycles::read();
@@ -165,7 +165,7 @@ pub fn franka_forward_dynamics() -> CheckOutcome {
     let Some(body) = franka_body::<f64>(false) else {
         return failed(NAME, 0);
     };
-    let body = black_box(body);
+    let body = black_box(&body);
     let position = black_box(franka_row::<f64>(fixtures::FRANKA_DYNAMICS_POSITIONS));
     let velocity = black_box(franka_row::<f64>(fixtures::FRANKA_DYNAMICS_VELOCITIES));
     let torque = black_box(franka_row::<f64>(
@@ -278,7 +278,7 @@ pub fn franka_inverse_dynamics_derivative() -> CheckOutcome {
     let Some(body) = franka_body::<Dual<f64>>(false) else {
         return failed(NAME, 0);
     };
-    let body = black_box(body);
+    let body = black_box(&body);
     let position = Vector::new(fixtures::FRANKA_DYNAMICS_POSITIONS.map(Dual::constant));
     let velocity = Vector::new(fixtures::FRANKA_DYNAMICS_VELOCITIES.map(Dual::constant));
     let along = |column: usize| {

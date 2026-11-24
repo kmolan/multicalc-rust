@@ -35,7 +35,7 @@ mod fixtures;
 
 set_main! {main}
 // Must equal `--stack` in build-tab.sh.
-stack_size! {0x4000}
+stack_size! {0xC000}
 
 /// The board of this build. build-tab.sh sets `HILSHARE_BOARD` for each build, and build.rs
 /// refuses another name.

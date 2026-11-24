@@ -3,8 +3,9 @@
 //!
 //! Run `cargo run -p multicalc-qa --bin gen_silicon_table -- --commit <sha> --date <YYYY-MM-DD>
 //! <run directory>...`. Each run directory holds the artifacts of one run, from
-//! `gh run download <run-id> --pattern 'hilshare-multicalc-hilshare-*'`. The boards are not in
-//! CI, so CI does not regenerate this table.
+//! `gh run download <run-id> --pattern 'hilshare-multicalc-hilshare-*'`: one artifact for each
+//! app, with one `<TAB name>-<board>` directory for each board. The boards are not in CI, so CI
+//! does not regenerate this table.
 
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write as _;
@@ -179,17 +180,18 @@ impl Measurements {
         assert!(!artifacts.is_empty(), "{run:?} holds no HILShare artifact");
         let mut seen = HashMap::new();
         for artifact in artifacts {
-            let name = artifact
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or_default()
-                .to_owned();
-            let board = BOARDS
-                .iter()
-                .find(|(suffix, _, _)| name.ends_with(suffix))
-                .map(|(suffix, _, _)| *suffix)
-                .unwrap_or_else(|| unreachable!("{artifact:?}: no board in the name"));
             for log in logs(&artifact) {
+                // The action names the directory of each board's log `<TAB name>-<board>`.
+                let board = log
+                    .ancestors()
+                    .filter_map(|directory| directory.file_name()?.to_str())
+                    .find_map(|name| {
+                        BOARDS
+                            .iter()
+                            .find(|(suffix, _, _)| name.ends_with(suffix))
+                            .map(|(suffix, _, _)| *suffix)
+                    })
+                    .unwrap_or_else(|| unreachable!("{log:?}: no board in the path"));
                 let text = String::from_utf8_lossy(
                     &std::fs::read(&log).unwrap_or_else(|err| unreachable!("read {log:?}: {err}")),
                 )
