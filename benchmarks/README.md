@@ -1,6 +1,7 @@
 # Benchmarks
 
-Generated tables: **accuracy** against external references, and **latency** from criterion.
+Generated tables: **accuracy** against external references, **latency** from criterion, and
+**silicon** from Board runs.
 
 ## Accuracy
 
@@ -37,3 +38,11 @@ operation and the equation of each row. The file records the machine. Timings ar
 machine-dependent, so CI does not guard this table.
 
 Regenerate with `cargo bench -p multicalc-qa`.
+
+## Silicon
+
+[`silicon.md`](silicon.md): the best and the worst warm time of each check of the HILShare apps on
+the Nucleo-F411RE, the Raspberry Pi Pico 2 and the XIAO ESP32-C3. The boards are not in CI, so CI
+does not guard this table.
+
+Regenerate with `cargo run -p multicalc-qa --bin gen_silicon_table`, as `silicon.md` describes.

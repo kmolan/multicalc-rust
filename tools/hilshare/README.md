@@ -1,9 +1,10 @@
 # hilshare
 
-`multicalc` as a [Tock](https://tockos.org) app on the three [HILShare](https://github.com/hilshare/action)
+`multicalc` as three [Tock](https://tockos.org) apps on the three [HILShare](https://github.com/hilshare/action)
 boards: the Nucleo-F411RE (Cortex-M4F at 100 MHz), the Raspberry Pi Pico 2 (Cortex-M33 at
-150 MHz) and the XIAO ESP32-C3 (RV32IMC at 160 MHz), each on HILShare kernel `0.2.0`.
-`embedded-smoke` runs the same math under QEMU; this app runs it on silicon and times it.
+150 MHz) and the XIAO ESP32-C3 (RV32IMC at 160 MHz). The Nucleo and the Pico 2 run HILShare
+kernel `0.3.0`, which gives the FPU to the process, and the XIAO runs kernel `0.2.0`.
+`embedded-smoke` runs the same math under QEMU; these apps run it on silicon and time it.
 
 A dev-only crate (`publish = false`) in its own workspace. It links
 [libtock-rs](https://github.com/tock/libtock-rs) at the fixed app addresses of each kernel, on a
