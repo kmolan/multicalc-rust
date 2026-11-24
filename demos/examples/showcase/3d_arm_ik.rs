@@ -22,7 +22,7 @@ use multicalc::kinematics::{
 };
 use multicalc::linear_algebra::Vector;
 use multicalc::spatial::{SE3, SO3};
-use multicalc_demos::loop_util::{LatencyRing, Pacer};
+use multicalc_demos::loop_util::{LatencyRing, Pacer, RECORD_TICKS};
 use multicalc_demos::visualization::franka_panda_mesh::load_body_mesh;
 use multicalc_demos::{RerunSink, Rgba, VizSink};
 use std::collections::VecDeque;
@@ -417,7 +417,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    let mut sink = RerunSink::live("multicalc-demos/3d-arm-ik")?;
+    let mut sink = RerunSink::from_environment("multicalc-demos/3d-arm-ik")?;
 
     // Statics: tick 0, forward-fill (see rerun-viz-gotchas).
     sink.set_sequence("tick", 0);
@@ -477,6 +477,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut n: i64 = 0;
     loop {
+        if sink.is_recording() && n == RECORD_TICKS {
+            break;
+        }
         let _ = pacer.wait();
         n += 1;
         let time = n as f64 / 1000.0;
@@ -610,7 +613,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let lag = lag_ring.summary().map_or(0.0, |stats| stats.median);
             let meta = format!(
                 "## 3d_arm_ik — Franka Panda, live from its model file\n\
-                 ### SE(3) IK (damped least squares, analytic Jacobian) + gravity-compensated joint PD + articulated-body dynamics: median {:.0} µs · p99 {:.0} µs ({:.1} % of the 1 ms tick)\n\
+                 ### tick: `KinematicTree` · `InverseKinematics` · `JointPdController` · `ArticulatedBody::forward_dynamics` — median {:.0} µs of the 1 ms tick · p99 {:.0} µs ({:.1} %)\n\
                  ### tracking lag {:.2} mm at {:.2} m/s tool speed · IK residual {:.3} µm · {} stalled ticks",
                 solve_stats.median,
                 solve_stats.p99,
@@ -623,4 +626,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             sink.text("hud/stats", &meta)?;
         }
     }
+    sink.flush()?;
+    Ok(())
 }

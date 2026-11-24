@@ -31,6 +31,7 @@ const GRID: usize = 256;
 const DOMAIN: f64 = 2.0; // half-width: the grid covers [-2, 2]^2
 const DTAU: f64 = 0.02; // root-orbit advance per completed frame
 const WARMUP_FRAMES: i64 = 3; // cold-start frames excluded from the throughput median
+const RECORD_FRAMES: i64 = 600; // frames of a recording, about 16 MB
 
 // Basin colors: the validated mutually-CVD-safe trio RGB for the image, RGBA for the roots.
 const BASIN_RGB: [[u8; 3]; 3] = [[0x39, 0x87, 0xe5], [0xc9, 0x85, 0x00], [0xe6, 0x67, 0x67]];
@@ -97,7 +98,7 @@ fn main() -> Result<(), VizError> {
         );
     }
 
-    let mut sink = RerunSink::live("multicalc-demos/newton-fractal")?;
+    let mut sink = RerunSink::from_environment("multicalc-demos/newton-fractal")?;
     sink.set_sequence("frame", 0);
     sink.series_style(
         "plots/solves_per_sec",
@@ -126,6 +127,9 @@ fn main() -> Result<(), VizError> {
     let mut tau = 0.0;
     let mut frame: i64 = 0;
     loop {
+        if sink.is_recording() && frame == RECORD_FRAMES {
+            break;
+        }
         frame += 1;
         sink.set_sequence("frame", frame);
         basins.roots = roots_at(tau);
@@ -201,12 +205,10 @@ fn main() -> Result<(), VizError> {
         let meta = format!(
             "## newton_fractal — multicalc live demo\n\
              ### throughput: {} Newton solves/s (one core, no-std math; median over recent frames)\n\
-             ### per frame: {}×{} = {} full solves in {:.0} ms\n\
+             ### frame: `NewtonSystem<AutoDiffMulti>` × {} — {:.0} ms\n\
              ### mean iterations: {:.1}, non-converged: {:.2} %\n\
              ### accuracy: mean residual ‖F‖ = {:.1e}",
             commas(throughput_median as u64),
-            GRID,
-            GRID,
             commas((GRID * GRID) as u64),
             frame_secs * 1000.0,
             mean_iterations,
@@ -217,4 +219,6 @@ fn main() -> Result<(), VizError> {
 
         tau += DTAU;
     }
+    sink.flush()?;
+    Ok(())
 }

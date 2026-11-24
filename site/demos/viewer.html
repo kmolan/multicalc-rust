@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>multicalc showcase</title>
+<!-- @rerun-io/web-viewer and app.rerun.io stay at the rerun version of demos/Cargo.toml. -->
+<style>
+:root { color-scheme: dark; }
+html, body { margin: 0; height: 100%; background: #0c0d0f; color: #f0efec; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
+body { display: flex; flex-direction: column; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; padding: 10px 16px; border-bottom: 1px solid #24262b; font-size: 14px; }
+header a { color: #b4b3ad; text-decoration: none; }
+header a:hover { color: #f0efec; }
+.name { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+.note { color: #7c7d80; }
+#viewer { flex: 1; min-height: 0; }
+</style>
+</head>
+<body>
+<header>
+  <a href="../">multi<b style="color:#e8683a;font-weight:500">calc</b></a>
+  <span class="name" id="name"></span>
+  <span class="note">Recorded on a GitHub Actions runner. The times on screen are the runner's.</span>
+  <a id="fallback" href="https://app.rerun.io/version/0.33.1/">Open in app.rerun.io</a>
+</header>
+<div id="viewer"></div>
+<script type="module">
+import { WebViewer } from "https://esm.sh/@rerun-io/web-viewer@0.33.1";
+
+const SHOWCASES = [
+  "3d_drone_flight", "3d_arm_torque", "2d_localization_obstacle_avoidance", "3d_arm_ik",
+  "newton_fractal", "gradient_marbles", "fourier_ferris",
+];
+const requested = new URLSearchParams(location.search).get("showcase");
+const showcase = SHOWCASES.includes(requested) ? requested : SHOWCASES[0];
+const recording = new URL(`../recordings/${showcase}.rrd`, location.href).href;
+
+document.title = `${showcase} · multicalc`;
+document.getElementById("name").textContent = showcase;
+document.getElementById("fallback").href =
+  `https://app.rerun.io/version/0.33.1/?url=${encodeURIComponent(recording)}`;
+
+const viewer = new WebViewer();
+await viewer.start(recording, document.getElementById("viewer"), {
+  width: "100%", height: "100%", hide_welcome_screen: true,
+});
+</script>
+</body>
+</html>

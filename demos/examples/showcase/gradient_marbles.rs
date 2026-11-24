@@ -19,7 +19,7 @@
 use multicalc::numerical_derivative::AutoDiffMulti;
 use multicalc::numerical_derivative::Jacobian;
 use multicalc::scalar::{Numeric, VectorFn};
-use multicalc_demos::loop_util::{LatencyRing, Pacer, commas};
+use multicalc_demos::loop_util::{LatencyRing, Pacer, RECORD_TICKS, commas};
 use multicalc_demos::{RerunSink, Rgba, VizError, VizSink};
 use std::f64::consts::TAU;
 use std::time::Instant;
@@ -196,7 +196,7 @@ fn main() -> Result<(), VizError> {
         .collect();
     respawn(&mut marbles, &mut rng);
 
-    let mut sink = RerunSink::live("multicalc-demos/gradient-marbles")?;
+    let mut sink = RerunSink::from_environment("multicalc-demos/gradient-marbles")?;
     sink.set_sequence("tick", 0);
     sink.series_style(
         "plots/ad_vs_analytic",
@@ -228,6 +228,12 @@ fn main() -> Result<(), VizError> {
         sink.points3d_styled("world/terrain", &pts, &cols, &[0.03])?;
     }
 
+    // 2,000 marbles at ~30 Hz keep a recording under 25 MB.
+    let geometry_every = if sink.is_recording() {
+        2 * GEOM_EVERY
+    } else {
+        GEOM_EVERY
+    };
     let mut pacer = Pacer::new();
     let mut batch_ring = LatencyRing::new(1024);
     let mut grads: Vec<Option<[f64; 2]>> = vec![None; N_MARBLES];
@@ -235,6 +241,9 @@ fn main() -> Result<(), VizError> {
 
     let mut n: i64 = 0;
     loop {
+        if sink.is_recording() && n == RECORD_TICKS {
+            break;
+        }
         let _ = pacer.wait(); // pace to the next 1 ms boundary
         n += 1;
         sink.set_sequence("tick", n);
@@ -282,7 +291,7 @@ fn main() -> Result<(), VizError> {
         }
 
         // Spatial geometry at ~60 Hz: all marbles, colored by gradient magnitude.
-        if n % GEOM_EVERY == 0 {
+        if n % geometry_every == 0 {
             let pts: Vec<[f64; 3]> = marbles
                 .iter()
                 .map(|marble| {
@@ -310,12 +319,11 @@ fn main() -> Result<(), VizError> {
                 let grads_per_ms = N_MARBLES as f64 / (b.median / 1000.0);
                 let meta = format!(
                     "## gradient_marbles — multicalc live demo\n\
-                     ### {} exact autodiff gradients: {:.0} µs/tick — {:.2} % of the 1 ms tick ({}/ms, one core)\n\
+                     ### tick: `Jacobian<AutoDiffMulti>` × {} — median {:.0} µs of the 1 ms tick ({}/ms, one core)\n\
                      ### accuracy: max |∇f_AD − ∇f_analytic| = {:.1e}\n\
                      ### gradients computed: {} and counting",
                     commas(N_MARBLES as u64),
                     b.median,
-                    b.median / 10.0,
                     commas(grads_per_ms as u64),
                     probe_err,
                     commas(total_gradients),
@@ -324,4 +332,6 @@ fn main() -> Result<(), VizError> {
             }
         }
     }
+    sink.flush()?;
+    Ok(())
 }

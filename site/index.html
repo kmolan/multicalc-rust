@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>multicalc</title>
-<meta name="description" content="Robotics math for microcontrollers. Estimation, control, kinematics, dynamics, Lie groups, autodiff and linear algebra in no_std Rust.">
+<title>multicalc · Robotics for microcontrollers</title>
+<meta name="description" content="Robotics for microcontrollers. Sense, plan, estimate and control in no_std Rust in one integrated package. Tested on real hardware.">
 <meta property="og:title" content="multicalc">
-<meta property="og:description" content="Robotics math for microcontrollers. no_std, no heap, no panics, no unsafe. Tested on real silicon.">
+<meta property="og:description" content="Robotics for microcontrollers. Sense, plan, estimate and control in no_std Rust. Tested on real hardware.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -78,12 +78,9 @@ h1 {
 }
 h1 .soft { color: var(--text-muted); }
 .lede { font-size: clamp(16px, 2.2vw, 19px); color: var(--text-secondary); max-width: 640px; margin: 0 auto; text-wrap: balance; }
-.tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 26px 0 30px; }
-.tag {
-  font-family: var(--mono); font-size: 13px; padding: 5px 10px; border-radius: 6px;
-  background: var(--surface-2); border: 1px solid var(--line); color: var(--text-primary);
-}
 .cta { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.cta.left { justify-content: flex-start; }
+.hero .cta { margin-top: 28px; }
 .btn {
   display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px;
   padding: 11px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-1);
@@ -93,13 +90,13 @@ h1 .soft { color: var(--text-muted); }
 .btn.primary { background: var(--text-primary); color: var(--surface-0); border-color: var(--text-primary); }
 .btn.primary:hover { background: #fff; }
 .btn code { font-family: var(--mono); font-weight: 500; font-size: 14px; }
+.lede code { font-family: var(--mono); font-size: 0.9em; }
+.trio { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 48px auto 0; max-width: 1080px; }
+@media (min-width: 760px) { .trio { grid-template-columns: repeat(3, 1fr); } }
+.trio figure { margin: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #000; }
+.trio img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.trio figcaption { padding: 10px 12px; font-size: 13px; color: var(--text-secondary); background: var(--surface-1); text-align: left; }
 
-.reel {
-  margin: 48px auto 0; max-width: 1080px; border-radius: 16px; overflow: hidden;
-  border: 1px solid var(--line); background: #000;
-  box-shadow: 0 40px 120px -40px rgba(232,104,58,0.35), 0 0 0 1px rgba(255,255,255,0.02);
-}
-.reel video { display: block; width: 100%; height: auto; }
 
 /* stats */
 .stats {
@@ -107,8 +104,7 @@ h1 .soft { color: var(--text-muted); }
   background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
   margin: 56px 0 0;
 }
-@media (min-width: 720px) { .stats { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 1000px) { .stats { grid-template-columns: repeat(5, 1fr); } }
+@media (min-width: 720px) { .stats { grid-template-columns: repeat(4, 1fr); } }
 .stat { background: var(--surface-1); padding: 22px 20px; }
 .stat .v { font-size: 34px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .stat .v small { font-size: 18px; font-weight: 600; color: var(--text-secondary); margin-left: 2px; }
@@ -123,6 +119,12 @@ h2 { font-size: clamp(28px, 4.2vw, 44px); letter-spacing: -0.035em; line-height:
 .card { background: var(--surface-1); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
 .card h3 { font-size: 15px; margin: 0 0 2px; font-weight: 600; }
 .card .note { font-size: 13px; color: var(--text-muted); margin: 0 0 14px; }
+.note-line { color: var(--text-secondary); font-size: 14px; margin: 16px 0 0; max-width: 760px; }
+.note-line code { font-family: var(--mono); font-size: 0.9em; }
+.subhead { font-size: 22px; letter-spacing: -0.02em; margin: 56px 0 8px; font-weight: 700; }
+h2 code { font-family: var(--mono); font-size: 0.85em; font-weight: 500; }
+.badges { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 20px; }
+.badges img { display: block; height: 20px; }
 
 /* demos */
 .demos { display: grid; grid-template-columns: 1fr; gap: 16px; }
@@ -137,6 +139,10 @@ h2 { font-size: clamp(28px, 4.2vw, 44px); letter-spacing: -0.035em; line-height:
 .demo .metric { text-align: right; }
 .demo .metric .v { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; }
 .demo .metric .l { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.demo .actions { display: flex; align-items: center; gap: 16px; padding: 0 18px 18px; }
+.btn.small { font-size: 13px; padding: 7px 12px; border-radius: 8px; }
+.demo .actions .link { font-size: 13px; color: var(--text-muted); }
+.demo .actions .link:hover { color: var(--text-primary); }
 
 /* charts */
 .grid-2 { display: grid; grid-template-columns: 1fr; gap: 16px; }
@@ -149,6 +155,9 @@ h2 { font-size: clamp(28px, 4.2vw, 44px); letter-spacing: -0.035em; line-height:
 .chart .gl { stroke: var(--grid); stroke-width: 1; }
 .chart .hit { fill: transparent; }
 .chart .hit:hover + .bar, .chart g.row:hover .bar { filter: brightness(1.18); }
+.toggle { display: inline-flex; gap: 2px; padding: 3px; margin: 0 0 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-0); }
+.toggle button { font: inherit; font-size: 13px; font-weight: 600; color: var(--text-muted); background: none; border: 0; border-radius: 7px; padding: 6px 12px; cursor: pointer; }
+.toggle button[aria-selected="true"] { color: var(--text-primary); background: var(--surface-2); }
 .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--text-secondary); margin: 0 0 12px; }
 .legend span { display: inline-flex; align-items: center; gap: 7px; }
 .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
@@ -201,10 +210,10 @@ footer a:hover { color: var(--text-primary); }
   <div class="wrap">
     <a class="brand" href="#">multi<b>calc</b></a>
     <ul>
-      <li class="hide-sm"><a href="#silicon">Silicon</a></li>
+      <li class="hide-sm"><a href="#robots">Robots</a></li>
       <li class="hide-sm"><a href="#speed">Speed</a></li>
-      <li class="hide-sm"><a href="#demos">Demos</a></li>
-      <li class="hide-sm"><a href="#accuracy">Accuracy</a></li>
+      <li class="hide-sm"><a href="#math">Math</a></li>
+      <li><a href="tutorials.html">Tutorials</a></li>
       <li><a href="https://docs.rs/multicalc">Docs</a></li>
       <li><a href="https://github.com/kmolan/multicalc-rust">GitHub</a></li>
     </ul>
@@ -214,176 +223,144 @@ footer a:hover { color: var(--text-primary); }
 <header class="hero">
   <div class="wrap">
     <span class="pill"><span class="dot"></span>Now tested on real silicon</span>
-    <h1>The whole robotics stack.<br><span class="soft">On bare metal.</span></h1>
-    <p class="lede">Sense, plan and control on stable Rust in one integrated crate.</p>
-    <div class="tags">
-      <span class="tag">no_std</span>
-      <span class="tag">no heap</span>
-      <span class="tag">no panics</span>
-      <span class="tag">no unsafe</span>
-    </div>
+    <h1>Robotics for<br><span class="soft">microcontrollers.</span></h1>
+    <p class="lede">Sense, plan, estimate and control in <code>no_std</code> Rust in one integrated package. Tested on real hardware: run the same code from your laptop to a Cortex-M4.</p>
     <div class="cta">
       <a class="btn primary" href="https://github.com/kmolan/multicalc-rust">GitHub</a>
-      <a class="btn" href="https://crates.io/crates/multicalc"><code>cargo add multicalc</code></a>
+      <a class="btn" href="tutorials.html">Tutorials</a>
+      <a class="btn" href="https://crates.io/crates/multicalc">crates.io</a>
     </div>
-    <div class="reel">
-      <video src="media/combined_demo_reel.mp4" autoplay muted loop playsinline preload="metadata" aria-label="Demo reel: quadcopter, 2D robot and Franka Panda arm"></video>
+    <div class="trio">
+      <figure>
+        <img src="media/3d_drone_showcase.gif" alt="3d_drone_flight: a Skydio X2 on an error-state filter, LQR and geometric attitude control">
+        <figcaption>Skydio X2 quadrotor</figcaption>
+      </figure>
+      <figure>
+        <img src="media/3d_arm_torque_showcase.gif" alt="3d_arm_torque: a Franka Panda on computed torque and a momentum observer holds its path under random pushes">
+        <figcaption>Franka Panda under torque control</figcaption>
+      </figure>
+      <figure>
+        <img src="media/2d_localization_obstacle_avoidance_showcase.gif" alt="2d_localization_obstacle_avoidance: a differential-drive robot localizes with a particle filter and laps an obstacle course">
+        <figcaption>Differential-drive mobile robot</figcaption>
+      </figure>
     </div>
 
     <div class="stats">
-      <div class="stat"><div class="v">1<small>kHz</small></div><div class="l">full control loop</div></div>
-      <div class="stat"><div class="v">1e-10</div><div class="l">tolerance vs MuJoCo and Pinocchio</div></div>
-      <div class="stat"><div class="v">490<small>ns</small></div><div class="l">7-DoF inverse dynamics</div></div>
-      <div class="stat"><div class="v">646<small>ns</small></div><div class="l">7-DoF forward dynamics</div></div>
-      <div class="stat"><div class="v">22<small>µs</small></div><div class="l">7-DoF inverse kinematics</div></div>
+      <div class="stat"><div class="v">1<small>kHz</small></div><div class="l">full arm loop on a 100 MHz Cortex-M4F</div></div>
+      <div class="stat"><div class="v">1e-10</div><div class="l">agreement with Pinocchio, on silicon</div></div>
+      <div class="stat"><div class="v">0<small>B</small></div><div class="l">heap in each robot app on silicon</div></div>
+      <div class="stat"><div class="v">2.5<small>s</small></div><div class="l">clean build, one dependency</div></div>
     </div>
   </div>
 </header>
 
 <main>
 
-<section id="silicon">
+<section id="robots">
   <div class="wrap">
-    <div class="kicker">Real silicon</div>
-    <h2>Same math. Real chips. Timed in cycles.</h2>
-    <p class="sub">Three microcontrollers, Arm and RISC-V. f64 in software float. Each answer matches the reference.</p>
-    <div class="card">
-      <h3>Warm time per check, µs</h3>
-      <p class="note">Log scale. Best of seven runs.</p>
-      <div class="legend">
-        <span><i style="background:var(--series-1)"></i>Arm Cortex-M4F</span>
-        <span><i style="background:var(--series-2)"></i>Arm Cortex-M33</span>
-        <span><i style="background:var(--series-3)"></i>RISC-V</span>
+    <div class="kicker">Live demos</div>
+    <h2>Every number on screen is measured live.</h2>
+    <p class="sub">Rerun showcases. Each tick is one fixed 1 ms step. Open a recording in the browser, or run the source on your machine.</p>
+    <div class="demos">
+      <div class="demo">
+        <div class="media"><img loading="lazy" src="media/3d_drone_showcase.gif" alt="Skydio X2 quadcopter flies a minimum-snap loop"></div>
+        <div class="meta">
+          <div><div class="name">3d_drone_flight</div><div class="modules">ESKF · LQR · geometric attitude · min-snap</div></div>
+          <div class="metric"><div class="v">≈ 2 µs</div><div class="l">per tick</div></div>
+        </div>
+        <div class="actions">
+          <a class="btn small" href="demos/viewer.html?showcase=3d_drone_flight">Open in browser</a>
+          <a class="link" href="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/3d_drone_flight.rs">Source</a>
+        </div>
       </div>
-      <div class="chart" id="chart-silicon"></div>
+      <div class="demo">
+        <div class="media"><img loading="lazy" src="media/3d_arm_torque_showcase.gif" alt="Franka Panda holds its path on computed torque under random pushes"></div>
+        <div class="meta">
+          <div><div class="name">3d_arm_torque</div><div class="modules">computed torque · momentum observer · jerk-limited profile</div></div>
+          <div class="metric"><div class="v">2.2 mm</div><div class="l">off the path under pushes</div></div>
+        </div>
+        <div class="actions">
+          <a class="btn small" href="demos/viewer.html?showcase=3d_arm_torque">Open in browser</a>
+          <a class="link" href="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/3d_arm_torque.rs">Source</a>
+        </div>
+      </div>
+      <div class="demo">
+        <div class="media"><img loading="lazy" src="media/2d_localization_obstacle_avoidance_showcase.gif" alt="Differential-drive robot localizes with a particle filter and laps an obstacle course"></div>
+        <div class="meta">
+          <div><div class="name">2d_localization_obstacle_avoidance</div><div class="modules">particle filter · EKF · follow-the-gap</div></div>
+          <div class="metric"><div class="v">0.72 µs</div><div class="l">0 collisions / 600k ticks</div></div>
+        </div>
+        <div class="actions">
+          <a class="btn small" href="demos/viewer.html?showcase=2d_localization_obstacle_avoidance">Open in browser</a>
+          <a class="link" href="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/2d_localization_obstacle_avoidance.rs">Source</a>
+        </div>
+      </div>
+      <div class="demo">
+        <div class="media"><img loading="lazy" src="media/3d_arm_ik_showcase.gif" alt="Franka Panda arm tracks a moving 3D pose"></div>
+        <div class="meta">
+          <div><div class="name">3d_arm_ik</div><div class="modules">SE(3) IK · dynamics · gravity-comp PD</div></div>
+          <div class="metric"><div class="v">2–6 mm</div><div class="l">lag at 1 kHz</div></div>
+        </div>
+        <div class="actions">
+          <a class="btn small" href="demos/viewer.html?showcase=3d_arm_ik">Open in browser</a>
+          <a class="link" href="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/3d_arm_ik.rs">Source</a>
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
 <section id="speed">
   <div class="wrap">
-    <div class="kicker">Latency</div>
-    <h2>Nanoseconds, not milliseconds.</h2>
-    <p class="sub">Criterion median, x86_64 i7-12650H, release profile.</p>
+    <div class="kicker">Speed</div>
+    <h2>Same math. Real chips. Timed in cycles.</h2>
+    <p class="sub">Microseconds on three microcontrollers, Arm and RISC-V. Nanoseconds on a desktop.</p>
     <div class="card">
-      <h3>Time per call</h3>
-      <p class="note">Log scale.</p>
-      <div class="chart" id="chart-latency"></div>
-    </div>
-  </div>
-</section>
-
-<section id="demos">
-  <div class="wrap">
-    <div class="kicker">Live demos</div>
-    <h2>Every number on screen is measured live.</h2>
-    <p class="sub">Six Rerun showcases. Each tick is one fixed 1 ms step.</p>
-    <div class="demos">
-      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
-        <div class="media"><img loading="lazy" src="media/3d_drone_showcase.gif" alt="Skydio X2 quadcopter flies a minimum-snap loop"></div>
-        <div class="meta">
-          <div><div class="name">3d_drone_flight</div><div class="modules">ESKF · LQR · geometric attitude · min-snap</div></div>
-          <div class="metric"><div class="v">≈ 2 µs</div><div class="l">per tick</div></div>
+      <div class="toggle" role="tablist">
+        <button type="button" role="tab" data-view="silicon" aria-selected="true">Microcontrollers</button>
+        <button type="button" role="tab" data-view="latency" aria-selected="false">x86 desktop</button>
+      </div>
+      <div data-panel="silicon">
+        <h3>Warm time per check</h3>
+        <p class="note">Log scale. Best of seven runs. Each run checks each answer against a golden or an identity. <code>f32</code> runs on the FPU of the Arm boards and in software on the XIAO. <code>f64</code> runs in software on each board.</p>
+        <div class="legend">
+          <span><i style="background:var(--series-1)"></i>Nucleo-F411RE · Cortex-M4F · 100 MHz</span>
+          <span><i style="background:var(--series-2)"></i>Pico 2 · Cortex-M33 · 150 MHz</span>
+          <span><i style="background:var(--series-3)"></i>XIAO ESP32-C3 · RV32IMC · 160 MHz · no FPU</span>
         </div>
-      </a>
-      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
-        <div class="media"><img loading="lazy" src="media/2d_localization_obstacle_avoidance_showcase.gif" alt="Differential-drive robot localizes with a particle filter and laps an obstacle course"></div>
-        <div class="meta">
-          <div><div class="name">2d_localization_obstacle_avoidance</div><div class="modules">particle filter · EKF · follow-the-gap</div></div>
-          <div class="metric"><div class="v">0.72 µs</div><div class="l">0 collisions / 600k ticks</div></div>
-        </div>
-      </a>
-      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
-        <div class="media"><img loading="lazy" src="media/3d_arm_ik_showcase.gif" alt="Franka Panda arm tracks a moving 3D pose"></div>
-        <div class="meta">
-          <div><div class="name">3d_arm_ik</div><div class="modules">SE(3) IK · dynamics · gravity-comp PD</div></div>
-          <div class="metric"><div class="v">2–6 mm</div><div class="l">lag at 1 kHz</div></div>
-        </div>
-      </a>
-      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
-        <div class="media"><img loading="lazy" src="media/newton_fractal_showcase.gif" alt="Newton fractal: every pixel is a Newton solve"></div>
-        <div class="meta">
-          <div><div class="name">newton_fractal</div><div class="modules">Newton system · autodiff Jacobian</div></div>
-          <div class="metric"><div class="v">4M / s</div><div class="l">solves, one core</div></div>
-        </div>
-      </a>
-      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
-        <div class="media"><img loading="lazy" src="media/gradient_marbles_showcase.gif" alt="2,000 marbles follow exact autodiff gradients"></div>
-        <div class="meta">
-          <div><div class="name">gradient_marbles</div><div class="modules">2,000 exact gradients per tick</div></div>
-          <div class="metric"><div class="v">0.0</div><div class="l">error vs analytic</div></div>
-        </div>
-      </a>
-      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
-        <div class="media"><img loading="lazy" src="media/fourier_ferris_showcase.gif" alt="Fourier epicycles draw Ferris"></div>
-        <div class="meta">
-          <div><div class="name">fourier_ferris</div><div class="modules">Gauss-Legendre quadrature</div></div>
-          <div class="metric"><div class="v">≈ 1e-15</div><div class="l">coefficient error</div></div>
-        </div>
-      </a>
-    </div>
-  </div>
-</section>
-
-<section id="accuracy">
-  <div class="wrap">
-    <div class="kicker">Accuracy</div>
-    <h2>Checked against the libraries you trust.</h2>
-    <p class="sub">183 checks. Golden floats stored bit-exact. CI fails on any drift.</p>
-    <div class="card"><h3>Checks per reference</h3><p class="note">Locked library versions.</p><div class="chart" id="chart-references"></div></div>
-  </div>
-</section>
-
-<section id="footprint">
-  <div class="wrap">
-    <div class="kicker">Footprint</div>
-    <h2>Fits in flash. Gated in CI.</h2>
-    <p class="sub">Release smoke binary per bare-metal target. A PR fails at +10%.</p>
-    <div class="grid-2">
-      <div class="card"><h3>.text, KB</h3><p class="note">Full check set; thumbv6m runs the canary set.</p><div class="chart" id="chart-flash"></div></div>
-      <div class="card"><h3>Peak stack, bytes</h3><p class="note">High-water mark, f64.</p><div class="chart" id="chart-stack"></div></div>
+      </div>
+      <div data-panel="latency" hidden>
+        <h3>Time per call</h3>
+        <p class="note">Log scale. Criterion median, x86_64 i7-12650H, release profile.</p>
+      </div>
+      <div class="chart" id="chart-speed"></div>
     </div>
   </div>
 </section>
 
 <section id="platforms">
   <div class="wrap">
-    <div class="kicker">Platforms</div>
+    <div class="kicker">Where it runs</div>
     <h2>Host. Emulator. Silicon.</h2>
-    <p class="sub">Host and QEMU run in CI. Silicon runs on real boards.</p>
+    <p class="sub">183 checks against NumPy/LAPACK, SciPy/MINPACK, Pinocchio, mpmath, MuJoCo, mink and FilterPy. Golden floats stored bit-exact. CI fails on any drift.</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Platform</th><th>Core</th><th>Runs on</th><th>Gate</th></tr></thead>
+        <thead><tr><th>Platform</th><th>Core</th><th>Runs on</th><th>Gate</th><th class="num">.text, KB</th><th class="num">Peak stack, B</th></tr></thead>
         <tbody>
-          <tr><td class="mono">x86_64-unknown-linux-gnu</td><td>x86_64</td><td><span class="chip">CI host</span></td><td>full test suite</td></tr>
-          <tr><td class="mono">aarch64-unknown-linux-gnu</td><td>Arm64</td><td><span class="chip">CI host</span></td><td>full test suite</td></tr>
-          <tr><td class="mono">thumbv7em-none-eabihf</td><td>Cortex-M4F</td><td><span class="chip">QEMU</span></td><td>goldens · .text · stack · cross-ABI</td></tr>
-          <tr><td class="mono">thumbv7em-none-eabi</td><td>Cortex-M4, soft-float</td><td><span class="chip">QEMU</span></td><td>goldens · .text · stack · cross-ABI</td></tr>
-          <tr><td class="mono">riscv32imc-unknown-none-elf</td><td>RV32IMC</td><td><span class="chip">QEMU</span></td><td>goldens · .text · stack</td></tr>
-          <tr><td class="mono">thumbv6m-none-eabi</td><td>Cortex-M0</td><td><span class="chip">QEMU</span></td><td>canary · .text · stack</td></tr>
-          <tr class="silicon"><td>Microcontroller</td><td>Arm Cortex-M4F</td><td><span class="chip si">silicon</span></td><td>goldens · µs budget</td></tr>
-          <tr class="silicon"><td>Microcontroller</td><td>Arm Cortex-M33</td><td><span class="chip si">silicon</span></td><td>goldens · µs budget</td></tr>
-          <tr class="silicon"><td>Microcontroller</td><td>RISC-V RV32IMC</td><td><span class="chip si">silicon</span></td><td>goldens · µs budget</td></tr>
+          <tr><td class="mono">x86_64-unknown-linux-gnu</td><td>x86_64</td><td><span class="chip">CI host</span></td><td>full test suite</td><td class="num">–</td><td class="num">–</td></tr>
+          <tr><td class="mono">aarch64-unknown-linux-gnu</td><td>Arm64</td><td><span class="chip">CI host</span></td><td>full test suite</td><td class="num">–</td><td class="num">–</td></tr>
+          <tr><td class="mono">thumbv7em-none-eabihf</td><td>Cortex-M4F</td><td><span class="chip">QEMU</span></td><td>goldens · cross-ABI</td><td class="num">200.8</td><td class="num">3,631</td></tr>
+          <tr><td class="mono">thumbv7em-none-eabi</td><td>Cortex-M4, soft-float</td><td><span class="chip">QEMU</span></td><td>goldens · cross-ABI</td><td class="num">166.5</td><td class="num">3,311</td></tr>
+          <tr><td class="mono">riscv32imc-unknown-none-elf</td><td>RV32IMC</td><td><span class="chip">QEMU</span></td><td>goldens</td><td class="num">196.4</td><td class="num">3,291</td></tr>
+          <tr><td class="mono">thumbv6m-none-eabi</td><td>Cortex-M0</td><td><span class="chip">QEMU</span></td><td>canary set</td><td class="num">43.5</td><td class="num">908</td></tr>
+          <tr class="silicon"><td>Nucleo-F411RE</td><td>Arm Cortex-M4F</td><td><span class="chip si">silicon</span></td><td>goldens · µs budget</td><td class="num">–</td><td class="num">–</td></tr>
+          <tr class="silicon"><td>Pico 2</td><td>Arm Cortex-M33</td><td><span class="chip si">silicon</span></td><td>goldens · µs budget</td><td class="num">–</td><td class="num">–</td></tr>
+          <tr class="silicon"><td>XIAO ESP32-C3</td><td>RISC-V RV32IMC</td><td><span class="chip si">silicon</span></td><td>goldens · µs budget</td><td class="num">–</td><td class="num">–</td></tr>
         </tbody>
       </table>
     </div>
-  </div>
-</section>
-
-<section id="code">
-  <div class="wrap">
-    <div class="kicker">Autodiff</div>
-    <h2>Write it once. Differentiate it exactly.</h2>
-    <p class="sub">The same formula runs at f64 and at a dual number. No step size, no truncation error.</p>
-<pre><span class="k">let</span> f = <span class="f">scalar_fn!</span>(|x| x * x * x - <span class="f">constant</span>(<span class="n">2.0</span>) * x);    <span class="c">// x³ − 2x</span>
-
-<span class="k">let</span> slope = <span class="f">derivative</span>(&amp;f, <span class="n">2.0</span>);                          <span class="c">// 10, exact</span>
-<span class="k">let</span> root  = <span class="t">Newton</span>::<span class="f">new</span>().<span class="f">solve</span>(&amp;f, <span class="n">2.0</span>)?.root;           <span class="c">// √2</span>
-<span class="k">let</span> area  = <span class="f">integral</span>(&amp;|x: <span class="t">f64</span>| f.<span class="f">eval</span>(x), [<span class="n">0.0</span>, <span class="n">2.0</span>])?;   <span class="c">// 0</span>
-
-<span class="k">let mut</span> filter = <span class="t">KalmanFilter</span>::<span class="f">new</span>(state, covariance, model);
-filter.<span class="f">predict</span>();
-filter.<span class="f">update</span>(measurement)?;                              <span class="c">// 34 ns, no heap</span></pre>
+    <p class="note-line">Host and QEMU run in CI. Silicon runs on real boards. <code>.text</code> and peak stack are for the release smoke binary at <code>f64</code>; a PR fails at +10%.</p>
+    <p class="note-line">The robot apps on silicon need more. On the Nucleo-F411RE: <code>arm</code> 31 KB of stack and 159 KB of flash, <code>drone</code> 8 KB and 97 KB, <code>mobile_and_policy</code> 2.7 KB and 150 KB. The <code>Dual</code> and <code>f64</code> Franka frames set the <code>arm</code> stack. No app uses a heap.</p>
   </div>
 </section>
 
@@ -396,6 +373,74 @@ filter.<span class="f">update</span>(measurement)?;                             
   </div>
 </section>
 
+<section id="math">
+  <div class="wrap">
+    <div class="kicker">The math underneath</div>
+    <h2>Built on its own <code>no_std</code> math core.</h2>
+    <p class="sub">Autodiff, linear algebra and solvers. You can also use the core alone.</p>
+    <div class="demos">
+      <div class="demo">
+        <div class="media"><img loading="lazy" src="media/newton_fractal_showcase.gif" alt="Newton fractal: every pixel is a Newton solve"></div>
+        <div class="meta">
+          <div><div class="name">newton_fractal</div><div class="modules">Newton system · autodiff Jacobian</div></div>
+          <div class="metric"><div class="v">4M / s</div><div class="l">solves, one core</div></div>
+        </div>
+        <div class="actions">
+          <a class="btn small" href="demos/viewer.html?showcase=newton_fractal">Open in browser</a>
+          <a class="link" href="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/newton_fractal.rs">Source</a>
+        </div>
+      </div>
+      <div class="demo">
+        <div class="media"><img loading="lazy" src="media/gradient_marbles_showcase.gif" alt="2,000 marbles follow exact autodiff gradients"></div>
+        <div class="meta">
+          <div><div class="name">gradient_marbles</div><div class="modules">2,000 exact gradients per tick</div></div>
+          <div class="metric"><div class="v">0.0</div><div class="l">error vs analytic</div></div>
+        </div>
+        <div class="actions">
+          <a class="btn small" href="demos/viewer.html?showcase=gradient_marbles">Open in browser</a>
+          <a class="link" href="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/gradient_marbles.rs">Source</a>
+        </div>
+      </div>
+      <div class="demo">
+        <div class="media"><img loading="lazy" src="media/fourier_ferris_showcase.gif" alt="Fourier epicycles draw Ferris"></div>
+        <div class="meta">
+          <div><div class="name">fourier_ferris</div><div class="modules">Gauss-Legendre quadrature</div></div>
+          <div class="metric"><div class="v">≈ 1e-15</div><div class="l">coefficient error</div></div>
+        </div>
+        <div class="actions">
+          <a class="btn small" href="demos/viewer.html?showcase=fourier_ferris">Open in browser</a>
+          <a class="link" href="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/fourier_ferris.rs">Source</a>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="subhead">Write it once. Differentiate it exactly.</h3>
+    <p class="sub">The same formula runs at f64 and at a dual number. No step size, no truncation error.</p>
+<pre><span class="k">let</span> f = <span class="f">scalar_fn!</span>(|x| x * x * x - <span class="f">constant</span>(<span class="n">2.0</span>) * x);    <span class="c">// x³ − 2x</span>
+
+<span class="k">let</span> slope = <span class="f">derivative</span>(&amp;f, <span class="n">2.0</span>);                          <span class="c">// 10, exact</span>
+<span class="k">let</span> root  = <span class="t">Newton</span>::<span class="f">new</span>().<span class="f">solve</span>(&amp;f, <span class="n">2.0</span>)?.root;           <span class="c">// √2</span>
+<span class="k">let</span> area  = <span class="f">integral</span>(&amp;|x: <span class="t">f64</span>| f.<span class="f">eval</span>(x), [<span class="n">0.0</span>, <span class="n">2.0</span>])?;   <span class="c">// 0</span>
+
+<span class="k">let mut</span> filter = <span class="t">KalmanFilter</span>::<span class="f">new</span>(state, covariance, model);
+filter.<span class="f">predict</span>();
+filter.<span class="f">update</span>(measurement)?;                              <span class="c">// 36 ns, no heap</span></pre>
+
+    <h3 class="subhead">Community</h3>
+    <div class="badges">
+      <a href="https://crates.io/crates/multicalc"><img alt="Downloads on crates.io" src="https://img.shields.io/crates/d/multicalc?style=flat-square&label=downloads"></a>
+      <a href="https://github.com/kmolan/multicalc-rust/stargazers"><img alt="Stars on GitHub" src="https://img.shields.io/github/stars/kmolan/multicalc-rust?style=flat-square"></a>
+      <a href="https://github.com/kmolan/multicalc-rust/graphs/contributors"><img alt="Contributors" src="https://img.shields.io/github/contributors/kmolan/multicalc-rust?style=flat-square"></a>
+      <a href="https://github.com/kmolan/multicalc-rust/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22"><img alt="Open good first issues" src="https://img.shields.io/github/issues/kmolan/multicalc-rust/good%20first%20issue?style=flat-square&label=good%20first%20issues"></a>
+    </div>
+    <div class="cta left">
+      <a class="btn" href="https://github.com/kmolan/multicalc-rust/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22">Pick a good first issue</a>
+      <a class="btn" href="tutorials.html">Tutorials</a>
+      <a class="btn" href="https://github.com/kmolan/multicalc-rust/tree/main/benchmarks">Benchmarks</a>
+    </div>
+  </div>
+</section>
+
 </main>
 
 <footer>
@@ -404,6 +449,7 @@ filter.<span class="f">update</span>(measurement)?;                             
     <span>
       <a href="https://github.com/kmolan/multicalc-rust">GitHub</a> ·
       <a href="https://crates.io/crates/multicalc">crates.io</a> ·
+      <a href="tutorials.html">Tutorials</a> ·
       <a href="https://docs.rs/multicalc">docs.rs</a> ·
       <a href="https://github.com/kmolan/multicalc-rust/tree/main/benchmarks">Benchmarks</a>
     </span>
@@ -414,44 +460,53 @@ filter.<span class="f">update</span>(measurement)?;                             
 
 <script>
 const SERIES = ["var(--series-1)", "var(--series-2)", "var(--series-3)"];
-const BOARDS = ["Arm Cortex-M4F", "Arm Cortex-M33", "RISC-V"];
+const BOARDS = ["Nucleo-F411RE", "Pico 2", "XIAO ESP32-C3"];
 
-// Warm time on silicon, microseconds. The PID check times 101 updates; shown per update.
+// benchmarks/silicon.md, best of seven, microseconds. The PID check times 101 updates; shown per update.
 const SILICON = [
-  { label: "Autodiff derivative", values: [5.79, 12.75, 3.45] },
-  { label: "Vector dot, 4", values: [11.32, 21.78, 6.64] },
-  { label: "Typed error path", values: [23.92, 31.77, 13.40] },
-  { label: "PID update", values: [2807.06 / 101, 1601.90 / 101, 1612.31 / 101] },
-  { label: "SVD, 3×3", values: [1082.85, 711.46, 703.06] },
+  { label: "Franka arm tick", scalar: "f32", values: [700.98, 874.30, 7100] },
+  { label: "Skydio X2 tick", scalar: "f32", values: [1860, 2230, 16400] },
+  { label: "X2 attitude and mixer", scalar: "f32", values: [16.06, 73.81, 296.95] },
+  { label: "Mobile-robot tick", scalar: "f32", values: [895.44, 761.30, 1930] },
+  { label: "MLP policy 22→64→64→4", scalar: "f32", values: [531.81, 1670, 6120] },
+  { label: "MLP policy 22→64→64→4", scalar: "f64", values: [16470, 15290, 10640] },
+  { label: "Franka RNEA", scalar: "f64", values: [12180, 9160, 7320] },
+  { label: "Franka CRBA", scalar: "f64", values: [11480, 8540, 6770] },
+  { label: "Franka ABA", scalar: "f64", values: [15990, 12880, 10460] },
+  { label: "Franka ∂τ/∂q̈, one RNEA pass", scalar: "Dual<f64>", values: [30790, 22610, 19170] },
+  { label: "SVD, 3×3", scalar: "f64", values: [1140, 854.26, 726.35] },
+  { label: "PID update", scalar: "f64", values: [3030 / 101, 1680 / 101, 1610 / 101] },
+  { label: "Autodiff derivative", scalar: "f64", values: [1.79, 11.21, 3.43] },
 ];
+
+// f32 runs on the FPU of the two Arm boards and in software on the XIAO.
+function siliconKey(row, board) {
+  const arithmetic = row.scalar === "f32" && board < 2 ? "FPU" : "software";
+  return `${row.label} · ${BOARDS[board]} · ${row.scalar} ${arithmetic}`;
+}
 
 // benchmarks/latency.md, median, nanoseconds.
 const LATENCY = [
-  ["Servo tick, 7 joints", 9.1],
-  ["Kalman step, 2-state", 34.1],
-  ["Rigid-body step", 95.8],
-  ["Jacobian 6×6, autodiff", 273.1],
-  ["Newton system, 2×2", 329.4],
-  ["LU solve, 10×10", 402.6],
-  ["Inverse dynamics, 7-DoF", 489.6],
-  ["UKF step, 5-state", 517.6],
-  ["Mass matrix, 7-DoF", 599.2],
-  ["Forward dynamics, 7-DoF", 646.0],
-  ["EKF step, 5-state", 679.1],
-  ["SVD least squares, 30×3", 823.3],
-  ["ESKF predict, 15-state", 2040],
-  ["LQR solve, 4×1", 2590],
-  ["Min-snap, 8 waypoints", 20110],
-  ["IK, 7-DoF SE(3)", 21880],
-  ["Particle filter, 1,000", 65670],
+  ["Servo tick, 7 joints", 9.9],
+  ["Kalman step, 2-state", 35.9],
+  ["Rigid-body step", 71.6],
+  ["Newton system, 2×2", 175.8],
+  ["Jacobian 6×6, autodiff", 217.5],
+  ["LU solve, 10×10", 390.3],
+  ["UKF step, 5-state", 426.4],
+  ["Momentum observer, 7-DoF", 454.9],
+  ["EKF step, 5-state", 468.1],
+  ["Inverse dynamics, 7-DoF", 483.0],
+  ["Computed torque, 7-DoF", 522.6],
+  ["Mass matrix, 7-DoF", 609.5],
+  ["Forward dynamics, 7-DoF", 722.8],
+  ["SVD least squares, 30×3", 826.8],
+  ["ESKF predict, 15-state", 1560],
+  ["LQR solve, 4×1", 1940],
+  ["Min-snap, 8 waypoints", 19380],
+  ["IK, 7-DoF SE(3)", 20410],
+  ["Particle filter, 1,000", 65700],
 ];
-
-// ci/budgets.toml
-const FLASH = [["thumbv7em-none-eabihf", 200.776], ["riscv32imc", 196.400], ["thumbv7em-none-eabi", 166.492], ["thumbv6m-none-eabi", 43.536]];
-const STACK = [["thumbv7em-none-eabihf", 3631], ["thumbv7em-none-eabi", 3311], ["riscv32imc", 3291], ["thumbv6m-none-eabi", 908]];
-
-// benchmarks/*.md accuracy tables
-const REFERENCES = [["NumPy / LAPACK", 46], ["SciPy / MINPACK", 34], ["Pinocchio", 30], ["mpmath", 25], ["NumPy + SciPy", 21], ["MuJoCo", 19], ["mink", 4], ["FilterPy", 4]];
 
 const MODULES = [
   ["Estimation", "estimation", "KalmanFilter · ErrorStateKalmanFilter · ParticleFilter"],
@@ -476,9 +531,8 @@ const MODULES = [
   ["Vector calculus", "vector-calculus", "curl · divergence · flux"],
 ];
 
-const tutorialBase = "https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/";
 document.getElementById("modules-grid").innerHTML = MODULES.map(([name, file, types]) =>
-  `<a class="mod" href="${tutorialBase}${file}.md"><div class="mn">${name}</div><div class="mt">${types}</div></a>`).join("");
+  `<a class="mod" href="tutorials.html?page=${file}"><div class="mn">${name}</div><div class="mt">${types}</div></a>`).join("");
 
 const SVG = "http://www.w3.org/2000/svg";
 const tooltip = document.getElementById("tooltip");
@@ -489,7 +543,13 @@ function element(tag, attributes, parent) {
   return node;
 }
 function showTooltip(event, key, value) {
-  tooltip.innerHTML = `<div class="tt-k">${key}</div><div class="tt-v">${value}</div>`;
+  const keyNode = document.createElement("div");
+  keyNode.className = "tt-k";
+  keyNode.textContent = key;
+  const valueNode = document.createElement("div");
+  valueNode.className = "tt-v";
+  valueNode.textContent = value;
+  tooltip.replaceChildren(keyNode, valueNode);
   tooltip.style.opacity = 1;
   const x = Math.min(event.clientX + 14, window.innerWidth - tooltip.offsetWidth - 8);
   tooltip.style.left = x + "px";
@@ -506,7 +566,10 @@ function formatNanoseconds(value) {
   if (value < 1e6) { const micro = value / 1000; return (micro < 10 ? micro.toFixed(2) : micro.toFixed(1)) + " µs"; }
   return (value / 1e6).toFixed(2) + " ms";
 }
-function formatMicroseconds(value) { return value < 100 ? value.toFixed(1) + " µs" : Math.round(value) + " µs"; }
+function formatMicroseconds(value) {
+  if (value >= 1000) return (value / 1000).toFixed(2) + " ms";
+  return value < 100 ? value.toFixed(1) + " µs" : Math.round(value) + " µs";
+}
 
 // Horizontal bars. rows: [{label, values:[...]}]. Log axis when `log` is set.
 function horizontalBars(container, rows, options) {
@@ -555,7 +618,7 @@ function horizontalBars(container, rows, options) {
       const length = Math.max(scale(value), 2);
       const radius = Math.min(4, barHeight / 2);
       const path = `M0,${y} H${length - radius} Q${length},${y} ${length},${y + radius} V${y + barHeight - radius} Q${length},${y + barHeight} ${length - radius},${y + barHeight} H0 Z`;
-      const key = seriesCount > 1 ? `${row.label} · ${BOARDS[seriesIndex]}` : row.label;
+      const key = row.keys ? row.keys[seriesIndex] : seriesCount > 1 ? `${row.label} · ${BOARDS[seriesIndex]}` : row.label;
       const hit = element("rect", { class: "hit", x: 0, y: y - barGap / 2, width: Math.max(length, 40), height: barHeight + barGap }, group);
       element("path", { class: "bar", d: path, fill: options.colors ? options.colors[seriesIndex] : SERIES[0] }, group);
       attachTooltip(hit, key, options.valueFormat(value));
@@ -567,27 +630,32 @@ function horizontalBars(container, rows, options) {
   });
 }
 
+let speedView = "silicon";
 function renderAll() {
-  horizontalBars(document.getElementById("chart-silicon"), SILICON, {
-    log: true, domain: [1, 2000], ticks: [1, 10, 100, 1000], labelWidth: 170,
-    tickFormat: tick => tick >= 1000 ? "1 ms" : tick + " µs",
-    valueFormat: formatMicroseconds, colors: SERIES, aria: "Warm time per check on three microcontrollers",
-  });
-  horizontalBars(document.getElementById("chart-latency"), LATENCY.map(([label, value]) => ({ label, values: [value] })), {
-    log: true, domain: [1, 200000], ticks: [1, 10, 100, 1000, 10000, 100000], labelWidth: 190,
-    tickFormat: tick => tick < 1000 ? tick + " ns" : tick / 1000 + " µs", valueFormat: formatNanoseconds, aria: "Host latency per operation",
-  });
-  horizontalBars(document.getElementById("chart-flash"), FLASH.map(([label, value]) => ({ label, values: [value] })), {
-    domain: [0, 240], ticks: [0, 50, 100, 150, 200], labelWidth: 160,
-    tickFormat: tick => tick, valueFormat: value => value.toFixed(1) + " KB", aria: "Flash size per target",
-  });
-  horizontalBars(document.getElementById("chart-stack"), STACK.map(([label, value]) => ({ label, values: [value] })), {
-    domain: [0, 4400], ticks: [0, 1000, 2000, 3000, 4000], labelWidth: 160,
-    tickFormat: tick => tick.toLocaleString(), valueFormat: value => value.toLocaleString() + " B", aria: "Peak stack per target",
-  });
-  horizontalBars(document.getElementById("chart-references"), REFERENCES.map(([label, value]) => ({ label, values: [value] })), {
-    domain: [0, 52], ticks: [0, 10, 20, 30, 40, 50], labelWidth: 130,
-    tickFormat: tick => tick, valueFormat: value => value, aria: "Accuracy checks per reference library",
+  const container = document.getElementById("chart-speed");
+  if (speedView === "silicon") {
+    horizontalBars(container, SILICON.map(row => ({
+      label: `${row.label} · ${row.scalar}`,
+      values: row.values,
+      keys: row.values.map((_, board) => siliconKey(row, board)),
+    })), {
+      log: true, domain: [1, 50000], ticks: [1, 10, 100, 1000, 10000], labelWidth: 240,
+      tickFormat: tick => tick >= 1000 ? tick / 1000 + " ms" : tick + " µs",
+      valueFormat: formatMicroseconds, colors: SERIES, aria: "Warm time per check on three microcontrollers",
+    });
+  } else {
+    horizontalBars(container, LATENCY.map(([label, value]) => ({ label, values: [value] })), {
+      log: true, domain: [1, 200000], ticks: [1, 10, 100, 1000, 10000, 100000], labelWidth: 240,
+      tickFormat: tick => tick < 1000 ? tick + " ns" : tick / 1000 + " µs", valueFormat: formatNanoseconds, aria: "Host latency per operation",
+    });
+  }
+}
+for (const button of document.querySelectorAll(".toggle button")) {
+  button.addEventListener("click", () => {
+    speedView = button.dataset.view;
+    for (const other of document.querySelectorAll(".toggle button")) other.setAttribute("aria-selected", other === button);
+    for (const panel of document.querySelectorAll("[data-panel]")) panel.hidden = panel.dataset.panel !== speedView;
+    renderAll();
   });
 }
 renderAll();
