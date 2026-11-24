@@ -24,10 +24,12 @@
 
 mod articulated_body;
 mod dynamics_workspace;
+mod momentum_observer;
 mod rigid_body;
 
 pub use articulated_body::ArticulatedBody;
 pub use dynamics_workspace::DynamicsWorkspace;
+pub use momentum_observer::MomentumObserver;
 pub use rigid_body::{
     RigidBody, RigidBodyAcceleration, STATE_DIMENSION, free_joint_from_state_vector,
     state_vector_from_free_joint,

@@ -955,6 +955,144 @@ impl<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>
         self.forward_dynamics(&state, velocity, torque)
     }
 
+    /// The generalized momentum `p = H(q)·q̇` and its bias `β`, for already-solved poses:
+    /// `ṗ = τ + τ_ext − β`.
+    ///
+    /// `β = G(q) − C(q,q̇)ᵀ·q̇ + damping⊙q̇ + friction_loss⊙sign(q̇)`, with `C` the
+    /// Christoffel-consistent Coriolis matrix, so `Ḣ = C + Cᵀ` and
+    /// `β = bias_torque − Ḣ·q̇`. Armature adds to `p` and not to `β`.
+    ///
+    /// One forward and one backward sweep in world axes, with no `H` and no `Ḣ`. With the composite
+    /// momentum `h_j = Σ_{k ∈ subtree(j)} I_k·v_k` and the composite weight
+    /// `w_j = Σ_{k ∈ subtree(j)} I_k·[−g; 0]`:
+    ///
+    /// ```text
+    /// p_j       = S_j·h_j + armature_j·q̇_j
+    /// (Cᵀ·q̇)_j  = ∂T/∂q_j = (v_j × S_j)·h_j
+    /// β_j       = S_j·w_j − (v_j × S_j)·h_j + damping_j·q̇_j + friction_loss_j·sign(q̇_j)
+    /// ```
+    ///
+    /// Errors: [`StateShapeMismatch`](DynamicsError::StateShapeMismatch) if the poses were solved
+    /// for a different joint count, [`NonFinite`](DynamicsError::NonFinite) on a non-finite rate.
+    ///
+    /// ```
+    /// use multicalc::dynamics::ArticulatedBody;
+    /// use multicalc::kinematics::{Joint, JointParent, KinematicTree};
+    /// use multicalc::linear_algebra::{Matrix, Vector};
+    /// use multicalc::spatial::{SE3, SpatialInertia};
+    ///
+    /// // One hinge about y, the link balancing `moment_arm` out along x.
+    /// let hinge_axis = Vector::new([0.0, 1.0, 0.0]);
+    /// let hinge = Joint::revolute(hinge_axis, SE3::<f64>::identity());
+    /// let tree = KinematicTree::<1, 1, f64>::try_from_joints(&[hinge], &[JointParent::World])
+    ///     .unwrap();
+    ///
+    /// let mass = 2.0;
+    /// let moment_arm = 0.5;
+    /// let own_axis_inertia = 0.01;
+    /// let gravity_strength = 9.81;
+    /// let balance_point = Vector::new([moment_arm, 0.0, 0.0]);
+    /// let resistance_to_spinning =
+    ///     Matrix::from_diagonal([own_axis_inertia, own_axis_inertia, own_axis_inertia]);
+    /// let earth_gravity = Vector::new([0.0, 0.0, -gravity_strength]);
+    ///
+    /// let link = SpatialInertia::new(mass, balance_point, resistance_to_spinning).unwrap();
+    /// let body = ArticulatedBody::new(tree, &[Some(link)], earth_gravity).unwrap();
+    ///
+    /// let level = body.tree().forward_kinematics(&Vector::zeros()).unwrap();
+    /// let rate = 2.0;
+    /// let (momentum, bias) = body
+    ///     .generalized_momentum_and_bias(&level, &Vector::new([rate]))
+    ///     .unwrap();
+    ///
+    /// // One hinge: `H` is constant, so `Cᵀ·q̇ = 0` and `β = G(q) = −m·g·L` at `q = 0`.
+    /// let inertia_about_hinge = own_axis_inertia + mass * moment_arm * moment_arm;
+    /// assert!((momentum[0] - inertia_about_hinge * rate).abs() < 1e-12);
+    /// assert!((bias[0] + mass * gravity_strength * moment_arm).abs() < 1e-12);
+    /// ```
+    pub fn generalized_momentum_and_bias(
+        &self,
+        state: &KinematicTreeState<MAX_JOINTS, T>,
+        velocity: &Vector<MAX_CONFIG, T>,
+    ) -> Result<(Vector<MAX_CONFIG, T>, Vector<MAX_CONFIG, T>), DynamicsError> {
+        self.check_state(state)?;
+        self.check_finite(velocity)?;
+
+        let (subspaces, velocities) = self.body_velocities(state, velocity)?;
+        let base_acceleration = Twist::new(-self.gravity, Vector::zeros());
+        let mut momenta = [Wrench::<T>::zeros(); MAX_JOINTS];
+        let mut weights = [Wrench::<T>::zeros(); MAX_JOINTS];
+        for index in 0..self.tree.len() {
+            let Some(inertia) = self.inertia(index) else {
+                continue;
+            };
+            let pose = state.pose(index).ok_or(DynamicsError::StateShapeMismatch)?;
+            let world = pose.act_inertia(inertia);
+            let body_velocity = *velocities
+                .get(index)
+                .ok_or(DynamicsError::StateShapeMismatch)?;
+            *momenta
+                .get_mut(index)
+                .ok_or(DynamicsError::StateShapeMismatch)? = world.momentum(body_velocity);
+            *weights
+                .get_mut(index)
+                .ok_or(DynamicsError::StateShapeMismatch)? = world.momentum(base_acceleration);
+        }
+
+        let mut momentum = Vector::<MAX_CONFIG, T>::zeros();
+        let mut bias = Vector::<MAX_CONFIG, T>::zeros();
+        for index in (0..self.tree.len()).rev() {
+            let composite_momentum = *momenta
+                .get(index)
+                .ok_or(DynamicsError::StateShapeMismatch)?;
+            let composite_weight = *weights
+                .get(index)
+                .ok_or(DynamicsError::StateShapeMismatch)?;
+            let joint = self.joint_at(index)?;
+            if is_movable(joint) {
+                let slot = self
+                    .tree
+                    .velocity_offset(index)
+                    .ok_or(DynamicsError::StateShapeMismatch)?;
+                let subspace = *subspaces
+                    .get(index)
+                    .ok_or(DynamicsError::StateShapeMismatch)?;
+                let body_velocity = *velocities
+                    .get(index)
+                    .ok_or(DynamicsError::StateShapeMismatch)?;
+                let rate = self.slot_reading(index, velocity)?;
+                *momentum
+                    .get_mut(slot)
+                    .ok_or(DynamicsError::StateShapeMismatch)? =
+                    subspace.dot_wrench(composite_momentum) + joint.armature() * rate;
+                *bias
+                    .get_mut(slot)
+                    .ok_or(DynamicsError::StateShapeMismatch)? = subspace
+                    .dot_wrench(composite_weight)
+                    - body_velocity.cross(subspace).dot_wrench(composite_momentum)
+                    + joint.damping() * rate
+                    + joint.friction_loss() * coulomb_direction(rate);
+            }
+            if let Some(parent_index) = self.parent_joint(index) {
+                let carried_momentum = *momenta
+                    .get(parent_index)
+                    .ok_or(DynamicsError::StateShapeMismatch)?;
+                let carried_weight = *weights
+                    .get(parent_index)
+                    .ok_or(DynamicsError::StateShapeMismatch)?;
+                *momenta
+                    .get_mut(parent_index)
+                    .ok_or(DynamicsError::StateShapeMismatch)? =
+                    carried_momentum + composite_momentum;
+                *weights
+                    .get_mut(parent_index)
+                    .ok_or(DynamicsError::StateShapeMismatch)? = carried_weight + composite_weight;
+            }
+        }
+
+        Ok((momentum, bias))
+    }
+
     /// Kinetic energy `Σᵢ ½·vᵢᵀ·Iᵢ·vᵢ`, summed over every body in world axes.
     ///
     /// Errors: [`StateShapeMismatch`](DynamicsError::StateShapeMismatch) if the poses were solved

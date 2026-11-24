@@ -1,6 +1,7 @@
 //! Articulated-body tests: the closed forms a single pendulum has, RNEA and CRBA read against each
 //! other, what armature and joint friction each contribute, forward dynamics inverting inverse
-//! dynamics, energy along a free swing, the `Dual` derivatives, and the constructor's refusals.
+//! dynamics, energy along a free swing, the `Dual` derivatives, the generalized momentum
+//! and its bias, and the constructor's refusals.
 
 use core::f64::consts::FRAC_PI_2;
 
@@ -768,4 +769,266 @@ fn workspace_is_reusable_across_calls() {
         assert_eq!(reused[0], clean[0], "{configuration:?}");
         assert_eq!(reused[1], clean[1], "{configuration:?}");
     }
+}
+
+/// Yaw, then pitch 0.4 m up; a welded gripper and a prismatic slide both branch off the pitch link.
+/// Off-axis centers of mass and anisotropic inertias, so no Coriolis term vanishes by symmetry.
+fn branched_arm<T: Numeric>() -> ArticulatedBody<4, 4, T> {
+    let constant = |value: f64| T::from_f64(value);
+    let point = |x: f64, y: f64, z: f64| Vector::new([constant(x), constant(y), constant(z)]);
+    let offset = |x: f64, y: f64, z: f64| SE3::from_parts(SO3::identity(), point(x, y, z));
+    let inertia = |mass: f64, center: Vector<3, T>, diagonal: [f64; 3]| {
+        SpatialInertia::new(
+            constant(mass),
+            center,
+            Matrix::from_diagonal(diagonal.map(constant)),
+        )
+        .unwrap()
+    };
+
+    let mut tree = KinematicTree::<4, 4, T>::new();
+    let yaw = Joint::revolute(point(0.0, 0.0, 1.0), SE3::identity())
+        .with_armature(constant(0.04))
+        .with_damping(constant(0.3))
+        .with_friction_loss(constant(0.15));
+    let pitch = Joint::revolute(point(0.0, 1.0, 0.0), offset(0.0, 0.0, 0.4))
+        .with_armature(constant(0.02))
+        .with_damping(constant(0.2))
+        .with_friction_loss(constant(0.1));
+    let gripper = Joint::fixed(offset(0.6, 0.0, 0.0));
+    let slide = Joint::prismatic(point(1.0, 0.0, 0.0), offset(0.1, 0.2, 0.05))
+        .with_armature(constant(0.01))
+        .with_damping(constant(0.5))
+        .with_friction_loss(constant(0.05));
+    tree.push(yaw, JointParent::World).unwrap();
+    tree.push(pitch, JointParent::Joint(0)).unwrap();
+    tree.push(gripper, JointParent::Joint(1)).unwrap();
+    tree.push(slide, JointParent::Joint(1)).unwrap();
+
+    let inertias = [
+        Some(inertia(2.0, point(0.0, 0.05, 0.2), [0.03, 0.04, 0.02])),
+        Some(inertia(1.5, point(0.3, 0.02, 0.0), [0.01, 0.05, 0.05])),
+        Some(inertia(0.7, point(0.05, 0.0, 0.0), [0.002, 0.003, 0.004])),
+        Some(inertia(0.4, point(0.0, 0.0, 0.03), [0.001, 0.001, 0.002])),
+    ];
+    ArticulatedBody::new(tree, &inertias, earth_gravity()).unwrap()
+}
+
+/// `(q, q̇)` pairs for [`branched_arm`]; slot 2 is the weld and stays zero.
+const BRANCHED_ARM_STATES: [([f64; 4], [f64; 4]); 4] = [
+    ([0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]),
+    ([0.4, -0.8, 0.0, 0.12], [1.1, -0.6, 0.0, 0.3]),
+    ([-1.7, 1.2, 0.0, -0.2], [-0.5, 2.0, 0.0, -0.4]),
+    ([2.9, 0.3, 0.0, 0.05], [2.4, 1.3, 0.0, 0.8]),
+];
+
+/// Joint rates paired with every entry of `SAMPLE_CONFIGURATIONS`, the first one at rest.
+const SAMPLE_VELOCITIES: [[f64; 2]; 4] = [[0.0, 0.0], [1.3, -0.7], [-2.1, 0.4], [0.6, 2.5]];
+
+/// Worst `|p − H·q̇|` and worst `|β − (bias_torque − Ḣ·q̇)|`, with `Ḣ = dH/dt` from one `Dual` pass of
+/// `joint_space_inertia` at `q + ε·q̇`.
+fn momentum_and_bias_errors<const MAX_JOINTS: usize, const MAX_CONFIG: usize>(
+    body: &ArticulatedBody<MAX_JOINTS, MAX_CONFIG, f64>,
+    dual_body: &ArticulatedBody<MAX_JOINTS, MAX_CONFIG, Dual<f64>>,
+    configuration: [f64; MAX_CONFIG],
+    velocity: [f64; MAX_CONFIG],
+) -> (f64, f64) {
+    let rates = Vector::new(velocity);
+    let state = body
+        .tree()
+        .forward_kinematics(&Vector::new(configuration))
+        .unwrap();
+    let (momentum, bias) = body.generalized_momentum_and_bias(&state, &rates).unwrap();
+    let inertia_times_rate = body.joint_space_inertia(&state).unwrap() * rates;
+    let bias_torque = body.bias_torque(&state, &rates).unwrap();
+
+    let moving = Vector::from_fn(|slot| Dual::new(configuration[slot], velocity[slot]));
+    let inertia_rate = dual_body.joint_space_inertia_at(&moving).unwrap();
+
+    let mut momentum_error = 0.0_f64;
+    let mut bias_error = 0.0_f64;
+    for row in 0..MAX_CONFIG {
+        let mut inertia_rate_times_rate = 0.0;
+        for column in 0..MAX_CONFIG {
+            inertia_rate_times_rate += inertia_rate[(row, column)].deriv * velocity[column];
+        }
+        momentum_error = momentum_error.max((momentum[row] - inertia_times_rate[row]).abs());
+        bias_error =
+            bias_error.max((bias[row] - (bias_torque[row] - inertia_rate_times_rate)).abs());
+    }
+    (momentum_error, bias_error)
+}
+
+#[test]
+fn generalized_momentum_is_inertia_times_velocity() {
+    let body = double_pendulum::<f64>();
+    let dual_body = double_pendulum::<Dual<f64>>();
+    for configuration in SAMPLE_CONFIGURATIONS {
+        for velocity in SAMPLE_VELOCITIES {
+            let (momentum_error, _) =
+                momentum_and_bias_errors(&body, &dual_body, configuration, velocity);
+            assert!(
+                momentum_error < 1e-12,
+                "{configuration:?}, {velocity:?}: |p − H·q̇| = {momentum_error}"
+            );
+        }
+    }
+
+    let body = branched_arm::<f64>();
+    let dual_body = branched_arm::<Dual<f64>>();
+    for (configuration, velocity) in BRANCHED_ARM_STATES {
+        let (momentum_error, _) =
+            momentum_and_bias_errors(&body, &dual_body, configuration, velocity);
+        assert!(
+            momentum_error < 1e-12,
+            "{configuration:?}, {velocity:?}: |p − H·q̇| = {momentum_error}"
+        );
+    }
+}
+
+#[test]
+fn momentum_bias_is_bias_torque_minus_inertia_rate() {
+    let body = double_pendulum::<f64>();
+    let dual_body = double_pendulum::<Dual<f64>>();
+    for configuration in SAMPLE_CONFIGURATIONS {
+        for velocity in SAMPLE_VELOCITIES {
+            let (_, bias_error) =
+                momentum_and_bias_errors(&body, &dual_body, configuration, velocity);
+            assert!(
+                bias_error < 1e-12,
+                "{configuration:?}, {velocity:?}: |β − (bias_torque − Ḣ·q̇)| = {bias_error}"
+            );
+        }
+    }
+
+    let body = branched_arm::<f64>();
+    let dual_body = branched_arm::<Dual<f64>>();
+    for (configuration, velocity) in BRANCHED_ARM_STATES {
+        let (_, bias_error) = momentum_and_bias_errors(&body, &dual_body, configuration, velocity);
+        assert!(
+            bias_error < 1e-12,
+            "{configuration:?}, {velocity:?}: |β − (bias_torque − Ḣ·q̇)| = {bias_error}"
+        );
+    }
+}
+
+#[test]
+fn momentum_bias_at_rest_is_the_gravity_torque() {
+    let body = branched_arm::<f64>();
+    for (configuration, _) in BRANCHED_ARM_STATES {
+        let state = body
+            .tree()
+            .forward_kinematics(&Vector::new(configuration))
+            .unwrap();
+        let (momentum, bias) = body
+            .generalized_momentum_and_bias(&state, &Vector::zeros())
+            .unwrap();
+        let gravity_torque = body.gravity_torque(&state).unwrap();
+        assert_eq!(momentum, Vector::zeros());
+        for slot in 0..4 {
+            assert!(
+                (bias[slot] - gravity_torque[slot]).abs() < 1e-12,
+                "{configuration:?}: β[{slot}] = {}, G[{slot}] = {}",
+                bias[slot],
+                gravity_torque[slot]
+            );
+        }
+    }
+}
+
+#[test]
+fn joint_dynamics_add_to_the_momentum_and_the_bias() {
+    let armature = [0.05, 0.03];
+    let damping = [0.7, 0.4];
+    let friction_loss = [0.2, 0.1];
+    let full = double_pendulum_with::<f64>(armature, damping, friction_loss);
+    let plain = double_pendulum_plain::<f64>();
+    for configuration in SAMPLE_CONFIGURATIONS {
+        let state = full
+            .tree()
+            .forward_kinematics(&pair(configuration))
+            .unwrap();
+        for velocity in SAMPLE_VELOCITIES {
+            let rates = pair(velocity);
+            let (full_momentum, full_bias) =
+                full.generalized_momentum_and_bias(&state, &rates).unwrap();
+            let (plain_momentum, plain_bias) =
+                plain.generalized_momentum_and_bias(&state, &rates).unwrap();
+            for joint in 0..2 {
+                let rate = velocity[joint];
+                let direction = if rate > 0.0 {
+                    1.0
+                } else if rate < 0.0 {
+                    -1.0
+                } else {
+                    0.0
+                };
+                let added_momentum = armature[joint] * rate;
+                let added_bias = damping[joint] * rate + friction_loss[joint] * direction;
+                assert!(
+                    (full_momentum[joint] - plain_momentum[joint] - added_momentum).abs() < 1e-12
+                );
+                assert!((full_bias[joint] - plain_bias[joint] - added_bias).abs() < 1e-12);
+            }
+        }
+    }
+}
+
+#[test]
+fn generalized_momentum_and_bias_hold_in_f32() {
+    let body = branched_arm::<f64>();
+    let narrow_body = branched_arm::<f32>();
+    for (configuration, velocity) in BRANCHED_ARM_STATES {
+        let state = body
+            .tree()
+            .forward_kinematics(&Vector::new(configuration))
+            .unwrap();
+        let narrow_state = narrow_body
+            .tree()
+            .forward_kinematics(&Vector::new(configuration.map(|entry| entry as f32)))
+            .unwrap();
+        let (momentum, bias) = body
+            .generalized_momentum_and_bias(&state, &Vector::new(velocity))
+            .unwrap();
+        let (narrow_momentum, narrow_bias) = narrow_body
+            .generalized_momentum_and_bias(
+                &narrow_state,
+                &Vector::new(velocity.map(|entry| entry as f32)),
+            )
+            .unwrap();
+
+        let mut scale = 1.0_f64;
+        for slot in 0..4 {
+            scale = scale.max(momentum[slot].abs()).max(bias[slot].abs());
+        }
+        let bound = 16.0 * f64::from(f32::EPSILON) * scale;
+        for slot in 0..4 {
+            assert!((f64::from(narrow_momentum[slot]) - momentum[slot]).abs() < bound);
+            assert!((f64::from(narrow_bias[slot]) - bias[slot]).abs() < bound);
+        }
+    }
+}
+
+#[test]
+fn generalized_momentum_and_bias_reject_bad_input() {
+    let body = double_pendulum::<f64>();
+    let state = body.tree().forward_kinematics(&Vector::zeros()).unwrap();
+    assert_eq!(
+        body.generalized_momentum_and_bias(&state, &Vector::new([f64::NAN, 0.0])),
+        Err(DynamicsError::NonFinite)
+    );
+
+    let one_joint = KinematicTree::<2, 2, f64>::try_from_joints(
+        &[Joint::revolute(
+            Vector::new([0.0, 1.0, 0.0]),
+            SE3::identity(),
+        )],
+        &[JointParent::World],
+    )
+    .unwrap();
+    let other_state = one_joint.forward_kinematics(&Vector::zeros()).unwrap();
+    assert_eq!(
+        body.generalized_momentum_and_bias(&other_state, &Vector::zeros()),
+        Err(DynamicsError::StateShapeMismatch)
+    );
 }
