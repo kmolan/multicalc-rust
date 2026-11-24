@@ -5,10 +5,11 @@
 # repository root gives the cortex-m-rt and riscv-rt linker scripts of embedded-smoke.
 # build-tab.sh sets RUSTFLAGS, which replaces each configured `target.*.rustflags`.
 
-# Soft-float ABI: the Cortex-M port of the kernel does not save the FPU state across a context
-# switch, and the Pico 2 kernel turns the FPU off.
+# Hard-float ABI on the Nucleo-F411RE and the Raspberry Pi Pico 2: HILShare kernel 0.3.0 gives the
+# FPU to the one process, with FPCCR.ASPEN = 0 and no FPU state save. The FPUs are single
+# precision, so f64 stays in software.
 [build]
-target = "thumbv7em-none-eabi"
+target = "thumbv7em-none-eabihf"
 
 # libtock-rs apps link at fixed addresses. These are the addresses of the Nucleo-F411RE kernel:
 # app flash from 0x08040000 (with the TBF header) and app RAM from 0x20008000. build-tab.sh gives

@@ -89,6 +89,8 @@ fn main() {
         let _ = writeln!(console, "HILSHARE_RESULT=FAIL");
         return;
     };
+    #[cfg(target_abi = "eabihf")]
+    reset_floating_point_status();
     cycles::start();
 
     let mut passed = 0_usize;
@@ -147,6 +149,16 @@ fn main() {
         "HILSHARE_RESULT={}",
         if passed == total { "PASS" } else { "FAIL" }
     );
+}
+
+/// `FPSCR = 0`: round to nearest, no flush-to-zero, no default NaN. The kernel saves no FPU
+/// state and does not write FPSCR.
+#[cfg(target_abi = "eabihf")]
+fn reset_floating_point_status() {
+    // SAFETY: one `vmsr` to FPSCR. The kernel gives this process the FPU.
+    unsafe {
+        core::arch::asm!("vmsr fpscr, {status}", status = in(reg) 0_u32, options(nomem, nostack));
+    }
 }
 
 /// `cycles × 100 000 000 / clock_hz`.
