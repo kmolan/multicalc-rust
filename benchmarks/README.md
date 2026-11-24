@@ -3,6 +3,28 @@
 Generated tables: **accuracy** against external references, **latency** from criterion, and
 **silicon** times on microcontrollers.
 
+## Headline figures
+
+**On the host, in `f64`, against reference libraries.** RNEA, CRBA and ABA of the Menagerie Franka
+Panda agree with Pinocchio 4.1.0 to `1e-10` over 128 random states. Forward kinematics, Jacobians
+and model reading agree with MuJoCo 3.11.0 to `1e-11`.
+
+**On silicon, with each answer checked on each run.** Nucleo-F411RE, Cortex-M4F at 100 MHz, `f32`
+on the FPU:
+
+| Check | Time |
+| --- | ---: |
+| Franka Panda control tick: computed torque and momentum observer | 0.70 ms |
+| Skydio X2 attitude control and mixer | 16 µs |
+| Skydio X2 control tick: ESKF, LQR, thrust, attitude, mixer | 1.86 ms |
+| MLP policy, 22→64→64→4 | 0.53 ms |
+
+On all three boards, RNEA, CRBA and ABA of the Franka agree with Pinocchio to `1e-10` in `f64`. The
+Cortex-M FPUs are single precision, so the `f64` rows show accuracy, not speed. One `Dual` RNEA pass
+gives the exact column `∂τ/∂q̈` on each board. On the Nucleo, the worst of seven runs of the arm
+tick is within 0.1% of the best. [`silicon.md`](silicon.md) has each check on the Nucleo, a
+Cortex-M33 and an RV32IMC.
+
 ## Accuracy
 
 Each row gives the operation, the equation, the tolerance, and the reference library (numpy,
