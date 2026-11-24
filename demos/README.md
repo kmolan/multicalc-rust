@@ -39,9 +39,10 @@ The figures below are for a modern desktop core (`x86_64`, `--release`).
   ![3d_arm_ik](examples/resources/gifs/3d_arm_ik_showcase.gif)
 
 - **`3d_arm_torque`** (motion, kinematics, control, dynamics). A Franka Panda tracks a jerk-limited
-  waypoint cycle on 1 kHz computed torque, with a 2 kg payload that its model lacks. A momentum
-  observer catches a 30 N push at the hand from `q`, `q̇` and `τ` alone. **Push caught in 7 ms**,
-  2 µs/tick.
+  waypoint cycle on 1 kHz computed torque, with a 2 kg payload that its model lacks and four pushes
+  per cycle at the hand. A momentum observer finds each push from `q`, `q̇` and `τ` alone, and
+  `τ = τ_computed − r` holds the hand on its path. **Pushes caught in 7–26 ms, tool error 0.03 mm
+  (15 mm without the `− r` term)**, 2 µs/tick.
 
 - **`3d_drone_flight`** (dynamics + control + estimation). A Skydio X2, mass from its MuJoCo file,
   finds its heading against a floor plan, then flies a minimum-snap loop on a 15-state error-state
