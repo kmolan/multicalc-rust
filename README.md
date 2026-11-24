@@ -128,7 +128,9 @@ Each module has its own error enum, and each one converts into `CalcError`.
 | [Planning](crates/multicalc/tutorials/planning.md) | `GridPlanner` (Dijkstra, A\*, Theta\*), `Rrt`, `RrtStar`, `Prm`. Caller-owned workspaces, no allocation |
 | [MLP inference](crates/multicalc/tutorials/mlp-inference.md) | `Layer`, `Activation`, `ParameterCursor` for trained policies |
 
-### Core math
+### The core, also usable alone
+
+Built on its own `no_std` math core: autodiff, linear algebra and solvers.
 
 | Module | Contents |
 | --- | --- |
