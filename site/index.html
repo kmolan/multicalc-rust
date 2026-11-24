@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>multicalc</title>
-<meta name="description" content="Robotics math for microcontrollers. Estimation, control, kinematics, dynamics, Lie groups, autodiff and linear algebra in no_std Rust.">
+<title>multicalc · Robotics for microcontrollers</title>
+<meta name="description" content="Robotics for microcontrollers. Sense, plan, estimate and control in no_std Rust in one integrated package. Tested on real hardware.">
 <meta property="og:title" content="multicalc">
-<meta property="og:description" content="Robotics math for microcontrollers. no_std, no heap, no panics, no unsafe. Tested on real silicon.">
+<meta property="og:description" content="Robotics for microcontrollers. Sense, plan, estimate and control in no_std Rust. Tested on real hardware.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -93,13 +93,13 @@ h1 .soft { color: var(--text-muted); }
 .btn.primary { background: var(--text-primary); color: var(--surface-0); border-color: var(--text-primary); }
 .btn.primary:hover { background: #fff; }
 .btn code { font-family: var(--mono); font-weight: 500; font-size: 14px; }
+.lede code { font-family: var(--mono); font-size: 0.9em; }
+.trio { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 48px auto 0; max-width: 1080px; }
+@media (min-width: 760px) { .trio { grid-template-columns: repeat(3, 1fr); } }
+.trio figure { margin: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #000; }
+.trio img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.trio figcaption { padding: 10px 12px; font-size: 13px; color: var(--text-secondary); background: var(--surface-1); text-align: left; }
 
-.reel {
-  margin: 48px auto 0; max-width: 1080px; border-radius: 16px; overflow: hidden;
-  border: 1px solid var(--line); background: #000;
-  box-shadow: 0 40px 120px -40px rgba(232,104,58,0.35), 0 0 0 1px rgba(255,255,255,0.02);
-}
-.reel video { display: block; width: 100%; height: auto; }
 
 /* stats */
 .stats {
@@ -108,7 +108,7 @@ h1 .soft { color: var(--text-muted); }
   margin: 56px 0 0;
 }
 @media (min-width: 720px) { .stats { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 1000px) { .stats { grid-template-columns: repeat(5, 1fr); } }
+@media (min-width: 1000px) { .stats { grid-template-columns: repeat(6, 1fr); } }
 .stat { background: var(--surface-1); padding: 22px 20px; }
 .stat .v { font-size: 34px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .stat .v small { font-size: 18px; font-weight: 600; color: var(--text-secondary); margin-left: 2px; }
@@ -201,10 +201,11 @@ footer a:hover { color: var(--text-primary); }
   <div class="wrap">
     <a class="brand" href="#">multi<b>calc</b></a>
     <ul>
+      <li class="hide-sm"><a href="#robots">Robots</a></li>
       <li class="hide-sm"><a href="#silicon">Silicon</a></li>
       <li class="hide-sm"><a href="#speed">Speed</a></li>
-      <li class="hide-sm"><a href="#demos">Demos</a></li>
-      <li class="hide-sm"><a href="#accuracy">Accuracy</a></li>
+      <li class="hide-sm"><a href="#math">Math</a></li>
+      <li><a href="tutorials.html">Tutorials</a></li>
       <li><a href="https://docs.rs/multicalc">Docs</a></li>
       <li><a href="https://github.com/kmolan/multicalc-rust">GitHub</a></li>
     </ul>
@@ -214,8 +215,8 @@ footer a:hover { color: var(--text-primary); }
 <header class="hero">
   <div class="wrap">
     <span class="pill"><span class="dot"></span>Now tested on real silicon</span>
-    <h1>The whole robotics stack.<br><span class="soft">On bare metal.</span></h1>
-    <p class="lede">Sense, plan and control on stable Rust in one integrated crate.</p>
+    <h1>Robotics for<br><span class="soft">microcontrollers.</span></h1>
+    <p class="lede">Sense, plan, estimate and control in <code>no_std</code> Rust in one integrated package. Tested on real hardware: run the same code from your laptop to a Cortex-M4.</p>
     <div class="tags">
       <span class="tag">no_std</span>
       <span class="tag">no heap</span>
@@ -226,16 +227,28 @@ footer a:hover { color: var(--text-primary); }
       <a class="btn primary" href="https://github.com/kmolan/multicalc-rust">GitHub</a>
       <a class="btn" href="https://crates.io/crates/multicalc"><code>cargo add multicalc</code></a>
     </div>
-    <div class="reel">
-      <video src="media/combined_demo_reel.mp4" autoplay muted loop playsinline preload="metadata" aria-label="Demo reel: quadcopter, 2D robot and Franka Panda arm"></video>
+    <div class="trio">
+      <figure>
+        <img src="media/3d_drone_showcase.gif" alt="3d_drone_flight: a Skydio X2 on an error-state filter, LQR and geometric attitude control">
+        <figcaption>Skydio X2 quadrotor</figcaption>
+      </figure>
+      <figure>
+        <img src="media/3d_arm_torque_showcase.gif" alt="3d_arm_torque: a Franka Panda on computed torque and a momentum observer holds its path under random pushes">
+        <figcaption>Franka Panda under torque control</figcaption>
+      </figure>
+      <figure>
+        <img src="media/2d_localization_obstacle_avoidance_showcase.gif" alt="2d_localization_obstacle_avoidance: a differential-drive robot localizes with a particle filter and laps an obstacle course">
+        <figcaption>Differential-drive mobile robot</figcaption>
+      </figure>
     </div>
 
     <div class="stats">
-      <div class="stat"><div class="v">1<small>kHz</small></div><div class="l">full control loop</div></div>
-      <div class="stat"><div class="v">1e-10</div><div class="l">tolerance vs MuJoCo and Pinocchio</div></div>
-      <div class="stat"><div class="v">490<small>ns</small></div><div class="l">7-DoF inverse dynamics</div></div>
-      <div class="stat"><div class="v">646<small>ns</small></div><div class="l">7-DoF forward dynamics</div></div>
-      <div class="stat"><div class="v">22<small>µs</small></div><div class="l">7-DoF inverse kinematics</div></div>
+      <div class="stat"><div class="v">1<small>kHz</small></div><div class="l">full arm loop on a 100 MHz Cortex-M4F</div></div>
+      <div class="stat"><div class="v">1e-10</div><div class="l">agreement with Pinocchio, on silicon</div></div>
+      <div class="stat"><div class="v">483<small>ns</small></div><div class="l">7-DoF inverse dynamics, x86_64</div></div>
+      <div class="stat"><div class="v">723<small>ns</small></div><div class="l">7-DoF forward dynamics, x86_64</div></div>
+      <div class="stat"><div class="v">20<small>µs</small></div><div class="l">7-DoF inverse kinematics, x86_64</div></div>
+      <div class="stat"><div class="v">2.5<small>s</small></div><div class="l">clean build, one dependency</div></div>
     </div>
   </div>
 </header>
