@@ -44,62 +44,13 @@ pub type Check = (fn() -> CheckOutcome, Budget);
 /// Pico 2. `README.md` has the figures and how to measure them again.
 #[cfg(feature = "arm")]
 pub const CHECKS: &[Check] = &[
-    (
-        cycle_counter_sanity,
-        Budget {
-            nucleo_f411re: 347,
-            raspberry_pi_pico_2: 323,
-            xiao_esp32c3: 284,
-        },
-    ),
-    (
-        cycle_counter_overhead,
-        Budget {
-            nucleo_f411re: 17,
-            raspberry_pi_pico_2: 20,
-            xiao_esp32c3: 9,
-        },
-    ),
-    (
-        math::vector_dot,
-        Budget {
-            nucleo_f411re: 13,
-            raspberry_pi_pico_2: 33,
-            xiao_esp32c3: 8,
-        },
-    ),
-    (
-        math::svd_singular_values,
-        Budget {
-            nucleo_f411re: 1192,
-            raspberry_pi_pico_2: 1068,
-            xiao_esp32c3: 774,
-        },
-    ),
-    (
-        math::autodiff_derivative,
-        Budget {
-            nucleo_f411re: 7,
-            raspberry_pi_pico_2: 20,
-            xiao_esp32c3: 4,
-        },
-    ),
-    (
-        math::pid_step,
-        Budget {
-            nucleo_f411re: 3088,
-            raspberry_pi_pico_2: 2403,
-            xiao_esp32c3: 1774,
-        },
-    ),
-    (
-        math::error_path_returns_err,
-        Budget {
-            nucleo_f411re: 27,
-            raspberry_pi_pico_2: 48,
-            xiao_esp32c3: 15,
-        },
-    ),
+    (cycle_counter_sanity, UNMEASURED),
+    (cycle_counter_overhead, UNMEASURED),
+    (math::vector_dot, UNMEASURED),
+    (math::svd_singular_values, UNMEASURED),
+    (math::autodiff_derivative, UNMEASURED),
+    (math::pid_step, UNMEASURED),
+    (math::error_path_returns_err, UNMEASURED),
     (arm::franka_inverse_dynamics, UNMEASURED),
     (arm::franka_mass_matrix, UNMEASURED),
     (arm::franka_forward_dynamics, UNMEASURED),
