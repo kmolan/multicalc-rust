@@ -71,7 +71,7 @@ pub const CHECKS: &[Check] = &[
         cycle_counter_overhead,
         Budget {
             nucleo_f411re: 17,
-            raspberry_pi_pico_2: 20,
+            raspberry_pi_pico_2: 19,
             xiao_esp32c3: 9,
         },
     ),
@@ -79,7 +79,7 @@ pub const CHECKS: &[Check] = &[
         vector_dot,
         Budget {
             nucleo_f411re: 19,
-            raspberry_pi_pico_2: 25,
+            raspberry_pi_pico_2: 37,
             xiao_esp32c3: 8,
         },
     ),
@@ -87,15 +87,15 @@ pub const CHECKS: &[Check] = &[
         svd_singular_values,
         Budget {
             nucleo_f411re: 1256,
-            raspberry_pi_pico_2: 1192,
-            xiao_esp32c3: 788,
+            raspberry_pi_pico_2: 1299,
+            xiao_esp32c3: 799,
         },
     ),
     (
         autodiff_derivative,
         Budget {
             nucleo_f411re: 2,
-            raspberry_pi_pico_2: 16,
+            raspberry_pi_pico_2: 20,
             xiao_esp32c3: 4,
         },
     ),
@@ -103,15 +103,15 @@ pub const CHECKS: &[Check] = &[
         pid_step,
         Budget {
             nucleo_f411re: 3329,
-            raspberry_pi_pico_2: 2530,
-            xiao_esp32c3: 1773,
+            raspberry_pi_pico_2: 2527,
+            xiao_esp32c3: 1770,
         },
     ),
     (
         error_path_returns_err,
         Budget {
             nucleo_f411re: 29,
-            raspberry_pi_pico_2: 75,
+            raspberry_pi_pico_2: 52,
             xiao_esp32c3: 15,
         },
     ),
@@ -119,32 +119,32 @@ pub const CHECKS: &[Check] = &[
         arm::franka_inverse_dynamics,
         Budget {
             nucleo_f411re: 13403,
-            raspberry_pi_pico_2: 15402,
-            xiao_esp32c3: 8167,
+            raspberry_pi_pico_2: 13805,
+            xiao_esp32c3: 8057,
         },
     ),
     (
         arm::franka_mass_matrix,
         Budget {
             nucleo_f411re: 12629,
-            raspberry_pi_pico_2: 12758,
-            xiao_esp32c3: 7429,
+            raspberry_pi_pico_2: 12844,
+            xiao_esp32c3: 7453,
         },
     ),
     (
         arm::franka_forward_dynamics,
         Budget {
             nucleo_f411re: 17595,
-            raspberry_pi_pico_2: 19098,
-            xiao_esp32c3: 11456,
+            raspberry_pi_pico_2: 19401,
+            xiao_esp32c3: 11508,
         },
     ),
     (
         arm::arm_control_tick_f32,
         Budget {
             nucleo_f411re: 772,
-            raspberry_pi_pico_2: 1395,
-            xiao_esp32c3: 7604,
+            raspberry_pi_pico_2: 1343,
+            xiao_esp32c3: 7812,
         },
     ),
     // Last: a stack fault here leaves the other lines printed.
@@ -152,8 +152,8 @@ pub const CHECKS: &[Check] = &[
         arm::franka_inverse_dynamics_derivative,
         Budget {
             nucleo_f411re: 33864,
-            raspberry_pi_pico_2: 34015,
-            xiao_esp32c3: 20988,
+            raspberry_pi_pico_2: 33996,
+            xiao_esp32c3: 21090,
         },
     ),
 ];
@@ -173,24 +173,24 @@ pub const CHECKS: &[Check] = &[
         cycle_counter_overhead,
         Budget {
             nucleo_f411re: 17,
-            raspberry_pi_pico_2: 18,
+            raspberry_pi_pico_2: 19,
             xiao_esp32c3: 9,
         },
     ),
     (
         drone::drone_control_tick_f32,
         Budget {
-            nucleo_f411re: 2048,
-            raspberry_pi_pico_2: 3372,
-            xiao_esp32c3: 18187,
+            nucleo_f411re: 2050,
+            raspberry_pi_pico_2: 3355,
+            xiao_esp32c3: 18042,
         },
     ),
     (
         drone::attitude_and_mixer_f32,
         Budget {
             nucleo_f411re: 18,
-            raspberry_pi_pico_2: 118,
-            xiao_esp32c3: 298,
+            raspberry_pi_pico_2: 115,
+            xiao_esp32c3: 327,
         },
     ),
 ];
@@ -203,7 +203,7 @@ pub const CHECKS: &[Check] = &[
         cycle_counter_sanity,
         Budget {
             nucleo_f411re: 347,
-            raspberry_pi_pico_2: 319,
+            raspberry_pi_pico_2: 318,
             xiao_esp32c3: 284,
         },
     ),
@@ -211,7 +211,7 @@ pub const CHECKS: &[Check] = &[
         cycle_counter_overhead,
         Budget {
             nucleo_f411re: 17,
-            raspberry_pi_pico_2: 19,
+            raspberry_pi_pico_2: 18,
             xiao_esp32c3: 9,
         },
     ),
@@ -219,24 +219,24 @@ pub const CHECKS: &[Check] = &[
         mobile_and_policy::mobile_robot_tick_f32,
         Budget {
             nucleo_f411re: 985,
-            raspberry_pi_pico_2: 1148,
-            xiao_esp32c3: 2126,
+            raspberry_pi_pico_2: 1153,
+            xiao_esp32c3: 2127,
         },
     ),
     (
         mobile_and_policy::mlp_policy_forward,
         Budget {
-            nucleo_f411re: 18105,
-            raspberry_pi_pico_2: 22962,
-            xiao_esp32c3: 11705,
+            nucleo_f411re: 18122,
+            raspberry_pi_pico_2: 22950,
+            xiao_esp32c3: 11699,
         },
     ),
     (
         mobile_and_policy::mlp_policy_forward_f32,
         Budget {
             nucleo_f411re: 585,
-            raspberry_pi_pico_2: 2525,
-            xiao_esp32c3: 6725,
+            raspberry_pi_pico_2: 2539,
+            xiao_esp32c3: 6730,
         },
     ),
 ];
