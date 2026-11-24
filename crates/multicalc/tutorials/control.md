@@ -170,14 +170,15 @@ let settled = attitude_controller.torque(
 assert!(settled.norm() < 1e-14);
 ```
 
-`Lqr::new` (Riccati) and `certify_stability` (discrete Lyapunov `A_clᵀ·P·A_cl − P + Q = 0`) each
+`Lqr::new` (Riccati) and `certify_stability` (discrete Lyapunov `A_clᵀ·P·A_cl − P + I = 0`) each
 cost `O(n³)` per iteration over an iteration budget. Run them at startup or on the bench, never in
 the loop. `certify_stability` returns:
 
 - `LinalgError::DidNotConverge` (in `ControlError::Linalg`) if the closed loop is not stable. A
   solution exists only for a stable loop.
-- `LinalgError::NotPositiveDefinite` if the solution is not positive definite. Then `state_cost`
-  does not observe every state direction, and the check cannot prove stability.
+- `LinalgError::NotPositiveDefinite` if rounding leaves the solution without a Cholesky factor.
+  The identity weight makes the solution positive definite for each stable loop, for any
+  `state_cost`.
 
 ## Model-based torque control
 

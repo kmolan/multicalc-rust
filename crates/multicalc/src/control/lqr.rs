@@ -44,7 +44,6 @@ pub struct Lqr<const N: usize, const M: usize, T: Numeric = f64> {
     gain: Matrix<M, N, T>,
     closed_loop: Matrix<N, N, T>,
     cost_to_go: Matrix<N, N, T>,
-    state_cost: Matrix<N, N, T>,
 }
 
 impl<const N: usize, const M: usize, T: Numeric> Lqr<N, M, T> {
@@ -86,7 +85,6 @@ impl<const N: usize, const M: usize, T: Numeric> Lqr<N, M, T> {
             gain,
             closed_loop,
             cost_to_go,
-            state_cost,
         })
     }
 
@@ -130,26 +128,22 @@ impl<const N: usize, const M: usize, T: Numeric> Lqr<N, M, T> {
         feedforward - self.gain * (state - reference)
     }
 
-    /// Checks that the loop this controller closes actually settles, and returns the proof.
+    /// Checks that the closed loop is Schur stable, and returns the certificate `P`.
     ///
-    /// It solves `A_clᵀ·P·A_cl − P + Q = 0` for the closed loop and confirms the answer is
-    /// positive definite. A solution exists only when repeated application of the closed loop
-    /// shrinks every direction, so failing to find one is the verdict that the loop does not
-    /// settle. The returned matrix is the energy-like quantity that the loop drives down every
-    /// step.
+    /// Solves `A_clᵀ·P·A_cl − P + I = 0`. `P` is positive definite if and only if each eigenvalue
+    /// of `A_cl` is inside the unit circle, for any positive-semidefinite `state_cost`.
+    /// `xᵀ·P·x` decreases by `xᵀ·x` each step.
     ///
-    /// This costs about as much as building the controller, so run it at startup or on the bench
-    /// and never inside a control loop.
+    /// The cost is about that of [`new`](Self::new). Run it at startup, not in the control loop.
     ///
     /// Returns [`ControlError::Linalg`] carrying
-    /// [`LinalgError::DidNotConverge`](crate::error::LinalgError::DidNotConverge) if the loop does
-    /// not settle, or
-    /// [`LinalgError::NotPositiveDefinite`](crate::error::LinalgError::NotPositiveDefinite) if the
-    /// answer is not positive definite, which happens when the state cost cannot see every
-    /// direction the state can move in.
+    /// [`LinalgError::DidNotConverge`](crate::error::LinalgError::DidNotConverge) if the closed
+    /// loop is not stable, or
+    /// [`LinalgError::NotPositiveDefinite`](crate::error::LinalgError::NotPositiveDefinite) if
+    /// rounding leaves `P` without a Cholesky factor.
     pub fn certify_stability(&self) -> Result<Matrix<N, N, T>, ControlError> {
-        let certificate = solve_discrete_lyapunov(self.closed_loop, self.state_cost)?;
-        // Only whether a factor exists matters here, not the factor itself.
+        let certificate = solve_discrete_lyapunov(self.closed_loop, Matrix::identity())?;
+        // Only the existence of a factor matters here.
         let _ = certificate.cholesky()?;
         Ok(certificate)
     }

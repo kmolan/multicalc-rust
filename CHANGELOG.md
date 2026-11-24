@@ -188,6 +188,10 @@ non-positive input is now documented instead of silent. @naseem173 (#307)
 - Root counting and isolation return no roots for a nonzero constant polynomial with unused
   higher-order coefficient slots, instead of underflowing the Sturm-chain index and panicking.
 
+- **LQR certificate for a semidefinite state cost.** `Lqr::certify_stability` solves
+  `A_clᵀ·P·A_cl − P + I = 0`. A stable loop certifies when `state_cost` does not see a stable mode.
+  Such a loop returned `NotPositiveDefinite` before. (#288)
+
 ## [0.10.0] - 2026-08-09
 
 A feature release adding signal processing, polynomials and minimum-snap trajectories, LQR and

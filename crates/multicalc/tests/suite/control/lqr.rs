@@ -75,8 +75,31 @@ fn certificate_is_positive_definite() {
     assert!(certificate.cholesky().is_ok());
 
     let closed = controller.closed_loop();
-    let residual = closed.transpose() * certificate * closed - certificate + state_cost;
+    let residual = closed.transpose() * certificate * closed - certificate + Matrix::identity();
     assert!(residual.frobenius_norm() < 1e-10);
+}
+
+#[test]
+fn certifies_a_state_cost_that_misses_a_stable_mode() {
+    let state_transition = Matrix::<2, 2>::new([[1.1, 0.0], [0.0, 0.5]]);
+    let input_model = Matrix::<2, 1>::new([[1.0], [0.0]]);
+    let state_cost = Matrix::<2, 2>::from_diagonal([1.0, 0.0]);
+    let input_cost = Matrix::<1, 1>::new([[1.0]]);
+    let controller = Lqr::new(state_transition, input_model, state_cost, input_cost).unwrap();
+    let certificate = controller.certify_stability().unwrap();
+    assert!(certificate.cholesky().is_ok());
+
+    let closed = controller.closed_loop();
+    let residual = closed.transpose() * certificate * closed - certificate + Matrix::identity();
+    assert!(residual.frobenius_norm() < 1e-10);
+}
+
+#[test]
+fn certifies_a_semidefinite_state_cost() {
+    let (state_transition, input_model, _, input_cost) = double_integrator::<f64>();
+    let state_cost = Matrix::<2, 2>::from_diagonal([1.0, 0.0]);
+    let controller = Lqr::new(state_transition, input_model, state_cost, input_cost).unwrap();
+    assert!(controller.certify_stability().is_ok());
 }
 
 #[test]
