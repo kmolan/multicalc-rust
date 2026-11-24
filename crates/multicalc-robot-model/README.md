@@ -3,7 +3,15 @@
 Reads MuJoCo MJCF and URDF model files into the robot types of [`multicalc`](https://crates.io/crates/multicalc). The `model_viewer` binary draws a model file.
 
 ![model_viewer drawing a Skydio X2, a TurtleBot3 Burger, a Franka Emika Panda, a Unitree Go2, a
-Shadow Hand and a Unitree H1](res/demo.jpg)
+Shadow Hand and a Unitree H1](https://raw.githubusercontent.com/kmolan/multicalc-rust/main/crates/multicalc-robot-model/res/demo.jpg)
+
+## Install
+
+```sh
+cargo add multicalc multicalc-robot-model
+```
+
+The two crates release together, at the same version.
 
 ## Loading a model
 
@@ -15,6 +23,13 @@ Shadow Hand and a Unitree H1](res/demo.jpg)
 | `urdf::load_path` / `urdf::load_str` | explicit |
 
 `RobotModel::format()` reports which reader ran.
+
+## Your own model, at runtime
+
+The const generics of `kinematic_tree::<MAX_JOINTS, MAX_CONFIG>()` are a capacity, not a model
+size. One binary with `kinematic_tree::<32, 38>()` loads each model of 32 bodies or fewer, with
+no recompile. A larger model gives `ModelError::TreeCapacityExceeded`. A floating base needs
+six more configuration slots than bodies.
 
 ## Examples
 
