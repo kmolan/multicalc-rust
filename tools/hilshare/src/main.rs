@@ -4,13 +4,23 @@
 //! time of the check. A check passes when each run agreed and the warm figure is not above the
 //! budget of the board. The return from `main` is the exit that the kernel reports.
 //!
-//! `checks.rs` is the only module that uses the API of multicalc.
+//! `checks` is the only module that uses the API of multicalc. A Cargo feature selects the app,
+//! and each app has its own `CHECKS`.
 //!
 //! A panic ends the process with no `HILSHARE_RESULT`, and HILShare reports a run that started
 //! and did not finish.
 
 #![no_main]
 #![no_std]
+
+#[cfg(not(any(feature = "arm", feature = "drone", feature = "mobile_and_policy")))]
+compile_error!("select one app: --features arm, drone or mobile_and_policy");
+#[cfg(any(
+    all(feature = "arm", feature = "drone"),
+    all(feature = "arm", feature = "mobile_and_policy"),
+    all(feature = "drone", feature = "mobile_and_policy"),
+))]
+compile_error!("select one app at a time");
 
 use core::fmt::Write;
 
@@ -30,6 +40,14 @@ stack_size! {0x2000}
 /// The board of this build. build-tab.sh sets `HILSHARE_BOARD` for each build, and build.rs
 /// refuses another name.
 pub const BOARD: &str = env!("HILSHARE_BOARD");
+
+/// The app of this build, from its Cargo feature.
+#[cfg(feature = "arm")]
+const APP: &str = "arm";
+#[cfg(feature = "drone")]
+const APP: &str = "drone";
+#[cfg(feature = "mobile_and_policy")]
+const APP: &str = "mobile_and_policy";
 
 /// A time limit in microseconds for each board.
 #[derive(Clone, Copy)]
@@ -60,7 +78,11 @@ fn main() {
     let mut console = Console::writer();
 
     let _ = writeln!(console, "HILSHARE_START_EXECUTION");
-    let _ = writeln!(console, "HILSHARE_FIRMWARE={}", env!("CARGO_PKG_VERSION"));
+    let _ = writeln!(
+        console,
+        "HILSHARE_FIRMWARE={}+{APP}",
+        env!("CARGO_PKG_VERSION")
+    );
 
     let Some(clock_hz) = cycles::clock_hz() else {
         let _ = writeln!(console, "HILSHARE_CHECK name=clock_rate status=FAIL");
@@ -71,7 +93,7 @@ fn main() {
 
     let mut passed = 0_usize;
     let mut round_trip_cycles = 0_u32;
-    for (index, (check, budget)) in checks::CHECKS.into_iter().enumerate() {
+    for (index, &(check, budget)) in checks::CHECKS.iter().enumerate() {
         let first = check();
         let mut warm = u32::MAX;
         let mut agreed = first.passed;
