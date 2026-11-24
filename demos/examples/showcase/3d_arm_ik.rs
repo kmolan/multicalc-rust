@@ -23,8 +23,9 @@ use multicalc::kinematics::{
 use multicalc::linear_algebra::Vector;
 use multicalc::spatial::{SE3, SO3};
 use multicalc_demos::loop_util::{LatencyRing, Pacer};
+use multicalc_demos::visualization::franka_panda_mesh::load_body_mesh;
 use multicalc_demos::{RerunSink, Rgba, VizSink};
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::f64::consts::TAU;
 use std::path::Path;
 use std::time::Instant;
@@ -275,168 +276,6 @@ fn gnomon() -> ([[f64; 3]; 3], [[f64; 3]; 3]) {
     (origins, vectors)
 }
 
-// panda.xml `<asset>` materials.
-const MAT_WHITE: Rgba = [255, 255, 255, 255];
-const MAT_OFF_WHITE: Rgba = [230, 235, 237, 255];
-const MAT_BLACK: Rgba = [64, 64, 64, 255];
-const MAT_GREEN: Rgba = [0, 255, 0, 255];
-const MAT_LIGHT_BLUE: Rgba = [10, 138, 199, 255];
-
-/// One body's visual sub-meshes: filename (relative to `MESH_DIR`, `.obj` implied) and material
-/// color, from panda.xml's `<geom class="visual">` entries. No geom has its own `pos`/`quat`.
-#[must_use]
-fn body_meshes(slot: usize) -> &'static [(&'static str, Rgba)] {
-    match slot {
-        0 => &[
-            ("link0_0", MAT_OFF_WHITE),
-            ("link0_1", MAT_BLACK),
-            ("link0_2", MAT_OFF_WHITE),
-            ("link0_3", MAT_BLACK),
-            ("link0_4", MAT_OFF_WHITE),
-            ("link0_5", MAT_BLACK),
-            ("link0_7", MAT_WHITE),
-            ("link0_8", MAT_WHITE),
-            ("link0_9", MAT_BLACK),
-            ("link0_10", MAT_OFF_WHITE),
-            ("link0_11", MAT_WHITE),
-        ],
-        1 => &[("link1", MAT_WHITE)],
-        2 => &[("link2", MAT_WHITE)],
-        3 => &[
-            ("link3_0", MAT_WHITE),
-            ("link3_1", MAT_WHITE),
-            ("link3_2", MAT_WHITE),
-            ("link3_3", MAT_BLACK),
-        ],
-        4 => &[
-            ("link4_0", MAT_WHITE),
-            ("link4_1", MAT_WHITE),
-            ("link4_2", MAT_BLACK),
-            ("link4_3", MAT_WHITE),
-        ],
-        5 => &[
-            ("link5_0", MAT_BLACK),
-            ("link5_1", MAT_WHITE),
-            ("link5_2", MAT_WHITE),
-        ],
-        6 => &[
-            ("link6_0", MAT_OFF_WHITE),
-            ("link6_1", MAT_WHITE),
-            ("link6_2", MAT_BLACK),
-            ("link6_3", MAT_WHITE),
-            ("link6_4", MAT_WHITE),
-            ("link6_5", MAT_WHITE),
-            ("link6_6", MAT_WHITE),
-            ("link6_7", MAT_LIGHT_BLUE),
-            ("link6_8", MAT_LIGHT_BLUE),
-            ("link6_9", MAT_BLACK),
-            ("link6_10", MAT_BLACK),
-            ("link6_11", MAT_WHITE),
-            ("link6_12", MAT_GREEN),
-            ("link6_13", MAT_WHITE),
-            ("link6_14", MAT_BLACK),
-            ("link6_15", MAT_BLACK),
-            ("link6_16", MAT_WHITE),
-        ],
-        7 => &[
-            ("link7_0", MAT_WHITE),
-            ("link7_1", MAT_BLACK),
-            ("link7_2", MAT_BLACK),
-            ("link7_3", MAT_BLACK),
-            ("link7_4", MAT_BLACK),
-            ("link7_5", MAT_BLACK),
-            ("link7_6", MAT_BLACK),
-            ("link7_7", MAT_WHITE),
-        ],
-        8 => &[
-            ("hand_0", MAT_OFF_WHITE),
-            ("hand_1", MAT_BLACK),
-            ("hand_2", MAT_BLACK),
-            ("hand_3", MAT_WHITE),
-            ("hand_4", MAT_OFF_WHITE),
-        ],
-        _ => unreachable!("nine slots"),
-    }
-}
-
-/// Parses one `.obj` into an indexed triangle mesh.
-///
-/// Faces are `v//vn` (vertex + normal index, no texcoord); a vertex is a (position, normal) pair
-/// since the two indices can differ, so positions may repeat across output vertices. Faces are
-/// always triangles. `mtllib`/`usemtl` are skipped (the referenced `.mtl` isn't shipped) — color
-/// comes from `body_meshes` instead.
-fn read_obj(path: &Path) -> (Vec<[f64; 3]>, Vec<[f64; 3]>, Vec<[u32; 3]>) {
-    let text = std::fs::read_to_string(path)
-        .unwrap_or_else(|err| panic!("reading mesh file {path:?}: {err}"));
-
-    let mut positions = Vec::new();
-    let mut raw_normals = Vec::new();
-    let mut vertices = Vec::new();
-    let mut normals = Vec::new();
-    let mut triangles = Vec::new();
-    let mut seen: HashMap<(u32, u32), u32> = HashMap::new();
-
-    for line in text.lines() {
-        let mut fields = line.split_ascii_whitespace();
-        match fields.next() {
-            Some("v") => {
-                let xyz: Vec<f64> = fields.map(|f| f.parse().unwrap()).collect();
-                positions.push([xyz[0], xyz[1], xyz[2]]);
-            }
-            Some("vn") => {
-                let xyz: Vec<f64> = fields.map(|f| f.parse().unwrap()).collect();
-                raw_normals.push([xyz[0], xyz[1], xyz[2]]);
-            }
-            Some("f") => {
-                let mut triangle = [0u32; 3];
-                for (corner, field) in fields.enumerate() {
-                    let mut parts = field.split('/');
-                    let vertex_index: u32 = parts.next().unwrap().parse().unwrap();
-                    let _texture_coordinate = parts.next(); // always empty
-                    let normal_index: u32 = parts.next().unwrap().parse().unwrap();
-                    let key = (vertex_index, normal_index);
-                    let index = *seen.entry(key).or_insert_with(|| {
-                        vertices.push(positions[(vertex_index - 1) as usize]);
-                        normals.push(raw_normals[(normal_index - 1) as usize]);
-                        (vertices.len() - 1) as u32
-                    });
-                    triangle[corner] = index;
-                }
-                triangles.push(triangle);
-            }
-            _ => {}
-        }
-    }
-    (vertices, normals, triangles)
-}
-
-/// Merges one body's visual sub-meshes into one vertex/normal/triangle/color set.
-#[must_use]
-fn load_body_mesh(
-    mesh_dir: &Path,
-    slot: usize,
-) -> (Vec<[f64; 3]>, Vec<[f64; 3]>, Vec<[u32; 3]>, Vec<Rgba>) {
-    let mut vertices = Vec::new();
-    let mut normals = Vec::new();
-    let mut triangles = Vec::new();
-    let mut colors = Vec::new();
-
-    for &(file, color) in body_meshes(slot) {
-        let (part_vertices, part_normals, part_triangles) =
-            read_obj(&mesh_dir.join(format!("{file}.obj")));
-        let offset = vertices.len() as u32;
-        colors.extend(std::iter::repeat_n(color, part_vertices.len()));
-        vertices.extend(part_vertices);
-        normals.extend(part_normals);
-        triangles.extend(
-            part_triangles
-                .into_iter()
-                .map(|[i, j, k]| [i + offset, j + offset, k + offset]),
-        );
-    }
-    (vertices, normals, triangles, colors)
-}
-
 /// What one cycle of the target path costs the solver, and how much of the arm it uses.
 struct Sweep {
     /// Worst position residual over the cycle, metres.
@@ -608,8 +447,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         slot => format!("world/arm/link{slot}/mesh"),
     };
     for slot in 0..N_FRAMES {
-        let (vertices, normals, triangles, colors) = load_body_mesh(&mesh_dir, slot);
-        sink.mesh3d(&mesh_path(slot), &vertices, &triangles, &normals, &colors)?;
+        let mesh = load_body_mesh(&mesh_dir, slot)?;
+        sink.mesh3d(
+            &mesh_path(slot),
+            &mesh.vertices,
+            &mesh.triangles,
+            &mesh.normals,
+            &mesh.colors,
+        )?;
     }
 
     sink.series_style("plots/tool_error", ERROR, "tracking lag (m)", 2.0)?;

@@ -24,6 +24,13 @@ fn record_writes_nonempty_rrd() -> Result<(), VizError> {
         &[[1.0, 0.0, 0.0]],
         &[[0xc9, 0x85, 0x00, 0xff]],
     )?;
+    sink.arrows3d_styled(
+        "pose/push",
+        &[[0.0, 0.0, 0.0]],
+        &[[0.0, 1.0, 0.0]],
+        &[[0xe6, 0x67, 0x67, 0xff]],
+        &[0.05],
+    )?;
     sink.flush()?;
     drop(sink);
 

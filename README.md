@@ -103,7 +103,7 @@ Each module has its own error enum, and each one converts into `CalcError`.
 - **[Website](https://kmolan.github.io/multicalc-rust/)**: demos, silicon timings, latency and accuracy charts.
 - **[Tutorials](crates/multicalc/tutorials/README.md)**: one page for each module.
 - **[API docs](https://docs.rs/multicalc)**: the full API reference.
-- **[Demos](demos)**: a self-checking example for each module, and six live showcases. Run one with
+- **[Demos](demos)**: a self-checking example for each module, and seven live showcases. Run one with
   `cargo run -p multicalc-demos --example <name>`.
 - **[Benchmarks](benchmarks)**: accuracy tables for each module, and latency.
 
