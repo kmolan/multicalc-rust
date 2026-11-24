@@ -18,6 +18,7 @@ fn colors_iter<'colors>(colors: &'colors [Rgba]) -> impl Iterator<Item = rerun::
 pub struct RerunSink {
     stream: rerun::RecordingStream,
     always_static: bool,
+    recording: bool,
 }
 
 impl RerunSink {
@@ -38,6 +39,7 @@ impl RerunSink {
         Ok(Self {
             stream,
             always_static: false,
+            recording: false,
         })
     }
 
@@ -49,7 +51,23 @@ impl RerunSink {
         Ok(Self {
             stream,
             always_static: false,
+            recording: true,
         })
+    }
+
+    /// [`record`](Self::record) to the path in `MULTICALC_RECORD` when it is set, else
+    /// [`live`](Self::live).
+    pub fn from_environment(app_id: &str) -> Result<Self, VizError> {
+        match std::env::var_os("MULTICALC_RECORD") {
+            Some(path) => Self::record(app_id, path),
+            None => Self::live(app_id),
+        }
+    }
+
+    /// True when the stream writes to a file.
+    #[must_use]
+    pub fn is_recording(&self) -> bool {
+        self.recording
     }
 
     /// Sends one archetype, either at the current timeline position or outside time altogether.

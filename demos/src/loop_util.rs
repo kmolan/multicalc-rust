@@ -8,6 +8,9 @@ use std::time::{Duration, Instant};
 /// One millisecond: the target period of the 1 kHz demos.
 pub const TICK: Duration = Duration::from_millis(1);
 
+/// Ticks of a showcase recording: 20 s of logical time.
+pub const RECORD_TICKS: i64 = 20_000;
+
 /// Paces a loop to 1 kHz boundaries.
 ///
 /// `thread::sleep` overshoots by 50–100 µs on Linux, so [`wait`](Pacer::wait) sleeps only to
