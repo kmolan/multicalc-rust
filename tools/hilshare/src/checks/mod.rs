@@ -20,6 +20,8 @@ mod arm;
 mod drone;
 #[cfg(feature = "arm")]
 mod math;
+#[cfg(feature = "mobile_and_policy")]
+mod mobile_and_policy;
 
 /// Whether the answer agreed, the cycles it took, and the headline scalar.
 pub struct CheckOutcome {
@@ -122,6 +124,7 @@ pub const CHECKS: &[Check] = &[
 pub const CHECKS: &[Check] = &[
     (cycle_counter_sanity, UNMEASURED),
     (cycle_counter_overhead, UNMEASURED),
+    (mobile_and_policy::mobile_robot_tick_f32, UNMEASURED),
 ];
 
 /// No limit: the budget of a check that has no figure on its board yet.
@@ -194,13 +197,11 @@ fn cycle_counter_overhead() -> CheckOutcome {
 }
 
 /// `|got - want| <= abs + rel * max(|got|, |want|)`.
-#[cfg_attr(not(feature = "arm"), allow(dead_code))]
 pub(crate) fn close(got: f64, want: f64, abs: f64, rel: f64) -> bool {
     (got - want).abs() <= abs + rel * got.abs().max(want.abs())
 }
 
 /// A failed outcome: the work returned an error or a setup step gave nothing.
-#[allow(dead_code)]
 pub(crate) fn failed(name: &'static str, cycles: u32) -> CheckOutcome {
     CheckOutcome {
         name,
