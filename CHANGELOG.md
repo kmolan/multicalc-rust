@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`multicalc-robot-model` on crates.io.** The MJCF and URDF reader releases with `multicalc`, at
+  the same version. A tree's const generics are a capacity, so one binary loads each model up to
+  that size.
 - **`3d_arm_torque` showcase.** A Franka Panda on 1 kHz computed torque, with a payload that its
   model lacks and random pushes at the hand. `τ = τ_computed − r`, with `r` from
   `MomentumObserver`, holds the path.
