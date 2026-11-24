@@ -210,6 +210,12 @@ non-positive input is now documented instead of silent. @naseem173 (#307)
   `|f'(x)|·(1 + |x|) ≤ ε·|f(x)|`. Only an exactly zero derivative caused this error before, so a
   derivative such as `1e-240` sent the iterate to about `1e240`. (#206)
 
+- **Scale-safe small matrix inverses.** `Matrix::inverse` normalizes a 1×1 to 4×4 matrix by its
+  largest entry before the determinant test. A regular 3×3 matrix scaled by `1e150` gave a NaN
+  inverse, a singular one passed, and a regular one scaled by `1e-150` failed. A 1×1 inverse of
+  `1e-310` returned infinity. Each case now gives the correct result or `Singular`, and a
+  non-finite entry gives `NonFinite`. (#208)
+
 ## [0.10.0] - 2026-08-09
 
 A feature release adding signal processing, polynomials and minimum-snap trajectories, LQR and
