@@ -372,20 +372,23 @@ let tree = KinematicTree::<2, 2, f64>::try_from_joints(
     ],
     &[JointParent::World, JointParent::Joint(0)],
 )?;
-let arm = SpatialInertia::new(
-    1.5,
-    Vector::new([0.5, 0.0, 0.0]),
-    Matrix::from_diagonal([0.02, 0.02, 0.02]),
-)?;
-let body = ArticulatedBody::new(tree, &[Some(arm), Some(arm)], Vector::new([0.0, 0.0, -9.81]))?;
+let mass = 1.5;
+let center_of_mass = Vector::new([0.5, 0.0, 0.0]);
+let rotational_inertia = Matrix::from_diagonal([0.02; 3]);
+let gravity = Vector::new([0.0, 0.0, -9.81]);
+let arm = SpatialInertia::new(mass, center_of_mass, rotational_inertia)?;
+let body = ArticulatedBody::new(tree, &[Some(arm), Some(arm)], gravity)?;
 
-// K = 50 rad/s at 1 kHz; contact is |r| > 0.3 N·m on any joint.
+// Contact is |r| above the threshold on any joint.
+let gain = 50.0;
 let timestep = 0.001;
-let mut observer = MomentumObserver::new(Vector::new([50.0, 50.0]), timestep)?;
 let contact_threshold = 0.3;
+let mut observer = MomentumObserver::new(Vector::new([gain, gain]), timestep)?;
 
-// A driven swing, and an unmodeled push over ticks 500 to 699.
+// A driven swing, and an unmodeled push over ticks `push_start..push_end`.
 let push = Vector::new([0.8, -0.5]);
+let push_start = 500;
+let push_end = 700;
 let mut position = Vector::new([1.2, -0.5]);
 let mut velocity = Vector::zeros();
 let mut torque = Vector::zeros();
@@ -401,15 +404,17 @@ for tick in 0..1000 {
 
     let time = tick as f64 * timestep;
     torque = Vector::new([2.0 * (3.0 * time).sin(), (2.0 * time).cos()]);
-    let external = if (500..700).contains(&tick) { push } else { Vector::zeros() };
+    let external = if (push_start..push_end).contains(&tick) { push } else { Vector::zeros() };
     let acceleration = body.forward_dynamics_at(&position, &velocity, &(torque + external))?;
     velocity = velocity + acceleration.scale(timestep);
     position = position + velocity.scale(timestep);
 }
 
 // The flag rises about 10 ms after the push starts and falls about 30 ms after it stops.
-assert!(first_contact.is_some_and(|tick| (501..=520).contains(&tick)));
-assert!(last_contact.is_some_and(|tick| (700..=750).contains(&tick)));
+let rise_ticks = 20;
+let fall_ticks = 50;
+assert!(first_contact.is_some_and(|tick| tick > push_start && tick <= push_start + rise_ticks));
+assert!(last_contact.is_some_and(|tick| tick >= push_end && tick <= push_end + fall_ticks));
 # Ok::<(), multicalc::CalcError>(())
 ```
 

@@ -979,27 +979,31 @@ impl<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>
     /// use multicalc::linear_algebra::{Matrix, Vector};
     /// use multicalc::spatial::{SE3, SpatialInertia};
     ///
-    /// // One hinge about y; a 2 kg link balancing 0.5 m out along x.
-    /// let hinge = Joint::revolute(Vector::new([0.0, 1.0, 0.0]), SE3::<f64>::identity());
+    /// // One hinge about y; the link balances `moment_arm` out along x.
+    /// let hinge_axis = Vector::new([0.0, 1.0, 0.0]);
+    /// let hinge = Joint::revolute(hinge_axis, SE3::<f64>::identity());
     /// let tree = KinematicTree::<1, 1, f64>::try_from_joints(&[hinge], &[JointParent::World])
     ///     .unwrap();
-    /// let link = SpatialInertia::new(
-    ///     2.0,
-    ///     Vector::new([0.5, 0.0, 0.0]),
-    ///     Matrix::from_diagonal([0.01; 3]),
-    /// )
-    /// .unwrap();
-    /// let body =
-    ///     ArticulatedBody::new(tree, &[Some(link)], Vector::new([0.0, 0.0, -9.81])).unwrap();
+    /// let mass = 2.0;
+    /// let moment_arm = 0.5;
+    /// let own_inertia = 0.01;
+    /// let gravity_strength = 9.81;
+    /// let center_of_mass = Vector::new([moment_arm, 0.0, 0.0]);
+    /// let rotational_inertia = Matrix::from_diagonal([own_inertia; 3]);
+    /// let gravity = Vector::new([0.0, 0.0, -gravity_strength]);
+    /// let link = SpatialInertia::new(mass, center_of_mass, rotational_inertia).unwrap();
+    /// let body = ArticulatedBody::new(tree, &[Some(link)], gravity).unwrap();
     ///
     /// let level = body.tree().forward_kinematics(&Vector::zeros()).unwrap();
+    /// let rate = 2.0;
     /// let (momentum, bias) = body
-    ///     .generalized_momentum_and_bias(&level, &Vector::new([2.0]))
+    ///     .generalized_momentum_and_bias(&level, &Vector::new([rate]))
     ///     .unwrap();
     ///
     /// // `H` is constant on one hinge, so `Cᵀ·q̇ = 0` and `β = G(0) = −m·g·L`.
-    /// assert!((momentum[0] - (0.01 + 2.0 * 0.5 * 0.5) * 2.0).abs() < 1e-12);
-    /// assert!((bias[0] + 2.0 * 9.81 * 0.5).abs() < 1e-12);
+    /// let hinge_inertia = own_inertia + mass * moment_arm * moment_arm;
+    /// assert!((momentum[0] - hinge_inertia * rate).abs() < 1e-12);
+    /// assert!((bias[0] + mass * gravity_strength * moment_arm).abs() < 1e-12);
     /// ```
     pub fn generalized_momentum_and_bias(
         &self,

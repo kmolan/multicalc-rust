@@ -33,22 +33,22 @@ use crate::scalar::Numeric;
 /// use multicalc::linear_algebra::{Matrix, Vector};
 /// use multicalc::spatial::{SE3, SpatialInertia};
 ///
-/// let hinge = Joint::revolute(Vector::new([0.0, 1.0, 0.0]), SE3::<f64>::identity());
+/// let hinge_axis = Vector::new([0.0, 1.0, 0.0]);
+/// let hinge = Joint::revolute(hinge_axis, SE3::<f64>::identity());
 /// let tree = KinematicTree::<1, 1, f64>::try_from_joints(&[hinge], &[JointParent::World])
 ///     .unwrap();
-/// let link = SpatialInertia::new(
-///     2.0,
-///     Vector::new([0.5, 0.0, 0.0]),
-///     Matrix::from_diagonal([0.01, 0.01, 0.01]),
-/// )
-/// .unwrap();
-/// let body =
-///     ArticulatedBody::new(tree, &[Some(link)], Vector::new([0.0, 0.0, -9.81])).unwrap();
+/// let mass = 2.0;
+/// let center_of_mass = Vector::new([0.5, 0.0, 0.0]);
+/// let rotational_inertia = Matrix::from_diagonal([0.01; 3]);
+/// let gravity = Vector::new([0.0, 0.0, -9.81]);
+/// let link = SpatialInertia::new(mass, center_of_mass, rotational_inertia).unwrap();
+/// let body = ArticulatedBody::new(tree, &[Some(link)], gravity).unwrap();
 ///
-/// // K = 50 rad/s at 1 kHz.
-/// let mut observer = MomentumObserver::new(Vector::new([50.0]), 0.001).unwrap();
+/// let gain = 50.0;
+/// let timestep = 0.001;
+/// let mut observer = MomentumObserver::new(Vector::new([gain]), timestep).unwrap();
 ///
-/// // Held level against a 0.8 N·m push: τ = G(q) − τ_ext at q̇ = 0.
+/// // Held level against a push: τ = G(q) − τ_ext at q̇ = 0.
 /// let push = 0.8;
 /// let level = Vector::zeros();
 /// let still = Vector::zeros();
@@ -56,11 +56,12 @@ use crate::scalar::Numeric;
 ///
 /// let mut residual = observer.update_at(&body, &level, &still, &torque).unwrap();
 /// assert_eq!(residual[0], 0.0);
-/// for _ in 0..500 {
+/// let tick_count = 100;
+/// for _ in 0..tick_count {
 ///     residual = observer.update_at(&body, &level, &still, &torque).unwrap();
 /// }
-/// // r = τ_ext·(1 − 1.05^−500).
-/// assert!((residual[0] - push).abs() < 1e-9);
+/// let step_response = 1.0 - (1.0 + gain * timestep).powi(-tick_count);
+/// assert!((residual[0] - push * step_response).abs() < 1e-12);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MomentumObserver<const MAX_CONFIG: usize, T: Numeric = f64> {
