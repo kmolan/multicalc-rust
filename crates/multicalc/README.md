@@ -66,7 +66,7 @@ Built on its own `no_std` math core: autodiff, linear algebra and solvers.
 
 ```rust
 use multicalc::prelude::*;
-use multicalc::{ArticulatedBody, ComputedTorqueController, Joint, JointParent, JointReference};
+use multicalc::{ArticulatedBody, Joint, JointParent, JointPdController, JointReference};
 use multicalc::{KinematicTree, Matrix, SE3, SO3, SpatialInertia, Vector};
 
 fn main() -> Result<(), CalcError> {
@@ -87,18 +87,24 @@ fn main() -> Result<(), CalcError> {
     let gravity = Vector::new([0.0, 0.0, -9.81]);
     let arm = ArticulatedBody::new(tree, &[Some(link), Some(link)], gravity)?;
 
-    // Held level, G(q) by RNEA: shoulder −m·g·(0.25 + 0.75), elbow −m·g·0.25.
+    // Forward kinematics: held level, the elbow sits 0.5 m out along x.
     let level = Vector::new([0.0, 0.0]);
-    let holding = arm.gravity_torque_at(&level)?;
-    assert!((holding[0] + 9.81).abs() < 1e-12);
-    assert!((holding[1] + 2.4525).abs() < 1e-12);
-
-    // One control tick: computed torque from the measured state toward the level pose.
-    let controller = ComputedTorqueController::from_natural_frequency(20.0, 1.0)?;
-    let measured_position = Vector::new([0.1, -0.1]);
     let measured_velocity = Vector::zeros();
+    let state = arm.tree().forward_kinematics(&level)?;
+    let elbow_position = state.pose(1).map(|pose| pose.translation());
+    assert_eq!(elbow_position, Some(Vector::new([0.5, 0.0, 0.0])));
+
+    // One tick of PD with gravity compensation: τ = kp⊙e + kd⊙ė + G(q), G(q) by RNEA.
+    let position_gains = Vector::new([400.0, 400.0]);
+    let velocity_gains = Vector::new([40.0, 40.0]);
+    let controller =
+        JointPdController::new(position_gains, velocity_gains)?.with_gravity_compensation(true);
     let reference = JointReference::at_rest(level);
-    let torque = controller.torque_at(&arm, &measured_position, &measured_velocity, &reference)?;
+    let torque = controller.torque(&arm, &state, &level, &measured_velocity, &reference)?;
+
+    // On the reference, e = 0 and ė = 0, so τ = G(q): shoulder −m·g·(0.25 + 0.75), elbow −m·g·0.25.
+    assert!((torque[0] + 9.81).abs() < 1e-12);
+    assert!((torque[1] + 2.4525).abs() < 1e-12);
 
     Ok(())
 }
@@ -107,7 +113,7 @@ fn main() -> Result<(), CalcError> {
 [`multicalc-robot-model`](https://crates.io/crates/multicalc-robot-model) builds the same
 `ArticulatedBody` from an MJCF or URDF file.
 
-### Exact derivatives
+### Math, poses and filters
 
 Two formulas, written once, carried through six modules:
 

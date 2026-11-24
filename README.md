@@ -47,7 +47,7 @@ cargo add multicalc multicalc-robot-model
 The model file is from [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie).
 
 ```rust,no_run
-use multicalc::{ComputedTorqueController, JointReference, Vector};
+use multicalc::{JointPdController, JointReference, Vector};
 use multicalc_robot_model::load_path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -56,16 +56,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let gravity = Vector::new([0.0, 0.0, -9.81]);
     let arm = model.articulated_body_to::<9, 9>("hand", gravity)?;
 
-    // G(q) at the home pose, by RNEA. Slots 0 and 8 are the welds.
-    let home = Vector::new([0.0, 0.0, 0.0, 0.0, -1.5708, 0.0, 1.5708, -0.7854, 0.0]);
-    let holding = arm.gravity_torque_at(&home)?;
-
-    // One control tick: computed torque from the measured state toward the home pose.
-    let controller = ComputedTorqueController::from_natural_frequency(20.0, 1.0)?;
+    // Forward kinematics: the hand pose at the measured configuration. Slots 0 and 8 are welds.
     let measured_position = Vector::new([0.0, 0.1, 0.0, 0.0, -1.5, 0.0, 1.6, -0.7854, 0.0]);
     let measured_velocity = Vector::zeros();
+    let state = arm.tree().forward_kinematics(&measured_position)?;
+    let hand = state.pose(8).ok_or("no hand frame")?;
+
+    // One tick of PD with gravity compensation: τ = kp⊙e + kd⊙ė + G(q), G(q) by RNEA.
+    let position_gains = Vector::from_fn(|_| 400.0);
+    let velocity_gains = Vector::from_fn(|_| 40.0);
+    let controller =
+        JointPdController::new(position_gains, velocity_gains)?.with_gravity_compensation(true);
+    let home = Vector::new([0.0, 0.0, 0.0, 0.0, -1.5708, 0.0, 1.5708, -0.7854, 0.0]);
     let reference = JointReference::at_rest(home);
-    let torque = controller.torque_at(&arm, &measured_position, &measured_velocity, &reference)?;
+    let torque =
+        controller.torque(&arm, &state, &measured_position, &measured_velocity, &reference)?;
 
     Ok(())
 }
@@ -74,7 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 On a microcontroller, `RobotModel::to_rust_source` writes the model as one Rust function, and
 the firmware compiles it. See [ARCHITECTURE.md](ARCHITECTURE.md#crates).
 
-### Exact derivatives
+### Math, poses and filters
 
 ```rust
 use multicalc::prelude::*;
