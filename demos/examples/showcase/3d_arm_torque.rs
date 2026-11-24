@@ -30,11 +30,21 @@ use std::path::Path;
 use std::time::Instant;
 
 // Palette, sRGB with alpha.
-const HERO: Rgba = [0x39, 0x87, 0xe5, 0xff]; // arm, tool gnomon, observer residual
-const TARGET: Rgba = [0xc9, 0x85, 0x00, 0xff]; // reference tool point, true disturbance
-const ERROR: Rgba = [0xe6, 0x67, 0x67, 0xff]; // push arrow, contact marker, error series
+const HERO: Rgba = [0x39, 0x87, 0xe5, 0xff]; // tool gnomon
+const TARGET: Rgba = [0xc9, 0x85, 0x00, 0xff]; // reference tool point
+const ERROR: Rgba = [0xe6, 0x67, 0x67, 0xff]; // push arrow, contact marker, contact flag
 const ACCENT: Rgba = [0x90, 0x85, 0xe9, 140]; // tool trail
-const CHROME: Rgba = [0x89, 0x87, 0x81, 0xff]; // payload, round-trip series
+const CHROME: Rgba = [0x89, 0x87, 0x81, 0xff]; // payload
+/// Observer residual per joint: the blue ramp `#86b6ef → #104281`, linear in sRGB, joint 1 lightest.
+const RESIDUAL_RAMP: [Rgba; N_JOINTS] = [
+    [0x86, 0xb6, 0xef, 0xff],
+    [0x72, 0xa3, 0xdd, 0xff],
+    [0x5f, 0x8f, 0xca, 0xff],
+    [0x4b, 0x7c, 0xb8, 0xff],
+    [0x37, 0x69, 0xa6, 0xff],
+    [0x24, 0x55, 0x93, 0xff],
+    [0x10, 0x42, 0x81, 0xff],
+];
 
 const MODEL_FILE: &str = "../third_party/menagerie/franka_emika_panda/panda.xml";
 /// Mesh directory (panda.xml `<compiler meshdir="assets"/>`).
@@ -244,8 +254,6 @@ struct TickRecord {
     external_torque: Vector<N_FRAMES, f64>,
     /// Observer residual `r`.
     residual: Vector<N_FRAMES, f64>,
-    /// True `d` over the tick that `r` covers.
-    disturbance: Vector<N_FRAMES, f64>,
     /// `‖RNEA_plant(q, q̇, ABA_plant(q, q̇, τ + τ_ext)) − (τ + τ_ext)‖`.
     round_trip_error: f64,
     /// `‖p_tool(q) − p_tool(q_d)‖`.
@@ -267,8 +275,6 @@ struct ArmTorqueLoop {
     joint_velocities: Vector<N_FRAMES, f64>,
     /// `τ` applied over the last tick, as the observer needs it.
     torque: Vector<N_FRAMES, f64>,
-    /// `d` over the last tick.
-    disturbance: Vector<N_FRAMES, f64>,
 }
 
 impl ArmTorqueLoop {
@@ -287,7 +293,6 @@ impl ArmTorqueLoop {
             joint_positions: readings(&WAYPOINTS[0]),
             joint_velocities: Vector::zeros(),
             torque: Vector::zeros(),
-            disturbance: Vector::zeros(),
         })
     }
 
@@ -330,15 +335,11 @@ impl ArmTorqueLoop {
             .forward_dynamics(&state, &self.joint_velocities, &applied)?;
         let plant_microseconds = plant_start.elapsed().as_nanos() as f64 / 1000.0;
 
-        // Ground truth, untimed: r estimates τ_ext less what the model misses of the payload.
+        // Ground truth, untimed.
         let plant_torque =
             self.plant
                 .inverse_dynamics(&state, &self.joint_velocities, &acceleration)?;
-        let model_torque =
-            self.nominal
-                .inverse_dynamics(&state, &self.joint_velocities, &acceleration)?;
         let round_trip_error = (plant_torque - applied).norm();
-        let disturbance = external_torque - (plant_torque - model_torque);
 
         let reference_tool = tree
             .forward_kinematics(&reference.position)?
@@ -355,21 +356,17 @@ impl ArmTorqueLoop {
             "time {time:.3} s: the loop diverged"
         );
 
-        // r at this tick covers the tick that just ended, so it pairs with the last d.
-        let record = TickRecord {
+        self.torque = torque;
+        Ok(TickRecord {
             state,
             reference_tool: reference_tool.into_array(),
             external_torque,
             residual,
-            disturbance: self.disturbance,
             round_trip_error,
             tool_error,
             controller_microseconds,
             plant_microseconds,
-        };
-        self.torque = torque;
-        self.disturbance = disturbance;
-        Ok(record)
+        })
     }
 }
 
@@ -518,21 +515,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     sink.set_static(false);
 
-    for joint in 1..=N_JOINTS {
-        sink.series_styles(
-            &format!("plots/residual/joint{joint}"),
-            &[HERO, TARGET],
-            &[
-                &format!("joint {joint}: r, observer (N·m)"),
-                &format!("joint {joint}: d, true (N·m)"),
-            ],
-            2.0,
-        )?;
-    }
+    let residual_names: [String; N_JOINTS] =
+        core::array::from_fn(|joint| format!("joint {}: r (N·m)", joint + 1));
+    let residual_names: Vec<&str> = residual_names.iter().map(String::as_str).collect();
+    sink.series_styles("plots/residual", &RESIDUAL_RAMP, &residual_names, 2.0)?;
     sink.series_style("plots/contact", ERROR, "contact flag", 2.0)?;
-    sink.series_style("plots/tool_error", ERROR, "tool tracking error (mm)", 2.0)?;
-    sink.series_style("plots/observer_error", ERROR, "‖r − d‖ (N·m)", 2.0)?;
-    sink.series_style("plots/round_trip", CHROME, "‖RNEA(ABA(τ)) − τ‖ (N·m)", 2.0)?;
 
     let mut pacer = Pacer::new();
     let mut controller_ring = LatencyRing::new(1024);
@@ -579,19 +566,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             tool_error_ring.push(record.tool_error);
         }
 
-        for joint in 1..=N_JOINTS {
-            sink.scalars(
-                &format!("plots/residual/joint{joint}"),
-                &[record.residual[joint], record.disturbance[joint]],
-            )?;
-        }
+        let residuals: [f64; N_JOINTS] = core::array::from_fn(|joint| record.residual[joint + 1]);
+        sink.scalars("plots/residual", &residuals)?;
         sink.scalar("plots/contact", if in_contact { 1.0 } else { 0.0 })?;
-        sink.scalar("plots/tool_error", record.tool_error * 1e3)?;
-        sink.scalar(
-            "plots/observer_error",
-            (record.residual - record.disturbance).norm(),
-        )?;
-        sink.scalar("plots/round_trip", record.round_trip_error)?;
 
         if tick % GEOMETRY_EVERY == 0 {
             let poses: [SE3<f64>; N_FRAMES] =
@@ -663,7 +640,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             );
             let panel = format!(
                 "## 3d_arm_torque — Franka Panda under computed torque, live from its model file\n\
-                 ### modules: `motion` · `kinematics` · `control` · `dynamics` — median {:.1} µs per tick (p99 {:.1} µs) · plant: ABA {:.1} µs\n\
+                 ### controller tick: median {:.1} µs (p99 {:.1} µs) · plant: ABA {:.1} µs\n\
                  ### {PAYLOAD_MASS:.0} kg payload the model lacks: tool tracking error {:.1} mm · RNEA ∘ ABA round trip {:.0e} N·m\n\
                  ### collision detection without sensors: {pushes_detected} of {pushes} pushes caught, last after {latency} · {false_contact_ticks} false contact ticks",
                 controller.median,
