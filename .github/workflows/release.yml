@@ -1,8 +1,8 @@
 name: Release
 
 # Publishes multicalc and multicalc-robot-model to crates.io and cuts a GitHub release when a
-# Cargo.toml version bump
-# lands on main. Non-version edits and re-runs are no-ops (guarded on the tag).
+# Cargo.toml version bump lands on main. Non-version edits and re-runs are no-ops (guarded on
+# the tag).
 on:
   push:
     branches: [main]
