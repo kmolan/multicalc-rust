@@ -81,7 +81,7 @@ The release workflow ([`.github/workflows/release.yml`](.github/workflows/releas
 
 The bump also changes the `multicalc` requirement in
 [`crates/multicalc-robot-model/Cargo.toml`](crates/multicalc-robot-model/Cargo.toml), for
-example from `"0.10"` to `"0.11"`. If the requirement is stale, each build fails.
+example from `"0.11"` to `"0.12"`. If the requirement is stale, each build fails.
 
 If `multicalc` publishes and `multicalc-robot-model` fails, a re-run fails too, because the
 `multicalc` version exists. Then do these steps by hand:

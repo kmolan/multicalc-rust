@@ -20,7 +20,7 @@ viewer = ["dep:rerun"]
 
 [dependencies]
 # Lockstep with the workspace version: a bump that leaves this requirement stale fails to resolve.
-multicalc = { path = "../multicalc", version = "0.10" }
+multicalc = { path = "../multicalc", version = "0.11" }
 roxmltree = "0.21"
 rerun = { version = "=0.33.1", default-features = false, features = ["sdk"], optional = true }
 
