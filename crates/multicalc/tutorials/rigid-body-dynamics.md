@@ -420,8 +420,8 @@ assert!(last_contact.is_some_and(|tick| tick >= push_end && tick <= push_end + f
 
 Live demo:
 [3d_arm_torque.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/3d_arm_torque.rs)
-(the observer on a Franka Panda under computed torque: it finds pushes at the hand, and
-`τ = τ_computed − r` cancels them and a payload that the model lacks).
+(the residual as a feedforward on a Franka Panda under computed torque: `τ = τ_computed − r`
+cancels random pushes at the hand and a payload that the model lacks).
 
 ## Errors
 
