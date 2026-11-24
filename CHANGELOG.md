@@ -158,9 +158,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The state and the covariance do not change, and the innovation records the rejected
   measurement. A single outlier no longer pulls the covariance down around a wrong state. (#277)
 
-- **`CITATION.cff` and `CODE_OF_CONDUCT.md`.** GitHub shows a citation for the repository. The
-  code of conduct is the Contributor Covenant 2.1.
-
 ### Changed
 
 - **`ModelError::UnsupportedOrientation` is gone**, replaced by `MultipleOrientations` for an element
