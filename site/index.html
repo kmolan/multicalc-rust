@@ -78,13 +78,9 @@ h1 {
 }
 h1 .soft { color: var(--text-muted); }
 .lede { font-size: clamp(16px, 2.2vw, 19px); color: var(--text-secondary); max-width: 640px; margin: 0 auto; text-wrap: balance; }
-.tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 26px 0 30px; }
-.tag {
-  font-family: var(--mono); font-size: 13px; padding: 5px 10px; border-radius: 6px;
-  background: var(--surface-2); border: 1px solid var(--line); color: var(--text-primary);
-}
 .cta { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 .cta.left { justify-content: flex-start; }
+.hero .cta { margin-top: 28px; }
 .btn {
   display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px;
   padding: 11px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-1);
@@ -230,12 +226,6 @@ footer a:hover { color: var(--text-primary); }
     <span class="pill"><span class="dot"></span>Now tested on real silicon</span>
     <h1>Robotics for<br><span class="soft">microcontrollers.</span></h1>
     <p class="lede">Sense, plan, estimate and control in <code>no_std</code> Rust in one integrated package. Tested on real hardware: run the same code from your laptop to a Cortex-M4.</p>
-    <div class="tags">
-      <span class="tag">no_std</span>
-      <span class="tag">no heap</span>
-      <span class="tag">no panics</span>
-      <span class="tag">no unsafe</span>
-    </div>
     <div class="cta">
       <a class="btn primary" href="https://github.com/kmolan/multicalc-rust">GitHub</a>
       <a class="btn" href="tutorials.html">Tutorials</a>
