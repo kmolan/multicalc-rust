@@ -126,7 +126,7 @@ Each module has its own error enum, and each one converts into `CalcError`.
 | [Control](crates/multicalc/tutorials/control.md) | `Pid`, `Lqr`, `GeometricAttitudeController`, pure pursuit, `FollowTheGap`, `ComputedTorqueController`, joint and Cartesian impedance, `JointPdController` |
 | [Spatial math](crates/multicalc/tutorials/spatial-quaternions-and-lie-groups.md) | `Quaternion`, `SO2`/`SE2`/`SO3`/`SE3` with Jacobians, `Twist`, `Wrench`, `SpatialInertia` |
 | [Rigid-body dynamics](crates/multicalc/tutorials/rigid-body-dynamics.md) | `RigidBody`, `ArticulatedBody`: RNEA, CRBA, ABA, momentum observer. Models from MJCF or URDF |
-| [Kinematics](crates/multicalc/tutorials/kinematics.md) | `KinematicTree`, forward and inverse kinematics, `CollisionQuery` |
+| [Kinematics](crates/multicalc/tutorials/kinematics.md) | `KinematicTree`, forward and inverse kinematics, `CollisionQuery`. [40 of 71 Menagerie robots load](crates/multicalc-robot-model/README.md#mujoco-menagerie) |
 | [Plant](crates/multicalc/tutorials/plant.md) | `MultirotorMixer`, `RotorLag`, `PositionServo` |
 | [Motion](crates/multicalc/tutorials/motion.md) | `PolylinePath`, `MinimumSnapPlanner`, `MotionProfilePlanner` |
 | [Mapping](crates/multicalc/tutorials/mapping.md) | `OccupancyGrid`, `DynamicOccupancyGrid` (`alloc`), `LogOddsGrid`, `DistanceField`, `CostGrid` |
@@ -152,110 +152,13 @@ Built on its own `no_std` math core: autodiff, linear algebra and solvers.
 | [Approximation](crates/multicalc/tutorials/taylor-approximation.md) | Linear and quadratic Taylor models |
 | [Random](crates/multicalc/tutorials/random.md) | `Pcg32`, `RandomSource` |
 
-## MuJoCo Menagerie
-
-`multicalc-robot-model` loads 40 of the 71 robots in
-[MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie) (commit `eea4c74`). CI
-checks three of them against MuJoCo. RNEA, CRBA and ABA need a fixed base.
-
-<details>
-<summary>Each Menagerie robot</summary>
-
-| Robot | Status | Base |
-| --- | --- | --- |
-| `agilex_piper` | Refused: a geom `size` the reader cannot parse | — |
-| `agility_cassie` | Refused: a ball joint | — |
-| `aloha` | Loads | fixed |
-| `anybotics_anymal_b` | Loads | floating |
-| `anybotics_anymal_c` | Loads | floating |
-| `apptronik_apollo` | Refused: a body with no `<inertial>` and no geom | — |
-| `arx_l5` | Refused: mass from a mesh geom | — |
-| `berkeley_humanoid` | Loads | floating |
-| `bitcraze_crazyflie_2` | Loads | floating |
-| `booster_t1` | Loads | floating |
-| `boston_dynamics_spot` | Loads | floating |
-| `dynamixel_2r` | Loads | fixed |
-| `fanuc_crx5ia` | Loads | fixed |
-| `flexiv_rizon4` | Refused: mass from a mesh geom | — |
-| `flexiv_rizon4s` | Refused: mass from a mesh geom | — |
-| `flybody` | Refused: mass from a mesh geom | — |
-| `fourier_n1` | Loads | floating |
-| `franka_emika_panda` | Checked against MuJoCo in CI, except `panda_nohand.xml` (a body with no `<inertial>` and no geom) | fixed |
-| `franka_fr3` | Refused: a body with no `<inertial>` and no geom | — |
-| `franka_fr3_duo` | Refused: a body with no `<inertial>` and no geom | — |
-| `franka_fr3_v2` | Refused: a body with no `<inertial>` and no geom | — |
-| `google_barkour_v0` | Loads | floating |
-| `google_barkour_vb` | Refused: a body with no `<inertial>` and no geom | — |
-| `google_robot` | Refused: mass from a mesh geom | — |
-| `hello_robot_stretch` | Refused: mass from a mesh geom | — |
-| `hello_robot_stretch_3` | Refused: mass from a mesh geom | — |
-| `i2rt_yam` | Refused: mass from a mesh geom | — |
-| `iit_softfoot` | Refused: several joints on one body | — |
-| `kinova_gen3` | Loads | fixed |
-| `kuka_iiwa_14` | Loads | fixed |
-| `leap_hand` | Loads | fixed |
-| `low_cost_robot_arm` | Refused: mass from a mesh geom | — |
-| `ms_human_700` | Refused: several joints on one body | — |
-| `pal_talos` | Loads | floating |
-| `pal_tiago` | Loads, except `tiago_position.xml` (a geom `size` the reader cannot parse) | floating |
-| `pal_tiago_dual` | Refused: a geom `size` the reader cannot parse | — |
-| `pndbotics_adam_lite` | Loads | floating |
-| `rainbow_robotics_rby1` | Refused: a geom `size` the reader cannot parse | — |
-| `realsense_d435i` | Refused: mass from a mesh geom | — |
-| `rethink_robotics_sawyer` | Loads | fixed |
-| `robot_soccer_kit` | Loads | floating |
-| `robotiq_2f85` | Refused: mass from a mesh geom | — |
-| `robotiq_2f85_v4` | Loads, except `mjx_2f85.xml` (a geom `size` the reader cannot parse) | fixed |
-| `robotis_omy_3m` | Loads | fixed |
-| `robotis_op3` | Loads | floating |
-| `robotstudio_so101` | Refused: mass from a mesh geom | — |
-| `seeed_rebot_devarm` | Loads | fixed |
-| `shadow_dexee` | Refused: mass from a mesh geom | — |
-| `shadow_hand` | Loads | fixed |
-| `sharpa_wave` | Refused: mass from a mesh geom | — |
-| `skydio_x2` | Checked against MuJoCo in CI | floating |
-| `stanford_tidybot` | Refused: several joints on one body | — |
-| `tetheria_aero_hand_open` | Refused: mass from a mesh geom | — |
-| `toddlerbot_2xc` | Loads | floating |
-| `toddlerbot_2xm` | Loads | floating |
-| `trossen_vx300s` | Loads | fixed |
-| `trossen_wx250s` | Loads | fixed |
-| `trossen_wxai` | Loads | fixed |
-| `trs_so_arm100` | Refused: mass from a mesh geom | — |
-| `ufactory_lite6` | Refused: a non-positive inertia | — |
-| `ufactory_xarm7` | Loads | fixed |
-| `umi_gripper` | Refused: several joints on one body | — |
-| `unitree_a1` | Loads | floating |
-| `unitree_g1` | Loads | floating |
-| `unitree_go1` | Checked against MuJoCo in CI | floating |
-| `unitree_go2` | Loads, except `go2_mjx.xml` (a geom `size` the reader cannot parse) | floating |
-| `unitree_h1` | Loads | floating |
-| `unitree_z1` | Loads | fixed |
-| `universal_robots_ur10e` | Loads | fixed |
-| `universal_robots_ur5e` | Loads | fixed |
-| `wonik_allegro` | Refused: mass from a mesh geom | — |
-
-</details>
-
-## Benchmarks
-
-On the host, RNEA, CRBA and ABA agree with Pinocchio to `1e-10`, and kinematics with MuJoCo to
-`1e-11` ([tables](benchmarks)). On a 100 MHz Cortex-M4F, in `f32`, with each answer checked on each
-run ([all boards](benchmarks/silicon.md)):
-
-| Check | Time |
-| --- | ---: |
-| Franka Panda control tick: computed torque and momentum observer | 0.70 ms |
-| Skydio X2 attitude control and mixer | 16 µs |
-| Skydio X2 control tick: ESKF, LQR, thrust, attitude, mixer | 1.86 ms |
-| MLP policy, 22→64→64→4 | 0.53 ms |
-
 ## Documentation
 
 - [Tutorials](crates/multicalc/tutorials/README.md): one page for each module.
 - [API docs](https://docs.rs/multicalc).
 - [Demos](demos): run one with `cargo run -p multicalc-demos --example <name>`.
 - [Website](https://kmolan.github.io/multicalc-rust/): demos, silicon timings and charts.
+- [Benchmarks](benchmarks): accuracy against reference libraries, and times on silicon.
 - [ARCHITECTURE.md](ARCHITECTURE.md): the crates, the domains and the layer graph.
 - [CONTRIBUTING.md](CONTRIBUTING.md): contributions are welcome.
 
