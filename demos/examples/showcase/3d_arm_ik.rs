@@ -613,7 +613,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let lag = lag_ring.summary().map_or(0.0, |stats| stats.median);
             let meta = format!(
                 "## 3d_arm_ik — Franka Panda, live from its model file\n\
-                 ### SE(3) IK (damped least squares, analytic Jacobian) + gravity-compensated joint PD + articulated-body dynamics: median {:.0} µs · p99 {:.0} µs ({:.1} % of the 1 ms tick)\n\
+                 ### tick: `KinematicTree` · `InverseKinematics` · `JointPdController` · `ArticulatedBody::forward_dynamics` — median {:.0} µs of the 1 ms tick · p99 {:.0} µs ({:.1} %)\n\
                  ### tracking lag {:.2} mm at {:.2} m/s tool speed · IK residual {:.3} µm · {} stalled ticks",
                 solve_stats.median,
                 solve_stats.p99,

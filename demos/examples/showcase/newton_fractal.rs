@@ -205,12 +205,10 @@ fn main() -> Result<(), VizError> {
         let meta = format!(
             "## newton_fractal — multicalc live demo\n\
              ### throughput: {} Newton solves/s (one core, no-std math; median over recent frames)\n\
-             ### per frame: {}×{} = {} full solves in {:.0} ms\n\
+             ### frame: `NewtonSystem<AutoDiffMulti>` × {} — {:.0} ms\n\
              ### mean iterations: {:.1}, non-converged: {:.2} %\n\
              ### accuracy: mean residual ‖F‖ = {:.1e}",
             commas(throughput_median as u64),
-            GRID,
-            GRID,
             commas((GRID * GRID) as u64),
             frame_secs * 1000.0,
             mean_iterations,

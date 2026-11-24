@@ -218,6 +218,9 @@ fn run_live() -> Result<(), Box<dyn Error>> {
                 Some(summary) => format!("median {:.1} µs of the 1 ms tick", summary.median),
                 None => "warming up".to_owned(),
             };
+            let tick_line = format!(
+                "### tick: `MultiChannelBiquad` notches at {ROTOR_TONE_HERTZ:.0} Hz · `ErrorStateKalmanFilter` · `Lqr` · `GeometricAttitudeController` · `MultirotorMixer` — {cost}"
+            );
             let panel = if record.phase == FlightPhase::FindingItself {
                 let spread = world
                     .localizer()
@@ -225,7 +228,8 @@ fn run_live() -> Result<(), Box<dyn Error>> {
                 format!(
                     "## 3d_drone_flight — multicalc live demo\n\
                      ### finding itself on the floor plan: {} guesses, {spread:.0} still worth having\n\
-                     ### hovering and turning on the spot · {} scans matched against the walls",
+                     ### hovering and turning on the spot · {} scans matched against the walls\n\
+                     {tick_line}",
                     world
                         .localizer()
                         .map_or(0, |localizer| localizer.particle_count()),
@@ -237,7 +241,7 @@ fn run_live() -> Result<(), Box<dyn Error>> {
                 let lap = 1 + (record.reference_time / plan.lap_seconds()).floor() as u64;
                 format!(
                     "## 3d_drone_flight — multicalc live demo\n\
-                     ### minimum-snap plan · LQR · geometric attitude · 15-number filter · {ROTOR_TONE_HERTZ:.0} Hz notches: {cost}\n\
+                     {tick_line}\n\
                      ### lap {lap} · {flown_speed:.2} m/s · {:.1} % at a rotor limit",
                     100.0 * metrics.rotor_limit_fraction(),
                 )

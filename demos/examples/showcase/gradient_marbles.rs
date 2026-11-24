@@ -319,12 +319,11 @@ fn main() -> Result<(), VizError> {
                 let grads_per_ms = N_MARBLES as f64 / (b.median / 1000.0);
                 let meta = format!(
                     "## gradient_marbles — multicalc live demo\n\
-                     ### {} exact autodiff gradients: {:.0} µs/tick — {:.2} % of the 1 ms tick ({}/ms, one core)\n\
+                     ### tick: `Jacobian<AutoDiffMulti>` × {} — median {:.0} µs of the 1 ms tick ({}/ms, one core)\n\
                      ### accuracy: max |∇f_AD − ∇f_analytic| = {:.1e}\n\
                      ### gradients computed: {} and counting",
                     commas(N_MARBLES as u64),
                     b.median,
-                    b.median / 10.0,
                     commas(grads_per_ms as u64),
                     probe_err,
                     commas(total_gradients),

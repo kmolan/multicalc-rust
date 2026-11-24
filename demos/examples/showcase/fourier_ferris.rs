@@ -312,11 +312,10 @@ fn main() -> Result<(), VizError> {
             if let Some(tick_stats) = tick_ring.summary() {
                 let meta = format!(
                     "## fourier_ferris — multicalc live demo\n\
-                     ### Fourier epicycle chain evaluation: median {:.1} µs — {:.2} % of the 1 ms tick\n\
+                     ### tick: epicycle chain, coefficients from `GaussianSingle` — median {:.1} µs of the 1 ms tick\n\
                      ### accuracy: max |c_k(GL) − closed| = {:.1e} ({} node evals in {:.0} ms at startup)\n\
                      ### harmonics active: {} / {}",
                     tick_stats.median,
-                    tick_stats.median / 10.0,
                     coeff_error,
                     commas(node_evals),
                     startup_ms,

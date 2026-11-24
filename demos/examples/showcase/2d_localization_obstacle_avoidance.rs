@@ -403,7 +403,7 @@ fn main() -> Result<(), VizError> {
                     let metrics = world.metrics();
                     let flex = match math_ring.summary() {
                         Some(summary) => format!(
-                            "### particle filter localization (noisy lidar) + EKF fusion (noisy odom+imu+gps) + obstacle avoidance controller (noisy lidar): median {:.1} µs · {:.0} Hz · {} missed deadlines in {}",
+                            "### tick: `ExtendedKalmanFilter` · `FollowTheGap` — median {:.1} µs of the 1 ms tick · {:.0} Hz · {} missed deadlines in {}",
                             summary.median,
                             TICK_RATE_HERTZ,
                             missed_deadlines,

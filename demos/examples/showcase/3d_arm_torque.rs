@@ -605,7 +605,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let panel = format!(
                 "## 3d_arm_torque — random pushes, an unknown {PAYLOAD_MASS:.0} kg payload, and the hand stays on the path\n\
                  ### at worst {:.1} mm off the path · {:.0} mm without the observer (red)\n\
-                 ### no force sensor · the full controller in {:.1} µs of the 1 ms tick",
+                 ### tick: `SynchronizedProfile` · `KinematicTree` · `MomentumObserver` · `ComputedTorqueController` — median {:.1} µs of the 1 ms tick · no force sensor",
                 tool_error.max * 1e3,
                 reference_tool_error.max * 1e3,
                 controller.median,
