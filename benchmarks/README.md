@@ -45,4 +45,5 @@ Regenerate with `cargo bench -p multicalc-qa`.
 the Nucleo-F411RE, the Raspberry Pi Pico 2 and the XIAO ESP32-C3. The boards are not in CI, so CI
 does not guard this table.
 
-Regenerate with `cargo run -p multicalc-qa --bin gen_silicon_table`, as `silicon.md` describes.
+Regenerate with `cargo run -p multicalc-qa --bin gen_silicon_table`. Its module doc gives the
+arguments.

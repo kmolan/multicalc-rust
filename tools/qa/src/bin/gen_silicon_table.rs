@@ -288,30 +288,25 @@ impl Measurements {
     #[must_use]
     fn render(&self, commit: &str, date: &str, run_count: usize) -> String {
         let mut body = format!(
-            "Commit `{commit}`, {run_count} Board runs, {date}. Toolchain 1.92, `opt-level = 3`. The\n\
-             Nucleo-F411RE and the Raspberry Pi Pico 2 run `f32` on the FPU; `f64` is software on each\n\
-             board, and the XIAO ESP32-C3 has no FPU. Each cell is the best and the worst warm time, net of\n\
-             the round trip of the cycle counter.\n\n\
-             | Board | Core | Clock | Kernel |\n|---|---|---:|---|\n"
+            "Commit `{commit}`, {date}, {run_count} runs. Rust 1.92, `opt-level = 3`. `f32` runs on the FPU\n\
+             of the Nucleo-F411RE and the Raspberry Pi Pico 2; `f64` runs in software on each board, and the\n\
+             XIAO ESP32-C3 has no FPU. Each cell is the best and the worst time of seven repeats.\n\n\
+             | Board | Core | Clock |\n|---|---|---:|\n"
         );
         for (suffix, name, core) in BOARDS {
-            let (version, clock) = self
+            let (_, clock) = self
                 .kernels
                 .get(suffix)
                 .unwrap_or_else(|| unreachable!("{suffix}: no kernel boot line"));
-            let _ = writeln!(
-                body,
-                "| {name} | {core} | {} MHz | `{version}` |",
-                clock / 1_000_000
-            );
+            let _ = writeln!(body, "| {name} | {core} | {} MHz |", clock / 1_000_000);
         }
-        body.push_str("\n| App | Check | What it runs | Scalar |");
+        body.push_str("\n| Check | What it runs | Scalar |");
         for (_, name, _) in BOARDS {
             let _ = write!(body, " {name} |");
         }
-        body.push_str("\n|---|---|---|---|---:|---:|---:|\n");
+        body.push_str("\n|---|---|---|---:|---:|---:|\n");
         for (app, check, description, scalar) in CHECKS {
-            let _ = write!(body, "| `{app}` | `{check}` | {description} | {scalar} |");
+            let _ = write!(body, "| `{check}` | {description} | {scalar} |");
             for (suffix, _, _) in BOARDS {
                 let figures = &self.figures[&(app.to_string(), check.to_string(), suffix)];
                 assert_eq!(
