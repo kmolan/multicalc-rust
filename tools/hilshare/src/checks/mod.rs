@@ -16,6 +16,8 @@ use crate::cycles;
 
 #[cfg(feature = "arm")]
 mod arm;
+#[cfg(feature = "drone")]
+mod drone;
 #[cfg(feature = "arm")]
 mod math;
 
@@ -109,6 +111,8 @@ pub const CHECKS: &[Check] = &[
 pub const CHECKS: &[Check] = &[
     (cycle_counter_sanity, UNMEASURED),
     (cycle_counter_overhead, UNMEASURED),
+    (drone::drone_control_tick_f32, UNMEASURED),
+    (drone::attitude_and_mixer_f32, UNMEASURED),
 ];
 
 /// The checks of the mobile-and-policy app, with the budgets as [`CHECKS`] of the arm app
