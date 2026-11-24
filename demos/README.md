@@ -24,6 +24,9 @@ Build with `--release` for representative time readouts.
 - Each demo advances on logical time (a fixed 1 ms per tick, or one step per frame), so the
   results are reproducible. A scheduling spike can delay the display of a tick, but it does not
   change what the demo computes.
+- **Record mode.** With `MULTICALC_RECORD=<path>.rrd`, a showcase writes to that file in place
+  of the viewer and stops after 20 s of logical time (600 frames for `newton_fractal`). The
+  [site](https://kmolan.github.io/multicalc-rust/#robots) plays these files in the browser.
 
 The figures below are for a modern desktop core (`x86_64`, `--release`).
 
@@ -43,6 +46,8 @@ The figures below are for a modern desktop core (`x86_64`, `--release`).
   near-constant pushes from random directions at the hand. A momentum observer estimates the
   disturbance from `q`, `q̇` and `τ` alone, and `τ = τ_computed − r` holds the hand on its path.
   **Hand within 2.2 mm of the path (28 mm without the observer)**, 2 µs/tick.
+
+  ![3d_arm_torque](examples/resources/gifs/3d_arm_torque_showcase.gif)
 
 - **`3d_drone_flight`** (dynamics + control + estimation). A Skydio X2, mass from its MuJoCo file,
   finds its heading against a floor plan, then flies a minimum-snap loop on a 15-state error-state

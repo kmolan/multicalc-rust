@@ -13,11 +13,11 @@ integrated package. Tested on real hardware: run the same code from your laptop 
 <p>
   <img src="demos/examples/resources/gifs/3d_drone_showcase.gif" width="49%"
        alt="3d_drone_flight: a Skydio X2 on an error-state filter, LQR and geometric attitude control">
-  <img src="demos/examples/resources/gifs/3d_arm_ik_showcase.gif" width="49%"
-       alt="3d_arm_ik: a Franka Panda on 1 kHz SE(3) inverse kinematics">
+  <img src="demos/examples/resources/gifs/3d_arm_torque_showcase.gif" width="49%"
+       alt="3d_arm_torque: a Franka Panda on 1 kHz computed torque and a momentum observer holds its path under random pushes">
 </p>
 
-*[Live showcases](demos#live-showcases): each number on screen is measured inside a 1 ms tick.*
+*[Live showcases](demos#live-showcases), also [in the browser](https://kmolan.github.io/multicalc-rust/#robots): each number on screen is measured inside a 1 ms tick.*
 
 ## Highlights
 
