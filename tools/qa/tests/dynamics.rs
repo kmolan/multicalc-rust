@@ -94,6 +94,8 @@ fn check_articulated(fixture: &Fixture) {
     let (_, _, want_rigid_body_torques) = fixture.expected["rigid_body_torques"].as_matrix();
     let (_, _, want_inertias) = fixture.expected["joint_space_inertias"].as_matrix();
     let (_, _, want_accelerations) = fixture.expected["forward_accelerations"].as_matrix();
+    let (_, _, want_momenta) = fixture.expected["generalized_momenta"].as_matrix();
+    let (_, _, want_momentum_biases) = fixture.expected["momentum_biases"].as_matrix();
 
     for state in 0..state_count {
         let context = format!("{case} state {state}");
@@ -130,6 +132,32 @@ fn check_articulated(fixture: &Fixture) {
                 "{context}: rigid-body torque[{index}] got {}, want {}",
                 rigid_torque[index],
                 want_rigid_body_torques[start + index]
+            );
+        }
+
+        let solved = body
+            .tree()
+            .forward_kinematics(&position)
+            .unwrap_or_else(|err| unreachable!("{context}: forward kinematics: {err:?}"));
+        let (momentum, momentum_bias) = body
+            .generalized_momentum_and_bias(&solved, &velocity)
+            .unwrap_or_else(|err| unreachable!("{context}: generalized momentum: {err:?}"));
+        for index in 0..joint_count {
+            assert!(
+                close(momentum[index], want_momenta[start + index], tolerance),
+                "{context}: p[{index}] got {}, want {}",
+                momentum[index],
+                want_momenta[start + index]
+            );
+            assert!(
+                close(
+                    momentum_bias[index],
+                    want_momentum_biases[start + index],
+                    tolerance
+                ),
+                "{context}: β[{index}] got {}, want {}",
+                momentum_bias[index],
+                want_momentum_biases[start + index]
             );
         }
 

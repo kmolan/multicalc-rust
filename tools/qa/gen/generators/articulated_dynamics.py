@@ -268,6 +268,8 @@ def _expected(mujoco_model, path, joint_of_body, positions, velocities, accelera
     torques = []
     joint_space_inertias = []
     forward_accelerations = []
+    generalized_momenta = []
+    momentum_biases = []
 
     for state in range(len(positions)):
         position = to_pinocchio(positions[state], slot_to_velocity, size)
@@ -294,6 +296,38 @@ def _expected(mujoco_model, path, joint_of_body, positions, velocities, accelera
         # The accelerations that were sampled, put through RNEA and back through ABA, must return.
         recovered = pin.aba(with_armature, data, position, velocity, with_rotor).copy()
         np.testing.assert_allclose(recovered, acceleration, rtol=1e-10, atol=1e-10)
+
+        # `computeCoriolisMatrix` is the Christoffel-consistent `C`, so `Ḣ = C + Cᵀ`. Decides both
+        # properties on this model rather than assuming them: `C·q̇ + G` is `rnea` at rest, and
+        # `C + Cᵀ` is the central difference of `crba` along `q̇`.
+        coriolis = pin.computeCoriolisMatrix(with_armature, data, position, velocity).copy()
+        gravity = pin.computeGeneralizedGravity(with_armature, data, position).copy()
+        at_rest = pin.rnea(with_armature, data, position, velocity, np.zeros(size)).copy()
+        np.testing.assert_allclose(
+            coriolis @ velocity + gravity, at_rest, rtol=1e-12, atol=1e-12
+        )
+        step = 1e-6
+        ahead = pin.crba(
+            with_armature, data, pin.integrate(with_armature, position, step * velocity)
+        )
+        ahead = np.triu(ahead) + np.triu(ahead, 1).T
+        behind = pin.crba(
+            with_armature, data, pin.integrate(with_armature, position, -step * velocity)
+        )
+        behind = np.triu(behind) + np.triu(behind, 1).T
+        np.testing.assert_allclose(
+            (ahead - behind) / (2.0 * step), coriolis + coriolis.T, rtol=1e-6, atol=1e-6
+        )
+
+        momentum = inertia @ velocity
+        momentum_bias = (
+            gravity
+            - coriolis.T @ velocity
+            + damping * velocity
+            + friction_loss * np.sign(velocity)
+        )
+        generalized_momenta.append(to_slots(momentum, slot_to_velocity, slot_count))
+        momentum_biases.append(to_slots(momentum_bias, slot_to_velocity, slot_count))
 
         rigid_body_torques.append(to_slots(with_rotor, slot_to_velocity, slot_count))
         torques.append(to_slots(total, slot_to_velocity, slot_count))
@@ -324,6 +358,10 @@ def _expected(mujoco_model, path, joint_of_body, positions, velocities, accelera
         "joint_space_inertias": schema.matrix(joint_space_inertias),
         # K x N, Pinocchio's `aba` fed `rigid_body_torques`.
         "forward_accelerations": schema.matrix(forward_accelerations),
+        # K x N, `p = H(q)·q̇` with armature.
+        "generalized_momenta": schema.matrix(generalized_momenta),
+        # K x N, `β = G − Cᵀ·q̇ + damping⊙q̇ + frictionloss⊙sign(q̇)`.
+        "momentum_biases": schema.matrix(momentum_biases),
     }
 
 
@@ -356,6 +394,8 @@ def _write(out, case, meta, model, path, label, extra=None):
             f"{label} inverse dynamics, {STATE_COUNT} states: (q, q̇, q̈) -> τ",
             f"{label} joint-space inertia, {STATE_COUNT} states: q -> H(q)",
             f"{label} forward dynamics, {STATE_COUNT} states: (q, q̇, τ) -> q̈",
+            f"{label} generalized momentum and its bias, {STATE_COUNT} states: "
+            "(q, q̇) -> (p, β), p = H·q̇, β = G − Cᵀ·q̇ + damping⊙q̇ + frictionloss⊙sign(q̇)",
         ],
     )
 
