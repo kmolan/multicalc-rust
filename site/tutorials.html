@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>multicalc tutorials</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --surface-0: #0c0d0f; --surface-1: #131417; --surface-2: #1a1b1f; --line: #24262b;
+  --text-primary: #f0efec; --text-secondary: #b4b3ad; --text-muted: #7c7d80; --accent: #e8683a;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--surface-0); color: var(--text-primary); font-family: var(--sans); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+.wrap { max-width: 1160px; margin: 0 auto; padding: 0 16px; }
+@media (min-width: 720px) { .wrap { padding: 0 32px; } }
+nav { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--surface-0) 82%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+.brand { font-family: var(--mono); font-weight: 500; letter-spacing: -0.02em; }
+.brand b { color: var(--accent); font-weight: 500; }
+nav ul { display: flex; gap: 22px; list-style: none; margin: 0; padding: 0; font-size: 14px; color: var(--text-secondary); }
+nav ul a:hover { color: var(--text-primary); }
+article { max-width: 820px; margin: 40px auto 0; }
+article h1 { font-size: 40px; letter-spacing: -0.03em; line-height: 1.1; margin: 0 0 16px; }
+article h2 { font-size: 26px; letter-spacing: -0.02em; margin: 44px 0 10px; }
+article h3 { font-size: 18px; margin: 28px 0 8px; }
+article p, article li { color: var(--text-secondary); }
+article a { color: var(--text-primary); text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 3px; }
+article code { font-family: var(--mono); font-size: 0.88em; }
+article :not(pre) > code { background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+article pre { margin: 16px 0; padding: 18px 20px; overflow-x: auto; border-radius: 12px; background: var(--surface-1); border: 1px solid var(--line); line-height: 1.6; color: var(--text-secondary); }
+article table { border-collapse: collapse; width: 100%; font-size: 14px; display: block; overflow-x: auto; }
+article th, article td { border-bottom: 1px solid var(--line); padding: 8px 10px; text-align: left; }
+.source { max-width: 820px; margin: 48px auto 80px; font-size: 14px; color: var(--text-muted); }
+.source a:hover { color: var(--text-primary); }
+</style>
+</head>
+<body>
+<nav>
+  <div class="wrap">
+    <a class="brand" href="./">multi<b>calc</b></a>
+    <ul>
+      <li><a href="tutorials.html">Tutorials</a></li>
+      <li><a href="https://docs.rs/multicalc">Docs</a></li>
+      <li><a href="https://github.com/kmolan/multicalc-rust">GitHub</a></li>
+    </ul>
+  </div>
+</nav>
+<main class="wrap">
+  <article id="tutorial"></article>
+  <p class="source"><a id="source" href="https://github.com/kmolan/multicalc-rust/tree/main/crates/multicalc/tutorials">Source on GitHub</a></p>
+</main>
+<script type="module">
+import { Marked } from "https://esm.sh/marked@18.3.0";
+
+// The pages are the Markdown files of crates/multicalc/tutorials, copied by pages.yml.
+const requested = new URLSearchParams(location.search).get("page") ?? "README";
+const page = /^[A-Za-z0-9-]+$/.test(requested) ? requested : "README";
+const article = document.getElementById("tutorial");
+
+// The GitHub heading anchor.
+function slug(text) {
+  return text.toLowerCase().trim().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
+}
+function siteHref(href) {
+  const match = /^([A-Za-z0-9-]+)\.md(#.*)?$/.exec(href);
+  return match ? `tutorials.html?page=${match[1]}${match[2] ?? ""}` : href;
+}
+
+const marked = new Marked({
+  gfm: true,
+  walkTokens(token) {
+    // rustdoc hides a lone `#` and each line that starts with `# `.
+    if (token.type === "code" && /^rust\b/.test(token.lang ?? "")) {
+      token.text = token.text.split("\n").filter(line => line !== "#" && !line.startsWith("# ")).join("\n");
+    }
+  },
+  renderer: {
+    heading({ tokens, depth, text }) {
+      return `<h${depth} id="${slug(text)}">${this.parser.parseInline(tokens)}</h${depth}>\n`;
+    },
+    link({ href, title, tokens }) {
+      const titleAttribute = title ? ` title="${title}"` : "";
+      return `<a href="${siteHref(href)}"${titleAttribute}>${this.parser.parseInline(tokens)}</a>`;
+    },
+  },
+});
+
+const response = await fetch(`tutorials/${page}.md`);
+if (response.ok) {
+  article.innerHTML = marked.parse(await response.text());
+  const heading = article.querySelector("h1");
+  if (heading) document.title = `${heading.textContent} · multicalc`;
+  document.getElementById("source").href =
+    `https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/${page}.md`;
+  if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
+} else {
+  article.innerHTML = `<p>No tutorial named <code>${page}</code>. See <a href="tutorials.html">the tutorial index</a>.</p>`;
+}
+</script>
+</body>
+</html>
