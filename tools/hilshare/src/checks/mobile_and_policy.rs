@@ -5,7 +5,8 @@ use core::hint::black_box;
 use multicalc::control::pure_pursuit_curvature;
 use multicalc::estimation::{ConstantTurnAndSpeed, ExtendedKalmanFilter};
 use multicalc::linear_algebra::{Matrix, Vector};
-use multicalc::scalar::{Numeric, VectorFn};
+use multicalc::mlp_inference::{Activation, ParameterCursor};
+use multicalc::scalar::{Numeric, Primal, VectorFn};
 use multicalc::spatial::{SE2, SO2};
 
 use super::{CheckOutcome, close, failed};
@@ -16,6 +17,11 @@ use crate::fixtures;
 const LOOKAHEAD_DISTANCE: f32 = 2.0;
 /// `128·ε_f32`, the bound of an `f32` identity.
 const IDENTITY_F32: f64 = 128.0 * f32::EPSILON as f64;
+
+/// The policy layers: 22 observations, two hidden layers of 64, 4 actions.
+const OBSERVATION: usize = 22;
+const HIDDEN: usize = 64;
+const ACTION: usize = 4;
 
 /// A position fix: the sensor reads the first two state components.
 struct GlobalPosition;
@@ -105,4 +111,67 @@ pub fn mobile_robot_tick_f32() -> CheckOutcome {
         cycles: elapsed,
         value: f64::from(curvature),
     }
+}
+
+/// Golden: one forward pass of the policy in `T` against numpy, sample 0.
+fn policy_forward<T: Numeric + Primal>(
+    name: &'static str,
+    parameters: &'static [T],
+    abs: f64,
+    rel: f64,
+) -> CheckOutcome {
+    let mut cursor = ParameterCursor::new(black_box(parameters));
+    let (Ok(first), Ok(second), Ok(output)) = (
+        cursor.try_take_layer::<HIDDEN, OBSERVATION>(Activation::Relu),
+        cursor.try_take_layer::<HIDDEN, HIDDEN>(Activation::Relu),
+        cursor.try_take_layer::<ACTION, HIDDEN>(Activation::Tanh),
+    ) else {
+        return failed(name, 0);
+    };
+    let every_parameter_read = cursor.is_empty();
+    let observation = black_box(Vector::<OBSERVATION, T>::new(
+        fixtures::MLP_POLICY_OBSERVATION.map(T::from_f64),
+    ));
+
+    let start = cycles::read();
+    let hidden_first = first.forward(observation.view());
+    let hidden_second = second.forward(hidden_first.view());
+    let action = black_box(output.forward(hidden_second.view()));
+    let elapsed = cycles::read().wrapping_sub(start);
+
+    let passed = every_parameter_read
+        && (0..ACTION).all(|index| {
+            close(
+                action[index].to_f64(),
+                fixtures::MLP_POLICY_ACTION[index],
+                abs,
+                rel,
+            )
+        });
+    CheckOutcome {
+        name,
+        passed,
+        cycles: elapsed,
+        value: action[0].to_f64(),
+    }
+}
+
+/// Golden: the policy in `f64`.
+pub fn mlp_policy_forward() -> CheckOutcome {
+    policy_forward::<f64>(
+        "mlp_policy_forward",
+        &fixtures::MLP_POLICY_PARAMETERS,
+        fixtures::MLP_POLICY_ABS,
+        fixtures::MLP_POLICY_REL,
+    )
+}
+
+/// Golden: the policy in `f32`, the configuration of an FPU.
+pub fn mlp_policy_forward_f32() -> CheckOutcome {
+    policy_forward::<f32>(
+        "mlp_policy_forward_f32",
+        &fixtures::MLP_POLICY_PARAMETERS_F32,
+        fixtures::MLP_POLICY_F32_ABS,
+        fixtures::MLP_POLICY_F32_REL,
+    )
 }

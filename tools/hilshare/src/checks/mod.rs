@@ -125,6 +125,8 @@ pub const CHECKS: &[Check] = &[
     (cycle_counter_sanity, UNMEASURED),
     (cycle_counter_overhead, UNMEASURED),
     (mobile_and_policy::mobile_robot_tick_f32, UNMEASURED),
+    (mobile_and_policy::mlp_policy_forward, UNMEASURED),
+    (mobile_and_policy::mlp_policy_forward_f32, UNMEASURED),
 ];
 
 /// No limit: the budget of a check that has no figure on its board yet.

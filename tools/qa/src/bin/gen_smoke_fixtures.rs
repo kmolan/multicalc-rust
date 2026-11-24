@@ -102,6 +102,17 @@ fn matrix_lit_raw(rows: usize, cols: usize, data: &[f64]) -> String {
     out
 }
 
+/// A raw slice narrowed to `f32`, as a bit-exact `[f32; N]` literal.
+#[must_use]
+fn vector_lit_f32_raw(data: &[f64]) -> String {
+    let mut lit = format!("[f32; {}] = [\n", data.len());
+    for &x in data {
+        let _ = writeln!(lit, "    f32::from_bits(0x{:08x}),", (x as f32).to_bits());
+    }
+    lit.push_str("];\n");
+    lit
+}
+
 /// An integer literal.
 #[must_use]
 fn usize_lit(value: i64) -> String {
@@ -176,6 +187,8 @@ fn main() {
     let trajectory = find(&motion, "minimum_snap_three_segments_3d");
     let franka = find(&kinematics, "franka_panda_seven_joint");
     let eskf = find(&estimation, "error_state_kalman_filter_imu_trajectory");
+    let mlp = load_dir("mlp");
+    let policy = find(&mlp, "policy_22x64x64x4");
     let dynamics = load_dir("dynamics");
     let franka_dynamics = find(&dynamics, "articulated_franka_panda");
 
@@ -717,6 +730,46 @@ fn main() {
         &matrix_lit(&eskf_expected["covariance"]),
     );
     emit_tolerance(&mut out, "ESKF trajectory", "ESKF_IMU", eskf.tolerances.f64);
+
+    // The MLP policy and its action for sample 0.
+    emit_static(
+        &mut out,
+        "Weights and biases of the 22→64→64→4 policy, from mlp/policy_22x64x64x4: for each \
+         layer, row-major `OUTPUT×INPUT` weights, then `OUTPUT` biases.",
+        "MLP_POLICY_PARAMETERS",
+        &vector_lit(&policy.inputs["parameters"]),
+    );
+    emit_static(
+        &mut out,
+        "The same parameters, each narrowed with `as f32`.",
+        "MLP_POLICY_PARAMETERS_F32",
+        &vector_lit_f32_raw(&policy.inputs["parameters"].as_vector()),
+    );
+    let (_, _, observations) = policy.inputs["observations"].as_matrix();
+    emit(
+        &mut out,
+        "Observation of sample 0.",
+        "MLP_POLICY_OBSERVATION",
+        &vector_lit_raw(&observations[0..22]),
+    );
+    let (_, _, actions) = policy.expected["action"].as_matrix();
+    emit(
+        &mut out,
+        "numpy's action for sample 0: `tanh(W₃·relu(W₂·relu(W₁·o + b₁) + b₂) + b₃)`.",
+        "MLP_POLICY_ACTION",
+        &vector_lit_raw(&actions[0..4]),
+    );
+    emit_tolerance(&mut out, "MLP policy", "MLP_POLICY", policy.tolerances.f64);
+    emit_tolerance_f32(
+        &mut out,
+        "MLP policy",
+        "MLP_POLICY",
+        "from the fixture's f32 tolerance",
+        policy
+            .tolerances
+            .f32
+            .unwrap_or_else(|| unreachable!("the policy has an f32 tolerance")),
+    );
 
     // The last constant ends the file, so drop the blank line after it.
     while out.ends_with("\n\n") {
