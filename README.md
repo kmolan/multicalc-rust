@@ -154,17 +154,9 @@ Built on its own `no_std` math core: autodiff, linear algebra and solvers.
 
 ## MuJoCo Menagerie
 
-`multicalc-robot-model` reads MJCF and URDF. Of the 71 robots in
-[MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie) (commit `eea4c74`,
-2026-11-23), 40 load. CI checks three of them against the MuJoCo compile of the same file; see
-[`benchmarks/mjcf.md`](benchmarks/mjcf.md). RNEA, CRBA and ABA need a fixed base; a floating-base
-model gives kinematics only.
-
-The reader takes `asset`, `compiler`, `default` and `worldbody`. `RobotModel::ignored()` lists
-each other top-level section: `actuator`, `contact`, `custom`, `equality`, `keyframe`, `option`,
-`sensor`, `size`, `statistic`, `tendon`, `visual`. A coupling in `equality` or `tendon` does not
-reach the tree. The reader refuses, by name, what it cannot represent exactly: mass from a mesh
-geom, a ball joint, and several joints on one body.
+`multicalc-robot-model` loads 40 of the 71 robots in
+[MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie) (commit `eea4c74`). CI
+checks three of them against MuJoCo. RNEA, CRBA and ABA need a fixed base.
 
 <details>
 <summary>Each Menagerie robot</summary>
@@ -247,12 +239,9 @@ geom, a ball joint, and several joints on one body.
 
 ## Benchmarks
 
-**On the host, in `f64`, against reference libraries.** RNEA, CRBA and ABA of the Menagerie Franka
-Panda agree with Pinocchio 4.1.0 to `1e-10` over 128 random states. Forward kinematics, Jacobians
-and model reading agree with MuJoCo 3.11.0 to `1e-11`.
-
-**On silicon, with each answer checked on each run.** Nucleo-F411RE, Cortex-M4F at 100 MHz, `f32`
-on the FPU:
+On the host, RNEA, CRBA and ABA agree with Pinocchio to `1e-10`, and kinematics with MuJoCo to
+`1e-11` ([tables](benchmarks)). On a 100 MHz Cortex-M4F, in `f32`, with each answer checked on each
+run ([all boards](benchmarks/silicon.md)):
 
 | Check | Time |
 | --- | ---: |
@@ -261,45 +250,14 @@ on the FPU:
 | Skydio X2 control tick: ESKF, LQR, thrust, attitude, mixer | 1.86 ms |
 | MLP policy, 22→64→64→4 | 0.53 ms |
 
-On all three boards, RNEA, CRBA and ABA of the Franka agree with Pinocchio to `1e-10` in `f64`. The
-Cortex-M FPUs are single precision, so the `f64` rows show accuracy, not speed. One `Dual` RNEA pass
-gives the exact column `∂τ/∂q̈` on each board. On the Nucleo, the worst of seven runs of the arm
-tick is within 0.1% of the best. [`silicon.md`](benchmarks/silicon.md) has each check on the Nucleo,
-a Cortex-M33 and an RV32IMC.
-
-Each module has its own accuracy table in [`benchmarks`](benchmarks).
-
 ## Documentation
 
-- **[Website](https://kmolan.github.io/multicalc-rust/)**: demos, silicon timings, latency and accuracy charts.
-- **[Tutorials](crates/multicalc/tutorials/README.md)**: one page for each module.
-- **[API docs](https://docs.rs/multicalc)**: the full API reference.
-- **[Demos](demos)**: a self-checking example for each module, and seven live showcases. Run one with
-  `cargo run -p multicalc-demos --example <name>`.
-- **[Benchmarks](benchmarks)**: accuracy tables for each module, and latency.
-
-## Repository layout
-
-| Path | Contents |
-| --- | --- |
-| [`crates/multicalc`](crates/multicalc) | The library |
-| [`crates/multicalc-robot-model`](crates/multicalc-robot-model) | MJCF and URDF reader, and a `model_viewer` |
-| [`demos`](demos) | Examples and live showcases |
-| [`tools/qa`](tools/qa) | Accuracy fixtures and the benchmark tables |
-| [`tools/embedded-smoke`](tools/embedded-smoke) | Bare-metal tests under QEMU |
-| [`tools/hilshare`](tools/hilshare) | Tests on real boards |
-| [`site`](site) | The website |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | The crates, the domains, and the layer graph |
-
-## Contributing
-
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Acknowledgements
-
-The least-squares solvers and QR factorization port the public-domain MINPACK routines (Moré,
-Garbow, Hillstrom; netlib); the full citation is in the
-[crate README](crates/multicalc/README.md#acknowledgements).
+- [Tutorials](crates/multicalc/tutorials/README.md): one page for each module.
+- [API docs](https://docs.rs/multicalc).
+- [Demos](demos): run one with `cargo run -p multicalc-demos --example <name>`.
+- [Website](https://kmolan.github.io/multicalc-rust/): demos, silicon timings and charts.
+- [ARCHITECTURE.md](ARCHITECTURE.md): the crates, the domains and the layer graph.
+- [CONTRIBUTING.md](CONTRIBUTING.md): contributions are welcome.
 
 ## Citation
 
