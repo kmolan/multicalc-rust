@@ -25,7 +25,7 @@ libtock_build_scripts = { git = "https://github.com/tock/libtock-rs", rev = "b7f
 [features]
 # The math checks and the Franka Panda checks.
 arm = []
-# The Skydio X2 checks and the ESKF trajectory.
+# The Skydio X2 checks.
 drone = []
 # The mobile-robot tick and the MLP policy.
 mobile_and_policy = []

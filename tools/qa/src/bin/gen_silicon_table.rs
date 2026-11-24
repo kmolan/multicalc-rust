@@ -94,12 +94,6 @@ const CHECKS: &[(&str, &str, &str, &str)] = &[
         "`f32`",
     ),
     (
-        "drone",
-        "eskf_trajectory",
-        "15-state ESKF over 200 IMU steps and 30 updates",
-        "`f64`",
-    ),
-    (
         "mobile_and_policy",
         "mobile_robot_tick_f32",
         "Mobile-robot control tick: 5-state EKF and pure pursuit",

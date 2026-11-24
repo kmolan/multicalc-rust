@@ -117,8 +117,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the type name). Import `multicalc_py`. Not published to crates.io or PyPI. @rtmongold (#330)
 - **Checked on three microcontrollers.** Franka Panda RNEA, CRBA and ABA agree with Pinocchio to
   `1e-10` on a Cortex-M4F, a Cortex-M33 and an RV32IMC. One `Dual` pass there gives the exact
-  `∂τ/∂q̈ = H`. The arm, drone and mobile-robot control ticks, the ESKF and an MLP policy also run
-  on them, and each run checks each answer. On a 100 MHz Cortex-M4F in `f32`, the Franka
+  `∂τ/∂q̈ = H`. The arm, drone and mobile-robot control ticks and an MLP policy also run on
+  them, and each run checks each answer. On a 100 MHz Cortex-M4F in `f32`, the Franka
   computed-torque tick with the momentum observer takes 0.70 ms.
   [`benchmarks/silicon.md`](benchmarks/silicon.md) has the times.
 

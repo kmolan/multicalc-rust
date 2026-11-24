@@ -39,7 +39,7 @@ HILSHARE_RESULT=PASS
 | App (Cargo feature) | Checks |
 |---|---|
 | `arm` | The math checks; Franka Panda RNEA, CRBA and ABA against Pinocchio; the `f32` computed-torque tick with the momentum observer; the `Dual` derivative `∂τ/∂q̈ = H` |
-| `drone` | The `f32` Skydio X2 tick at hover and its attitude-and-mixer part; the ESKF over the QA IMU trajectory |
+| `drone` | The `f32` Skydio X2 tick at hover and its attitude-and-mixer part |
 | `mobile_and_policy` | The `f32` coordinated-turn EKF and pure-pursuit tick; the MLP policy in `f64` and `f32` against numpy |
 
 elf2tab pads a Cortex-M TBF to a power of two, and the Nucleo-F411RE app region is 256 KB, so one

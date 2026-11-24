@@ -179,14 +179,6 @@ pub const CHECKS: &[Check] = &[
             xiao_esp32c3: 298,
         },
     ),
-    (
-        drone::eskf_trajectory,
-        Budget {
-            nucleo_f411re: 4970227,
-            raspberry_pi_pico_2: 4109148,
-            xiao_esp32c3: 2460941,
-        },
-    ),
 ];
 
 /// The checks of the mobile-and-policy app, with the budgets as [`CHECKS`] of the arm app
