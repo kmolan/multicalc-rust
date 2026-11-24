@@ -7,6 +7,10 @@
 // Polynomial-roots golden: polynomial/roots_quartic_four_real.
 // Trajectory golden: motion/minimum_snap_three_segments_3d.
 // Franka golden: kinematics/franka_panda_seven_joint.
+// Franka dynamics golden: dynamics/articulated_franka_panda, state 1.
+// ESKF golden: estimation/error_state_kalman_filter_imu_trajectory.
+// MLP golden: mlp/policy_22x64x64x4, sample 0.
+// A literal over 512 bytes is a `static`, so a use does not copy it.
 // Reduced (canary) builds use a subset, so some consts may be unused.
 // Left unformatted: this file's shape comes from the generator, and rustfmt would
 // collapse some literals so a regenerate-and-diff check could never come out clean.
@@ -314,6 +318,10 @@ pub const COORDINATED_TURN_EXPECTED_STATE: [f64; 5] = [
 pub const COORDINATED_TURN_ABS: f64 = 1e-10;
 pub const COORDINATED_TURN_REL: f64 = 1e-9;
 
+/// `f32` comparison tolerance for the extended filter check (from the fixture's f32 tolerance).
+pub const COORDINATED_TURN_F32_ABS: f64 = 1e-3;
+pub const COORDINATED_TURN_F32_REL: f64 = 1e-3;
+
 /// Coefficients of x(x − 1)(x − 2)(x − 4), lowest power first, from polynomial/roots_quartic_four_real.
 pub const POLYNOMIAL_QUARTIC_COEFFICIENTS: [f64; 5] = [
     f64::from_bits(0x0000000000000000),
@@ -611,3 +619,787 @@ pub const FRANKA_HAND_POSITION: [f64; 3] = [
     f64::from_bits(0x3fe20b65f5420bfd),
     f64::from_bits(0x3fdf760a906a77e1),
 ];
+
+/// The slot kinds of the Franka dynamics model, from dynamics/articulated_franka_panda: `F` fixed, `R` revolute, `P` prismatic.
+pub const FRANKA_DYNAMICS_JOINT_KINDS: &str = "FRRRRRRRFPP";
+
+/// The parent of each slot; `-1` is the world.
+pub const FRANKA_DYNAMICS_PARENTS: [f64; 11] = [
+    f64::from_bits(0xbff0000000000000),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x3ff0000000000000),
+    f64::from_bits(0x4000000000000000),
+    f64::from_bits(0x4008000000000000),
+    f64::from_bits(0x4010000000000000),
+    f64::from_bits(0x4014000000000000),
+    f64::from_bits(0x4018000000000000),
+    f64::from_bits(0x401c000000000000),
+    f64::from_bits(0x4020000000000000),
+    f64::from_bits(0x4020000000000000),
+];
+
+/// The origin translation of each slot.
+pub const FRANKA_DYNAMICS_ORIGIN_POSITIONS: [[f64; 3]; 11] = [
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3fd54fdf3b645a1d),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0xbfd4395810624dd3),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x3fb51eb851eb851f),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0xbfb51eb851eb851f),
+        f64::from_bits(0x3fd89374bc6a7efa),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x3fb6872b020c49ba),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3fbb645a1cac0831),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3fade69ad42c3c9f),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3fade69ad42c3c9f),
+    ],
+];
+
+/// The origin rotation of each slot, `w, x, y, z`.
+pub const FRANKA_DYNAMICS_ORIGIN_QUATERNIONS: [[f64; 4]; 11] = [
+    [
+        f64::from_bits(0x3ff0000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x3ff0000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x3fe6a09e667f3bcc),
+        f64::from_bits(0xbfe6a09e667f3bcc),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x3fe6a09e667f3bcc),
+        f64::from_bits(0x3fe6a09e667f3bcc),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x3fe6a09e667f3bcc),
+        f64::from_bits(0x3fe6a09e667f3bcc),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x3fe6a09e667f3bcc),
+        f64::from_bits(0xbfe6a09e667f3bcc),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x3fe6a09e667f3bcc),
+        f64::from_bits(0x3fe6a09e667f3bcc),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x3fe6a09e667f3bcc),
+        f64::from_bits(0x3fe6a09e667f3bcc),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x3fed906c46055ff8),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0xbfd87de068f378ab),
+    ],
+    [
+        f64::from_bits(0x3ff0000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ff0000000000000),
+    ],
+];
+
+/// The joint axis of each slot.
+pub const FRANKA_DYNAMICS_AXES: [[f64; 3]; 11] = [
+    [
+        f64::from_bits(0x3ff0000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ff0000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ff0000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ff0000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ff0000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ff0000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ff0000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ff0000000000000),
+    ],
+    [
+        f64::from_bits(0x3ff0000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ff0000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ff0000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+];
+
+/// The joint anchor of each slot.
+pub const FRANKA_DYNAMICS_ANCHORS: [[f64; 3]; 11] = [
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+];
+
+/// The zero offset of each slot.
+pub const FRANKA_DYNAMICS_ZERO_OFFSETS: [f64; 11] = [
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x0000000000000000),
+];
+
+/// The armature of each slot.
+pub const FRANKA_DYNAMICS_ARMATURES: [f64; 11] = [
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x3fb999999999999a),
+    f64::from_bits(0x3fb999999999999a),
+    f64::from_bits(0x3fb999999999999a),
+    f64::from_bits(0x3fb999999999999a),
+    f64::from_bits(0x3fb999999999999a),
+    f64::from_bits(0x3fb999999999999a),
+    f64::from_bits(0x3fb999999999999a),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x3fb999999999999a),
+    f64::from_bits(0x3fb999999999999a),
+];
+
+/// The damping of each slot.
+pub const FRANKA_DYNAMICS_DAMPINGS: [f64; 11] = [
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x3ff0000000000000),
+    f64::from_bits(0x3ff0000000000000),
+    f64::from_bits(0x3ff0000000000000),
+    f64::from_bits(0x3ff0000000000000),
+    f64::from_bits(0x3ff0000000000000),
+    f64::from_bits(0x3ff0000000000000),
+    f64::from_bits(0x3ff0000000000000),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x3ff0000000000000),
+    f64::from_bits(0x3ff0000000000000),
+];
+
+/// The Coulomb friction loss of each slot.
+pub const FRANKA_DYNAMICS_FRICTION_LOSSES: [f64; 11] = [
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x3fd3333333333333),
+    f64::from_bits(0x3fd0000000000000),
+    f64::from_bits(0x3fc999999999999a),
+    f64::from_bits(0x3fc70a3d70a3d70a),
+    f64::from_bits(0x3fbeb851eb851eb8),
+    f64::from_bits(0x3fb999999999999a),
+    f64::from_bits(0x3fb47ae147ae147b),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x3fa999999999999a),
+    f64::from_bits(0x3fa999999999999a),
+];
+
+/// The mass of each slot; `0` is a massless slot.
+pub const FRANKA_DYNAMICS_MASSES: [f64; 11] = [
+    f64::from_bits(0x3fe4271151611ba4),
+    f64::from_bits(0x4013e1f9f01b866e),
+    f64::from_bits(0x3fe4b39e279dd3bb),
+    f64::from_bits(0x4009d42c3c9eecc0),
+    f64::from_bits(0x400cb404ea4a8c15),
+    f64::from_bits(0x3ff39d7dbf487fcc),
+    f64::from_bits(0x3ffaaa3ad18d25ee),
+    f64::from_bits(0x3fe789656eefa1e4),
+    f64::from_bits(0x3fe75c28f5c28f5c),
+    f64::from_bits(0x3f8eb851eb851eb8),
+    f64::from_bits(0x3f8eb851eb851eb8),
+];
+
+/// The center of mass of each slot, in its frame.
+pub const FRANKA_DYNAMICS_CENTERS_OF_MASS: [[f64; 3]; 11] = [
+    [
+        f64::from_bits(0xbfa5004fb1183b60),
+        f64::from_bits(0xbf22599ed7c6fbd2),
+        f64::from_bits(0x3fa996312f4cf4a5),
+    ],
+    [
+        f64::from_bits(0x3f6fbe76c8b43958),
+        f64::from_bits(0x3f610c2c5e2cdc01),
+        f64::from_bits(0xbfa861a60d4562e1),
+    ],
+    [
+        f64::from_bits(0xbf69bb2788db0575),
+        f64::from_bits(0xbf9d68c692f6e829),
+        f64::from_bits(0x3f6ca18bd66277c4),
+    ],
+    [
+        f64::from_bits(0x3f9c2dadb8348f54),
+        f64::from_bits(0x3fa418d6909aed57),
+        f64::from_bits(0xbfb106466b1e5c0c),
+    ],
+    [
+        f64::from_bits(0xbfab39192641b329),
+        f64::from_bits(0x3fbabb341e14bdfd),
+        f64::from_bits(0x3f9c1ce6c093d966),
+    ],
+    [
+        f64::from_bits(0xbf887ad080b673c5),
+        f64::from_bits(0x3fa50678c0053e2d),
+        f64::from_bits(0xbfa3ae03b3e9a6f8),
+    ],
+    [
+        f64::from_bits(0x3faecbd987c6327f),
+        f64::from_bits(0xbf8ce95faa8a82a5),
+        f64::from_bits(0xbf8589efd86a8fc1),
+    ],
+    [
+        f64::from_bits(0x3f8589efd86a8fc1),
+        f64::from_bits(0xbf716a8b8f14db59),
+        f64::from_bits(0x3faf89a459103c8e),
+    ],
+    [
+        f64::from_bits(0xbf847ae147ae147b),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3f9eb851eb851eb8),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+];
+
+/// The rotational inertia of each slot about its center of mass, row-major 3×3.
+pub static FRANKA_DYNAMICS_ROTATIONAL_INERTIAS: [[f64; 9]; 11] = [
+    [
+        f64::from_bits(0x3f69ce0715aba345),
+        f64::from_bits(0x3eabd17c43dc6cae),
+        f64::from_bits(0x3f23a9329dbe6e7b),
+        f64::from_bits(0x3eabd17c43dc6ca3),
+        f64::from_bits(0x3f6fc8f3a02fbf16),
+        f64::from_bits(0x3ee14260e119ea0f),
+        f64::from_bits(0x3f23a9329dbe6e7c),
+        f64::from_bits(0x3ee14260e119ea08),
+        f64::from_bits(0x3f718d25d456dffd),
+    ],
+    [
+        f64::from_bits(0x3fe68200e6d6382a),
+        f64::from_bits(0xbf22380673a6b195),
+        f64::from_bits(0x3f7bbcf7f8af76da),
+        f64::from_bits(0xbf22380673a6b16c),
+        f64::from_bits(0x3fe69c8c7d67a2ae),
+        f64::from_bits(0x3f93a12966e5cf24),
+        f64::from_bits(0x3f7bbcf7f8af76da),
+        f64::from_bits(0x3f93a12966e5cf24),
+        f64::from_bits(0x3f82abf30910aa36),
+    ],
+    [
+        f64::from_bits(0x3f804e6196d15956),
+        f64::from_bits(0xbf7013a7228b0987),
+        f64::from_bits(0x3f85000b9cc7a551),
+        f64::from_bits(0xbf7013a7228b0987),
+        f64::from_bits(0x3f9cc8dd8586a117),
+        f64::from_bits(0x3f4711aa66e6149a),
+        f64::from_bits(0x3f85000b9cc7a552),
+        f64::from_bits(0x3f4711aa66e61496),
+        f64::from_bits(0x3f9a9e6c30b71006),
+    ],
+    [
+        f64::from_bits(0x3fa311637301aeda),
+        f64::from_bits(0xbf7380447408c0d7),
+        f64::from_bits(0xbf8756cb3d58e24d),
+        f64::from_bits(0xbf7380447408c0d8),
+        f64::from_bits(0x3fa282e91ffaacb9),
+        f64::from_bits(0xbf8a39817a4f9a12),
+        f64::from_bits(0xbf8756cb3d58e24d),
+        f64::from_bits(0xbf8a39817a4f9a11),
+        f64::from_bits(0x3f862e08fd90bbc8),
+    ],
+    [
+        f64::from_bits(0x3f9a793550af959d),
+        f64::from_bits(0x3f7feeb08aeb4074),
+        f64::from_bits(0xbf55d2e8ad1ebc45),
+        f64::from_bits(0x3f7feeb08aeb4074),
+        f64::from_bits(0x3f9405707a005d23),
+        f64::from_bits(0x3f81b25b7527fed2),
+        f64::from_bits(0xbf55d2e8ad1ebc46),
+        f64::from_bits(0x3f81b25b7527fed3),
+        f64::from_bits(0x3f9d00b48882ba3d),
+    ],
+    [
+        f64::from_bits(0x3fa233796409cad9),
+        f64::from_bits(0xbf6157a3ce81b207),
+        f64::from_bits(0xbf70891982ffa2e9),
+        f64::from_bits(0xbf6157a3ce81b206),
+        f64::from_bits(0x3f9e2e6ee222c8ab),
+        f64::from_bits(0x3f2e03d02e3e9f5f),
+        f64::from_bits(0xbf70891982ffa2e9),
+        f64::from_bits(0x3f2e03d02e3e9f5b),
+        f64::from_bits(0x3f81ab084f96175b),
+    ],
+    [
+        f64::from_bits(0x3f6016d0568c9c8a),
+        f64::from_bits(0x3f1c92c40f29c270),
+        f64::from_bits(0xbf52f8fe1ff82a76),
+        f64::from_bits(0x3f1c92c40f29c26e),
+        f64::from_bits(0x3f71d57ef7fe0f4e),
+        f64::from_bits(0x3f365903cfb690ab),
+        f64::from_bits(0xbf52f8fe1ff82a76),
+        f64::from_bits(0x3f365903cfb690ae),
+        f64::from_bits(0x3f7640e9e7db9126),
+    ],
+    [
+        f64::from_bits(0x3f89a1fe11c3906a),
+        f64::from_bits(0xbf3c0c9fd7db63de),
+        f64::from_bits(0xbf539863bf529667),
+        f64::from_bits(0xbf3c0c9fd7db63e2),
+        f64::from_bits(0x3f84890c28c52e01),
+        f64::from_bits(0xbf4847fba36c3230),
+        f64::from_bits(0xbf539863bf529667),
+        f64::from_bits(0xbf4847fba36c3231),
+        f64::from_bits(0x3f73b8e4cd0f3a03),
+    ],
+    [
+        f64::from_bits(0x3f50624dd2f1a9fc),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3f647ae147ae147b),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3f5bda5119ce075f),
+    ],
+    [
+        f64::from_bits(0x3ec3ec460ed80a18),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ec3ec460ed80a18),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ea92a737110e454),
+    ],
+    [
+        f64::from_bits(0x3ec3ec460ed80a18),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ec3ec460ed80a18),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ea92a737110e454),
+    ],
+];
+
+/// `q` at state 1.
+pub const FRANKA_DYNAMICS_POSITIONS: [f64; 11] = [
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x3fc0cb6c86b03500),
+    f64::from_bits(0x3fee1707e06a73d8),
+    f64::from_bits(0x3fc92f9c175cf230),
+    f64::from_bits(0xbfed638a5fb9ad60),
+    f64::from_bits(0x3febda395f0b109c),
+    f64::from_bits(0x4005904e9310cc1f),
+    f64::from_bits(0x4000ec269ea13d11),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0x3f92c5449eba1b1e),
+    f64::from_bits(0x3f900d105ea935ea),
+];
+
+/// `q̇` at state 1.
+pub const FRANKA_DYNAMICS_VELOCITIES: [f64; 11] = [
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0xbfe8d914ad03f36c),
+    f64::from_bits(0x3ff9d0e038edda32),
+    f64::from_bits(0xbfcf8e246dccde90),
+    f64::from_bits(0xbfc45680fb523510),
+    f64::from_bits(0xbfeab5fac8b9f554),
+    f64::from_bits(0x3ffba415243e035c),
+    f64::from_bits(0xbffcf4b2b115ae54),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0xbfc65edadeae9c00),
+    f64::from_bits(0xbffd9774882a8a8a),
+];
+
+/// `q̈` at state 1.
+pub const FRANKA_DYNAMICS_ACCELERATIONS: [f64; 11] = [
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0xbff635af3b8f2ec0),
+    f64::from_bits(0x400036fc9e329890),
+    f64::from_bits(0xbff3546f9cb6d63c),
+    f64::from_bits(0x3fd8d18eecc6b400),
+    f64::from_bits(0xc00a8006ce2ebd54),
+    f64::from_bits(0xbfcd07b9a768a460),
+    f64::from_bits(0x3fd72a6cd0ebb7a0),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0xc0052cd78c36b8e3),
+    f64::from_bits(0x40139d6b64af54e6),
+];
+
+/// Pinocchio's `τ` with damping and friction loss.
+pub const FRANKA_DYNAMICS_TORQUES: [f64; 11] = [
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0xc01f9d6bd86e79f9),
+    f64::from_bits(0xc0473bc75c07e806),
+    f64::from_bits(0xbfe7af3d949e2db4),
+    f64::from_bits(0x4033c5c8a75fc069),
+    f64::from_bits(0xbfff5e039f86d636),
+    f64::from_bits(0x400d097ef50e7199),
+    f64::from_bits(0xbffdf71b2333070b),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0xbfe26df70b86aebe),
+    f64::from_bits(0xbff4a55be0d72397),
+];
+
+/// Pinocchio's `rnea`: `τ` without damping and friction loss.
+pub const FRANKA_DYNAMICS_RIGID_BODY_TORQUES: [f64; 11] = [
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0xc01b4f160f9ac858),
+    f64::from_bits(0xc0482a4e5dcf56d8),
+    f64::from_bits(0xbfd2ca9c25891f52),
+    f64::from_bits(0x40341c8a2437ac81),
+    f64::from_bits(0xbff017811c7189a0),
+    f64::from_bits(0x3ffcd54f2c45463b),
+    f64::from_bits(0x3f91516897622453),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0xbfd6794d7482dc48),
+    f64::from_bits(0x3fe37dcae8406780),
+];
+
+/// Pinocchio's `aba` of the rigid-body torques.
+pub const FRANKA_DYNAMICS_FORWARD_ACCELERATIONS: [f64; 11] = [
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0xbff635af3b8f2ec9),
+    f64::from_bits(0x400036fc9e3298a0),
+    f64::from_bits(0xbff3546f9cb6d61a),
+    f64::from_bits(0x3fd8d18eecc6b4c0),
+    f64::from_bits(0xc00a8006ce2ebd50),
+    f64::from_bits(0xbfcd07b9a768a3e0),
+    f64::from_bits(0x3fd72a6cd0ebb79a),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0xc0052cd78c36b8e4),
+    f64::from_bits(0x40139d6b64af54e5),
+];
+
+/// `β = G − Cᵀ·q̇ + damping⊙q̇ + friction_loss⊙sign(q̇)`.
+pub const FRANKA_DYNAMICS_MOMENTUM_BIASES: [f64; 11] = [
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0xbff13957234ec7bd),
+    f64::from_bits(0xc04a12fd1f90a94b),
+    f64::from_bits(0x3ffbe4af72f789bb),
+    f64::from_bits(0x4035ff696aef13f7),
+    f64::from_bits(0xc0030f7b2d675d8f),
+    f64::from_bits(0x40105a2c4ddcb77a),
+    f64::from_bits(0xbffd450f90b1b6de),
+    f64::from_bits(0x0000000000000000),
+    f64::from_bits(0xbfd5e04941a8be73),
+    f64::from_bits(0xbffc8b544588d73d),
+];
+
+/// Pinocchio's `crba`, with the armature on the diagonal.
+pub static FRANKA_DYNAMICS_JOINT_SPACE_INERTIA: [[f64; 11]; 11] = [
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x400c180f58fff9d3),
+        f64::from_bits(0xbfad644d5678fb40),
+        f64::from_bits(0x3ff7707eb019d094),
+        f64::from_bits(0xbfd1b8bef2240949),
+        f64::from_bits(0xbfb95f01909264da),
+        f64::from_bits(0xbfc9bf813b1ec85e),
+        f64::from_bits(0xbf41ce92f246a308),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3f800448d75d444f),
+        f64::from_bits(0xbf800448d75d444f),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0xbfad644d5678fb40),
+        f64::from_bits(0x400d5916228a8905),
+        f64::from_bits(0xbfcc2d255a9175e5),
+        f64::from_bits(0xbffb679be61ca736),
+        f64::from_bits(0x3fb18883f39129f7),
+        f64::from_bits(0xbfc28647e8054232),
+        f64::from_bits(0x3f45b61596b6201e),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3f7987e9237e5466),
+        f64::from_bits(0xbf7987e9237e5466),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3ff7707eb019d094),
+        f64::from_bits(0xbfcc2d255a9175e5),
+        f64::from_bits(0x3fea37da117b6fb4),
+        f64::from_bits(0xbf9c52395a6df18a),
+        f64::from_bits(0xbf9ecfffe3591031),
+        f64::from_bits(0xbfb97d682f55e60b),
+        f64::from_bits(0x3f7197bec0fb10a9),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3f6ebae06dfac8ca),
+        f64::from_bits(0xbf6ebae06dfac8ca),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0xbfd1b8bef2240949),
+        f64::from_bits(0xbffb679be61ca736),
+        f64::from_bits(0xbf9c52395a6df18a),
+        f64::from_bits(0x3ff1e6609c7555da),
+        f64::from_bits(0xbf9e85e6da40018d),
+        f64::from_bits(0x3fbb8ce89965526d),
+        f64::from_bits(0xbf3d2abffc0ed686),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0xbf77f5b1fd795794),
+        f64::from_bits(0x3f77f5b1fd795794),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0xbfb95f01909264da),
+        f64::from_bits(0x3fb18883f39129f7),
+        f64::from_bits(0xbf9ecfffe3591031),
+        f64::from_bits(0xbf9e85e6da40018d),
+        f64::from_bits(0x3fc09b04b176d13f),
+        f64::from_bits(0xbf4c9a8d5fadc868),
+        f64::from_bits(0x3f7a83114cf59376),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3efe18455ca1af60),
+        f64::from_bits(0xbefe18455ca1af60),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0xbfc9bf813b1ec85e),
+        f64::from_bits(0xbfc28647e8054232),
+        f64::from_bits(0xbfb97d682f55e60b),
+        f64::from_bits(0x3fbb8ce89965526d),
+        f64::from_bits(0xbf4c9a8d5fadc868),
+        f64::from_bits(0x3fc3a503943f37f2),
+        f64::from_bits(0xbf272ff2a44ec8ba),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0xbf63bccec6f88a2e),
+        f64::from_bits(0x3f63bccec6f88a2e),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0xbf41ce92f246a308),
+        f64::from_bits(0x3f45b61596b6201e),
+        f64::from_bits(0x3f7197bec0fb10a9),
+        f64::from_bits(0xbf3d2abffc0ed686),
+        f64::from_bits(0x3f7a83114cf59376),
+        f64::from_bits(0xbf272ff2a44ec8ba),
+        f64::from_bits(0x3fbb5039758e8bc9),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3f800448d75d444f),
+        f64::from_bits(0x3f7987e9237e5466),
+        f64::from_bits(0x3f6ebae06dfac8ca),
+        f64::from_bits(0xbf77f5b1fd795794),
+        f64::from_bits(0x3efe18455ca1af60),
+        f64::from_bits(0xbf63bccec6f88a2e),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3fbd70a3d70a3d71),
+        f64::from_bits(0x0000000000000000),
+    ],
+    [
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0xbf800448d75d444f),
+        f64::from_bits(0xbf7987e9237e5466),
+        f64::from_bits(0xbf6ebae06dfac8ca),
+        f64::from_bits(0x3f77f5b1fd795794),
+        f64::from_bits(0xbefe18455ca1af60),
+        f64::from_bits(0x3f63bccec6f88a2e),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x0000000000000000),
+        f64::from_bits(0x3fbd70a3d70a3d71),
+    ],
+];
+
+/// Comparison tolerance for the Franka dynamics check (from the fixture's f64 tolerance).
+pub const FRANKA_DYNAMICS_ABS: f64 = 1e-10;
+pub const FRANKA_DYNAMICS_REL: f64 = 1e-10;
+
+/// `f32` comparison tolerance for the Franka dynamics check (from the f32 run of tools/qa/tests/dynamics.rs).
+pub const FRANKA_DYNAMICS_F32_ABS: f64 = 1e-4;
+pub const FRANKA_DYNAMICS_F32_REL: f64 = 1e-5;
