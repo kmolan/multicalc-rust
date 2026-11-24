@@ -194,16 +194,6 @@ Built on its own `no_std` math core: autodiff, linear algebra and solvers.
 [Architecture](https://github.com/kmolan/multicalc-rust/blob/main/ARCHITECTURE.md) ·
 [Contributing](https://github.com/kmolan/multicalc-rust/blob/main/CONTRIBUTING.md)
 
-## Feature flags
-
-The default build allocates nothing. `alloc` (off by default) adds the types whose size is set at
-run time: `ParticleFilter`, `MonteCarloLocalizer`, `DynamicOccupancyGrid` and
-`Jacobian::evaluate_on_heap`. It never pulls in `std`.
-
-## MSRV and edition
-
-Edition 2024, minimum supported Rust version **1.92**.
-
 ## Acknowledgements
 
 The least-squares solvers and QR factorization port MINPACK (`lmder`, `lmpar`, `qrfac`, `qrsolv`;
