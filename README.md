@@ -7,10 +7,15 @@
 [![Docs](https://docs.rs/multicalc/badge.svg)](https://docs.rs/multicalc)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**The whole robotics stack, on bare metal.** Estimation, planning, kinematics, dynamics and control
-in one `no_std` Rust crate. No heap, no panics, no unsafe.
+**Robotics for microcontrollers.** Sense, plan, estimate and control in `no_std` Rust in one
+integrated package. Tested on real hardware: run the same code from your laptop to a Cortex-M4.
 
-https://github.com/user-attachments/assets/ed45ccb5-ca95-4e4b-8399-27d09284b220
+<p>
+  <img src="demos/examples/resources/gifs/3d_drone_showcase.gif" width="49%"
+       alt="3d_drone_flight: a Skydio X2 on an error-state filter, LQR and geometric attitude control">
+  <img src="demos/examples/resources/gifs/3d_arm_ik_showcase.gif" width="49%"
+       alt="3d_arm_ik: a Franka Panda on 1 kHz SE(3) inverse kinematics">
+</p>
 
 *The [live showcases](demos#live-showcases). Each number on screen is measured live, inside a 1 ms
 tick.*
@@ -18,14 +23,18 @@ tick.*
 ## Highlights
 
 - **1 kHz control loops.** Fixed-size types, no heap, and bounded work for each call.
-- **Tested on real silicon.** Arm Cortex-M4F, Arm Cortex-M33 and RISC-V boards. CI also tests the
-  `x86_64` and `aarch64` hosts and four bare-metal targets under QEMU.
+- **Tested on real silicon.** Pinocchio-exact robot dynamics, checked on each run, and a full
+  1 kHz arm control loop on a 100 MHz Cortex-M4F. CI also tests the `x86_64` and `aarch64` hosts
+  and four bare-metal targets under QEMU.
 - **Checked against reference libraries.** 183 checks against NumPy, SciPy, MuJoCo, Pinocchio,
   mpmath and FilterPy. See the [benchmarks](benchmarks).
 - **Heap only on request.** The default build needs no allocator. The `alloc` feature adds the particle
   filter, Monte Carlo localization and `DynamicOccupancyGrid`.
 - **Safe and panic-free.** `#![forbid(unsafe_code)]`, no C dependencies, and a typed error from each
   fallible call.
+- **Builds in seconds.** A clean build of the whole crate takes about 2.5 s, debug, release or
+  `thumbv7em`, with one dependency, `libm`. Generic code compiles in your crate, only for the
+  scalar types that you use. (i7-12650H, Rust 1.100.)
 
 ## What it does
 
