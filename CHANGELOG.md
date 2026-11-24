@@ -113,6 +113,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the round trip of the system call. CI builds its TAB on each pull request, and a maintainer
   starts a board run with the `Board` workflow.
 
+- **Input limits on `Lqr`.** `with_input_limits` sets per-input limits. `control_limited` and
+  `control_tracking_limited` return a `LimitedOutput` with the clamped input and a flag for each
+  input that hit a limit. (#289)
+
 ### Changed
 
 - **`ModelError::UnsupportedOrientation` is gone**, replaced by `MultipleOrientations` for an element

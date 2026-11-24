@@ -1,5 +1,6 @@
 //! Optimal linear state feedback for a system running at a fixed timestep.
 
+use crate::control::LimitedOutput;
 use crate::error::ControlError;
 use crate::linear_algebra::{Matrix, Vector, solve_discrete_lyapunov, solve_discrete_riccati};
 use crate::scalar::Numeric;
@@ -44,6 +45,8 @@ pub struct Lqr<const N: usize, const M: usize, T: Numeric = f64> {
     gain: Matrix<M, N, T>,
     closed_loop: Matrix<N, N, T>,
     cost_to_go: Matrix<N, N, T>,
+    input_minimum: Vector<M, T>,
+    input_maximum: Vector<M, T>,
 }
 
 impl<const N: usize, const M: usize, T: Numeric> Lqr<N, M, T> {
@@ -85,6 +88,8 @@ impl<const N: usize, const M: usize, T: Numeric> Lqr<N, M, T> {
             gain,
             closed_loop,
             cost_to_go,
+            input_minimum: Vector::from_fn(|_| T::NEG_INFINITY),
+            input_maximum: Vector::from_fn(|_| T::INFINITY),
         })
     }
 
@@ -126,6 +131,55 @@ impl<const N: usize, const M: usize, T: Numeric> Lqr<N, M, T> {
         feedforward: Vector<M, T>,
     ) -> Vector<M, T> {
         feedforward - self.gain * (state - reference)
+    }
+
+    /// Sets per-input limits for [`control_limited`](Self::control_limited) and
+    /// [`control_tracking_limited`](Self::control_tracking_limited). An infinite limit means no
+    /// limit on that side. Defaults to no limits.
+    ///
+    /// Returns [`ControlError::NonFinite`] if a limit is NaN, or
+    /// [`ControlError::InvalidOutputLimits`] if `minimum[input] > maximum[input]` for an input.
+    pub fn with_input_limits(
+        mut self,
+        minimum: Vector<M, T>,
+        maximum: Vector<M, T>,
+    ) -> Result<Self, ControlError> {
+        for input in 0..M {
+            if minimum[input].is_nan() || maximum[input].is_nan() {
+                return Err(ControlError::NonFinite);
+            }
+            if minimum[input] > maximum[input] {
+                return Err(ControlError::InvalidOutputLimits);
+            }
+        }
+        self.input_minimum = minimum;
+        self.input_maximum = maximum;
+        Ok(self)
+    }
+
+    /// [`control`](Self::control), clamped per input to the input limits.
+    ///
+    /// The law has no integrator, so the clamp alone causes no windup. An outer integrator that
+    /// feeds `reference` or `feedforward` must hold while its input is limited, as
+    /// [`Pid`](crate::control::Pid) does by conditional integration.
+    #[inline]
+    pub fn control_limited(&self, state: Vector<N, T>) -> LimitedOutput<M, T> {
+        LimitedOutput::clamp(self.control(state), self.input_minimum, self.input_maximum)
+    }
+
+    /// [`control_tracking`](Self::control_tracking), clamped per input to the input limits.
+    #[inline]
+    pub fn control_tracking_limited(
+        &self,
+        state: Vector<N, T>,
+        reference: Vector<N, T>,
+        feedforward: Vector<M, T>,
+    ) -> LimitedOutput<M, T> {
+        LimitedOutput::clamp(
+            self.control_tracking(state, reference, feedforward),
+            self.input_minimum,
+            self.input_maximum,
+        )
     }
 
     /// Checks that the closed loop is Schur stable, and returns the certificate `P`.

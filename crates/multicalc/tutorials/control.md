@@ -19,6 +19,10 @@ configuration at construction.
   `input_cost`. `new` solves the discrete Riccati equation once. `control` and `control_tracking`
   are then matrix-vector products. `certify_stability` proves that the closed loop is stable; it is
   a design-time check, not a per-tick one.
+  `with_input_limits` sets per-input limits. `control_limited` and `control_tracking_limited`
+  return a `LimitedOutput`: the clamped input and a flag for each input that hit a limit. The law
+  has no integrator, so the clamp causes no windup. If an outer `Pid` or an integral state feeds
+  the reference, hold that integrator while its input is limited.
 - `ComputedTorqueController`: model-based joint tracking. The PD term goes through the joint-space
   inertia, so the tracking error obeys `ë + kd⊙ė + kp⊙e = 0` when the model is exact. The law is one
   RNEA pass per tick: `inverse_dynamics` at the reference acceleration. Coulomb friction is fed
@@ -133,6 +137,12 @@ let controller = Lqr::new(state_transition, input_model, state_cost, input_cost)
 // Once, at startup: prove that the closed loop is stable.
 let certificate = controller.certify_stability().unwrap();
 assert!(certificate.cholesky().is_ok());
+
+let bounded = controller
+    .with_input_limits(Vector::new([-0.5]), Vector::new([0.5]))
+    .unwrap()
+    .control_limited(Vector::new([10.0, 0.0]));
+assert!(bounded.output()[0].abs() <= 0.5);
 
 // Each tick after that is one matrix-vector product.
 let mut state = Vector::new([1.0, 0.0]);
