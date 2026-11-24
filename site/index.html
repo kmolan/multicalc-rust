@@ -125,6 +125,10 @@ h2 { font-size: clamp(28px, 4.2vw, 44px); letter-spacing: -0.035em; line-height:
 .card .note { font-size: 13px; color: var(--text-muted); margin: 0 0 14px; }
 .note-line { color: var(--text-secondary); font-size: 14px; margin: 16px 0 0; max-width: 760px; }
 .note-line code { font-family: var(--mono); font-size: 0.9em; }
+.subhead { font-size: 22px; letter-spacing: -0.02em; margin: 56px 0 8px; font-weight: 700; }
+h2 code { font-family: var(--mono); font-size: 0.85em; font-weight: 500; }
+.badges { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 20px; }
+.badges img { display: block; height: 20px; }
 
 /* demos */
 .demos { display: grid; grid-template-columns: 1fr; gap: 16px; }
@@ -392,10 +396,57 @@ footer a:hover { color: var(--text-primary); }
   </div>
 </section>
 
-<section id="code">
+<section id="modules">
   <div class="wrap">
-    <div class="kicker">Autodiff</div>
-    <h2>Write it once. Differentiate it exactly.</h2>
+    <div class="kicker">Modules</div>
+    <h2>One integrated stack.</h2>
+    <p class="sub">Each module has a tutorial, a demo and a fixture table.</p>
+    <div class="mods" id="modules-grid"></div>
+  </div>
+</section>
+
+<section id="math">
+  <div class="wrap">
+    <div class="kicker">The math underneath</div>
+    <h2>Built on its own <code>no_std</code> math core.</h2>
+    <p class="sub">Autodiff, linear algebra and solvers. You can also use the core alone.</p>
+    <div class="demos">
+      <div class="demo">
+        <div class="media"><img loading="lazy" src="media/newton_fractal_showcase.gif" alt="Newton fractal: every pixel is a Newton solve"></div>
+        <div class="meta">
+          <div><div class="name">newton_fractal</div><div class="modules">Newton system · autodiff Jacobian</div></div>
+          <div class="metric"><div class="v">4M / s</div><div class="l">solves, one core</div></div>
+        </div>
+        <div class="actions">
+          <a class="btn small" href="demos/viewer.html?showcase=newton_fractal">Open in browser</a>
+          <a class="link" href="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/newton_fractal.rs">Source</a>
+        </div>
+      </div>
+      <div class="demo">
+        <div class="media"><img loading="lazy" src="media/gradient_marbles_showcase.gif" alt="2,000 marbles follow exact autodiff gradients"></div>
+        <div class="meta">
+          <div><div class="name">gradient_marbles</div><div class="modules">2,000 exact gradients per tick</div></div>
+          <div class="metric"><div class="v">0.0</div><div class="l">error vs analytic</div></div>
+        </div>
+        <div class="actions">
+          <a class="btn small" href="demos/viewer.html?showcase=gradient_marbles">Open in browser</a>
+          <a class="link" href="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/gradient_marbles.rs">Source</a>
+        </div>
+      </div>
+      <div class="demo">
+        <div class="media"><img loading="lazy" src="media/fourier_ferris_showcase.gif" alt="Fourier epicycles draw Ferris"></div>
+        <div class="meta">
+          <div><div class="name">fourier_ferris</div><div class="modules">Gauss-Legendre quadrature</div></div>
+          <div class="metric"><div class="v">≈ 1e-15</div><div class="l">coefficient error</div></div>
+        </div>
+        <div class="actions">
+          <a class="btn small" href="demos/viewer.html?showcase=fourier_ferris">Open in browser</a>
+          <a class="link" href="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/fourier_ferris.rs">Source</a>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="subhead">Write it once. Differentiate it exactly.</h3>
     <p class="sub">The same formula runs at f64 and at a dual number. No step size, no truncation error.</p>
 <pre><span class="k">let</span> f = <span class="f">scalar_fn!</span>(|x| x * x * x - <span class="f">constant</span>(<span class="n">2.0</span>) * x);    <span class="c">// x³ − 2x</span>
 
@@ -405,16 +456,16 @@ footer a:hover { color: var(--text-primary); }
 
 <span class="k">let mut</span> filter = <span class="t">KalmanFilter</span>::<span class="f">new</span>(state, covariance, model);
 filter.<span class="f">predict</span>();
-filter.<span class="f">update</span>(measurement)?;                              <span class="c">// 34 ns, no heap</span></pre>
-  </div>
-</section>
+filter.<span class="f">update</span>(measurement)?;                              <span class="c">// 36 ns, no heap</span></pre>
 
-<section id="modules">
-  <div class="wrap">
-    <div class="kicker">Modules</div>
-    <h2>One integrated stack.</h2>
-    <p class="sub">Each module has a tutorial, a demo and a fixture table.</p>
-    <div class="mods" id="modules-grid"></div>
+    <h3 class="subhead">Community</h3>
+    <div class="badges">
+      <a href="https://crates.io/crates/multicalc"><img alt="Downloads on crates.io" src="https://img.shields.io/crates/d/multicalc?style=flat-square&label=downloads"></a>
+      <a href="https://github.com/kmolan/multicalc-rust/stargazers"><img alt="Stars on GitHub" src="https://img.shields.io/github/stars/kmolan/multicalc-rust?style=flat-square"></a>
+      <a href="https://github.com/kmolan/multicalc-rust/graphs/contributors"><img alt="Contributors" src="https://img.shields.io/github/contributors/kmolan/multicalc-rust?style=flat-square"></a>
+      <a href="https://github.com/kmolan/multicalc-rust/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22"><img alt="Open good first issues" src="https://img.shields.io/github/issues/kmolan/multicalc-rust/good%20first%20issue?style=flat-square&label=good%20first%20issues"></a>
+    </div>
+    <a class="btn" href="https://github.com/kmolan/multicalc-rust/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22">Pick a good first issue</a>
   </div>
 </section>
 
