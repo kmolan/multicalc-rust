@@ -154,13 +154,9 @@ Built on its own `no_std` math core: autodiff, linear algebra and solvers.
 
 ## Documentation
 
-- [Tutorials](crates/multicalc/tutorials/README.md): one page for each module.
-- [API docs](https://docs.rs/multicalc).
-- [Demos](demos): run one with `cargo run -p multicalc-demos --example <name>`.
-- [Website](https://kmolan.github.io/multicalc-rust/): demos, silicon timings and charts.
-- [Benchmarks](benchmarks): accuracy against reference libraries, and times on silicon.
-- [ARCHITECTURE.md](ARCHITECTURE.md): the crates, the domains and the layer graph.
-- [CONTRIBUTING.md](CONTRIBUTING.md): contributions are welcome.
+[Tutorials](crates/multicalc/tutorials/README.md) · [API docs](https://docs.rs/multicalc) ·
+[Demos](demos) · [Website](https://kmolan.github.io/multicalc-rust/) · [Benchmarks](benchmarks) ·
+[Architecture](ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md)
 
 ## Citation
 
