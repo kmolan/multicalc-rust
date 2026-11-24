@@ -17,8 +17,7 @@ integrated package. Tested on real hardware: run the same code from your laptop 
        alt="3d_arm_ik: a Franka Panda on 1 kHz SE(3) inverse kinematics">
 </p>
 
-*The [live showcases](demos#live-showcases). Each number on screen is measured live, inside a 1 ms
-tick.*
+*[Live showcases](demos#live-showcases): each number on screen is measured inside a 1 ms tick.*
 
 ## Highlights
 
@@ -30,9 +29,8 @@ tick.*
   mpmath and FilterPy. See the [benchmarks](benchmarks).
 - **Safe and panic-free.** `#![forbid(unsafe_code)]`, no C dependencies, and a typed error from each
   fallible call.
-- **Builds in seconds.** A clean build of the whole crate takes about 2.5 s, debug, release or
-  `thumbv7em`, with one dependency, `libm`. Generic code compiles in your crate, only for the
-  scalar types that you use. (i7-12650H, Rust 1.100.)
+- **Builds in seconds.** A clean build takes about 2.5 s (debug, release or `thumbv7em`), with one
+  dependency, `libm` (i7-12650H, Rust 1.100).
 
 ## Quick start
 
@@ -41,8 +39,6 @@ tick.*
 ```sh
 cargo add multicalc multicalc-robot-model
 ```
-
-The model file is from [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie).
 
 ```rust,no_run
 use multicalc::{JointPdController, JointReference, Vector};
@@ -74,8 +70,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-On a microcontroller, `RobotModel::to_rust_source` writes the model as one Rust function, and
-the firmware compiles it. See [ARCHITECTURE.md](ARCHITECTURE.md#crates).
+On a microcontroller, `RobotModel::to_rust_source` turns the model into Rust source that the
+firmware compiles.
 
 ### Math, poses and filters
 
@@ -103,7 +99,8 @@ fn main() -> Result<(), CalcError> {
         process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
         measurement_noise: Matrix::new([[0.1]]),
     };
-    let mut filter = KalmanFilter::new(Vector::new([0.0, 0.0]), Matrix::new([[1.0, 0.0], [0.0, 1.0]]), model);
+    let initial_covariance = Matrix::new([[1.0, 0.0], [0.0, 1.0]]);
+    let mut filter = KalmanFilter::new(Vector::new([0.0, 0.0]), initial_covariance, model);
     filter.predict();
     filter.update(Vector::new([1.0]))?;
     let velocity = filter.state()[1];
@@ -128,16 +125,14 @@ Each module has its own error enum, and each one converts into `CalcError`.
 | [Plant](crates/multicalc/tutorials/plant.md) | `MultirotorMixer`, `RotorLag`, `PositionServo` |
 | [Motion](crates/multicalc/tutorials/motion.md) | `PolylinePath`, `MinimumSnapPlanner`, `MotionProfilePlanner` |
 | [Mapping](crates/multicalc/tutorials/mapping.md) | `OccupancyGrid`, `DynamicOccupancyGrid` (`alloc`), `LogOddsGrid`, `DistanceField`, `CostGrid` |
-| [Planning](crates/multicalc/tutorials/planning.md) | `GridPlanner` (Dijkstra, A\*, Theta\*), `Rrt`, `RrtStar`, `Prm`. Caller-owned workspaces, no allocation |
+| [Planning](crates/multicalc/tutorials/planning.md) | `GridPlanner` (Dijkstra, A\*, Theta\*), `Rrt`, `RrtStar`, `Prm` |
 | [MLP inference](crates/multicalc/tutorials/mlp-inference.md) | `Layer`, `Activation`, `ParameterCursor` for trained policies |
 
 ### The core, also usable alone
 
-Built on its own `no_std` math core: autodiff, linear algebra and solvers.
-
 | Module | Contents |
 | --- | --- |
-| [Autodiff](crates/multicalc/tutorials/scalars-and-automatic-differentiation.md) | Exact derivatives (to order 6 in one variable, 3 in several), `Jacobian`, `Hessian` |
+| [Autodiff](crates/multicalc/tutorials/scalars-and-automatic-differentiation.md) | `Dual`, `HyperDual` and `Jet` scalars for exact derivatives, `Jacobian`, `Hessian` |
 | [Linear algebra](crates/multicalc/tutorials/linear-algebra.md) | `Matrix`, `Vector`: LU, Cholesky, QR, SVD, eigendecomposition, `expm`, Riccati and Lyapunov solvers |
 | [Least squares](crates/multicalc/tutorials/least-squares-optimization.md) | `LevenbergMarquardt`, `GaussNewton` |
 | [Root finding](crates/multicalc/tutorials/root-finding.md) | Bisection, Brent, Newton, damped line search |

@@ -20,9 +20,8 @@ integrated package. Tested on real hardware: run the same code from your laptop 
   [benchmarks](https://github.com/kmolan/multicalc-rust/tree/main/benchmarks).
 - **Safe and panic-free.** `#![forbid(unsafe_code)]`, no C dependencies, and a typed error from each
   fallible call.
-- **Builds in seconds.** A clean build of the whole crate takes about 2.5 s, debug, release or
-  `thumbv7em`, with one dependency, `libm`. Generic code compiles in your crate, only for the
-  scalar types that you use. (i7-12650H, Rust 1.100.)
+- **Builds in seconds.** A clean build takes about 2.5 s (debug, release or `thumbv7em`), with one
+  dependency, `libm` (i7-12650H, Rust 1.100).
 
 ## Quick start
 
@@ -79,78 +78,41 @@ fn main() -> Result<(), CalcError> {
 
 ### Math, poses and filters
 
-Two formulas, written once, carried through six modules:
-
 ```rust
 use multicalc::prelude::*;
-use multicalc::{Hessian, Jacobian, KalmanFilter, KalmanModel, Matrix, Newton, SE3, SO3, Vector, constant};
-use multicalc::{scalar_fn, scalar_fn_vec};
+use multicalc::{KalmanFilter, KalmanModel, Matrix, Newton, SE3, SO3, Vector, constant, scalar_fn};
 
 fn main() -> Result<(), CalcError> {
-    // Each formula evaluates at f64 and at any autodiff scalar.
-    let f = scalar_fn!(|x| x * x * x - constant(2.0) * x);              // f(x)    = x³ - 2x
-    let g = scalar_fn!(|v: &[f64; 2]| v[0] * v[0] * v[1] + v[0].sin()); // g(x, y) = x²y + sin x
+    // One formula: evaluated at f64, and at a dual number for exact derivatives.
+    let f = scalar_fn!(|x| x * x * x - constant(2.0) * x);   // x³ − 2x
 
-    // Derivatives: exact forward-mode autodiff, with no step size and no truncation error.
-    let single_point = 2.0_f64;
-    let slope = derivative(&f, single_point);                // f'(2)  = 10
-    let bend = second_derivative(&f, single_point);          // f''(2) = 12
+    let slope = derivative(&f, 2.0);                          // 10, exact
+    let root = Newton::new().solve(&f, 2.0)?.root;            // √2
+    let area = integral(&|x: f64| f.eval(x), [0.0, 2.0])?;    // 0
 
-    let point = [1.0_f64, 2.0];
-    let x_index = 0;
-    let dg_dx = partial(&g, x_index, &point)?;
+    // A quarter turn about z, then a translation.
+    let rotation = SO3::exp(Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2]));
+    let pose = SE3::from_parts(rotation, Vector::new([1.0, 2.0, 3.0]));
+    let moved = pose.act(Vector::new([1.0, 0.0, 0.0]));      // (1, 3, 3)
 
-    // The derivative matrices of the same two formulas.
-    let hessian = Hessian::new().evaluate(&g, &point)?;      // 2x2 second derivatives
-    let both = scalar_fn_vec!(|v: &[f64; 2]| [
-        v[0] * v[0] * v[1] + v[0].sin(),
-        v[0] * v[0] * v[0] - constant(2.0) * v[0],
-    ]);
-    let jacobian = Jacobian::new().evaluate(&both, &point)?; // 2x2 first derivatives
-
-    // Integration of f over an interval.
-    let limits = [0.0, 2.0];
-    let area = integral(&|x: f64| f.eval(x), limits)?;       // ∫₀² f = 0
-
-    // Linear algebra: solve H·x = b with the Hessian from above.
-    let b = Vector::new([1.0, 2.0]);
-    let x = hessian.solve(b)?;
-
-    // Root finding: Newton on f, with the derivative from autodiff.
-    let initial_guess = 2.0;
-    let root = Newton::new().solve(&f, initial_guess)?.root; // √2 ≈ 1.41421356
-
-    // Rigid-body motion: SO(3)/SE(3), generic over the scalar.
-    let quarter_turn_about_z = Vector::new([0.0, 0.0, core::f64::consts::FRAC_PI_2]);
-    let translation = Vector::new([1.0, 2.0, 3.0]);
-    let start = Vector::new([1.0, 0.0, 0.0]);
-
-    let pose = SE3::from_parts(SO3::exp(quarter_turn_about_z), translation);
-    let moved = pose.act(start);                  // rotate, then translate → (1, 3, 3)
-
-    // Estimation: a Kalman filter estimates the velocity from position measurements only.
-    let initial_state = Vector::new([0.0, 0.0]);  // [position, velocity]
-    let initial_covariance = Matrix::new([[1.0, 0.0], [0.0, 1.0]]);
+    // A Kalman filter recovers a velocity that it does not measure.
     let model = KalmanModel {
         state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
-        measurement_model: Matrix::new([[1.0, 0.0]]),        // position only
+        measurement_model: Matrix::new([[1.0, 0.0]]),
         process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
         measurement_noise: Matrix::new([[0.1]]),
     };
-
-    let mut filter = KalmanFilter::new(initial_state, initial_covariance, model);
+    let initial_covariance = Matrix::new([[1.0, 0.0], [0.0, 1.0]]);
+    let mut filter = KalmanFilter::new(Vector::new([0.0, 0.0]), initial_covariance, model);
     filter.predict();
-
-    let measurement = Vector::new([1.0]);         // the target moved about 1 m
-    filter.update(measurement)?;
-    let velocity = filter.state()[1];             // not measured directly
+    filter.update(Vector::new([1.0]))?;
+    let velocity = filter.state()[1];
 
     Ok(())
 }
 ```
 
-Each module family has its own error enum, and each enum converts into `CalcError`. Thus `?` works
-in a function that mixes modules. See [Error handling](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/error-handling.md).
+Each module has its own error enum, and each one converts into `CalcError`.
 
 ## What it does
 
@@ -166,16 +128,14 @@ in a function that mixes modules. See [Error handling](https://github.com/kmolan
 | [Plant](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/plant.md) | `MultirotorMixer`, `RotorLag`, `PositionServo` |
 | [Motion](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/motion.md) | `PolylinePath`, `MinimumSnapPlanner`, `MotionProfilePlanner` |
 | [Mapping](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/mapping.md) | `OccupancyGrid`, `DynamicOccupancyGrid` (`alloc`), `LogOddsGrid`, `DistanceField`, `CostGrid` |
-| [Planning](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/planning.md) | `GridPlanner` (Dijkstra, A\*, Theta\*), `Rrt`, `RrtStar`, `Prm`. Caller-owned workspaces, no allocation |
+| [Planning](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/planning.md) | `GridPlanner` (Dijkstra, A\*, Theta\*), `Rrt`, `RrtStar`, `Prm` |
 | [MLP inference](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/mlp-inference.md) | `Layer`, `Activation`, `ParameterCursor` for trained policies |
 
 ### The core, also usable alone
 
-Built on its own `no_std` math core: autodiff, linear algebra and solvers.
-
 | Module | Contents |
 | --- | --- |
-| [Autodiff](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/scalars-and-automatic-differentiation.md) | Exact derivatives (to order 6 in one variable, 3 in several), `Jacobian`, `Hessian` |
+| [Autodiff](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/scalars-and-automatic-differentiation.md) | `Dual`, `HyperDual` and `Jet` scalars for exact derivatives, `Jacobian`, `Hessian` |
 | [Linear algebra](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/linear-algebra.md) | `Matrix`, `Vector`: LU, Cholesky, QR, SVD, eigendecomposition, `expm`, Riccati and Lyapunov solvers |
 | [Least squares](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/least-squares-optimization.md) | `LevenbergMarquardt`, `GaussNewton` |
 | [Root finding](https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/root-finding.md) | Bisection, Brent, Newton, damped line search |
