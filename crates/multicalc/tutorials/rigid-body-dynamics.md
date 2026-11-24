@@ -17,11 +17,9 @@ robot.
   - `forward_dynamics`: acceleration for a given torque, by the articulated-body algorithm (ABA).
   - `joint_space_inertia`: `H(q)`, by the composite-rigid-body algorithm (CRBA).
   - `kinetic_energy` and `potential_energy`, for passivity checks.
-  - `generalized_momentum_and_bias`: `p = H(q)·q̇` and `β = G(q) − C(q,q̇)ᵀ·q̇ + damping⊙q̇ +
-    friction_loss⊙sign(q̇)`, in one O(n) pass.
+  - `generalized_momentum_and_bias`: `p = H(q)·q̇` and its bias `β`, for the momentum observer.
   - Per-joint armature, viscous damping and Coulomb friction come from the model.
-- `MomentumObserver`: sensorless contact detection. Its residual `r` estimates the external
-  joint torque from `q`, `q̇` and the applied torque.
+- `MomentumObserver`: sensorless contact detection.
 
 `FreeJointState` returns plain arrays:
 
@@ -349,26 +347,14 @@ let holding = panda.gravity_torque_at(&Vector::zeros())?;
 ## Contact detection without sensors
 
 `MomentumObserver` estimates the external joint torque `τ_ext` from `q`, `q̇` and the applied
-torque `τ`. It needs no force sensor and no joint acceleration. Its residual `r` follows
-`ṙ = K ⊙ (τ_ext − r)`, so each joint sees a contact through a first-order lag of bandwidth `K`.
+torque `τ`, with no force sensor and no `q̈`. It integrates `ṗ = τ + τ_ext − β`, with `p = H(q)·q̇`
+and `β = G(q) − C(q,q̇)ᵀ·q̇ + damping⊙q̇ + friction_loss⊙sign(q̇)` from
+`ArticulatedBody::generalized_momentum_and_bias`. The residual follows `ṙ = K ⊙ (τ_ext − r)`.
 
-The observer integrates the generalized momentum balance `ṗ = τ + τ_ext − β`, with `p = H(q)·q̇`
-and `β = G(q) − C(q,q̇)ᵀ·q̇ + damping⊙q̇ + friction_loss⊙sign(q̇)`.
-`ArticulatedBody::generalized_momentum_and_bias` returns `p` and `β` in one O(n) pass, with no
-`H` and no `Ḣ`.
-
-- `new(gains, timestep)` takes one bandwidth per joint in rad/s and a fixed tick length.
-- `update` takes solved poses and `update_at` takes a configuration, as the other `_at` forms
-  do. Each returns `r`.
-- Pass the torque that the actuators applied over the tick that ends at the measured `(q, q̇)`.
-- The first update after `new` or `reset` latches `p₀` and `β₀` and returns zero, so the robot can
-  start in motion.
-- The contact threshold is the caller's. Compare `|r|` with it on each joint.
-
-A step in `τ_ext` shows in `r` as `1 − (1 + K·dt)^−k` after `k` ticks. A larger `K` detects a
-contact sooner and passes more model error and sensor noise into `r`. Coulomb friction has
-`sign(0) = 0`, so a joint held by stiction shows its friction torque in `r`. Set the threshold
-above the friction loss.
+- Pass the torque applied over the tick that ends at the measured `(q, q̇)`.
+- The first update after `new` or `reset` latches the start state and returns zero.
+- A step in `τ_ext` reaches `r` as `1 − (1 + K·dt)^−k` after `k` ticks.
+- `sign(0) = 0`, so stiction shows in `r`. Set the contact threshold above the friction loss.
 
 ```rust
 use multicalc::dynamics::{ArticulatedBody, MomentumObserver};
@@ -393,12 +379,12 @@ let arm = SpatialInertia::new(
 )?;
 let body = ArticulatedBody::new(tree, &[Some(arm), Some(arm)], Vector::new([0.0, 0.0, -9.81]))?;
 
-// K = 50 rad/s per joint at 1 kHz. A contact is |r| above 0.3 N·m on any joint.
+// K = 50 rad/s at 1 kHz; contact is |r| > 0.3 N·m on any joint.
 let timestep = 0.001;
 let mut observer = MomentumObserver::new(Vector::new([50.0, 50.0]), timestep)?;
 let contact_threshold = 0.3;
 
-// A driven swing, and a push that the controller does not know from tick 500 to tick 699.
+// A driven swing, and an unmodeled push over ticks 500 to 699.
 let push = Vector::new([0.8, -0.5]);
 let mut position = Vector::new([1.2, -0.5]);
 let mut velocity = Vector::zeros();
@@ -406,7 +392,7 @@ let mut torque = Vector::zeros();
 let mut first_contact = None;
 let mut last_contact = None;
 for tick in 0..1000 {
-    // `torque` is the command that acted over the tick that ends here.
+    // `torque` acted over the tick that ends here.
     let residual = observer.update_at(&body, &position, &velocity, &torque)?;
     if (0..2).any(|joint| residual[joint].abs() > contact_threshold) {
         first_contact.get_or_insert(tick);
@@ -421,7 +407,7 @@ for tick in 0..1000 {
     position = position + velocity.scale(timestep);
 }
 
-// The flag rises about 10 ms after the push starts, and falls about 30 ms after it stops.
+// The flag rises about 10 ms after the push starts and falls about 30 ms after it stops.
 assert!(first_contact.is_some_and(|tick| (501..=520).contains(&tick)));
 assert!(last_contact.is_some_and(|tick| (700..=750).contains(&tick)));
 # Ok::<(), multicalc::CalcError>(())
@@ -442,8 +428,7 @@ assert!(last_contact.is_some_and(|tick| (700..=750).contains(&tick)));
   `NonPositiveArticulatedInertia`: a movable joint with no inertia behind it, such as a massless
   body on a joint with no armature.
 - `MomentumObserver::new` returns `NonFinite`, `NonPositiveTimestep`, or `NonPositiveGain`.
-- `MomentumObserver::update` returns `NonFinite` on a non-finite torque, and the errors of the
-  `ArticulatedBody` queries. The observer does not change on an error.
+  `update` returns `NonFinite` and the `ArticulatedBody` query errors.
 
 ## Model files
 

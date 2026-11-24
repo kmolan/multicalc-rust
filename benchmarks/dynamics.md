@@ -30,9 +30,9 @@ term has its own check.
 | double pendulum inverse dynamics, 128 states: (q, q̇, q̈) -> τ | τ = H(q)·q̈ + C(q,q̇)·q̇ + G(q) + armature⊙q̈ + damping⊙q̇ + frictionloss⊙sign(q̇) | 1e-10 | Pinocchio 4.1.0 |
 | double pendulum joint-space inertia, 128 states: q -> H(q) | τ = H(q)·q̈ + C(q,q̇)·q̇ + G(q) + armature⊙q̈ + damping⊙q̇ + frictionloss⊙sign(q̇) | 1e-10 | Pinocchio 4.1.0 |
 | double pendulum forward dynamics, 128 states: (q, q̇, τ) -> q̈ | τ = H(q)·q̈ + C(q,q̇)·q̇ + G(q) + armature⊙q̈ + damping⊙q̇ + frictionloss⊙sign(q̇) | 1e-10 | Pinocchio 4.1.0 |
-| double pendulum generalized momentum and its bias, 128 states: (q, q̇) -> (p, β), p = H·q̇, β = G − Cᵀ·q̇ + damping⊙q̇ + frictionloss⊙sign(q̇) | τ = H(q)·q̈ + C(q,q̇)·q̇ + G(q) + armature⊙q̈ + damping⊙q̇ + frictionloss⊙sign(q̇) | 1e-10 | Pinocchio 4.1.0 |
+| double pendulum generalized momentum, 128 states: (q, q̇) -> p = H·q̇, β = G − Cᵀ·q̇ + damping⊙q̇ + frictionloss⊙sign(q̇) | τ = H(q)·q̈ + C(q,q̇)·q̇ + G(q) + armature⊙q̈ + damping⊙q̇ + frictionloss⊙sign(q̇) | 1e-10 | Pinocchio 4.1.0 |
 | Franka Panda inverse dynamics, 128 states: (q, q̇, q̈) -> τ | τ = H(q)·q̈ + C(q,q̇)·q̇ + G(q) + armature⊙q̈ + damping⊙q̇ + frictionloss⊙sign(q̇) | 1e-10 | Pinocchio 4.1.0 |
 | Franka Panda joint-space inertia, 128 states: q -> H(q) | τ = H(q)·q̈ + C(q,q̇)·q̇ + G(q) + armature⊙q̈ + damping⊙q̇ + frictionloss⊙sign(q̇) | 1e-10 | Pinocchio 4.1.0 |
 | Franka Panda forward dynamics, 128 states: (q, q̇, τ) -> q̈ | τ = H(q)·q̈ + C(q,q̇)·q̇ + G(q) + armature⊙q̈ + damping⊙q̇ + frictionloss⊙sign(q̇) | 1e-10 | Pinocchio 4.1.0 |
-| Franka Panda generalized momentum and its bias, 128 states: (q, q̇) -> (p, β), p = H·q̇, β = G − Cᵀ·q̇ + damping⊙q̇ + frictionloss⊙sign(q̇) | τ = H(q)·q̈ + C(q,q̇)·q̇ + G(q) + armature⊙q̈ + damping⊙q̇ + frictionloss⊙sign(q̇) | 1e-10 | Pinocchio 4.1.0 |
+| Franka Panda generalized momentum, 128 states: (q, q̇) -> p = H·q̇, β = G − Cᵀ·q̇ + damping⊙q̇ + frictionloss⊙sign(q̇) | τ = H(q)·q̈ + C(q,q̇)·q̇ + G(q) + armature⊙q̈ + damping⊙q̇ + frictionloss⊙sign(q̇) | 1e-10 | Pinocchio 4.1.0 |
 <!-- END generated -->

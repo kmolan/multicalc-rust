@@ -955,22 +955,20 @@ impl<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>
         self.forward_dynamics(&state, velocity, torque)
     }
 
-    /// The generalized momentum `p = H(q)·q̇` and its bias `β`, for already-solved poses:
+    /// The generalized momentum `p = H(q)·q̇` and its bias `β` for already-solved poses, with
     /// `ṗ = τ + τ_ext − β`.
     ///
-    /// `β = G(q) − C(q,q̇)ᵀ·q̇ + damping⊙q̇ + friction_loss⊙sign(q̇)`, with `C` the
-    /// Christoffel-consistent Coriolis matrix, so `Ḣ = C + Cᵀ` and
-    /// `β = bias_torque − Ḣ·q̇`. Armature adds to `p` and not to `β`.
-    ///
-    /// One forward and one backward sweep in world axes, with no `H` and no `Ḣ`. With the composite
-    /// momentum `h_j = Σ_{k ∈ subtree(j)} I_k·v_k` and the composite weight
+    /// `β = G(q) − C(q,q̇)ᵀ·q̇ + damping⊙q̇ + friction_loss⊙sign(q̇) = bias_torque − Ḣ·q̇`, with `C`
+    /// Christoffel-consistent (`Ḣ = C + Cᵀ`). One forward and one backward sweep, with the
+    /// composite momentum `h_j = Σ_{k ∈ subtree(j)} I_k·v_k` and weight
     /// `w_j = Σ_{k ∈ subtree(j)} I_k·[−g; 0]`:
     ///
     /// ```text
-    /// p_j       = S_j·h_j + armature_j·q̇_j
-    /// (Cᵀ·q̇)_j  = ∂T/∂q_j = (v_j × S_j)·h_j
-    /// β_j       = S_j·w_j − (v_j × S_j)·h_j + damping_j·q̇_j + friction_loss_j·sign(q̇_j)
+    /// p_j  = S_j·h_j + armature_j·q̇_j
+    /// β_j  = S_j·w_j − (v_j × S_j)·h_j + damping_j·q̇_j + friction_loss_j·sign(q̇_j)
     /// ```
+    ///
+    /// where `(v_j × S_j)·h_j = ∂T/∂q_j = (Cᵀ·q̇)_j`.
     ///
     /// Errors: [`StateShapeMismatch`](DynamicsError::StateShapeMismatch) if the poses were solved
     /// for a different joint count, [`NonFinite`](DynamicsError::NonFinite) on a non-finite rate.
@@ -981,34 +979,27 @@ impl<const MAX_JOINTS: usize, const MAX_CONFIG: usize, T: Numeric>
     /// use multicalc::linear_algebra::{Matrix, Vector};
     /// use multicalc::spatial::{SE3, SpatialInertia};
     ///
-    /// // One hinge about y, the link balancing `moment_arm` out along x.
-    /// let hinge_axis = Vector::new([0.0, 1.0, 0.0]);
-    /// let hinge = Joint::revolute(hinge_axis, SE3::<f64>::identity());
+    /// // One hinge about y; a 2 kg link balancing 0.5 m out along x.
+    /// let hinge = Joint::revolute(Vector::new([0.0, 1.0, 0.0]), SE3::<f64>::identity());
     /// let tree = KinematicTree::<1, 1, f64>::try_from_joints(&[hinge], &[JointParent::World])
     ///     .unwrap();
-    ///
-    /// let mass = 2.0;
-    /// let moment_arm = 0.5;
-    /// let own_axis_inertia = 0.01;
-    /// let gravity_strength = 9.81;
-    /// let balance_point = Vector::new([moment_arm, 0.0, 0.0]);
-    /// let resistance_to_spinning =
-    ///     Matrix::from_diagonal([own_axis_inertia, own_axis_inertia, own_axis_inertia]);
-    /// let earth_gravity = Vector::new([0.0, 0.0, -gravity_strength]);
-    ///
-    /// let link = SpatialInertia::new(mass, balance_point, resistance_to_spinning).unwrap();
-    /// let body = ArticulatedBody::new(tree, &[Some(link)], earth_gravity).unwrap();
+    /// let link = SpatialInertia::new(
+    ///     2.0,
+    ///     Vector::new([0.5, 0.0, 0.0]),
+    ///     Matrix::from_diagonal([0.01; 3]),
+    /// )
+    /// .unwrap();
+    /// let body =
+    ///     ArticulatedBody::new(tree, &[Some(link)], Vector::new([0.0, 0.0, -9.81])).unwrap();
     ///
     /// let level = body.tree().forward_kinematics(&Vector::zeros()).unwrap();
-    /// let rate = 2.0;
     /// let (momentum, bias) = body
-    ///     .generalized_momentum_and_bias(&level, &Vector::new([rate]))
+    ///     .generalized_momentum_and_bias(&level, &Vector::new([2.0]))
     ///     .unwrap();
     ///
-    /// // One hinge: `H` is constant, so `Cᵀ·q̇ = 0` and `β = G(q) = −m·g·L` at `q = 0`.
-    /// let inertia_about_hinge = own_axis_inertia + mass * moment_arm * moment_arm;
-    /// assert!((momentum[0] - inertia_about_hinge * rate).abs() < 1e-12);
-    /// assert!((bias[0] + mass * gravity_strength * moment_arm).abs() < 1e-12);
+    /// // `H` is constant on one hinge, so `Cᵀ·q̇ = 0` and `β = G(0) = −m·g·L`.
+    /// assert!((momentum[0] - (0.01 + 2.0 * 0.5 * 0.5) * 2.0).abs() < 1e-12);
+    /// assert!((bias[0] + 2.0 * 9.81 * 0.5).abs() < 1e-12);
     /// ```
     pub fn generalized_momentum_and_bias(
         &self,

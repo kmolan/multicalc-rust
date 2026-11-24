@@ -1,4 +1,4 @@
-//! The generalized-momentum observer for sensorless contact detection.
+//! The generalized-momentum observer.
 #![deny(clippy::indexing_slicing)]
 
 use crate::dynamics::ArticulatedBody;
@@ -7,17 +7,15 @@ use crate::kinematics::KinematicTreeState;
 use crate::linear_algebra::Vector;
 use crate::scalar::Numeric;
 
-/// External joint torque from `q`, `q̇` and the applied torque alone: no force sensor, no `q̈`.
-///
-/// The residual `r` tracks `τ_ext` through a first-order lag of bandwidth `K` per joint:
+/// Sensorless contact detection: the residual `r` estimates the external joint torque `τ_ext` from
+/// `q`, `q̇` and the applied torque `τ`.
 ///
 /// ```text
 /// r = K ⊙ (p − p₀ − ∫(τ − β + r) dt)        ṙ = K ⊙ (τ_ext − r)
 /// ```
 ///
-/// with `p = H(q)·q̇` and `β` from [`ArticulatedBody::generalized_momentum_and_bias`]. Per tick,
-/// `τ` is held over the tick, `β` takes the trapezoid rule, and `r` is implicit, so the loop is
-/// stable for every `K·dt > 0`:
+/// with `p` and `β` from [`ArticulatedBody::generalized_momentum_and_bias`]. Per tick, `τ` is held,
+/// `β` takes the trapezoid rule and `r` is implicit, so the loop is stable for every `K·dt > 0`:
 ///
 /// ```text
 /// u_k = τ_k − (β_{k−1} + β_k)/2
@@ -25,9 +23,9 @@ use crate::scalar::Numeric;
 /// I_k = I_{k−1} + (u_k + r_k)·dt
 /// ```
 ///
-/// A step in `τ_ext` shows in `r` as `1 − (1 + K·dt)^−k` after `k` ticks. The first update after
+/// A step in `τ_ext` reaches `r` as `1 − (1 + K·dt)^−k` after `k` ticks. The first update after
 /// [`new`](MomentumObserver::new) or [`reset`](MomentumObserver::reset) latches `p₀` and `β₀` and
-/// returns zero. The contact threshold on `r` is the caller's.
+/// returns zero.
 ///
 /// ```
 /// use multicalc::dynamics::{ArticulatedBody, MomentumObserver};
@@ -76,7 +74,7 @@ pub struct MomentumObserver<const MAX_CONFIG: usize, T: Numeric = f64> {
     initial_momentum: Vector<MAX_CONFIG, T>,
     /// `I = ∫(τ − β + r) dt` since the latch.
     momentum_integral: Vector<MAX_CONFIG, T>,
-    /// `β` at the last update, the left end of the next trapezoid.
+    /// `β` at the last update.
     previous_bias: Vector<MAX_CONFIG, T>,
     /// `r` at the last update.
     residual: Vector<MAX_CONFIG, T>,
@@ -85,9 +83,8 @@ pub struct MomentumObserver<const MAX_CONFIG: usize, T: Numeric = f64> {
 }
 
 impl<const MAX_CONFIG: usize, T: Numeric> MomentumObserver<MAX_CONFIG, T> {
-    /// An observer with per-joint bandwidth `gains` at a fixed `timestep`.
-    ///
-    /// Every one of the `MAX_CONFIG` gains is checked, so fill unused slots with a positive value.
+    /// An observer with per-joint bandwidth `gains` at a fixed `timestep`. Every `MAX_CONFIG` slot,
+    /// padding included, needs a positive gain.
     ///
     /// Errors: [`NonFinite`](DynamicsError::NonFinite) on a non-finite gain or timestep,
     /// [`NonPositiveTimestep`](DynamicsError::NonPositiveTimestep) if `timestep ≤ 0`,
@@ -133,20 +130,20 @@ impl<const MAX_CONFIG: usize, T: Numeric> MomentumObserver<MAX_CONFIG, T> {
         self.timestep
     }
 
-    /// The residual `r` from the last update: the estimate of `τ_ext`.
+    /// The residual `r ≈ τ_ext` from the last update.
     #[inline]
     pub fn residual(&self) -> Vector<MAX_CONFIG, T> {
         self.residual
     }
 
-    /// One tick for already-solved poses; returns `r_k`.
+    /// One tick for already-solved poses; returns `r`.
     ///
-    /// `torque` is the torque the actuators applied over the tick that ends at
-    /// `(state, velocity)`. Slots past the model's velocity count stay zero.
+    /// `torque` is the torque applied over the tick that ends at `(state, velocity)`. Slots past
+    /// the model's velocity count stay zero.
     ///
     /// Errors: [`NonFinite`](DynamicsError::NonFinite) on a non-finite torque, and as
-    /// [`generalized_momentum_and_bias`](ArticulatedBody::generalized_momentum_and_bias). The
-    /// observer does not change on an error.
+    /// [`generalized_momentum_and_bias`](ArticulatedBody::generalized_momentum_and_bias). An error
+    /// leaves the observer unchanged.
     pub fn update<const MAX_JOINTS: usize>(
         &mut self,
         body: &ArticulatedBody<MAX_JOINTS, MAX_CONFIG, T>,
@@ -209,7 +206,7 @@ impl<const MAX_CONFIG: usize, T: Numeric> MomentumObserver<MAX_CONFIG, T> {
         self.update(body, &state, velocity, torque)
     }
 
-    /// Restarts the observer: the next update latches `p₀` and `β₀` and returns zero.
+    /// The next update latches `p₀` and `β₀` again and returns zero.
     pub fn reset(&mut self) {
         self.initial_momentum = Vector::zeros();
         self.momentum_integral = Vector::zeros();

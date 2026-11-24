@@ -20,7 +20,7 @@ Measured on a 12th Gen Intel Core i7-12650H (16 threads) under WSL2 (Linux 6.18)
 | `joint_space_inertia_arm` | 7-joint arm, composite-rigid-body: q -> H(q) | 609.5 ns | 611.7 ns |
 | `forward_dynamics_arm` | 7-joint arm, articulated-body: (q, q̇, τ) -> q̈, workspace on the stack | 722.8 ns | 722.5 ns |
 | `forward_dynamics_arm_with_workspace` | 7-joint arm, articulated-body: (q, q̇, τ) -> q̈, caller-owned workspace | 697.5 ns | 696.0 ns |
-| `momentum_observer_arm` | 7-joint arm, momentum observer: one 1 kHz tick (q, q̇, τ) -> r, solved poses | 454.9 ns | 452.5 ns |
+| `momentum_observer_arm` | 7-joint arm, momentum observer: (q, q̇, τ) -> r | 454.9 ns | 452.5 ns |
 | `inverse_kinematics_solve` | 7-joint arm, warm-started SE(3) pose solve with joint limits | 20.41 µs | 20.48 µs |
 | `computed_torque_arm` | 7-joint arm, computed torque: (q, q̇, reference) -> τ, one RNEA pass | 522.6 ns | 521.5 ns |
 | `cartesian_impedance_arm` | 7-joint arm, Cartesian impedance: Jᵀ·(k⊙e + d⊙ė) + bias | 689.5 ns | 687.7 ns |

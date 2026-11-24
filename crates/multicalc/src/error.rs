@@ -264,7 +264,7 @@ pub enum ControlError {
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
 pub enum DynamicsError {
-    /// A mass, inertia, gravity, rate, torque, gain or timestep value was infinite or NaN.
+    /// A dynamics input was infinite or NaN.
     NonFinite,
     /// A rotational inertia was not positive definite.
     NonPositiveInertia,

@@ -27253,7 +27253,7 @@
       "Franka Panda inverse dynamics, 128 states: (q, q\u0307, q\u0308) -> \u03c4",
       "Franka Panda joint-space inertia, 128 states: q -> H(q)",
       "Franka Panda forward dynamics, 128 states: (q, q\u0307, \u03c4) -> q\u0308",
-      "Franka Panda generalized momentum and its bias, 128 states: (q, q\u0307) -> (p, \u03b2), p = H\u00b7q\u0307, \u03b2 = G \u2212 C\u1d40\u00b7q\u0307 + damping\u2299q\u0307 + frictionloss\u2299sign(q\u0307)"
+      "Franka Panda generalized momentum, 128 states: (q, q\u0307) -> p = H\u00b7q\u0307, \u03b2 = G \u2212 C\u1d40\u00b7q\u0307 + damping\u2299q\u0307 + frictionloss\u2299sign(q\u0307)"
     ],
     "reference": "Pinocchio 4.1.0",
     "sampling": "128 states per case; q uniform in each joint's range or [-pi, pi], qdot uniform on [-3, 3] (double pendulum) or [-2, 2] (Franka), qddot uniform on [-8, 8] or [-5, 5]; the first state is forced to qdot = 0 exactly. The Franka has its <tendon>, <equality>, <actuator> and <key> elements deleted and joint frictionloss set to [0.3, 0.25, 0.2, 0.18, 0.12, 0.1, 0.08, 0.05, 0.05], since the file states none.",

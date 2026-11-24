@@ -297,9 +297,7 @@ def _expected(mujoco_model, path, joint_of_body, positions, velocities, accelera
         recovered = pin.aba(with_armature, data, position, velocity, with_rotor).copy()
         np.testing.assert_allclose(recovered, acceleration, rtol=1e-10, atol=1e-10)
 
-        # `computeCoriolisMatrix` is the Christoffel-consistent `C`, so `Ḣ = C + Cᵀ`. Decides both
-        # properties on this model rather than assuming them: `C·q̇ + G` is `rnea` at rest, and
-        # `C + Cᵀ` is the central difference of `crba` along `q̇`.
+        # Checks that Pinocchio's `C` gives `C·q̇ + G = rnea(q, q̇, 0)` and `Ḣ = C + Cᵀ`.
         coriolis = pin.computeCoriolisMatrix(with_armature, data, position, velocity).copy()
         gravity = pin.computeGeneralizedGravity(with_armature, data, position).copy()
         at_rest = pin.rnea(with_armature, data, position, velocity, np.zeros(size)).copy()
@@ -394,8 +392,8 @@ def _write(out, case, meta, model, path, label, extra=None):
             f"{label} inverse dynamics, {STATE_COUNT} states: (q, q̇, q̈) -> τ",
             f"{label} joint-space inertia, {STATE_COUNT} states: q -> H(q)",
             f"{label} forward dynamics, {STATE_COUNT} states: (q, q̇, τ) -> q̈",
-            f"{label} generalized momentum and its bias, {STATE_COUNT} states: "
-            "(q, q̇) -> (p, β), p = H·q̇, β = G − Cᵀ·q̇ + damping⊙q̇ + frictionloss⊙sign(q̇)",
+            f"{label} generalized momentum, {STATE_COUNT} states: (q, q̇) -> p = H·q̇, "
+            "β = G − Cᵀ·q̇ + damping⊙q̇ + frictionloss⊙sign(q̇)",
         ],
     )
 

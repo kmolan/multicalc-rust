@@ -313,7 +313,7 @@ fn bench_momentum_observer_arm(criterion: &mut Criterion) {
     let torque = Vector::new([2.0, -1.4, 0.8, 0.5, -0.9, 0.3, 0.0]);
     let mut observer =
         MomentumObserver::<ARM_FRAMES, f64>::new(Vector::from_fn(|_| 50.0), 0.001).unwrap();
-    // The first update latches `p₀` and `β₀`; every later one is the steady tick.
+    // The first update latches; the rest are steady ticks.
     let latched = observer.update(&body, &state, &velocity, &torque).unwrap();
     assert_eq!(latched, Vector::zeros());
     criterion.bench_function("momentum_observer_arm", |b| {
@@ -836,7 +836,7 @@ const BENCHES: &[(&str, BenchFn, &str)] = &[
     (
         "momentum_observer_arm",
         bench_momentum_observer_arm,
-        "7-joint arm, momentum observer: one 1 kHz tick (q, q̇, τ) -> r, solved poses",
+        "7-joint arm, momentum observer: (q, q̇, τ) -> r",
     ),
     (
         "inverse_kinematics_solve",

@@ -9,16 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Sensorless contact detection.** `MomentumObserver` estimates the external joint torque on any
-  `ArticulatedBody` from `q`, `q̇` and the applied torque, with no force sensor and no joint
-  acceleration. Its residual follows `ṙ = K ⊙ (τ_ext − r)` per joint. The residual is implicit
-  and `β` takes the trapezoid rule, so the observer is stable for every `K·dt > 0`. The first
-  update latches the start state, so a robot can start in motion, and `reset` restarts it. The
-  contact threshold stays with the caller. `ArticulatedBody::generalized_momentum_and_bias` gives
-  `p = H(q)·q̇` and `β = G(q) − C(q,q̇)ᵀ·q̇ + damping⊙q̇ + friction_loss⊙sign(q̇)` in one O(n) pass,
-  with no `H` and no `Ḣ`. Pinocchio's `computeCoriolisMatrix` and `computeGeneralizedGravity` check
-  it on the double pendulum and the Franka Panda at 1e-10. `DynamicsError` has two new variants:
-  `NonPositiveGain` and `NonPositiveTimestep`.
+- **Sensorless contact detection.** `MomentumObserver` estimates the external joint torque from
+  `q`, `q̇` and the applied torque: `ṙ = K ⊙ (τ_ext − r)`, stable for every `K·dt > 0`.
+  `ArticulatedBody::generalized_momentum_and_bias` gives `p = H·q̇` and
+  `β = G − Cᵀ·q̇ + damping⊙q̇ + friction_loss⊙sign(q̇)` in one O(n) pass, checked against
+  Pinocchio. New `DynamicsError` variants: `NonPositiveGain`, `NonPositiveTimestep`.
 - **A checked rigid-body state derivative.** `RigidBody::try_state_derivative` reports
   `DynamicsError::DegenerateOrientation` when a state's four orientation numbers normalize to
   nothing, a case the infallible `state_derivative` answers with an all-zero derivative that an
