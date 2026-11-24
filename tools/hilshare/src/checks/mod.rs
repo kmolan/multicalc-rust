@@ -40,53 +40,200 @@ pub type Check = (fn() -> CheckOutcome, Budget);
 /// The budget of a counter check limits its warm figure. Each later budget limits the warm
 /// figure less the round trip that `cycle_counter_overhead` measured in the same run.
 ///
-/// Each budget is 1.1 × the figure of its board, rounded up, and 1.5 × on the Raspberry Pi
-/// Pico 2. `README.md` has the figures and how to measure them again.
+/// Each budget is 1.1 × the highest figure of its board over three runs, rounded up, and 1.5 × on
+/// the Raspberry Pi Pico 2. `benchmarks/silicon.md` has the figures, and `README.md` how to
+/// measure them again.
 #[cfg(feature = "arm")]
 pub const CHECKS: &[Check] = &[
-    (cycle_counter_sanity, UNMEASURED),
-    (cycle_counter_overhead, UNMEASURED),
-    (math::vector_dot, UNMEASURED),
-    (math::svd_singular_values, UNMEASURED),
-    (math::autodiff_derivative, UNMEASURED),
-    (math::pid_step, UNMEASURED),
-    (math::error_path_returns_err, UNMEASURED),
-    (arm::franka_inverse_dynamics, UNMEASURED),
-    (arm::franka_mass_matrix, UNMEASURED),
-    (arm::franka_forward_dynamics, UNMEASURED),
-    (arm::arm_control_tick_f32, UNMEASURED),
+    (
+        cycle_counter_sanity,
+        Budget {
+            nucleo_f411re: 347,
+            raspberry_pi_pico_2: 318,
+            xiao_esp32c3: 284,
+        },
+    ),
+    (
+        cycle_counter_overhead,
+        Budget {
+            nucleo_f411re: 17,
+            raspberry_pi_pico_2: 20,
+            xiao_esp32c3: 9,
+        },
+    ),
+    (
+        math::vector_dot,
+        Budget {
+            nucleo_f411re: 19,
+            raspberry_pi_pico_2: 25,
+            xiao_esp32c3: 8,
+        },
+    ),
+    (
+        math::svd_singular_values,
+        Budget {
+            nucleo_f411re: 1256,
+            raspberry_pi_pico_2: 1192,
+            xiao_esp32c3: 788,
+        },
+    ),
+    (
+        math::autodiff_derivative,
+        Budget {
+            nucleo_f411re: 2,
+            raspberry_pi_pico_2: 16,
+            xiao_esp32c3: 4,
+        },
+    ),
+    (
+        math::pid_step,
+        Budget {
+            nucleo_f411re: 3329,
+            raspberry_pi_pico_2: 2530,
+            xiao_esp32c3: 1773,
+        },
+    ),
+    (
+        math::error_path_returns_err,
+        Budget {
+            nucleo_f411re: 29,
+            raspberry_pi_pico_2: 75,
+            xiao_esp32c3: 15,
+        },
+    ),
+    (
+        arm::franka_inverse_dynamics,
+        Budget {
+            nucleo_f411re: 13403,
+            raspberry_pi_pico_2: 15402,
+            xiao_esp32c3: 8167,
+        },
+    ),
+    (
+        arm::franka_mass_matrix,
+        Budget {
+            nucleo_f411re: 12629,
+            raspberry_pi_pico_2: 12758,
+            xiao_esp32c3: 7429,
+        },
+    ),
+    (
+        arm::franka_forward_dynamics,
+        Budget {
+            nucleo_f411re: 17595,
+            raspberry_pi_pico_2: 19098,
+            xiao_esp32c3: 11456,
+        },
+    ),
+    (
+        arm::arm_control_tick_f32,
+        Budget {
+            nucleo_f411re: 772,
+            raspberry_pi_pico_2: 1395,
+            xiao_esp32c3: 7604,
+        },
+    ),
     // Last: a stack fault here leaves the other lines printed.
-    (arm::franka_inverse_dynamics_derivative, UNMEASURED),
+    (
+        arm::franka_inverse_dynamics_derivative,
+        Budget {
+            nucleo_f411re: 33864,
+            raspberry_pi_pico_2: 34015,
+            xiao_esp32c3: 20988,
+        },
+    ),
 ];
 
 /// The checks of the drone app, with the budgets as [`CHECKS`] of the arm app describes.
 #[cfg(feature = "drone")]
 pub const CHECKS: &[Check] = &[
-    (cycle_counter_sanity, UNMEASURED),
-    (cycle_counter_overhead, UNMEASURED),
-    (drone::drone_control_tick_f32, UNMEASURED),
-    (drone::attitude_and_mixer_f32, UNMEASURED),
-    (drone::eskf_trajectory, UNMEASURED),
+    (
+        cycle_counter_sanity,
+        Budget {
+            nucleo_f411re: 347,
+            raspberry_pi_pico_2: 320,
+            xiao_esp32c3: 284,
+        },
+    ),
+    (
+        cycle_counter_overhead,
+        Budget {
+            nucleo_f411re: 17,
+            raspberry_pi_pico_2: 18,
+            xiao_esp32c3: 9,
+        },
+    ),
+    (
+        drone::drone_control_tick_f32,
+        Budget {
+            nucleo_f411re: 2048,
+            raspberry_pi_pico_2: 3372,
+            xiao_esp32c3: 18187,
+        },
+    ),
+    (
+        drone::attitude_and_mixer_f32,
+        Budget {
+            nucleo_f411re: 18,
+            raspberry_pi_pico_2: 118,
+            xiao_esp32c3: 298,
+        },
+    ),
+    (
+        drone::eskf_trajectory,
+        Budget {
+            nucleo_f411re: 4970227,
+            raspberry_pi_pico_2: 4109148,
+            xiao_esp32c3: 2460941,
+        },
+    ),
 ];
 
 /// The checks of the mobile-and-policy app, with the budgets as [`CHECKS`] of the arm app
 /// describes.
 #[cfg(feature = "mobile_and_policy")]
 pub const CHECKS: &[Check] = &[
-    (cycle_counter_sanity, UNMEASURED),
-    (cycle_counter_overhead, UNMEASURED),
-    (mobile_and_policy::mobile_robot_tick_f32, UNMEASURED),
-    (mobile_and_policy::mlp_policy_forward, UNMEASURED),
-    (mobile_and_policy::mlp_policy_forward_f32, UNMEASURED),
+    (
+        cycle_counter_sanity,
+        Budget {
+            nucleo_f411re: 347,
+            raspberry_pi_pico_2: 319,
+            xiao_esp32c3: 284,
+        },
+    ),
+    (
+        cycle_counter_overhead,
+        Budget {
+            nucleo_f411re: 17,
+            raspberry_pi_pico_2: 19,
+            xiao_esp32c3: 9,
+        },
+    ),
+    (
+        mobile_and_policy::mobile_robot_tick_f32,
+        Budget {
+            nucleo_f411re: 985,
+            raspberry_pi_pico_2: 1148,
+            xiao_esp32c3: 2126,
+        },
+    ),
+    (
+        mobile_and_policy::mlp_policy_forward,
+        Budget {
+            nucleo_f411re: 18105,
+            raspberry_pi_pico_2: 22962,
+            xiao_esp32c3: 11705,
+        },
+    ),
+    (
+        mobile_and_policy::mlp_policy_forward_f32,
+        Budget {
+            nucleo_f411re: 585,
+            raspberry_pi_pico_2: 2525,
+            xiao_esp32c3: 6725,
+        },
+    ),
 ];
-
-/// No limit: the budget of a check that has no figure on its board yet.
-#[allow(dead_code)]
-const UNMEASURED: Budget = Budget {
-    nucleo_f411re: u32::MAX,
-    raspberry_pi_pico_2: u32::MAX,
-    xiao_esp32c3: u32::MAX,
-};
 
 /// `cycle_counter_overhead`'s place in [`CHECKS`].
 pub const ROUND_TRIP_CHECK_INDEX: usize = 1;
