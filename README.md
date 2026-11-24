@@ -22,10 +22,10 @@ tick.*
 
 ## Highlights
 
-- **1 kHz control loops.** Fixed-size types, no heap, and bounded work for each call.
 - **Tested on real silicon.** Pinocchio-exact robot dynamics, checked on each run, and a full
   1 kHz arm control loop on a 100 MHz Cortex-M4F. CI also tests the `x86_64` and `aarch64` hosts
   and four bare-metal targets under QEMU.
+- **1 kHz control loops.** Fixed-size types, no heap, and bounded work for each call.
 - **Checked against reference libraries.** 183 checks against NumPy, SciPy, MuJoCo, Pinocchio,
   mpmath and FilterPy. See the [benchmarks](benchmarks).
 - **Safe and panic-free.** `#![forbid(unsafe_code)]`, no C dependencies, and a typed error from each
