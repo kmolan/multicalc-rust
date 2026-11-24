@@ -317,14 +317,14 @@ footer a:hover { color: var(--text-primary); }
   <div class="wrap">
     <div class="kicker">Real silicon</div>
     <h2>Same math. Real chips. Timed in cycles.</h2>
-    <p class="sub">Three microcontrollers, Arm and RISC-V. f64 in software float. Each answer matches the reference.</p>
+    <p class="sub">Three microcontrollers, Arm and RISC-V. Each run checks each answer against a golden or an identity.</p>
     <div class="card">
-      <h3>Warm time per check, µs</h3>
-      <p class="note">Log scale. Best of seven runs.</p>
+      <h3>Warm time per check</h3>
+      <p class="note">Log scale. Best of seven runs. <code>f32</code> runs on the FPU of the Arm boards and in software on the XIAO. <code>f64</code> runs in software on each board.</p>
       <div class="legend">
-        <span><i style="background:var(--series-1)"></i>Arm Cortex-M4F</span>
-        <span><i style="background:var(--series-2)"></i>Arm Cortex-M33</span>
-        <span><i style="background:var(--series-3)"></i>RISC-V</span>
+        <span><i style="background:var(--series-1)"></i>Nucleo-F411RE · Cortex-M4F · 100 MHz</span>
+        <span><i style="background:var(--series-2)"></i>Pico 2 · Cortex-M33 · 150 MHz</span>
+        <span><i style="background:var(--series-3)"></i>XIAO ESP32-C3 · RV32IMC · 160 MHz · no FPU</span>
       </div>
       <div class="chart" id="chart-silicon"></div>
     </div>
@@ -433,16 +433,30 @@ filter.<span class="f">update</span>(measurement)?;                             
 
 <script>
 const SERIES = ["var(--series-1)", "var(--series-2)", "var(--series-3)"];
-const BOARDS = ["Arm Cortex-M4F", "Arm Cortex-M33", "RISC-V"];
+const BOARDS = ["Nucleo-F411RE", "Pico 2", "XIAO ESP32-C3"];
 
-// Warm time on silicon, microseconds. The PID check times 101 updates; shown per update.
+// benchmarks/silicon.md, best of seven, microseconds. The PID check times 101 updates; shown per update.
 const SILICON = [
-  { label: "Autodiff derivative", values: [5.79, 12.75, 3.45] },
-  { label: "Vector dot, 4", values: [11.32, 21.78, 6.64] },
-  { label: "Typed error path", values: [23.92, 31.77, 13.40] },
-  { label: "PID update", values: [2807.06 / 101, 1601.90 / 101, 1612.31 / 101] },
-  { label: "SVD, 3×3", values: [1082.85, 711.46, 703.06] },
+  { label: "Franka arm tick", scalar: "f32", values: [700.98, 874.30, 7100] },
+  { label: "Skydio X2 tick", scalar: "f32", values: [1860, 2230, 16400] },
+  { label: "X2 attitude and mixer", scalar: "f32", values: [16.06, 73.81, 296.95] },
+  { label: "Mobile-robot tick", scalar: "f32", values: [895.44, 761.30, 1930] },
+  { label: "MLP policy 22→64→64→4", scalar: "f32", values: [531.81, 1670, 6120] },
+  { label: "MLP policy 22→64→64→4", scalar: "f64", values: [16470, 15290, 10640] },
+  { label: "Franka RNEA", scalar: "f64", values: [12180, 9160, 7320] },
+  { label: "Franka CRBA", scalar: "f64", values: [11480, 8540, 6770] },
+  { label: "Franka ABA", scalar: "f64", values: [15990, 12880, 10460] },
+  { label: "Franka ∂τ/∂q̈, one RNEA pass", scalar: "Dual<f64>", values: [30790, 22610, 19170] },
+  { label: "SVD, 3×3", scalar: "f64", values: [1140, 854.26, 726.35] },
+  { label: "PID update", scalar: "f64", values: [3030 / 101, 1680 / 101, 1610 / 101] },
+  { label: "Autodiff derivative", scalar: "f64", values: [1.79, 11.21, 3.43] },
 ];
+
+// f32 runs on the FPU of the two Arm boards and in software on the XIAO.
+function siliconKey(row, board) {
+  const arithmetic = row.scalar === "f32" && board < 2 ? "FPU" : "software";
+  return `${row.label} · ${BOARDS[board]} · ${row.scalar} ${arithmetic}`;
+}
 
 // benchmarks/latency.md, median, nanoseconds.
 const LATENCY = [
@@ -508,7 +522,13 @@ function element(tag, attributes, parent) {
   return node;
 }
 function showTooltip(event, key, value) {
-  tooltip.innerHTML = `<div class="tt-k">${key}</div><div class="tt-v">${value}</div>`;
+  const keyNode = document.createElement("div");
+  keyNode.className = "tt-k";
+  keyNode.textContent = key;
+  const valueNode = document.createElement("div");
+  valueNode.className = "tt-v";
+  valueNode.textContent = value;
+  tooltip.replaceChildren(keyNode, valueNode);
   tooltip.style.opacity = 1;
   const x = Math.min(event.clientX + 14, window.innerWidth - tooltip.offsetWidth - 8);
   tooltip.style.left = x + "px";
@@ -525,7 +545,10 @@ function formatNanoseconds(value) {
   if (value < 1e6) { const micro = value / 1000; return (micro < 10 ? micro.toFixed(2) : micro.toFixed(1)) + " µs"; }
   return (value / 1e6).toFixed(2) + " ms";
 }
-function formatMicroseconds(value) { return value < 100 ? value.toFixed(1) + " µs" : Math.round(value) + " µs"; }
+function formatMicroseconds(value) {
+  if (value >= 1000) return (value / 1000).toFixed(2) + " ms";
+  return value < 100 ? value.toFixed(1) + " µs" : Math.round(value) + " µs";
+}
 
 // Horizontal bars. rows: [{label, values:[...]}]. Log axis when `log` is set.
 function horizontalBars(container, rows, options) {
@@ -574,7 +597,7 @@ function horizontalBars(container, rows, options) {
       const length = Math.max(scale(value), 2);
       const radius = Math.min(4, barHeight / 2);
       const path = `M0,${y} H${length - radius} Q${length},${y} ${length},${y + radius} V${y + barHeight - radius} Q${length},${y + barHeight} ${length - radius},${y + barHeight} H0 Z`;
-      const key = seriesCount > 1 ? `${row.label} · ${BOARDS[seriesIndex]}` : row.label;
+      const key = row.keys ? row.keys[seriesIndex] : seriesCount > 1 ? `${row.label} · ${BOARDS[seriesIndex]}` : row.label;
       const hit = element("rect", { class: "hit", x: 0, y: y - barGap / 2, width: Math.max(length, 40), height: barHeight + barGap }, group);
       element("path", { class: "bar", d: path, fill: options.colors ? options.colors[seriesIndex] : SERIES[0] }, group);
       attachTooltip(hit, key, options.valueFormat(value));
@@ -587,9 +610,13 @@ function horizontalBars(container, rows, options) {
 }
 
 function renderAll() {
-  horizontalBars(document.getElementById("chart-silicon"), SILICON, {
-    log: true, domain: [1, 2000], ticks: [1, 10, 100, 1000], labelWidth: 170,
-    tickFormat: tick => tick >= 1000 ? "1 ms" : tick + " µs",
+  horizontalBars(document.getElementById("chart-silicon"), SILICON.map(row => ({
+    label: `${row.label} · ${row.scalar}`,
+    values: row.values,
+    keys: row.values.map((_, board) => siliconKey(row, board)),
+  })), {
+    log: true, domain: [1, 50000], ticks: [1, 10, 100, 1000, 10000], labelWidth: 240,
+    tickFormat: tick => tick >= 1000 ? tick / 1000 + " ms" : tick + " µs",
     valueFormat: formatMicroseconds, colors: SERIES, aria: "Warm time per check on three microcontrollers",
   });
   horizontalBars(document.getElementById("chart-latency"), LATENCY.map(([label, value]) => ({ label, values: [value] })), {
