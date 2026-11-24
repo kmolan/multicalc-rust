@@ -7,7 +7,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-24
+
+This is the robot-arm release. RNEA, CRBA and ABA agree with Pinocchio to `1e-10` on three
+microcontrollers, and a Franka Panda control tick with contact detection takes 0.70 ms on a
+100 MHz Cortex-M4F. This release adds kinematic trees, inverse kinematics, articulated-body
+dynamics, model-based arm controllers, motion profiles, path planning, mapping and MLP inference,
+and it is the first release of `multicalc-robot-model` on crates.io.
+
+- Site: <https://kmolan.github.io/multicalc-rust/>
+- The showcases in the browser:
+  [`3d_arm_torque`](https://kmolan.github.io/multicalc-rust/demos/viewer.html?showcase=3d_arm_torque),
+  [`3d_drone_flight`](https://kmolan.github.io/multicalc-rust/demos/viewer.html?showcase=3d_drone_flight),
+  [`3d_arm_ik`](https://kmolan.github.io/multicalc-rust/demos/viewer.html?showcase=3d_arm_ik) and
+  [`2d_localization_obstacle_avoidance`](https://kmolan.github.io/multicalc-rust/demos/viewer.html?showcase=2d_localization_obstacle_avoidance).
+  Each viewer plays a Rerun 0.33.1 recording at
+  `https://kmolan.github.io/multicalc-rust/recordings/<showcase>.rrd`.
+- The times on silicon:
+  [`benchmarks/silicon.md`](https://github.com/kmolan/multicalc-rust/blob/v0.11.0/benchmarks/silicon.md)
+
 ### Added
+
+- **Kinematic trees.** `KinematicTree` holds the joints of a robot in topological order, each
+  attached to the world or to an earlier joint, in `MAX_JOINTS` fixed slots with no heap. `Joint`
+  is revolute, continuous, prismatic, fixed or floating; a floating joint is the first joint only.
+  `forward_kinematics` gives the world pose of each joint frame in one sweep, as a
+  `KinematicTreeState`. The poses agree with MuJoCo. (#308, #318, #319)
+
+- **Geometric Jacobians and singularity checks.** `KinematicTree::geometric_jacobian` gives a
+  `KinematicJacobian`, the `6 × MAX_CONFIG` map from joint rates to the tool twist in `[v; ω]`
+  order, in `JacobianFrame::World` or `JacobianFrame::Body`. `SingularityKind` names the half of
+  the degenerate twist direction that dominates: `Positional`, `Rotational` or `Mixed`. (#308,
+  #319)
+
+- **Inverse kinematics.** `InverseKinematics` iterates the damped least-squares step
+  `Δq = J⁺_λ·e` on the body-frame pose error. The damping `λ` increases near a singularity, each
+  step stays inside the joint limits, and a `SecondaryObjective` acts in the null space of the
+  task. `MultiStartInverseKinematics` solves from several seeds and keeps the distinct converged
+  branches. The solutions agree with mink. (#316)
+
+- **Collision queries.** `CollisionQuery` finds the smallest clearance between the sphere and
+  capsule `Primitive`s on the frames of a tree, and between them and world-fixed obstacles, in
+  `O(self² + self·environment)` with no heap. `sphere_sphere_distance`, `sphere_capsule_distance`
+  and `capsule_capsule_distance` give the surface distance, negative on overlap. (#319)
+
+- **Spatial algebra.** `SE3` acts on a `Twist`, a `Wrench` and a `SpatialInertia` (`act_twist`,
+  `act_wrench`, `act_inertia` and their inverses). `Twist::cross` and `Twist::cross_wrench` are
+  the spatial cross products `×` and `×*`. `SpatialInertia` gives `momentum`, `bias_wrench`,
+  `kinetic_energy` and `combined`. The results agree with Pinocchio. (#332)
+
+- **Articulated-body dynamics.** `ArticulatedBody` is a `KinematicTree` with one `SpatialInertia`
+  for each joint slot, and gravity. `inverse_dynamics` (RNEA) gives
+  `τ = H(q)·q̈ + C(q,q̇)·q̇ + G(q) + armature⊙q̈ + damping⊙q̇ + friction_loss⊙sign(q̇)`,
+  `joint_space_inertia` (CRBA) gives `H(q)`, and `forward_dynamics` (ABA) gives `q̈`.
+  `gravity_torque` and `bias_torque` give the parts of `τ`. `DynamicsWorkspace` keeps the ABA
+  scratch off the stack. A floating base is refused. The results agree with Pinocchio, and with
+  MuJoCo as a second reference. (#334)
+
+- **Model-based arm controllers.** Four control laws on an `ArticulatedBody`, all generic over the
+  scalar, so a `Dual` differentiates the law:
+  - `JointPdController`: `τ = kp⊙e + kd⊙ė`, with `+ G(q)` as an option.
+  - `ComputedTorqueController`: one RNEA pass at the reference acceleration, so
+    `ë + kd⊙ė + kp⊙e = 0` for an exact model.
+  - `JointImpedanceController`: a joint-space spring-damper on the natural inertia, with the bias
+    terms cancelled.
+  - `CartesianImpedanceController`: `τ = Jᵀ·(k⊙e + d⊙ė)` at a tool frame, with the bias terms
+    cancelled.
+
+  `JointReference` and `CartesianReference` give the desired motion for one tick. `PositionServo`
+  models a joint that takes a position command, `q̈ = ω²·(q_cmd − q) − 2ζω·q̇`, discretized
+  exactly. The torques agree with Pinocchio. (#337)
+
+- **Motion profiles.** `MotionProfilePlanner` plans a time-optimal rest-to-rest move inside
+  `ProfileLimits`: trapezoidal, or a seven-phase S-curve when a jerk limit is set.
+  `MotionProfile::state_at` costs at most seven phase steps and one cubic evaluation, with no heap.
+  `SynchronizedProfile` makes several axes arrive together: the slowest axis sets the pace, and
+  the other axes are time-scaled. (#324)
+
+- **URDF models and floating bases.** `multicalc-robot-model` reads URDF as well as MJCF into one
+  `RobotModel`. `load_path` selects the reader from the file extension, and `load_str` from the
+  root element. `RobotModel::kinematic_tree` and `RobotModel::articulated_body` give the
+  `multicalc` types; a model with a free root body gets a floating first joint. URDF models agree
+  with the parse of Pinocchio. (#318, #321)
+
+- **Model viewer.** The `viewer` feature of `multicalc-robot-model` adds the `model_viewer`
+  binary, which draws a model file in Rerun. The feature is off by default. (#339)
+
+- **`ARCHITECTURE.md`.** The crates, the domains and the dependency graph between the domains.
+  (#373)
 
 - **Showcase recordings.** With `MULTICALC_RECORD=<path>`, a showcase writes a 20 s `.rrd` file in
   place of the live viewer. The site plays each recording in the browser.
@@ -42,7 +129,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   chain fails to compile. Checked end to end against numpy goldens — a sampled 22→64→64→4 policy
   with its hidden activations stored, plus an activation table pinning each nonlinearity at zero,
   at an ordinary value and where `Tanh` saturates — at both precisions on the host.
- @Thiago316316 (#83)
+  @Thiago316316 (#83)
 - **Path planning.** A new `planning` module: `GridPlanner` runs Dijkstra, A\*, weighted A\* and
   any-angle Theta\* over any `OccupancyMap`, and `Rrt`, `RrtStar` and `Prm` sample a continuous
   `StateSpace` with the validity check injected as a closure. What a search charges for entering a
@@ -51,7 +138,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through space no sensor has seen. Every search runs in a caller-owned fixed-capacity workspace,
   so nothing allocates and the planners work in the default `no_std` build; the plan comes back as
   a `PolylinePath` ready for `MinimumSnapPlanner` and `pure_pursuit_curvature`. Errors are the new
-  `PlanningError`. (#340)
+  `PlanningError`. (#342)
 
 - **Mapping a robot can build and plan against.** `OccupancyGrid` is a bit-packed occupancy grid
   sized at compile time — one bit a cell, so a 128×128 map is 2 KB against `DynamicOccupancyGrid`'s
@@ -65,7 +152,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `scan_endpoints`, and the beam traversal is now a `RayWalk` iterator on the shared
   `GridGeometry`. `estimation` gains `LikelihoodFieldModel` and
   `MonteCarloLocalizer::update_against_field`, which scores a scan with one field lookup a beam in
-  place of a ray cast a beam a particle. (#340)
+  place of a ray cast a beam a particle. (#342)
 
 - **Zero-copy matrix and vector views.** `Matrix::view` / `view_mut` and `Vector::view` /
   `view_mut` hand out `MatrixView` / `VectorView` and their `Mut` counterparts: a flat slice, an
@@ -79,23 +166,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Brent root finding.** `Brent` combines bracketed convergence with secant and inverse
   quadratic interpolation steps for scalar equations. @snowyukitty (#323)
 
-- **Jointed robots from MuJoCo model files.** `multicalc-mjcf` reads the whole body tree a model
-  file describes — hinge and sliding joints with their axes, turning points and travel, the
-  settings a default block supplies to every body below it, files that pull in other files, and
-  mass properties stated either as three numbers or nine. `RobotModel::kinematic_tree` turns it
-  into a `KinematicTree`, and `kinematic_tree_to` gives the chain down to one body you name, so an
-  arm can be read without its gripper. Travel limits, the resting reading, armature, damping and
-  friction come across with the model.
+- **Jointed robots from MuJoCo model files.** `multicalc-robot-model` reads the whole body tree a
+  model file describes — hinge and sliding joints with their axes, turning points and travel, the
+  settings a default block supplies to every body below it, files that pull in other files, and mass
+  properties stated either as three numbers or nine. `RobotModel::kinematic_tree` turns it into a
+  `KinematicTree`, and `kinematic_tree_to` gives the chain down to one body you name, so an arm can
+  be read without its gripper. Travel limits, the resting reading, armature, damping and friction
+  come across with the model.
 
 - **A model written out as Rust.** `RobotModel::to_rust_source` writes a model as source that
   builds the same tree, so a program on a chip never reads a file.
 
-- **Capsule and cylinder geoms are measured rather than refused.** `multicalc-mjcf` works a body's
-  mass and inertia out of the two primitives Menagerie leans on hardest for link geometry, from
-  their closed forms — a cylinder as a disc across and a bar along, a capsule as that barrel plus
-  the two hemispheres capping it, carried out to where they sit. Every number is checked against
-  MuJoCo's own compile of the same geom. A size that is not a radius and a half-length is still
-  refused. @Thiago316316 (#313)
+- **Capsule and cylinder geoms are measured rather than refused.** `multicalc-robot-model` works a
+  body's mass and inertia out of the two primitives Menagerie leans on hardest for link geometry,
+  from their closed forms — a cylinder as a disc across and a bar along, a capsule as that barrel
+  plus the two hemispheres capping it, carried out to where they sit. Every number is checked
+  against MuJoCo's own compile of the same geom. A size that is not a radius and a half-length is
+  still refused. @Thiago316316 (#313)
 
 - **A shape can state where its axis starts and stops.** `fromto` gives a capsule or a cylinder its
   length, its place and its facing from the two ends of its axis, which is how link geometry is
@@ -104,28 +191,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the compiler are all refused by name. @Thiago316316 (#313)
 
 - **All five ways a model file states which way something faces.** `euler`, `axisangle`, `xyaxes`
-  and `zaxis` join `quat` on every element `multicalc-mjcf` reads a turn from — bodies, geoms,
-  inertials, and the `<default>` blocks that supply them. `<compiler angle>` now reaches the two
-  forms written in angles, and `<compiler eulerseq>` says which axes a `euler` turns about and
+  and `zaxis` join `quat` on every element `multicalc-robot-model` reads a turn from — bodies,
+  geoms, inertials, and the `<default>` blocks that supply them. `<compiler angle>` now reaches the
+  two forms written in angles, and `<compiler eulerseq>` says which axes a `euler` turns about and
   whether each rides along with the turns before it or stands still. Every form is checked against
   MuJoCo's own compile of the same file, down to the frame it settles on for a `zaxis` pointing
-  straight down. An element stating its facing two ways at once is refused rather than silently
-  read one way. @Thiago316316 (#320)
+  straight down. An element stating its facing two ways at once is refused rather than silently read
+  one way. @Thiago316316 (#320)
 
 - **A record of what a model file was loaded without.** `RigidBodyModel::ignored` names the
-  top-level sections `multicalc-mjcf` read nothing out of — tendons, actuators, sensors, contact
-  pairs and the rest — sorted and without repeats, so a caller can tell a model that loaded whole
-  from one that loaded minus the half that mattered. Anything that could change a mass is still
-  refused outright rather than recorded. @Thiago316316 (#305)
-- **Host-only Python bindings.** `multicalc-py` is a workspace crate (`publish = false`) with a
-  thin PyO3/maturin surface over a slice of crate-root `multicalc` (`f64` only, sizes fixed in
-  the type name). Import `multicalc_py`. Not published to crates.io or PyPI. @rtmongold (#330)
-- **Checked on three microcontrollers.** Franka Panda RNEA, CRBA and ABA agree with Pinocchio to
-  `1e-10` on a Cortex-M4F, a Cortex-M33 and an RV32IMC. One `Dual` pass there gives the exact
-  `∂τ/∂q̈ = H`. The arm, drone and mobile-robot control ticks and an MLP policy also run on
-  them, and each run checks each answer. On a 100 MHz Cortex-M4F in `f32`, the Franka
-  computed-torque tick with the momentum observer takes 0.70 ms.
-  [`benchmarks/silicon.md`](benchmarks/silicon.md) has the times.
+  top-level sections `multicalc-robot-model` read nothing out of — tendons, actuators, sensors,
+  contact pairs and the rest — sorted and without repeats, so a caller can tell a model that loaded
+  whole from one that loaded minus the half that mattered. Anything that could change a mass is
+  still refused outright rather than recorded. @Thiago316316 (#305) - **Host-only Python bindings.**
+  `multicalc-py` is a workspace crate (`publish = false`) with a thin PyO3/maturin surface over a
+  slice of crate-root `multicalc` (`f64` only, sizes fixed in the type name). Import `multicalc_py`.
+  Not published to crates.io or PyPI. @rtmongold (#330) - **Checked on three microcontrollers.**
+  Franka Panda RNEA, CRBA and ABA agree with Pinocchio to `1e-10` on a Cortex-M4F, a Cortex-M33 and
+  an RV32IMC. One `Dual` pass there gives the exact `∂τ/∂q̈ = H`. The arm, drone and mobile-robot
+  control ticks and an MLP policy also run on them, and each run checks each answer. On a 100 MHz
+  Cortex-M4F in `f32`, the Franka computed-torque tick with the momentum observer takes 0.70 ms.
+  [`benchmarks/silicon.md`](https://github.com/kmolan/multicalc-rust/blob/v0.11.0/benchmarks/silicon.md)
+  has the times.
 
 - **Input limits on `Lqr`.** `with_input_limits` sets per-input limits. `control_limited` and
   `control_tracking_limited` return a `LimitedOutput` with the clamped input and a flag for each
@@ -162,7 +249,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`CITATION.cff`.** GitHub shows a citation for the repository.
 
+- **A tilt limit on the thrust command.** `thrust_command_from_acceleration_with_tilt_limit` caps
+  the angle between the thrust axis and +z at a `max_tilt` in `(0, π/2)`, and scales the lateral
+  part of the acceleration down to fit. `ThrustCommand::tilt_bound` is `true` when the cap
+  applied. @naseem173 (#348)
+
+- **Iteration budgets on the doubling solvers.** `solve_discrete_riccati_with_budget`,
+  `solve_discrete_lyapunov_with_budget` and `symmetric_eigendecomposition_with_budget` take the
+  pass limit from the caller. The calls without a budget use 64, 64 and 60. @nleonh (#349)
+
+- **A checked `stepped_over` on `RotorLag`.** `RotorLag::try_stepped_over` returns
+  `PlantError::NonFinite` or `PlantError::NonPositiveTimestep` for a bad timestep, and the lag
+  does not change. A negative timestep gives `exp(−Δt/τ) > 1`, so the lag grows without bound.
+  @naseem173 (#350)
+
+- **Checked calls on the signal filters.** Each filter has `filter_checked`, and `Deadband` and
+  `Hysteresis` have `apply_checked` and `update_checked`. Each returns `SignalError::NonFinite` for
+  a NaN or an infinite sample, and the filter state does not change. @solus161 (#338)
+
 ### Changed
+
+- **MSRV 1.92.** The minimum supported Rust version changed from 1.85 to 1.92. (#339)
+
+- **`multicalc-mjcf` is `multicalc-robot-model`.** The crate reads URDF as well as MJCF. Replace
+  `multicalc_mjcf::` with `multicalc_robot_model::`. (#321)
 
 - **`ModelError::UnsupportedOrientation` is gone**, replaced by `MultipleOrientations` for an element
   that states its facing more than one way. Nothing is refused for the form it was written in any
@@ -176,6 +286,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`BiquadCoefficients::magnitude_at`, `magnitude_in_decibels_at`, `phase_at`, and `delay_at`, and
   the same four on `BiquadCascade`, now return `Result<T, SignalError>`** instead of `T`. This is a
   breaking change to the signature: callers must handle or unwrap the result. @naseem173
+  (#331)
 - `RigidBodyModel` is now `RobotModel`, holding every body a file describes rather than one. A
   single free body is read as a model of one body: `model.body_named("x2")` in place of the
   accessors that used to sit on the model itself.
@@ -183,7 +294,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `3d_arm_ik` showcase now runs on a Franka Panda read from its MuJoCo model file, in place of
   the earlier synthetic 8-link arm.
 
-- **PolylinePath.** Cache the cumulative arc length for each waypoint in `PolylinePath`. It 
+- **PolylinePath.** Cache the cumulative arc length for each waypoint in `PolylinePath`. It
   enhances the performance of `lookahead_point`. @SummerGram (#224)
 
 - **Identifier length lint and public API renames.** Workspace Clippy `min_ident_chars` is now
@@ -213,7 +324,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Sturm-chain scaling.** Root counting and isolation normalize each chain entry by a positive
   coefficient norm, preserving signs while preventing a finite, rescaled polynomial from silently
-  losing its real roots when the derivative or remainder arithmetic overflows. (#295)
+  losing its real roots when the derivative or remainder arithmetic overflows. @KSHITIZ6341 (#295)
 
 - **`RunningMedian` rejects a NaN at the window boundary.** Its insertion sort compared with `>`,
   false in both directions against a NaN, so one NaN in the window left it unsorted and the middle
@@ -224,34 +335,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Large-circle occupancy rims.** `occupy_circle` now derives its sample count from a maximum
   arc length relative to grid resolution, replacing its fixed minimum angular step so large rims
-  remain closed to ray casts. Non-finite radii now leave the map unchanged. (#296)
+  remain closed to ray casts. Non-finite radii now leave the map unchanged. @andrew-mott (#296)
 
 - **Finite-difference step scaling and validation.** Default steps now follow the scalar type's
   machine epsilon and the chosen stencil, improving `f32` accuracy. Negative and non-finite steps
-  are rejected instead of reversing the stencil or returning NaN.
+  are rejected instead of reversing the stencil or returning NaN. @henriquejsza (#329)
 
 - **`ExponentialMap::integrate_attitude` input validation.** A non-finite timestep, a
-non-positive timestep, or a non-finite rate from the caller's `angular_rate_at` callback
-used to silently produce a NaN orientation or integrate backwards without comment.
-`integrate_attitude` now returns the new `IntegrateError::NonPositiveTimestep` or the
-existing `IntegrateError::NonFinite` instead. `attitude_step` and
-`attitude_step_with_angular_acceleration` stay infallible, as they sit on
-`RigidBody::stepped`'s panic-free per-tick path; their behavior with non-finite or
-non-positive input is now documented instead of silent. @naseem173 (#307)
+  non-positive timestep, or a non-finite rate from the caller's `angular_rate_at` callback
+  used to silently produce a NaN orientation or integrate backwards without comment.
+  `integrate_attitude` now returns the new `IntegrateError::NonPositiveTimestep` or the
+  existing `IntegrateError::NonFinite` instead. `attitude_step` and
+  `attitude_step_with_angular_acceleration` stay infallible, as they sit on
+  `RigidBody::stepped`'s panic-free per-tick path; their behavior with non-finite or
+  non-positive input is now documented instead of silent. @naseem173 (#307)
+
 - Particle filters floor an underflowed zero weight at the scalar's smallest positive value before
   the next update, allowing that particle to recover when later measurements favor it.
+  @fzlzjerry (#276)
 
 - **Biquad response queries no longer alias past Nyquist.** `magnitude_at`, `phase_at`, and the
   other response queries on `BiquadCoefficients` and `BiquadCascade` used to accept any frequency,
   including one at or past half the sampling rate, and silently return the aliased reading. They
   now return `SignalError::FrequencyOutOfRange` there and `SignalError::NonFinite` for a
   non-finite frequency, the same way the design constructors already refuse those. @naseem173
+  (#331)
 
-- **Iterative Config Total Iterations** Auto-align iteration counts to the composite rules below
-  12k. 
+- **Iterative Config Total Iterations.** Auto-align iteration counts to the composite rules below
+  12k. @SummerGram (#322)
 
 - Root counting and isolation return no roots for a nonzero constant polynomial with unused
   higher-order coefficient slots, instead of underflowing the Sturm-chain index and panicking.
+  @KSHITIZ6341 (#361)
 
 - **LQR certificate for a semidefinite state cost.** `Lqr::certify_stability` solves
   `A_clᵀ·P·A_cl − P + I = 0`. A stable loop certifies when `state_cost` does not see a stable mode.
@@ -276,6 +391,24 @@ non-positive input is now documented instead of silent. @naseem173 (#307)
   from its singular values, `σ > rotor_count·ε·σ_max`, instead of a fixed `1e-4` round-trip bar.
   `f32` rejected an X layout with a 150 m half span, or with a torque ratio of `1e-4`, that `f64`
   accepted. (#301)
+
+- **`real_roots_in` checks its arguments.** `Polynomial::real_roots_in` returns
+  `PolynomialError::NonFinite` for a non-finite bound or tolerance, `ToleranceNotPositive` for a
+  tolerance `≤ 0`, and `RangeReversed` for `lower > upper`. A NaN tolerance returned the midpoint
+  of the range as a root. @naseem173 (#310)
+
+- **`line_integral_partial_2d` and `line_integral_partial_3d` check the index.** An index past the
+  dimension returns `IntegrateError::IndexOutOfRange`. It caused a panic. @VG-Fish (#341)
+
+- **Index checks on `Jet`.** `Jet::coefficient` and `Jet::derivative` panic with a message that
+  names the index and the order when `k ≥ N`. `Jet::constant` does not compile for `N = 0`.
+  @VedantMadane (#336)
+
+### Contributors
+
+Thank you to the 14 contributors to this release: @andrew-mott, @fzlzjerry, @henriquejsza,
+@KSHITIZ6341, @maskjelly, @naseem173, @nleonh, @rtmongold, @snowyukitty, @solus161, @SummerGram,
+@Thiago316316, @VedantMadane and @VG-Fish.
 
 ## [0.10.0] - 2026-08-09
 
@@ -675,7 +808,8 @@ A breaking rewrite focused on real-time latency, ease of use, maintainability, a
 
 - The `num-complex` dependency, the `ComplexFloat` generic, and `f32` / complex-number support.
 
-[Unreleased]: https://github.com/kmolan/multicalc-rust/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/kmolan/multicalc-rust/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/kmolan/multicalc-rust/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/kmolan/multicalc-rust/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/kmolan/multicalc-rust/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/kmolan/multicalc-rust/compare/v0.7.2...v0.8.0
