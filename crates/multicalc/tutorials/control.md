@@ -249,6 +249,10 @@ assert!((position[0] - 0.6).abs() < 1e-6);
 # Ok::<(), multicalc::CalcError>(())
 ```
 
+Live demo:
+[3d_arm_torque.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/3d_arm_torque.rs)
+(a Franka Panda on a jerk-limited waypoint cycle at 1 kHz).
+
 `JointImpedanceController` at the same setpoint behaves differently. Its gains define a
 spring-damper, not an error decay rate, and the mechanism keeps its own inertia. Thus an external
 force displaces it by `external / stiffness`, and it stays there. This property makes it safe for

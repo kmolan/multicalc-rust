@@ -418,6 +418,10 @@ assert!(last_contact.is_some_and(|tick| tick >= push_end && tick <= push_end + f
 # Ok::<(), multicalc::CalcError>(())
 ```
 
+Live demo:
+[3d_arm_torque.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/3d_arm_torque.rs)
+(the observer on a Franka Panda under computed torque, with a payload that the model lacks).
+
 ## Errors
 
 - `SpatialInertia::new` returns [`SpatialError`](error-handling.md): `NonPositiveMass`,
