@@ -1,5 +1,6 @@
 //! Attitude control for a rigid body, worked directly on rotations rather than on angles.
 
+use crate::control::LimitedOutput;
 use crate::error::ControlError;
 use crate::linear_algebra::{Matrix3D, Vector3D};
 use crate::scalar::Numeric;
@@ -16,6 +17,9 @@ use crate::spatial::SO3;
 ///
 /// The law also cancels the body's own gyroscopic torque and follows the reference's turn rate, so
 /// it tracks a moving target rather than only holding still.
+///
+/// [`update`](Self::update) adds an integral term and per-axis torque limits to the law. The type
+/// is `Copy`, so a copy also copies the integral.
 ///
 /// Every operation is generic over [`Numeric`](crate::Numeric).
 ///
@@ -43,6 +47,11 @@ pub struct GeometricAttitudeController<T: Numeric = f64> {
     attitude_gain: T,
     rate_gain: T,
     inertia: Matrix3D<T>,
+    integral_gain: T,
+    integral_limit: Vector3D<T>,
+    torque_limit: Vector3D<T>,
+    integral: Vector3D<T>,
+    timestep: T,
 }
 
 impl<T: Numeric> GeometricAttitudeController<T> {
@@ -73,6 +82,11 @@ impl<T: Numeric> GeometricAttitudeController<T> {
             attitude_gain,
             rate_gain,
             inertia,
+            integral_gain: T::ZERO,
+            integral_limit: Vector3D::from_fn(|_| T::INFINITY),
+            torque_limit: Vector3D::from_fn(|_| T::INFINITY),
+            integral: Vector3D::zeros(),
+            timestep: T::ZERO,
         })
     }
 
@@ -121,6 +135,135 @@ impl<T: Numeric> GeometricAttitudeController<T> {
         attitude_error.scale(-self.attitude_gain) - rate_error.scale(self.rate_gain)
             + spin_resistance
             - following
+    }
+
+    /// Adds `−k_I·∫e dt` to [`update`](Self::update), with each axis of `∫e dt` clamped to
+    /// `±integral_limit[axis]`. `timestep` is the period of `update`.
+    ///
+    /// Returns [`ControlError::NonFinite`] if `integral_gain` or `timestep` is not finite or a
+    /// limit is NaN, [`ControlError::NonPositiveGain`] if `integral_gain <= 0`,
+    /// [`ControlError::NonPositiveTimestep`] if `timestep <= 0`, or
+    /// [`ControlError::InvalidOutputLimits`] if a limit is negative.
+    pub fn with_integral(
+        mut self,
+        integral_gain: T,
+        integral_limit: Vector3D<T>,
+        timestep: T,
+    ) -> Result<Self, ControlError> {
+        if !integral_gain.is_finite()
+            || !timestep.is_finite()
+            || (0..3).any(|axis| integral_limit[axis].is_nan())
+        {
+            return Err(ControlError::NonFinite);
+        }
+        if integral_gain <= T::ZERO {
+            return Err(ControlError::NonPositiveGain);
+        }
+        if timestep <= T::ZERO {
+            return Err(ControlError::NonPositiveTimestep);
+        }
+        if (0..3).any(|axis| integral_limit[axis] < T::ZERO) {
+            return Err(ControlError::InvalidOutputLimits);
+        }
+        self.integral_gain = integral_gain;
+        self.integral_limit = integral_limit;
+        self.timestep = timestep;
+        Ok(self)
+    }
+
+    /// Sets the per-axis limit `|τ[axis]| ≤ torque_limit[axis]` for [`update`](Self::update). An
+    /// infinite limit means no limit on that axis. Defaults to no limits.
+    ///
+    /// Returns [`ControlError::NonFinite`] if a limit is NaN, or
+    /// [`ControlError::InvalidOutputLimits`] if a limit is negative.
+    pub fn with_torque_limits(mut self, torque_limit: Vector3D<T>) -> Result<Self, ControlError> {
+        if (0..3).any(|axis| torque_limit[axis].is_nan()) {
+            return Err(ControlError::NonFinite);
+        }
+        if (0..3).any(|axis| torque_limit[axis] < T::ZERO) {
+            return Err(ControlError::InvalidOutputLimits);
+        }
+        self.torque_limit = torque_limit;
+        Ok(self)
+    }
+
+    /// [`torque`](Self::torque) plus `−k_I·∫e dt`, clamped per axis to the torque limits.
+    ///
+    /// Anti-windup is by conditional integration, as in [`Pid`](crate::control::Pid): a limited
+    /// axis holds its integral while the error drives it further into the limit. Without
+    /// [`with_integral`](Self::with_integral) and
+    /// [`with_torque_limits`](Self::with_torque_limits), the output equals `torque` and no axis is
+    /// limited.
+    ///
+    /// ```
+    /// use multicalc::control::GeometricAttitudeController;
+    /// use multicalc::linear_algebra::{Matrix, Vector};
+    /// use multicalc::SO3;
+    ///
+    /// let inertia = Matrix::<3, 3>::from_diagonal([0.02, 0.02, 0.04]);
+    /// let mut controller = GeometricAttitudeController::new(6.0, 1.2, inertia)
+    ///     .unwrap()
+    ///     .with_integral(4.0, Vector::new([0.05, 0.05, 0.05]), 0.002)
+    ///     .unwrap()
+    ///     .with_torque_limits(Vector::new([0.15, 0.15, 0.075]))
+    ///     .unwrap();
+    ///
+    /// let inverted = SO3::exp(Vector::new([3.0, 0.0, 0.0]));
+    /// let still = Vector::new([0.0, 0.0, 0.0]);
+    /// let command = controller.update(inverted, still, SO3::identity(), still, still);
+    /// assert_eq!(command.limited(), [true, false, false]);
+    /// assert!(command.output()[0].abs() <= 0.15);
+    /// ```
+    pub fn update(
+        &mut self,
+        attitude: SO3<T>,
+        body_rate: Vector3D<T>,
+        desired_attitude: SO3<T>,
+        desired_body_rate: Vector3D<T>,
+        desired_body_rate_derivative: Vector3D<T>,
+    ) -> LimitedOutput<3, T> {
+        let error = Self::attitude_error(attitude, desired_attitude);
+        let proportional_derivative = self.torque(
+            attitude,
+            body_rate,
+            desired_attitude,
+            desired_body_rate,
+            desired_body_rate_derivative,
+        );
+        let candidate = Vector3D::from_fn(|axis| {
+            (self.integral[axis] + error[axis] * self.timestep)
+                .max(-self.integral_limit[axis])
+                .min(self.integral_limit[axis])
+        });
+        let unlimited = proportional_derivative - candidate.scale(self.integral_gain);
+        let command = LimitedOutput::clamp(unlimited, -self.torque_limit, self.torque_limit);
+        for axis in 0..3 {
+            // The integral enters as −k_I·∫e, so a positive error lowers the torque.
+            let deeper = (unlimited[axis] > self.torque_limit[axis] && error[axis] < T::ZERO)
+                || (unlimited[axis] < -self.torque_limit[axis] && error[axis] > T::ZERO);
+            if !deeper {
+                self.integral[axis] = candidate[axis];
+            }
+        }
+        command
+    }
+
+    /// Clears the integral.
+    pub fn reset(&mut self) {
+        self.integral = Vector3D::zeros();
+    }
+
+    /// Returns `∫e dt`, the integral state of [`update`](Self::update).
+    #[inline]
+    pub fn integral(&self) -> Vector3D<T> {
+        self.integral
+    }
+
+    /// Returns the gain on `∫e dt`.
+    #[inline]
+    #[must_use]
+    pub fn integral_gain(&self) -> T {
+        self.integral_gain
     }
 
     /// Returns the gain on how far off the pointing is.

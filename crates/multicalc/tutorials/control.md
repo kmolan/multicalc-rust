@@ -47,6 +47,10 @@ configuration at construction.
   target body rate and its derivative, so it tracks a moving target.
   The attitude error is `e = 2·sgn(w)·q_v` of `q = q_dᶜ ⊗ q_b`. It points along the shorter
   rotation and is largest at a half turn, so a body that starts inverted does not stall.
+  `with_integral` adds `−k_I·∫e dt`, with a per-axis clamp on the integral. `with_torque_limits`
+  sets per-axis torque limits. `update` applies both and returns a `LimitedOutput`. It holds the
+  integral on an axis while that axis is limited and the error drives it further into the limit.
+  `torque` stays the stateless law without the integral term.
 - `thrust_command_from_acceleration`: converts a desired acceleration and heading into an attitude
   and a collective thrust. A body with unidirectional thrust must tilt to accelerate sideways. This
   function connects a position loop to the attitude loop.
@@ -162,6 +166,15 @@ let still = Vector::new([0.0, 0.0, 0.0]);
 let tipped = SO3::exp(Vector::new([0.1, 0.0, 0.0]));
 let torque = attitude_controller.torque(tipped, still, level, still, still);
 assert!(torque[0] < 0.0);
+
+let mut integrating = attitude_controller
+    .with_integral(4.0, Vector::new([0.05, 0.05, 0.05]), 0.002)
+    .unwrap()
+    .with_torque_limits(Vector::new([0.15, 0.15, 0.075]))
+    .unwrap();
+let attitude_command = integrating.update(tipped, still, level, still, still);
+assert_eq!(attitude_command.limited(), [true, false, false]);
+assert_eq!(attitude_command.output()[0], -0.15);
 
 // A flying body must tilt toward +x to accelerate along +x.
 let gravity = 9.81;

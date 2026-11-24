@@ -117,6 +117,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `control_tracking_limited` return a `LimitedOutput` with the clamped input and a flag for each
   input that hit a limit. (#289)
 
+- **Integral term and torque limits on the attitude controller.**
+  `GeometricAttitudeController::with_integral` adds `−k_I·∫e dt`, so a constant disturbance torque
+  leaves no steady attitude error. `with_torque_limits` sets per-axis limits. `update` applies
+  both, holds the integral on a limited axis, and returns a `LimitedOutput`. (#290)
+
 ### Changed
 
 - **`ModelError::UnsupportedOrientation` is gone**, replaced by `MultipleOrientations` for an element
