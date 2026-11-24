@@ -158,22 +158,17 @@ impl<const ROTOR_COUNT: usize, T: Numeric> MultirotorMixer<ROTOR_COUNT, T> {
                 },
             }
         });
-        let distribution = allocation.pseudo_inverse()?;
-
-        // Going out to the rotors and back has to land where it started; when it does not, some
-        // wanted push or turn is one the rotors simply cannot produce. The bar is loose enough
-        // that single precision passes and tight enough that a missing direction, which is off by
-        // about one, always fails.
-        let round_trip = allocation * distribution;
-        let bar = T::from_f64(1e-4);
-        for row in 0..4 {
-            for col in 0..4 {
-                let wanted = if row == col { T::ONE } else { T::ZERO };
-                if (round_trip[(row, col)] - wanted).abs() > bar {
-                    return Err(PlantError::RotorLayoutNotIndependent);
-                }
-            }
+        if ROTOR_COUNT < 4 {
+            return Err(PlantError::RotorLayoutNotIndependent);
         }
+        // Rank of `Aᵀ` (`ROTOR_COUNT × 4`) by the `matrix_rank` rule σ > ROTOR_COUNT·ε·σ_max.
+        let decomposition = allocation.transpose().svd()?;
+        let cutoff = T::from_usize(ROTOR_COUNT) * T::EPSILON * decomposition.singular_values()[0];
+        if decomposition.rank(cutoff) < 4 {
+            return Err(PlantError::RotorLayoutNotIndependent);
+        }
+        // (Aᵀ)⁺ = (A⁺)ᵀ.
+        let distribution = decomposition.pseudo_inverse().transpose();
 
         Ok(MultirotorMixer {
             allocation,

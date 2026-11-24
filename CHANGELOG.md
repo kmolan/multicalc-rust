@@ -230,6 +230,11 @@ non-positive input is now documented instead of silent. @naseem173 (#307)
   `NonFinite`, and `x⁴ + x² + 1e-5·x` returned no real roots. Both now give their two real roots.
   (#281)
 
+- **Mixer rank check at both precisions.** `MultirotorMixer::new` finds the rank of the allocation
+  from its singular values, `σ > rotor_count·ε·σ_max`, instead of a fixed `1e-4` round-trip bar.
+  `f32` rejected an X layout with a 150 m half span, or with a torque ratio of `1e-4`, that `f64`
+  accepted. (#301)
+
 ## [0.10.0] - 2026-08-09
 
 A feature release adding signal processing, polynomials and minimum-snap trajectories, LQR and
