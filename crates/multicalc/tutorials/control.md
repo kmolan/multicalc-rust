@@ -19,6 +19,10 @@ configuration at construction.
   `input_cost`. `new` solves the discrete Riccati equation once. `control` and `control_tracking`
   are then matrix-vector products. `certify_stability` proves that the closed loop is stable; it is
   a design-time check, not a per-tick one.
+  `with_input_limits` sets per-input limits. `control_limited` and `control_tracking_limited`
+  return a `LimitedOutput`: the clamped input and a flag for each input that hit a limit. The law
+  has no integrator, so the clamp causes no windup. If an outer `Pid` or an integral state feeds
+  the reference, hold that integrator while its input is limited.
 - `ComputedTorqueController`: model-based joint tracking. The PD term goes through the joint-space
   inertia, so the tracking error obeys `ë + kd⊙ė + kp⊙e = 0` when the model is exact. The law is one
   RNEA pass per tick: `inverse_dynamics` at the reference acceleration. Coulomb friction is fed
@@ -41,6 +45,12 @@ configuration at construction.
 - `GeometricAttitudeController`: rigid-body attitude control on SO(3), so it has no singular
   orientation and no angle wrap. It cancels the gyroscopic torque `ω × (J·ω)` and feeds forward the
   target body rate and its derivative, so it tracks a moving target.
+  The attitude error is `e = 2·sgn(w)·q_v` of `q = q_dᶜ ⊗ q_b`. It points along the shorter
+  rotation and is largest at a half turn, so a body that starts inverted does not stall.
+  `with_integral` adds `−k_I·∫e dt`, with a per-axis clamp on the integral. `with_torque_limits`
+  sets per-axis torque limits. `update` applies both and returns a `LimitedOutput`. It holds the
+  integral on an axis while that axis is limited and the error drives it further into the limit.
+  `torque` stays the stateless law without the integral term.
 - `thrust_command_from_acceleration`: converts a desired acceleration and heading into an attitude
   and a collective thrust. A body with unidirectional thrust must tilt to accelerate sideways. This
   function connects a position loop to the attitude loop.
@@ -134,6 +144,12 @@ let controller = Lqr::new(state_transition, input_model, state_cost, input_cost)
 let certificate = controller.certify_stability().unwrap();
 assert!(certificate.cholesky().is_ok());
 
+let bounded = controller
+    .with_input_limits(Vector::new([-0.5]), Vector::new([0.5]))
+    .unwrap()
+    .control_limited(Vector::new([10.0, 0.0]));
+assert!(bounded.output()[0].abs() <= 0.5);
+
 // Each tick after that is one matrix-vector product.
 let mut state = Vector::new([1.0, 0.0]);
 for _ in 0..400 {
@@ -150,6 +166,15 @@ let still = Vector::new([0.0, 0.0, 0.0]);
 let tipped = SO3::exp(Vector::new([0.1, 0.0, 0.0]));
 let torque = attitude_controller.torque(tipped, still, level, still, still);
 assert!(torque[0] < 0.0);
+
+let mut integrating = attitude_controller
+    .with_integral(4.0, Vector::new([0.05, 0.05, 0.05]), 0.002)
+    .unwrap()
+    .with_torque_limits(Vector::new([0.15, 0.15, 0.075]))
+    .unwrap();
+let attitude_command = integrating.update(tipped, still, level, still, still);
+assert_eq!(attitude_command.limited(), [true, false, false]);
+assert_eq!(attitude_command.output()[0], -0.15);
 
 // A flying body must tilt toward +x to accelerate along +x.
 let gravity = 9.81;
@@ -170,14 +195,15 @@ let settled = attitude_controller.torque(
 assert!(settled.norm() < 1e-14);
 ```
 
-`Lqr::new` (Riccati) and `certify_stability` (discrete Lyapunov `A_clᵀ·P·A_cl − P + Q = 0`) each
+`Lqr::new` (Riccati) and `certify_stability` (discrete Lyapunov `A_clᵀ·P·A_cl − P + I = 0`) each
 cost `O(n³)` per iteration over an iteration budget. Run them at startup or on the bench, never in
 the loop. `certify_stability` returns:
 
 - `LinalgError::DidNotConverge` (in `ControlError::Linalg`) if the closed loop is not stable. A
   solution exists only for a stable loop.
-- `LinalgError::NotPositiveDefinite` if the solution is not positive definite. Then `state_cost`
-  does not observe every state direction, and the check cannot prove stability.
+- `LinalgError::NotPositiveDefinite` if rounding leaves the solution without a Cholesky factor.
+  The identity weight makes the solution positive definite for each stable loop, for any
+  `state_cost`.
 
 ## Model-based torque control
 

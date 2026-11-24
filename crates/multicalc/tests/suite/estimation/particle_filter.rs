@@ -499,3 +499,57 @@ fn particle_recovers_after_its_exported_weight_underflows() {
         filter.weights()
     );
 }
+
+fn wide_filter(mean: Vector<2>, spread: Matrix2D<f64>, seed: u64) -> ParticleFilter<2, 2> {
+    let process_noise = Matrix::new([[0.01, 0.0], [0.0, 0.01]]);
+    ParticleFilter::<2, 2>::new(20_000, mean, spread, process_noise, seed).unwrap()
+}
+
+#[test]
+fn covariance_matches_the_seeding_covariance() {
+    let spread = Matrix::new([[2.0, 0.6], [0.6, 1.0]]);
+    let covariance = wide_filter(Vector::new([1.0, -2.0]), spread, 11).covariance();
+    for row in 0..2 {
+        for column in 0..2 {
+            assert!(
+                (covariance[(row, column)] - spread[(row, column)]).abs() < 0.1,
+                "entry ({row}, {column}): {}",
+                covariance[(row, column)]
+            );
+        }
+    }
+}
+
+#[test]
+fn reseed_restores_uniform_weights_and_the_new_spread() {
+    let identity = Matrix::new([[1.0, 0.0], [0.0, 1.0]]);
+    let mut filter = wide_filter(Vector::new([0.0, 0.0]), identity, 5);
+    filter.reseed(Vector::new([5.0, 5.0]), identity).unwrap();
+
+    let uniform = 1.0 / 20_000.0;
+    assert!(filter.weights().iter().all(|&weight| weight == uniform));
+    let mean = filter.mean();
+    assert!((mean[0] - 5.0).abs() < 0.05 && (mean[1] - 5.0).abs() < 0.05);
+    let covariance = filter.covariance();
+    assert!((covariance[(0, 0)] - 1.0).abs() < 0.1);
+    assert!((covariance[(1, 1)] - 1.0).abs() < 0.1);
+    assert!(covariance[(0, 1)].abs() < 0.1);
+}
+
+#[test]
+fn reseed_refuses_a_bad_covariance_or_mean() {
+    let identity = Matrix::new([[1.0, 0.0], [0.0, 1.0]]);
+    let mut filter = wide_filter(Vector::new([0.0, 0.0]), identity, 5);
+    let before = filter.particles().to_vec();
+
+    let indefinite = Matrix::new([[1.0, 2.0], [2.0, 1.0]]);
+    assert_eq!(
+        filter.reseed(Vector::new([0.0, 0.0]), indefinite),
+        Err(EstimationError::NotPositiveDefinite)
+    );
+    assert_eq!(
+        filter.reseed(Vector::new([f64::NAN, 0.0]), identity),
+        Err(EstimationError::NonFinite)
+    );
+    assert_eq!(filter.particles(), before.as_slice());
+}

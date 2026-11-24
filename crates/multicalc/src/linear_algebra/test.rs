@@ -372,7 +372,7 @@ fn factorization_work_counts() {
     //   LU:       divisions N(N-1)/2 = 6, elimination multiplications sum_{p<N} p^2 = 14,
     //             matrix-scale negligible-pivot threshold 1                       -> 21
     //   Cholesky: multiplications 10, divisions 6                            -> 16
-    //   Inverse:  cofactor expansion (95) plus EPSILON * n * scale^n (5)     -> 100
+    //   Inverse:  A/s (16), cofactor expansion (95), threshold n·ε (1), B⁻¹/s (16) -> 128
     // If any of these change, update the expected counts below.
     let a =
         Matrix::<4, 4, Counted>::from_fn(|i, j| if i == j { Counted(4.0) } else { Counted(1.0) });
@@ -401,7 +401,7 @@ fn factorization_work_counts() {
         let _ = matrix3.svd().unwrap();
     });
 
-    assert_eq!((lu_decompose, cholesky, inverse), (21, 16, 100));
+    assert_eq!((lu_decompose, cholesky, inverse), (21, 16, 128));
     // One-sided Jacobi converges in a fixed number of sweeps for this input.
     assert_eq!(svd, 441);
 }

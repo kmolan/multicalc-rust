@@ -2,6 +2,8 @@
 //!
 //! - [`Pid`] — PID with anti-windup.
 //! - [`Lqr`] — optimal linear state feedback, with a check that the loop it closes settles.
+//! - [`LimitedOutput`] — a clamped output from [`Lqr`] or [`GeometricAttitudeController`], with
+//!   the axes that hit a limit.
 //! - [`GeometricAttitudeController`] — attitude control on rotations, for a rigid body.
 //! - [`thrust_command_from_acceleration`] — the attitude and thrust realizing a desired
 //!   acceleration; what joins a position loop to an attitude loop.
@@ -32,6 +34,7 @@ mod follow_the_gap;
 mod geometric_attitude;
 mod joint_impedance;
 mod joint_pd;
+mod limited_output;
 mod lqr;
 mod motion_reference;
 mod pid;
@@ -45,6 +48,7 @@ pub use follow_the_gap::{FollowTheGap, FollowTheGapOutput};
 pub use geometric_attitude::GeometricAttitudeController;
 pub use joint_impedance::JointImpedanceController;
 pub use joint_pd::JointPdController;
+pub use limited_output::LimitedOutput;
 pub use lqr::Lqr;
 pub use motion_reference::{CartesianReference, JointReference};
 pub use pid::Pid;

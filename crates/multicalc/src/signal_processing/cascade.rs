@@ -114,6 +114,32 @@ impl<const SECTIONS: usize, T: Numeric> BiquadCascade<SECTIONS, T> {
         }
     }
 
+    /// [`settle_to`](Self::settle_to), checked.
+    ///
+    /// Returns [`SignalError::NonFinite`] if `value` is not finite, or
+    /// [`SignalError::UnstableCoefficients`] if the cascade fails [`is_stable`](Self::is_stable).
+    /// A refused call leaves each section unchanged.
+    ///
+    /// ```
+    /// use multicalc::error::SignalError;
+    /// use multicalc::signal_processing::{BiquadCascade, BiquadCoefficients};
+    ///
+    /// let shape = BiquadCoefficients::low_pass(50.0_f64, 0.70710678, 0.001).unwrap();
+    /// let integrator = BiquadCoefficients::new([1.0_f64, 0.0, 0.0], [-1.0, 0.0], 0.001).unwrap();
+    /// let mut cascade = BiquadCascade::new([shape, integrator]);
+    /// assert_eq!(cascade.try_settle_to(1.0), Err(SignalError::UnstableCoefficients));
+    /// ```
+    pub fn try_settle_to(&mut self, value: T) -> Result<(), SignalError> {
+        if !value.is_finite() {
+            return Err(SignalError::NonFinite);
+        }
+        if !self.is_stable() {
+            return Err(SignalError::UnstableCoefficients);
+        }
+        self.settle_to(value);
+        Ok(())
+    }
+
     /// Clears every section's memory, putting the chain back at rest.
     pub fn reset(&mut self) {
         for section in &mut self.sections {
@@ -276,6 +302,40 @@ impl<const CHANNELS: usize, T: Numeric> MultiChannelBiquad<CHANNELS, T> {
         for (channel, filter) in self.channels.iter_mut().enumerate() {
             filter.settle_to(value[channel]);
         }
+    }
+
+    /// [`settle_to`](Self::settle_to), checked.
+    ///
+    /// Returns [`SignalError::NonFinite`] if a component of `value` is not finite, or
+    /// [`SignalError::UnstableCoefficients`] if the shared weights fail
+    /// [`is_stable`](BiquadCoefficients::is_stable). A refused call leaves each channel unchanged.
+    ///
+    /// ```
+    /// use multicalc::error::SignalError;
+    /// use multicalc::linear_algebra::Vector;
+    /// use multicalc::signal_processing::{BiquadCoefficients, MultiChannelBiquad};
+    ///
+    /// let shape = BiquadCoefficients::low_pass(50.0_f64, 0.70710678, 0.001).unwrap();
+    /// let mut gyro = MultiChannelBiquad::<3>::new(shape);
+    /// gyro.try_settle_to(Vector::new([0.1, -0.2, 0.3])).unwrap();
+    /// assert_eq!(
+    ///     gyro.try_settle_to(Vector::new([f64::NAN, 0.0, 0.0])),
+    ///     Err(SignalError::NonFinite)
+    /// );
+    /// ```
+    pub fn try_settle_to(&mut self, value: Vector<CHANNELS, T>) -> Result<(), SignalError> {
+        if !value.is_finite() {
+            return Err(SignalError::NonFinite);
+        }
+        if !self
+            .channels
+            .iter()
+            .all(|channel| channel.coefficients().is_stable())
+        {
+            return Err(SignalError::UnstableCoefficients);
+        }
+        self.settle_to(value);
+        Ok(())
     }
 
     /// Clears every channel's memory, putting the filter back at rest.

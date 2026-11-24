@@ -617,3 +617,73 @@ fn genericity_f32() {
     let identity: Matrix2D<f32> = Matrix::identity();
     assert_eq!(matrix * identity, matrix);
 }
+
+#[test]
+fn inverse_1x1_of_a_tiny_value() {
+    let inverse = Matrix::<1, 1>::new([[1e-300]]).inverse().unwrap();
+    assert!((inverse[(0, 0)] - 1e300).abs() <= 1e300 * 1e-15);
+}
+
+#[test]
+fn inverse_1x1_rejects_a_value_whose_reciprocal_overflows() {
+    assert_eq!(
+        Matrix::<1, 1>::new([[1e-310]]).inverse(),
+        Err(LinalgError::Singular)
+    );
+    assert_eq!(
+        Matrix::<1, 1>::new([[0.0]]).inverse(),
+        Err(LinalgError::Singular)
+    );
+}
+
+#[test]
+fn inverse_rejects_a_non_finite_entry() {
+    let matrix = Matrix::<2, 2>::new([[1.0, f64::NAN], [0.0, 1.0]]);
+    assert_eq!(matrix.inverse(), Err(LinalgError::NonFinite));
+}
+
+#[test]
+fn small_inverses_do_not_depend_on_scale() {
+    let regular_2 = Matrix::<2, 2>::new([[4.0, 7.0], [2.0, 6.0]]);
+    let regular_3 = Matrix::<3, 3>::new([[4.0, 1.0, 2.0], [1.0, 5.0, 3.0], [2.0, 3.0, 6.0]]);
+    let regular_4 = Matrix::<4, 4>::new([
+        [5.0, 1.0, 0.0, 2.0],
+        [1.0, 6.0, 1.0, 0.0],
+        [0.0, 1.0, 7.0, 1.0],
+        [2.0, 0.0, 1.0, 8.0],
+    ]);
+    let singular_2 = Matrix::<2, 2>::new([[1.0, 2.0], [2.0, 4.0]]);
+    let singular_3 = Matrix::<3, 3>::new([[1.0, 2.0, 3.0], [2.0, 4.0, 6.0], [1.0, 0.0, 1.0]]);
+    let singular_4 = Matrix::<4, 4>::new([
+        [1.0, 2.0, 3.0, 4.0],
+        [2.0, 4.0, 6.0, 8.0],
+        [1.0, 0.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0, 1.0],
+    ]);
+    for scale in [1.0, 1e150, 1e-150] {
+        let matrix_2 = regular_2.scale(scale);
+        let matrix_3 = regular_3.scale(scale);
+        let matrix_4 = regular_4.scale(scale);
+        let residual_2 =
+            (matrix_2 * matrix_2.inverse().unwrap() - Matrix::identity()).frobenius_norm();
+        let residual_3 =
+            (matrix_3 * matrix_3.inverse().unwrap() - Matrix::identity()).frobenius_norm();
+        let residual_4 =
+            (matrix_4 * matrix_4.inverse().unwrap() - Matrix::identity()).frobenius_norm();
+        assert!(residual_2 < 1e-14, "2×2 at {scale:e}: {residual_2:e}");
+        assert!(residual_3 < 1e-14, "3×3 at {scale:e}: {residual_3:e}");
+        assert!(residual_4 < 1e-14, "4×4 at {scale:e}: {residual_4:e}");
+        assert_eq!(
+            singular_2.scale(scale).inverse(),
+            Err(LinalgError::Singular)
+        );
+        assert_eq!(
+            singular_3.scale(scale).inverse(),
+            Err(LinalgError::Singular)
+        );
+        assert_eq!(
+            singular_4.scale(scale).inverse(),
+            Err(LinalgError::Singular)
+        );
+    }
+}

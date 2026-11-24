@@ -45,7 +45,7 @@
 //! before touching any state, so a refused sample leaves the filter exactly as it was. Two admit
 //! more than the name suggests: [`RunningMedian`] refuses only NaN, since sorting handles
 //! infinities correctly, and [`SlewRateLimiter`] refuses an infinity only while unseeded, since the
-//! rate clamp then bounds it. `settle_to` is not checked at all.
+//! rate clamp then bounds it. `try_settle_to` is the checked form of `settle_to`.
 //!
 //! A checked call protects the filter from *this* sample; it does not promise a finite result, and
 //! cannot repair a filter already spoiled through the unchecked call. Use one entry point per

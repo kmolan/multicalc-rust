@@ -119,8 +119,8 @@ impl<D: DerivatorSingleVariable> Newton<D> {
     ///
     /// Returns the root estimate and termination reason, or an error:
     /// [`NonFinite`](SolveError::NonFinite) if `f` or its derivative is non-finite,
-    /// [`Linalg`](SolveError::Linalg) wrapping [`Singular`](LinalgError::Singular) if the derivative
-    /// is zero, or [`DidNotConverge`](SolveError::DidNotConverge) if the budget is exhausted.
+    /// [`Linalg`](SolveError::Linalg) wrapping [`Singular`](LinalgError::Singular) if
+    /// `|f'(x)|·(1 + |x|) ≤ ε·|f(x)|`, so that the step passes `(1 + |x|)/ε`, or [`DidNotConverge`](SolveError::DidNotConverge) if the budget is exhausted.
     pub fn solve<F: ScalarFn>(
         &self,
         f: &F,
@@ -149,7 +149,8 @@ impl<D: DerivatorSingleVariable> Newton<D> {
             if !derivative.is_finite() {
                 return Err(SolveError::NonFinite);
             }
-            if derivative == D::Scalar::ZERO {
+            // |step| = |f|/|f'| ≥ (1 + |x|)/ε lands nowhere near a root.
+            if derivative.abs() * (one + x.abs()) <= D::Scalar::EPSILON * residual.abs() {
                 return Err(SolveError::Linalg(LinalgError::Singular));
             }
 

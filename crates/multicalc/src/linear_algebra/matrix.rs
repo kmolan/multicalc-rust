@@ -269,13 +269,6 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Matrix<ROWS, COLS, T> {
         }
         best
     }
-
-    /// `true` when `|det|` is at or below `EPSILON * n * scale^n`.
-    #[inline]
-    #[must_use]
-    fn det_near_singular(det: T, scale: T, n: usize) -> bool {
-        det.abs() <= T::EPSILON * T::from_usize(n) * scale.powi(n as i32)
-    }
 }
 
 impl<const N: usize, T: Numeric> Matrix<N, N, T> {
@@ -430,9 +423,12 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     /// returns [`LinalgError::IllConditioned`] when the matrix is invertible but a pivot is too
     /// small relative to its largest entry for a reliable solve.
     ///
-    /// Sizes up to 4×4 use a closed form and reject a matrix whose `|det|` is at or below an
-    /// `EPSILON`-scaled threshold. Larger ones use an LU factorization and reject one whose
-    /// smallest pivot is negligible relative to the matrix's largest absolute entry.
+    /// Sizes up to 4×4 use a closed form. A 1×1 to 4×4 matrix is normalized by its largest entry
+    /// `s` before the determinant test `|det(A/s)| ≤ n·ε`, so the result does not depend on the
+    /// scale. Returns [`LinalgError::NonFinite`] if an entry is not finite, and
+    /// [`LinalgError::Singular`] if the test fails or the inverse is not finite. Larger sizes use
+    /// an LU factorization and reject one whose smallest pivot is negligible relative to the
+    /// matrix's largest absolute entry.
     ///
     /// ```
     /// use multicalc::linear_algebra::Matrix;
@@ -445,21 +441,36 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
     pub fn inverse(self) -> Result<Self, LinalgError> {
         match N {
             0 => Ok(self),
-            1 => self.inverse_1x1(),
-            2 => self.inverse_2x2(),
-            3 => self.inverse_3x3(),
-            4 => self.inverse_4x4(),
+            1..=4 => {
+                if !self.is_finite() {
+                    return Err(LinalgError::NonFinite);
+                }
+                let scale = self.max_abs();
+                if scale == T::ZERO {
+                    return Err(LinalgError::Singular);
+                }
+                // A = s·B with |bᵢⱼ| ≤ 1, so A⁻¹ = B⁻¹/s and det(B) cannot overflow or underflow.
+                let normalized = self / scale;
+                let inverse = match N {
+                    1 => normalized.inverse_normalized_1x1(),
+                    2 => normalized.inverse_normalized_2x2(),
+                    3 => normalized.inverse_normalized_3x3(),
+                    _ => normalized.inverse_normalized_4x4(),
+                }? / scale;
+                if inverse.is_finite() {
+                    Ok(inverse)
+                } else {
+                    Err(LinalgError::Singular)
+                }
+            }
             _ => self.inverse_lu(),
         }
     }
 
+    /// Inverse of a matrix with `max|aᵢⱼ| = 1`; singular when `|det| ≤ n·ε`.
     #[inline]
-    fn inverse_1x1(mut self) -> Result<Self, LinalgError> {
-        let value = self.data[0][0];
-        if Self::det_near_singular(value, value.abs(), 1) {
-            return Err(LinalgError::Singular);
-        }
-        self.data[0][0] = T::ONE / value;
+    fn inverse_normalized_1x1(mut self) -> Result<Self, LinalgError> {
+        self.data[0][0] = T::ONE / self.data[0][0];
         Ok(self)
     }
 
@@ -469,10 +480,11 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
         self.data[0][0] * self.data[1][1] - self.data[0][1] * self.data[1][0]
     }
 
+    /// Inverse of a matrix with `max|aᵢⱼ| = 1`; singular when `|det| ≤ n·ε`.
     #[inline]
-    fn inverse_2x2(mut self) -> Result<Self, LinalgError> {
+    fn inverse_normalized_2x2(mut self) -> Result<Self, LinalgError> {
         let determinant = self.determinant_2x2();
-        if Self::det_near_singular(determinant, self.max_abs(), 2) {
+        if determinant.abs() <= T::EPSILON * T::from_usize(2) {
             return Err(LinalgError::Singular);
         }
         let scale = T::ONE / determinant;
@@ -493,10 +505,11 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
             + matrix[0][2] * (matrix[1][0] * matrix[2][1] - matrix[1][1] * matrix[2][0])
     }
 
+    /// Inverse of a matrix with `max|aᵢⱼ| = 1`; singular when `|det| ≤ n·ε`.
     #[inline]
-    fn inverse_3x3(mut self) -> Result<Self, LinalgError> {
+    fn inverse_normalized_3x3(mut self) -> Result<Self, LinalgError> {
         let determinant = self.determinant_3x3();
-        if Self::det_near_singular(determinant, self.max_abs(), 3) {
+        if determinant.abs() <= T::EPSILON * T::from_usize(3) {
             return Err(LinalgError::Singular);
         }
         let scale = T::ONE / determinant;
@@ -561,14 +574,15 @@ impl<const N: usize, T: Numeric> Matrix<N, N, T> {
             + top[5] * bottom[0]
     }
 
+    /// Inverse of a matrix with `max|aᵢⱼ| = 1`; singular when `|det| ≤ n·ε`.
     #[inline]
-    fn inverse_4x4(mut self) -> Result<Self, LinalgError> {
+    fn inverse_normalized_4x4(mut self) -> Result<Self, LinalgError> {
         let (top, bottom) = self.row_pair_minors();
         let determinant =
             top[0] * bottom[5] - top[1] * bottom[4] + top[2] * bottom[3] + top[3] * bottom[2]
                 - top[4] * bottom[1]
                 + top[5] * bottom[0];
-        if Self::det_near_singular(determinant, self.max_abs(), 4) {
+        if determinant.abs() <= T::EPSILON * T::from_usize(4) {
             return Err(LinalgError::Singular);
         }
         let scale = T::ONE / determinant;

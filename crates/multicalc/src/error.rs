@@ -195,6 +195,8 @@ pub enum SignalError {
     PolynomialOrderTooHigh,
     /// A cascade section index was past the end of the cascade.
     SectionIndexOutOfRange,
+    /// The filter weights put a pole on or outside the unit circle.
+    UnstableCoefficients,
     /// A linear-algebra step inside a filter's setup failed.
     Linalg(LinalgError),
 }
@@ -830,6 +832,9 @@ impl core::fmt::Display for SignalError {
             }
             SignalError::SectionIndexOutOfRange => {
                 f.write_str("cascade section index out of range")
+            }
+            SignalError::UnstableCoefficients => {
+                f.write_str("filter weights put a pole on or outside the unit circle")
             }
             SignalError::Linalg(err) => write!(f, "filter setup failed: {err}"),
         }

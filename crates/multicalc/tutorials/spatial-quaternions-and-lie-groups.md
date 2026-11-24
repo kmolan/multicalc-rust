@@ -9,7 +9,9 @@ panics, and generic over the `Numeric` scalar, so `f32`, `f64`, and the autodiff
 - `SO3` / `SE3`: 3D rotation (wrapping a unit `Quaternion`, which carries the unit-rotation
   invariant) and rigid-body transform.
 - `Twist` / `Wrench`: typed spatial velocity and force in the linear-first `[v; ω]` /
-  `[force; torque]` ordering, and the algebra that goes with them — see below.
+  `[force; torque]` ordering, and the algebra that goes with them — see below. Both convert from
+  and to `[T; 6]` and `Vector6D`, and `*` by a scalar scales both parts. `Quaternion` converts from
+  and to `[w, x, y, z]`.
 - `SpatialInertia`: mass, center of mass `c`, and rotational inertia `I_c` about `c`, with the
   spatial products below.
 
@@ -92,6 +94,10 @@ let body = SpatialInertia::from_diagonal_inertia(
 
 // Translation along x, rotation about z.
 let motion = Twist::new(Vector::new([1.0, 0.0, 0.0]), Vector::new([0.0, 0.0, 2.0]));
+let doubled = motion * 2.0;
+assert_eq!(doubled, motion.scale(2.0));
+let flat: [f64; 6] = motion.into();
+assert_eq!(flat, [1.0, 0.0, 0.0, 0.0, 0.0, 2.0]);
 
 let carried = body.momentum(motion);
 let energy = body.kinetic_energy(motion);

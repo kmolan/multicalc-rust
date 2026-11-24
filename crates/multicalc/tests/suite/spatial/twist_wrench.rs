@@ -144,3 +144,37 @@ fn twist_default_is_zero() {
     assert_eq!(twist + zero, twist);
     assert_eq!(zero + twist, twist);
 }
+
+#[test]
+fn twist_converts_and_scales() {
+    let parts = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+    let twist: Twist = parts.into();
+    assert_eq!(twist, Twist::from_array(parts));
+    let array: [f64; 6] = twist.into();
+    assert_eq!(array, parts);
+    assert_eq!(twist * 2.0, twist.scale(2.0));
+}
+
+#[test]
+fn wrench_converts_and_scales() {
+    let parts = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+    let wrench: Wrench = parts.into();
+    assert_eq!(wrench, Wrench::from_array(parts));
+    let array: [f64; 6] = wrench.into();
+    assert_eq!(array, parts);
+    assert_eq!(wrench * -0.5, wrench.scale(-0.5));
+}
+
+#[test]
+fn scaling_carries_the_derivative() {
+    let twist = Twist::from_array([
+        Dual::variable(1.0),
+        Dual::constant(2.0),
+        Dual::constant(0.0),
+        Dual::constant(0.0),
+        Dual::constant(0.0),
+        Dual::constant(0.0),
+    ]);
+    let scaled = twist * Dual::constant(3.0);
+    assert_eq!(scaled.as_array()[0].deriv, 3.0);
+}

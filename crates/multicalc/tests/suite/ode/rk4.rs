@@ -1,4 +1,5 @@
 use multicalc::Dual;
+use multicalc::error::IntegrateError;
 use multicalc::linear_algebra::{Vector, Vector2D};
 use multicalc::ode::Rk4;
 
@@ -116,4 +117,67 @@ fn f32_energy_round_trip() {
     );
     let energy = final_state[0] * final_state[0] + final_state[1] * final_state[1];
     assert!((energy - 1.0).abs() < 1e-3);
+}
+
+fn two_state_decay(_time: f64, state: &Vector<2, f64>) -> Vector<2, f64> {
+    -*state
+}
+
+fn square(_time: f64, state: &Vector<1, f64>) -> Vector<1, f64> {
+    Vector::new([state[0] * state[0]])
+}
+
+#[test]
+fn try_step_matches_step() {
+    let start = Vector::new([1.0, 2.0]);
+    assert_eq!(
+        Rk4::try_step(&two_state_decay, 0.0, &start, 0.1),
+        Ok(Rk4::step(&two_state_decay, 0.0, &start, 0.1))
+    );
+}
+
+#[test]
+fn try_step_rejects_a_non_finite_state() {
+    let start = Vector::new([f64::NAN, 0.0]);
+    assert_eq!(
+        Rk4::try_step(&two_state_decay, 0.0, &start, 0.1),
+        Err(IntegrateError::NonFinite)
+    );
+}
+
+#[test]
+fn try_integrate_matches_integrate() {
+    let start = Vector::new([1.0, 2.0]);
+    let unchecked = Rk4::integrate(&two_state_decay, 0.0, &start, 0.01, 100, |_, _| {});
+    let checked = Rk4::try_integrate(&two_state_decay, 0.0, &start, 0.01, 100, |_, _| {});
+    assert_eq!(checked, Ok(unchecked));
+}
+
+#[test]
+fn try_integrate_stops_at_a_blow_up() {
+    // x' = x², x(0) = 1 blows up at t = 1. Step 103 is the first non-finite state.
+    let mut observed = 0;
+    let outcome = Rk4::try_integrate(&square, 0.0, &Vector::new([1.0]), 0.01, 200, |_, state| {
+        assert!(state.is_finite());
+        observed += 1;
+    });
+    assert_eq!(outcome, Err(IntegrateError::NonFinite));
+    assert_eq!(observed, 103);
+}
+
+#[test]
+fn try_integrate_rejects_a_non_finite_start() {
+    let mut observed = 0;
+    let outcome = Rk4::try_integrate(
+        &square,
+        0.0,
+        &Vector::new([f64::INFINITY]),
+        0.01,
+        10,
+        |_, _| {
+            observed += 1;
+        },
+    );
+    assert_eq!(outcome, Err(IntegrateError::NonFinite));
+    assert_eq!(observed, 0);
 }

@@ -140,6 +140,9 @@ The `_with_budget` forms set the pass budget.
 Factorizations and solves return [`LinalgError`](error-handling.md):
 
 - `Singular`, `IllConditioned` (LU pivot too small for a reliable solve), `NotPositiveDefinite`.
+- `Matrix::inverse` normalizes a 1×1 to 4×4 matrix by its largest entry `s` before the test
+  `|det(A/s)| ≤ n·ε`, so the result does not depend on the scale. It returns `Singular` when the
+  inverse is not finite, and `NonFinite` for a non-finite entry.
 - `Underdetermined`: a least-squares system or an SVD with `M < N`.
 - `NotSymmetric`, `NonFinite`.
 - `DidNotConverge`: a matrix-equation solver ran out of its budget.

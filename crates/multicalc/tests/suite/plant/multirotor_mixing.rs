@@ -273,3 +273,77 @@ fn a_mixer_drives_a_body() {
     assert!(motion.linear().norm() < 1e-12);
     assert!(motion.angular().norm() < 1e-12);
 }
+
+const ALTERNATING: [RotorSpin; 4] = [
+    RotorSpin::Clockwise,
+    RotorSpin::CounterClockwise,
+    RotorSpin::Clockwise,
+    RotorSpin::CounterClockwise,
+];
+
+fn layout<T: Numeric>(
+    planar_positions: [[f64; 2]; 4],
+    torque_per_thrust: f64,
+) -> Result<MultirotorMixer<4, T>, PlantError> {
+    let positions: [Vector3D<T>; 4] = core::array::from_fn(|rotor| {
+        let [x, y] = planar_positions[rotor];
+        Vector::new([T::from_f64(x), T::from_f64(y), T::ZERO])
+    });
+    MultirotorMixer::<4, T>::new(
+        positions,
+        ALTERNATING,
+        T::from_f64(torque_per_thrust),
+        T::ZERO,
+        T::from_f64(5.0),
+    )
+}
+
+fn x_corners(half_span: f64) -> [[f64; 2]; 4] {
+    [
+        [half_span, half_span],
+        [-half_span, half_span],
+        [-half_span, -half_span],
+        [half_span, -half_span],
+    ]
+}
+
+#[test]
+fn rank_check_accepts_the_same_layouts_at_both_precisions() {
+    for half_span in [0.15, 15.0, 150.0, 1500.0] {
+        assert!(
+            layout::<f32>(x_corners(half_span), 0.016).is_ok(),
+            "f32 half span {half_span}"
+        );
+        assert!(
+            layout::<f64>(x_corners(half_span), 0.016).is_ok(),
+            "f64 half span {half_span}"
+        );
+    }
+    for torque_per_thrust in [1e-4, 1e-5, 1e-6] {
+        assert!(
+            layout::<f32>(x_corners(0.15), torque_per_thrust).is_ok(),
+            "f32 ratio {torque_per_thrust:e}"
+        );
+        assert!(
+            layout::<f64>(x_corners(0.15), torque_per_thrust).is_ok(),
+            "f64 ratio {torque_per_thrust:e}"
+        );
+    }
+}
+
+#[test]
+fn rank_check_rejects_collinear_rotors_at_both_precisions() {
+    // All four rotors on the line y = 0.7·x.
+    let tilted_line = [[0.1, 0.07], [0.37, 0.259], [-0.13, -0.091], [-0.29, -0.203]];
+    let axis_line = [[0.1, 0.0], [0.2, 0.0], [-0.1, 0.0], [-0.2, 0.0]];
+    for planar_positions in [tilted_line, axis_line] {
+        assert_eq!(
+            layout::<f32>(planar_positions, 0.016).err(),
+            Some(PlantError::RotorLayoutNotIndependent)
+        );
+        assert_eq!(
+            layout::<f64>(planar_positions, 0.016).err(),
+            Some(PlantError::RotorLayoutNotIndependent)
+        );
+    }
+}

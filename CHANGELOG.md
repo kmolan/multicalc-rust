@@ -113,6 +113,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the round trip of the system call. CI builds its TAB on each pull request, and a maintainer
   starts a board run with the `Board` workflow.
 
+- **Input limits on `Lqr`.** `with_input_limits` sets per-input limits. `control_limited` and
+  `control_tracking_limited` return a `LimitedOutput` with the clamped input and a flag for each
+  input that hit a limit. (#289)
+
+- **Integral term and torque limits on the attitude controller.**
+  `GeometricAttitudeController::with_integral` adds `−k_I·∫e dt`, so a constant disturbance torque
+  leaves no steady attitude error. `with_torque_limits` sets per-axis limits. `update` applies
+  both, holds the integral on a limited axis, and returns a `LimitedOutput`. (#290)
+
+- **Checked `Rk4` calls.** `Rk4::try_step` and `Rk4::try_integrate` return
+  `IntegrateError::NonFinite` at the first state that is not finite. The observer of
+  `try_integrate` sees only finite states. `step` and `integrate` do not change. (#158)
+
+- **Checked `settle_to` on the biquad filters.** `Biquad`, `BiquadCascade` and `MultiChannelBiquad`
+  have `try_settle_to`. It refuses a non-finite value with `SignalError::NonFinite`, and weights
+  that are not stable with the new `SignalError::UnstableCoefficients`. Weights with
+  `1 + a₁ + a₂ = 0` made `settle_to` fill the state with infinities. (#285)
+
+- **Particle filter spread and reseed.** `ParticleFilter::covariance` gives the weighted
+  covariance `Σ wᵢ·(xᵢ − μ)(xᵢ − μ)ᵀ`. `ParticleFilter::reseed` draws a fresh cloud from a mean and
+  a covariance and resets the weights, for recovery after the robot moves without a model of the
+  move. (#213)
+
+- **Array conversions and scaling on the spatial types.** `Quaternion` converts from and to
+  `[w, x, y, z]`. `Twist` and `Wrench` convert from and to `[T; 6]`, and `*` by a scalar scales
+  them as `scale` does. (#164)
+
 ### Changed
 
 - **`ModelError::UnsupportedOrientation` is gone**, replaced by `MultipleOrientations` for an element
@@ -143,6 +170,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `Svd::u()` / `Svd::v()` → `Svd::left()` / `Svd::right()`
   - `Matrix::lu()` → `Matrix::lu_decompose()`
   - `ModelError::Io` → `ModelError::FileRead` (`multicalc-robot-model`) @rtmongold (#328)
+
+- **Shortest-path attitude error.** `GeometricAttitudeController::attitude_error` and `torque` use
+  `e = 2·sgn(w)·q_v` of `q = q_dᶜ ⊗ q_b`. The error points along the shorter rotation and is
+  largest at a half turn, so a body that starts inverted does not stall. For a small error, the
+  result agrees with `vee(R_dᵀ·R − Rᵀ·R_d)/2` to first order. (#287)
 
 ### Fixed
 
@@ -187,6 +219,30 @@ non-positive input is now documented instead of silent. @naseem173 (#307)
 
 - Root counting and isolation return no roots for a nonzero constant polynomial with unused
   higher-order coefficient slots, instead of underflowing the Sturm-chain index and panicking.
+
+- **LQR certificate for a semidefinite state cost.** `Lqr::certify_stability` solves
+  `A_clᵀ·P·A_cl − P + I = 0`. A stable loop certifies when `state_cost` does not see a stable mode.
+  Such a loop returned `NotPositiveDefinite` before. (#288)
+
+- **`Newton` rejects a negligible derivative.** `Newton::solve` returns `Linalg(Singular)` when
+  `|f'(x)|·(1 + |x|) ≤ ε·|f(x)|`. Only an exactly zero derivative caused this error before, so a
+  derivative such as `1e-240` sent the iterate to about `1e240`. (#206)
+
+- **Scale-safe small matrix inverses.** `Matrix::inverse` normalizes a 1×1 to 4×4 matrix by its
+  largest entry before the determinant test. A regular 3×3 matrix scaled by `1e150` gave a NaN
+  inverse, a singular one passed, and a regular one scaled by `1e-150` failed. A 1×1 inverse of
+  `1e-310` returned infinity. Each case now gives the correct result or `Singular`, and a
+  non-finite entry gives `NonFinite`. (#208)
+
+- **Quartic roots with a small odd term.** `Polynomial<5>::real_roots` polishes the resolvent root
+  with up to two Newton steps before the Ferrari split. `x⁴ + x² + 1e-10·x − 2` returned
+  `NonFinite`, and `x⁴ + x² + 1e-5·x` returned no real roots. Both now give their two real roots.
+  (#281)
+
+- **Mixer rank check at both precisions.** `MultirotorMixer::new` finds the rank of the allocation
+  from its singular values, `σ > rotor_count·ε·σ_max`, instead of a fixed `1e-4` round-trip bar.
+  `f32` rejected an X layout with a 150 m half span, or with a torque ratio of `1e-4`, that `f64`
+  accepted. (#301)
 
 ## [0.10.0] - 2026-08-09
 

@@ -75,8 +75,31 @@ fn certificate_is_positive_definite() {
     assert!(certificate.cholesky().is_ok());
 
     let closed = controller.closed_loop();
-    let residual = closed.transpose() * certificate * closed - certificate + state_cost;
+    let residual = closed.transpose() * certificate * closed - certificate + Matrix::identity();
     assert!(residual.frobenius_norm() < 1e-10);
+}
+
+#[test]
+fn certifies_a_state_cost_that_misses_a_stable_mode() {
+    let state_transition = Matrix::<2, 2>::new([[1.1, 0.0], [0.0, 0.5]]);
+    let input_model = Matrix::<2, 1>::new([[1.0], [0.0]]);
+    let state_cost = Matrix::<2, 2>::from_diagonal([1.0, 0.0]);
+    let input_cost = Matrix::<1, 1>::new([[1.0]]);
+    let controller = Lqr::new(state_transition, input_model, state_cost, input_cost).unwrap();
+    let certificate = controller.certify_stability().unwrap();
+    assert!(certificate.cholesky().is_ok());
+
+    let closed = controller.closed_loop();
+    let residual = closed.transpose() * certificate * closed - certificate + Matrix::identity();
+    assert!(residual.frobenius_norm() < 1e-10);
+}
+
+#[test]
+fn certifies_a_semidefinite_state_cost() {
+    let (state_transition, input_model, _, input_cost) = double_integrator::<f64>();
+    let state_cost = Matrix::<2, 2>::from_diagonal([1.0, 0.0]);
+    let controller = Lqr::new(state_transition, input_model, state_cost, input_cost).unwrap();
+    assert!(controller.certify_stability().is_ok());
 }
 
 #[test]
@@ -160,4 +183,80 @@ fn four_state_system_settles() {
         state = state_transition * state + input_model * controller.control(state);
     }
     assert!(state.norm() < 1e-4, "state {state:?}");
+}
+
+fn limited_controller() -> Lqr<2, 1> {
+    let (state_transition, input_model, state_cost, input_cost) = double_integrator::<f64>();
+    Lqr::new(state_transition, input_model, state_cost, input_cost)
+        .unwrap()
+        .with_input_limits(Vector::new([-0.5]), Vector::new([0.5]))
+        .unwrap()
+}
+
+#[test]
+fn limited_control_clamps_and_flags() {
+    let controller = limited_controller();
+    let far = controller.control_limited(Vector::new([10.0, 0.0]));
+    assert_eq!(far.output()[0], -0.5);
+    assert_eq!(far.limited(), [true]);
+
+    let near_state = Vector::new([0.01, 0.0]);
+    let near = controller.control_limited(near_state);
+    assert_eq!(near.output(), controller.control(near_state));
+    assert_eq!(near.limited(), [false]);
+}
+
+#[test]
+fn limited_loop_settles_from_a_large_error() {
+    let (state_transition, input_model, _, _) = double_integrator::<f64>();
+    let controller = limited_controller();
+    let mut state = Vector::new([10.0, 0.0]);
+    for _ in 0..2000 {
+        let input = controller.control_limited(state).output();
+        assert!(input[0].abs() <= 0.5);
+        state = state_transition * state + input_model * input;
+    }
+    assert!(state.norm() < 1e-6);
+}
+
+#[test]
+fn tracking_limited_matches_tracking_inside_the_limits() {
+    let controller = limited_controller();
+    let state = Vector::new([1.01, 0.0]);
+    let reference = Vector::new([1.0, 0.0]);
+    let feedforward = Vector::new([0.0]);
+    let limited = controller.control_tracking_limited(state, reference, feedforward);
+    assert_eq!(
+        limited.output(),
+        controller.control_tracking(state, reference, feedforward)
+    );
+    assert!(!limited.any_limited());
+}
+
+#[test]
+fn default_limits_do_not_clamp() {
+    let (state_transition, input_model, state_cost, input_cost) = double_integrator::<f64>();
+    let controller = Lqr::new(state_transition, input_model, state_cost, input_cost).unwrap();
+    let state = Vector::new([1e6, 0.0]);
+    let limited = controller.control_limited(state);
+    assert_eq!(limited.output(), controller.control(state));
+    assert!(!limited.any_limited());
+}
+
+#[test]
+fn rejects_invalid_input_limits() {
+    let (state_transition, input_model, state_cost, input_cost) = double_integrator::<f64>();
+    let controller = Lqr::new(state_transition, input_model, state_cost, input_cost).unwrap();
+    assert_eq!(
+        controller
+            .with_input_limits(Vector::new([1.0]), Vector::new([0.0]))
+            .err(),
+        Some(ControlError::InvalidOutputLimits)
+    );
+    assert_eq!(
+        controller
+            .with_input_limits(Vector::new([f64::NAN]), Vector::new([0.0]))
+            .err(),
+        Some(ControlError::NonFinite)
+    );
 }

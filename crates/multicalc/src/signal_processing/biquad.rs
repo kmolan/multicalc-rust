@@ -536,8 +536,8 @@ impl<T: Numeric> Biquad<T> {
     /// with a settling period.
     ///
     /// A high-pass or band-pass settles to zero whatever the value is, since neither passes a
-    /// steady input. Weights whose output side sums to zero would divide by zero here; none of the
-    /// four designs produces them.
+    /// steady input. Unchecked: weights with `1 + a₁ + a₂ = 0` divide by zero and fill the state
+    /// with infinities. [`try_settle_to`](Self::try_settle_to) refuses them.
     pub fn settle_to(&mut self, value: T) {
         let feed_forward = self.coefficients.feed_forward();
         let feedback = self.coefficients.feedback();
@@ -547,6 +547,38 @@ impl<T: Numeric> Biquad<T> {
         self.second_state = feed_forward[2] * value - feedback[1] * steady;
         self.first_state = feed_forward[1] * value - feedback[0] * steady + self.second_state;
         self.last_output = steady;
+    }
+
+    /// [`settle_to`](Self::settle_to), checked.
+    ///
+    /// Returns [`SignalError::NonFinite`] if `value` is not finite, or
+    /// [`SignalError::UnstableCoefficients`] if the weights fail
+    /// [`is_stable`](BiquadCoefficients::is_stable). A stable filter has `1 + a₁ + a₂ > 0`, so the
+    /// steady-state divisor is not zero. A refused call leaves the filter unchanged.
+    ///
+    /// ```
+    /// use multicalc::error::SignalError;
+    /// use multicalc::signal_processing::{Biquad, BiquadCoefficients};
+    ///
+    /// let shape = BiquadCoefficients::low_pass(50.0_f64, 0.70710678, 0.001).unwrap();
+    /// let mut low_pass = Biquad::new(shape);
+    /// low_pass.try_settle_to(2.0).unwrap();
+    /// assert!((low_pass.filter(2.0) - 2.0).abs() < 1e-12);
+    ///
+    /// // 1 + a₁ + a₂ = 0: a pole at z = 1.
+    /// let integrator = BiquadCoefficients::new([1.0_f64, 0.0, 0.0], [-1.0, 0.0], 0.001).unwrap();
+    /// let mut running = Biquad::new(integrator);
+    /// assert_eq!(running.try_settle_to(1.0), Err(SignalError::UnstableCoefficients));
+    /// ```
+    pub fn try_settle_to(&mut self, value: T) -> Result<(), SignalError> {
+        if !value.is_finite() {
+            return Err(SignalError::NonFinite);
+        }
+        if !self.coefficients.is_stable() {
+            return Err(SignalError::UnstableCoefficients);
+        }
+        self.settle_to(value);
+        Ok(())
     }
 
     /// Clears the memory of recent samples, putting the filter back at rest.

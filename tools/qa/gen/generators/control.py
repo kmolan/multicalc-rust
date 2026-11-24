@@ -173,15 +173,12 @@ def _lyapunov(out, meta):
 def _geometric_attitude(out, meta):
     def law(rotation, rate, desired_rotation, desired_rate, desired_rate_change, inertia):
         relative = rotation.T @ desired_rotation
-        error = 0.5 * np.array(
-            [
-                relative[2, 1] - relative[1, 2],
-                relative[0, 2] - relative[2, 0],
-                relative[1, 0] - relative[0, 1],
-            ]
-        )
-        # vee of (relativeᵀ − relative) is the negative of vee of (relative − relativeᵀ).
-        error = -error
+        # e = 2·sgn(w)·q_v of q = q_dᶜ ⊗ q_b, with sgn(0) = +1. SciPy stores [x, y, z, w].
+        error_quaternion = (
+            Rotation.from_matrix(desired_rotation).inv() * Rotation.from_matrix(rotation)
+        ).as_quat()
+        sign = 1.0 if error_quaternion[3] >= 0.0 else -1.0
+        error = 2.0 * sign * error_quaternion[:3]
         carried = relative @ desired_rate
         rate_error = rate - carried
         carried_change = relative @ desired_rate_change

@@ -3,17 +3,17 @@
   "expected": {
     "attitude_error": {
       "data": [
-        "0x3fdb58b79716c2b2",
-        "0xbfdbf921133cbaa2",
-        "0x3fe3e303a9b9c305"
+        "0x3fdfae9ef0a9a422",
+        "0xbfe0343b80bcf840",
+        "0x3fe70a26a7e11d4e"
       ],
       "kind": "vector"
     },
     "torque": {
       "data": [
-        "0xc00d72860d1c03b9",
-        "0x4009720e4bf6fa0d",
-        "0xc0125eafa48866dd"
+        "0xc0105979c8251666",
+        "0x400cc58ebea4e273",
+        "0xc014bc09e325ea93"
       ],
       "kind": "vector"
     }

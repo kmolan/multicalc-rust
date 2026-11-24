@@ -261,3 +261,41 @@ fn filter_checked_refuses_a_reading_with_any_bad_component() {
         assert_eq!(running, untouched);
     }
 }
+
+#[test]
+fn cascade_try_settle_to_refuses_an_unstable_section() {
+    let shape = BiquadCoefficients::low_pass(50.0, FLATTEST, 0.001).unwrap();
+    let integrator = BiquadCoefficients::new([1.0, 0.0, 0.0], [-1.0, 0.0], 0.001).unwrap();
+    let mut cascade = BiquadCascade::new([shape, integrator]);
+    let before = cascade;
+    assert_eq!(
+        cascade.try_settle_to(1.0),
+        Err(SignalError::UnstableCoefficients)
+    );
+    assert_eq!(cascade, before);
+
+    let mut stable = BiquadCascade::new([shape, shape]);
+    let mut expected = stable;
+    expected.settle_to(1.0);
+    stable.try_settle_to(1.0).unwrap();
+    assert_eq!(stable, expected);
+}
+
+#[test]
+fn multi_channel_try_settle_to_refuses_bad_input() {
+    let integrator = BiquadCoefficients::new([1.0, 0.0, 0.0], [-1.0, 0.0], 0.001).unwrap();
+    let mut unstable = MultiChannelBiquad::<3>::new(integrator);
+    assert_eq!(
+        unstable.try_settle_to(Vector::new([1.0, 1.0, 1.0])),
+        Err(SignalError::UnstableCoefficients)
+    );
+
+    let shape = BiquadCoefficients::low_pass(50.0, FLATTEST, 0.001).unwrap();
+    let mut gyro = MultiChannelBiquad::<3>::new(shape);
+    let before = gyro;
+    assert_eq!(
+        gyro.try_settle_to(Vector::new([0.0, f64::INFINITY, 0.0])),
+        Err(SignalError::NonFinite)
+    );
+    assert_eq!(gyro, before);
+}

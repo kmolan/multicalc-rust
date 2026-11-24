@@ -1,6 +1,6 @@
 //! Typed spatial velocity.
 
-use core::ops::{Add, Neg, Sub};
+use core::ops::{Add, Mul, Neg, Sub};
 
 use crate::linear_algebra::{Vector, Vector3D, Vector6D};
 use crate::scalar::Numeric;
@@ -257,6 +257,31 @@ impl<T: Numeric> From<Twist<T>> for Vector6D<T> {
     #[inline]
     fn from(twist: Twist<T>) -> Self {
         twist.to_vector()
+    }
+}
+
+impl<T: Numeric> From<[T; 6]> for Twist<T> {
+    /// Reads `[v; ω]`.
+    #[inline]
+    fn from(array: [T; 6]) -> Self {
+        Self::from_array(array)
+    }
+}
+
+impl<T: Numeric> From<Twist<T>> for [T; 6] {
+    /// Writes `[v; ω]`.
+    #[inline]
+    fn from(twist: Twist<T>) -> Self {
+        twist.as_array()
+    }
+}
+
+/// [`Twist::scale`] as an operator.
+impl<T: Numeric> Mul<T> for Twist<T> {
+    type Output = Self;
+    #[inline]
+    fn mul(self, scalar: T) -> Self {
+        self.scale(scalar)
     }
 }
 

@@ -29,6 +29,8 @@ let y0 = Vector::new([1.0, 0.0]);
 let start_time = 0.0;
 let timestep = 0.1;
 let y1 = Rk4::step(&f, start_time, &y0, timestep);      // one fixed step
+let y1_checked = Rk4::try_step(&f, start_time, &y0, timestep).unwrap();
+assert_eq!(y1, y1_checked);
 
 // Adaptive solve over one full period returns to the start [1, 0].
 let one_period = core::f64::consts::TAU;
@@ -87,7 +89,8 @@ assert!((facing.quaternion().norm() - 1.0).abs() < 1e-14);
 
 Errors: the fallible calls return [`IntegrateError`](error-handling.md).
 
-- `Rk4::step` and `Rk4::integrate` have no error path.
+- `Rk4::step` and `Rk4::integrate` have no error path. `Rk4::try_step` and `Rk4::try_integrate`
+  return `NonFinite` at the first state that is not finite.
 - `Rk45` returns `LimitsIllDefined` for a NaN or zero-length span, or for a `solve_on_grid` time
   grid of the wrong length, out of range or out of order. It returns `NonFinite`,
   `StepSizeTooSmall` below `min_step`, or `DidNotConverge { steps }` when `max_steps` runs out.

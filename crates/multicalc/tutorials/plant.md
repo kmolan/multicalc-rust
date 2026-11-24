@@ -211,9 +211,11 @@ All errors are [`PlantError`](error-handling.md).
 | `PositionServo::stepped_over` | `NonFinite`, `NonPositiveTimestep`, `Linalg` |
 
 `RotorLayoutNotIndependent` means that the layout cannot produce each thrust and torque direction,
-for example fewer than four rotors or collinear rotors. These per-tick calls are infallible:
-`rotor_thrusts`, `wrench`, `RotorLag::stepped`, `RotorLag::stepped_over`, `rate`, and
-`PositionServo::stepped`. They do not check a non-finite command; it gives a non-finite output.
+for example fewer than four rotors or collinear rotors. `MultirotorMixer::new` finds the rank of
+the allocation with the `matrix_rank` rule `σ > rotor_count·ε·σ_max`, so `f32` and `f64` accept
+the same layouts. These per-tick calls are infallible: `rotor_thrusts`, `wrench`,
+`RotorLag::stepped`, `RotorLag::stepped_over`, `rate`, and `PositionServo::stepped`. They do not
+check a non-finite command; it gives a non-finite output.
 
 [Rigid-body dynamics](rigid-body-dynamics.md) applies the wrench to the body. Demo:
 [rigid_body_dynamics.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/rigid_body_dynamics.rs).
