@@ -447,6 +447,7 @@ pub struct ErrorStateKalmanFilter<const MEASUREMENT_DIMENSION: usize, T: Numeric
     innovation: Vector<MEASUREMENT_DIMENSION, T>,
     innovation_covariance: Matrix<MEASUREMENT_DIMENSION, MEASUREMENT_DIMENSION, T>,
     covariance_update: CovarianceUpdate,
+    innovation_gate: Option<T>,
 }
 
 impl<const MEASUREMENT_DIMENSION: usize, T: Numeric>
@@ -479,6 +480,7 @@ impl<const MEASUREMENT_DIMENSION: usize, T: Numeric>
             innovation: Vector::zeros(),
             innovation_covariance: Matrix::zeros(),
             covariance_update: CovarianceUpdate::Joseph,
+            innovation_gate: None,
         }
     }
 
@@ -494,6 +496,69 @@ impl<const MEASUREMENT_DIMENSION: usize, T: Numeric>
     pub fn with_gravity(mut self, gravity: Vector3D<T>) -> Self {
         self.gravity = gravity;
         self
+    }
+
+    /// Rejects an [`update`](Self::update) or an
+    /// [`update_with_residual`](Self::update_with_residual) when `yᵀ·S⁻¹·y > threshold`.
+    ///
+    /// A rejected update returns [`MeasurementRejected`](EstimationError::MeasurementRejected). The
+    /// nominal state and the covariance do not change, and the innovation and its covariance record
+    /// the rejected measurement. Set `threshold` to the chi-square quantile for
+    /// `MEASUREMENT_DIMENSION` degrees of freedom: `16.27` is three degrees at 99.9 %.
+    /// [`update_other`](Self::update_other) takes its own threshold.
+    ///
+    /// Returns [`InvalidTuning`](EstimationError::InvalidTuning) if `threshold` is not finite or
+    /// not positive.
+    ///
+    /// ```
+    /// use multicalc::error::EstimationError;
+    /// use multicalc::estimation::{ErrorStateKalmanFilter, ImuNoise, NominalState, NominalStateFn};
+    /// use multicalc::linear_algebra::{Matrix, Vector};
+    /// use multicalc::scalar::Numeric;
+    /// use multicalc::spatial::SO3;
+    ///
+    /// struct PositionFix;
+    /// impl NominalStateFn<3> for PositionFix {
+    ///     fn eval<S: Numeric>(&self, state: &NominalState<S>) -> [S; 3] {
+    ///         *state.position().as_array()
+    ///     }
+    /// }
+    ///
+    /// let imu_noise = ImuNoise {
+    ///     gyroscope_noise_density: 0.001,
+    ///     accelerometer_noise_density: 0.001,
+    ///     gyroscope_bias_random_walk: 1e-6,
+    ///     accelerometer_bias_random_walk: 1e-6,
+    /// };
+    /// let fix_spread = 0.03;
+    /// let mut filter = ErrorStateKalmanFilter::<3>::new(
+    ///     NominalState::at_rest(SO3::identity()),
+    ///     Matrix::from_diagonal([0.01; 15]),
+    ///     imu_noise,
+    ///     Matrix::from_diagonal([fix_spread * fix_spread; 3]),
+    /// )
+    /// .with_innovation_gate(16.27)
+    /// .unwrap();
+    ///
+    /// let before = filter.nominal_state();
+    /// assert_eq!(
+    ///     filter.update(&PositionFix, Vector::new([1.0, 0.0, 0.0])),
+    ///     Err(EstimationError::MeasurementRejected)
+    /// );
+    /// assert_eq!(filter.nominal_state(), before);
+    /// ```
+    pub fn with_innovation_gate(mut self, threshold: T) -> Result<Self, EstimationError> {
+        if !threshold.is_finite() || threshold <= T::ZERO {
+            return Err(EstimationError::InvalidTuning);
+        }
+        self.innovation_gate = Some(threshold);
+        Ok(self)
+    }
+
+    /// The threshold of the innovation gate, or `None` when no gate is set.
+    #[must_use]
+    pub fn innovation_gate(&self) -> Option<T> {
+        self.innovation_gate
     }
 
     /// Replaces the running guess, for a caller who has re-initialized it from scratch.
@@ -631,6 +696,8 @@ impl<const MEASUREMENT_DIMENSION: usize, T: Numeric>
     /// [`NotPositiveDefinite`](EstimationError::NotPositiveDefinite) when the innovation covariance
     /// cannot be factorized — the gain is undefined.
     /// [`Diff`](EstimationError::Diff) is never returned: the Jacobian is always exact.
+    /// Returns [`MeasurementRejected`](EstimationError::MeasurementRejected) when the
+    /// [innovation gate](Self::with_innovation_gate) rejects the measurement.
     pub fn update<MeasurementModel>(
         &mut self,
         measurement_model: &MeasurementModel,
@@ -654,6 +721,9 @@ impl<const MEASUREMENT_DIMENSION: usize, T: Numeric>
     /// way — silently, since nothing about the arithmetic is invalid. The filter cannot do this
     /// itself; which components of a `MEASUREMENT_DIMENSION`-vector are angular is not something
     /// the type records.
+    ///
+    /// Returns [`MeasurementRejected`](EstimationError::MeasurementRejected) when the
+    /// [innovation gate](Self::with_innovation_gate) rejects the measurement.
     ///
     /// ```
     /// use multicalc::estimation::{ErrorStateKalmanFilter, ImuNoise, NominalState, NominalStateFn};
@@ -708,11 +778,19 @@ impl<const MEASUREMENT_DIMENSION: usize, T: Numeric>
     where
         MeasurementModel: NominalStateFn<MEASUREMENT_DIMENSION>,
     {
-        let innovation_covariance =
-            self.fold_in(measurement_model, residual, self.measurement_noise)?;
+        let (innovation_covariance, applied) = self.fold_in(
+            measurement_model,
+            residual,
+            self.measurement_noise,
+            self.innovation_gate,
+        )?;
         self.innovation = residual;
         self.innovation_covariance = innovation_covariance;
-        Ok(())
+        if applied {
+            Ok(())
+        } else {
+            Err(EstimationError::MeasurementRejected)
+        }
     }
 
     /// [`update_with_residual`](Self::update_with_residual) for a sensor of a different width,
@@ -725,29 +803,49 @@ impl<const MEASUREMENT_DIMENSION: usize, T: Numeric>
     /// [`innovation`](Self::innovation) and
     /// [`innovation_covariance`](Self::innovation_covariance) are not written here: their width is
     /// fixed by the type, so they keep reporting the last correction of the declared width.
+    ///
+    /// `innovation_gate` rejects the correction when `yᵀ·S⁻¹·y` is above it, with
+    /// [`MeasurementRejected`](EstimationError::MeasurementRejected); use the chi-square quantile for
+    /// `OTHER_DIMENSION` degrees of freedom, or `None` for no gate. The field gate of
+    /// [`with_innovation_gate`](Self::with_innovation_gate) does not apply here. Returns
+    /// [`InvalidTuning`](EstimationError::InvalidTuning) if a threshold is not finite or not positive.
     pub fn update_other<const OTHER_DIMENSION: usize, MeasurementModel>(
         &mut self,
         measurement_model: &MeasurementModel,
         residual: Vector<OTHER_DIMENSION, T>,
         measurement_noise: Matrix<OTHER_DIMENSION, OTHER_DIMENSION, T>,
+        innovation_gate: Option<T>,
     ) -> Result<(), EstimationError>
     where
         MeasurementModel: NominalStateFn<OTHER_DIMENSION>,
     {
+        if innovation_gate.is_some_and(|threshold| !threshold.is_finite() || threshold <= T::ZERO) {
+            return Err(EstimationError::InvalidTuning);
+        }
         // The innovation covariance is dropped: it is this sensor's width, not the filter's, so
         // there is nowhere on the type to report it.
-        let _ = self.fold_in(measurement_model, residual, measurement_noise)?;
-        Ok(())
+        let (_, applied) = self.fold_in(
+            measurement_model,
+            residual,
+            measurement_noise,
+            innovation_gate,
+        )?;
+        if applied {
+            Ok(())
+        } else {
+            Err(EstimationError::MeasurementRejected)
+        }
     }
 
     /// The correction itself, at whatever width the sensor has. Returns the innovation covariance
-    /// it formed, which only a caller of the filter's own declared width keeps.
+    /// it formed, and `false` when the gate rejected the correction.
     fn fold_in<const WIDTH: usize, MeasurementModel>(
         &mut self,
         measurement_model: &MeasurementModel,
         residual: Vector<WIDTH, T>,
         measurement_noise: Matrix<WIDTH, WIDTH, T>,
-    ) -> Result<Matrix<WIDTH, WIDTH, T>, EstimationError>
+        innovation_gate: Option<T>,
+    ) -> Result<(Matrix<WIDTH, WIDTH, T>, bool), EstimationError>
     where
         MeasurementModel: NominalStateFn<WIDTH>,
     {
@@ -769,10 +867,16 @@ impl<const MEASUREMENT_DIMENSION: usize, T: Numeric>
 
         // Kᵀ = S⁻¹·H·Pᵀ, solved rather than inverted. Pᵀ is written out so an asymmetric
         // caller-seeded covariance still gives the exact gain.
-        let projected = measurement_jacobian * self.covariance.transpose();
-        let kalman_gain = innovation_covariance
+        let factorization = innovation_covariance
             .cholesky()
-            .map_err(|_| EstimationError::NotPositiveDefinite)?
+            .map_err(|_| EstimationError::NotPositiveDefinite)?;
+        if innovation_gate
+            .is_some_and(|threshold| residual.dot(factorization.solve(residual)) > threshold)
+        {
+            return Ok((innovation_covariance, false));
+        }
+        let projected = measurement_jacobian * self.covariance.transpose();
+        let kalman_gain = factorization
             .solve_matrix::<ERROR_DIMENSION>(projected)
             .transpose();
 
@@ -790,7 +894,7 @@ impl<const MEASUREMENT_DIMENSION: usize, T: Numeric>
 
         self.inject_error_and_reset(error);
         self.covariance = self.covariance.symmetrized();
-        Ok(innovation_covariance)
+        Ok((innovation_covariance, true))
     }
 
     /// Fifteen seeded passes through the caller's model, one per error direction, each reading how
