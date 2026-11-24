@@ -160,6 +160,9 @@ h2 code { font-family: var(--mono); font-size: 0.85em; font-weight: 500; }
 .chart .gl { stroke: var(--grid); stroke-width: 1; }
 .chart .hit { fill: transparent; }
 .chart .hit:hover + .bar, .chart g.row:hover .bar { filter: brightness(1.18); }
+.toggle { display: inline-flex; gap: 2px; padding: 3px; margin: 0 0 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-0); }
+.toggle button { font: inherit; font-size: 13px; font-weight: 600; color: var(--text-muted); background: none; border: 0; border-radius: 7px; padding: 6px 12px; cursor: pointer; }
+.toggle button[aria-selected="true"] { color: var(--text-primary); background: var(--surface-2); }
 .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--text-secondary); margin: 0 0 12px; }
 .legend span { display: inline-flex; align-items: center; gap: 7px; }
 .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
@@ -213,7 +216,6 @@ footer a:hover { color: var(--text-primary); }
     <a class="brand" href="#">multi<b>calc</b></a>
     <ul>
       <li class="hide-sm"><a href="#robots">Robots</a></li>
-      <li class="hide-sm"><a href="#silicon">Silicon</a></li>
       <li class="hide-sm"><a href="#speed">Speed</a></li>
       <li class="hide-sm"><a href="#math">Math</a></li>
       <li><a href="tutorials.html">Tutorials</a></li>
@@ -321,80 +323,57 @@ footer a:hover { color: var(--text-primary); }
   </div>
 </section>
 
-<section id="silicon">
-  <div class="wrap">
-    <div class="kicker">Real silicon</div>
-    <h2>Same math. Real chips. Timed in cycles.</h2>
-    <p class="sub">Three microcontrollers, Arm and RISC-V. Each run checks each answer against a golden or an identity.</p>
-    <div class="card">
-      <h3>Warm time per check</h3>
-      <p class="note">Log scale. Best of seven runs. <code>f32</code> runs on the FPU of the Arm boards and in software on the XIAO. <code>f64</code> runs in software on each board.</p>
-      <div class="legend">
-        <span><i style="background:var(--series-1)"></i>Nucleo-F411RE · Cortex-M4F · 100 MHz</span>
-        <span><i style="background:var(--series-2)"></i>Pico 2 · Cortex-M33 · 150 MHz</span>
-        <span><i style="background:var(--series-3)"></i>XIAO ESP32-C3 · RV32IMC · 160 MHz · no FPU</span>
-      </div>
-      <div class="chart" id="chart-silicon"></div>
-    </div>
-  </div>
-</section>
-
 <section id="speed">
   <div class="wrap">
-    <div class="kicker">Latency</div>
-    <h2>Nanoseconds, not milliseconds.</h2>
-    <p class="sub">Criterion median, x86_64 i7-12650H, release profile.</p>
+    <div class="kicker">Speed</div>
+    <h2>Same math. Real chips. Timed in cycles.</h2>
+    <p class="sub">Microseconds on three microcontrollers, Arm and RISC-V. Nanoseconds on a desktop.</p>
     <div class="card">
-      <h3>Time per call</h3>
-      <p class="note">Log scale.</p>
-      <div class="chart" id="chart-latency"></div>
+      <div class="toggle" role="tablist">
+        <button type="button" role="tab" data-view="silicon" aria-selected="true">Microcontrollers</button>
+        <button type="button" role="tab" data-view="latency" aria-selected="false">x86 desktop</button>
+      </div>
+      <div data-panel="silicon">
+        <h3>Warm time per check</h3>
+        <p class="note">Log scale. Best of seven runs. Each run checks each answer against a golden or an identity. <code>f32</code> runs on the FPU of the Arm boards and in software on the XIAO. <code>f64</code> runs in software on each board.</p>
+        <div class="legend">
+          <span><i style="background:var(--series-1)"></i>Nucleo-F411RE · Cortex-M4F · 100 MHz</span>
+          <span><i style="background:var(--series-2)"></i>Pico 2 · Cortex-M33 · 150 MHz</span>
+          <span><i style="background:var(--series-3)"></i>XIAO ESP32-C3 · RV32IMC · 160 MHz · no FPU</span>
+        </div>
+      </div>
+      <div data-panel="latency" hidden>
+        <h3>Time per call</h3>
+        <p class="note">Log scale. Criterion median, x86_64 i7-12650H, release profile.</p>
+      </div>
+      <div class="chart" id="chart-speed"></div>
     </div>
-  </div>
-</section>
-
-<section id="accuracy">
-  <div class="wrap">
-    <div class="kicker">Accuracy</div>
-    <h2>Checked against the libraries you trust.</h2>
-    <p class="sub">183 checks. Golden floats stored bit-exact. CI fails on any drift.</p>
-    <div class="card"><h3>Checks per reference</h3><p class="note">Locked library versions.</p><div class="chart" id="chart-references"></div></div>
-  </div>
-</section>
-
-<section id="footprint">
-  <div class="wrap">
-    <div class="kicker">Footprint</div>
-    <h2>Fits in flash. Gated in CI.</h2>
-    <p class="sub">Release smoke binary per bare-metal target. A PR fails at +10%.</p>
-    <div class="grid-2">
-      <div class="card"><h3>.text, KB</h3><p class="note">Full check set; thumbv6m runs the canary set.</p><div class="chart" id="chart-flash"></div></div>
-      <div class="card"><h3>Peak stack, bytes</h3><p class="note">High-water mark, f64.</p><div class="chart" id="chart-stack"></div></div>
-    </div>
-    <p class="note-line">The robot apps on silicon need more. On the Nucleo-F411RE: <code>arm</code> 31 KB of stack and 159 KB of flash, <code>drone</code> 8 KB and 97 KB, <code>mobile_and_policy</code> 2.7 KB and 150 KB. The <code>Dual</code> and <code>f64</code> Franka frames set the <code>arm</code> stack. No app uses a heap.</p>
   </div>
 </section>
 
 <section id="platforms">
   <div class="wrap">
-    <div class="kicker">Platforms</div>
+    <div class="kicker">Where it runs</div>
     <h2>Host. Emulator. Silicon.</h2>
-    <p class="sub">Host and QEMU run in CI. Silicon runs on real boards.</p>
+    <p class="sub">183 checks against NumPy/LAPACK, SciPy/MINPACK, Pinocchio, mpmath, MuJoCo, mink and FilterPy. Golden floats stored bit-exact. CI fails on any drift.</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Platform</th><th>Core</th><th>Runs on</th><th>Gate</th></tr></thead>
+        <thead><tr><th>Platform</th><th>Core</th><th>Runs on</th><th>Gate</th><th class="num">.text, KB</th><th class="num">Peak stack, B</th></tr></thead>
         <tbody>
-          <tr><td class="mono">x86_64-unknown-linux-gnu</td><td>x86_64</td><td><span class="chip">CI host</span></td><td>full test suite</td></tr>
-          <tr><td class="mono">aarch64-unknown-linux-gnu</td><td>Arm64</td><td><span class="chip">CI host</span></td><td>full test suite</td></tr>
-          <tr><td class="mono">thumbv7em-none-eabihf</td><td>Cortex-M4F</td><td><span class="chip">QEMU</span></td><td>goldens · .text · stack · cross-ABI</td></tr>
-          <tr><td class="mono">thumbv7em-none-eabi</td><td>Cortex-M4, soft-float</td><td><span class="chip">QEMU</span></td><td>goldens · .text · stack · cross-ABI</td></tr>
-          <tr><td class="mono">riscv32imc-unknown-none-elf</td><td>RV32IMC</td><td><span class="chip">QEMU</span></td><td>goldens · .text · stack</td></tr>
-          <tr><td class="mono">thumbv6m-none-eabi</td><td>Cortex-M0</td><td><span class="chip">QEMU</span></td><td>canary · .text · stack</td></tr>
-          <tr class="silicon"><td>Microcontroller</td><td>Arm Cortex-M4F</td><td><span class="chip si">silicon</span></td><td>goldens · µs budget</td></tr>
-          <tr class="silicon"><td>Microcontroller</td><td>Arm Cortex-M33</td><td><span class="chip si">silicon</span></td><td>goldens · µs budget</td></tr>
-          <tr class="silicon"><td>Microcontroller</td><td>RISC-V RV32IMC</td><td><span class="chip si">silicon</span></td><td>goldens · µs budget</td></tr>
+          <tr><td class="mono">x86_64-unknown-linux-gnu</td><td>x86_64</td><td><span class="chip">CI host</span></td><td>full test suite</td><td class="num">–</td><td class="num">–</td></tr>
+          <tr><td class="mono">aarch64-unknown-linux-gnu</td><td>Arm64</td><td><span class="chip">CI host</span></td><td>full test suite</td><td class="num">–</td><td class="num">–</td></tr>
+          <tr><td class="mono">thumbv7em-none-eabihf</td><td>Cortex-M4F</td><td><span class="chip">QEMU</span></td><td>goldens · cross-ABI</td><td class="num">200.8</td><td class="num">3,631</td></tr>
+          <tr><td class="mono">thumbv7em-none-eabi</td><td>Cortex-M4, soft-float</td><td><span class="chip">QEMU</span></td><td>goldens · cross-ABI</td><td class="num">166.5</td><td class="num">3,311</td></tr>
+          <tr><td class="mono">riscv32imc-unknown-none-elf</td><td>RV32IMC</td><td><span class="chip">QEMU</span></td><td>goldens</td><td class="num">196.4</td><td class="num">3,291</td></tr>
+          <tr><td class="mono">thumbv6m-none-eabi</td><td>Cortex-M0</td><td><span class="chip">QEMU</span></td><td>canary set</td><td class="num">43.5</td><td class="num">908</td></tr>
+          <tr class="silicon"><td>Nucleo-F411RE</td><td>Arm Cortex-M4F</td><td><span class="chip si">silicon</span></td><td>goldens · µs budget</td><td class="num">–</td><td class="num">–</td></tr>
+          <tr class="silicon"><td>Pico 2</td><td>Arm Cortex-M33</td><td><span class="chip si">silicon</span></td><td>goldens · µs budget</td><td class="num">–</td><td class="num">–</td></tr>
+          <tr class="silicon"><td>XIAO ESP32-C3</td><td>RISC-V RV32IMC</td><td><span class="chip si">silicon</span></td><td>goldens · µs budget</td><td class="num">–</td><td class="num">–</td></tr>
         </tbody>
       </table>
     </div>
+    <p class="note-line">Host and QEMU run in CI. Silicon runs on real boards. <code>.text</code> and peak stack are for the release smoke binary at <code>f64</code>; a PR fails at +10%.</p>
+    <p class="note-line">The robot apps on silicon need more. On the Nucleo-F411RE: <code>arm</code> 31 KB of stack and 159 KB of flash, <code>drone</code> 8 KB and 97 KB, <code>mobile_and_policy</code> 2.7 KB and 150 KB. The <code>Dual</code> and <code>f64</code> Franka frames set the <code>arm</code> stack. No app uses a heap.</p>
   </div>
 </section>
 
@@ -541,13 +520,6 @@ const LATENCY = [
   ["Particle filter, 1,000", 65700],
 ];
 
-// ci/budgets.toml
-const FLASH = [["thumbv7em-none-eabihf", 200.776], ["riscv32imc", 196.400], ["thumbv7em-none-eabi", 166.492], ["thumbv6m-none-eabi", 43.536]];
-const STACK = [["thumbv7em-none-eabihf", 3631], ["thumbv7em-none-eabi", 3311], ["riscv32imc", 3291], ["thumbv6m-none-eabi", 908]];
-
-// benchmarks/*.md accuracy tables
-const REFERENCES = [["NumPy / LAPACK", 46], ["SciPy / MINPACK", 34], ["Pinocchio", 30], ["mpmath", 25], ["NumPy + SciPy", 21], ["MuJoCo", 19], ["mink", 4], ["FilterPy", 4]];
-
 const MODULES = [
   ["Estimation", "estimation", "KalmanFilter · ErrorStateKalmanFilter · ParticleFilter"],
   ["Control", "control", "Lqr · Pid · ComputedTorqueController"],
@@ -670,31 +642,32 @@ function horizontalBars(container, rows, options) {
   });
 }
 
+let speedView = "silicon";
 function renderAll() {
-  horizontalBars(document.getElementById("chart-silicon"), SILICON.map(row => ({
-    label: `${row.label} · ${row.scalar}`,
-    values: row.values,
-    keys: row.values.map((_, board) => siliconKey(row, board)),
-  })), {
-    log: true, domain: [1, 50000], ticks: [1, 10, 100, 1000, 10000], labelWidth: 240,
-    tickFormat: tick => tick >= 1000 ? tick / 1000 + " ms" : tick + " µs",
-    valueFormat: formatMicroseconds, colors: SERIES, aria: "Warm time per check on three microcontrollers",
-  });
-  horizontalBars(document.getElementById("chart-latency"), LATENCY.map(([label, value]) => ({ label, values: [value] })), {
-    log: true, domain: [1, 200000], ticks: [1, 10, 100, 1000, 10000, 100000], labelWidth: 190,
-    tickFormat: tick => tick < 1000 ? tick + " ns" : tick / 1000 + " µs", valueFormat: formatNanoseconds, aria: "Host latency per operation",
-  });
-  horizontalBars(document.getElementById("chart-flash"), FLASH.map(([label, value]) => ({ label, values: [value] })), {
-    domain: [0, 240], ticks: [0, 50, 100, 150, 200], labelWidth: 160,
-    tickFormat: tick => tick, valueFormat: value => value.toFixed(1) + " KB", aria: "Flash size per target",
-  });
-  horizontalBars(document.getElementById("chart-stack"), STACK.map(([label, value]) => ({ label, values: [value] })), {
-    domain: [0, 4400], ticks: [0, 1000, 2000, 3000, 4000], labelWidth: 160,
-    tickFormat: tick => tick.toLocaleString(), valueFormat: value => value.toLocaleString() + " B", aria: "Peak stack per target",
-  });
-  horizontalBars(document.getElementById("chart-references"), REFERENCES.map(([label, value]) => ({ label, values: [value] })), {
-    domain: [0, 52], ticks: [0, 10, 20, 30, 40, 50], labelWidth: 130,
-    tickFormat: tick => tick, valueFormat: value => value, aria: "Accuracy checks per reference library",
+  const container = document.getElementById("chart-speed");
+  if (speedView === "silicon") {
+    horizontalBars(container, SILICON.map(row => ({
+      label: `${row.label} · ${row.scalar}`,
+      values: row.values,
+      keys: row.values.map((_, board) => siliconKey(row, board)),
+    })), {
+      log: true, domain: [1, 50000], ticks: [1, 10, 100, 1000, 10000], labelWidth: 240,
+      tickFormat: tick => tick >= 1000 ? tick / 1000 + " ms" : tick + " µs",
+      valueFormat: formatMicroseconds, colors: SERIES, aria: "Warm time per check on three microcontrollers",
+    });
+  } else {
+    horizontalBars(container, LATENCY.map(([label, value]) => ({ label, values: [value] })), {
+      log: true, domain: [1, 200000], ticks: [1, 10, 100, 1000, 10000, 100000], labelWidth: 240,
+      tickFormat: tick => tick < 1000 ? tick + " ns" : tick / 1000 + " µs", valueFormat: formatNanoseconds, aria: "Host latency per operation",
+    });
+  }
+}
+for (const button of document.querySelectorAll(".toggle button")) {
+  button.addEventListener("click", () => {
+    speedView = button.dataset.view;
+    for (const other of document.querySelectorAll(".toggle button")) other.setAttribute("aria-selected", other === button);
+    for (const panel of document.querySelectorAll("[data-panel]")) panel.hidden = panel.dataset.panel !== speedView;
+    renderAll();
   });
 }
 renderAll();
