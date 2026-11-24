@@ -264,7 +264,7 @@ pub enum ControlError {
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
 pub enum DynamicsError {
-    /// A mass, inertia, or gravity value was infinite or NaN.
+    /// A dynamics input was infinite or NaN.
     NonFinite,
     /// A rotational inertia was not positive definite.
     NonPositiveInertia,
@@ -284,6 +284,10 @@ pub enum DynamicsError {
     Kinematics(KinematicsError),
     /// The rotational inertia could not be inverted.
     Linalg(LinalgError),
+    /// An observer gain was zero or negative.
+    NonPositiveGain,
+    /// A timestep was zero or negative.
+    NonPositiveTimestep,
 }
 
 /// Errors from the plant module (actuator models and sharing a command out across actuators).
@@ -906,7 +910,7 @@ impl core::fmt::Display for ControlError {
 impl core::fmt::Display for DynamicsError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            DynamicsError::NonFinite => f.write_str("body property was not finite"),
+            DynamicsError::NonFinite => f.write_str("a dynamics input was not finite"),
             DynamicsError::NonPositiveInertia => {
                 f.write_str("rotational inertia is not positive definite")
             }
@@ -929,6 +933,10 @@ impl core::fmt::Display for DynamicsError {
             DynamicsError::Linalg(err) => {
                 write!(f, "rotational inertia could not be inverted: {err}")
             }
+            DynamicsError::NonPositiveGain => {
+                f.write_str("observer gain must be strictly positive")
+            }
+            DynamicsError::NonPositiveTimestep => f.write_str("timestep must be strictly positive"),
         }
     }
 }

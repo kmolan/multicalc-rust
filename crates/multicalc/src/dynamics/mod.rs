@@ -9,6 +9,8 @@
 //!   damping and Coulomb friction. Fixed-base.
 //! - [`DynamicsWorkspace`] — caller-owned scratch for forward dynamics, so a control loop keeps a
 //!   model-sized frame off the stack.
+//! - [`MomentumObserver`] — sensorless contact detection: the residual `r` tracks the external
+//!   joint torque.
 //! - [`RigidBodyAcceleration`] — how fast the body's motion is changing, straight-line and
 //!   turning.
 //! - [`RigidBody::stepped`] — moves the whole state one tick forward, carrying the direction the
@@ -24,10 +26,12 @@
 
 mod articulated_body;
 mod dynamics_workspace;
+mod momentum_observer;
 mod rigid_body;
 
 pub use articulated_body::ArticulatedBody;
 pub use dynamics_workspace::DynamicsWorkspace;
+pub use momentum_observer::MomentumObserver;
 pub use rigid_body::{
     RigidBody, RigidBodyAcceleration, STATE_DIMENSION, free_joint_from_state_vector,
     state_vector_from_free_joint,

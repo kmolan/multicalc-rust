@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Sensorless contact detection.** `MomentumObserver` estimates the external joint torque from
+  `q`, `q̇` and the applied torque: `ṙ = K ⊙ (τ_ext − r)`, stable for every `K·dt > 0`.
+  `ArticulatedBody::generalized_momentum_and_bias` gives `p = H·q̇` and
+  `β = G − Cᵀ·q̇ + damping⊙q̇ + friction_loss⊙sign(q̇)` in one O(n) pass, checked against
+  Pinocchio. New `DynamicsError` variants: `NonPositiveGain`, `NonPositiveTimestep`.
 - **A checked rigid-body state derivative.** `RigidBody::try_state_derivative` reports
   `DynamicsError::DegenerateOrientation` when a state's four orientation numbers normalize to
   nothing, a case the infallible `state_derivative` answers with an all-zero derivative that an

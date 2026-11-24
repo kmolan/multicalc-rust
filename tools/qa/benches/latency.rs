@@ -11,7 +11,7 @@ use criterion::{BatchSize, Criterion};
 use multicalc::control::{
     CartesianImpedanceController, CartesianReference, ComputedTorqueController, JointReference, Lqr,
 };
-use multicalc::dynamics::{ArticulatedBody, DynamicsWorkspace, RigidBody};
+use multicalc::dynamics::{ArticulatedBody, DynamicsWorkspace, MomentumObserver, RigidBody};
 use multicalc::estimation::{ErrorStateKalmanFilter, ImuNoise, NominalState};
 use multicalc::kinematics::{InverseKinematics, Joint, JointParent, KinematicTree};
 use multicalc::linear_algebra::{Matrix, Matrix4D, Vector, Vector2D};
@@ -298,6 +298,33 @@ fn bench_forward_dynamics_arm(criterion: &mut Criterion) {
     criterion.bench_function("forward_dynamics_arm", |b| {
         b.iter(|| {
             body.forward_dynamics(black_box(&state), black_box(&velocity), black_box(&torque))
+                .unwrap()
+        })
+    });
+}
+
+fn bench_momentum_observer_arm(criterion: &mut Criterion) {
+    let body = bench_articulated_arm();
+    let state = body
+        .tree()
+        .forward_kinematics(&Vector::new([0.2, -0.4, 0.5, 0.3, -0.2, 0.6, 0.0]))
+        .unwrap();
+    let velocity = Vector::new([0.5, -0.3, 0.4, 0.2, -0.6, 0.1, 0.0]);
+    let torque = Vector::new([2.0, -1.4, 0.8, 0.5, -0.9, 0.3, 0.0]);
+    let mut observer =
+        MomentumObserver::<ARM_FRAMES, f64>::new(Vector::from_fn(|_| 50.0), 0.001).unwrap();
+    // The first update latches; the rest are steady ticks.
+    let latched = observer.update(&body, &state, &velocity, &torque).unwrap();
+    assert_eq!(latched, Vector::zeros());
+    criterion.bench_function("momentum_observer_arm", |b| {
+        b.iter(|| {
+            observer
+                .update(
+                    &body,
+                    black_box(&state),
+                    black_box(&velocity),
+                    black_box(&torque),
+                )
                 .unwrap()
         })
     });
@@ -805,6 +832,11 @@ const BENCHES: &[(&str, BenchFn, &str)] = &[
         "forward_dynamics_arm_with_workspace",
         bench_forward_dynamics_arm_with_workspace,
         "7-joint arm, articulated-body: (q, q̇, τ) -> q̈, caller-owned workspace",
+    ),
+    (
+        "momentum_observer_arm",
+        bench_momentum_observer_arm,
+        "7-joint arm, momentum observer: (q, q̇, τ) -> r",
     ),
     (
         "inverse_kinematics_solve",

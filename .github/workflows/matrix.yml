@@ -89,15 +89,19 @@ jobs:
           tool: cargo-binutils
       - name: Install QEMU (Arm)
         if: startsWith(matrix.target, 'thumb')
+        timeout-minutes: 5
         run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-system-arm
+          apt_options="-o Acquire::Retries=3 -o Acquire::http::Timeout=20"
+          sudo apt-get $apt_options update
+          sudo apt-get $apt_options install -y --no-install-recommends qemu-system-arm
           command -v qemu-system-arm
       - name: Install QEMU (RISC-V)
         if: startsWith(matrix.target, 'riscv')
+        timeout-minutes: 5
         run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-system-riscv
+          apt_options="-o Acquire::Retries=3 -o Acquire::http::Timeout=20"
+          sudo apt-get $apt_options update
+          sudo apt-get $apt_options install -y --no-install-recommends qemu-system-riscv
           command -v qemu-system-riscv32
       - name: Run smoke tests + budget checks under QEMU
         run: |

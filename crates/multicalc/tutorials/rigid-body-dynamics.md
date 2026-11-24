@@ -17,7 +17,9 @@ robot.
   - `forward_dynamics`: acceleration for a given torque, by the articulated-body algorithm (ABA).
   - `joint_space_inertia`: `H(q)`, by the composite-rigid-body algorithm (CRBA).
   - `kinetic_energy` and `potential_energy`, for passivity checks.
+  - `generalized_momentum_and_bias`: `p = H(q)·q̇` and its bias `β`, for the momentum observer.
   - Per-joint armature, viscous damping and Coulomb friction come from the model.
+- `MomentumObserver`: sensorless contact detection.
 
 `FreeJointState` returns plain arrays:
 
@@ -342,6 +344,80 @@ let holding = panda.gravity_torque_at(&Vector::zeros())?;
 // holding[2] = -4.0399 N·m, holding[4] = -3.2669 N·m, holding[6] = 2.2997 N·m
 ```
 
+## Contact detection without sensors
+
+`MomentumObserver` estimates the external joint torque `τ_ext` from `q`, `q̇` and the applied
+torque `τ`, with no force sensor and no `q̈`. It integrates `ṗ = τ + τ_ext − β`, with `p = H(q)·q̇`
+and `β = G(q) − C(q,q̇)ᵀ·q̇ + damping⊙q̇ + friction_loss⊙sign(q̇)` from
+`ArticulatedBody::generalized_momentum_and_bias`. The residual follows `ṙ = K ⊙ (τ_ext − r)`.
+
+- Pass the torque applied over the tick that ends at the measured `(q, q̇)`.
+- The first update after `new` or `reset` latches the start state and returns zero.
+- A step in `τ_ext` reaches `r` as `1 − (1 + K·dt)^−k` after `k` ticks.
+- `sign(0) = 0`, so stiction shows in `r`. Set the contact threshold above the friction loss.
+
+```rust
+use multicalc::dynamics::{ArticulatedBody, MomentumObserver};
+use multicalc::kinematics::{Joint, JointParent, KinematicTree};
+use multicalc::linear_algebra::{Matrix, Vector};
+use multicalc::spatial::{SE3, SO3, SpatialInertia};
+
+// The two-hinge arm from above.
+let hinge_axis = Vector::new([0.0, 1.0, 0.0]);
+let link = SE3::from_parts(SO3::<f64>::identity(), Vector::new([1.0, 0.0, 0.0]));
+let tree = KinematicTree::<2, 2, f64>::try_from_joints(
+    &[
+        Joint::revolute(hinge_axis, SE3::identity()),
+        Joint::revolute(hinge_axis, link),
+    ],
+    &[JointParent::World, JointParent::Joint(0)],
+)?;
+let mass = 1.5;
+let center_of_mass = Vector::new([0.5, 0.0, 0.0]);
+let rotational_inertia = Matrix::from_diagonal([0.02; 3]);
+let gravity = Vector::new([0.0, 0.0, -9.81]);
+let arm = SpatialInertia::new(mass, center_of_mass, rotational_inertia)?;
+let body = ArticulatedBody::new(tree, &[Some(arm), Some(arm)], gravity)?;
+
+// Contact is |r| above the threshold on any joint.
+let gain = 50.0;
+let timestep = 0.001;
+let contact_threshold = 0.3;
+let mut observer = MomentumObserver::new(Vector::new([gain, gain]), timestep)?;
+
+// A driven swing, and an unmodeled push over ticks `push_start..push_end`.
+let push = Vector::new([0.8, -0.5]);
+let push_start = 500;
+let push_end = 700;
+let mut position = Vector::new([1.2, -0.5]);
+let mut velocity = Vector::zeros();
+let mut torque = Vector::zeros();
+let mut first_contact = None;
+let mut last_contact = None;
+for tick in 0..1000 {
+    // `torque` acted over the tick that ends here.
+    let residual = observer.update_at(&body, &position, &velocity, &torque)?;
+    if (0..2).any(|joint| residual[joint].abs() > contact_threshold) {
+        first_contact.get_or_insert(tick);
+        last_contact = Some(tick);
+    }
+
+    let time = tick as f64 * timestep;
+    torque = Vector::new([2.0 * (3.0 * time).sin(), (2.0 * time).cos()]);
+    let external = if (push_start..push_end).contains(&tick) { push } else { Vector::zeros() };
+    let acceleration = body.forward_dynamics_at(&position, &velocity, &(torque + external))?;
+    velocity = velocity + acceleration.scale(timestep);
+    position = position + velocity.scale(timestep);
+}
+
+// The flag rises about 10 ms after the push starts and falls about 30 ms after it stops.
+let rise_ticks = 20;
+let fall_ticks = 50;
+assert!(first_contact.is_some_and(|tick| tick > push_start && tick <= push_start + rise_ticks));
+assert!(last_contact.is_some_and(|tick| tick >= push_end && tick <= push_end + fall_ticks));
+# Ok::<(), multicalc::CalcError>(())
+```
+
 ## Errors
 
 - `SpatialInertia::new` returns [`SpatialError`](error-handling.md): `NonPositiveMass`,
@@ -356,6 +432,8 @@ let holding = panda.gravity_torque_at(&Vector::zeros())?;
   count), `NonFinite`, or `Kinematics`. `forward_dynamics` also returns
   `NonPositiveArticulatedInertia`: a movable joint with no inertia behind it, such as a massless
   body on a joint with no armature.
+- `MomentumObserver::new` returns `NonFinite`, `NonPositiveTimestep`, or `NonPositiveGain`.
+  `update` returns `NonFinite` and the `ArticulatedBody` query errors.
 
 ## Model files
 
