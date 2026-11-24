@@ -99,6 +99,7 @@ pub const CHECKS: &[Check] = &[
     (arm::franka_inverse_dynamics, UNMEASURED),
     (arm::franka_mass_matrix, UNMEASURED),
     (arm::franka_forward_dynamics, UNMEASURED),
+    (arm::arm_control_tick_f32, UNMEASURED),
 ];
 
 /// The checks of the drone app, with the budgets as [`CHECKS`] of the arm app describes.
