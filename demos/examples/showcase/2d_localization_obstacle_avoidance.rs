@@ -18,7 +18,7 @@ use std::f64::consts::{PI, TAU};
 use multicalc::linear_algebra::Matrix;
 use multicalc::mapping::{CellState, LogOddsGrid, OccupancyMap, ScanGeometry};
 use multicalc::{SE2, SO2, Vector2D};
-use multicalc_demos::loop_util::{LatencyRing, Pacer, commas};
+use multicalc_demos::loop_util::{LatencyRing, Pacer, RECORD_TICKS, commas};
 use multicalc_demos::sim::circle_outline;
 use multicalc_demos::sim::localization_obstacle_avoidance_2d::{
     BEAMS, LapWorld, Phase, TRACK_COLUMNS, TRACK_ROWS,
@@ -204,7 +204,8 @@ fn main() -> Result<(), VizError> {
         );
     }
 
-    let mut sink = RerunSink::live("multicalc-demos/2d-localization-obstacle-avoidance")?;
+    let mut sink =
+        RerunSink::from_environment("multicalc-demos/2d-localization-obstacle-avoidance")?;
     let mut world = LapWorld::new(20260722).expect("the pinned configuration is valid");
 
     // A map the robot builds for itself, alongside the prior map it localizes against. Every scan
@@ -255,6 +256,9 @@ fn main() -> Result<(), VizError> {
     let mut n: i64 = 0;
     let mut missed_deadlines: u64 = 0;
     loop {
+        if sink.is_recording() && n == RECORD_TICKS {
+            break;
+        }
         let late_us = pacer.wait();
         n += 1;
         sink.set_sequence("tick", n);
@@ -423,4 +427,6 @@ fn main() -> Result<(), VizError> {
             sink.text("hud/stats", &markdown)?;
         }
     }
+    sink.flush()?;
+    Ok(())
 }

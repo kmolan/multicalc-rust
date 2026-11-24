@@ -10,7 +10,7 @@ use std::error::Error;
 use std::time::Instant;
 
 use multicalc::mapping::OccupancyMap;
-use multicalc_demos::loop_util::{LatencyRing, Pacer};
+use multicalc_demos::loop_util::{LatencyRing, Pacer, RECORD_TICKS};
 use multicalc_demos::sim::drone_flight_3d::{
     CIRCLE_SPEED, FlightPhase, FlightReference, FlightWorld, ROTOR_TONE_HERTZ, SEED, StateSource,
     WARMUP_TICKS, planned_waypoints,
@@ -89,7 +89,7 @@ fn run_live() -> Result<(), Box<dyn Error>> {
             .sum::<f64>(),
     );
 
-    let mut viewer = RerunSink::live("multicalc-demos/3d-drone-flight")?;
+    let mut viewer = RerunSink::from_environment("multicalc-demos/3d-drone-flight")?;
 
     // The ground and the circle belong to the whole run rather than to the tick they were logged
     // on. The circle never moves, so it is drawn once and left alone.
@@ -144,6 +144,9 @@ fn run_live() -> Result<(), Box<dyn Error>> {
 
     let mut tick: i64 = 0;
     loop {
+        if viewer.is_recording() && tick == RECORD_TICKS {
+            break;
+        }
         let _ = pacer.wait();
         tick += 1;
         viewer.set_sequence("tick", tick);
@@ -242,6 +245,8 @@ fn run_live() -> Result<(), Box<dyn Error>> {
             viewer.text("hud/stats", &panel)?;
         }
     }
+    viewer.flush()?;
+    Ok(())
 }
 
 /// The middle of every wall cell of the floor plan, at the height the beams sweep through.

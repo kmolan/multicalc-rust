@@ -19,7 +19,7 @@
 use multicalc::numerical_integration::GaussianQuadratureMethod;
 use multicalc::numerical_integration::GaussianSingle;
 use multicalc::numerical_integration::IntegratorSingleVariable;
-use multicalc_demos::loop_util::{LatencyRing, Pacer, commas};
+use multicalc_demos::loop_util::{LatencyRing, Pacer, RECORD_TICKS, commas};
 use multicalc_demos::{RerunSink, Rgba, VizError, VizSink};
 use std::collections::VecDeque;
 use std::f64::consts::TAU;
@@ -221,7 +221,7 @@ fn main() -> Result<(), VizError> {
         commas(node_evals)
     );
 
-    let mut sink = RerunSink::live("multicalc-demos/fourier-ferris")?;
+    let mut sink = RerunSink::from_environment("multicalc-demos/fourier-ferris")?;
     sink.set_sequence("tick", 0);
     sink.series_style(
         "plots/coeff_error",
@@ -244,6 +244,9 @@ fn main() -> Result<(), VizError> {
     let mut prev_active = 0usize;
     let mut n: i64 = 0;
     loop {
+        if sink.is_recording() && n == RECORD_TICKS {
+            break;
+        }
         let _ = pacer.wait(); // pace to the next 1 ms boundary
         n += 1;
         sink.set_sequence("tick", n);
@@ -324,4 +327,6 @@ fn main() -> Result<(), VizError> {
             }
         }
     }
+    sink.flush()?;
+    Ok(())
 }

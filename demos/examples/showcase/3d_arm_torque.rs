@@ -25,7 +25,7 @@ use multicalc::kinematics::{JacobianFrame, JointKind, KinematicTree, KinematicTr
 use multicalc::linear_algebra::{Matrix, Vector};
 use multicalc::motion::{MotionProfilePlanner, ProfileLimits, SynchronizedProfile};
 use multicalc::spatial::{SE3, SpatialInertia};
-use multicalc_demos::loop_util::{LatencyRing, Pacer};
+use multicalc_demos::loop_util::{LatencyRing, Pacer, RECORD_TICKS};
 use multicalc_demos::visualization::franka_panda_mesh::load_body_mesh;
 use multicalc_demos::{RerunSink, Rgba, VizSink};
 use rand::{RngExt, SeedableRng};
@@ -456,7 +456,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     verify_model(arm.nominal.tree());
     let mut pushes = RandomPushes::new();
 
-    let mut sink = RerunSink::live("multicalc-demos/3d-arm-torque")?;
+    let mut sink = RerunSink::from_environment("multicalc-demos/3d-arm-torque")?;
 
     // Scene furniture, outside time.
     sink.set_static(true);
@@ -517,6 +517,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut tick: i64 = 0;
     loop {
+        if sink.is_recording() && tick == RECORD_TICKS {
+            break;
+        }
         let _ = pacer.wait();
         tick += 1;
         sink.set_sequence("tick", tick);
@@ -610,4 +613,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             sink.text("hud/stats", &panel)?;
         }
     }
+    sink.flush()?;
+    Ok(())
 }
