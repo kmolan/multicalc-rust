@@ -2,6 +2,9 @@
 
 Reads MuJoCo MJCF and URDF model files into the robot types of [`multicalc`](https://crates.io/crates/multicalc). The `model_viewer` binary draws a model file.
 
+`multicalc` is robotics for microcontrollers: sense, plan, estimate and control in `no_std` Rust.
+This crate needs `std` and runs on the host.
+
 ![model_viewer drawing a Skydio X2, a TurtleBot3 Burger, a Franka Emika Panda, a Unitree Go2, a
 Shadow Hand and a Unitree H1](https://raw.githubusercontent.com/kmolan/multicalc-rust/main/crates/multicalc-robot-model/res/demo.jpg)
 
