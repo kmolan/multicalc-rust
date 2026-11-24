@@ -10,7 +10,7 @@ license.workspace = true
 documentation = "https://docs.rs/multicalc"
 readme = "README.md"
 keywords = ["robotics", "embedded", "dynamics", "kinematics", "autodiff"]
-categories = ["mathematics", "no-std", "no-std::no-alloc", "embedded", "science::robotics"]
+categories = ["science::robotics", "embedded", "no-std::no-alloc", "aerospace::drones", "mathematics"]
 
 [dependencies]
 libm = "0.2"
