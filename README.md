@@ -28,8 +28,6 @@ tick.*
   and four bare-metal targets under QEMU.
 - **Checked against reference libraries.** 183 checks against NumPy, SciPy, MuJoCo, Pinocchio,
   mpmath and FilterPy. See the [benchmarks](benchmarks).
-- **Heap only on request.** The default build needs no allocator. The `alloc` feature adds the particle
-  filter, Monte Carlo localization and `DynamicOccupancyGrid`.
 - **Safe and panic-free.** `#![forbid(unsafe_code)]`, no C dependencies, and a typed error from each
   fallible call.
 - **Builds in seconds.** A clean build of the whole crate takes about 2.5 s, debug, release or
