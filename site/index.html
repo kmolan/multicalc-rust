@@ -123,6 +123,8 @@ h2 { font-size: clamp(28px, 4.2vw, 44px); letter-spacing: -0.035em; line-height:
 .card { background: var(--surface-1); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
 .card h3 { font-size: 15px; margin: 0 0 2px; font-weight: 600; }
 .card .note { font-size: 13px; color: var(--text-muted); margin: 0 0 14px; }
+.note-line { color: var(--text-secondary); font-size: 14px; margin: 16px 0 0; max-width: 760px; }
+.note-line code { font-family: var(--mono); font-size: 0.9em; }
 
 /* demos */
 .demos { display: grid; grid-template-columns: 1fr; gap: 16px; }
@@ -362,6 +364,7 @@ footer a:hover { color: var(--text-primary); }
       <div class="card"><h3>.text, KB</h3><p class="note">Full check set; thumbv6m runs the canary set.</p><div class="chart" id="chart-flash"></div></div>
       <div class="card"><h3>Peak stack, bytes</h3><p class="note">High-water mark, f64.</p><div class="chart" id="chart-stack"></div></div>
     </div>
+    <p class="note-line">The robot apps on silicon need more. On the Nucleo-F411RE: <code>arm</code> 31 KB of stack and 159 KB of flash, <code>drone</code> 8 KB and 97 KB, <code>mobile_and_policy</code> 2.7 KB and 150 KB. The <code>Dual</code> and <code>f64</code> Franka frames set the <code>arm</code> stack. No app uses a heap.</p>
   </div>
 </section>
 
@@ -423,6 +426,7 @@ filter.<span class="f">update</span>(measurement)?;                             
     <span>
       <a href="https://github.com/kmolan/multicalc-rust">GitHub</a> ·
       <a href="https://crates.io/crates/multicalc">crates.io</a> ·
+      <a href="tutorials.html">Tutorials</a> ·
       <a href="https://docs.rs/multicalc">docs.rs</a> ·
       <a href="https://github.com/kmolan/multicalc-rust/tree/main/benchmarks">Benchmarks</a>
     </span>
@@ -460,23 +464,25 @@ function siliconKey(row, board) {
 
 // benchmarks/latency.md, median, nanoseconds.
 const LATENCY = [
-  ["Servo tick, 7 joints", 9.1],
-  ["Kalman step, 2-state", 34.1],
-  ["Rigid-body step", 95.8],
-  ["Jacobian 6×6, autodiff", 273.1],
-  ["Newton system, 2×2", 329.4],
-  ["LU solve, 10×10", 402.6],
-  ["Inverse dynamics, 7-DoF", 489.6],
-  ["UKF step, 5-state", 517.6],
-  ["Mass matrix, 7-DoF", 599.2],
-  ["Forward dynamics, 7-DoF", 646.0],
-  ["EKF step, 5-state", 679.1],
-  ["SVD least squares, 30×3", 823.3],
-  ["ESKF predict, 15-state", 2040],
-  ["LQR solve, 4×1", 2590],
-  ["Min-snap, 8 waypoints", 20110],
-  ["IK, 7-DoF SE(3)", 21880],
-  ["Particle filter, 1,000", 65670],
+  ["Servo tick, 7 joints", 9.9],
+  ["Kalman step, 2-state", 35.9],
+  ["Rigid-body step", 71.6],
+  ["Newton system, 2×2", 175.8],
+  ["Jacobian 6×6, autodiff", 217.5],
+  ["LU solve, 10×10", 390.3],
+  ["UKF step, 5-state", 426.4],
+  ["Momentum observer, 7-DoF", 454.9],
+  ["EKF step, 5-state", 468.1],
+  ["Inverse dynamics, 7-DoF", 483.0],
+  ["Computed torque, 7-DoF", 522.6],
+  ["Mass matrix, 7-DoF", 609.5],
+  ["Forward dynamics, 7-DoF", 722.8],
+  ["SVD least squares, 30×3", 826.8],
+  ["ESKF predict, 15-state", 1560],
+  ["LQR solve, 4×1", 1940],
+  ["Min-snap, 8 waypoints", 19380],
+  ["IK, 7-DoF SE(3)", 20410],
+  ["Particle filter, 1,000", 65700],
 ];
 
 // ci/budgets.toml
@@ -509,9 +515,8 @@ const MODULES = [
   ["Vector calculus", "vector-calculus", "curl · divergence · flux"],
 ];
 
-const tutorialBase = "https://github.com/kmolan/multicalc-rust/blob/main/crates/multicalc/tutorials/";
 document.getElementById("modules-grid").innerHTML = MODULES.map(([name, file, types]) =>
-  `<a class="mod" href="${tutorialBase}${file}.md"><div class="mn">${name}</div><div class="mt">${types}</div></a>`).join("");
+  `<a class="mod" href="tutorials.html?page=${file}"><div class="mn">${name}</div><div class="mt">${types}</div></a>`).join("");
 
 const SVG = "http://www.w3.org/2000/svg";
 const tooltip = document.getElementById("tooltip");
