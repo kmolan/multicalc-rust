@@ -785,3 +785,23 @@ fn two_link_arm_far_start_damped() {
         "{report:?}"
     );
 }
+
+#[test]
+fn newton_rejects_a_negligible_derivative() {
+    // f'(1e-120) = 3e-240, so the first step is about 7e239.
+    let cube = scalar_fn!(|x| constant(-2.0) + x * x * x);
+    assert_eq!(
+        newton(&cube, 1e-120).err(),
+        Some(SolveError::Linalg(LinalgError::Singular))
+    );
+}
+
+#[test]
+fn newton_rejects_a_flat_tail() {
+    // atan is flat far from zero; the second iterate is at about −1e16.
+    let arctangent = scalar_fn!(|x| constant(-0.5) + x.atan());
+    assert_eq!(
+        newton(&arctangent, 1e8).err(),
+        Some(SolveError::Linalg(LinalgError::Singular))
+    );
+}

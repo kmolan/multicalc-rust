@@ -206,6 +206,10 @@ non-positive input is now documented instead of silent. @naseem173 (#307)
   `A_clᵀ·P·A_cl − P + I = 0`. A stable loop certifies when `state_cost` does not see a stable mode.
   Such a loop returned `NotPositiveDefinite` before. (#288)
 
+- **`Newton` rejects a negligible derivative.** `Newton::solve` returns `Linalg(Singular)` when
+  `|f'(x)|·(1 + |x|) ≤ ε·|f(x)|`. Only an exactly zero derivative caused this error before, so a
+  derivative such as `1e-240` sent the iterate to about `1e240`. (#206)
+
 ## [0.10.0] - 2026-08-09
 
 A feature release adding signal processing, polynomials and minimum-snap trajectories, LQR and

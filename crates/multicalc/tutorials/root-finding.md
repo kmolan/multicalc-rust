@@ -45,6 +45,9 @@ Errors: root finders return [`SolveError`](error-handling.md): `DidNotConverge`,
 (bisection endpoints that do not enclose a sign change), `NonFinite`, or a wrapped `Linalg` /
 `Diff` error.
 
+`Newton` returns `Linalg(Singular)` when `|f'(x)|·(1 + |x|) ≤ ε·|f(x)|`, because that step
+passes `(1 + |x|)/ε`.
+
 The system step uses the LU solve and the overflow-safe `enorm` from
 [Linear algebra](linear-algebra.md). Full demo:
 [root_finding.rs](https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/basics/root_finding.rs).
