@@ -1,8 +1,6 @@
-# multicalc as Tock apps for HILShare: three apps (Cargo features `arm`, `drone`,
-# `mobile_and_policy`) run the checks of multicalc as a Tock process on the three HILShare boards
-# and print the HILShare markers. Dev-only and never published. Its own workspace: build-tab.sh
-# builds each app one time for each board, at the fixed app addresses of that kernel, with the
-# linker script of libtock-rs, on a pinned toolchain (rust-toolchain.toml).
+# The checks of multicalc as three Tock apps (features `arm`, `drone`, `mobile_and_policy`) on the
+# HILShare boards. Dev-only and never published. Its own workspace: build-tab.sh builds each app for
+# each board at the app addresses of that kernel, on a pinned toolchain (rust-toolchain.toml).
 [workspace]
 
 [package]

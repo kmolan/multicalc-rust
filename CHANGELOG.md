@@ -115,17 +115,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Host-only Python bindings.** `multicalc-py` is a workspace crate (`publish = false`) with a
   thin PyO3/maturin surface over a slice of crate-root `multicalc` (`f64` only, sizes fixed in
   the type name). Import `multicalc_py`. Not published to crates.io or PyPI. @rtmongold (#330)
-- **Tock apps for hardware runs.** `tools/hilshare` runs three apps as Tock processes on the
-  three HILShare boards: the Nucleo-F411RE, the Raspberry Pi Pico 2 and the XIAO ESP32-C3.
-  - `arm`: Franka Panda RNEA, CRBA and ABA against Pinocchio, a 1 kHz computed-torque tick with
-    the momentum observer, and the exact `∂τ/∂q̈ = H` by one `Dual` pass.
-  - `drone`: the Skydio X2 control tick at hover and the 15-state ESKF over an IMU trajectory.
-  - `mobile_and_policy`: an EKF and pure-pursuit tick, and an MLP policy against numpy.
-
-  The ticks run in `f32` on the FPU of the two Arm boards (HILShare kernel `0.3`). Each check
-  compares its answer with a known value, and its best and worst time with a budget of the board.
-  `benchmarks/silicon.md` holds the figures. CI builds the TABs on each pull request, and a
-  maintainer starts a board run with the `Board` workflow.
+- **Checked on three microcontrollers.** Franka Panda RNEA, CRBA and ABA agree with Pinocchio to
+  `1e-10` on a Cortex-M4F, a Cortex-M33 and an RV32IMC. One `Dual` pass there gives the exact
+  `∂τ/∂q̈ = H`. The arm, drone and mobile-robot control ticks, the ESKF and an MLP policy also run
+  on them, and each run checks each answer. On a 100 MHz Cortex-M4F in `f32`, the Franka
+  computed-torque tick with the momentum observer takes 0.70 ms.
+  [`benchmarks/silicon.md`](benchmarks/silicon.md) has the times.
 
 - **Input limits on `Lqr`.** `with_input_limits` sets per-input limits. `control_limited` and
   `control_tracking_limited` return a `LimitedOutput` with the clamped input and a flag for each

@@ -36,7 +36,7 @@ const CHECKS: &[(&str, &str, &str, &str)] = &[
     (
         "arm",
         "autodiff_derivative",
-        "Forward-mode derivative of `x³`",
+        "Forward-mode autodiff of `x³`",
         "`f64`",
     ),
     (
@@ -54,55 +54,55 @@ const CHECKS: &[(&str, &str, &str, &str)] = &[
     (
         "arm",
         "franka_inverse_dynamics",
-        "Franka Panda RNEA, 11 slots: `(q, q̇, q̈) → τ`",
+        "Franka Panda inverse dynamics (RNEA): `(q, q̇, q̈) → τ`",
         "`f64`",
     ),
     (
         "arm",
         "franka_mass_matrix",
-        "Franka Panda CRBA: `q → H(q)`",
+        "Franka Panda mass matrix (CRBA): `q → H(q)`",
         "`f64`",
     ),
     (
         "arm",
         "franka_forward_dynamics",
-        "Franka Panda ABA: `(q, q̇, τ) → q̈`",
+        "Franka Panda forward dynamics (ABA): `(q, q̇, τ) → q̈`",
         "`f64`",
     ),
     (
         "arm",
         "arm_control_tick_f32",
-        "Franka Panda tick: computed torque and momentum observer",
+        "Franka Panda control tick: computed torque and momentum observer",
         "`f32`",
     ),
     (
         "arm",
         "franka_inverse_dynamics_derivative",
-        "Exact `∂τ/∂q̈ · eᵢ` by one RNEA pass",
+        "Franka Panda exact `∂τ/∂q̈` column, one `Dual` RNEA pass",
         "`Dual<f64>`",
     ),
     (
         "drone",
         "drone_control_tick_f32",
-        "Skydio X2 tick: ESKF predict and update, LQR, thrust, attitude, mixer",
+        "Skydio X2 control tick: ESKF, LQR, thrust, attitude, mixer",
         "`f32`",
     ),
     (
         "drone",
         "attitude_and_mixer_f32",
-        "Skydio X2 attitude controller and mixer",
+        "Skydio X2 attitude control and mixer",
         "`f32`",
     ),
     (
         "drone",
         "eskf_trajectory",
-        "15-state ESKF: 200 IMU steps and 30 updates",
+        "15-state ESKF over 200 IMU steps and 30 updates",
         "`f64`",
     ),
     (
         "mobile_and_policy",
         "mobile_robot_tick_f32",
-        "Mobile robot tick: 5-state EKF and pure pursuit",
+        "Mobile-robot control tick: 5-state EKF and pure pursuit",
         "`f32`",
     ),
     (
@@ -300,13 +300,13 @@ impl Measurements {
                 .unwrap_or_else(|| unreachable!("{suffix}: no kernel boot line"));
             let _ = writeln!(body, "| {name} | {core} | {} MHz |", clock / 1_000_000);
         }
-        body.push_str("\n| Check | What it runs | Scalar |");
+        body.push_str("\n| What it runs | Scalar |");
         for (_, name, _) in BOARDS {
             let _ = write!(body, " {name} |");
         }
-        body.push_str("\n|---|---|---|---:|---:|---:|\n");
+        body.push_str("\n|---|---|---:|---:|---:|\n");
         for (app, check, description, scalar) in CHECKS {
-            let _ = write!(body, "| `{check}` | {description} | {scalar} |");
+            let _ = write!(body, "| {description} | {scalar} |");
             for (suffix, _, _) in BOARDS {
                 let figures = &self.figures[&(app.to_string(), check.to_string(), suffix)];
                 assert_eq!(
