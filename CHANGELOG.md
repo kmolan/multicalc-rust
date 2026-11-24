@@ -131,6 +131,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that are not stable with the new `SignalError::UnstableCoefficients`. Weights with
   `1 + a₁ + a₂ = 0` made `settle_to` fill the state with infinities. (#285)
 
+- **Particle filter spread and reseed.** `ParticleFilter::covariance` gives the weighted
+  covariance `Σ wᵢ·(xᵢ − μ)(xᵢ − μ)ᵀ`. `ParticleFilter::reseed` draws a fresh cloud from a mean and
+  a covariance and resets the weights, for recovery after the robot moves without a model of the
+  move. (#213)
+
 ### Changed
 
 - **`ModelError::UnsupportedOrientation` is gone**, replaced by `MultipleOrientations` for an element

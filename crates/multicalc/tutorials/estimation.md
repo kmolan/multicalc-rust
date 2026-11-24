@@ -460,9 +460,11 @@ thousands of samples per step.
 - `with_resampling(ResamplingScheme)`: `Systematic` (the default), `Stratified`, `Multinomial` or
   `Residual`. `with_resample_threshold` sets the effective-sample-size threshold (default: half the
   particle count). `with_roughening` adds jitter after a resample.
-- `mean` (the usual estimate), `maximum_a_posteriori_state` (the heaviest sample, for a multimodal
-  belief where the mean falls between the modes), `effective_sample_size`, `particles` and
-  `weights`.
+- `mean` (the usual estimate), `covariance` (the weighted spread `Σ wᵢ·(xᵢ − μ)(xᵢ − μ)ᵀ`),
+  `maximum_a_posteriori_state` (the heaviest sample, for a multimodal belief where the mean falls
+  between the modes), `effective_sample_size`, `particles` and `weights`.
+- `reseed(mean, covariance)` draws a fresh cloud and resets the weights. Use it to recover when the
+  robot moves and no motion model sees the move.
 
 ```rust
 # use multicalc::{GaussianLikelihood, ParticleFilter};
@@ -500,6 +502,8 @@ for _ in 0..20 {
     filter.update(&Stationary, &sensor, measurement).unwrap();
 }
 assert!((filter.mean()[0] - 1.0).abs() < 0.2);
+assert!(filter.covariance()[(0, 0)] < 1.0);
+filter.reseed(Vector::new([0.0, 0.0]), initial_covariance).unwrap();
 ```
 
 Errors:
@@ -508,6 +512,8 @@ Errors:
   `EstimationError::WeightsDegenerate` if `particle_count` is zero.
 - `update` returns `EstimationError::NonFinite` for a non-finite measurement, and
   `EstimationError::WeightsDegenerate` when no sample explains the measurement.
+- `reseed` returns `EstimationError::NonFinite` for a non-finite mean, and
+  `EstimationError::NotPositiveDefinite` if the covariance has no Cholesky factor.
 
 `GaussianLikelihood` forms the residual by plain subtraction. For a measurement with an angular
 component, write a custom `Likelihood` that wraps the angle into ±π first, as with

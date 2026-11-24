@@ -324,6 +324,19 @@ impl<const MEASUREMENT_DIMENSION: usize, T: Numeric> Likelihood<MEASUREMENT_DIME
 /// # Ok(())
 /// # }
 /// ```
+/// Sets each particle to `mean + L·z` with `z ~ N(0, I)`, for the lower Cholesky factor `L`.
+fn scatter<const STATE_DIMENSION: usize, T: RandomScalar, R: RandomSource<T>>(
+    particles: &mut [Vector<STATE_DIMENSION, T>],
+    mean: Vector<STATE_DIMENSION, T>,
+    factor: Matrix<STATE_DIMENSION, STATE_DIMENSION, T>,
+    random: &mut R,
+) {
+    for particle in particles {
+        let sample = Vector::from_fn(|_| random.standard_normal());
+        *particle = mean + factor * sample;
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ParticleFilter<
     const STATE_DIMENSION: usize,
@@ -421,11 +434,8 @@ where
         // Scatter the starting cloud around the mean: each particle is the mean plus the initial
         // factor applied to a vector of standard normal draws, which reshapes those draws to match
         // the requested covariance.
-        let mut particles = Vec::with_capacity(particle_count);
-        for _ in 0..particle_count {
-            let sample = Vector::from_fn(|_| random.standard_normal());
-            particles.push(initial_mean + initial_factor * sample);
-        }
+        let mut particles = vec![initial_mean; particle_count];
+        scatter(&mut particles, initial_mean, initial_factor, &mut random);
 
         // Start every particle equally likely, and size the reusable scratch buffers once so a
         // steady run never allocates again.
@@ -764,5 +774,69 @@ where
             }
         }
         self.particles[best]
+    }
+
+    /// The weighted covariance `Σ wᵢ·(xᵢ − μ)(xᵢ − μ)ᵀ` about [`mean`](Self::mean), with the
+    /// normalized weights and no bias correction.
+    ///
+    /// ```
+    /// use multicalc::{Matrix, ParticleFilter, Vector};
+    ///
+    /// let spread = Matrix::new([[2.0, 0.6], [0.6, 1.0]]);
+    /// let process_noise = Matrix::new([[0.01, 0.0], [0.0, 0.01]]);
+    /// let filter =
+    ///     ParticleFilter::<2, 2>::new(20_000, Vector::new([1.0, -2.0]), spread, process_noise, 11)
+    ///         .unwrap();
+    /// let covariance = filter.covariance();
+    /// assert!((covariance[(0, 0)] - 2.0).abs() < 0.1);
+    /// assert!((covariance[(0, 1)] - 0.6).abs() < 0.1);
+    /// ```
+    pub fn covariance(&self) -> Matrix<STATE_DIMENSION, STATE_DIMENSION, T> {
+        let mean = self.mean();
+        let mut accumulated = Matrix::zeros();
+        for (particle, &weight) in self.particles.iter().zip(&self.weights) {
+            let deviation = *particle - mean;
+            accumulated +=
+                Matrix::from_fn(|row, column| weight * deviation[row] * deviation[column]);
+        }
+        accumulated
+    }
+
+    /// Replaces the cloud with fresh draws from `N(mean, covariance)` and resets each weight to
+    /// `1/N`. The particle count and the tuning do not change.
+    ///
+    /// Returns [`EstimationError::NonFinite`] if `mean` is not finite, or
+    /// [`EstimationError::NotPositiveDefinite`] if `covariance` has no Cholesky factor. A refused
+    /// call leaves the filter unchanged.
+    ///
+    /// ```
+    /// use multicalc::{Matrix, ParticleFilter, Vector};
+    ///
+    /// let identity = Matrix::new([[1.0, 0.0], [0.0, 1.0]]);
+    /// let process_noise = Matrix::new([[0.01, 0.0], [0.0, 0.01]]);
+    /// let mut filter =
+    ///     ParticleFilter::<2, 2>::new(20_000, Vector::new([0.0, 0.0]), identity, process_noise, 3)
+    ///         .unwrap();
+    /// filter.reseed(Vector::new([5.0, 5.0]), identity).unwrap();
+    /// assert!((filter.mean()[0] - 5.0).abs() < 0.05);
+    /// ```
+    pub fn reseed(
+        &mut self,
+        mean: Vector<STATE_DIMENSION, T>,
+        covariance: Matrix<STATE_DIMENSION, STATE_DIMENSION, T>,
+    ) -> Result<(), EstimationError> {
+        if !mean.is_finite() {
+            return Err(EstimationError::NonFinite);
+        }
+        let factor = covariance
+            .cholesky()
+            .map_err(|_| EstimationError::NotPositiveDefinite)?
+            .lower();
+        scatter(&mut self.particles, mean, factor, &mut self.random);
+        let uniform = T::ONE / T::from_usize(self.particles.len());
+        for weight in &mut self.weights {
+            *weight = uniform;
+        }
+        Ok(())
     }
 }
