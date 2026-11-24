@@ -7,7 +7,10 @@ rust-version.workspace = true
 description = "Loads MuJoCo MJCF and URDF robot models into multicalc types"
 repository.workspace = true
 license.workspace = true
-publish = false
+documentation = "https://docs.rs/multicalc-robot-model"
+readme = "README.md"
+keywords = ["robotics", "mjcf", "urdf", "mujoco", "kinematics"]
+categories = ["science::robotics", "parser-implementations", "simulation"]
 autobins = false
 
 [features]
@@ -16,7 +19,8 @@ default = []
 viewer = ["dep:rerun"]
 
 [dependencies]
-multicalc = { path = "../multicalc" }
+# Lockstep with the workspace version: a bump that leaves this requirement stale fails to resolve.
+multicalc = { path = "../multicalc", version = "0.10" }
 roxmltree = "0.21"
 rerun = { version = "=0.33.1", default-features = false, features = ["sdk"], optional = true }
 
