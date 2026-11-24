@@ -112,6 +112,55 @@ fn matrix_lit_raw(rows: usize, cols: usize, data: &[f64]) -> String {
     out
 }
 
+/// Values per line in a packed literal.
+const PACKED_VALUES_PER_LINE: usize = 4;
+
+/// `f64::from_bits` literals, `PACKED_VALUES_PER_LINE` to a line, each line after `indent`.
+#[must_use]
+fn packed_values(data: &[f64], indent: &str) -> String {
+    let mut lines = String::new();
+    for chunk in data.chunks(PACKED_VALUES_PER_LINE) {
+        let values: Vec<String> = chunk
+            .iter()
+            .map(|x| format!("f64::from_bits(0x{:016x}),", x.to_bits()))
+            .collect();
+        let _ = writeln!(lines, "{indent}{}", values.join(" "));
+    }
+    lines
+}
+
+/// A raw slice as a bit-exact `[f64; N]` literal, packed.
+#[must_use]
+fn vector_lit_packed(data: &[f64]) -> String {
+    format!(
+        "[f64; {}] = [\n{}];\n",
+        data.len(),
+        packed_values(data, "    ")
+    )
+}
+
+/// A raw row-major slice as a bit-exact `[[f64; C]; R]` literal, each row packed: one line for a
+/// row of up to `PACKED_VALUES_PER_LINE` values.
+#[must_use]
+fn matrix_lit_packed(rows: usize, cols: usize, data: &[f64]) -> String {
+    let mut out = format!("[[f64; {cols}]; {rows}] = [\n");
+    for row in data.chunks(cols) {
+        if cols <= PACKED_VALUES_PER_LINE {
+            let values: Vec<String> = row
+                .iter()
+                .map(|x| format!("f64::from_bits(0x{:016x})", x.to_bits()))
+                .collect();
+            let _ = writeln!(out, "    [{}],", values.join(", "));
+        } else {
+            out.push_str("    [\n");
+            out.push_str(&packed_values(row, "        "));
+            out.push_str("    ],\n");
+        }
+    }
+    out.push_str("];\n");
+    out
+}
+
 /// An integer literal.
 #[must_use]
 fn usize_lit(value: i64) -> String {
@@ -428,7 +477,7 @@ fn main() {
     let expected = &franka_dynamics.expected;
     let state_row = |value: &Value| {
         let (_, _, data) = value.as_matrix();
-        vector_lit_raw(&data[STATE * SLOTS..(STATE + 1) * SLOTS])
+        vector_lit_packed(&data[STATE * SLOTS..(STATE + 1) * SLOTS])
     };
     emit(
         &mut robotics,
@@ -441,31 +490,43 @@ fn main() {
         &mut robotics,
         "The parent of each slot; `-1` is the world.",
         "FRANKA_DYNAMICS_PARENTS",
-        &vector_lit(&model["parents"]),
+        &vector_lit_packed(&model["parents"].as_vector()),
     );
     emit(
         &mut robotics,
         "The origin translation of each slot.",
         "FRANKA_DYNAMICS_ORIGIN_POSITIONS",
-        &matrix_lit(&model["origin_positions"]),
+        &{
+            let (rows, cols, data) = model["origin_positions"].as_matrix();
+            matrix_lit_packed(rows, cols, &data)
+        },
     );
     emit(
         &mut robotics,
         "The origin rotation of each slot, `w, x, y, z`.",
         "FRANKA_DYNAMICS_ORIGIN_QUATERNIONS",
-        &matrix_lit(&model["origin_quaternions"]),
+        &{
+            let (rows, cols, data) = model["origin_quaternions"].as_matrix();
+            matrix_lit_packed(rows, cols, &data)
+        },
     );
     emit(
         &mut robotics,
         "The joint axis of each slot.",
         "FRANKA_DYNAMICS_AXES",
-        &matrix_lit(&model["axes"]),
+        &{
+            let (rows, cols, data) = model["axes"].as_matrix();
+            matrix_lit_packed(rows, cols, &data)
+        },
     );
     emit(
         &mut robotics,
         "The joint anchor of each slot.",
         "FRANKA_DYNAMICS_ANCHORS",
-        &matrix_lit(&model["anchors"]),
+        &{
+            let (rows, cols, data) = model["anchors"].as_matrix();
+            matrix_lit_packed(rows, cols, &data)
+        },
     );
     for (doc, name, key) in [
         (
@@ -494,19 +555,30 @@ fn main() {
             "masses",
         ),
     ] {
-        emit(&mut robotics, doc, name, &vector_lit(&model[key]));
+        emit(
+            &mut robotics,
+            doc,
+            name,
+            &vector_lit_packed(&model[key].as_vector()),
+        );
     }
     emit(
         &mut robotics,
         "The center of mass of each slot, in its frame.",
         "FRANKA_DYNAMICS_CENTERS_OF_MASS",
-        &matrix_lit(&model["centers_of_mass"]),
+        &{
+            let (rows, cols, data) = model["centers_of_mass"].as_matrix();
+            matrix_lit_packed(rows, cols, &data)
+        },
     );
     emit_static(
         &mut robotics,
         "The rotational inertia of each slot about its center of mass, row-major 3×3.",
         "FRANKA_DYNAMICS_ROTATIONAL_INERTIAS",
-        &matrix_lit(&model["rotational_inertias"]),
+        &{
+            let (rows, cols, data) = model["rotational_inertias"].as_matrix();
+            matrix_lit_packed(rows, cols, &data)
+        },
     );
     for (doc, name, value) in [
         (
@@ -552,7 +624,7 @@ fn main() {
         &mut robotics,
         "Pinocchio's `crba`, with the armature on the diagonal.",
         "FRANKA_DYNAMICS_JOINT_SPACE_INERTIA",
-        &matrix_lit_raw(
+        &matrix_lit_packed(
             SLOTS,
             SLOTS,
             &inertias[STATE * SLOTS * SLOTS..(STATE + 1) * SLOTS * SLOTS],
@@ -585,7 +657,7 @@ fn main() {
         &mut robotics,
         "Gravity of the trajectory.",
         "ESKF_IMU_GRAVITY",
-        &vector_lit(&eskf_inputs["gravity"]),
+        &vector_lit_packed(&eskf_inputs["gravity"].as_vector()),
     );
     for (doc, name, key) in [
         (
@@ -614,13 +686,21 @@ fn main() {
             "initial_accelerometer_bias",
         ),
     ] {
-        emit(&mut robotics, doc, name, &vector_lit(&eskf_inputs[key]));
+        emit(
+            &mut robotics,
+            doc,
+            name,
+            &vector_lit_packed(&eskf_inputs[key].as_vector()),
+        );
     }
     emit_static(
         &mut robotics,
         "Initial error-state covariance, 15×15.",
         "ESKF_IMU_INITIAL_COVARIANCE",
-        &matrix_lit(&eskf_inputs["initial_covariance"]),
+        &{
+            let (rows, cols, data) = eskf_inputs["initial_covariance"].as_matrix();
+            matrix_lit_packed(rows, cols, &data)
+        },
     );
     for (doc, name, key) in [
         (
@@ -651,19 +731,28 @@ fn main() {
         &mut robotics,
         "Gyroscope reading of each step.",
         "ESKF_IMU_GYROSCOPE_READINGS",
-        &matrix_lit(&eskf_inputs["gyroscope_readings"]),
+        &{
+            let (rows, cols, data) = eskf_inputs["gyroscope_readings"].as_matrix();
+            matrix_lit_packed(rows, cols, &data)
+        },
     );
     emit_static(
         &mut robotics,
         "Accelerometer reading of each step.",
         "ESKF_IMU_ACCELEROMETER_READINGS",
-        &matrix_lit(&eskf_inputs["accelerometer_readings"]),
+        &{
+            let (rows, cols, data) = eskf_inputs["accelerometer_readings"].as_matrix();
+            matrix_lit_packed(rows, cols, &data)
+        },
     );
     emit(
         &mut robotics,
         "The position fixes, one each `ESKF_IMU_POSITION_FIX_PERIOD` steps.",
         "ESKF_IMU_POSITION_FIXES",
-        &matrix_lit(&eskf_inputs["position_fixes"]),
+        &{
+            let (rows, cols, data) = eskf_inputs["position_fixes"].as_matrix();
+            matrix_lit_packed(rows, cols, &data)
+        },
     );
     emit(
         &mut robotics,
@@ -675,13 +764,16 @@ fn main() {
         &mut robotics,
         "Noise of a position fix.",
         "ESKF_IMU_POSITION_FIX_NOISE",
-        &matrix_lit(&eskf_inputs["position_fix_noise"]),
+        &{
+            let (rows, cols, data) = eskf_inputs["position_fix_noise"].as_matrix();
+            matrix_lit_packed(rows, cols, &data)
+        },
     );
     emit(
         &mut robotics,
         "The heading aids, one each `ESKF_IMU_HEADING_AID_PERIOD` steps.",
         "ESKF_IMU_HEADING_AIDS",
-        &vector_lit_raw(&eskf_inputs["heading_aids"].as_matrix().2),
+        &vector_lit_packed(&eskf_inputs["heading_aids"].as_matrix().2),
     );
     emit(
         &mut robotics,
@@ -693,7 +785,10 @@ fn main() {
         &mut robotics,
         "Noise of a heading aid.",
         "ESKF_IMU_HEADING_AID_NOISE",
-        &matrix_lit(&eskf_inputs["heading_aid_noise"]),
+        &{
+            let (rows, cols, data) = eskf_inputs["heading_aid_noise"].as_matrix();
+            matrix_lit_packed(rows, cols, &data)
+        },
     );
     for (doc, name, key) in [
         (
@@ -722,13 +817,21 @@ fn main() {
             "accelerometer_bias",
         ),
     ] {
-        emit(&mut robotics, doc, name, &vector_lit(&eskf_expected[key]));
+        emit(
+            &mut robotics,
+            doc,
+            name,
+            &vector_lit_packed(&eskf_expected[key].as_vector()),
+        );
     }
     emit_static(
         &mut robotics,
         "Expected covariance after the trajectory.",
         "ESKF_IMU_EXPECTED_COVARIANCE",
-        &matrix_lit(&eskf_expected["covariance"]),
+        &{
+            let (rows, cols, data) = eskf_expected["covariance"].as_matrix();
+            matrix_lit_packed(rows, cols, &data)
+        },
     );
     emit_tolerance(
         &mut robotics,
@@ -744,21 +847,21 @@ fn main() {
          layer, row-major `OUTPUT×INPUT` weights, then `OUTPUT` biases. A `const`, so the app can \
          narrow it at compile time.",
         "MLP_POLICY_PARAMETERS",
-        &vector_lit(&policy.inputs["parameters"]),
+        &vector_lit_packed(&policy.inputs["parameters"].as_vector()),
     );
     let (_, _, observations) = policy.inputs["observations"].as_matrix();
     emit(
         &mut robotics,
         "Observation of sample 0.",
         "MLP_POLICY_OBSERVATION",
-        &vector_lit_raw(&observations[0..22]),
+        &vector_lit_packed(&observations[0..22]),
     );
     let (_, _, actions) = policy.expected["action"].as_matrix();
     emit(
         &mut robotics,
         "numpy's action for sample 0: `tanh(W₃·relu(W₂·relu(W₁·o + b₁) + b₂) + b₃)`.",
         "MLP_POLICY_ACTION",
-        &vector_lit_raw(&actions[0..4]),
+        &vector_lit_packed(&actions[0..4]),
     );
     emit_tolerance(
         &mut robotics,
