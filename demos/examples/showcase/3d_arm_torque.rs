@@ -600,12 +600,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             )
         {
             let panel = format!(
-                "## 3d_arm_torque — a Franka Panda holds its path against random pushes\n\
-                 ### hand off path, worst in the last second: {:.1} mm with the momentum observer · {:.0} mm without it (red)\n\
-                 ### push {:.0} N · {PAYLOAD_MASS:.0} kg payload the model lacks · 1 kHz tick {:.1} µs",
+                "## 3d_arm_torque — random pushes, an unknown {PAYLOAD_MASS:.0} kg payload, and the hand stays on the path\n\
+                 ### at worst {:.1} mm off the path · {:.0} mm without the observer (red)\n\
+                 ### no force sensor · the full controller in {:.1} µs of the 1 ms tick",
                 tool_error.max * 1e3,
                 reference_tool_error.max * 1e3,
-                Vector::new(force).norm(),
                 controller.median,
             );
             sink.text("hud/stats", &panel)?;
