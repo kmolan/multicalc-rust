@@ -15,6 +15,8 @@ use crate::Budget;
 use crate::cycles;
 
 #[cfg(feature = "arm")]
+mod arm;
+#[cfg(feature = "arm")]
 mod math;
 
 /// Whether the answer agreed, the cycles it took, and the headline scalar.
@@ -94,6 +96,9 @@ pub const CHECKS: &[Check] = &[
             xiao_esp32c3: 15,
         },
     ),
+    (arm::franka_inverse_dynamics, UNMEASURED),
+    (arm::franka_mass_matrix, UNMEASURED),
+    (arm::franka_forward_dynamics, UNMEASURED),
 ];
 
 /// The checks of the drone app, with the budgets as [`CHECKS`] of the arm app describes.
