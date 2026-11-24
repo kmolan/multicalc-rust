@@ -102,6 +102,12 @@ fn matrix_lit_raw(rows: usize, cols: usize, data: &[f64]) -> String {
     out
 }
 
+/// An integer literal.
+#[must_use]
+fn usize_lit(value: i64) -> String {
+    format!("usize = {value};\n")
+}
+
 /// A string literal.
 #[must_use]
 fn str_lit(value: &str) -> String {
@@ -169,6 +175,7 @@ fn main() {
     let quartic = find(&polynomial, "roots_quartic_four_real");
     let trajectory = find(&motion, "minimum_snap_three_segments_3d");
     let franka = find(&kinematics, "franka_panda_seven_joint");
+    let eskf = find(&estimation, "error_state_kalman_filter_imu_trajectory");
     let dynamics = load_dir("dynamics");
     let franka_dynamics = find(&dynamics, "articulated_franka_panda");
 
@@ -550,6 +557,166 @@ fn main() {
         "from the f32 run of tools/qa/tests/dynamics.rs",
         FRANKA_F32_TOLERANCE,
     );
+
+    // The error-state filter over its IMU trajectory.
+    let eskf_inputs = &eskf.inputs;
+    let eskf_expected = &eskf.expected;
+    emit(
+        &mut out,
+        "IMU step of the trajectory, from estimation/error_state_kalman_filter_imu_trajectory.",
+        "ESKF_IMU_TIMESTEP",
+        &scalar_lit(&eskf_inputs["timestep"]),
+    );
+    emit(
+        &mut out,
+        "Gravity of the trajectory.",
+        "ESKF_IMU_GRAVITY",
+        &vector_lit(&eskf_inputs["gravity"]),
+    );
+    for (doc, name, key) in [
+        (
+            "Initial position.",
+            "ESKF_IMU_INITIAL_POSITION",
+            "initial_position",
+        ),
+        (
+            "Initial velocity.",
+            "ESKF_IMU_INITIAL_VELOCITY",
+            "initial_velocity",
+        ),
+        (
+            "Initial orientation, `w, x, y, z`.",
+            "ESKF_IMU_INITIAL_ORIENTATION",
+            "initial_orientation",
+        ),
+        (
+            "Initial gyroscope bias.",
+            "ESKF_IMU_INITIAL_GYROSCOPE_BIAS",
+            "initial_gyroscope_bias",
+        ),
+        (
+            "Initial accelerometer bias.",
+            "ESKF_IMU_INITIAL_ACCELEROMETER_BIAS",
+            "initial_accelerometer_bias",
+        ),
+    ] {
+        emit(&mut out, doc, name, &vector_lit(&eskf_inputs[key]));
+    }
+    emit_static(
+        &mut out,
+        "Initial error-state covariance, 15×15.",
+        "ESKF_IMU_INITIAL_COVARIANCE",
+        &matrix_lit(&eskf_inputs["initial_covariance"]),
+    );
+    for (doc, name, key) in [
+        (
+            "Gyroscope noise density.",
+            "ESKF_IMU_GYROSCOPE_NOISE_DENSITY",
+            "gyroscope_noise_density",
+        ),
+        (
+            "Accelerometer noise density.",
+            "ESKF_IMU_ACCELEROMETER_NOISE_DENSITY",
+            "accelerometer_noise_density",
+        ),
+        (
+            "Gyroscope bias random walk.",
+            "ESKF_IMU_GYROSCOPE_BIAS_RANDOM_WALK",
+            "gyroscope_bias_random_walk",
+        ),
+        (
+            "Accelerometer bias random walk.",
+            "ESKF_IMU_ACCELEROMETER_BIAS_RANDOM_WALK",
+            "accelerometer_bias_random_walk",
+        ),
+    ] {
+        emit_grouped(&mut out, doc, name, &scalar_lit(&eskf_inputs[key]));
+    }
+    out.push('\n');
+    emit_static(
+        &mut out,
+        "Gyroscope reading of each step.",
+        "ESKF_IMU_GYROSCOPE_READINGS",
+        &matrix_lit(&eskf_inputs["gyroscope_readings"]),
+    );
+    emit_static(
+        &mut out,
+        "Accelerometer reading of each step.",
+        "ESKF_IMU_ACCELEROMETER_READINGS",
+        &matrix_lit(&eskf_inputs["accelerometer_readings"]),
+    );
+    emit(
+        &mut out,
+        "The position fixes, one each `ESKF_IMU_POSITION_FIX_PERIOD` steps.",
+        "ESKF_IMU_POSITION_FIXES",
+        &matrix_lit(&eskf_inputs["position_fixes"]),
+    );
+    emit(
+        &mut out,
+        "Steps between position fixes.",
+        "ESKF_IMU_POSITION_FIX_PERIOD",
+        &usize_lit(eskf_inputs["position_fix_period"].as_int()),
+    );
+    emit(
+        &mut out,
+        "Noise of a position fix.",
+        "ESKF_IMU_POSITION_FIX_NOISE",
+        &matrix_lit(&eskf_inputs["position_fix_noise"]),
+    );
+    emit(
+        &mut out,
+        "The heading aids, one each `ESKF_IMU_HEADING_AID_PERIOD` steps.",
+        "ESKF_IMU_HEADING_AIDS",
+        &vector_lit_raw(&eskf_inputs["heading_aids"].as_matrix().2),
+    );
+    emit(
+        &mut out,
+        "Steps between heading aids.",
+        "ESKF_IMU_HEADING_AID_PERIOD",
+        &usize_lit(eskf_inputs["heading_aid_period"].as_int()),
+    );
+    emit(
+        &mut out,
+        "Noise of a heading aid.",
+        "ESKF_IMU_HEADING_AID_NOISE",
+        &matrix_lit(&eskf_inputs["heading_aid_noise"]),
+    );
+    for (doc, name, key) in [
+        (
+            "Expected position after the trajectory.",
+            "ESKF_IMU_EXPECTED_POSITION",
+            "position",
+        ),
+        (
+            "Expected velocity after the trajectory.",
+            "ESKF_IMU_EXPECTED_VELOCITY",
+            "velocity",
+        ),
+        (
+            "Expected orientation, `w ≥ 0`.",
+            "ESKF_IMU_EXPECTED_ORIENTATION",
+            "orientation",
+        ),
+        (
+            "Expected gyroscope bias after the trajectory.",
+            "ESKF_IMU_EXPECTED_GYROSCOPE_BIAS",
+            "gyroscope_bias",
+        ),
+        (
+            "Expected accelerometer bias after the trajectory.",
+            "ESKF_IMU_EXPECTED_ACCELEROMETER_BIAS",
+            "accelerometer_bias",
+        ),
+    ] {
+        emit(&mut out, doc, name, &vector_lit(&eskf_expected[key]));
+    }
+    emit_static(
+        &mut out,
+        "Expected covariance after the trajectory.",
+        "ESKF_IMU_EXPECTED_COVARIANCE",
+        &matrix_lit(&eskf_expected["covariance"]),
+    );
+    emit_tolerance(&mut out, "ESKF trajectory", "ESKF_IMU", eskf.tolerances.f64);
 
     // The last constant ends the file, so drop the blank line after it.
     while out.ends_with("\n\n") {

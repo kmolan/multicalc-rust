@@ -113,6 +113,7 @@ pub const CHECKS: &[Check] = &[
     (cycle_counter_overhead, UNMEASURED),
     (drone::drone_control_tick_f32, UNMEASURED),
     (drone::attitude_and_mixer_f32, UNMEASURED),
+    (drone::eskf_trajectory, UNMEASURED),
 ];
 
 /// The checks of the mobile-and-policy app, with the budgets as [`CHECKS`] of the arm app

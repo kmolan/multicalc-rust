@@ -8,10 +8,11 @@ use multicalc::estimation::{ErrorStateKalmanFilter, ImuNoise, NominalState, Nomi
 use multicalc::linear_algebra::{Matrix, Vector, Vector3D};
 use multicalc::plant::{MultirotorMixer, RotorCommands, RotorSpin};
 use multicalc::scalar::Numeric;
-use multicalc::spatial::SO3;
+use multicalc::spatial::{Quaternion, SO3};
 
 use super::{CheckOutcome, close, failed};
 use crate::cycles;
+use crate::fixtures;
 
 /// The X2 of `third_party/menagerie/skydio_x2/x2.xml`: mass, inertia, rotors.
 const MASS: f32 = 1.325;
@@ -87,6 +88,16 @@ struct RoomTracker;
 impl NominalStateFn<3> for RoomTracker {
     fn eval<S: Numeric>(&self, state: &NominalState<S>) -> [S; 3] {
         *state.position().as_array()
+    }
+}
+
+/// A heading aid: yaw of the ZYX Euler angles.
+struct HeadingAid;
+
+impl NominalStateFn<1> for HeadingAid {
+    fn eval<S: Numeric>(&self, state: &NominalState<S>) -> [S; 1] {
+        let (_, _, heading) = state.orientation().quaternion().to_euler_zyx();
+        [heading]
     }
 }
 
@@ -207,5 +218,112 @@ pub fn attitude_and_mixer_f32() -> CheckOutcome {
         passed: hover_holds(commands, torque),
         cycles: elapsed,
         value: f64::from(commands.thrusts()[0]),
+    }
+}
+
+/// Golden: the 15-state ESKF over 200 IMU steps, 20 position fixes and 10 heading aids, against
+/// `error_state_kalman_filter_imu_trajectory`.
+pub fn eskf_trajectory() -> CheckOutcome {
+    const NAME: &str = "eskf_trajectory";
+    let [w, x, y, z] = fixtures::ESKF_IMU_INITIAL_ORIENTATION;
+    let initial_state = NominalState::new(
+        Vector::new(fixtures::ESKF_IMU_INITIAL_POSITION),
+        Vector::new(fixtures::ESKF_IMU_INITIAL_VELOCITY),
+        SO3::from_quaternion(Quaternion::new(w, x, y, z)),
+        Vector::new(fixtures::ESKF_IMU_INITIAL_GYROSCOPE_BIAS),
+        Vector::new(fixtures::ESKF_IMU_INITIAL_ACCELEROMETER_BIAS),
+    );
+    let mut filter = ErrorStateKalmanFilter::<3>::new(
+        initial_state,
+        Matrix::new(fixtures::ESKF_IMU_INITIAL_COVARIANCE),
+        ImuNoise {
+            gyroscope_noise_density: fixtures::ESKF_IMU_GYROSCOPE_NOISE_DENSITY,
+            accelerometer_noise_density: fixtures::ESKF_IMU_ACCELEROMETER_NOISE_DENSITY,
+            gyroscope_bias_random_walk: fixtures::ESKF_IMU_GYROSCOPE_BIAS_RANDOM_WALK,
+            accelerometer_bias_random_walk: fixtures::ESKF_IMU_ACCELEROMETER_BIAS_RANDOM_WALK,
+        },
+        Matrix::new(fixtures::ESKF_IMU_POSITION_FIX_NOISE),
+    )
+    .with_gravity(Vector::new(fixtures::ESKF_IMU_GRAVITY));
+
+    let start = cycles::read();
+    let mut trajectory = || {
+        let mut position_fix_index = 0;
+        let mut heading_aid_index = 0;
+        for step in 0..fixtures::ESKF_IMU_GYROSCOPE_READINGS.len() {
+            filter
+                .predict(
+                    Vector::new(fixtures::ESKF_IMU_GYROSCOPE_READINGS[step]),
+                    Vector::new(fixtures::ESKF_IMU_ACCELEROMETER_READINGS[step]),
+                    fixtures::ESKF_IMU_TIMESTEP,
+                )
+                .ok()?;
+            if (step + 1) % fixtures::ESKF_IMU_POSITION_FIX_PERIOD == 0 {
+                let fix = *fixtures::ESKF_IMU_POSITION_FIXES.get(position_fix_index)?;
+                position_fix_index += 1;
+                filter.update(&RoomTracker, Vector::new(fix)).ok()?;
+            }
+            if (step + 1) % fixtures::ESKF_IMU_HEADING_AID_PERIOD == 0 {
+                let reading = *fixtures::ESKF_IMU_HEADING_AIDS.get(heading_aid_index)?;
+                heading_aid_index += 1;
+                let predicted = HeadingAid.eval(&filter.nominal_state())[0];
+                let residual = Vector::new([(reading - predicted).wrap_to_pi()]);
+                filter
+                    .update_other(
+                        &HeadingAid,
+                        residual,
+                        Matrix::new(fixtures::ESKF_IMU_HEADING_AID_NOISE),
+                        None,
+                    )
+                    .ok()?;
+            }
+        }
+        Some(())
+    };
+    let result = black_box(trajectory());
+    let elapsed = cycles::read().wrapping_sub(start);
+
+    if result.is_none() {
+        return failed(NAME, elapsed);
+    }
+    let state = filter.nominal_state();
+    let near =
+        |got: f64, want: f64| close(got, want, fixtures::ESKF_IMU_ABS, fixtures::ESKF_IMU_REL);
+    let vectors_agree =
+        |got: Vector3D<f64>, want: [f64; 3]| (0..3).all(|axis| near(got[axis], want[axis]));
+    let mut orientation = state.orientation().quaternion().as_array();
+    if orientation[0] < 0.0 {
+        orientation = orientation.map(|component| -component);
+    }
+    let covariance = filter.covariance();
+    let passed = vectors_agree(state.position(), fixtures::ESKF_IMU_EXPECTED_POSITION)
+        && vectors_agree(state.velocity(), fixtures::ESKF_IMU_EXPECTED_VELOCITY)
+        && vectors_agree(
+            state.gyroscope_bias(),
+            fixtures::ESKF_IMU_EXPECTED_GYROSCOPE_BIAS,
+        )
+        && vectors_agree(
+            state.accelerometer_bias(),
+            fixtures::ESKF_IMU_EXPECTED_ACCELEROMETER_BIAS,
+        )
+        && (0..4).all(|index| {
+            near(
+                orientation[index],
+                fixtures::ESKF_IMU_EXPECTED_ORIENTATION[index],
+            )
+        })
+        && (0..15).all(|row| {
+            (0..15).all(|column| {
+                near(
+                    covariance[(row, column)],
+                    fixtures::ESKF_IMU_EXPECTED_COVARIANCE[row][column],
+                )
+            })
+        });
+    CheckOutcome {
+        name: NAME,
+        passed,
+        cycles: elapsed,
+        value: state.position()[0],
     }
 }
