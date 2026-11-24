@@ -122,6 +122,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   leaves no steady attitude error. `with_torque_limits` sets per-axis limits. `update` applies
   both, holds the integral on a limited axis, and returns a `LimitedOutput`. (#290)
 
+- **Checked `Rk4` calls.** `Rk4::try_step` and `Rk4::try_integrate` return
+  `IntegrateError::NonFinite` at the first state that is not finite. The observer of
+  `try_integrate` sees only finite states. `step` and `integrate` do not change. (#158)
+
 ### Changed
 
 - **`ModelError::UnsupportedOrientation` is gone**, replaced by `MultipleOrientations` for an element
