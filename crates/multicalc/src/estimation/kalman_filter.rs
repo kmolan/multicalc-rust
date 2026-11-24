@@ -109,6 +109,7 @@ pub struct KalmanFilter<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSIO
     innovation: Vector<MEASUREMENT_DIMENSION, T>,
     innovation_covariance: Matrix<MEASUREMENT_DIMENSION, MEASUREMENT_DIMENSION, T>,
     covariance_update: CovarianceUpdate,
+    innovation_gate: Option<T>,
 }
 
 impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeric>
@@ -145,6 +146,7 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
             innovation: Vector::zeros(),
             innovation_covariance: Matrix::zeros(),
             covariance_update: CovarianceUpdate::Joseph,
+            innovation_gate: None,
         }
     }
 
@@ -177,6 +179,54 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
     pub const fn with_covariance_update(mut self, covariance_update: CovarianceUpdate) -> Self {
         self.covariance_update = covariance_update;
         self
+    }
+
+    /// Rejects an update when `yᵀ·S⁻¹·y > threshold`.
+    ///
+    /// A rejected update returns [`MeasurementRejected`](EstimationError::MeasurementRejected). The
+    /// state and the covariance do not change, and the innovation and its covariance record the
+    /// rejected measurement. Set `threshold` to the chi-square quantile for
+    /// `MEASUREMENT_DIMENSION` degrees of freedom: `9.0` is one degree at 99.73 %.
+    ///
+    /// Returns [`InvalidTuning`](EstimationError::InvalidTuning) if `threshold` is not finite or
+    /// not positive.
+    ///
+    /// ```
+    /// use multicalc::error::EstimationError;
+    /// use multicalc::estimation::{KalmanFilter, KalmanModel};
+    /// use multicalc::linear_algebra::{Matrix, Vector};
+    ///
+    /// let model = KalmanModel {
+    ///     state_transition: Matrix::new([[1.0, 1.0], [0.0, 1.0]]),
+    ///     measurement_model: Matrix::new([[1.0, 0.0]]),
+    ///     process_noise: Matrix::new([[0.01, 0.0], [0.0, 0.01]]),
+    ///     measurement_noise: Matrix::new([[0.1]]),
+    /// };
+    /// let mut filter = KalmanFilter::new(Vector::new([0.0, 0.0]), Matrix::identity(), model)
+    ///     .with_innovation_gate(9.0)
+    ///     .unwrap();
+    /// filter.predict();
+    ///
+    /// // `S = 2.11`, so a 100 m reading gives `yᵀ·S⁻¹·y ≈ 4739`.
+    /// assert_eq!(
+    ///     filter.update(Vector::new([100.0])),
+    ///     Err(EstimationError::MeasurementRejected)
+    /// );
+    /// assert_eq!(filter.state(), Vector::new([0.0, 0.0]));
+    /// assert!(filter.normalized_innovation_squared().unwrap() > 9.0);
+    /// ```
+    pub fn with_innovation_gate(mut self, threshold: T) -> Result<Self, EstimationError> {
+        if !threshold.is_finite() || threshold <= T::ZERO {
+            return Err(EstimationError::InvalidTuning);
+        }
+        self.innovation_gate = Some(threshold);
+        Ok(self)
+    }
+
+    /// The threshold of the innovation gate, or `None` when no gate is set.
+    #[must_use]
+    pub fn innovation_gate(&self) -> Option<T> {
+        self.innovation_gate
     }
 
     /// Replaces the state estimate.
@@ -248,7 +298,9 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
     /// Returns [`NonFinite`](EstimationError::NonFinite) when the measurement or the formed
     /// innovation covariance holds an infinity or NaN, and
     /// [`NotPositiveDefinite`](EstimationError::NotPositiveDefinite) when the innovation covariance
-    /// cannot be factorized — the gain is undefined.
+    /// cannot be factorized — the gain is undefined. Returns
+    /// [`MeasurementRejected`](EstimationError::MeasurementRejected) when the
+    /// [innovation gate](Self::with_innovation_gate) rejects the measurement.
     pub fn update(
         &mut self,
         measurement: Vector<MEASUREMENT_DIMENSION, T>,
@@ -268,11 +320,17 @@ impl<const STATE_DIMENSION: usize, const MEASUREMENT_DIMENSION: usize, T: Numeri
 
         // Kᵀ = S⁻¹·H·Pᵀ, solved rather than inverted. Pᵀ is written out so an asymmetric
         // caller-seeded covariance still gives the exact gain.
-        let projected = self.measurement_model * self.covariance.transpose();
-        let kalman_gain = self
+        let factorization = self
             .innovation_covariance
             .cholesky()
-            .map_err(|_| EstimationError::NotPositiveDefinite)?
+            .map_err(|_| EstimationError::NotPositiveDefinite)?;
+        if self.innovation_gate.is_some_and(|threshold| {
+            self.innovation.dot(factorization.solve(self.innovation)) > threshold
+        }) {
+            return Err(EstimationError::MeasurementRejected);
+        }
+        let projected = self.measurement_model * self.covariance.transpose();
+        let kalman_gain = factorization
             .solve_matrix::<STATE_DIMENSION>(projected)
             .transpose();
 

@@ -480,7 +480,10 @@ fn central_difference_error_bound(step: f64, third_derivative: f64, term_magnitu
 }
 
 fn absolute_coefficients(coefficients: &[f64]) -> Vec<f64> {
-    coefficients.iter().map(|coefficient| coefficient.abs()).collect()
+    coefficients
+        .iter()
+        .map(|coefficient| coefficient.abs())
+        .collect()
 }
 
 proptest! {
