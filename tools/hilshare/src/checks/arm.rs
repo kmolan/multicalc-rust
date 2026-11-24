@@ -7,7 +7,7 @@ use multicalc::control::{ComputedTorqueController, JointReference};
 use multicalc::dynamics::{ArticulatedBody, MomentumObserver};
 use multicalc::kinematics::{Joint, JointParent, KinematicTree};
 use multicalc::linear_algebra::{Matrix, Vector};
-use multicalc::scalar::Numeric;
+use multicalc::scalar::{Dual, Numeric};
 use multicalc::spatial::{Quaternion, SE3, SO3, SpatialInertia};
 
 use super::{CheckOutcome, close, failed};
@@ -264,5 +264,62 @@ pub fn arm_control_tick_f32() -> CheckOutcome {
         passed,
         cycles: elapsed,
         value: f64::from(residual[2]),
+    }
+}
+
+/// The column of `∂τ/∂q̈` that the timed pass takes.
+const DERIVATIVE_COLUMN: usize = 1;
+
+/// Exact derivative: `τ` is linear in `q̈`, so a `Dual` RNEA pass along `q̈ = eᵢ` gives
+/// `∂τ/∂q̈ · eᵢ = H·eᵢ`, column `i` of Pinocchio's `crba`. The timed section is one pass; the
+/// check covers all eleven columns.
+pub fn franka_inverse_dynamics_derivative() -> CheckOutcome {
+    const NAME: &str = "franka_inverse_dynamics_derivative";
+    let Some(body) = franka_body::<Dual<f64>>(false) else {
+        return failed(NAME, 0);
+    };
+    let body = black_box(body);
+    let position = Vector::new(fixtures::FRANKA_DYNAMICS_POSITIONS.map(Dual::constant));
+    let velocity = Vector::new(fixtures::FRANKA_DYNAMICS_VELOCITIES.map(Dual::constant));
+    let along = |column: usize| {
+        Vector::<FRANKA_SLOTS, Dual<f64>>::from_fn(|slot| {
+            let seed = if slot == column { 1.0 } else { 0.0 };
+            Dual::new(fixtures::FRANKA_DYNAMICS_ACCELERATIONS[slot], seed)
+        })
+    };
+    let timed_acceleration = black_box(along(DERIVATIVE_COLUMN));
+
+    let start = cycles::read();
+    let torque = black_box(body.inverse_dynamics_at(&position, &velocity, &timed_acceleration));
+    let elapsed = cycles::read().wrapping_sub(start);
+
+    let Ok(torque) = torque else {
+        return failed(NAME, elapsed);
+    };
+    let mut passed = true;
+    for column in 0..FRANKA_SLOTS {
+        let derivative = if column == DERIVATIVE_COLUMN {
+            torque
+        } else {
+            let Ok(derivative) = body.inverse_dynamics_at(&position, &velocity, &along(column))
+            else {
+                return failed(NAME, elapsed);
+            };
+            derivative
+        };
+        for row in 0..FRANKA_SLOTS {
+            passed &= close(
+                derivative[row].deriv,
+                fixtures::FRANKA_DYNAMICS_JOINT_SPACE_INERTIA[row][column],
+                fixtures::FRANKA_DYNAMICS_ABS,
+                fixtures::FRANKA_DYNAMICS_REL,
+            );
+        }
+    }
+    CheckOutcome {
+        name: NAME,
+        passed,
+        cycles: elapsed,
+        value: torque[DERIVATIVE_COLUMN].deriv,
     }
 }
