@@ -36,12 +36,18 @@ jobs:
         run: cargo install elf2tab --version 0.13.0 --locked
       - name: Formatting
         run: cargo fmt --check
-      # build.rs refuses a build with no HILSHARE_BOARD.
+      # build.rs refuses a build with no HILSHARE_BOARD, and main.rs one with no app feature.
       - name: Clippy (Arm)
-        run: HILSHARE_BOARD=nucleo-f411re cargo clippy --release -- -D warnings
+        run: |
+          for app in arm drone mobile_and_policy; do
+            HILSHARE_BOARD=nucleo-f411re cargo clippy --release --features "$app" -- -D warnings
+          done
       - name: Clippy (RISC-V)
-        run: HILSHARE_BOARD=xiao-esp32c3 cargo clippy --release --target riscv32imc-unknown-none-elf -- -D warnings
-      # multicalc-hilshare.tab, with the ELF of each board.
+        run: |
+          for app in arm drone mobile_and_policy; do
+            HILSHARE_BOARD=xiao-esp32c3 cargo clippy --release --target riscv32imc-unknown-none-elf --features "$app" -- -D warnings
+          done
+      # The TAB of each app, with the ELF and the TBF of each board.
       - name: Build the TAB
         run: ./build-tab.sh
       - uses: actions/upload-artifact@v4

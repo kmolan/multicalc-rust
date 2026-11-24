@@ -4,13 +4,23 @@
 //! time of the check. A check passes when each run agreed and the warm figure is not above the
 //! budget of the board. The return from `main` is the exit that the kernel reports.
 //!
-//! `checks.rs` is the only module that uses the API of multicalc.
+//! `checks` is the only module that uses the API of multicalc. A Cargo feature selects the app,
+//! and each app has its own `CHECKS`.
 //!
 //! A panic ends the process with no `HILSHARE_RESULT`, and HILShare reports a run that started
 //! and did not finish.
 
 #![no_main]
 #![no_std]
+
+#[cfg(not(any(feature = "arm", feature = "drone", feature = "mobile_and_policy")))]
+compile_error!("select one app: --features arm, drone or mobile_and_policy");
+#[cfg(any(
+    all(feature = "arm", feature = "drone"),
+    all(feature = "arm", feature = "mobile_and_policy"),
+    all(feature = "drone", feature = "mobile_and_policy"),
+))]
+compile_error!("select one app at a time");
 
 use core::fmt::Write;
 
@@ -22,14 +32,24 @@ mod cycles;
 /// The QA goldens of multicalc, as `multicalc-qa` generates them for `embedded-smoke`.
 #[path = "../../embedded-smoke/src/fixtures.rs"]
 mod fixtures;
+/// The goldens of the robotics checks, as `multicalc-qa` generates them.
+mod robotics_fixtures;
 
 set_main! {main}
 // Must equal `--stack` in build-tab.sh.
-stack_size! {0x2000}
+stack_size! {0xC000}
 
 /// The board of this build. build-tab.sh sets `HILSHARE_BOARD` for each build, and build.rs
 /// refuses another name.
 pub const BOARD: &str = env!("HILSHARE_BOARD");
+
+/// The app of this build, from its Cargo feature.
+#[cfg(feature = "arm")]
+const APP: &str = "arm";
+#[cfg(feature = "drone")]
+const APP: &str = "drone";
+#[cfg(feature = "mobile_and_policy")]
+const APP: &str = "mobile_and_policy";
 
 /// A time limit in microseconds for each board.
 #[derive(Clone, Copy)]
@@ -53,32 +73,40 @@ impl Budget {
 }
 
 /// Runs of each check. The first run pays for the cold cache and the flash fetches. The reported
-/// figure is the best of the other runs, the steady-state cost in a loop.
+/// figures are the best and the worst of the other runs.
 const REPEATS: usize = 8;
 
 fn main() {
     let mut console = Console::writer();
 
     let _ = writeln!(console, "HILSHARE_START_EXECUTION");
-    let _ = writeln!(console, "HILSHARE_FIRMWARE={}", env!("CARGO_PKG_VERSION"));
+    let _ = writeln!(
+        console,
+        "HILSHARE_FIRMWARE={}+{APP}",
+        env!("CARGO_PKG_VERSION")
+    );
 
     let Some(clock_hz) = cycles::clock_hz() else {
         let _ = writeln!(console, "HILSHARE_CHECK name=clock_rate status=FAIL");
         let _ = writeln!(console, "HILSHARE_RESULT=FAIL");
         return;
     };
+    #[cfg(target_abi = "eabihf")]
+    reset_floating_point_status();
     cycles::start();
 
     let mut passed = 0_usize;
     let mut round_trip_cycles = 0_u32;
-    for (index, (check, budget)) in checks::CHECKS.into_iter().enumerate() {
+    for (index, &(check, budget)) in checks::CHECKS.iter().enumerate() {
         let first = check();
         let mut warm = u32::MAX;
+        let mut worst = 0_u32;
         let mut agreed = first.passed;
         for _ in 1..REPEATS {
             let repeat = check();
             agreed &= repeat.passed;
             warm = warm.min(repeat.cycles);
+            worst = worst.max(repeat.cycles);
         }
 
         // The counter checks keep the raw figure. Each later check has the round trip of this
@@ -93,6 +121,7 @@ fn main() {
         }
         let net = warm.saturating_sub(overhead);
         let cold_net = first.cycles.saturating_sub(overhead);
+        let worst_net = worst.saturating_sub(overhead);
 
         // The budget judges the warm figure only: one run can cross a timeslice.
         let budget_microseconds = budget.microseconds();
@@ -101,18 +130,22 @@ fn main() {
         let check_passed = agreed && within_budget;
         passed += usize::from(check_passed);
         let time = hundredths_of_a_microsecond(net, clock_hz);
+        let worst_time = hundredths_of_a_microsecond(worst_net, clock_hz);
         let overhead_time = hundredths_of_a_microsecond(overhead, clock_hz);
         let _ = writeln!(
             console,
-            "HILSHARE_CHECK name={} status={} us={}.{:02} budget_us={} overhead_us={}.{:02} cycles={} cold_cycles={} value={:e}",
+            "HILSHARE_CHECK name={} status={} us={}.{:02} worst_us={}.{:02} budget_us={} overhead_us={}.{:02} cycles={} worst_cycles={} cold_cycles={} value={:e}",
             first.name,
             if check_passed { "PASS" } else { "FAIL" },
             time / 100,
             time % 100,
+            worst_time / 100,
+            worst_time % 100,
             budget_microseconds,
             overhead_time / 100,
             overhead_time % 100,
             net,
+            worst_net,
             cold_net,
             first.value
         );
@@ -125,6 +158,16 @@ fn main() {
         "HILSHARE_RESULT={}",
         if passed == total { "PASS" } else { "FAIL" }
     );
+}
+
+/// `FPSCR = 0`: round to nearest, no flush-to-zero, no default NaN. The kernel saves no FPU
+/// state and does not write FPSCR.
+#[cfg(target_abi = "eabihf")]
+fn reset_floating_point_status() {
+    // SAFETY: one `vmsr` to FPSCR. The kernel gives this process the FPU.
+    unsafe {
+        core::arch::asm!("vmsr fpscr, {status}", status = in(reg) 0_u32, options(nomem, nostack));
+    }
 }
 
 /// `cycles × 100 000 000 / clock_hz`.

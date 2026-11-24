@@ -13,6 +13,7 @@
 //! friction loss — so the model built here is the model the oracle was given.
 
 use multicalc::dynamics::RigidBody;
+use multicalc::linear_algebra::Vector;
 use multicalc::spatial::{Quaternion, SO3, SpatialInertia, Wrench};
 use multicalc_qa::articulated::*;
 use multicalc_qa::load::*;
@@ -27,8 +28,10 @@ fn dynamics_goldens() {
             "free_body_spinning_no_torque" | "free_body_tilted_with_wrench" => {
                 check_accelerations(fixture);
             }
-            "articulated_double_pendulum" | "articulated_franka_panda" => {
+            "articulated_double_pendulum" => check_articulated(fixture),
+            "articulated_franka_panda" => {
                 check_articulated(fixture);
+                check_articulated_f32(fixture);
             }
             other => panic!("no check registered for dynamics fixture {other}"),
         }
@@ -83,8 +86,8 @@ fn check_accelerations(fixture: &Fixture) {
 fn check_articulated(fixture: &Fixture) {
     let case = fixture.case.as_str();
     let tolerance = fixture.tolerances.f64;
-    let (body, joint_count) = body_from_fixture(fixture, true);
-    let (rigid_body, _) = body_from_fixture(fixture, false);
+    let (body, joint_count) = body_from_fixture::<f64>(fixture, true);
+    let (rigid_body, _) = body_from_fixture::<f64>(fixture, false);
 
     let (state_count, _, positions) = fixture.inputs["joint_positions"].as_matrix();
     let (_, _, velocities) = fixture.inputs["joint_velocities"].as_matrix();
@@ -212,6 +215,79 @@ fn check_articulated(fixture: &Fixture) {
                 with_friction[index],
                 accelerations[start + index]
             );
+        }
+    }
+}
+
+/// The Franka in `f32`, at the bound that the on-target `f32` checks use.
+fn check_articulated_f32(fixture: &Fixture) {
+    let case = fixture.case.as_str();
+    let tolerance = FRANKA_F32_TOLERANCE;
+    let (body, joint_count) = body_from_fixture::<f32>(fixture, true);
+    let (rigid_body, _) = body_from_fixture::<f32>(fixture, false);
+
+    let (state_count, _, positions) = fixture.inputs["joint_positions"].as_matrix();
+    let (_, _, velocities) = fixture.inputs["joint_velocities"].as_matrix();
+    let (_, _, accelerations) = fixture.inputs["joint_accelerations"].as_matrix();
+    let (_, _, want_torques) = fixture.expected["torques"].as_matrix();
+    let (_, _, want_rigid_body_torques) = fixture.expected["rigid_body_torques"].as_matrix();
+    let (_, _, want_inertias) = fixture.expected["joint_space_inertias"].as_matrix();
+    let (_, _, want_momenta) = fixture.expected["generalized_momenta"].as_matrix();
+    let (_, _, want_momentum_biases) = fixture.expected["momentum_biases"].as_matrix();
+
+    let narrow = |data: &[f64], state: usize| {
+        Vector::<MAX_JOINTS, f32>::from_fn(|index| {
+            if index < joint_count {
+                data[state * joint_count + index] as f32
+            } else {
+                0.0
+            }
+        })
+    };
+    for state in 0..state_count {
+        let context = format!("{case} f32 state {state}");
+        let position = narrow(&positions, state);
+        let velocity = narrow(&velocities, state);
+        let acceleration = narrow(&accelerations, state);
+        let torque = body
+            .inverse_dynamics_at(&position, &velocity, &acceleration)
+            .unwrap();
+        let rigid_torque = rigid_body
+            .inverse_dynamics_at(&position, &velocity, &acceleration)
+            .unwrap();
+        let inertia = body.joint_space_inertia_at(&position).unwrap();
+        let solved = body.tree().forward_kinematics(&position).unwrap();
+        let (momentum, momentum_bias) = body
+            .generalized_momentum_and_bias(&solved, &velocity)
+            .unwrap();
+
+        let start = state * joint_count;
+        let pairs = [
+            ("torque", &torque, &want_torques),
+            ("rigid-body torque", &rigid_torque, &want_rigid_body_torques),
+            ("p", &momentum, &want_momenta),
+            ("β", &momentum_bias, &want_momentum_biases),
+        ];
+        for (label, got, want) in pairs {
+            for index in 0..joint_count {
+                let want = want[start + index];
+                assert!(
+                    close(f64::from(got[index]), want, tolerance),
+                    "{context}: {label}[{index}] got {}, want {want}",
+                    got[index]
+                );
+            }
+        }
+        let block = state * joint_count * joint_count;
+        for row in 0..joint_count {
+            for column in 0..joint_count {
+                let want = want_inertias[block + row * joint_count + column];
+                assert!(
+                    close(f64::from(inertia[(row, column)]), want, tolerance),
+                    "{context}: H[({row}, {column})] got {}, want {want}",
+                    inertia[(row, column)]
+                );
+            }
         }
     }
 }

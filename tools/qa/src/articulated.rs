@@ -6,12 +6,20 @@
 use multicalc::dynamics::ArticulatedBody;
 use multicalc::kinematics::{Joint, JointParent, KinematicTree};
 use multicalc::linear_algebra::{Matrix, Vector, Vector3D};
+use multicalc::scalar::Numeric;
 use multicalc::spatial::{Quaternion, SE3, SO3, SpatialInertia};
 
-use crate::schema::Fixture;
+use crate::schema::{Fixture, Tol};
 
 /// Covers every fixture, the Franka's eleven slots included.
 pub const MAX_JOINTS: usize = 16;
+
+/// The `f32` bound of the Franka fixture: RNEA with and without friction, CRBA, `p` and `β`, on
+/// every state. The worst error is `5.7e-5` absolute, on RNEA.
+pub const FRANKA_F32_TOLERANCE: Tol = Tol {
+    abs: 1e-4,
+    rel: 1e-5,
+};
 
 /// Row `index` of a matrix value, as a three-vector.
 pub fn row3(data: &[f64], columns: usize, index: usize) -> Vector3D<f64> {
@@ -35,10 +43,10 @@ pub fn row_readings(data: &[f64], joint_count: usize, row: usize) -> Vector<MAX_
 ///
 /// `friction` chooses whether the joint-friction fields come across: with them zeroed the torque
 /// is the oracle-pinned rigid-body term alone, which the fixture stores separately.
-pub fn body_from_fixture(
+pub fn body_from_fixture<T: Numeric>(
     fixture: &Fixture,
     friction: bool,
-) -> (ArticulatedBody<MAX_JOINTS, MAX_JOINTS, f64>, usize) {
+) -> (ArticulatedBody<MAX_JOINTS, MAX_JOINTS, T>, usize) {
     let case = fixture.case.as_str();
 
     let kinds: Vec<char> = fixture.inputs["joint_kinds"].as_str().chars().collect();
@@ -65,25 +73,26 @@ pub fn body_from_fixture(
         "{case}: {joint_count} joints exceeds the {MAX_JOINTS} this test builds for"
     );
 
+    let lift = |vector: Vector3D<f64>| Vector::from_fn(|index| T::from_f64(vector[index]));
     let mut joints = Vec::with_capacity(joint_count);
     let mut joint_parents = Vec::with_capacity(joint_count);
     let mut inertias = Vec::with_capacity(joint_count);
     for index in 0..joint_count {
         let start = index * origin_quaternion_columns;
         let orientation = Quaternion::new(
-            origin_quaternions[start],
-            origin_quaternions[start + 1],
-            origin_quaternions[start + 2],
-            origin_quaternions[start + 3],
+            T::from_f64(origin_quaternions[start]),
+            T::from_f64(origin_quaternions[start + 1]),
+            T::from_f64(origin_quaternions[start + 2]),
+            T::from_f64(origin_quaternions[start + 3]),
         )
         .try_normalized()
         .unwrap_or_else(|| unreachable!("{case}: joint {index} has a zero origin quaternion"));
         let origin = SE3::from_parts(
             SO3::from_quaternion(orientation),
-            row3(&origin_positions, origin_position_columns, index),
+            lift(row3(&origin_positions, origin_position_columns, index)),
         );
-        let axis = row3(&axes, axis_columns, index);
-        let anchor = row3(&anchors, anchor_columns, index);
+        let axis = lift(row3(&axes, axis_columns, index));
+        let anchor = lift(row3(&anchors, anchor_columns, index));
         let (damping, friction_loss) = if friction {
             (dampings[index], friction_losses[index])
         } else {
@@ -98,10 +107,10 @@ pub fn body_from_fixture(
         };
         joints.push(
             joint
-                .with_zero_offset(zero_offsets[index])
-                .with_armature(armatures[index])
-                .with_damping(damping)
-                .with_friction_loss(friction_loss),
+                .with_zero_offset(T::from_f64(zero_offsets[index]))
+                .with_armature(T::from_f64(armatures[index]))
+                .with_damping(T::from_f64(damping))
+                .with_friction_loss(T::from_f64(friction_loss)),
         );
         joint_parents.push(match parents[index] {
             parent if parent < 0.0 => JointParent::World,
@@ -113,12 +122,13 @@ pub fn body_from_fixture(
             None
         } else {
             let start = index * inertia_columns;
-            let rotational =
-                Matrix::from_fn(|row, column| rotational_inertias[start + row * 3 + column]);
+            let rotational = Matrix::from_fn(|row, column| {
+                T::from_f64(rotational_inertias[start + row * 3 + column])
+            });
             Some(
                 SpatialInertia::new(
-                    masses[index],
-                    row3(&centers, center_columns, index),
+                    T::from_f64(masses[index]),
+                    lift(row3(&centers, center_columns, index)),
                     rotational,
                 )
                 .unwrap_or_else(|err| unreachable!("{case}: slot {index} inertia: {err:?}")),
@@ -126,10 +136,10 @@ pub fn body_from_fixture(
         });
     }
 
-    let tree =
-        KinematicTree::<MAX_JOINTS, MAX_JOINTS, f64>::try_from_joints(&joints, &joint_parents)
-            .unwrap_or_else(|err| unreachable!("{case}: building the tree: {err}"));
-    let body = ArticulatedBody::new(tree, &inertias, Vector::new([0.0, 0.0, -9.81]))
+    let tree = KinematicTree::<MAX_JOINTS, MAX_JOINTS, T>::try_from_joints(&joints, &joint_parents)
+        .unwrap_or_else(|err| unreachable!("{case}: building the tree: {err}"));
+    let gravity = Vector::new([T::ZERO, T::ZERO, T::from_f64(-9.81)]);
+    let body = ArticulatedBody::new(tree, &inertias, gravity)
         .unwrap_or_else(|err| unreachable!("{case}: building the body: {err:?}"));
     (body, joint_count)
 }

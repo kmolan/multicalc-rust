@@ -209,7 +209,7 @@ fn gains(fixture: &Fixture, name: &str) -> Vector<MAX_JOINTS, f64> {
 fn check_computed_torque(fixture: &Fixture) {
     let case = fixture.case.as_str();
     let tolerance = fixture.tolerances.f64;
-    let (body, joint_count) = body_from_fixture(fixture, true);
+    let (body, joint_count) = body_from_fixture::<f64>(fixture, true);
     let rows = JointCase::read(fixture, joint_count);
 
     let controller = ComputedTorqueController::new(
@@ -237,7 +237,7 @@ fn check_computed_torque(fixture: &Fixture) {
 fn check_joint_impedance(fixture: &Fixture) {
     let case = fixture.case.as_str();
     let tolerance = fixture.tolerances.f64;
-    let (body, joint_count) = body_from_fixture(fixture, true);
+    let (body, joint_count) = body_from_fixture::<f64>(fixture, true);
     let rows = JointCase::read(fixture, joint_count);
 
     let controller =
@@ -263,7 +263,7 @@ fn check_joint_impedance(fixture: &Fixture) {
 fn check_joint_pd(fixture: &Fixture) {
     let case = fixture.case.as_str();
     let tolerance = fixture.tolerances.f64;
-    let (body, joint_count) = body_from_fixture(fixture, true);
+    let (body, joint_count) = body_from_fixture::<f64>(fixture, true);
     let rows = JointCase::read(fixture, joint_count);
 
     let controller = JointPdController::new(
@@ -292,7 +292,7 @@ fn check_joint_pd(fixture: &Fixture) {
 fn check_cartesian_impedance(fixture: &Fixture) {
     let case = fixture.case.as_str();
     let tolerance = fixture.tolerances.f64;
-    let (body, joint_count) = body_from_fixture(fixture, true);
+    let (body, joint_count) = body_from_fixture::<f64>(fixture, true);
     let tool_index = fixture.inputs["tool_index"].as_int() as usize;
     assert_eq!(fixture.inputs["frame"].as_str(), "body", "{case}: frame");
 

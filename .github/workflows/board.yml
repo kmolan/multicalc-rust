@@ -1,7 +1,7 @@
 name: Board
 
-# Manual only. Builds the TAB with hilshare.yml, then runs it on the three HILShare boards
-# through the service. The job needs no secret.
+# Manual only. Builds the three TABs with hilshare.yml, then runs each on the three HILShare
+# boards through the service. The job needs no secret.
 on:
   workflow_dispatch:
 
@@ -17,8 +17,9 @@ jobs:
     name: board
     needs: tab
     runs-on: ubuntu-latest
-    # The boards run at one time: 60 minutes in the queue and 12 for a job on the board.
-    timeout-minutes: 80
+    # Three apps, one after the other: up to 60 minutes in the queue and 12 for each job on the
+    # board.
+    timeout-minutes: 120
     permissions:
       contents: read
       id-token: write
@@ -27,8 +28,21 @@ jobs:
         with:
           name: multicalc-hilshare
           path: tab
-      - name: Run on the boards
+      - name: Run the arm app on the boards
         uses: hilshare/action@v1
         with:
-          app: tab/multicalc-hilshare.tab
+          app: tab/multicalc-hilshare-arm.tab
+          board: nucleo-f411re, raspberry-pi-pico-2, xiao-esp32c3
+      # A red app does not stop the other two.
+      - name: Run the drone app on the boards
+        if: ${{ !cancelled() }}
+        uses: hilshare/action@v1
+        with:
+          app: tab/multicalc-hilshare-drone.tab
+          board: nucleo-f411re, raspberry-pi-pico-2, xiao-esp32c3
+      - name: Run the mobile and policy app on the boards
+        if: ${{ !cancelled() }}
+        uses: hilshare/action@v1
+        with:
+          app: tab/multicalc-hilshare-mobile_and_policy.tab
           board: nucleo-f411re, raspberry-pi-pico-2, xiao-esp32c3

@@ -42,7 +42,8 @@ The harness does not use `embedded-test` or `defmt-test`:
 The smoke checks assert against goldens from the host QA fixtures, so the target and the host share
 one source of truth. `tools/qa/src/bin/gen_smoke_fixtures.rs` reads the committed fixtures under
 `tools/qa/fixtures` and writes `tools/embedded-smoke/src/fixtures.rs` as bit-exact
-`f64::from_bits` consts:
+`f64::from_bits` consts. It also writes `tools/hilshare/src/robotics_fixtures.rs`, the goldens of
+the robotics checks on silicon:
 
 ```
 cargo run -p multicalc-qa --bin gen_smoke_fixtures
@@ -59,7 +60,8 @@ cargo run -p multicalc-qa --bin gen_model_source
 
 The output of both generators is deterministic. CI runs each generator and then
 `git diff --exit-code` on its output file, so a stale committed copy fails the build. If you change a
-fixture, run the generator again. Never edit `fixtures.rs` or `franka_panda_model.rs` by hand.
+fixture, run the generator again. Never edit `fixtures.rs`, `robotics_fixtures.rs` or
+`franka_panda_model.rs` by hand.
 
 ## Test-set tiering
 

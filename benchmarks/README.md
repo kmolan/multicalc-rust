@@ -1,6 +1,7 @@
 # Benchmarks
 
-Generated tables: **accuracy** against external references, and **latency** from criterion.
+Generated tables: **accuracy** against external references, **latency** from criterion, and
+**silicon** times on microcontrollers.
 
 ## Accuracy
 
@@ -37,3 +38,11 @@ operation and the equation of each row. The file records the machine. Timings ar
 machine-dependent, so CI does not guard this table.
 
 Regenerate with `cargo bench -p multicalc-qa`.
+
+## Silicon
+
+[`silicon.md`](silicon.md): the time of each check on a Cortex-M4F, a Cortex-M33 and an RV32IMC,
+with each answer checked. Timings are board-dependent, so CI does not guard this table.
+
+Regenerate with `cargo run -p multicalc-qa --bin gen_silicon_table`. Its module doc gives the
+arguments.

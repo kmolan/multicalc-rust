@@ -8,20 +8,34 @@
 //! is pure, so an unpinned result lets the optimizer move it past the second reading.
 //!
 //! Each `cycles` reading of a [`CheckOutcome`] includes one system-call round trip, which
-//! `cycle_counter_overhead` measures on its own. [`CHECKS`] holds the time budgets of each
-//! check.
+//! `cycle_counter_overhead` measures on its own. [`CHECKS`] holds the checks of the app and their
+//! time budgets. Each app starts with the two counter checks.
 
+#[cfg(feature = "arm")]
 use core::hint::black_box;
 
+#[cfg(feature = "arm")]
 use multicalc::control::Pid;
+#[cfg(feature = "arm")]
 use multicalc::error::LinalgError;
+#[cfg(feature = "arm")]
 use multicalc::linear_algebra::{Matrix, Matrix2D, Matrix3D, Vector};
+#[cfg(feature = "arm")]
 use multicalc::numerical_derivative::{AutoDiffSingle, DerivatorSingleVariable};
+#[cfg(feature = "arm")]
 use multicalc::scalar_fn;
 
 use crate::Budget;
 use crate::cycles;
+#[cfg(feature = "arm")]
 use crate::fixtures;
+
+#[cfg(feature = "arm")]
+mod arm;
+#[cfg(feature = "drone")]
+mod drone;
+#[cfg(feature = "mobile_and_policy")]
+mod mobile_and_policy;
 
 /// Whether the answer agreed, the cycles it took, and the headline scalar.
 pub struct CheckOutcome {
@@ -31,20 +45,25 @@ pub struct CheckOutcome {
     pub value: f64,
 }
 
+/// One check and its time budgets.
+pub type Check = (fn() -> CheckOutcome, Budget);
+
 /// Each check with its time budgets in microseconds, in run order. The two counter checks run
 /// first: the other figures are only worth reading when they pass.
 ///
 /// The budget of a counter check limits its warm figure. Each later budget limits the warm
 /// figure less the round trip that `cycle_counter_overhead` measured in the same run.
 ///
-/// Each budget is 1.1 × the figure of its board, rounded up, and 1.5 × on the Raspberry Pi
-/// Pico 2. `README.md` has the figures and how to measure them again.
-pub const CHECKS: [(fn() -> CheckOutcome, Budget); 7] = [
+/// Each budget is 1.1 × the highest figure of its board over three runs, rounded up, and 1.5 × on
+/// the Raspberry Pi Pico 2. `benchmarks/silicon.md` has the figures, and `README.md` how to
+/// measure them again.
+#[cfg(feature = "arm")]
+pub const CHECKS: &[Check] = &[
     (
         cycle_counter_sanity,
         Budget {
             nucleo_f411re: 347,
-            raspberry_pi_pico_2: 323,
+            raspberry_pi_pico_2: 318,
             xiao_esp32c3: 284,
         },
     ),
@@ -52,30 +71,30 @@ pub const CHECKS: [(fn() -> CheckOutcome, Budget); 7] = [
         cycle_counter_overhead,
         Budget {
             nucleo_f411re: 17,
-            raspberry_pi_pico_2: 20,
+            raspberry_pi_pico_2: 19,
             xiao_esp32c3: 9,
         },
     ),
     (
         vector_dot,
         Budget {
-            nucleo_f411re: 13,
-            raspberry_pi_pico_2: 33,
+            nucleo_f411re: 19,
+            raspberry_pi_pico_2: 37,
             xiao_esp32c3: 8,
         },
     ),
     (
         svd_singular_values,
         Budget {
-            nucleo_f411re: 1192,
-            raspberry_pi_pico_2: 1068,
-            xiao_esp32c3: 774,
+            nucleo_f411re: 1256,
+            raspberry_pi_pico_2: 1299,
+            xiao_esp32c3: 799,
         },
     ),
     (
         autodiff_derivative,
         Budget {
-            nucleo_f411re: 7,
+            nucleo_f411re: 2,
             raspberry_pi_pico_2: 20,
             xiao_esp32c3: 4,
         },
@@ -83,17 +102,141 @@ pub const CHECKS: [(fn() -> CheckOutcome, Budget); 7] = [
     (
         pid_step,
         Budget {
-            nucleo_f411re: 3088,
-            raspberry_pi_pico_2: 2403,
-            xiao_esp32c3: 1774,
+            nucleo_f411re: 3329,
+            raspberry_pi_pico_2: 2527,
+            xiao_esp32c3: 1770,
         },
     ),
     (
         error_path_returns_err,
         Budget {
-            nucleo_f411re: 27,
-            raspberry_pi_pico_2: 48,
+            nucleo_f411re: 29,
+            raspberry_pi_pico_2: 52,
             xiao_esp32c3: 15,
+        },
+    ),
+    (
+        arm::franka_inverse_dynamics,
+        Budget {
+            nucleo_f411re: 13403,
+            raspberry_pi_pico_2: 13805,
+            xiao_esp32c3: 8057,
+        },
+    ),
+    (
+        arm::franka_mass_matrix,
+        Budget {
+            nucleo_f411re: 12629,
+            raspberry_pi_pico_2: 12844,
+            xiao_esp32c3: 7453,
+        },
+    ),
+    (
+        arm::franka_forward_dynamics,
+        Budget {
+            nucleo_f411re: 17595,
+            raspberry_pi_pico_2: 19401,
+            xiao_esp32c3: 11508,
+        },
+    ),
+    (
+        arm::arm_control_tick_f32,
+        Budget {
+            nucleo_f411re: 772,
+            raspberry_pi_pico_2: 1343,
+            xiao_esp32c3: 7812,
+        },
+    ),
+    // Last: a stack fault here leaves the other lines printed.
+    (
+        arm::franka_inverse_dynamics_derivative,
+        Budget {
+            nucleo_f411re: 33864,
+            raspberry_pi_pico_2: 33996,
+            xiao_esp32c3: 21090,
+        },
+    ),
+];
+
+/// The checks of the drone app, with the budgets as [`CHECKS`] of the arm app describes.
+#[cfg(feature = "drone")]
+pub const CHECKS: &[Check] = &[
+    (
+        cycle_counter_sanity,
+        Budget {
+            nucleo_f411re: 347,
+            raspberry_pi_pico_2: 320,
+            xiao_esp32c3: 284,
+        },
+    ),
+    (
+        cycle_counter_overhead,
+        Budget {
+            nucleo_f411re: 17,
+            raspberry_pi_pico_2: 19,
+            xiao_esp32c3: 9,
+        },
+    ),
+    (
+        drone::drone_control_tick_f32,
+        Budget {
+            nucleo_f411re: 2050,
+            raspberry_pi_pico_2: 3355,
+            xiao_esp32c3: 18042,
+        },
+    ),
+    (
+        drone::attitude_and_mixer_f32,
+        Budget {
+            nucleo_f411re: 18,
+            raspberry_pi_pico_2: 115,
+            xiao_esp32c3: 327,
+        },
+    ),
+];
+
+/// The checks of the mobile-and-policy app, with the budgets as [`CHECKS`] of the arm app
+/// describes.
+#[cfg(feature = "mobile_and_policy")]
+pub const CHECKS: &[Check] = &[
+    (
+        cycle_counter_sanity,
+        Budget {
+            nucleo_f411re: 347,
+            raspberry_pi_pico_2: 318,
+            xiao_esp32c3: 284,
+        },
+    ),
+    (
+        cycle_counter_overhead,
+        Budget {
+            nucleo_f411re: 17,
+            raspberry_pi_pico_2: 18,
+            xiao_esp32c3: 9,
+        },
+    ),
+    (
+        mobile_and_policy::mobile_robot_tick_f32,
+        Budget {
+            nucleo_f411re: 985,
+            raspberry_pi_pico_2: 1153,
+            xiao_esp32c3: 2127,
+        },
+    ),
+    (
+        mobile_and_policy::mlp_policy_forward,
+        Budget {
+            nucleo_f411re: 18122,
+            raspberry_pi_pico_2: 22950,
+            xiao_esp32c3: 11699,
+        },
+    ),
+    (
+        mobile_and_policy::mlp_policy_forward_f32,
+        Budget {
+            nucleo_f411re: 585,
+            raspberry_pi_pico_2: 2539,
+            xiao_esp32c3: 6730,
         },
     ),
 ];
@@ -105,10 +248,9 @@ pub const ROUND_TRIP_CHECK_INDEX: usize = 1;
 /// branch cost from 1 to 8 cycles each, with the system-call round trip; a counter that is
 /// stopped or absent misses that band. The value is the cycles of one iteration.
 ///
-/// The loop starts a 16-byte line. The Nucleo-F411RE kernel runs the flash at three wait
-/// states with no instruction cache, so a loop whose prefetch runs into the next line pays two
-/// flash reads each iteration. The Pico 2 and the XIAO run from flash through a cache, so the
-/// warm runs read the loop from the cache.
+/// The loop starts a 16-byte line, so the prefetch of one iteration stays in one line on each
+/// board. The Nucleo-F411RE kernel turns on the flash prefetch and the ART caches, and the Pico 2
+/// and the XIAO run from flash through a cache, so the warm runs read the loop from a cache.
 fn cycle_counter_sanity() -> CheckOutcome {
     const SPINS: u32 = 10_000;
     let mut remaining = SPINS;
@@ -161,14 +303,26 @@ fn cycle_counter_overhead() -> CheckOutcome {
 }
 
 /// `|got - want| <= abs + rel * max(|got|, |want|)`.
-fn close(got: f64, want: f64, abs: f64, rel: f64) -> bool {
+pub(crate) fn close(got: f64, want: f64, abs: f64, rel: f64) -> bool {
     (got - want).abs() <= abs + rel * got.abs().max(want.abs())
 }
 
+/// A failed outcome: the work returned an error or a setup step gave nothing.
+pub(crate) fn failed(name: &'static str, cycles: u32) -> CheckOutcome {
+    CheckOutcome {
+        name,
+        passed: false,
+        cycles,
+        value: f64::NAN,
+    }
+}
+
 /// The known answer of the dot product.
+#[cfg(feature = "arm")]
 const VECTOR_DOT_EXPECTED: f64 = 20.0;
 
 /// Identity: `[1,2,3,4]·[4,3,2,1] = 20`, the atomics-free library path.
+#[cfg(feature = "arm")]
 fn vector_dot() -> CheckOutcome {
     let left = black_box(Vector::new([1.0_f64, 2.0, 3.0, 4.0]));
     let right = black_box(Vector::new([4.0_f64, 3.0, 2.0, 1.0]));
@@ -186,6 +340,7 @@ fn vector_dot() -> CheckOutcome {
 }
 
 /// Golden: singular values of the `linalg/svd_3x3` fixture, descending.
+#[cfg(feature = "arm")]
 fn svd_singular_values() -> CheckOutcome {
     let matrix: Matrix3D = black_box(Matrix::new(fixtures::SVD_3X3_INPUT));
 
@@ -222,6 +377,7 @@ fn svd_singular_values() -> CheckOutcome {
 }
 
 /// Identity: forward-mode autodiff of `x³` at `x = 2` is 12.
+#[cfg(feature = "arm")]
 fn autodiff_derivative() -> CheckOutcome {
     let cubic = scalar_fn!(|x| x * x * x);
     let derivator = AutoDiffSingle::default();
@@ -246,6 +402,7 @@ fn autodiff_derivative() -> CheckOutcome {
 
 /// Identity: a PID controller's first output is `kp·e + ki·e·dt`, and the integrator
 /// it drives climbs to within 1% of the setpoint. Cycles cover all 101 updates.
+#[cfg(feature = "arm")]
 fn pid_step() -> CheckOutcome {
     let dt = 0.01_f64;
     let setpoint = 1.0_f64;
@@ -285,6 +442,7 @@ fn pid_step() -> CheckOutcome {
 
 /// Negative path: a singular `lu_decompose()` and an indefinite `cholesky()` return a
 /// typed `Err`, not a panic.
+#[cfg(feature = "arm")]
 fn error_path_returns_err() -> CheckOutcome {
     let singular = black_box(Matrix3D::<f64>::zeros());
     let indefinite = black_box(Matrix2D::new([[1.0, 2.0], [2.0, 1.0]]));

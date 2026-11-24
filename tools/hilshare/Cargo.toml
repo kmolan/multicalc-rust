@@ -1,16 +1,15 @@
-# multicalc as a Tock app for HILShare: runs the checks of multicalc as a Tock process on the
-# three HILShare boards and prints the HILShare markers. Dev-only and never published. Its own
-# workspace: build-tab.sh builds it one time for each board, at the fixed app addresses of that
-# kernel, with the linker script of libtock-rs, on a pinned toolchain (rust-toolchain.toml).
+# The checks of multicalc as three Tock apps (features `arm`, `drone`, `mobile_and_policy`) on the
+# HILShare boards. Dev-only and never published. Its own workspace: build-tab.sh builds each app for
+# each board at the app addresses of that kernel, on a pinned toolchain (rust-toolchain.toml).
 [workspace]
 
 [package]
 name = "multicalc-hilshare"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 rust-version = "1.92"
 authors = ["akathail <anmolkathail@gmail.com>"]
-description = "Runs the checks of multicalc as a Tock app and reports them as HILShare markers"
+description = "Runs the checks of multicalc as three Tock apps and reports them as HILShare markers"
 license = "MIT"
 publish = false
 
@@ -20,6 +19,16 @@ libtock = { git = "https://github.com/tock/libtock-rs", rev = "b7f17591e43607474
 
 [build-dependencies]
 libtock_build_scripts = { git = "https://github.com/tock/libtock-rs", rev = "b7f17591e43607474958ed7d117ba831e54e1017" }
+
+# One app for each build. elf2tab pads a Cortex-M TBF to a power of two, and the Nucleo-F411RE
+# app region is 256 KB, so one app cannot hold every check.
+[features]
+# The math checks and the Franka Panda checks.
+arm = []
+# The Skydio X2 checks.
+drone = []
+# The mobile-robot tick and the MLP policy.
+mobile_and_policy = []
 
 # A cycle count of an unoptimized build tells nothing. libtock-rs has no unwinder.
 [profile.release]
