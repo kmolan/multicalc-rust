@@ -137,6 +137,10 @@ h2 { font-size: clamp(28px, 4.2vw, 44px); letter-spacing: -0.035em; line-height:
 .demo .metric { text-align: right; }
 .demo .metric .v { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; }
 .demo .metric .l { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.demo .actions { display: flex; align-items: center; gap: 16px; padding: 0 18px 18px; }
+.btn.small { font-size: 13px; padding: 7px 12px; border-radius: 8px; }
+.demo .actions .link { font-size: 13px; color: var(--text-muted); }
+.demo .actions .link:hover { color: var(--text-primary); }
 
 /* charts */
 .grid-2 { display: grid; grid-template-columns: 1fr; gap: 16px; }
@@ -255,6 +259,60 @@ footer a:hover { color: var(--text-primary); }
 
 <main>
 
+<section id="robots">
+  <div class="wrap">
+    <div class="kicker">Live demos</div>
+    <h2>Every number on screen is measured live.</h2>
+    <p class="sub">Rerun showcases. Each tick is one fixed 1 ms step. Open a recording in the browser, or run the source on your machine.</p>
+    <div class="demos">
+      <div class="demo">
+        <div class="media"><img loading="lazy" src="media/3d_drone_showcase.gif" alt="Skydio X2 quadcopter flies a minimum-snap loop"></div>
+        <div class="meta">
+          <div><div class="name">3d_drone_flight</div><div class="modules">ESKF · LQR · geometric attitude · min-snap</div></div>
+          <div class="metric"><div class="v">≈ 2 µs</div><div class="l">per tick</div></div>
+        </div>
+        <div class="actions">
+          <a class="btn small" href="demos/viewer.html?showcase=3d_drone_flight">Open in browser</a>
+          <a class="link" href="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/3d_drone_flight.rs">Source</a>
+        </div>
+      </div>
+      <div class="demo">
+        <div class="media"><img loading="lazy" src="media/3d_arm_torque_showcase.gif" alt="Franka Panda holds its path on computed torque under random pushes"></div>
+        <div class="meta">
+          <div><div class="name">3d_arm_torque</div><div class="modules">computed torque · momentum observer · jerk-limited profile</div></div>
+          <div class="metric"><div class="v">2.2 mm</div><div class="l">off the path under pushes</div></div>
+        </div>
+        <div class="actions">
+          <a class="btn small" href="demos/viewer.html?showcase=3d_arm_torque">Open in browser</a>
+          <a class="link" href="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/3d_arm_torque.rs">Source</a>
+        </div>
+      </div>
+      <div class="demo">
+        <div class="media"><img loading="lazy" src="media/2d_localization_obstacle_avoidance_showcase.gif" alt="Differential-drive robot localizes with a particle filter and laps an obstacle course"></div>
+        <div class="meta">
+          <div><div class="name">2d_localization_obstacle_avoidance</div><div class="modules">particle filter · EKF · follow-the-gap</div></div>
+          <div class="metric"><div class="v">0.72 µs</div><div class="l">0 collisions / 600k ticks</div></div>
+        </div>
+        <div class="actions">
+          <a class="btn small" href="demos/viewer.html?showcase=2d_localization_obstacle_avoidance">Open in browser</a>
+          <a class="link" href="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/2d_localization_obstacle_avoidance.rs">Source</a>
+        </div>
+      </div>
+      <div class="demo">
+        <div class="media"><img loading="lazy" src="media/3d_arm_ik_showcase.gif" alt="Franka Panda arm tracks a moving 3D pose"></div>
+        <div class="meta">
+          <div><div class="name">3d_arm_ik</div><div class="modules">SE(3) IK · dynamics · gravity-comp PD</div></div>
+          <div class="metric"><div class="v">2–6 mm</div><div class="l">lag at 1 kHz</div></div>
+        </div>
+        <div class="actions">
+          <a class="btn small" href="demos/viewer.html?showcase=3d_arm_ik">Open in browser</a>
+          <a class="link" href="https://github.com/kmolan/multicalc-rust/blob/main/demos/examples/showcase/3d_arm_ik.rs">Source</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section id="silicon">
   <div class="wrap">
     <div class="kicker">Real silicon</div>
@@ -282,58 +340,6 @@ footer a:hover { color: var(--text-primary); }
       <h3>Time per call</h3>
       <p class="note">Log scale.</p>
       <div class="chart" id="chart-latency"></div>
-    </div>
-  </div>
-</section>
-
-<section id="demos">
-  <div class="wrap">
-    <div class="kicker">Live demos</div>
-    <h2>Every number on screen is measured live.</h2>
-    <p class="sub">Six Rerun showcases. Each tick is one fixed 1 ms step.</p>
-    <div class="demos">
-      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
-        <div class="media"><img loading="lazy" src="media/3d_drone_showcase.gif" alt="Skydio X2 quadcopter flies a minimum-snap loop"></div>
-        <div class="meta">
-          <div><div class="name">3d_drone_flight</div><div class="modules">ESKF · LQR · geometric attitude · min-snap</div></div>
-          <div class="metric"><div class="v">≈ 2 µs</div><div class="l">per tick</div></div>
-        </div>
-      </a>
-      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
-        <div class="media"><img loading="lazy" src="media/2d_localization_obstacle_avoidance_showcase.gif" alt="Differential-drive robot localizes with a particle filter and laps an obstacle course"></div>
-        <div class="meta">
-          <div><div class="name">2d_localization_obstacle_avoidance</div><div class="modules">particle filter · EKF · follow-the-gap</div></div>
-          <div class="metric"><div class="v">0.72 µs</div><div class="l">0 collisions / 600k ticks</div></div>
-        </div>
-      </a>
-      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
-        <div class="media"><img loading="lazy" src="media/3d_arm_ik_showcase.gif" alt="Franka Panda arm tracks a moving 3D pose"></div>
-        <div class="meta">
-          <div><div class="name">3d_arm_ik</div><div class="modules">SE(3) IK · dynamics · gravity-comp PD</div></div>
-          <div class="metric"><div class="v">2–6 mm</div><div class="l">lag at 1 kHz</div></div>
-        </div>
-      </a>
-      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
-        <div class="media"><img loading="lazy" src="media/newton_fractal_showcase.gif" alt="Newton fractal: every pixel is a Newton solve"></div>
-        <div class="meta">
-          <div><div class="name">newton_fractal</div><div class="modules">Newton system · autodiff Jacobian</div></div>
-          <div class="metric"><div class="v">4M / s</div><div class="l">solves, one core</div></div>
-        </div>
-      </a>
-      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
-        <div class="media"><img loading="lazy" src="media/gradient_marbles_showcase.gif" alt="2,000 marbles follow exact autodiff gradients"></div>
-        <div class="meta">
-          <div><div class="name">gradient_marbles</div><div class="modules">2,000 exact gradients per tick</div></div>
-          <div class="metric"><div class="v">0.0</div><div class="l">error vs analytic</div></div>
-        </div>
-      </a>
-      <a class="demo" href="https://github.com/kmolan/multicalc-rust/tree/main/demos#live-showcases">
-        <div class="media"><img loading="lazy" src="media/fourier_ferris_showcase.gif" alt="Fourier epicycles draw Ferris"></div>
-        <div class="meta">
-          <div><div class="name">fourier_ferris</div><div class="modules">Gauss-Legendre quadrature</div></div>
-          <div class="metric"><div class="v">≈ 1e-15</div><div class="l">coefficient error</div></div>
-        </div>
-      </a>
     </div>
   </div>
 </section>
