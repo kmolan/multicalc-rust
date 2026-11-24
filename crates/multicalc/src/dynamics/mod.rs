@@ -9,6 +9,8 @@
 //!   damping and Coulomb friction. Fixed-base.
 //! - [`DynamicsWorkspace`] — caller-owned scratch for forward dynamics, so a control loop keeps a
 //!   model-sized frame off the stack.
+//! - [`MomentumObserver`] — sensorless contact detection: the generalized-momentum residual `r`
+//!   tracks the external joint torque `τ_ext` through a first-order lag per joint.
 //! - [`RigidBodyAcceleration`] — how fast the body's motion is changing, straight-line and
 //!   turning.
 //! - [`RigidBody::stepped`] — moves the whole state one tick forward, carrying the direction the
