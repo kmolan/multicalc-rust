@@ -12,7 +12,7 @@ use multicalc::spatial::{Quaternion, SE3, SO3, SpatialInertia};
 
 use super::{CheckOutcome, close, failed};
 use crate::cycles;
-use crate::fixtures;
+use crate::robotics_fixtures;
 
 /// The base weld, seven revolute joints, the hand weld and two prismatic fingers.
 const FRANKA_SLOTS: usize = 11;
@@ -32,48 +32,53 @@ fn franka_body<T: Numeric>(
     let mut joints = [Joint::fixed(SE3::identity()); FRANKA_SLOTS];
     let mut parents = [JointParent::World; FRANKA_SLOTS];
     let mut inertias = [None; FRANKA_SLOTS];
-    for (slot, kind) in fixtures::FRANKA_DYNAMICS_JOINT_KINDS
+    for (slot, kind) in robotics_fixtures::FRANKA_DYNAMICS_JOINT_KINDS
         .bytes()
         .take(FRANKA_SLOTS)
         .enumerate()
     {
-        let [w, x, y, z] = fixtures::FRANKA_DYNAMICS_ORIGIN_QUATERNIONS[slot].map(T::from_f64);
+        let [w, x, y, z] =
+            robotics_fixtures::FRANKA_DYNAMICS_ORIGIN_QUATERNIONS[slot].map(T::from_f64);
         let rotation = SO3::from_quaternion(Quaternion::new(w, x, y, z).try_normalized()?);
         let origin = SE3::from_parts(
             rotation,
-            vector3(fixtures::FRANKA_DYNAMICS_ORIGIN_POSITIONS[slot]),
+            vector3(robotics_fixtures::FRANKA_DYNAMICS_ORIGIN_POSITIONS[slot]),
         );
-        let axis = vector3(fixtures::FRANKA_DYNAMICS_AXES[slot]);
+        let axis = vector3(robotics_fixtures::FRANKA_DYNAMICS_AXES[slot]);
         let joint = match kind {
             b'R' => Joint::revolute(axis, origin)
-                .with_anchor(vector3(fixtures::FRANKA_DYNAMICS_ANCHORS[slot])),
+                .with_anchor(vector3(robotics_fixtures::FRANKA_DYNAMICS_ANCHORS[slot])),
             b'P' => Joint::prismatic(axis, origin),
             _ => Joint::fixed(origin),
         };
         let (damping, friction_loss) = if friction {
             (
-                fixtures::FRANKA_DYNAMICS_DAMPINGS[slot],
-                fixtures::FRANKA_DYNAMICS_FRICTION_LOSSES[slot],
+                robotics_fixtures::FRANKA_DYNAMICS_DAMPINGS[slot],
+                robotics_fixtures::FRANKA_DYNAMICS_FRICTION_LOSSES[slot],
             )
         } else {
             (0.0, 0.0)
         };
         joints[slot] = joint
-            .with_zero_offset(T::from_f64(fixtures::FRANKA_DYNAMICS_ZERO_OFFSETS[slot]))
-            .with_armature(T::from_f64(fixtures::FRANKA_DYNAMICS_ARMATURES[slot]))
+            .with_zero_offset(T::from_f64(
+                robotics_fixtures::FRANKA_DYNAMICS_ZERO_OFFSETS[slot],
+            ))
+            .with_armature(T::from_f64(
+                robotics_fixtures::FRANKA_DYNAMICS_ARMATURES[slot],
+            ))
             .with_damping(T::from_f64(damping))
             .with_friction_loss(T::from_f64(friction_loss));
-        let parent = fixtures::FRANKA_DYNAMICS_PARENTS[slot];
+        let parent = robotics_fixtures::FRANKA_DYNAMICS_PARENTS[slot];
         if parent >= 0.0 {
             parents[slot] = JointParent::Joint(parent as usize);
         }
-        let mass = fixtures::FRANKA_DYNAMICS_MASSES[slot];
+        let mass = robotics_fixtures::FRANKA_DYNAMICS_MASSES[slot];
         if mass > 0.0 {
-            let rotational = fixtures::FRANKA_DYNAMICS_ROTATIONAL_INERTIAS[slot];
+            let rotational = robotics_fixtures::FRANKA_DYNAMICS_ROTATIONAL_INERTIAS[slot];
             inertias[slot] = Some(
                 SpatialInertia::new(
                     T::from_f64(mass),
-                    vector3(fixtures::FRANKA_DYNAMICS_CENTERS_OF_MASS[slot]),
+                    vector3(robotics_fixtures::FRANKA_DYNAMICS_CENTERS_OF_MASS[slot]),
                     Matrix::from_fn(|row, column| T::from_f64(rotational[row * 3 + column])),
                 )
                 .ok()?,
@@ -97,9 +102,15 @@ pub fn franka_inverse_dynamics() -> CheckOutcome {
         return failed(NAME, 0);
     };
     let body = black_box(&body);
-    let position = black_box(franka_row::<f64>(fixtures::FRANKA_DYNAMICS_POSITIONS));
-    let velocity = black_box(franka_row::<f64>(fixtures::FRANKA_DYNAMICS_VELOCITIES));
-    let acceleration = black_box(franka_row::<f64>(fixtures::FRANKA_DYNAMICS_ACCELERATIONS));
+    let position = black_box(franka_row::<f64>(
+        robotics_fixtures::FRANKA_DYNAMICS_POSITIONS,
+    ));
+    let velocity = black_box(franka_row::<f64>(
+        robotics_fixtures::FRANKA_DYNAMICS_VELOCITIES,
+    ));
+    let acceleration = black_box(franka_row::<f64>(
+        robotics_fixtures::FRANKA_DYNAMICS_ACCELERATIONS,
+    ));
 
     let start = cycles::read();
     let torque = black_box(body.inverse_dynamics_at(&position, &velocity, &acceleration));
@@ -111,9 +122,9 @@ pub fn franka_inverse_dynamics() -> CheckOutcome {
     let passed = (0..FRANKA_SLOTS).all(|slot| {
         close(
             torque[slot],
-            fixtures::FRANKA_DYNAMICS_RIGID_BODY_TORQUES[slot],
-            fixtures::FRANKA_DYNAMICS_ABS,
-            fixtures::FRANKA_DYNAMICS_REL,
+            robotics_fixtures::FRANKA_DYNAMICS_RIGID_BODY_TORQUES[slot],
+            robotics_fixtures::FRANKA_DYNAMICS_ABS,
+            robotics_fixtures::FRANKA_DYNAMICS_REL,
         )
     });
     CheckOutcome {
@@ -131,7 +142,9 @@ pub fn franka_mass_matrix() -> CheckOutcome {
         return failed(NAME, 0);
     };
     let body = black_box(&body);
-    let position = black_box(franka_row::<f64>(fixtures::FRANKA_DYNAMICS_POSITIONS));
+    let position = black_box(franka_row::<f64>(
+        robotics_fixtures::FRANKA_DYNAMICS_POSITIONS,
+    ));
 
     let start = cycles::read();
     let inertia = black_box(body.joint_space_inertia_at(&position));
@@ -144,9 +157,9 @@ pub fn franka_mass_matrix() -> CheckOutcome {
         (0..FRANKA_SLOTS).all(|column| {
             close(
                 inertia[(row, column)],
-                fixtures::FRANKA_DYNAMICS_JOINT_SPACE_INERTIA[row][column],
-                fixtures::FRANKA_DYNAMICS_ABS,
-                fixtures::FRANKA_DYNAMICS_REL,
+                robotics_fixtures::FRANKA_DYNAMICS_JOINT_SPACE_INERTIA[row][column],
+                robotics_fixtures::FRANKA_DYNAMICS_ABS,
+                robotics_fixtures::FRANKA_DYNAMICS_REL,
             )
         })
     });
@@ -166,10 +179,14 @@ pub fn franka_forward_dynamics() -> CheckOutcome {
         return failed(NAME, 0);
     };
     let body = black_box(&body);
-    let position = black_box(franka_row::<f64>(fixtures::FRANKA_DYNAMICS_POSITIONS));
-    let velocity = black_box(franka_row::<f64>(fixtures::FRANKA_DYNAMICS_VELOCITIES));
+    let position = black_box(franka_row::<f64>(
+        robotics_fixtures::FRANKA_DYNAMICS_POSITIONS,
+    ));
+    let velocity = black_box(franka_row::<f64>(
+        robotics_fixtures::FRANKA_DYNAMICS_VELOCITIES,
+    ));
     let torque = black_box(franka_row::<f64>(
-        fixtures::FRANKA_DYNAMICS_RIGID_BODY_TORQUES,
+        robotics_fixtures::FRANKA_DYNAMICS_RIGID_BODY_TORQUES,
     ));
 
     let start = cycles::read();
@@ -182,9 +199,9 @@ pub fn franka_forward_dynamics() -> CheckOutcome {
     let passed = (0..FRANKA_SLOTS).all(|slot| {
         close(
             acceleration[slot],
-            fixtures::FRANKA_DYNAMICS_FORWARD_ACCELERATIONS[slot],
-            fixtures::FRANKA_DYNAMICS_ABS,
-            fixtures::FRANKA_DYNAMICS_REL,
+            robotics_fixtures::FRANKA_DYNAMICS_FORWARD_ACCELERATIONS[slot],
+            robotics_fixtures::FRANKA_DYNAMICS_ABS,
+            robotics_fixtures::FRANKA_DYNAMICS_REL,
         )
     });
     CheckOutcome {
@@ -212,9 +229,13 @@ pub fn arm_control_tick_f32() -> CheckOutcome {
     ) else {
         return failed(NAME, 0);
     };
-    let position = black_box(franka_row::<f32>(fixtures::FRANKA_DYNAMICS_POSITIONS));
-    let velocity = black_box(franka_row::<f32>(fixtures::FRANKA_DYNAMICS_VELOCITIES));
-    let acceleration = franka_row::<f32>(fixtures::FRANKA_DYNAMICS_ACCELERATIONS);
+    let position = black_box(franka_row::<f32>(
+        robotics_fixtures::FRANKA_DYNAMICS_POSITIONS,
+    ));
+    let velocity = black_box(franka_row::<f32>(
+        robotics_fixtures::FRANKA_DYNAMICS_VELOCITIES,
+    ));
+    let acceleration = franka_row::<f32>(robotics_fixtures::FRANKA_DYNAMICS_ACCELERATIONS);
     let reference = JointReference::new(position, velocity, acceleration);
     // The first update latches `p₀` and `β₀`.
     if observer
@@ -245,18 +266,19 @@ pub fn arm_control_tick_f32() -> CheckOutcome {
     let gain_step = f64::from(OBSERVER_GAIN) * f64::from(TICK);
     let factor = gain_step / (1.0 + gain_step);
     let passed = (0..FRANKA_SLOTS).all(|slot| {
-        let applied = fixtures::FRANKA_DYNAMICS_TORQUES[slot];
-        let external = factor * (fixtures::FRANKA_DYNAMICS_MOMENTUM_BIASES[slot] - applied);
+        let applied = robotics_fixtures::FRANKA_DYNAMICS_TORQUES[slot];
+        let external =
+            factor * (robotics_fixtures::FRANKA_DYNAMICS_MOMENTUM_BIASES[slot] - applied);
         close(
             f64::from(torque[slot]),
             applied,
-            fixtures::FRANKA_DYNAMICS_F32_ABS,
-            fixtures::FRANKA_DYNAMICS_F32_REL,
+            robotics_fixtures::FRANKA_DYNAMICS_F32_ABS,
+            robotics_fixtures::FRANKA_DYNAMICS_F32_REL,
         ) && close(
             f64::from(residual[slot]),
             external,
-            fixtures::FRANKA_DYNAMICS_F32_ABS,
-            fixtures::FRANKA_DYNAMICS_F32_REL,
+            robotics_fixtures::FRANKA_DYNAMICS_F32_ABS,
+            robotics_fixtures::FRANKA_DYNAMICS_F32_REL,
         )
     });
     CheckOutcome {
@@ -279,12 +301,12 @@ pub fn franka_inverse_dynamics_derivative() -> CheckOutcome {
         return failed(NAME, 0);
     };
     let body = black_box(&body);
-    let position = Vector::new(fixtures::FRANKA_DYNAMICS_POSITIONS.map(Dual::constant));
-    let velocity = Vector::new(fixtures::FRANKA_DYNAMICS_VELOCITIES.map(Dual::constant));
+    let position = Vector::new(robotics_fixtures::FRANKA_DYNAMICS_POSITIONS.map(Dual::constant));
+    let velocity = Vector::new(robotics_fixtures::FRANKA_DYNAMICS_VELOCITIES.map(Dual::constant));
     let along = |column: usize| {
         Vector::<FRANKA_SLOTS, Dual<f64>>::from_fn(|slot| {
             let seed = if slot == column { 1.0 } else { 0.0 };
-            Dual::new(fixtures::FRANKA_DYNAMICS_ACCELERATIONS[slot], seed)
+            Dual::new(robotics_fixtures::FRANKA_DYNAMICS_ACCELERATIONS[slot], seed)
         })
     };
     let timed_acceleration = black_box(along(DERIVATIVE_COLUMN));
@@ -310,9 +332,9 @@ pub fn franka_inverse_dynamics_derivative() -> CheckOutcome {
         for row in 0..FRANKA_SLOTS {
             passed &= close(
                 derivative[row].deriv,
-                fixtures::FRANKA_DYNAMICS_JOINT_SPACE_INERTIA[row][column],
-                fixtures::FRANKA_DYNAMICS_ABS,
-                fixtures::FRANKA_DYNAMICS_REL,
+                robotics_fixtures::FRANKA_DYNAMICS_JOINT_SPACE_INERTIA[row][column],
+                robotics_fixtures::FRANKA_DYNAMICS_ABS,
+                robotics_fixtures::FRANKA_DYNAMICS_REL,
             );
         }
     }

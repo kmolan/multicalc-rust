@@ -12,6 +12,7 @@ use multicalc::spatial::{SE2, SO2};
 use super::{CheckOutcome, close, failed};
 use crate::cycles;
 use crate::fixtures;
+use crate::robotics_fixtures;
 
 /// The pure-pursuit lookahead distance `L`.
 const LOOKAHEAD_DISTANCE: f32 = 2.0;
@@ -22,6 +23,21 @@ const IDENTITY_F32: f64 = 128.0 * f32::EPSILON as f64;
 const OBSERVATION: usize = 22;
 const HIDDEN: usize = 64;
 const ACTION: usize = 4;
+
+/// The policy parameters in `f32`, each narrowed with `as f32` at compile time.
+static POLICY_PARAMETERS_F32: [f32; robotics_fixtures::MLP_POLICY_PARAMETERS.len()] =
+    narrow(robotics_fixtures::MLP_POLICY_PARAMETERS);
+
+/// `values` with each element cast with `as f32`.
+const fn narrow<const N: usize>(values: [f64; N]) -> [f32; N] {
+    let mut narrowed = [0.0_f32; N];
+    let mut index = 0;
+    while index < N {
+        narrowed[index] = values[index] as f32;
+        index += 1;
+    }
+    narrowed
+}
 
 /// A position fix: the sensor reads the first two state components.
 struct GlobalPosition;
@@ -96,8 +112,8 @@ pub fn mobile_robot_tick_f32() -> CheckOutcome {
         close(
             f64::from(state[index]),
             fixtures::COORDINATED_TURN_EXPECTED_STATE[index],
-            fixtures::COORDINATED_TURN_F32_ABS,
-            fixtures::COORDINATED_TURN_F32_REL,
+            robotics_fixtures::COORDINATED_TURN_F32_ABS,
+            robotics_fixtures::COORDINATED_TURN_F32_REL,
         )
     }) && close(
         f64::from(curvature),
@@ -130,7 +146,7 @@ fn policy_forward<T: Numeric + Primal>(
     };
     let every_parameter_read = cursor.is_empty();
     let observation = black_box(Vector::<OBSERVATION, T>::new(
-        fixtures::MLP_POLICY_OBSERVATION.map(T::from_f64),
+        robotics_fixtures::MLP_POLICY_OBSERVATION.map(T::from_f64),
     ));
 
     let start = cycles::read();
@@ -143,7 +159,7 @@ fn policy_forward<T: Numeric + Primal>(
         && (0..ACTION).all(|index| {
             close(
                 action[index].to_f64(),
-                fixtures::MLP_POLICY_ACTION[index],
+                robotics_fixtures::MLP_POLICY_ACTION[index],
                 abs,
                 rel,
             )
@@ -160,9 +176,9 @@ fn policy_forward<T: Numeric + Primal>(
 pub fn mlp_policy_forward() -> CheckOutcome {
     policy_forward::<f64>(
         "mlp_policy_forward",
-        &fixtures::MLP_POLICY_PARAMETERS,
-        fixtures::MLP_POLICY_ABS,
-        fixtures::MLP_POLICY_REL,
+        &robotics_fixtures::MLP_POLICY_PARAMETERS,
+        robotics_fixtures::MLP_POLICY_ABS,
+        robotics_fixtures::MLP_POLICY_REL,
     )
 }
 
@@ -170,8 +186,8 @@ pub fn mlp_policy_forward() -> CheckOutcome {
 pub fn mlp_policy_forward_f32() -> CheckOutcome {
     policy_forward::<f32>(
         "mlp_policy_forward_f32",
-        &fixtures::MLP_POLICY_PARAMETERS_F32,
-        fixtures::MLP_POLICY_F32_ABS,
-        fixtures::MLP_POLICY_F32_REL,
+        &POLICY_PARAMETERS_F32,
+        robotics_fixtures::MLP_POLICY_F32_ABS,
+        robotics_fixtures::MLP_POLICY_F32_REL,
     )
 }

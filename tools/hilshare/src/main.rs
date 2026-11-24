@@ -32,6 +32,8 @@ mod cycles;
 /// The QA goldens of multicalc, as `multicalc-qa` generates them for `embedded-smoke`.
 #[path = "../../embedded-smoke/src/fixtures.rs"]
 mod fixtures;
+/// The goldens of the robotics checks, as `multicalc-qa` generates them.
+mod robotics_fixtures;
 
 set_main! {main}
 // Must equal `--stack` in build-tab.sh.

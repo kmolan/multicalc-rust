@@ -52,7 +52,8 @@ available, the app prints `HILSHARE_CHECK name=clock_rate status=FAIL` and
 
 A check is `PASS` when its eight answers agreed with the known answer and `us <= budget_us`.
 `HILSHARE_RESULT` is `PASS` when all the checks of the app pass. The goldens come from
-`tools/embedded-smoke/src/fixtures.rs`, which `multicalc-qa` generates. Do not write a golden by
+`tools/embedded-smoke/src/fixtures.rs` and `src/robotics_fixtures.rs`, which `multicalc-qa`
+generates. Do not write a golden by
 hand.
 
 ## Building
