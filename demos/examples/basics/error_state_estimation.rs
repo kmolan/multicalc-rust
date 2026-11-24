@@ -196,7 +196,7 @@ fn fly(
             let reading = HeadingAid.eval(&flight.truth)[0] + draw(heading_aid_spread, generator);
             let predicted = HeadingAid.eval(&filter.nominal_state())[0];
             let residual = Vector::new([(reading - predicted).wrap_to_pi()]);
-            filter.update_other(&HeadingAid, residual, heading_aid_noise)?;
+            filter.update_other(&HeadingAid, residual, heading_aid_noise, None)?;
         }
     }
 

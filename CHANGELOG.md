@@ -140,6 +140,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `[w, x, y, z]`. `Twist` and `Wrench` convert from and to `[T; 6]`, and `*` by a scalar scales
   them as `scale` does. (#164)
 
+- **An innovation gate on the Kalman filters.** `KalmanFilter`, `ExtendedKalmanFilter`,
+  `UnscentedKalmanFilter` and `ErrorStateKalmanFilter` have `with_innovation_gate(threshold)`.
+  An update with `yᵀ·S⁻¹·y > threshold` returns the new `EstimationError::MeasurementRejected`.
+  The state and the covariance do not change, and the innovation records the rejected
+  measurement. A single outlier no longer pulls the covariance down around a wrong state. (#277)
+
 ### Changed
 
 - **`ModelError::UnsupportedOrientation` is gone**, replaced by `MultipleOrientations` for an element
@@ -175,6 +181,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `e = 2·sgn(w)·q_v` of `q = q_dᶜ ⊗ q_b`. The error points along the shorter rotation and is
   largest at a half turn, so a body that starts inverted does not stall. For a small error, the
   result agrees with `vee(R_dᵀ·R − Rᵀ·R_d)/2` to first order. (#287)
+
+- **The mixer keeps the torque before the collective thrust.** `MultirotorMixer::rotor_thrusts`
+  moves the collective, up or down, into the interval where the commanded torque fits. When no
+  collective fits, it cuts yaw first, then roll and pitch together. The clamp of each rotor in
+  turn changed the produced torque when a rotor saturated. The new
+  `RotorCommands::shortfall` gives the part of the command that the thrusts do not produce.
+  (#278)
+
+- **`ErrorStateKalmanFilter::update_other` takes an `innovation_gate: Option<T>` argument.**
+  This is a breaking change to the signature. Pass `None` for no gate, or the chi-square quantile
+  for the width of the sensor. (#277)
 
 ### Fixed
 

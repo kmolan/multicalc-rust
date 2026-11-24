@@ -165,6 +165,9 @@ pub enum EstimationError {
     InvalidTuning,
     /// A measurement model was asked to read a state component that does not exist.
     StateIndexOutOfRange,
+    /// The normalized innovation squared was above the innovation gate. The state and the
+    /// covariance did not change.
+    MeasurementRejected,
 }
 
 /// Errors from the signal-processing module (filters, smoothers, and signal conditioning).
@@ -801,6 +804,9 @@ impl core::fmt::Display for EstimationError {
             EstimationError::InvalidTuning => f.write_str("invalid filter tuning"),
             EstimationError::StateIndexOutOfRange => {
                 f.write_str("measurement model refers to a state component that does not exist")
+            }
+            EstimationError::MeasurementRejected => {
+                f.write_str("measurement rejected by the innovation gate")
             }
         }
     }

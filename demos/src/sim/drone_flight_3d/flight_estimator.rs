@@ -499,6 +499,7 @@ impl FlightEstimator {
                     spread[1] * spread[1],
                     spread[2] * spread[2],
                 ]),
+                None,
             )
             .is_err()
         {
@@ -532,6 +533,7 @@ impl FlightEstimator {
                 &RangeDownTheBeam,
                 residual,
                 Matrix::from_diagonal([spread * spread]),
+                None,
             )
             .is_err()
         {
@@ -553,6 +555,7 @@ impl FlightEstimator {
                 &CompassHeading,
                 residual,
                 Matrix::from_diagonal([spread * spread]),
+                None,
             )
             .is_err()
         {

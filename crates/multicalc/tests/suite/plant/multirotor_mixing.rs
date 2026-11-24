@@ -8,6 +8,7 @@ use multicalc::linear_algebra::{Vector, Vector3D};
 use multicalc::plant::{MultirotorMixer, RotorSpin};
 use multicalc::scalar::Numeric;
 use multicalc::spatial::{SO3, SpatialInertia};
+use proptest::prelude::*;
 
 const ARM_LENGTH: f64 = 0.15;
 const TORQUE_PER_THRUST: f64 = 0.016;
@@ -136,8 +137,7 @@ fn asking_for_more_than_a_rotor_has_clamps_and_says_so() {
     }
 }
 
-#[test]
-fn a_six_rotor_ring_also_works() {
+fn six_rotor_ring() -> MultirotorMixer<6, f64> {
     let radius = 0.2;
     let positions: [Vector3D<f64>; 6] = core::array::from_fn(|rotor| {
         let angle = rotor as f64 * core::f64::consts::FRAC_PI_3;
@@ -150,14 +150,19 @@ fn a_six_rotor_ring_also_works() {
             RotorSpin::CounterClockwise
         }
     });
-    let mixer = MultirotorMixer::<6, f64>::new(
+    MultirotorMixer::<6, f64>::new(
         positions,
         spins,
         TORQUE_PER_THRUST,
         MINIMUM_THRUST,
         MAXIMUM_THRUST,
     )
-    .unwrap();
+    .unwrap()
+}
+
+#[test]
+fn a_six_rotor_ring_also_works() {
+    let mixer = six_rotor_ring();
 
     let commands = [
         (HOVER_THRUST, no_turn()),
@@ -345,5 +350,198 @@ fn rank_check_rejects_collinear_rotors_at_both_precisions() {
             layout::<f64>(planar_positions, 0.016).err(),
             Some(PlantError::RotorLayoutNotIndependent)
         );
+    }
+}
+
+// ----- Desaturation -----
+
+fn assert_close(actual: f64, expected: f64) {
+    assert!(
+        (actual - expected).abs() < 1e-12,
+        "actual {actual}, expected {expected}"
+    );
+}
+
+fn largest_and_smallest<const ROTOR_COUNT: usize>(thrusts: Vector<ROTOR_COUNT, f64>) -> (f64, f64) {
+    let largest = thrusts
+        .as_array()
+        .iter()
+        .copied()
+        .fold(f64::NEG_INFINITY, f64::max);
+    let smallest = thrusts
+        .as_array()
+        .iter()
+        .copied()
+        .fold(f64::INFINITY, f64::min);
+    (largest, smallest)
+}
+
+#[test]
+fn the_collective_gives_way_near_the_top() {
+    let mixer = mixer();
+    let commands = mixer.rotor_thrusts(19.0, Vector::new([0.2, 0.0, 0.0]));
+    let shortfall = commands.shortfall();
+
+    assert!(commands.saturated());
+    assert!(shortfall[0] > 0.0);
+    assert_eq!([shortfall[1], shortfall[2], shortfall[3]], [0.0; 3]);
+
+    let produced = mixer.wrench(commands.thrusts());
+    assert_close(produced.torque()[0], 0.2);
+    assert_close(produced.torque()[1], 0.0);
+    assert_close(produced.torque()[2], 0.0);
+    assert_close(produced.force()[2], 19.0 - shortfall[0]);
+
+    for thrust in commands.thrusts().as_array() {
+        assert!((MINIMUM_THRUST..=MAXIMUM_THRUST).contains(thrust));
+    }
+    let (largest, _) = largest_and_smallest(commands.thrusts());
+    assert_close(largest, MAXIMUM_THRUST);
+}
+
+#[test]
+fn the_collective_rises_at_low_throttle() {
+    let mixer = mixer();
+    let commands = mixer.rotor_thrusts(0.5, Vector::new([0.2, 0.0, 0.0]));
+    let shortfall = commands.shortfall();
+
+    assert!(shortfall[0] < 0.0);
+    assert_eq!([shortfall[1], shortfall[2], shortfall[3]], [0.0; 3]);
+
+    let produced = mixer.wrench(commands.thrusts());
+    assert_close(produced.torque()[0], 0.2);
+    assert_close(produced.torque()[1], 0.0);
+    assert_close(produced.torque()[2], 0.0);
+
+    let (_, smallest) = largest_and_smallest(commands.thrusts());
+    assert_close(smallest, MINIMUM_THRUST);
+}
+
+#[test]
+fn yaw_gives_way_before_roll() {
+    let mixer = mixer();
+    let commands = mixer.rotor_thrusts(10.0, Vector::new([0.1, 0.0, 0.2]));
+    let shortfall = commands.shortfall();
+
+    assert_eq!([shortfall[0], shortfall[1], shortfall[2]], [0.0; 3]);
+    assert!(shortfall[3] > 0.0 && shortfall[3] < 0.2);
+
+    let produced = mixer.wrench(commands.thrusts());
+    assert_close(produced.torque()[0], 0.1);
+    assert_close(produced.torque()[1], 0.0);
+    assert_close(produced.torque()[2], 0.2 - shortfall[3]);
+
+    let (largest, smallest) = largest_and_smallest(commands.thrusts());
+    assert_close(largest - smallest, MAXIMUM_THRUST - MINIMUM_THRUST);
+}
+
+#[test]
+fn roll_and_pitch_scale_together_once_yaw_is_gone() {
+    let mixer = mixer();
+
+    let commands = mixer.rotor_thrusts(10.0, Vector::new([2.0, 0.0, 0.1]));
+    let shortfall = commands.shortfall();
+    assert_eq!(shortfall[3], 0.1);
+    assert!(shortfall[0].abs() < 1e-12);
+    let produced = mixer.wrench(commands.thrusts());
+    assert_close(produced.torque()[2], 0.0);
+    assert_close(produced.torque()[0], 2.0 - shortfall[1]);
+    assert!(produced.torque()[0] > 0.0 && produced.torque()[0] < 2.0);
+    for (thrust, expected) in commands
+        .thrusts()
+        .as_array()
+        .iter()
+        .zip([0.0, 5.0, 5.0, 0.0])
+    {
+        assert_close(*thrust, expected);
+    }
+
+    // One factor scales roll and pitch, so the torque direction stays the same.
+    let diagonal = mixer.rotor_thrusts(10.0, Vector::new([1.5, 1.0, 0.0]));
+    let produced = mixer.wrench(diagonal.thrusts());
+    assert_close(produced.torque()[1] / produced.torque()[0], 1.0 / 1.5);
+}
+
+#[test]
+fn a_command_that_fits_is_unchanged() {
+    let mixer = mixer();
+    let torque = Vector::new([0.1, -0.05, 0.02]);
+    let commands = mixer.rotor_thrusts(8.0, torque);
+
+    assert!(!commands.saturated());
+    assert_eq!(commands.shortfall(), Vector::zeros());
+
+    let produced = mixer.wrench(commands.thrusts());
+    assert_close(produced.force()[2], 8.0);
+    for axis in 0..3 {
+        assert_close(produced.torque()[axis], torque[axis]);
+    }
+}
+
+#[test]
+fn a_command_that_is_not_finite_comes_back_not_finite() {
+    let mixer = mixer();
+    for commands in [
+        mixer.rotor_thrusts(f64::NAN, no_turn()),
+        mixer.rotor_thrusts(HOVER_THRUST, Vector::new([f64::INFINITY, 0.0, 0.0])),
+    ] {
+        assert!(!commands.thrusts().is_finite());
+        assert!(commands.saturated());
+    }
+}
+
+fn check_priorities<const ROTOR_COUNT: usize>(
+    mixer: MultirotorMixer<ROTOR_COUNT, f64>,
+    collective_thrust: f64,
+    torque: Vector3D<f64>,
+) -> Result<(), TestCaseError> {
+    let commands = mixer.rotor_thrusts(collective_thrust, torque);
+    let shortfall = commands.shortfall();
+    for thrust in commands.thrusts().as_array() {
+        prop_assert!((MINIMUM_THRUST..=MAXIMUM_THRUST).contains(thrust));
+    }
+    let produced = mixer.wrench(commands.thrusts());
+    let produced = [
+        produced.force()[2],
+        produced.torque()[0],
+        produced.torque()[1],
+        produced.torque()[2],
+    ];
+    let wanted = [collective_thrust, torque[0], torque[1], torque[2]];
+    for component in 0..4 {
+        let target = wanted[component] - shortfall[component];
+        prop_assert!((produced[component] - target).abs() <= 1e-12 * (1.0 + target.abs()));
+    }
+    for axis in 0..3 {
+        let given_up = shortfall[axis + 1];
+        prop_assert!(given_up * torque[axis] >= 0.0);
+        prop_assert!(given_up.abs() <= torque[axis].abs());
+    }
+    if shortfall[1] != 0.0 || shortfall[2] != 0.0 {
+        prop_assert_eq!(shortfall[3], torque[2]);
+    }
+    Ok(())
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    #[test]
+    fn priorities_hold_for_random_commands(
+        collective_thrust in -5.0f64..30.0,
+        roll in -1.5f64..1.5,
+        pitch in -1.5f64..1.5,
+        yaw in -0.3f64..0.3,
+    ) {
+        let torque = Vector::new([roll, pitch, yaw]);
+        check_priorities(mixer(), collective_thrust, torque)?;
+        check_priorities(six_rotor_ring(), collective_thrust, torque)?;
+        // With `ALTERNATING` spins, two collective shares are negative.
+        let asymmetric = layout::<f64>(
+            [[0.25, -0.1], [-0.1, 0.12], [0.2, 0.15], [-0.12, -0.2]],
+            TORQUE_PER_THRUST,
+        )
+        .unwrap();
+        check_priorities(asymmetric, collective_thrust, torque)?;
     }
 }

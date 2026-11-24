@@ -18,30 +18,38 @@ pub enum RotorSpin {
     CounterClockwise,
 }
 
-/// What each rotor was asked to push with, and whether any of them was asked for more than it can
-/// give.
+/// Rotor thrusts inside the limits, and the part of the command that they do not produce.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RotorCommands<const ROTOR_COUNT: usize, T: Numeric = f64> {
     thrusts: Vector<ROTOR_COUNT, T>,
-    saturated: bool,
+    shortfall: Vector<4, T>,
 }
 
 impl<const ROTOR_COUNT: usize, T: Numeric> RotorCommands<ROTOR_COUNT, T> {
-    /// What each rotor was asked to push with, already held inside its limits.
+    /// The thrust of each rotor, inside `[minimum_thrust, maximum_thrust]`.
     #[inline]
     pub fn thrusts(self) -> Vector<ROTOR_COUNT, T> {
         self.thrusts
     }
 
-    /// `true` when at least one rotor was asked for more, or less, than it can give.
+    /// `[collective, τx, τy, τz]` commanded minus the command that the thrusts produce.
     ///
-    /// When this is `true` the body does not get the push and turn that was asked for, because
-    /// what was left over has nowhere to go. A controller usually wants to know, so it can stop
-    /// winding up against a limit it cannot reach past.
+    /// A negative collective component means that the collective went up to keep the torque.
+    #[inline]
+    pub fn shortfall(self) -> Vector<4, T> {
+        self.shortfall
+    }
+
+    /// `true` when any component of [`shortfall`](Self::shortfall) is not zero.
+    ///
+    /// An outer loop can use this for anti-windup.
     #[inline]
     #[must_use]
     pub fn saturated(self) -> bool {
-        self.saturated
+        self.shortfall
+            .as_array()
+            .iter()
+            .any(|component| *component != T::ZERO)
     }
 }
 
@@ -103,6 +111,8 @@ impl<const ROTOR_COUNT: usize, T: Numeric> RotorCommands<ROTOR_COUNT, T> {
 /// for rotor in 0..rotor_count {
 ///     assert!((too_much.thrusts()[rotor] - maximum_thrust).abs() < 1e-12);
 /// }
+/// // The collective gives way; no torque was asked for, so none is lost.
+/// assert!((too_much.shortfall()[0] - (beyond_reach - 4.0 * maximum_thrust)).abs() < 1e-12);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MultirotorMixer<const ROTOR_COUNT: usize, T: Numeric = f64> {
@@ -198,14 +208,17 @@ impl<const ROTOR_COUNT: usize, T: Numeric> MultirotorMixer<ROTOR_COUNT, T> {
         self.maximum_thrust
     }
 
-    /// Works out what each rotor has to push with to give the body a wanted push and turn.
+    /// Rotor thrusts for a collective thrust along body z and a torque about the body-frame
+    /// origin, with the torque before the collective.
     ///
-    /// `collective_thrust` is the total push wanted along the body's z axis, and `torque` the turn
-    /// wanted about the body's own axes, taken about the body frame's origin. Each rotor's share
-    /// is held inside its limits, and the result says whether any of them hit one.
+    /// With `d = A⁺·e₁`, the collective `c` moves, up or down, into the interval where
+    /// `c·d + A⁺·[0; τ]` is inside the rotor limits. If no `c` fits the full torque, yaw is
+    /// scaled down first. If roll and pitch alone do not fit, yaw is zero and roll and pitch are
+    /// scaled together. [`RotorCommands::shortfall`] gives what the thrusts do not produce. The work
+    /// is `O(ROTOR_COUNT²)`, with no iteration.
     ///
-    /// A command that is not finite comes back not finite rather than being rejected — this runs
-    /// every tick, so checking is the caller's job, once, upstream.
+    /// A command that is not finite comes back not finite. This runs each tick, so the caller
+    /// checks the input once, upstream.
     #[must_use]
     pub fn rotor_thrusts(
         self,
@@ -213,21 +226,133 @@ impl<const ROTOR_COUNT: usize, T: Numeric> MultirotorMixer<ROTOR_COUNT, T> {
         torque: Vector3D<T>,
     ) -> RotorCommands<ROTOR_COUNT, T> {
         let wanted = Vector::new([collective_thrust, torque[0], torque[1], torque[2]]);
-        let share = self.distribution * wanted;
-        let mut saturated = false;
-        let thrusts = Vector::from_fn(|rotor| {
-            let value = share[rotor];
-            if value < self.minimum_thrust {
-                saturated = true;
-                self.minimum_thrust
-            } else if value > self.maximum_thrust {
-                saturated = true;
-                self.maximum_thrust
-            } else {
-                value
-            }
+        if !wanted.is_finite() {
+            return RotorCommands {
+                thrusts: self.distribution * wanted,
+                shortfall: wanted,
+            };
+        }
+
+        let roll_pitch_share = Vector::from_fn(|rotor| {
+            self.distribution[(rotor, 1)] * torque[0] + self.distribution[(rotor, 2)] * torque[1]
         });
-        RotorCommands { thrusts, saturated }
+        let yaw_share = Vector::from_fn(|rotor| self.distribution[(rotor, 3)] * torque[2]);
+
+        let mut produced_torque = torque;
+        let (lower, upper) = self.collective_interval(roll_pitch_share + yaw_share);
+        if lower > upper {
+            let (roll_pitch_lower, roll_pitch_upper) = self.collective_interval(roll_pitch_share);
+            if roll_pitch_lower <= roll_pitch_upper {
+                let scale = self.largest_feasible_scale(roll_pitch_share, yaw_share);
+                produced_torque = Vector::new([torque[0], torque[1], scale * torque[2]]);
+            } else {
+                let scale = self.largest_feasible_scale(Vector::zeros(), roll_pitch_share);
+                produced_torque = Vector::new([scale * torque[0], scale * torque[1], T::ZERO]);
+            }
+        }
+
+        let torque_share = Vector::from_fn(|rotor| {
+            self.distribution[(rotor, 1)] * produced_torque[0]
+                + self.distribution[(rotor, 2)] * produced_torque[1]
+                + self.distribution[(rotor, 3)] * produced_torque[2]
+        });
+        // An interval that rounding left empty spans `[upper, lower]`; clamping into it stays
+        // within rounding of each bound.
+        let (lower, upper) = self.collective_interval(torque_share);
+        let produced_collective =
+            clamp_keeping_nan(collective_thrust, lower.min(upper), lower.max(upper));
+
+        let thrusts = Vector::from_fn(|rotor| {
+            clamp_keeping_nan(
+                produced_collective * self.distribution[(rotor, 0)] + torque_share[rotor],
+                self.minimum_thrust,
+                self.maximum_thrust,
+            )
+        });
+        let shortfall = Vector::new([
+            collective_thrust - produced_collective,
+            torque[0] - produced_torque[0],
+            torque[1] - produced_torque[1],
+            torque[2] - produced_torque[2],
+        ]);
+        RotorCommands { thrusts, shortfall }
+    }
+
+    /// The bounds `(lower, upper)` on a collective `c` that keep each `c·dᵢ + torque_shareᵢ` inside
+    /// the rotor limits, with `d = A⁺·e₁`. Empty when `lower > upper`.
+    fn collective_interval(self, torque_share: Vector<ROTOR_COUNT, T>) -> (T, T) {
+        let mut lower = T::NEG_INFINITY;
+        let mut upper = T::INFINITY;
+        for rotor in 0..ROTOR_COUNT {
+            let collective_share = self.distribution[(rotor, 0)];
+            let share = torque_share[rotor];
+            if collective_share == T::ZERO {
+                if share < self.minimum_thrust || share > self.maximum_thrust {
+                    return (T::INFINITY, T::NEG_INFINITY);
+                }
+                continue;
+            }
+            let (lower_limit, upper_limit) = if collective_share > T::ZERO {
+                (self.minimum_thrust, self.maximum_thrust)
+            } else {
+                (self.maximum_thrust, self.minimum_thrust)
+            };
+            lower = lower.max((lower_limit - share) / collective_share);
+            upper = upper.min((upper_limit - share) / collective_share);
+        }
+        (lower, upper)
+    }
+
+    /// The largest `s ∈ [0, 1]` with a collective `c` that keeps `c·d + base + s·extra` inside the
+    /// rotor limits, for a `base` that fits.
+    ///
+    /// Fourier–Motzkin on `c`: rotor `i` gives `c ≥ αᵢ + s·βᵢ` and `c ≤ γᵢ + s·βᵢ`, with
+    /// `βᵢ = −extraᵢ/dᵢ`, and each pair needs `αᵢ + s·βᵢ ≤ γⱼ + s·βⱼ`.
+    fn largest_feasible_scale(
+        self,
+        base: Vector<ROTOR_COUNT, T>,
+        extra: Vector<ROTOR_COUNT, T>,
+    ) -> T {
+        let mut scale = T::ONE;
+        for lower_rotor in 0..ROTOR_COUNT {
+            let lower_share = self.distribution[(lower_rotor, 0)];
+            if lower_share == T::ZERO {
+                // `minimum_thrust ≤ base + s·extra ≤ maximum_thrust` bounds `s` directly.
+                if extra[lower_rotor] > T::ZERO {
+                    scale =
+                        scale.min((self.maximum_thrust - base[lower_rotor]) / extra[lower_rotor]);
+                } else if extra[lower_rotor] < T::ZERO {
+                    scale =
+                        scale.min((self.minimum_thrust - base[lower_rotor]) / extra[lower_rotor]);
+                }
+                continue;
+            }
+            let lower_limit = if lower_share > T::ZERO {
+                self.minimum_thrust
+            } else {
+                self.maximum_thrust
+            };
+            let lower_offset = (lower_limit - base[lower_rotor]) / lower_share;
+            let lower_slope = -extra[lower_rotor] / lower_share;
+            for upper_rotor in 0..ROTOR_COUNT {
+                let upper_share = self.distribution[(upper_rotor, 0)];
+                if upper_share == T::ZERO {
+                    continue;
+                }
+                let upper_limit = if upper_share > T::ZERO {
+                    self.maximum_thrust
+                } else {
+                    self.minimum_thrust
+                };
+                let upper_offset = (upper_limit - base[upper_rotor]) / upper_share;
+                let upper_slope = -extra[upper_rotor] / upper_share;
+                let slope = lower_slope - upper_slope;
+                if slope > T::ZERO {
+                    scale = scale.min((upper_offset - lower_offset) / slope);
+                }
+            }
+        }
+        scale.max(T::ZERO)
     }
 
     /// The push and turn a set of rotor thrusts adds up to.
@@ -242,6 +367,18 @@ impl<const ROTOR_COUNT: usize, T: Numeric> MultirotorMixer<ROTOR_COUNT, T> {
             Vector::new([T::ZERO, T::ZERO, produced[0]]),
             Vector::new([produced[1], produced[2], produced[3]]),
         )
+    }
+}
+
+/// `value` held inside `[low, high]`. A NaN `value` comes back as NaN.
+#[inline]
+fn clamp_keeping_nan<T: Numeric>(value: T, low: T, high: T) -> T {
+    if value < low {
+        low
+    } else if value > high {
+        high
+    } else {
+        value
     }
 }
 

@@ -407,7 +407,7 @@ fn run_error_state_kalman_filter_imu_trajectory(fixture: &Fixture) {
             let predicted = HeadingAid.eval(&filter.nominal_state())[0];
             let residual = Vector::new([(reading - predicted).wrap_to_pi()]);
             filter
-                .update_other(&HeadingAid, residual, heading_aid_noise)
+                .update_other(&HeadingAid, residual, heading_aid_noise, None)
                 .unwrap();
         }
     }

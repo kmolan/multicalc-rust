@@ -433,3 +433,115 @@ proptest! {
         prop_assert!(covariance.trace() > 0.0);
     }
 }
+
+// ----- Innovation gate -----
+
+const TRACK_STEP_COUNT: usize = 20;
+const OUTLIER_STEP: usize = 10;
+/// χ²₁ at 99.73 %.
+const ONE_DEGREE_GATE: f64 = 9.0;
+
+/// The position reading at `step` on a unit-speed track, with a 100 m outlier at `OUTLIER_STEP`.
+fn track_reading(step: usize) -> Vector<1, f64> {
+    let outlier = if step == OUTLIER_STEP { 100.0 } else { 0.0 };
+    Vector::new([step as f64 + outlier])
+}
+
+fn tracking_filter() -> UnscentedKalmanFilter<2, 1> {
+    UnscentedKalmanFilter::<2, 1>::new(
+        Vector::new([0.0, 0.0]),
+        Matrix2D::identity(),
+        Matrix::from_diagonal([0.01, 0.01]),
+        Matrix::new([[0.1]]),
+    )
+}
+
+/// Runs the track. `skip_outlier` drops the update at `OUTLIER_STEP`.
+fn run_track(
+    mut filter: UnscentedKalmanFilter<2, 1>,
+    skip_outlier: bool,
+) -> UnscentedKalmanFilter<2, 1> {
+    for step in 1..=TRACK_STEP_COUNT {
+        filter.predict(&ConstantVelocityMotion).unwrap();
+        if skip_outlier && step == OUTLIER_STEP {
+            continue;
+        }
+        match filter.update(&PositionMeasurement, track_reading(step)) {
+            Ok(()) => {}
+            Err(EstimationError::MeasurementRejected) => assert_eq!(step, OUTLIER_STEP),
+            Err(error) => panic!("update failed at step {step}: {error:?}"),
+        }
+    }
+    filter
+}
+
+#[test]
+fn gate_rejects_an_outlier_and_matches_the_run_that_skips_it() {
+    let gated = run_track(
+        tracking_filter()
+            .with_innovation_gate(ONE_DEGREE_GATE)
+            .unwrap(),
+        false,
+    );
+    let skipping = run_track(tracking_filter(), true);
+    let ungated = run_track(tracking_filter(), false);
+
+    assert_eq!(gated.state(), skipping.state());
+    assert_eq!(gated.covariance(), skipping.covariance());
+    assert!((gated.state()[0] - TRACK_STEP_COUNT as f64).abs() < 1e-4);
+    assert!((ungated.state()[0] - TRACK_STEP_COUNT as f64).abs() > 0.1);
+}
+
+#[test]
+fn rejected_update_keeps_the_state_and_records_the_innovation() {
+    let mut filter = tracking_filter()
+        .with_innovation_gate(ONE_DEGREE_GATE)
+        .unwrap();
+    for step in 1..OUTLIER_STEP {
+        filter.predict(&ConstantVelocityMotion).unwrap();
+        filter
+            .update(&PositionMeasurement, track_reading(step))
+            .unwrap();
+    }
+    filter.predict(&ConstantVelocityMotion).unwrap();
+    let state = filter.state();
+    let covariance = filter.covariance();
+
+    assert_eq!(
+        filter.update(&PositionMeasurement, track_reading(OUTLIER_STEP)),
+        Err(EstimationError::MeasurementRejected)
+    );
+    assert_eq!(filter.state(), state);
+    assert_eq!(filter.covariance(), covariance);
+    assert!(filter.normalized_innovation_squared().unwrap() > 1e4);
+    assert!(filter.innovation()[0] > 99.0);
+}
+
+#[test]
+fn wide_gate_matches_no_gate() {
+    let wide = run_track(tracking_filter().with_innovation_gate(1e12).unwrap(), false);
+    let ungated = run_track(tracking_filter(), false);
+
+    assert_eq!(wide.state(), ungated.state());
+    assert_eq!(wide.covariance(), ungated.covariance());
+}
+
+#[test]
+fn gate_rejects_unusable_thresholds() {
+    for threshold in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+        assert_eq!(
+            tracking_filter()
+                .with_innovation_gate(threshold)
+                .unwrap_err(),
+            EstimationError::InvalidTuning
+        );
+    }
+    assert_eq!(tracking_filter().innovation_gate(), None);
+    assert_eq!(
+        tracking_filter()
+            .with_innovation_gate(ONE_DEGREE_GATE)
+            .unwrap()
+            .innovation_gate(),
+        Some(ONE_DEGREE_GATE)
+    );
+}

@@ -2,7 +2,8 @@
 //!
 //! - [`MultirotorMixer`] — body thrust and torque split across a set of rotors, and the inverse
 //!   map from rotor thrusts back to the wrench they produce.
-//! - [`RotorCommands`] — the per-rotor thrusts, and which of them saturated.
+//! - [`RotorCommands`] — the per-rotor thrusts, and the part of the command that they do not
+//!   produce.
 //! - [`RotorSpin`] — a rotor's spin direction, which sets the sign of its reaction torque.
 //! - [`RotorLag`] — first-order rotor thrust lag.
 //! - [`PositionServo`] — a joint that takes a commanded position rather than a torque, and its own

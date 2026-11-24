@@ -474,6 +474,18 @@ fn ad_fd_tol(autodiff: f64, step: f64, order: i32, coeff: f64, coeff_scale: f64)
     coeff * step.powi(order) * scale
 }
 
+/// Central-difference error bound `h²·|f'''|/6 + ε·M/h`, with `M` a bound on the evaluated terms.
+fn central_difference_error_bound(step: f64, third_derivative: f64, term_magnitude: f64) -> f64 {
+    step * step * third_derivative.abs() / 6.0 + f64::EPSILON * term_magnitude / step
+}
+
+fn absolute_coefficients(coefficients: &[f64]) -> Vec<f64> {
+    coefficients
+        .iter()
+        .map(|coefficient| coefficient.abs())
+        .collect()
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(256))]
 
@@ -483,14 +495,21 @@ proptest! {
         outer in prop::collection::vec(-5.0f64..5.0, 3..=5),
         x in -2.0f64..2.0,
     ) {
-        let scale = 1.0 + coeff_l1(&inner) + coeff_l1(&outer);
-        let composed_polynomial = PolyComp { inner, outer };
         let step = DEFAULT_STEP_SIZE;
+        let term_magnitude = eval_poly(
+            &absolute_coefficients(&outer),
+            eval_poly(&absolute_coefficients(&inner), x.abs() + step),
+        );
+        let composed_polynomial = PolyComp { inner, outer };
         let autodiff = AutoDiffSingle::default().differentiate(1, &composed_polynomial, x).unwrap();
+        let third_derivative =
+            AutoDiffSingle::default().differentiate(3, &composed_polynomial, x).unwrap();
         let finite_difference_derivator = FiniteDifferenceSingle::default();
         let finite_difference =
             finite_difference_derivator.differentiate(1, &composed_polynomial, x).unwrap();
-        let tolerance = ad_fd_tol(autodiff, step, 2, 1e3, scale);
+        // `16` covers the rounding constant of the two `eval_poly` calls.
+        let tolerance =
+            16.0 * central_difference_error_bound(step, third_derivative, term_magnitude);
         prop_assert!(
             (finite_difference - autodiff).abs() < tolerance,
             "fd={finite_difference} ad={autodiff} tol={tolerance} x={x}"

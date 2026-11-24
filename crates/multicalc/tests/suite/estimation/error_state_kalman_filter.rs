@@ -779,7 +779,7 @@ fn run_flight(
             let predicted = Compass.eval(&filter.nominal_state())[0];
             let residual = Vector::new([(reading - predicted).wrap_to_pi()]);
             filter
-                .update_other(&Compass, residual, heading_aid_noise)
+                .update_other(&Compass, residual, heading_aid_noise, None)
                 .unwrap();
         }
     }
@@ -977,5 +977,153 @@ fn single_precision_conditioning_repairs_the_covariance() {
             .symmetric_eigendecomposition()
             .unwrap()
             .is_positive_definite()
+    );
+}
+
+// ---- innovation gate -------------------------------------------------------
+
+const FIX_COUNT: usize = 20;
+const PREDICTS_PER_FIX: usize = 10;
+const POSITION_OUTLIER_FIX: usize = 10;
+const HEADING_OUTLIER_FIX: usize = 15;
+/// χ²₃ at 99.9 %.
+const THREE_DEGREE_GATE: f64 = 16.27;
+/// χ²₁ at 99.73 %.
+const ONE_DEGREE_GATE: f64 = 9.0;
+
+/// How the still-body run treats each outlier.
+#[derive(Clone, Copy)]
+enum OutlierHandling {
+    /// Fold every reading in, with no gate.
+    Ungated,
+    /// Fold every reading in, through the gates.
+    Gated,
+    /// Do not call the update for an outlier.
+    Skipped,
+}
+
+/// A level body at rest, with exact position fixes and heading aids, except a 1 m position
+/// outlier at `POSITION_OUTLIER_FIX` and a 0.5 rad heading outlier at `HEADING_OUTLIER_FIX`.
+fn run_still_body(handling: OutlierHandling) -> ErrorStateKalmanFilter<3, f64> {
+    let mut filter = tracker_filter(NominalState::at_rest(SO3::identity()));
+    let mut heading_gate = None;
+    if let OutlierHandling::Gated = handling {
+        filter = filter.with_innovation_gate(THREE_DEGREE_GATE).unwrap();
+        heading_gate = Some(ONE_DEGREE_GATE);
+    }
+    let heading_aid_spread = 0.05;
+    let heading_aid_noise = Matrix::from_diagonal([heading_aid_spread * heading_aid_spread]);
+    for fix in 1..=FIX_COUNT {
+        for _ in 0..PREDICTS_PER_FIX {
+            filter
+                .predict(
+                    Vector::new([0.0, 0.0, 0.0]),
+                    Vector::new([0.0, 0.0, GRAVITY_STRENGTH]),
+                    0.01,
+                )
+                .unwrap();
+        }
+
+        let skip = matches!(handling, OutlierHandling::Skipped);
+        if fix == POSITION_OUTLIER_FIX {
+            if !skip {
+                let result = filter.update(&RoomTracker, Vector::new([1.0, 0.0, 0.0]));
+                if let OutlierHandling::Gated = handling {
+                    assert_eq!(result, Err(EstimationError::MeasurementRejected));
+                } else {
+                    result.unwrap();
+                }
+            }
+        } else {
+            filter
+                .update(&RoomTracker, Vector::new([0.0, 0.0, 0.0]))
+                .unwrap();
+        }
+
+        let heading = if fix == HEADING_OUTLIER_FIX { 0.5 } else { 0.0 };
+        let predicted = Compass.eval(&filter.nominal_state())[0];
+        let residual = Vector::new([(heading - predicted).wrap_to_pi()]);
+        if fix == HEADING_OUTLIER_FIX {
+            if !skip {
+                let result =
+                    filter.update_other(&Compass, residual, heading_aid_noise, heading_gate);
+                if let OutlierHandling::Gated = handling {
+                    assert_eq!(result, Err(EstimationError::MeasurementRejected));
+                } else {
+                    result.unwrap();
+                }
+            }
+        } else {
+            filter
+                .update_other(&Compass, residual, heading_aid_noise, heading_gate)
+                .unwrap();
+        }
+    }
+    filter
+}
+
+#[test]
+fn gate_rejects_both_outliers_and_matches_the_run_that_skips_them() {
+    let gated = run_still_body(OutlierHandling::Gated);
+    let skipping = run_still_body(OutlierHandling::Skipped);
+    let ungated = run_still_body(OutlierHandling::Ungated);
+
+    assert_eq!(gated.nominal_state(), skipping.nominal_state());
+    assert_eq!(gated.covariance(), skipping.covariance());
+    assert!(gated.nominal_state().position().norm() < 1e-12);
+    assert!(ungated.nominal_state().position().norm() > 0.05);
+}
+
+#[test]
+fn rejected_update_keeps_the_state_and_records_the_innovation() {
+    let mut filter = tracker_filter(NominalState::at_rest(SO3::identity()))
+        .with_innovation_gate(THREE_DEGREE_GATE)
+        .unwrap();
+    let nominal_state = filter.nominal_state();
+    let covariance = filter.covariance();
+
+    assert_eq!(
+        filter.update(&RoomTracker, Vector::new([1.0, 0.0, 0.0])),
+        Err(EstimationError::MeasurementRejected)
+    );
+    assert_eq!(filter.nominal_state(), nominal_state);
+    assert_eq!(filter.covariance(), covariance);
+    assert_eq!(filter.innovation()[0], 1.0);
+    assert!(filter.normalized_innovation_squared().unwrap() > 50.0);
+}
+
+#[test]
+fn gate_rejects_unusable_thresholds() {
+    let level = NominalState::at_rest(SO3::identity());
+    for threshold in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+        assert_eq!(
+            tracker_filter(level)
+                .with_innovation_gate(threshold)
+                .unwrap_err(),
+            EstimationError::InvalidTuning
+        );
+
+        let mut filter = tracker_filter(level);
+        let nominal_state = filter.nominal_state();
+        let covariance = filter.covariance();
+        assert_eq!(
+            filter.update_other(
+                &Compass,
+                Vector::new([0.0]),
+                Matrix::from_diagonal([0.0025]),
+                Some(threshold),
+            ),
+            Err(EstimationError::InvalidTuning)
+        );
+        assert_eq!(filter.nominal_state(), nominal_state);
+        assert_eq!(filter.covariance(), covariance);
+    }
+    assert_eq!(tracker_filter(level).innovation_gate(), None);
+    assert_eq!(
+        tracker_filter(level)
+            .with_innovation_gate(THREE_DEGREE_GATE)
+            .unwrap()
+            .innovation_gate(),
+        Some(THREE_DEGREE_GATE)
     );
 }

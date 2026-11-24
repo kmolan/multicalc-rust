@@ -18,6 +18,10 @@ in a measurement and shrinks `P`.
   control_input` term. `CONTROL_DIMENSION` is a parameter of the method, not of the type.
 - `update`: the measurement step. It returns a `Result`; `predict` does not.
 - `with_covariance_update(CovarianceUpdate)`: `Joseph` (the default) or `Naive`.
+- `with_innovation_gate(threshold)`: rejects an update when `yᵀ·S⁻¹·y > threshold`, with
+  `EstimationError::MeasurementRejected`. The state and the covariance do not change. Use the
+  chi-square quantile for `MEASUREMENT_DIMENSION` degrees of freedom, for example `9.0` for one
+  degree at 99.73 %.
 - `innovation` / `innovation_covariance` / `normalized_innovation_squared`: for measurement gating.
 - `set_state_transition`, `set_process_noise`, `set_measurement_model`, `set_measurement_noise`: for
   a time-varying model, for example a variable timestep.
@@ -43,11 +47,17 @@ let measurement = Vector::new([1.0]);
 filter.update(measurement).unwrap();
 let position = filter.state()[0];
 
-// Gate an outlier before folding it in.
-filter.predict();
-let outlier = Vector::new([1.9]);
-filter.update(outlier).unwrap();
-let gate = filter.normalized_innovation_squared().unwrap();
+// Gate the measurements: χ²₁ at 99.73 % is 9.
+let mut gated = KalmanFilter::new(initial_state, initial_covariance, model)
+    .with_innovation_gate(9.0)
+    .unwrap();
+gated.predict();
+let outlier = Vector::new([100.0]);
+let result = gated.update(outlier);
+assert_eq!(result, Err(multicalc::error::EstimationError::MeasurementRejected));
+assert_eq!(gated.state(), initial_state);
+let normalized_innovation = gated.normalized_innovation_squared().unwrap();
+assert!(normalized_innovation > 9.0);
 ```
 
 The Joseph form `P = (I − K·H)·P·(I − K·H)ᵀ + K·R·Kᵀ` keeps `P` symmetric positive definite by
@@ -58,6 +68,11 @@ covariance.
 `update` returns `EstimationError::NonFinite` for a non-finite measurement or innovation covariance,
 and `EstimationError::NotPositiveDefinite` when the innovation covariance has no Cholesky factor, so
 the gain is undefined. `predict` is an element-wise path and propagates non-finite values silently.
+
+With a gate, `update` returns `EstimationError::MeasurementRejected` when the normalized
+innovation squared is above the threshold. The innovation and its covariance still record the
+rejected measurement, so `normalized_innovation_squared` gives the rejected value. The
+extended, unscented and error-state filters have the same gate.
 
 ## Extended filter
 
@@ -75,8 +90,8 @@ by hand.**
 - `update_with_residual(&measurement_model, residual)`: `update` with a caller-formed residual.
   Use it when a measurement component is an angle, because plain subtraction is wrong across the ±π
   wrap. Only the caller knows which components are angular.
-- `CovarianceUpdate`, the accessors and `normalized_innovation_squared` are the same as on the
-  linear filter.
+- `with_innovation_gate`, `CovarianceUpdate`, the accessors and `normalized_innovation_squared` are
+  the same as on the linear filter.
 
 `predict` evaluates and differentiates a caller model, so it returns a `Result`. Every step checks
 for non-finite values: `predict` returns `EstimationError::NonFinite` for a non-finite propagated
@@ -138,7 +153,8 @@ valid. On a strongly curved model, the result is usually closer than one lineari
   `update_with_residual(&measurement_model, residual)`: as on the extended filter. `update` uses the
   sigma points from the last `predict`. Before the first `predict`, the gain is zero and the estimate
   does not move.
-- The accessors and `normalized_innovation_squared` are the same as on the other two filters. There
+- `with_innovation_gate`, the accessors and `normalized_innovation_squared` are the same as on the
+  other two filters. There
   is no `CovarianceUpdate`, because the filter has no `(I − K·H)` step. The filter symmetrizes the
   covariance each time it forms it.
 
@@ -231,7 +247,9 @@ The 15 error components, three each:
 - `update` / `update_with_residual` / `update_other`: one correction. Use `update_with_residual` when
   a measurement is an angle, because plain subtraction is wrong across the ±π wrap. Use
   `update_other` for a sensor of a different width from `MEASUREMENT_DIMENSION`, for example a
-  3-number position fix and a 1-number heading aid on the same filter.
+  3-number position fix and a 1-number heading aid on the same filter. `with_innovation_gate` gates
+  `update` and `update_with_residual`; `update_other` takes its own `innovation_gate: Option<T>`
+  argument, because its width is different.
 - `inject_error_and_reset(error)`: `update` calls it. It is public, so a test can apply a known
   correction.
 - `condition_covariance(minimum_eigenvalue)`: see below.
