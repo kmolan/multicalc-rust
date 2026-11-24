@@ -75,8 +75,20 @@ The release workflow ([`.github/workflows/release.yml`](.github/workflows/releas
 1. It requires a `## [X.Y.Z]` heading in `CHANGELOG.md` that matches the `Cargo.toml` version. If
    the heading is not there, the release fails.
 2. It runs the full target matrix.
-3. It publishes to crates.io, then creates the `vX.Y.Z` tag and a GitHub release. The release notes
-   come from the matching changelog section.
+3. It publishes `multicalc` and then `multicalc-robot-model` to crates.io, at the same version.
+   Then it creates the `vX.Y.Z` tag and a GitHub release. The release notes come from the
+   matching changelog section.
+
+The bump also changes the `multicalc` requirement in
+[`crates/multicalc-robot-model/Cargo.toml`](crates/multicalc-robot-model/Cargo.toml), for
+example from `"0.10"` to `"0.11"`. If the requirement is stale, each build fails.
+
+If `multicalc` publishes and `multicalc-robot-model` fails, a re-run fails too, because the
+`multicalc` version exists. Then do these steps by hand:
+
+1. Run `cargo publish -p multicalc-robot-model`.
+2. Run `gh release create vX.Y.Z --title vX.Y.Z --notes-file <notes>`, with the changelog
+   section in `<notes>`.
 
 Before you merge the bump, build the docs as docs.rs does and examine the result. docs.rs rebuilds
 only on a publish, so a broken page stays broken until the next release.
