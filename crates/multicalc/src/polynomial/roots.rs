@@ -278,46 +278,77 @@ impl<T: Numeric> Polynomial<5, T> {
 
         let mut roots = RealRoots::new();
         if reduced_linear == T::ZERO {
-            // Only even powers are left, so solve for y² and take both square roots of each answer.
-            let squares = Polynomial::<3, T>::new([reduced_constant, reduced_quadratic, T::ONE])
-                .real_roots()?;
-            for square in squares.as_slice() {
-                if *square >= T::ZERO {
-                    let root = square.sqrt();
-                    roots.push(root + slide);
-                    roots.push(-root + slide);
-                }
-            }
+            push_biquadratic_roots(reduced_quadratic, reduced_constant, slide, &mut roots)?;
         } else {
-            // The quartic splits into two quadratics once this helper cubic is solved. Its lowest
-            // coefficient is negative, so it always has a positive root, and the largest root is
-            // the one that works.
-            let helper = Polynomial::<4, T>::new([
+            // The resolvent `8m³ + 8p·m² + (2p² − 8r)·m − q² = 0` has a positive root, and the
+            // largest root splits the quartic into two quadratics.
+            let resolvent = Polynomial::<4, T>::new([
                 -reduced_linear * reduced_linear,
                 T::TWO * reduced_quadratic * reduced_quadratic - eight * reduced_constant,
                 eight * reduced_quadratic,
                 eight,
-            ])
-            .real_roots()?;
-            let largest = helper.as_slice().last().copied().unwrap_or(T::ZERO);
+            ]);
+            let mut largest = resolvent
+                .real_roots()?
+                .as_slice()
+                .last()
+                .copied()
+                .unwrap_or(T::ZERO);
+            // The closed-form cubic gives a small root with an absolute error of about ε times the
+            // coefficients. Newton steps restore its relative accuracy.
+            let resolvent_slope = resolvent.derivative();
+            for _ in 0..2 {
+                let value = resolvent.evaluate(largest);
+                let slope = resolvent_slope.evaluate(largest);
+                if slope == T::ZERO {
+                    break;
+                }
+                let candidate = largest - value / slope;
+                if resolvent.evaluate(candidate).abs() >= value.abs() {
+                    break;
+                }
+                largest = candidate;
+            }
 
             let separation = (T::TWO * largest).sqrt();
-            let shared = reduced_quadratic * T::HALF + largest;
             let apart = reduced_linear / (T::TWO * separation);
-
-            for factor in [
-                Polynomial::<3, T>::new([shared + apart, -separation, T::ONE]),
-                Polynomial::<3, T>::new([shared - apart, separation, T::ONE]),
-            ] {
-                let factor_roots = factor.real_roots()?;
-                for root in factor_roots.as_slice() {
-                    roots.push(*root + slide);
+            if largest > T::ZERO && apart.is_finite() {
+                let shared = reduced_quadratic * T::HALF + largest;
+                for factor in [
+                    Polynomial::<3, T>::new([shared + apart, -separation, T::ONE]),
+                    Polynomial::<3, T>::new([shared - apart, separation, T::ONE]),
+                ] {
+                    let factor_roots = factor.real_roots()?;
+                    for root in factor_roots.as_slice() {
+                        roots.push(*root + slide);
+                    }
                 }
+            } else {
+                // `q²` underflowed, so `y⁴ + p·y² + r` stands for the quartic.
+                push_biquadratic_roots(reduced_quadratic, reduced_constant, slide, &mut roots)?;
             }
         }
         roots.sort_ascending();
         Ok(roots)
     }
+}
+
+/// Pushes the real roots of `y⁴ + quadratic·y² + constant`, shifted by `slide`.
+fn push_biquadratic_roots<T: Numeric>(
+    quadratic: T,
+    constant: T,
+    slide: T,
+    roots: &mut RealRoots<4, T>,
+) -> Result<(), PolynomialError> {
+    let squares = Polynomial::<3, T>::new([constant, quadratic, T::ONE]).real_roots()?;
+    for square in squares.as_slice() {
+        if *square >= T::ZERO {
+            let root = square.sqrt();
+            roots.push(root + slide);
+            roots.push(-root + slide);
+        }
+    }
+    Ok(())
 }
 
 /// What is left of `dividend` after taking out as many copies of `divisor` as fit.

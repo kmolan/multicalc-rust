@@ -216,6 +216,11 @@ non-positive input is now documented instead of silent. @naseem173 (#307)
   `1e-310` returned infinity. Each case now gives the correct result or `Singular`, and a
   non-finite entry gives `NonFinite`. (#208)
 
+- **Quartic roots with a small odd term.** `Polynomial<5>::real_roots` polishes the resolvent root
+  with up to two Newton steps before the Ferrari split. `x⁴ + x² + 1e-10·x − 2` returned
+  `NonFinite`, and `x⁴ + x² + 1e-5·x` returned no real roots. Both now give their two real roots.
+  (#281)
+
 ## [0.10.0] - 2026-08-09
 
 A feature release adding signal processing, polynomials and minimum-snap trajectories, LQR and

@@ -381,3 +381,65 @@ fn padded_constant_polynomials_have_no_roots() {
         );
     }
 }
+
+fn assert_roots_satisfy(polynomial: &Polynomial<5>, roots: &[f64], tolerance: f64) {
+    for &root in roots {
+        let residual = polynomial.evaluate(root).abs();
+        assert!(residual <= tolerance, "p({root}) = {residual:e}");
+    }
+}
+
+#[test]
+fn quartic_with_a_small_odd_term() {
+    let quartic = Polynomial::<5>::new([-2.0, 1e-10, 1.0, 0.0, 1.0]);
+    let roots = quartic.real_roots().unwrap();
+    assert_close(roots.as_slice(), &[-1.0, 1.0], 1e-9);
+    assert_roots_satisfy(&quartic, roots.as_slice(), 1e-14);
+}
+
+#[test]
+fn quartic_with_a_small_odd_term_and_no_real_roots() {
+    let quartic = Polynomial::<5>::new([0.25, 1e-10, 2.0, 0.0, 1.0]);
+    assert_eq!(quartic.real_roots().unwrap().len(), 0);
+}
+
+#[test]
+fn quartic_with_a_root_at_zero_and_a_small_odd_term() {
+    // x⁴ + x² + 1e-5·x = x·(x³ + x + 1e-5), with roots 0 and about −1e-5.
+    let quartic = Polynomial::<5>::new([0.0, 1e-5, 1.0, 0.0, 1.0]);
+    let roots = quartic.real_roots().unwrap();
+    assert_close(roots.as_slice(), &[-1e-5, 0.0], 1e-9);
+    assert_roots_satisfy(&quartic, roots.as_slice(), 1e-14);
+}
+
+#[test]
+fn quartic_with_an_underflowing_odd_term() {
+    let quartic = Polynomial::<5>::new([-2.0, 1e-170, 1.0, 0.0, 1.0]);
+    assert_close(
+        quartic.real_roots().unwrap().as_slice(),
+        &[-1.0, 1.0],
+        1e-12,
+    );
+}
+
+#[test]
+fn quartic_root_counts_hold_across_small_odd_terms() {
+    // (p, r, real root count) of y⁴ + p·y² + q·y + r.
+    for (quadratic, constant, count) in [
+        (1.0, -2.0, 2),
+        (2.0, 0.25, 0),
+        (-3.0, 2.0, 4),
+        (1.0, 0.0, 2),
+    ] {
+        for linear in [1e-14, 1e-12, 1e-10, 1e-8, 1e-6, 1e-5, 1e-3] {
+            let quartic = Polynomial::<5>::new([constant, linear, quadratic, 0.0, 1.0]);
+            let roots = quartic.real_roots().unwrap();
+            assert_eq!(
+                roots.len(),
+                count,
+                "p = {quadratic}, q = {linear:e}, r = {constant}"
+            );
+            assert_roots_satisfy(&quartic, roots.as_slice(), 1e-13);
+        }
+    }
+}

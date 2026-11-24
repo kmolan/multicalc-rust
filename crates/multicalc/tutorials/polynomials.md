@@ -62,7 +62,8 @@ assert!((p.definite_integral(0.0, 2.0) - 8.0).abs() < 1e-12);
 
 ## Roots
 
-To degree 4, `real_roots` uses the closed-form formulas, with no iteration and no initial guess.
+To degree 4, `real_roots` uses the closed-form formulas, with no initial guess. The quartic polishes
+its resolvent root with at most two Newton steps, so a small odd term keeps full accuracy.
 The formulas use only arithmetic and roots, so a `Dual` through them gives the exact derivative of
 a root with respect to the coefficients.
 
