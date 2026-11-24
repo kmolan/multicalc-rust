@@ -1,6 +1,7 @@
 name: Release
 
-# Publishes to crates.io and cuts a GitHub release when a Cargo.toml version bump
+# Publishes multicalc and multicalc-robot-model to crates.io and cuts a GitHub release when a
+# Cargo.toml version bump
 # lands on main. Non-version edits and re-runs are no-ops (guarded on the tag).
 on:
   push:
@@ -85,10 +86,12 @@ jobs:
 
       # publish BEFORE tagging: a crates.io version is immutable, so the tag should
       # only appear once the publish has succeeded
+      # One command, in dependency order: cargo waits until the index has multicalc, then
+      # publishes multicalc-robot-model at the same version.
       - name: Publish to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish -p multicalc
+        run: cargo publish -p multicalc -p multicalc-robot-model
 
       - name: Tag and create the GitHub release
         uses: softprops/action-gh-release@v2
