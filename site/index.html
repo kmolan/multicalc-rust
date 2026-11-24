@@ -104,8 +104,7 @@ h1 .soft { color: var(--text-muted); }
   background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
   margin: 56px 0 0;
 }
-@media (min-width: 720px) { .stats { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 1000px) { .stats { grid-template-columns: repeat(6, 1fr); } }
+@media (min-width: 720px) { .stats { grid-template-columns: repeat(4, 1fr); } }
 .stat { background: var(--surface-1); padding: 22px 20px; }
 .stat .v { font-size: 34px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .stat .v small { font-size: 18px; font-weight: 600; color: var(--text-secondary); margin-left: 2px; }
@@ -249,9 +248,7 @@ footer a:hover { color: var(--text-primary); }
     <div class="stats">
       <div class="stat"><div class="v">1<small>kHz</small></div><div class="l">full arm loop on a 100 MHz Cortex-M4F</div></div>
       <div class="stat"><div class="v">1e-10</div><div class="l">agreement with Pinocchio, on silicon</div></div>
-      <div class="stat"><div class="v">483<small>ns</small></div><div class="l">7-DoF inverse dynamics, x86_64</div></div>
-      <div class="stat"><div class="v">723<small>ns</small></div><div class="l">7-DoF forward dynamics, x86_64</div></div>
-      <div class="stat"><div class="v">20<small>µs</small></div><div class="l">7-DoF inverse kinematics, x86_64</div></div>
+      <div class="stat"><div class="v">0<small>B</small></div><div class="l">heap in each robot app on silicon</div></div>
       <div class="stat"><div class="v">2.5<small>s</small></div><div class="l">clean build, one dependency</div></div>
     </div>
   </div>
