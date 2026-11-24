@@ -238,6 +238,16 @@ The least-squares solvers and QR factorization port the public-domain MINPACK ro
 Levenberg-Marquardt algorithm: Implementation and theory", and Nocedal & Wright, *Numerical
 Optimization* (chapters 4 and 10).
 
+## Citation
+
+```bibtex
+@software{kathail_multicalc,
+  author = {Kathail, Anmol},
+  title  = {multicalc: robotics for microcontrollers},
+  url    = {https://github.com/kmolan/multicalc-rust},
+}
+```
+
 ## License
 
 multicalc is licensed under the MIT license.

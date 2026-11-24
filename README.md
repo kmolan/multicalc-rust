@@ -296,6 +296,16 @@ The least-squares solvers and QR factorization port the public-domain MINPACK ro
 Garbow, Hillstrom; netlib); the full citation is in the
 [crate README](crates/multicalc/README.md#acknowledgements).
 
+## Citation
+
+```bibtex
+@software{kathail_multicalc,
+  author = {Kathail, Anmol},
+  title  = {multicalc: robotics for microcontrollers},
+  url    = {https://github.com/kmolan/multicalc-rust},
+}
+```
+
 ## License
 
 Licensed under the [MIT License](LICENSE).
