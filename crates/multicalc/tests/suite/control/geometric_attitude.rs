@@ -307,8 +307,9 @@ fn torque_limits_hold_and_report() {
     let (error, _, commands, _) = run_with_disturbance(control, 20_000);
     assert!(commands[0].any_limited());
     for command in &commands {
-        for axis in 0..3 {
-            assert!(command.output()[axis].abs() <= limits[axis]);
+        let output = command.output();
+        for (axis, &limit) in limits.iter().enumerate() {
+            assert!(output[axis].abs() <= limit);
         }
     }
     assert!(error < 1e-9, "error {error}");

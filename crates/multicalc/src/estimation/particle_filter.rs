@@ -834,9 +834,7 @@ where
             .lower();
         scatter(&mut self.particles, mean, factor, &mut self.random);
         let uniform = T::ONE / T::from_usize(self.particles.len());
-        for weight in &mut self.weights {
-            *weight = uniform;
-        }
+        self.weights.fill(uniform);
         Ok(())
     }
 }

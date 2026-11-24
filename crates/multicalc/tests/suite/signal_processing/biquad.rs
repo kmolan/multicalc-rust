@@ -434,7 +434,7 @@ fn try_settle_to_refuses_a_dc_null_filter() {
 
 #[test]
 fn try_settle_to_refuses_a_non_finite_value() {
-    let mut filter = Biquad::new(BiquadCoefficients::low_pass(50.0, 0.70710678, 0.001).unwrap());
+    let mut filter = Biquad::new(BiquadCoefficients::low_pass(50.0, FLATTEST, 0.001).unwrap());
     let before = filter;
     assert_eq!(filter.try_settle_to(f64::NAN), Err(SignalError::NonFinite));
     assert_eq!(filter, before);
@@ -443,7 +443,7 @@ fn try_settle_to_refuses_a_non_finite_value() {
 #[test]
 fn try_settle_to_matches_settle_to_on_designs() {
     for shape in [
-        BiquadCoefficients::low_pass(50.0, 0.70710678, 0.001).unwrap(),
+        BiquadCoefficients::low_pass(50.0, FLATTEST, 0.001).unwrap(),
         BiquadCoefficients::notch(120.0, 5.0, 0.001).unwrap(),
     ] {
         let mut unchecked = Biquad::new(shape);

@@ -264,7 +264,7 @@ fn filter_checked_refuses_a_reading_with_any_bad_component() {
 
 #[test]
 fn cascade_try_settle_to_refuses_an_unstable_section() {
-    let shape = BiquadCoefficients::low_pass(50.0, 0.70710678, 0.001).unwrap();
+    let shape = BiquadCoefficients::low_pass(50.0, FLATTEST, 0.001).unwrap();
     let integrator = BiquadCoefficients::new([1.0, 0.0, 0.0], [-1.0, 0.0], 0.001).unwrap();
     let mut cascade = BiquadCascade::new([shape, integrator]);
     let before = cascade;
@@ -290,7 +290,7 @@ fn multi_channel_try_settle_to_refuses_bad_input() {
         Err(SignalError::UnstableCoefficients)
     );
 
-    let shape = BiquadCoefficients::low_pass(50.0, 0.70710678, 0.001).unwrap();
+    let shape = BiquadCoefficients::low_pass(50.0, FLATTEST, 0.001).unwrap();
     let mut gyro = MultiChannelBiquad::<3>::new(shape);
     let before = gyro;
     assert_eq!(
