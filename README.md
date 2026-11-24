@@ -36,41 +36,45 @@ tick.*
   `thumbv7em`, with one dependency, `libm`. Generic code compiles in your crate, only for the
   scalar types that you use. (i7-12650H, Rust 1.100.)
 
-## What it does
-
-### Robotics
-
-| Module | Contents |
-| --- | --- |
-| [Estimation](crates/multicalc/tutorials/estimation.md) | Linear, extended and unscented `KalmanFilter`, `ErrorStateKalmanFilter`, `MahonyFilter`, `MadgwickFilter`; `ParticleFilter` and `MonteCarloLocalizer` (`alloc`) |
-| [Control](crates/multicalc/tutorials/control.md) | `Pid`, `Lqr`, `GeometricAttitudeController`, pure pursuit, `FollowTheGap`, `ComputedTorqueController`, joint and Cartesian impedance, `JointPdController` |
-| [Spatial math](crates/multicalc/tutorials/spatial-quaternions-and-lie-groups.md) | `Quaternion`, `SO2`/`SE2`/`SO3`/`SE3` with Jacobians, `Twist`, `Wrench`, `SpatialInertia` |
-| [Rigid-body dynamics](crates/multicalc/tutorials/rigid-body-dynamics.md) | `RigidBody`, `ArticulatedBody`: RNEA, CRBA, ABA, momentum observer. Models from MJCF or URDF |
-| [Kinematics](crates/multicalc/tutorials/kinematics.md) | `KinematicTree`, forward and inverse kinematics, `CollisionQuery` |
-| [Plant](crates/multicalc/tutorials/plant.md) | `MultirotorMixer`, `RotorLag`, `PositionServo` |
-| [Motion](crates/multicalc/tutorials/motion.md) | `PolylinePath`, `MinimumSnapPlanner`, `MotionProfilePlanner` |
-| [Mapping](crates/multicalc/tutorials/mapping.md) | `OccupancyGrid`, `DynamicOccupancyGrid` (`alloc`), `LogOddsGrid`, `DistanceField`, `CostGrid` |
-| [Planning](crates/multicalc/tutorials/planning.md) | `GridPlanner` (Dijkstra, A\*, Theta\*), `Rrt`, `RrtStar`, `Prm`. Caller-owned workspaces, no allocation |
-| [MLP inference](crates/multicalc/tutorials/mlp-inference.md) | `Layer`, `Activation`, `ParameterCursor` for trained policies |
-
-### Core math
-
-| Module | Contents |
-| --- | --- |
-| [Autodiff](crates/multicalc/tutorials/scalars-and-automatic-differentiation.md) | Exact derivatives (to order 6 in one variable, 3 in several), `Jacobian`, `Hessian` |
-| [Linear algebra](crates/multicalc/tutorials/linear-algebra.md) | `Matrix`, `Vector`: LU, Cholesky, QR, SVD, eigendecomposition, `expm`, Riccati and Lyapunov solvers |
-| [Least squares](crates/multicalc/tutorials/least-squares-optimization.md) | `LevenbergMarquardt`, `GaussNewton` |
-| [Root finding](crates/multicalc/tutorials/root-finding.md) | Bisection, Brent, Newton, damped line search |
-| [Polynomials](crates/multicalc/tutorials/polynomials.md) | `Polynomial`, `PiecewisePolynomial`, `MultivariatePolynomial` |
-| [Integration](crates/multicalc/tutorials/integration.md) | Newton-Cotes, Gauss-Legendre, Gauss-Hermite, Gauss-Laguerre |
-| [ODE](crates/multicalc/tutorials/ode-integrators.md) | `Rk4`, `Rk45`, `ExponentialMap` |
-| [Discretization](crates/multicalc/tutorials/discretization.md) | Zero-order hold, Van Loan, discrete white noise |
-| [Signal processing](crates/multicalc/tutorials/signal-processing.md) | `Biquad`, `MovingAverage`, `RunningMedian`, `SavitzkyGolay`, `SlewRateLimiter` |
-| [Vector calculus](crates/multicalc/tutorials/vector-calculus.md) | Curl, divergence, line and flux integrals |
-| [Approximation](crates/multicalc/tutorials/taylor-approximation.md) | Linear and quadratic Taylor models |
-| [Random](crates/multicalc/tutorials/random.md) | `Pcg32`, `RandomSource` |
-
 ## Quick start
+
+### A robot arm
+
+```sh
+cargo add multicalc multicalc-robot-model
+```
+
+The model file is from [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie).
+
+```rust,no_run
+use multicalc::{ComputedTorqueController, JointReference, Vector};
+use multicalc_robot_model::load_path;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // The Franka Panda from MuJoCo Menagerie: a welded base, seven hinges, a welded hand.
+    let model = load_path("mujoco_menagerie/franka_emika_panda/panda.xml".as_ref())?;
+    let gravity = Vector::new([0.0, 0.0, -9.81]);
+    let arm = model.articulated_body_to::<9, 9>("hand", gravity)?;
+
+    // G(q) at the home pose, by RNEA. Slots 0 and 8 are the welds.
+    let home = Vector::new([0.0, 0.0, 0.0, 0.0, -1.5708, 0.0, 1.5708, -0.7854, 0.0]);
+    let holding = arm.gravity_torque_at(&home)?;
+
+    // One control tick: computed torque from the measured state toward the home pose.
+    let controller = ComputedTorqueController::from_natural_frequency(20.0, 1.0)?;
+    let measured_position = Vector::new([0.0, 0.1, 0.0, 0.0, -1.5, 0.0, 1.6, -0.7854, 0.0]);
+    let measured_velocity = Vector::zeros();
+    let reference = JointReference::at_rest(home);
+    let torque = controller.torque_at(&arm, &measured_position, &measured_velocity, &reference)?;
+
+    Ok(())
+}
+```
+
+On a microcontroller, `RobotModel::to_rust_source` writes the model as one Rust function, and
+the firmware compiles it. See [ARCHITECTURE.md](ARCHITECTURE.md#crates).
+
+### Exact derivatives
 
 ```rust
 use multicalc::prelude::*;
@@ -106,6 +110,40 @@ fn main() -> Result<(), CalcError> {
 ```
 
 Each module has its own error enum, and each one converts into `CalcError`.
+
+## What it does
+
+### Robotics
+
+| Module | Contents |
+| --- | --- |
+| [Estimation](crates/multicalc/tutorials/estimation.md) | Linear, extended and unscented `KalmanFilter`, `ErrorStateKalmanFilter`, `MahonyFilter`, `MadgwickFilter`; `ParticleFilter` and `MonteCarloLocalizer` (`alloc`) |
+| [Control](crates/multicalc/tutorials/control.md) | `Pid`, `Lqr`, `GeometricAttitudeController`, pure pursuit, `FollowTheGap`, `ComputedTorqueController`, joint and Cartesian impedance, `JointPdController` |
+| [Spatial math](crates/multicalc/tutorials/spatial-quaternions-and-lie-groups.md) | `Quaternion`, `SO2`/`SE2`/`SO3`/`SE3` with Jacobians, `Twist`, `Wrench`, `SpatialInertia` |
+| [Rigid-body dynamics](crates/multicalc/tutorials/rigid-body-dynamics.md) | `RigidBody`, `ArticulatedBody`: RNEA, CRBA, ABA, momentum observer. Models from MJCF or URDF |
+| [Kinematics](crates/multicalc/tutorials/kinematics.md) | `KinematicTree`, forward and inverse kinematics, `CollisionQuery` |
+| [Plant](crates/multicalc/tutorials/plant.md) | `MultirotorMixer`, `RotorLag`, `PositionServo` |
+| [Motion](crates/multicalc/tutorials/motion.md) | `PolylinePath`, `MinimumSnapPlanner`, `MotionProfilePlanner` |
+| [Mapping](crates/multicalc/tutorials/mapping.md) | `OccupancyGrid`, `DynamicOccupancyGrid` (`alloc`), `LogOddsGrid`, `DistanceField`, `CostGrid` |
+| [Planning](crates/multicalc/tutorials/planning.md) | `GridPlanner` (Dijkstra, A\*, Theta\*), `Rrt`, `RrtStar`, `Prm`. Caller-owned workspaces, no allocation |
+| [MLP inference](crates/multicalc/tutorials/mlp-inference.md) | `Layer`, `Activation`, `ParameterCursor` for trained policies |
+
+### Core math
+
+| Module | Contents |
+| --- | --- |
+| [Autodiff](crates/multicalc/tutorials/scalars-and-automatic-differentiation.md) | Exact derivatives (to order 6 in one variable, 3 in several), `Jacobian`, `Hessian` |
+| [Linear algebra](crates/multicalc/tutorials/linear-algebra.md) | `Matrix`, `Vector`: LU, Cholesky, QR, SVD, eigendecomposition, `expm`, Riccati and Lyapunov solvers |
+| [Least squares](crates/multicalc/tutorials/least-squares-optimization.md) | `LevenbergMarquardt`, `GaussNewton` |
+| [Root finding](crates/multicalc/tutorials/root-finding.md) | Bisection, Brent, Newton, damped line search |
+| [Polynomials](crates/multicalc/tutorials/polynomials.md) | `Polynomial`, `PiecewisePolynomial`, `MultivariatePolynomial` |
+| [Integration](crates/multicalc/tutorials/integration.md) | Newton-Cotes, Gauss-Legendre, Gauss-Hermite, Gauss-Laguerre |
+| [ODE](crates/multicalc/tutorials/ode-integrators.md) | `Rk4`, `Rk45`, `ExponentialMap` |
+| [Discretization](crates/multicalc/tutorials/discretization.md) | Zero-order hold, Van Loan, discrete white noise |
+| [Signal processing](crates/multicalc/tutorials/signal-processing.md) | `Biquad`, `MovingAverage`, `RunningMedian`, `SavitzkyGolay`, `SlewRateLimiter` |
+| [Vector calculus](crates/multicalc/tutorials/vector-calculus.md) | Curl, divergence, line and flux integrals |
+| [Approximation](crates/multicalc/tutorials/taylor-approximation.md) | Linear and quadratic Taylor models |
+| [Random](crates/multicalc/tutorials/random.md) | `Pcg32`, `RandomSource` |
 
 ## Documentation
 
