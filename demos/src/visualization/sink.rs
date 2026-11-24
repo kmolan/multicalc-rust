@@ -173,6 +173,20 @@ pub trait VizSink {
         colors: &[Rgba],
     ) -> Result<(), VizError>;
 
+    /// Logs arrows as [`arrows3d`](VizSink::arrows3d) does, with shaft radii in scene units.
+    /// `radii` is length 1 (broadcast) or equal in length to `vectors`. The default ignores `radii`.
+    fn arrows3d_styled(
+        &mut self,
+        path: &str,
+        origins: &[[f64; 3]],
+        vectors: &[[f64; 3]],
+        colors: &[Rgba],
+        radii: &[f32],
+    ) -> Result<(), VizError> {
+        let _ = radii;
+        self.arrows3d(path, origins, vectors, colors)
+    }
+
     /// Logs a row-major RGB8 image; `data.len()` must equal `width * height * 3`.
     fn image_rgb8(
         &mut self,

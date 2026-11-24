@@ -39,7 +39,6 @@ use std::path::Path;
 use std::time::Instant;
 
 // Palette, sRGB with alpha.
-const HERO: Rgba = [0x39, 0x87, 0xe5, 0xff]; // tool gnomon
 const TARGET: Rgba = [0xc9, 0x85, 0x00, 0xff]; // desired path, waypoints, reference tool point
 const ERROR: Rgba = [0xe6, 0x67, 0x67, 0xff]; // push arrow, reference arm trail
 const ACCENT: Rgba = [0x90, 0x85, 0xe9, 0xff]; // tool trail
@@ -106,8 +105,8 @@ const HUD_EVERY: i64 = 1000; // text cadence (1 Hz)
 const WARMUP_TICKS: i64 = 500; // cold-start ticks excluded from the readouts
 const TRAIL_MAX: usize = 900; // one cycle of tool positions at 60 Hz
 const PATH_SPACING: f64 = 0.01; // s between desired-path samples
-const GNOMON: f64 = 0.18; // tool frame arrow base length
-const PUSH_ARROW_SCALE: f64 = 0.01; // m per N
+const PUSH_ARROW_SCALE: f64 = 0.012; // m per N
+const PUSH_ARROW_RADIUS: f32 = 0.012; // m
 
 /// Joint readings; zero at the welded base/hand slots.
 fn readings(joints: &[f64; N_JOINTS]) -> Vector<N_FRAMES, f64> {
@@ -435,18 +434,6 @@ fn waypoint_tools(
         .collect()
 }
 
-/// A frame gnomon: arrows of length ratio 1 : 0.75 : 0.5 along local x, y, z.
-#[must_use]
-fn gnomon() -> ([[f64; 3]; 3], [[f64; 3]; 3]) {
-    let origins = [[0.0; 3]; 3];
-    let vectors = [
-        [GNOMON, 0.0, 0.0],
-        [0.0, GNOMON * 0.75, 0.0],
-        [0.0, 0.0, GNOMON * 0.5],
-    ];
-    (origins, vectors)
-}
-
 /// Appends `point`, dropping the oldest past `TRAIL_MAX`.
 fn extend_trail(trail: &mut VecDeque<[f64; 3]>, point: [f64; 3]) {
     if trail.len() == TRAIL_MAX {
@@ -473,13 +460,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Scene furniture, outside time.
     sink.set_static(true);
-    let (gnomon_origins, gnomon_vectors) = gnomon();
-    sink.arrows3d(
-        "world/arm/tool/gnomon",
-        &gnomon_origins,
-        &gnomon_vectors,
-        &[HERO],
-    )?;
     sink.points3d_styled(
         "world/arm/tool/payload",
         &[PAYLOAD_OFFSET],
@@ -490,7 +470,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "world/desired_path",
         &[desired_path(&arm)?],
         &[TARGET],
-        &[0.007],
+        &[0.003],
     )?;
     sink.points3d_styled(
         "world/waypoints",
@@ -582,7 +562,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             // The push arrow ends at the hand.
             let arrow = force.map(|component| component * PUSH_ARROW_SCALE);
             let origin: [f64; 3] = core::array::from_fn(|axis| tool_position[axis] - arrow[axis]);
-            sink.arrows3d("world/push", &[origin], &[arrow], &[ERROR])?;
+            sink.arrows3d_styled(
+                "world/push",
+                &[origin],
+                &[arrow],
+                &[ERROR],
+                &[PUSH_ARROW_RADIUS],
+            )?;
 
             extend_trail(&mut trail, tool_position);
             sink.line_strips3d(

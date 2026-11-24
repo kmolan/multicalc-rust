@@ -319,6 +319,29 @@ impl VizSink for RerunSink {
         self.emit(path, &arch)
     }
 
+    fn arrows3d_styled(
+        &mut self,
+        path: &str,
+        origins: &[[f64; 3]],
+        vectors: &[[f64; 3]],
+        colors: &[Rgba],
+        radii: &[f32],
+    ) -> Result<(), VizError> {
+        let origins_f32: Vec<[f32; 3]> = origins
+            .iter()
+            .map(|point| [point[0] as f32, point[1] as f32, point[2] as f32])
+            .collect();
+        let vectors_f32: Vec<[f32; 3]> = vectors
+            .iter()
+            .map(|point| [point[0] as f32, point[1] as f32, point[2] as f32])
+            .collect();
+        let arch = rerun::Arrows3D::from_vectors(vectors_f32)
+            .with_origins(origins_f32)
+            .with_colors(colors_iter(colors))
+            .with_radii(radii.iter().copied());
+        self.emit(path, &arch)
+    }
+
     fn image_rgb8(
         &mut self,
         path: &str,
