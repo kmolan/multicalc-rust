@@ -130,6 +130,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Build docs (deny warnings, broken links)
         run: cargo doc -p multicalc --no-deps --all-features
+      # Default features, as docs.rs builds it: no Rerun.
+      - name: Build docs (model ingestion)
+        run: cargo doc -p multicalc-robot-model --no-deps
 
   no_std:
     name: bare-metal (thumbv7em-none-eabi)
@@ -165,10 +168,10 @@ jobs:
         run: cargo build -p multicalc-demos --examples --no-default-features
       - name: Run basics
         run: bash scripts/run_examples.sh
-      # runs a clean `cargo package` build — the same packaging the Step 15
-      # release workflow relies on, so a release can't fail at publish time
+      # The command of release.yml, as a dry run: cargo verifies multicalc-robot-model against
+      # the packaged multicalc through a local registry.
       - name: Packaging dry-run
-        run: cargo publish -p multicalc --dry-run
+        run: cargo publish --dry-run -p multicalc -p multicalc-robot-model
       - name: Build timings
         run: cargo build -p multicalc --timings
       - uses: actions/upload-artifact@v4

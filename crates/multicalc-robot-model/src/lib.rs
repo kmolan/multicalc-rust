@@ -3,8 +3,7 @@
 //! MJCF and URDF both parse into one [`RobotModel`]: a topologically ordered body list carrying
 //! name, parent index, parent-relative transform, spatial inertia where stated, joint, and the
 //! shapes the file draws the body with. Converts on demand to a
-//! [`KinematicTree`](multicalc::kinematics::KinematicTree), whole or as the root-to-tip chain for
-//! a named body.
+//! [`KinematicTree`], whole or as the root-to-tip chain for a named body.
 //!
 //! Unsupported constructs are rejected by name rather than dropped, so a model never loads with
 //! wrong mass properties. Unconsumed top-level elements are listed in [`RobotModel::ignored`].
