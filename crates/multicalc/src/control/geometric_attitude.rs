@@ -76,17 +76,19 @@ impl<T: Numeric> GeometricAttitudeController<T> {
         })
     }
 
-    /// Returns how far the body is from pointing the way it should, as a small rotation.
+    /// The attitude error `e = 2·sgn(w)·q_v` of `q = q_dᶜ ⊗ q_b`, with `sgn(0) = +1`.
     ///
-    /// The vector says which way the body is turned away from where it should be: it points along
-    /// the axis of that turn, and its length grows with how far off it is. The torque pushes back
-    /// the other way. The length shrinks again past a quarter turn and reaches zero at a half turn,
-    /// which
-    /// is a balance point the law cannot push away from — a body started exactly upside down needs
-    /// a nudge before this closes the gap.
+    /// `|e| = 2·sin(θ/2)` for the shorter rotation angle `θ ∈ [0, π]`, so `e` agrees with the
+    /// rotation vector to first order. `e` is largest at a half turn, where the sign picks one of
+    /// the two equal paths.
     pub fn attitude_error(attitude: SO3<T>, desired_attitude: SO3<T>) -> Vector3D<T> {
-        let relative = attitude.to_matrix().transpose() * desired_attitude.to_matrix();
-        SO3::vee(relative.transpose() - relative).scale(T::HALF)
+        let error_quaternion = desired_attitude.quaternion().conjugate() * attitude.quaternion();
+        let doubled = if error_quaternion.w() >= T::ZERO {
+            T::TWO
+        } else {
+            -T::TWO
+        };
+        error_quaternion.vec().scale(doubled)
     }
 
     /// Returns the torque to apply to the body, in the body's own frame.
@@ -103,7 +105,7 @@ impl<T: Numeric> GeometricAttitudeController<T> {
         desired_body_rate_derivative: Vector3D<T>,
     ) -> Vector3D<T> {
         let relative = attitude.to_matrix().transpose() * desired_attitude.to_matrix();
-        let attitude_error = SO3::vee(relative.transpose() - relative).scale(T::HALF);
+        let attitude_error = Self::attitude_error(attitude, desired_attitude);
 
         // The target's turn rate and its change, both read in the body's own frame.
         let carried_rate = relative * desired_body_rate;

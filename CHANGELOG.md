@@ -148,6 +148,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `Matrix::lu()` → `Matrix::lu_decompose()`
   - `ModelError::Io` → `ModelError::FileRead` (`multicalc-robot-model`) @rtmongold (#328)
 
+- **Shortest-path attitude error.** `GeometricAttitudeController::attitude_error` and `torque` use
+  `e = 2·sgn(w)·q_v` of `q = q_dᶜ ⊗ q_b`. The error points along the shorter rotation and is
+  largest at a half turn, so a body that starts inverted does not stall. For a small error, the
+  result agrees with `vee(R_dᵀ·R − Rᵀ·R_d)/2` to first order. (#287)
+
 ### Fixed
 
 - **Sturm-chain scaling.** Root counting and isolation normalize each chain entry by a positive

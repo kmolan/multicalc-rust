@@ -1,5 +1,5 @@
 //! Geometric attitude tests: nothing to do at the target, the torque opposing a tilt, tracking a
-//! turning target, a simulated body settling on the target, the half-turn balance point, and
+//! turning target, a simulated body settling on the target, the shorter path past a half turn, and
 //! constructor rejection.
 
 use multicalc::SO3;
@@ -62,10 +62,43 @@ fn attitude_error_matches_the_turn_the_body_is_off_by() {
 }
 
 #[test]
-fn attitude_error_vanishes_at_a_half_turn() {
+fn attitude_error_is_largest_at_a_half_turn() {
     let attitude = SO3::exp(Vector::new([core::f64::consts::PI, 0.0, 0.0]));
     let error = GeometricAttitudeController::<f64>::attitude_error(attitude, SO3::identity());
-    assert!(error.norm() < 1e-9, "error {}", error.norm());
+    assert!((error.norm() - 2.0).abs() < 1e-12, "error {}", error.norm());
+}
+
+#[test]
+fn torque_takes_the_shorter_way_past_a_half_turn() {
+    let control = controller::<f64>();
+    let still = Vector::new([0.0, 0.0, 0.0]);
+    let level = SO3::<f64>::identity();
+    let before = SO3::exp(Vector::new([core::f64::consts::PI - 0.1, 0.0, 0.0]));
+    let past = SO3::exp(Vector::new([core::f64::consts::PI + 0.1, 0.0, 0.0]));
+    assert!(control.torque(before, still, level, still, still)[0] < 0.0);
+    assert!(control.torque(past, still, level, still, still)[0] > 0.0);
+}
+
+fn error_about_x<T: Numeric>(angle: T) -> T {
+    let attitude = SO3::exp(Vector::new([angle, T::ZERO, T::ZERO]));
+    GeometricAttitudeController::<T>::attitude_error(attitude, SO3::identity())[0]
+}
+
+#[test]
+fn attitude_error_is_differentiable_across_a_half_turn() {
+    let step = 1e-6;
+    for angle in [core::f64::consts::PI - 0.1, core::f64::consts::PI + 0.1] {
+        let autodiff = error_about_x(Dual::variable(angle)).deriv;
+        let finite_difference =
+            (error_about_x(angle + step) - error_about_x(angle - step)) / (2.0 * step);
+        assert!(
+            (autodiff - finite_difference).abs() < 1e-6,
+            "angle {angle}: autodiff {autodiff}, finite difference {finite_difference}"
+        );
+    }
+    // d(2·sin(θ/2))/dθ = cos(θ/2) = 0 at θ = π.
+    let at_half_turn = error_about_x(Dual::variable(core::f64::consts::PI)).deriv;
+    assert!(at_half_turn.abs() < 1e-6, "derivative {at_half_turn}");
 }
 
 #[test]

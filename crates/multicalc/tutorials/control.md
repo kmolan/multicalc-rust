@@ -45,6 +45,8 @@ configuration at construction.
 - `GeometricAttitudeController`: rigid-body attitude control on SO(3), so it has no singular
   orientation and no angle wrap. It cancels the gyroscopic torque `ω × (J·ω)` and feeds forward the
   target body rate and its derivative, so it tracks a moving target.
+  The attitude error is `e = 2·sgn(w)·q_v` of `q = q_dᶜ ⊗ q_b`. It points along the shorter
+  rotation and is largest at a half turn, so a body that starts inverted does not stall.
 - `thrust_command_from_acceleration`: converts a desired acceleration and heading into an attitude
   and a collective thrust. A body with unidirectional thrust must tilt to accelerate sideways. This
   function connects a position loop to the attitude loop.
