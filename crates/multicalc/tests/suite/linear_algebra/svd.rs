@@ -162,6 +162,22 @@ fn svd_rank_deficient() {
 }
 
 #[test]
+fn svd_numerical_rank_uses_the_default_cutoff() {
+    let rank_one = Matrix::<3, 2>::new([[1.0, 2.0], [2.0, 4.0], [3.0, 6.0]]);
+    assert_eq!(rank_one.svd().unwrap().numerical_rank(), 1);
+
+    let identity = Matrix::<3, 3>::new([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]);
+    assert_eq!(identity.svd().unwrap().numerical_rank(), 3);
+
+    let zero = Matrix::<2, 2>::new([[0.0, 0.0], [0.0, 0.0]]);
+    assert_eq!(zero.svd().unwrap().numerical_rank(), 0);
+
+    // 1e-20 is far below max(M, N) · ε · σ_max, so it does not count.
+    let nearly_singular = Matrix::<2, 2>::new([[1.0, 0.0], [0.0, 1e-20]]);
+    assert_eq!(nearly_singular.svd().unwrap().numerical_rank(), 1);
+}
+
+#[test]
 fn svd_error_paths() {
     // A wide matrix is rejected by the raw svd().
     let wide = Matrix::<2, 3>::new([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
