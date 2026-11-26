@@ -181,3 +181,15 @@ fn try_integrate_rejects_a_non_finite_start() {
     assert_eq!(outcome, Err(IntegrateError::NonFinite));
     assert_eq!(observed, 0);
 }
+
+#[test]
+fn rk4_is_a_comparable_copyable_default_unit_struct() {
+    // Through a generic bound, as a caller holding `T: Default` would build it.
+    fn default_of<T: Default>() -> T {
+        T::default()
+    }
+    let solver: Rk4 = default_of();
+    let copy = solver;
+    assert_eq!(solver, copy);
+    assert_eq!(format!("{:?}", solver), "Rk4");
+}

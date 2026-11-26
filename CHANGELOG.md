@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Rk45`, `Rk4`, `Bisection` and `Brent` derive `Debug`, `Clone`, `Copy` and `PartialEq`, like the other configuration types, so a configured solver can be printed, compared and copied; `Rk4` also derives `Default` (#385).
+
 ## [0.11.0] - 2026-11-24
 
 This is the robot-arm release. RNEA, CRBA and ABA agree with Pinocchio to `1e-10` on three

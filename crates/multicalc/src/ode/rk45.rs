@@ -47,6 +47,7 @@ impl<const N: usize, T: Numeric> Step<N, T> {
 /// Build with [`Rk45::default`] and adjust with the `with_*` methods. Solve with
 /// [`solve`](Rk45::solve), stream accepted steps with [`for_each_step`](Rk45::for_each_step),
 /// or sample a time grid with [`solve_on_grid`](Rk45::solve_on_grid).
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Rk45<T: Numeric = f64> {
     rtol: T,
     atol: T,

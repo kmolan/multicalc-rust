@@ -165,3 +165,20 @@ proptest! {
         prop_assert!((final_state[0] - exact).abs() < 1e-6 * (1.0 + exact.abs()));
     }
 }
+
+#[test]
+fn configuration_compares_copies_and_prints() {
+    assert_eq!(Rk45::<f64>::default(), Rk45::<f64>::default());
+    assert_ne!(
+        Rk45::<f64>::default(),
+        Rk45::<f64>::default().with_rtol(1e-3)
+    );
+    assert!(!format!("{:?}", Rk45::<f64>::default()).is_empty());
+
+    let solver = Rk45::default().with_rtol(1e-10).with_atol(1e-12);
+    let copy = solver;
+    let decay = |_time: f64, state: &Vector<1, f64>| -*state;
+    let original = solver.solve(&decay, 0.0, &Vector::new([1.0]), 2.0).unwrap();
+    let copied = copy.solve(&decay, 0.0, &Vector::new([1.0]), 2.0).unwrap();
+    assert_eq!(original[0], copied[0]);
+}

@@ -26,6 +26,7 @@ use crate::scalar::{Numeric, ScalarFn};
 /// let report = Brent::default().solve(&function, lower_bound, upper_bound).unwrap();
 /// assert!((report.root - 2.0_f64.sqrt()).abs() < 1e-9);
 /// ```
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Brent<T = f64> {
     xtol: T,
     ftol: T,

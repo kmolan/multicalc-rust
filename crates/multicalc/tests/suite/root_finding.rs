@@ -805,3 +805,33 @@ fn newton_rejects_a_flat_tail() {
         Some(SolveError::Linalg(LinalgError::Singular))
     );
 }
+
+#[test]
+fn bracketing_solver_configuration_compares_copies_and_prints() {
+    assert_eq!(Bisection::<f64>::default(), Bisection::<f64>::default());
+    assert_ne!(
+        Bisection::<f64>::default(),
+        Bisection::<f64>::default().with_xtol(1e-3)
+    );
+    assert_eq!(Brent::<f64>::default(), Brent::<f64>::default());
+    assert_ne!(
+        Brent::<f64>::default(),
+        Brent::<f64>::default().with_xtol(1e-3)
+    );
+    assert!(!format!("{:?}", Brent::<f64>::default()).is_empty());
+    assert!(!format!("{:?}", Bisection::<f64>::default()).is_empty());
+
+    let sqrt_two = scalar_fn!(|x| constant(-2.0) + x * x);
+    let brent = Brent::default();
+    let brent_copy = brent;
+    let bisection = Bisection::default();
+    let bisection_copy = bisection;
+    for root in [
+        brent.solve(&sqrt_two, 0.0_f64, 2.0).unwrap().root,
+        brent_copy.solve(&sqrt_two, 0.0_f64, 2.0).unwrap().root,
+        bisection.solve(&sqrt_two, 0.0_f64, 2.0).unwrap().root,
+        bisection_copy.solve(&sqrt_two, 0.0_f64, 2.0).unwrap().root,
+    ] {
+        assert!((root - 2.0_f64.sqrt()).abs() < 1e-9);
+    }
+}
