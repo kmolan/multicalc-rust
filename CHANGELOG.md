@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Svd::numerical_rank`: the rank at the default cutoff `max(M, N) · ε · σ_max` that
+  `pseudo_inverse` and `solve` use, so callers no longer pick a tolerance for `rank`.
+
 ## [0.11.0] - 2026-11-24
 
 This is the robot-arm release. RNEA, CRBA and ABA agree with Pinocchio to `1e-10` on three

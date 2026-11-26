@@ -10,7 +10,7 @@ mismatch is a compile error. Indexing (`v[i]`, `m[(r, c)]`) panics out of range,
 | `Matrix::lu_decompose` | `LuDecomposition`: `solve`, `determinant`, `inverse` | Doolittle LU, partial pivoting |
 | `Matrix::cholesky` | `Cholesky`: `solve`, `determinant`, `inverse` | Cholesky–Banachiewicz, faster than LU; symmetric positive-definite only |
 | `PivotedQr::decompose` | `PivotedQr`: `solve_least_squares` | Column-pivoted Householder QR |
-| `Matrix::svd` | `Svd`: `singular_values`, `rank`, `condition_number`, `pseudo_inverse`, minimum-norm `solve` | One-sided Jacobi, `M ≥ N` |
+| `Matrix::svd` | `Svd`: `singular_values`, `rank`, `numerical_rank`, `condition_number`, `pseudo_inverse`, minimum-norm `solve` | One-sided Jacobi, `M ≥ N` |
 | `Matrix::symmetric_eigendecomposition` | `SymmetricEigendecomposition`: `eigenvalues` (largest first), `eigenvectors`, `determinant`, `condition_number`, `is_positive_definite`, `clamped` | Jacobi rotations |
 
 ## Borrowed views
@@ -82,6 +82,7 @@ let a = Matrix::<3, 2>::new([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
 let svd = a.svd().unwrap();
 let sigma = svd.singular_values();          // descending, non-negative
 let cond = svd.condition_number();          // σ_max / σ_min
+let rank = svd.numerical_rank();            // rank at the default cutoff max(M, N) · ε · σ_max
 
 // Moore-Penrose pseudo-inverse.
 let a_pinv = a.pseudo_inverse().unwrap();

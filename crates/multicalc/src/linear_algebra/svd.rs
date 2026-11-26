@@ -254,6 +254,21 @@ impl<const M: usize, const N: usize, T: Numeric> Svd<M, N, T> {
         count
     }
 
+    /// The number of singular values above the default cutoff `max(M, N) · ε · σ_max`, the one
+    /// `pseudo_inverse` and `solve` use.
+    ///
+    /// ```
+    /// use multicalc::linear_algebra::Matrix;
+    /// // Column 2 is twice column 1, so the matrix has rank 1.
+    /// let a = Matrix::<3, 2>::new([[1.0, 2.0], [2.0, 4.0], [3.0, 6.0]]);
+    /// assert_eq!(a.svd().unwrap().numerical_rank(), 1);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn numerical_rank(&self) -> usize {
+        self.rank(self.default_tol())
+    }
+
     /// The ratio `σ_max / σ_min`, or infinity when the smallest singular value is zero.
     ///
     /// ```
