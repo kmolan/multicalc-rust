@@ -58,6 +58,27 @@ fn matrix_arithmetic() {
 }
 
 #[test]
+fn matrix_scalar_assign() {
+    let base_f64 = Matrix::new([[1.5_f64, -2.25, 3.75], [4.0, -5.5, 6.25]]);
+    let mut scaled_f64 = base_f64;
+    scaled_f64 *= 2.0_f64;
+    assert_eq!(scaled_f64, base_f64 * 2.0_f64);
+
+    let mut divided_f64 = base_f64;
+    divided_f64 /= 4.0_f64;
+    assert_eq!(divided_f64, base_f64 / 4.0_f64);
+
+    let base_f32 = Matrix::new([[1.5_f32, -2.25, 3.75], [4.0, -5.5, 6.25]]);
+    let mut scaled_f32 = base_f32;
+    scaled_f32 *= 2.0_f32;
+    assert_eq!(scaled_f32, base_f32 * 2.0_f32);
+
+    let mut divided_f32 = base_f32;
+    divided_f32 /= 4.0_f32;
+    assert_eq!(divided_f32, base_f32 / 4.0_f32);
+}
+
+#[test]
 fn try_row_column() {
     let matrix = Matrix::new([[1.0, 2.0], [3.0, 4.0]]);
 
