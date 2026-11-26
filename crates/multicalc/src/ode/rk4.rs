@@ -5,6 +5,7 @@ use crate::linear_algebra::Vector;
 use crate::scalar::Numeric;
 
 /// The classic fixed-step RK4 integrator for `state' = f(time, state)` with state `Vector<N, T>`.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Rk4;
 
 impl Rk4 {
