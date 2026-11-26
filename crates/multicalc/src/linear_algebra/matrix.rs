@@ -1,6 +1,8 @@
 //! Fixed-size, stack-allocated matrix.
 
-use core::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, Neg, Sub, SubAssign};
+use core::ops::{
+    Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
+};
 
 use crate::error::LinalgError;
 use crate::linear_algebra::Vector;
@@ -735,12 +737,34 @@ impl<const ROWS: usize, const COLS: usize, T: Numeric> Mul<T> for Matrix<ROWS, C
     }
 }
 
+impl<const ROWS: usize, const COLS: usize, T: Numeric> MulAssign<T> for Matrix<ROWS, COLS, T> {
+    #[inline]
+    fn mul_assign(&mut self, scalar: T) {
+        for row in &mut self.data {
+            for entry in row.iter_mut() {
+                *entry *= scalar;
+            }
+        }
+    }
+}
+
 impl<const ROWS: usize, const COLS: usize, T: Numeric> Div<T> for Matrix<ROWS, COLS, T> {
     type Output = Self;
 
     #[inline]
     fn div(self, scalar: T) -> Self {
         Self::from_fn(|i, j| self[(i, j)].safe_div(scalar))
+    }
+}
+
+impl<const ROWS: usize, const COLS: usize, T: Numeric> DivAssign<T> for Matrix<ROWS, COLS, T> {
+    #[inline]
+    fn div_assign(&mut self, scalar: T) {
+        for row in &mut self.data {
+            for entry in row.iter_mut() {
+                *entry /= scalar;
+            }
+        }
     }
 }
 

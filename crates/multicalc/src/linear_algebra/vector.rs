@@ -1,6 +1,8 @@
 //! Fixed-size, stack-allocated column vector.
 
-use core::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, Neg, Sub, SubAssign};
+use core::ops::{
+    Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
+};
 
 use crate::scalar::Numeric;
 
@@ -415,12 +417,30 @@ impl<const N: usize, T: Numeric> Mul<T> for Vector<N, T> {
     }
 }
 
+impl<const N: usize, T: Numeric> MulAssign<T> for Vector<N, T> {
+    #[inline]
+    fn mul_assign(&mut self, scalar: T) {
+        for entry in &mut self.data {
+            *entry *= scalar;
+        }
+    }
+}
+
 impl<const N: usize, T: Numeric> Div<T> for Vector<N, T> {
     type Output = Self;
 
     #[inline]
     fn div(self, scalar: T) -> Self {
         Self::from_fn(|i| self.data[i].safe_div(scalar))
+    }
+}
+
+impl<const N: usize, T: Numeric> DivAssign<T> for Vector<N, T> {
+    #[inline]
+    fn div_assign(&mut self, scalar: T) {
+        for entry in &mut self.data {
+            *entry /= scalar;
+        }
     }
 }
 

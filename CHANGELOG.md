@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Scalar compound assignment on vectors and matrices.** `Vector` and `Matrix` now implement
+  `MulAssign<T>` and `DivAssign<T>` for in-place scalar scaling. (#384)
+
 ## [0.11.0] - 2026-11-24
 
 This is the robot-arm release. RNEA, CRBA and ABA agree with Pinocchio to `1e-10` on three

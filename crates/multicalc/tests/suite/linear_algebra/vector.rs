@@ -178,6 +178,27 @@ fn vector_arithmetic() {
 }
 
 #[test]
+fn vector_scalar_assign() {
+    let base_f64 = Vector::new([1.5_f64, -2.25, 3.75]);
+    let mut scaled_f64 = base_f64;
+    scaled_f64 *= 2.0_f64;
+    assert_eq!(scaled_f64, base_f64 * 2.0_f64);
+
+    let mut divided_f64 = base_f64;
+    divided_f64 /= 4.0_f64;
+    assert_eq!(divided_f64, base_f64 / 4.0_f64);
+
+    let base_f32 = Vector::new([1.5_f32, -2.25, 3.75]);
+    let mut scaled_f32 = base_f32;
+    scaled_f32 *= 2.0_f32;
+    assert_eq!(scaled_f32, base_f32 * 2.0_f32);
+
+    let mut divided_f32 = base_f32;
+    divided_f32 /= 4.0_f32;
+    assert_eq!(divided_f32, base_f32 / 4.0_f32);
+}
+
+#[test]
 fn vector_dot_and_norm() {
     let left: Vector3D = Vector::new([1.0, 2.0, 3.0]);
     let right: Vector3D = Vector::new([4.0, 5.0, 6.0]);
