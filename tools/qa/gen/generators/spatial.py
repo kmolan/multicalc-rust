@@ -77,9 +77,22 @@ def _random_inertia(rng):
     # is a formula error rather than conditioning.
     mass = rng.uniform(0.2, 5.0)
     center_of_mass = rng.uniform(-0.3, 0.3, 3)
-    square = rng.standard_normal((3, 3))
-    scattered = 0.05 * (square @ square.T)
-    rotational_inertia = 0.5 * (scattered + scattered.T) + 0.02 * np.eye(3)
+
+    a, b, c = rng.uniform(0.5, 2.0, 3)
+    J = np.array([
+        a + b,
+        a + c,
+        b + c,
+    ])
+
+    A = rng.normal(size=(3, 3))
+    Q, _ = np.linalg.qr(A)
+
+    if np.linalg.det(Q) < 0:
+        Q[:, 0] *= -1
+
+    rotational_inertia = Q @ np.diag(J) @ Q.T
+
     return (
         mass,
         center_of_mass,
